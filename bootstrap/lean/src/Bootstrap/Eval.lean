@@ -3,7 +3,7 @@ import bendtt
 -- Eval
 -- ====
 --
--- Facts about the kernel's Eval (bend2/bendtt.lean), which INVARIANTS #2
+-- Facts about the kernel's Eval (bend/bend2/bendtt.lean), which INVARIANTS #2
 -- and #4 rely on: "the result" and "the number of steps" of a run.
 
 open Quan Term

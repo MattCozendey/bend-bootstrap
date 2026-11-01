@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "bun@1.4.4",
   "scripts": {
+    "bend": "bun bend/bend2/main.ts",
     "typecheck": "bun check"
   },
   "devDependencies": {

@@ -6,7 +6,7 @@ import Bootstrap.Copy.Exists
 --
 -- Step 3 of the plan: what the Bend laws that --verdict accepts say about
 -- runs. --verdict is Book.check on the kernel's parse of the `bend -o` text.
--- The kernel's adequate (bend2/bendtt.lean) turns a checked proof of a == b
+-- The kernel's adequate (bend/bend2/bendtt.lean) turns a checked proof of a == b
 -- into a conversion of a and b, and conv_runs turns that into a run.
 -- runs_rfl goes the other way, so a real run can feed a law's "if" part,
 -- and exists_conv reads the witness out of a "there is" proof (Base's Exists).

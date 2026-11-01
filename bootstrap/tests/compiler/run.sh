@@ -25,7 +25,7 @@ mkdir -p "$work"
 work=$(cd "$work" && pwd)
 export PATH=$HOME/.elan/bin:$PATH
 
-bend() { bun "$repo/bend2/main.ts" "$@"; }
+bend() { bun "$repo/bend/bend2/main.ts" "$@"; }
 [ "$(bend version)" = "$BEND" ] || { echo "run.sh needs $BEND, not $(bend version)" >&2; exit 1; }
 [ "$(bun --version)" = "$BUN" ] || { echo "run.sh needs bun $BUN, not $(bun --version)" >&2; exit 1; }
 [ "$(node --version)" = "$NODE" ] || { echo "run.sh needs node $NODE, not $(node --version)" >&2; exit 1; }

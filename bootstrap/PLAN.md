@@ -14,7 +14,7 @@ INVARIANTS/LAWS/THEOREMS:
 
 WHAT WE TRUST:
 1 - Lean itself.
-2 - The LEAN-VALIDATED, PROVEN-SOUND Bend kernel (`bend2/bendtt.lean`) is the definition of Bend. What it says a program computes IS what the program actually computes. IT IS FIXED: WE CANNOT TOUCH IT IN ANY WAY WHATSOEVER.
+2 - The LEAN-VALIDATED, PROVEN-SOUND Bend kernel (`bend/bend2/bendtt.lean`) is the definition of Bend. What it says a program computes IS what the program actually computes. IT IS FIXED: WE CANNOT TOUCH IT IN ANY WAY WHATSOEVER.
 3 - From #2 follows that every proof in a Bend program that `--verdict` accepts is true (`--verdict` runs the kernel)
 4 - The .bendtt text produced from a .bend file via `bend -o` means what said .bend file says.
 5 - A WASM engine follows the WASM spec.

@@ -3,7 +3,7 @@ import Bootstrap.Eval
 -- Interp
 -- ======
 --
--- Walk, Value and one step of Eval (bend2/bendtt.lean) as functions,
+-- Walk, Value and one step of Eval (bend/bend2/bendtt.lean) as functions,
 -- each proven to give what the kernel's relation gives.
 
 open Quan Term

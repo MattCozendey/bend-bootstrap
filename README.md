@@ -113,7 +113,7 @@ With `LAWS.bend`, *"make no mistakes"* becomes enforceable.
 curl -fsSL https://bend-lang.com/install.sh | sh
 ```
 
-This `bend` ignores a project's `bunfig.toml` and `.env`; `bun bend2/main.ts`
+This `bend` ignores a project's `bunfig.toml` and `.env`; `bun bend/bend2/main.ts`
 from a checkout reads them, so check untrusted code with `bend`.
 
 ### 2. Tell your agent to use Bend:
@@ -198,14 +198,14 @@ def add_zero(x):
 
 # References
 
-- Guide: [GUIDE.md](guide/GUIDE.md), also printed by `bend guide`.
-- Demos: [demos/](demos), apps, servers and proofs, each with its `LAWS.bend`.
-- Base: [base.bend](bend2/base.bend), the base library, also printed by `bend base`.
-- Paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
-- Paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
-- Formalization: [bendtt.lean](bend2/bendtt.lean), the kernel of `--verdict` and its proofs, in Lean.
-- Benches: [bench/](bench), every bench used to make the charts above.
-- Formatter: [bend-fmt-lsp](tools/bend-fmt-lsp), a formatting-only Bend 2 language server.
+- Guide: [GUIDE.md](bend/guide/GUIDE.md), also printed by `bend guide`.
+- Demos: [demos/](bend/demos), apps, servers and proofs, each with its `LAWS.bend`.
+- Base: [base.bend](bend/bend2/base.bend), the base library, also printed by `bend base`.
+- Paper: [BendTT: An Affine Dependent Type Theory](bend/paper/BendTT.pdf).
+- Paper: [BendRT: A Parallel Runtime for CPUs and GPUs](bend/paper/BendRT.pdf).
+- Formalization: [bendtt.lean](bend/bend2/bendtt.lean), the kernel of `--verdict` and its proofs, in Lean.
+- Benches: [bench/](bend/bench), every bench used to make the charts above.
+- Formatter: [bend-fmt-lsp](bend/tools/bend-fmt-lsp), a formatting-only Bend 2 language server.
 - Community language server: [bend2-lsp](https://github.com/don2e4/bend2-lsp), with formatting, diagnostics, and hover.
 - Community workshop: [Bend 2 pocket workshop](https://np.github.io/bend-workshop/), the checker and JS compiler in one HTML page, with goals and proof tools, phone first.
 

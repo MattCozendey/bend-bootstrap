@@ -3,7 +3,7 @@ import Base
 # Book
 # ====
 #
-# BendTT's book (bend2/bendtt.lean) as Bend data, field for field, and
+# BendTT's book (bend/bend2/bendtt.lean) as Bend data, field for field, and
 # Book.read, which reads back the bytes that the Lean writer writes for a book
 # (INVARIANTS #5). A name is the list of its UTF-8 bytes.
 

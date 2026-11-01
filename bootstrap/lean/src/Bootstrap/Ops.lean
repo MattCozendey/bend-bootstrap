@@ -17,7 +17,7 @@ import Bootstrap.Ops.Add
 -- equal as a Term to the one of src/Bootstrap/Ops/Defs.lean, which
 -- scripts/Defs.lean wrote from the `bend -o` output of our compiler:
 --
---   bun bend2/main.ts bootstrap/tests/compiler/compile.bend -o compile.bendtt
+--   bun bend/bend2/main.ts bootstrap/tests/compiler/compile.bend -o compile.bendtt
 --   BOOK=compile.bendtt NAME=opsDefs SOURCE=bootstrap/tests/compiler/compile.bend \
 --     OUTPUT=src/Bootstrap/Ops/Defs.lean ONLY=<the 45 defs that Op.defs names> \
 --     lake lean scripts/Defs.lean
