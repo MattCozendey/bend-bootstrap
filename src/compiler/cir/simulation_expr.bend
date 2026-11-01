@@ -2,7 +2,7 @@
 # =============================================
 #
 # sim.expr: when Cir.eval(e, st) == Some{v} and the run holds st (Inv of
-# proof_sim_inv.bend), the code of e pushes v in cost(e) steps, and changes
+# simulation_relation.bend), the code of e pushes v in cost(e) steps, and changes
 # no local but tmp, to tmpE(e, t, st).
 
 import Base

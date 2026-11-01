@@ -2,7 +2,7 @@
 # ======================================
 #
 # What the phases of the machine (M.input, M.copy, M.data, M.walk, M.out)
-# and the moves of proof_mach.bend share: the kit (Post, Ends, mono), the
+# and the moves of moves.bend share: the kit (Post, Ends, mono), the
 # terms of states (A.*), the invariant (Is, Frs, the heap Heap and HS,
 # ImgOK, Inv), the shapes of a round (Rnd, HR) and of the start (St0,
 # Start, InvIn), the conclusions of the phases' premises (CopyPost,
@@ -301,7 +301,7 @@ def mono(+f: Nat, +g: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, +le: N.Le(f, g), 
 # Terms of states
 # ---------------
 #
-# A state as Lean's State (Machine.lean): a focus, to evaluate or a value,
+# A state as Lean's State (Interpreter/Machine.lean): a focus, to evaluate or a value,
 # and its frames, the innermost first. A frame is a term with a hole, of a
 # kind (the machine's K.app_arg to K.min_a), a quantity q, the flag K (k), and
 # the terms a (in its field 2) and b (in its field 3, for Rwt).
@@ -1166,7 +1166,7 @@ def Same(+regs: List<&2, U32>, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Wor
 def Reg(st: Cr.Cir.State, +r: Nat, +v: U32) -> Data:
   {List.get(&2, U32, St.regs(st), r) == Some{v} : Maybe<&2, U32>}
 
-# Open: M.copy (proof_copy.bend)
+# Open: M.copy (copy_substitution.bend)
 # ------------------------------
 #
 # From a state of HS, with the cell c of t borrowed (in register src) and the
@@ -1188,7 +1188,7 @@ def CopyQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
     P2(Reg(st2, r, n), P2(Reg(st2, 3n, pend2),
     P2(HS(ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, bs, fs, sp, pend2, ps2),
       Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, ce, es))))))))
-# the conclusion of copy.post (proof_mach.bend), for the phase that proves it
+# the conclusion of copy.post (moves.bend), for the phase that proves it
 def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +src: Nat,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
@@ -1210,7 +1210,7 @@ def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
     st2 => CopyQ(ds, ks, img, regs, fi, im, lim, inp, r, keep, os, Con{Rt{c, t}, bs}, fs, sp, t, ce, es, st2),
     s => st2 => Empty)
 
-# the conclusion of copy.done (proof_mach.bend), for the phase that proves it
+# the conclusion of copy.done (moves.bend), for the phase that proves it
 def CopyDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +src: Nat,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
@@ -1229,7 +1229,7 @@ def CopyDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
   Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.copy(r, src), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
 
 
-# Open: M.data (proof_walk.bend)
+# Open: M.data (data_walk.bend)
 # ------------------------------
 #
 # From a state of HS, with the cell c of v (in register r, none of
@@ -1254,7 +1254,7 @@ def DataQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   P2(Reg(st2, 43n, Bool.to_u32(El.Term.is_data(v))),
   Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
     P2(Reg(st2, 3n, pend2), DataH(El.Term.is_data(v), HS(ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2)))))))
-# the conclusion of data.post (proof_mach.bend), for the phase that proves it
+# the conclusion of data.post (moves.bend), for the phase that proves it
 def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
@@ -1269,7 +1269,7 @@ def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   Post(False{}, Cr.Cir.exec(f, Mc.M.data(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => DataQ(ds, ks, img, regs, fi, im, lim, inp, keep, os, Con{Rt{c, v}, bs}, fs, sp, v, st2), s => st2 => Empty)
 
-# the conclusion of data.done (proof_mach.bend), for the phase that proves it
+# the conclusion of data.done (moves.bend), for the phase that proves it
 def DataDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
@@ -1283,7 +1283,7 @@ def DataDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
   Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.data(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
 
 
-# Open: M.walk (proof_walk.bend)
+# Open: M.walk (data_walk.bend)
 # ------------------------------
 #
 # From a state of HS, with the case tree's cell tc of tt (register wt, an
@@ -1320,7 +1320,7 @@ def WalkQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
     Reg(st2, 26n, res) & Reg(st2, 19n, wt2) & Reg(st2, 20n, env) & Reg(st2, 25n, wn) & Reg(st2, 21n, args) &
     Reg(st2, 3n, pend2) & DataH(U32.is_ne(res, 3), HS(ds, ks, img, m2, nx2, fi, im, os, bs, fs, sp, pend2, ps2)) &
     WalkR(ds, ks, img, m2, nx2, fi, im, ps2, os, tt, xs, res, wt2, env, wn, args)
-# the conclusion of walk.post (proof_mach.bend), for the phase that proves it
+# the conclusion of walk.post (moves.bend), for the phase that proves it
 def WalkPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
@@ -1337,7 +1337,7 @@ def WalkPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   Post(False{}, Cr.Cir.exec(f, Mc.M.walk(), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => WalkQ(ds, ks, img, regs, fi, im, lim, inp, keep, os, Con{Rt{tc, tt}, bs}, fs, sp, tt, xs, st2), s => st2 => Empty)
 
-# the conclusion of walk.done (proof_mach.bend), for the phase that proves it
+# the conclusion of walk.done (moves.bend), for the phase that proves it
 def WalkDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
@@ -1353,7 +1353,7 @@ def WalkDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
   Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.walk(), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
 
 
-# Open: M.out (proof_out.bend)
+# Open: M.out (out_bytes.bend)
 # ----------------------------
 #
 # In mode 1 with no frame, from the focus' cell of the value v, M.out halts
@@ -1363,7 +1363,7 @@ def WalkDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
 def OutH(+v: Bk.Term, +s: U32, st2: Cr.Cir.State) -> Data:
   Either<&2, &2, P2({s == 0 : U32}, {Pg.Program.unbytes(v) == Some{List.reverse(&2, Word(8n), St.out(st2))} : Maybe<&2, List<&2, Word(8n)>>}),
     P2({s == 2 : U32}, {Pg.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>})>
-# the conclusion of out.post (proof_mach.bend), for the phase that proves it
+# the conclusion of out.post (moves.bend), for the phase that proves it
 def OutPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
   +pend: U32, +rest: R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +v: Bk.Term, +ks2: List<&2, List<&2, Word(8n)>>,
@@ -1373,7 +1373,7 @@ def OutPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   Post(False{}, Cr.Cir.exec(f, Mc.M.out(), S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)), st => Empty,
     s => st2 => OutH(v, s, st2))
 
-# the conclusion of out.done (proof_mach.bend), for the phase that proves it
+# the conclusion of out.done (moves.bend), for the phase that proves it
 def OutDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
   +pend: U32, +rest: R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +v: Bk.Term, +ks2: List<&2, List<&2, Word(8n)>>,
@@ -2813,11 +2813,11 @@ def setmode(+f: Nat, st: Cr.Cir.State, e: {List.length(&2, U32, St.regs(st)) == 
       {==}
 
 # after M.input: ten registers or more, and once the mode is 0, the invariant
-# of Program.start(i), with the image's names and terms (proof_term.bend)
+# of Program.start(i), with the image's names and terms (cell_terms.bend)
 def InvIn(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st: Cr.Cir.State) -> Data:
   P2({List.length(&2, U32, St.regs(st)) == 63n : Nat},
     Ex(Nat, w => Inv(ds, T.tm.names(ds), T.tm.img(ds), Mode0(st), Pg.Program.start(i), w)))
-# the conclusion of input.post (proof_mach.bend), for the phase that proves it
+# the conclusion of input.post (moves.bend), for the phase that proves it
 def InputPost(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
@@ -2827,7 +2827,7 @@ def InputPost(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&
   Post(False{}, Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     st => InvIn(ds, i, st), s2 => st2 => Empty)
 
-# the conclusion of input.done (proof_mach.bend), for the phase that proves it
+# the conclusion of input.done (moves.bend), for the phase that proves it
 def InputDone(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
@@ -2857,7 +2857,7 @@ def InputDone(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8
 #      cells, then the output's bytes, |o| <= S: in all at most
 #      20 × (291 + |p| / 2) + |i| + 20 × (3 × S + 2^16) + |o|, which is at
 #      most 64 × (Program.size(p) + S) + 2^24 = Program.need (|p| <=
-#      Program.size(p): proof_need's size.ge; |i| <= S, as the input is in
+#      Program.size(p): need_big's size.ge; |i| <= S, as the input is in
 #      the first term); so Cir.result's alloc, every Cir alloc
 #      (Cir.room) and every emit find their pages (round.room), and
 #      next < 214748364 since need <= 2^32;
@@ -2893,7 +2893,7 @@ def NoOom(o: Cr.Cir.Out) -> Data:
 # Heap kit
 # --------
 #
-# From proof_walk_heap.bend (its proofs, copied): numbers, the pointers that
+# From heap_facts.bend (its proofs, copied): numbers, the pointers that
 # Pc and Ptr count (Pc.at, Ptr.at), the table's masks (tbl.mask), the parts
 # of a node (ptr.part, part.ne) and a store to a cell that nothing points to
 # (is.fz).
@@ -3544,7 +3544,7 @@ def nodes.ptr(os2: List<&2, Rt>, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Ce
 # Stores to a cell that nothing points to
 # ----------------------------------------
 #
-# From proof_walk_heap.bend (its proofs, copied, for either dk): a store to a
+# From heap_facts.bend (its proofs, copied, for either dk): a store to a
 # cell z that nothing points to, not STATIC, keeps the heap and every term
 # (hs.fz).
 

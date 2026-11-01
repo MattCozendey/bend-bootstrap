@@ -20,7 +20,7 @@ import ../cir/impl.bend as Cr
 # a Ref holds its def's body (0 for none), a Lab and a Mat their name, by the
 # number that the image gives it.
 #
-# The machine runs as the Lean machine (bootstrap/lean, Machine.lean) does,
+# The machine runs as the Lean machine (lean, Interpreter/Machine.lean) does,
 # on closed terms: a focus, and a stack of frames, which are cells. A call or
 # a λ copies its code, with pointers to its arguments: a part whose free
 # variables the copy does not reach is shared, not copied. A cell whose count

@@ -1,10 +1,10 @@
 # compiler: M.out gives the bytes of the focus' term, from Is
 # ===========================================================
 #
-# out.post and out.done of proof_mach.bend, from out.post.of and out.done.of
-# of proof_out.bend: the hypotheses of those (the registers, okn and the term
+# out.post and out.done of moves.bend, from out.post.of and out.done.of
+# of out_bytes.bend: the hypotheses of those (the registers, okn and the term
 # of the focus' cell) come from the state S, from Is (is.okn) and, until
-# proof_is.bend proves it, from is.tm, taken here as a hypothesis htm.
+# cell_stands_for.bend proves it, from is.tm, taken here as a hypothesis htm.
 
 import Base
 import ../../book/impl.bend as Bk
@@ -212,7 +212,7 @@ def is.okn(t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U
         O.olab.eq(O.Tg(m, c), 18, ks, O.Fd(2n, m, c), et, {==}),
         O.okids.eq(O.Tg(m, c), 18, Bool.and(O.okn(Nat.add(Pg.Term.size(y), Nat.add(Pg.Term.size(z), Pg.Term.size(w))), m, ks, img, O.Fd(2n, m, c), im, fi, nx), O.okn(Nat.add(Pg.Term.size(y), Nat.add(Pg.Term.size(z), Pg.Term.size(w))), m, ks, img, O.Fd(3n, m, c), im, fi, nx)), et, {==}))
 
-# proof_out.bend's OutH, PostO and EndsO are proof_mach.bend's
+# out_bytes.bend's OutH, PostO and EndsO are moves.bend's
 def map.outh(+v: Bk.Term, +s: U32, st2: Cr.Cir.State, h: O.OutH(v, s, st2)) -> MA.OutH(v, s, st2):
   match st2:
     case Cr.Cir.State{_, _, _, _, _, _, _, _, _, _}:
@@ -249,9 +249,9 @@ def map.done(+st: Cr.Cir.State, h: Sigma<&2, &2, Nat, F => O.EndsO(Cr.Cir.exec(F
   (+f, e) = h
   (f, map.ends(Cr.Cir.exec(f, Mc.M.out(), st), e))
 
-# out.post of proof_mach.bend: in mode 1 with no frame, from the focus' cell
+# out.post of moves.bend: in mode 1 with no frame, from the focus' cell
 # of the value v, for any fuel f, M.out halts as OutH says, runs out of
-# memory, or runs out of fuel. htm is is.tm (proof_is.bend) at foc and v.
+# memory, or runs out of fuel. htm is is.tm (cell_stands_for.bend) at foc and v.
 def out.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
   +pend: U32, +rest: MA.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +v: Bk.Term, +ks2: List<&2, List<&2, Word(8n)>>,
@@ -266,7 +266,7 @@ def out.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
         O.out.post.of(Pg.Term.size(v), f, MA.RG(foc, 1, 0, pend, MA.R59.list(rest)), m, nx, fi, im, pg, lim, inp, foc, ks, ks2, img, v,
           {==}, {==}, htm, hk, is.okn(v, ds, m, im, fi, nx, ks, img, foc, hv)))
 
-# out.done of proof_mach.bend: with some fuel, M.out ends
+# out.done of moves.bend: with some fuel, M.out ends
 def out.done(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
   +pend: U32, +rest: MA.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +v: Bk.Term, +ks2: List<&2, List<&2, Word(8n)>>,

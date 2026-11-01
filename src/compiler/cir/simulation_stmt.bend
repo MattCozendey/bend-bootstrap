@@ -2,7 +2,7 @@
 # ============================================
 #
 # SPost(o, X, K, ls, ...) says what the code X, run from the state that
-# holds st (proof_sim_inv.bend), does when Cir.exec gives o:
+# holds st (simulation_relation.bend), does when Cir.exec gives o:
 #
 #   next{st2}  it reaches the code K, with the labels ls again, an empty
 #              stack and a state that holds st2;

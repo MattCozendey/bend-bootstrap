@@ -2,8 +2,8 @@
 # =================================================================
 #
 # main is our own compiler: it takes the bytes of a book, as the Lean writer
-# writes them, and gives the bytes of its WASM module. The laws of spec.bend
-# and their proofs (proof.bend) are in this file's book, so that a book that
+# writes them, and gives the bytes of its WASM module. The laws of compiler/spec.bend
+# and their proofs (compiler/proof.bend) are in this file's book, so that a book that
 # --verdict accepts for this file holds them.
 
 import Base

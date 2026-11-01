@@ -2,15 +2,15 @@
 # ==============================
 #
 # The shared definitions (the invariant, the heap, Post, the premises' named
-# types, the store and cell kit) live in proof_mach_defs.bend (D); the
-# execution equations of the machine's statements in proof_mach_exec.bend (X).
+# types, the store and cell kit) live in definitions.bend (D); the
+# execution equations of the machine's statements in statement_runs.bend (X).
 # This file keeps the premises (open until the phases' lemmas exist), the
 # moves, the loop and the assembly.
 #
-# mach.safe, mach.sound and mach.complete of proof.bend, with exactly their
+# mach.safe, mach.sound and mach.complete of runs_as_eval.bend, with exactly their
 # types (mach.safe.proof, mach.sound.proof, mach.complete.proof, at the end
 # of "The run"), from the invariant of the machine (Inv) and one lemma per
-# move. The Lean machine (bootstrap/lean, Machine.lean, Machine/*.lean) is
+# move. The Lean machine (lean, Interpreter/Machine.lean, Interpreter/Machine/*.lean) is
 # the template: a move is an admin move that keeps the term, or one step of
 # Eval, and keeps what the state knows.
 #
@@ -70,7 +70,7 @@ import ./swap_moves.bend as SW
 # ---------------------------------------
 #
 # Each is a lemma of a phase file, with exactly this type: its conclusion is
-# the named type of proof_mach_defs.bend.
+# the named type of definitions.bend.
 
 
 def copy.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
@@ -189,7 +189,7 @@ def out.done(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
     PI.is.tm(ds, m, im, fi, nx, ks, img, foc, v, hv))
 
 
-# Open: the start (proof_in.bend). From St0, with the image of a book that
+# Open: the start (start_input.bend). From St0, with the image of a book that
 # Book.read reads, M.input ends with InvIn, or runs out of memory, for any
 # fuel; and with some fuel it ends.
 def input.post(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
@@ -2101,7 +2101,7 @@ def comp.of(k: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, 
 # Layer B
 # -------
 #
-# The lemmas of proof.bend, with exactly their types.
+# The lemmas of runs_as_eval.bend, with exactly their types.
 
 # B: the machine never makes an access that its module could not make the
 # same way

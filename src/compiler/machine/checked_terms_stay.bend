@@ -399,7 +399,7 @@ def Tm.of.at(b: Bool, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)
           u => D.Tm(f, m, ks, img, K, F, X, N, Cr.Cir.Cell.get(2n, cell)), u => D.Tm(f, m, ks, img, K, F, X, N, Cr.Cir.Cell.get(3n, cell)),
           u => D.Tm(f, m, ks, img, K, F, X, N, Cr.Cir.Cell.get(4n, cell))), t, h), g2, g3, g4)
 
-# a checked term is the cell's term by T.tm.of (proof_term.bend)
+# a checked term is the cell's term by T.tm.of (cell_terms.bend)
 def Tm.of(f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, -t: Bk.Term, +h: {D.Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, Bk.Term>}) ->
   {T.tm.of(f, m, ks, img, c) == Some{t} : Maybe<&2, Bk.Term>}:

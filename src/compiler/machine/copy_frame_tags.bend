@@ -1,7 +1,7 @@
 # compiler: the copy's frames, tag by tag
 # =======================================
 #
-# A frame of the walk (proof_copy_walk.bend) copies a source cell of the tag
+# A frame of the walk (copy_walk.bend) copies a source cell of the tag
 # tg, of the term T0 (Fr.src: T.tm.cell with its parts' terms t2, t3, t4).
 # Once each part k is copied to Mo.F of its term at the depth d + Tg.b(tg, k),
 # the new cell, of the same tag, quantity and name, holds Mo.F(T0, d)

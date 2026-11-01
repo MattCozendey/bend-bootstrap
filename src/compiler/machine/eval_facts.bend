@@ -1,7 +1,7 @@
 # compiler: layer B, Eval's meta-theory for the moves
 # ===================================================
 #
-# What the moves of proof_mach.bend need of Eval: a value has no step
+# What the moves of moves.bend need of Eval: a value has no step
 # (ev.stops, Lean's eval_value), and a focus with no step that is no value
 # makes its frames' term so (ev.stuck). Both rest on walk.more: a walk of a
 # case tree that does not wait for more arguments does not wait with more

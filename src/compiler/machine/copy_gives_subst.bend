@@ -1,12 +1,12 @@
 # compiler: M.copy gives Term.subst
 # =================================
 #
-# The proof of proof_copy.bend's Cp.ok: M.copy's walk (proof_copy_walk.bend)
+# The proof of copy_substitution.bend's Cp.ok: M.copy's walk (copy_walk.bend)
 # with the copy's registers (croot, cs, cd, cnew, ck, csrc, cj) and part, as
-# M.shift's (proof_copy_sh.bend): Cp.start makes the root and the first frame,
+# M.shift's (shift_gives_shift.bend): Cp.start makes the root and the first frame,
 # Cp.loop runs the rounds (Cp.body.ok), Cp.end reads the copy. A round's part
 # may shift a local by the depth: it calls M.shift (S.D.Sh.ok, proven in
-# proof_copy_sh.bend) with the frames' cells as the cells E that the shift
+# shift_gives_shift.bend) with the frames' cells as the cells E that the shift
 # may not read, and their terms as its roots.
 
 import Base

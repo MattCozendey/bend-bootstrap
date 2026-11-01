@@ -1,7 +1,7 @@
 # compiler: M.shift gives Term.shift
 # ==================================
 #
-# The proof of proof_copy.bend's Sh.ok: M.shift's walk (proof_copy_walk.bend)
+# The proof of copy_substitution.bend's Sh.ok: M.shift's walk (copy_walk.bend)
 # with the shift's registers (sroot, ss, scut, snew, sk, ssrc, sdep) and part.
 # Sh.start makes the root and the first frame; Sh.loop, by induction on the
 # fuel, runs the rounds, each of which (Sh.body) makes the measure smaller;

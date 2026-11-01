@@ -8,7 +8,7 @@
 # the term v of the focus' cell c (T.tm.of): a halt with 0 and the bytes out,
 # a halt with 2 when there are none, or out of memory (Gives). out.any holds
 # for any fuel (EM: more fuel keeps an ended run); out.post.of and
-# out.done.of are out.post and out.done of proof_mach.bend, over T.tm.of and
+# out.done.of are out.post and out.done of moves.bend, over T.tm.of and
 # okn in place of Is; tm.more, okn.mono, okn.node, oimg.*, olab.*, okids.*
 # and tm.at are the parts of the bridge from Is that do not need Is.
 #
@@ -5306,7 +5306,7 @@ def rev_rev(+xs: List<&2, Word(8n)>) -> {List.reverse(&2, Word(8n), List.reverse
   rev_rev.go(xs, Nil{})
 
 # a halt with the status s in the state st2: with 0 and the bytes of v out (the
-# last first), or with 2 when v has none (OutH of proof_mach.bend)
+# last first), or with 2 when v has none (OutH of moves.bend)
 def OutH(+v: Bk.Term, +s: U32, st2: Cr.Cir.State) -> Data:
   Either<&2, &2, PD({s == 0 : U32}, {Pg.Program.unbytes(v) == Some{List.reverse(&2, Word(8n), St.out(st2))} : Maybe<&2, List<&2, Word(8n)>>}),
     PD({s == 2 : U32}, {Pg.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>})>
@@ -5330,7 +5330,7 @@ def OutH.of(r: Maybe<&2, List<&2, Word(8n)>>, +v: Bk.Term, +s: U32, +st: Cr.Cir.
       Inr{(h, er)}
 
 # what the outcome o of M.out may be (Post(False, o, st => Empty, s => st2 =>
-# OutH(v, s, st2)) of proof_mach.bend): a halt as OutH says, out of memory,
+# OutH(v, s, st2)) of moves.bend): a halt as OutH says, out of memory,
 # or out of fuel
 def PostO(o: Cr.Cir.Out, +v: Bk.Term) -> Type:
   match o:
@@ -5358,7 +5358,7 @@ def PostO.of(o: Cr.Cir.Out, +v: Bk.Term, g: GivesF(o, Pg.Program.unbytes(v), Nil
     case Cr.Cir.Out.not_done{}:
       Unit{}
 
-# the run ends: anything but out of fuel (Ends of proof_mach.bend)
+# the run ends: anything but out of fuel (Ends of moves.bend)
 def EndsO(o: Cr.Cir.Out) -> Data:
   match o:
     case Cr.Cir.Out.next{_}:
@@ -5394,7 +5394,7 @@ def ok.known(+n: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +ks2:
     okn.ok(n, m, ks2, img, c, im, fs, nx,
       Tr(List<&2, List<&2, Word(8n)>>, x => {okn(n, m, x, img, c, im, fs, nx) == True{} : Bool}, ks, Mc.Img.known(ks2), hk, hok)))
 
-# out.post of proof_mach.bend, from a state with no output yet: for any fuel
+# out.post of moves.bend, from a state with no output yet: for any fuel
 # F, M.out halts as OutH says, runs out of memory, or runs out of fuel
 def out.post.of(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +c: U32, +ks: List<&2, List<&2, Word(8n)>>, +ks2: List<&2, List<&2, Word(8n)>>,
@@ -5408,7 +5408,7 @@ def out.post.of(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U
   PostO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v,
     out.any(n, F, regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0, c, ks, img, v, hreg, hlen, htm, ok.known(n, m, ks, ks2, img, c, im, fs, nx, hk, hok)))
 
-# out.done of proof_mach.bend: with some fuel, M.out ends
+# out.done of moves.bend: with some fuel, M.out ends
 def out.done.of(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +v: Bk.Term,
@@ -5426,7 +5426,7 @@ def out.done.of(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: 
 # The terms of the cells, with more fuel
 # --------------------------------------
 #
-# What the bridge from proof_mach's Is needs that does not need Is: a cell's
+# What the bridge from moves's Is needs that does not need Is: a cell's
 # term with the fuel f is its term with more fuel (tm.mono), and okn from the
 # facts of each node (okn.node and the lemmas after it), with more fuel too.
 
@@ -5656,7 +5656,7 @@ def oimg.enu(+r: Maybe<&2, Bk.Term>, +ns: List<&2, List<&2, Word(8n)>>, +e: {r =
   Tr(Maybe<&2, Bk.Term>, x => {ok.img(12, x) == True{} : Bool}, Some{Bk.Term.Enu{ns}}, r, Equal.sym(Maybe<&2, Bk.Term>, r, Some{Bk.Term.Enu{ns}}, e), {==})
 
 # the label's number, for a node of the tag tg: none asked unless tg is 13,
-# whose number j is that of its name k (Nm of proof_mach.bend)
+# whose number j is that of its name k (Nm of moves.bend)
 def olab.eq(+t: U32, +tg: U32, +ks: List<&2, List<&2, Word(8n)>>, +j: U32, +e: {t == tg : U32}, +h: {okn.lab(tg, ks, j) == True{} : Bool}) ->
   {okn.lab(t, ks, j) == True{} : Bool}:
   Tr(U32, x => {okn.lab(x, ks, j) == True{} : Bool}, tg, t, Equal.sym(U32, t, tg, e), h)

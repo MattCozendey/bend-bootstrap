@@ -2,11 +2,11 @@
 # ======================================================
 #
 # Equations of Cir.exec for the parts of the machine's code that the moves of
-# proof_mach.bend run, all proven. Each holds for any
+# moves.bend run, all proven. Each holds for any
 # fuel: a while is not run on these paths. A state is X.st of its registers
 # (a list of 63, read by List.get) and its cells, with no output; X.set sets
 # a register, X.store a field of a cell. This file imports only Base and
-# impl.bend; proof_mach.bend imports it.
+# impl.bend; moves.bend imports it.
 
 import Base
 import ../../wasm/impl.bend as Wa

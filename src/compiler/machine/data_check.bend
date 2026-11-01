@@ -1,7 +1,7 @@
 # compiler: the data check of the machine (layer B)
 # ===================================================
 #
-# data.post and data.done of proof_mach.bend (PM.DataPost, PM.DataDone), for
+# data.post and data.done of moves.bend (PM.DataPost, PM.DataDone), for
 # M.data of impl.bend's Machine.
 #
 # The check's stack is a chain of K.check cells from register ds. Each one

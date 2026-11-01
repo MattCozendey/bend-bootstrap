@@ -1,8 +1,8 @@
 # compiler: the term that Is says a cell stands for, as T.tm.of reads it
 # =====================================================================
 #
-# The bridge from proof_mach.bend's Is (a cell stands for a term, node by
-# node) to proof_term.bend's T.tm.of (the term that a cell's fields give):
+# The bridge from moves.bend's Is (a cell stands for a term, node by
+# node) to cell_terms.bend's T.tm.of (the term that a cell's fields give):
 #
 #   is.tm: when the cell c stands for t, T.tm.of reads t from c with the fuel
 #     Term.size(t) (is.tm.at: with any fuel at least that);

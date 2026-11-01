@@ -1,7 +1,7 @@
 # compiler: the shared heap, for M.data and M.walk (layer B)
 # ==========================================================
 #
-# Facts of proof_mach_defs.bend's heap (Fs, Pc, Ptr, Is) that the phases
+# Facts of definitions.bend's heap (Fs, Pc, Ptr, Is) that the phases
 # which take cells need, beyond the heap's operations:
 #
 #   ptr.part: a part of a node c of a term, where c is one of the machine's
@@ -12,7 +12,7 @@
 #     every such term (is.fz, by induction on the term).
 #   The registers: List.get after List.set (rg.*), Kept after a set.
 #
-# It imports only proof_mach_defs.bend and what that file imports.
+# It imports only definitions.bend and what that file imports.
 
 import Base
 import ../../book/impl.bend as Bk

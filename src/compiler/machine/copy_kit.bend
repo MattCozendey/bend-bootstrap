@@ -2,7 +2,7 @@
 # ========================
 #
 # Lemmas of Bool, Nat, U32, the cells and the runs of Cir that the proofs
-# of proof_copy.bend's claims use.
+# of copy_substitution.bend's claims use.
 
 import Base
 import ../cir/impl.bend as Cr

@@ -10,7 +10,7 @@
 # M.fv read them.
 #
 # The proofs turn and/or into forms that match the mask first (Word.andm of
-# proof_leb.bend, sel, blend), which compute once the variables are split
+# compiler/cir/leb_round_trip.bend, sel, blend), which compute once the variables are split
 # into their bits (the .f lemmas).
 import Base
 import ../cir/leb_round_trip.bend as L

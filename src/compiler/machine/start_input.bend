@@ -4,7 +4,7 @@
 # M.input, from Cir.result's start state, leaves the focus the cell of
 # Program.start(i): In.input.post (any fuel: next with In.Post, out of
 # memory, or out of fuel) and In.input.done (the fuel 10 + |i| ends it), in
-# the shapes of input.post and input.done of proof_mach.bend, with In.Post
+# the shapes of input.post and input.done of moves.bend, with In.Post
 # in place of InvIn and the premise 272 <= first.
 #
 # Kit: In.Go(f, s, st, k, R), a run of s then k, in CPS (In.sq, In.set,
@@ -3299,7 +3299,7 @@ def In.start(+ds: List<&2, Bk.Def>, +F: U32, +M: U32, +fc: Nat, +hsm: N.Le(1n+Li
 # The run's outcome, as layer B states it
 # ---------------------------------------
 #
-# Copied from proof_mach_defs.bend (it holds open ?TODOs, so it cannot be
+# Copied from definitions.bend (it holds open ?TODOs, so it cannot be
 # imported here): Post, Ends, mono, St0 and Start.
 
 # a pair of two Data types, itself Data
@@ -3632,7 +3632,7 @@ def In.input.ok(+d: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List
     In.k.ge(ds, k, 67108864, In.ek(Mc.Img.cells(ds), i, m, k, len, pg, lim, first, s), In.hsm(p, ds, rd, small)), Unit{}, hLM,
     In.start(ds, first, 67108864, 104n, In.hsm(p, ds, rd, small)))
 
-# input.post of proof_mach.bend, with In.Post (as In.PostIn spells it) in place of InvIn, and the
+# input.post of moves.bend, with In.Post (as In.PostIn spells it) in place of InvIn, and the
 # premises hF (the first cell is past the cache) and hLM (the input has
 # fewer than 2^32 bytes)
 def In.input.post.lm(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
@@ -3650,7 +3650,7 @@ def In.input.post.lm(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i:
       s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty, False{},
       In.input.ok(f, p, ds, i, m, k, len, pg, lim, first, rd, small, s, M2, hF, hLM), st => q => q))
 
-# input.done of proof_mach.bend, with the same premises: the fuel 10 + |i|
+# input.done of moves.bend, with the same premises: the fuel 10 + |i|
 # ends the run
 def In.input.done.lm(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
@@ -3786,7 +3786,7 @@ def In.el(-cells: List<&2, Cr.Cir.Cell>, -i: List<&2, Word(8n)>, -m: U32, -k: U3
   (el, r4) = r3
   el
 
-# input.post of proof_mach.bend, with In.Post in place of InvIn (as
+# input.post of moves.bend, with In.Post in place of InvIn (as
 # In.PostIn spells it), and the premise hF: the first cell is past the cache
 def In.input.post(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
@@ -3796,7 +3796,7 @@ def In.input.post(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: Li
     s2 => st2 => Empty):
   In.input.post.lm(f, p, ds, i, m, k, len, pg, lim, first, rd, small, s, len, hF, L32(i, len, In.el(Mc.Img.cells(ds), i, m, k, len, pg, lim, first, s)))
 
-# input.done of proof_mach.bend, with the premise hF: the fuel 10 + |i| ends
+# input.done of moves.bend, with the premise hF: the fuel 10 + |i| ends
 # the run
 def In.input.done(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},

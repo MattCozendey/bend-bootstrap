@@ -6,8 +6,8 @@
 # premise hF). Cir.first picks k + 1 when 20 (k + 1) >= end; else it is
 # (end - 1) / 20 + 1 with end > 20 (k + 1), so the quotient is past k.
 #
-# The long division (dm and what it needs) is copied from proof_sim_div.bend
-# and its imports (proof_sim_* are edited elsewhere): it gives q 20 + r = x
+# The long division (dm and what it needs) is copied from compiler/cir/simulation_first_cell_division.bend
+# and its imports (compiler/cir/simulation_* are edited elsewhere): it gives q 20 + r = x
 # with r < 20 for U32.div(x, 20) = q. Big closed numbers (2^26, 2^32,
 # 214748364) only ever appear in types spelled the same, so the checker never
 # expands them.
@@ -138,7 +138,7 @@ def hf.u32.lt(x: U32) -> N.Le(1n+U32.to_nat(x), N.D(32n, 1n)):
         Equal.cong(Nat, Nat, v => 1n+v, Word.to_nat(32n, w), U32.to_nat(U32{w}), Equal.sym(Nat, U32.to_nat(U32{w}), Word.to_nat(32n, w), N.u32_to_nat(w))),
         hf.word.lt(32n, w))
 
-# The long division (copied from proof_sim_div.bend)
+# The long division (copied from compiler/cir/simulation_first_cell_division.bend)
 # -------------------------------------------------
 
 def hf.dq(-p: Nat, x: Word(p) & U32) -> Word(p):

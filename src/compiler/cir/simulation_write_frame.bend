@@ -2,7 +2,7 @@
 # ================================================
 #
 # A write of a byte or a word keeps every byte, word and cell of the memory
-# that lies elsewhere, and so every view of proof_sim_inv.bend that does not
+# that lies elsewhere, and so every view of simulation_relation.bend that does not
 # hold it (RB.keep, RC.keep, from a pointwise fact). Two U32s whose numbers
 # differ do not compare equal (ne.nat); the numbers of the addresses are
 # exact below W = 2^32. Cir's cells, a tree like the bytes, give the cell

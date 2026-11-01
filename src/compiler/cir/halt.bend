@@ -7,7 +7,7 @@
 # Decoding (H.decoded): for any s, the bytes of s are those of
 # Wasm.encode.sleb(s), at most 5 (H.len_go); the decoder reads the module's
 # sections up to run's code (H.E1, by cases on those few bytes), and reads the
-# i32.const of s with the round trip of proof_leb.bend (H.go_const); so the
+# i32.const of s with the round trip of leb_round_trip.bend (H.go_const); so the
 # module decodes to H.mod(s, False), when s is not 0.
 #
 # halt.no_result: every run of run gives [s], traps or runs out of fuel

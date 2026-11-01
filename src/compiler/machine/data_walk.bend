@@ -1,7 +1,7 @@
 # compiler: the data check and the walk of the machine (layer B)
 # ===============================================================
 #
-# Toward data.post/data.done and walk.post/walk.done of proof_mach.bend
+# Toward data.post/data.done and walk.post/walk.done of moves.bend
 # (M.data and M.walk of impl.bend's Machine). What is here, all checked:
 #
 #   WP(s, F, st, Q): a weakest precondition of Cir.exec that matches the
@@ -550,7 +550,7 @@ def Mono(+s: Cr.Cir.Stmt, +F: Nat, +st: Cr.Cir.State, -P: Cr.Cir.State -> Type, 
 # Cells
 # -----
 #
-# (as proof_in.bend proves them)
+# (as start_input.bend proves them)
 
 # a cell set at w is there
 def Ce.get_set.at(n: Nat, +w: Word(n), +m: Cr.Cir.Cells, +c: Cr.Cir.Cell) ->
@@ -3014,7 +3014,7 @@ def Mem.sub_f(+c: U32, +A: List<&2, U32>, +B: List<&2, U32>, hs: {Sub(A, B) == T
   Mem.sub_f.b(Mem(c, A), c, A, B, {==}, hs, h)
 
 
-# Bridge to layer B (proof_mach.bend)
+# Bridge to layer B (moves.bend)
 # -----------------------------------
 
 # Ok is PM.Post for any fuel (dn False), with no halt

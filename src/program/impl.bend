@@ -8,9 +8,9 @@ import ../wasm/impl.bend as Wa
 # =======
 #
 # What a program gives on its input (AGENTS.md 3.4.3), and the memory that the
-# laws of 3.7.4 (spec.bend) grant it (3.4.4, 3.8.1.4). The terms mirror
-# bootstrap/lean/src/Bootstrap/Bytes.lean, and Program.gives mirrors Gives in
-# Program.lean, so that the proof of 3.7.6 can join them.
+# laws of 3.7.4 (compiler/spec.bend) grant it (3.4.4, 3.8.1.4). The terms mirror
+# lean/src/Bootstrap/DataForm/Bytes.lean, and Program.gives mirrors Gives in
+# Interpreter/Program.lean, so that the proof of 3.7.6 can join them.
 
 # the names of the constructors of a list of bytes, as `bend -o` writes them
 def Program.name.unit() -> List<&2, Word(8n)>:

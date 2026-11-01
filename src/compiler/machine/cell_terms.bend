@@ -3,7 +3,7 @@
 #
 # The term that a cell of the machine (impl.bend, Machine) stands for, and
 # the term of a whole state: its frames around its focus, as the Lean
-# machine's plugs puts them (bootstrap/lean, Machine.lean). Layer B relates
+# machine's plugs puts them (lean, Interpreter/Machine.lean). Layer B relates
 # these terms to Eval's steps.
 #
 # A cell's tag (bits 0 to 5 of field 0), its quantity (bits 6 and 7) and

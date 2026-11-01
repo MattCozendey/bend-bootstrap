@@ -25,7 +25,7 @@ import ./statement_runs.bend as X
 # Kit
 # ---
 
-# Nat algebra (proof_sim_nat.bend's, copied)
+# Nat algebra (compiler/cir/simulation_numbers.bend's, copied)
 def add.comm(+a: Nat, +b: Nat) -> {Nat.add(a, b) == Nat.add(b, a) : Nat}:
   match a:
     case 0n:
@@ -56,7 +56,7 @@ def p2.snd(-A: Data, -B: Data, p: D.P2(A, B)) -> B:
     case Tuple{_, b}:
       b
 
-# a number below another one as a U32 comparison (proof_copy_kit.bend's, copied)
+# a number below another one as a U32 comparison (copy_kit.bend's, copied)
 def u.lt_t.of(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(1n+x, y)) -> {Cmp.is_lt(c) == True{} : Bool}:
   match c:
     case LT{}:
@@ -910,7 +910,7 @@ def sw.app.E(+f: Nat, +kind: D.FK, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: 
 # The moves
 # ---------
 
-# a move from st (proof_mach.bend's MV)
+# a move from st (moves.bend's MV)
 def sw.MV(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st: Cr.Cir.State, +t: Bk.Term, +w: Nat) ->
   Type:
   (@f: Nat -> D.Post(False{}, Cr.Cir.exec(f, D.B.body(), st), s => D.Rnd(ds, ks, img, t, w, s), s => st2 => D.HR(ds, t, s, st2))) &

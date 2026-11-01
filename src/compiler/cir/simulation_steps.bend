@@ -2,7 +2,7 @@
 # ====================================
 #
 # The simulation of proof_sim.bend runs the model's functions by PH.H.steps(n,
-# st), n steps of a running function (proof_halt.bend), and composes runs by
+# st), n steps of a running function (halt.bend), and composes runs by
 # steps.then: n steps then m steps are n + m steps. A run that ends after n
 # steps gives the call's end, with any fuel F >= n (run.call): the results,
 # the memory, and some count of steps j <= n.
