@@ -1,5 +1,5 @@
 #!/bin/bash
-# run.sh WORK: tests of kind c of the compiler of AGENTS.md 3.6.4, which the laws of
+# run.sh WORK: tests of kind c of the compiler of AGENTS.md 3.7.4, which the laws of
 # bootstrap/bend/src/compiler/spec.bend (no_wrong_result, no_other_failure,
 # enough_memory) replace once they are proven.
 # Each program of progs/ is compiled, and its module runs on each input in two

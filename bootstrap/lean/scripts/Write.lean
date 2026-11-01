@@ -5,8 +5,8 @@ import Bootstrap.Script
 -- =====
 --
 -- Writes the bytes of the book of a .bendtt file, as the Lean writer of
--- src/Bootstrap/Book.lean writes them (AGENTS.md 3.3.5): the input of the
--- compiler of 3.6.4.
+-- src/Bootstrap/Book.lean writes them (AGENTS.md 3.4.5): the input of the
+-- compiler of 3.7.4.
 --
 --   BOOK=prog.bendtt OUTPUT=prog.book lake lean scripts/Write.lean
 

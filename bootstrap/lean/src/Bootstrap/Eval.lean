@@ -3,7 +3,7 @@ import bendtt
 -- Eval
 -- ====
 --
--- Facts about the kernel's Eval (bend/bend2/bendtt.lean), which AGENTS.md 3.3.1
+-- Facts about the kernel's Eval (bend/bend2/bendtt.lean), which AGENTS.md 3.4.1
 -- and #2 rely on: "the result" and "the number of steps" of a run.
 
 open Quan Term

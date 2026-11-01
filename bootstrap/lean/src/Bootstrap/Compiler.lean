@@ -5,14 +5,14 @@ import Bootstrap.NeedRun
 -- Compiler
 -- ========
 --
--- AGENTS.md 3.6.6: when the interpreter (Program.lean) runs our own
+-- AGENTS.md 3.7.6: when the interpreter (Program.lean) runs our own
 -- compiler, the main of trusted.bend, on the bytes that the Lean writer
--- writes for a book bk, the bytes w that it gives follow the laws of 3.6.4
+-- writes for a book bk, the bytes w that it gives follow the laws of 3.7.4
 -- (spec.bend), in each book B that --verdict accepts for trusted.bend
 -- (Book.check B = .ok ()) and that holds trusted.bend's defs (Trusted B):
 -- the Bend version of WASM, run on w, gives only what bk gives (no wrong
 -- result), and when bk gives something, it gives it or runs out of memory
--- (no other failure), and with the memory of 3.7.1.4 it gives it
+-- (no other failure), and with the memory of 3.8.1.4 it gives it
 -- (enough memory).
 
 open Quan Term
@@ -153,7 +153,7 @@ theorem Trusted.big (hB : Trusted B) (hm : need bk i n ≤ memory m) :
   have := (Rename.runs_iff' impl_ok).1 r
   simpa [Rename.term_spine, Rename.arg, Rename.term, bigOf, Form.bool, impl_ctor] using this
 
--- enough memory: with the memory that F of AGENTS.md 3.7.1.4 asks, the Bend version
+-- enough memory: with the memory that F of AGENTS.md 3.8.1.4 asks, the Bend version
 -- of WASM, run on the module that our compiler writes, gives the result that
 -- the book gives
 theorem enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)
