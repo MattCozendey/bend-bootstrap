@@ -85,7 +85,7 @@ the `#|` lines that its run must print.
 
 ## Folder structure and shared modules
 
-- Features are onion-like. For each layer, there may be a `shared.bend` file XOR a `shared` folder if the utility earns it(file grows too large). A `shared` folder, being a feature, may too contain `shared.bend` XOR a nested `shared` folder if needed.
+- Features are onion-like. For each layer(probably in `src` or `features`), there may be a `shared.bend` file XOR a `shared` folder if the utility earns it(file grows too large). A `shared` folder, being a feature, may too contain `shared.bend` XOR a nested `shared` folder if needed.
 - A `shared` module never imports a cousin. When a module that is not a descendant of a helper's
   layer needs the helper, move the helper to the `shared` of the nearest common ancestor layer,
   not higher.
