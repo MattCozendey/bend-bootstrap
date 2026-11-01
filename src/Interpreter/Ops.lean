@@ -26,7 +26,8 @@ import Interpreter.Ops.Add
 -- after one lookup in a HashMap, and only when each argument is at quantity 1
 -- and is a U32 term, or a Nat term for a count. Ops.call_sound proves that Eval
 -- reaches its term after exactly its number of steps, and that the term is a
--- value. With x, y the U32s, m the Nat, and the steps:
+-- value; Ops.call_data, that it is Data. With x, y the U32s, m the Nat, and the
+-- steps:
 --
 --   U32.shr x            x / 2                   34
 --   U32.shrn x m         x >>> m                 1 + 35 m
