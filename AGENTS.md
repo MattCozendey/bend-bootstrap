@@ -58,7 +58,7 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see 2.4.3
 
 2.4.1 - I don't expect you to run bend(the untrusted one) for this project at all, but if you do; you must know that before you build or test, you must run `bend version` in the shell that you build in. As of 2026-11-01, Bend does not run natively on Windows. Use WSL(note: Even with WSL, parallel code won't run on the GPU).
 2.4.2 - Do not change, update or rebuild the Bend submodule.
-2.4.3 - Since we are bootstrapping, the current UNTRUSTED TypeScript compiler and the Bend guide are only reference guides for ideas: don't assume things from them necessarily apply to us and our decisions. Section 3 reigns. Things like import dont seem to exist in the kernel for example so are out of scope and not needed for a bootstrap even if ir means a single huge file.
+2.4.3 - Since we are bootstrapping, the current UNTRUSTED TypeScript compiler and the Bend guide are only reference guides for ideas: don't assume things from them necessarily apply to us and our decisions. Section 3 reigns. Things like import dont seem to exist in the kernel for example so are out of scope and not needed for a bootstrap even if ir means a single huge file. Don't use any bend linter(they assume untrusted code)
   
 ### 2.5 TypeScript
 
