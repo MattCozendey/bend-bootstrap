@@ -11,8 +11,14 @@ DEFINITION(S):
     - bit: `(.False, ())` is 0, `(.True, ())` is 1.
 
 GOAL(S):
-1 - A Bend compiler written in Bend(this doesn't necessarily include creating bend's CHECKER in bend btw) THAT I CAN TRUST(GIVES WHAT `Eval` GIVES: INVARIANTS #1). WE ACCEPT SLOWNESS OR A BEND INTERPRETER-OR-COMPILER WRITTEN IN LEAN ALONG THE WAY. GETTING THIS RIGHT FROM THE START IS AN ABSOLUTE MUST. IT IS PURE AND SELF-HOSTING: IT COMPILES ITS OWN BOOK. WHEN WE ADD TO OUR COMPILER (OPTIMIZATIONS, OR FEATURES BEYOND BEND; CHANGING INTERNAL REPRESENTATIONS, OR ADDING TARGETS, IS AN ADDITION TOO), THE LAW FOR BEND (INVARIANTS #1 AND #4) STAYS EXACTLY AS IT IS AND MUST STILL PASS --verdict. SO OUR COMPILER ALWAYS STAYS A PROVEN BEND COMPILER
-2 - OUR LAWS HOLD FOR ANY TARGET WHOSE MEANING IS WRITTEN IN BEND. THE FIRST TARGET IS WASM (WEBASSEMBLY): IT IS SMALL AND HAS AN OFFICIAL FORMAL SPEC. NATIVE MACHINE CODE HAS NO COMPACT FORMAL SPEC, AND C'S MEANING IS HUGE AND FULL OF UNDEFINED BEHAVIOR.
+1 - A PURE, SELF-HOSTING BEND COMPILER, WRITTEN IN BEND, THAT I CAN TRUST. GETTING THIS RIGHT FROM THE START IS AN ABSOLUTE MUST.
+    - INPUT: A BEND BOOK (DEFINITION #2), ITS OWN BOOK INCLUDED.
+    - PROMISE: THE COMPILED PROGRAM GIVES WHAT `Eval` GIVES (INVARIANTS #1).
+    - PROOF: `--verdict` PROVES THE PROMISE ABOUT THE COMPILER'S OWN BOOK.
+    - RUNNING IT: THE TRUST REACHES THE BINARY THAT RUNS ON THE PC. WE ACCEPT SLOWNESS, OR A BEND INTERPRETER-OR-COMPILER WRITTEN IN LEAN, ALONG THE WAY.
+    - NO CHECKER: THE PROMISE HOLDS FOR EVERY PROGRAM, CHECKED OR NOT, SO WE DON'T WRITE BEND'S CHECKER IN BEND.
+2 - IT CAN GROW: I CAN ADD OPTIMIZATIONS, FEATURES BEYOND BEND, NEW INTERNAL REPRESENTATIONS OR NEW TARGETS. THE LAW FOR BEND (INVARIANTS #1 AND #4) STAYS EXACTLY AS IT IS AND MUST STILL PASS `--verdict`. SO OUR COMPILER ALWAYS STAYS A PROVEN BEND COMPILER.
+3 - TARGETS: OUR LAWS HOLD FOR ANY TARGET WHOSE MEANING IS WRITTEN IN BEND. THE FIRST TARGET IS WASM (WEBASSEMBLY): IT IS SMALL AND HAS AN OFFICIAL FORMAL SPEC. NATIVE MACHINE CODE HAS NO COMPACT FORMAL SPEC, AND C'S MEANING IS HUGE AND FULL OF UNDEFINED BEHAVIOR.
 
 INVARIANTS/LAWS/THEOREMS:
 1 - FOR EVERY PROGRAM, NOT ONLY THE ONES THAT THE KERNEL ACCEPTS (SO WE NEED NO BEND COPY OF THE CHECKER): IF THE COMPILED PROGRAM GIVES A RESULT, IT IS THE RESULT THAT `Eval` GIVES. IF `Eval` GIVES A RESULT, THE COMPILED PROGRAM GIVES IT OR RUNS OUT OF MEMORY; WITH ENOUGH MEMORY (#4), IT ALWAYS GIVES IT. SO OUR COMPILER DOES NOT CHECK TYPES: A PROGRAM THAT THE KERNEL REJECTS MAY RUN FOREVER OR GET STUCK, AND ITS OWN LAWS HOLD ONLY AFTER `--verdict` ACCEPTS IT.
@@ -39,7 +45,7 @@ STEPS:
 2 - We must write a BEND INTERPRETER IN LEAN, with a Lean proof that it gives what `Eval` gives, so that we have a trusted way to RUN >OUR OWN< compiler (it runs any Bend program, ours included). This is because `Eval` is a list of rules, not a program (it can't run anything), we don't trust the current compiler, and our compiler can't run itself before it is compiled.
 3 - We must write a LEAN PROOF THAT JOINS #1 AND #2: when the interpreter runs >OUR OWN< compiler, the bytes it writes follow the laws of #1 (it works for any Bend program and its laws, ours included). This is because #1 only says that the compiler is correct by the rules of `Eval`, and #2 only says that the interpreter follows `Eval`. Without this proof, nothing says that the laws hold for what actually runs on the PC.
 4 - We must write the BEND COPY of `Eval` and the LEAN PROOF of INVARIANTS #2. This is because Bend can't use Lean's `Eval`, so #1 can only state its laws through a copy. Without this proof, a wrong copy makes #1 prove the wrong thing.
-5 - We must write the BEND COPY OF WASM'S MEANING (WHAT WE TRUST #6), so that the laws of #1 can say what a compiled program gives. This is because our compiler compiles to WASM (OUR GOALS #2), and the WASM spec is not written in Bend.
+5 - We must write the BEND COPY OF WASM'S MEANING (WHAT WE TRUST #6), so that the laws of #1 can say what a compiled program gives. This is because our compiler compiles to WASM (OUR GOALS #3), and the WASM spec is not written in Bend.
 6 - We must write the LEAN WRITER, the BEND READER and the LEAN PROOF of INVARIANTS #5. This is because the kernel's parser is made of `partial def`s, so no Lean theorem can say what it returns, and the kernel is fixed (WHAT WE TRUST #2): a Bend copy of the parser could never be proven to read a text as the kernel does. Without this proof, our compiler could compile a different book than the one the kernel read.
 7 - We must write a LEAN VERSION OF THE OFFICIAL WASM SEMANTICS of the subset that our compiler uses, TRANSLATED BY A PROGRAM FROM THE SPEC'S OWN FORMAL SOURCE (SpecTec), and a LEAN PROOF that the Bend copy of WASM (#5) gives what it gives. This is because our Bend copy is only reviewed and tested (WHAT WE TRUST #6). With this proof we trust the spec's SpecTec source and the translator instead. The official tests of #5 stay, for historical reasons.
 
