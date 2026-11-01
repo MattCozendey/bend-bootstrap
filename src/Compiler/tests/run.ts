@@ -12,7 +12,7 @@
 
 // imports
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, delimiter, join, resolve } from "node:path";
 import { getArgs, run } from "../../Shared/shared.ts";
@@ -136,30 +136,37 @@ const progFails = readdirSync(join(HERE, "progs"))
       writeFileSync(at("in"), bytes);
       rmSync(at("want"), { force: true });
       rmSync(at("bun"), { force: true });
-      Bun.spawnSync({
+      const lean = Bun.spawnSync({
         ...getLake("src/Interpreter/scripts/Run.lean", {
           BOOK: at("bendtt"),
           INPUT: at("in"),
           OUTPUT: at("want"),
         }),
         stdout: "ignore",
-        stderr: "ignore",
+        stderr: "pipe",
       });
+      const leanError = lean.stderr.toString();
       const says = Bun.spawnSync({
         cmd: [process.execPath, join(HERE, "host.ts"), at("wasm"), at("in"), at("bun")],
         stderr: "inherit",
       })
         .stdout.toString()
         .trimEnd();
-      const want = existsSync(at("want")) ? readFileSync(at("want")) : undefined;
+      // Run.lean exits with 0 on a result, and with an error "no result: ..." when the run
+      // gets stuck or ends in a value that is not a list of bytes; any other end (a crash,
+      // or no result within its fuel) says nothing about the run
+      const isKnown = lean.exitCode === 0 || leanError.includes("error: no result: ");
+      const want = lean.exitCode === 0 ? readFileSync(at("want")) : undefined;
       const got = says === "result" ? readFileSync(at("bun")) : undefined;
       const isSame = want === undefined ? got === undefined : got !== undefined && want.equals(got);
-      const text = !isSame
-        ? `bun ${says}, the interpreter ${want ? "a" : "no"} result`
-        : want
-          ? `the same ${want.length} bytes`
-          : `no result (bun ${says})`;
-      return isFail({ ok: isSame, text: `${n} ${name}: ${text}` });
+      const text = !isKnown
+        ? `the interpreter gives no answer: ${leanError.trim().split("\n").at(-1) ?? ""}`
+        : !isSame
+          ? `bun ${says}, the interpreter ${want ? "a" : "no"} result`
+          : want
+            ? `the same ${want.length} bytes`
+            : `no result (bun ${says})`;
+      return isFail({ ok: isKnown && isSame, text: `${n} ${name}: ${text}` });
     });
   })
   .filter(Boolean).length;
