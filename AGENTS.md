@@ -38,6 +38,7 @@ These rules hold for every language.
   callers). Repeat until a sweep finds nothing to delete, no structural regression, no missed large
   simplification and no spaghetti growth. After sweep 3, stop and ask me.
 2.1.4 - A file over 1000 lines can be fine. Ask me before you split one.
+2.1.5 - Our own folder structure should be basically the same `experimental-bend-spec` skill states.
 
 ### 2.2 Documentation
 
