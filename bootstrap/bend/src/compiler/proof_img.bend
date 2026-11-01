@@ -3,7 +3,7 @@
 #
 # The image of a book of fewer than 2^26 bytes has fewer than 2^26 cells:
 #
-#   cells = 363 + the nodes of the bodies <= 363 + W
+#   cells = 290 + the nodes of the bodies <= 290 + W
 #   2 W   <= |p| <= 2^26 - 1, so W < 2^25
 #
 # where W is the number of term nodes of the book that Book.read gives: each
@@ -127,7 +127,7 @@ def shift(t: C.Term, +a: Nat, +b: Nat) -> {Nsz(t, Nat.add(a, b)) == Nat.add(Nsz(
       {==}
 
 # the cells of a term: one per node
-def term_len(t: C.Term, +ks: List<&2, List<&2, U32>>, +es: List<&2, C.Img.Def>, +at: U32, +acc: List<&2, C.Cir.Cell>) ->
+def term_len(t: C.Term, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, C.Img.Def>, +at: U32, +acc: List<&2, C.Cir.Cell>) ->
   {List.length(&2, C.Cir.Cell, C.Img.term(t, ks, es, at, acc)) == Nsz(t, List.length(&2, C.Cir.Cell, acc)) : Nat}:
   match t:
     case C.Term.Var{_}:
@@ -1223,7 +1223,7 @@ def rwt.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.rwt(s0)), 1n+Ws(s0, 0n))
     case Con{C.Item.defs{_}, _}:
       Unit{}
 
-def byte.le(s0: List<&2, C.Item>, b: U32) -> N.Le(Wm(C.Book.read.byte(s0, b)), 1n+Ws(s0, 0n)):
+def byte.le(s0: List<&2, C.Item>, b: Word(8n)) -> N.Le(Wm(C.Book.read.byte(s0, b)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
@@ -1314,7 +1314,7 @@ def token8.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token8(n, st
     case 8n+p:
       token16.le(p, st)
 
-def token.le(n: Nat, +st: List<&2, C.Item>, b: U32) -> N.Le(Wm(C.Book.read.token(n, st, b)), 1n+Ws(st, 0n)):
+def token.le(n: Nat, +st: List<&2, C.Item>, b: Word(8n)) -> N.Le(Wm(C.Book.read.token(n, st, b)), 1n+Ws(st, 0n)):
   match n:
     case 0n:
       le_up(Ws(st, 0n))
@@ -1335,12 +1335,12 @@ def token.le(n: Nat, +st: List<&2, C.Item>, b: U32) -> N.Le(Wm(C.Book.read.token
     case 8n+p:
       token8.le(p, st)
 
-def step.le(st: Maybe<List<&2, C.Item>>, tag: U32, b: U32) -> N.Le(Wm(C.Book.read.step(st, tag, b)), 1n+Wm(st)):
+def step.le(st: Maybe<List<&2, C.Item>>, tag: Word(8n), b: Word(8n)) -> N.Le(Wm(C.Book.read.step(st, tag, b)), 1n+Wm(st)):
   match st:
     case None{}:
       Unit{}
     case Some{+s}:
-      token.le(U32.to_nat(tag), s, b)
+      token.le(Word.to_nat(8n, tag), s, b)
 
 
 # Reading a book
@@ -1400,9 +1400,9 @@ def done.le(st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>, e: {C.Book.read.d
 
 # the reading: twice the book's nodes are at most twice the stack's plus the
 # bytes left
-def go.le(xs: List<&2, U32>, st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>,
+def go.le(xs: List<&2, Word(8n)>, st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>,
   e: {C.Book.read.go(xs, st) == Some{ds} : Maybe<List<&2, C.Def>>}
-) -> N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), List.length(&2, U32, xs))):
+) -> N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), List.length(&2, Word(8n), xs))):
   match xs:
     case Nil{}:
       done.le(st, ds, e)
@@ -1411,30 +1411,30 @@ def go.le(xs: List<&2, U32>, st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>,
     case Con{+tag, Con{+b, +rest}}:
       match st:
         case None{}:
-          +l = List.length(&2, U32, rest)
+          +l = List.length(&2, Word(8n), rest)
           +dw = Nat.double(Wd(ds, 0n))
           N.le_succ(dw, 1n+l, N.le_succ(dw, l, go.le(rest, None{}, ds, e)))
         case Some{+s}:
-          +w1 = Nat.double(Wm(C.Book.read.token(U32.to_nat(tag), s, b)))
+          +w1 = Nat.double(Wm(C.Book.read.token(Word.to_nat(8n, tag), s, b)))
           +w0 = Nat.double(Ws(s, 0n))
-          +l = List.length(&2, U32, rest)
-          +ih = go.le(rest, C.Book.read.token(U32.to_nat(tag), s, b), ds, e)
-          +hs = N.double_mono(Wm(C.Book.read.token(U32.to_nat(tag), s, b)), 1n+Ws(s, 0n), token.le(U32.to_nat(tag), s, b))
+          +l = List.length(&2, Word(8n), rest)
+          +ih = go.le(rest, C.Book.read.token(Word.to_nat(8n, tag), s, b), ds, e)
+          +hs = N.double_mono(Wm(C.Book.read.token(Word.to_nat(8n, tag), s, b)), 1n+Ws(s, 0n), token.le(Word.to_nat(8n, tag), s, b))
           +h = N.le_trans(Nat.double(Wd(ds, 0n)), Nat.add(w1, l), 2n+Nat.add(w0, l), ih,
             N.add_mono(w1, 2n+w0, l, l, hs, N.le_refl(l)))
           N.le_rw_r(Nat.double(Wd(ds, 0n)), 2n+Nat.add(w0, l), Nat.add(w0, 2n+l), add_two(w0, l), h)
 
 # a book read from p has at most |p| / 2 nodes
-def read.le(+p: List<&2, U32>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
-  N.Le(Nat.double(Wd(ds, 0n)), List.length(&2, U32, p)):
+def read.le(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
+  N.Le(Nat.double(Wd(ds, 0n)), List.length(&2, Word(8n), p)):
   go.le(p, Some{Nil{}}, ds, rd)
 
 # The image's length
 # ------------------
 
-# the 363 cells of the prefix
+# the 290 cells of the prefix
 def prefix_len(+main: U32, +acc: List<&2, C.Cir.Cell>) ->
-  {List.length(&2, C.Cir.Cell, C.Img.prefix(main, acc)) == Nat.add(363n, List.length(&2, C.Cir.Cell, acc)) : Nat}:
+  {List.length(&2, C.Cir.Cell, C.Img.prefix(main, acc)) == Nat.add(290n, List.length(&2, C.Cir.Cell, acc)) : Nat}:
   {==}
 
 # the nodes of the bodies of ds, plus n
@@ -1446,7 +1446,7 @@ def Bl(ds: List<&2, C.Def>, n: Nat) -> Nat:
       Nsz(v, Bl(rest, n))
 
 # the cells of the bodies: one per node
-def bodies_len(ds: List<&2, C.Def>, +ks: List<&2, List<&2, U32>>, +es: List<&2, C.Img.Def>, +at: U32) ->
+def bodies_len(ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, C.Img.Def>, +at: U32) ->
   {List.length(&2, C.Cir.Cell, C.Img.bodies(ds, ks, es, at)) == Bl(ds, 0n) : Nat}:
   match ds:
     case Nil{}:
@@ -1455,11 +1455,11 @@ def bodies_len(ds: List<&2, C.Def>, +ks: List<&2, List<&2, U32>>, +es: List<&2, 
       %bodies_len(rest, ks, es, U32.add(at, C.Img.size(v))) : {List.length(&2, C.Cir.Cell, C.Img.bodies(Con{C.Def{kk, TT, v, oo}, rest}, ks, es, at)) == Nsz(v, _) : Nat}
       term_len(v, ks, es, at, C.Img.bodies(rest, ks, es, U32.add(at, C.Img.size(v))))
 
-# the cells of the image: 363, then one per node of the bodies
-def cells_len(+ds: List<&2, C.Def>) -> {List.length(&2, C.Cir.Cell, C.Img.cells(ds)) == Nat.add(363n, Bl(ds, 0n)) : Nat}:
+# the cells of the image: 290, then one per node of the bodies
+def cells_len(+ds: List<&2, C.Def>) -> {List.length(&2, C.Cir.Cell, C.Img.cells(ds)) == Nat.add(290n, Bl(ds, 0n)) : Nat}:
   +ks = C.Img.known(C.Img.names.defs(ds))
   +es = C.Img.defs(ds, C.I.book())
-  %bodies_len(ds, ks, es, C.I.book()) : {List.length(&2, C.Cir.Cell, C.Img.cells(ds)) == Nat.add(363n, _) : Nat}
+  %bodies_len(ds, ks, es, C.I.book()) : {List.length(&2, C.Cir.Cell, C.Img.cells(ds)) == Nat.add(290n, _) : Nat}
   prefix_len(C.Img.ref(es, C.Program.name.main()), C.Img.bodies(ds, ks, es, C.I.book()))
 
 # a node of a body moves through the bodies
@@ -1589,20 +1589,20 @@ def lt_of_ne(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), ne: {Cmp.is_eq(c) == F
 
 # one step of Img.small, for any limit M, by the branch of U32.is_eq(n, M)
 def small.step2(
-  b: Bool, +n: U32, +M: U32, +h: U32, +rest: List<&2, U32>,
+  b: Bool, +n: U32, +M: U32, +h: Word(8n), +rest: List<&2, Word(8n)>,
   eb: {U32.is_eq(n, M) == b : Bool},
   e: {C.Img.small.if(b, u => C.Img.small(rest, U32.inc(n))) == True{} : Bool},
   hn: N.Le(U32.to_nat(n), U32.to_nat(M)),
   ih: {C.Img.small(rest, U32.inc(n)) == True{} : Bool} -> N.Le(U32.to_nat(U32.inc(n)), U32.to_nat(M)) ->
-    N.Le(Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, U32, rest)), U32.to_nat(M))
-) -> N.Le(Nat.add(U32.to_nat(n), List.length(&2, U32, Con{h, rest})), U32.to_nat(M)):
+    N.Le(Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, Word(8n), rest)), U32.to_nat(M))
+) -> N.Le(Nat.add(U32.to_nat(n), List.length(&2, Word(8n), Con{h, rest})), U32.to_nat(M)):
   match b:
     case True{}:
-      Empty.absurd(N.Le(Nat.add(U32.to_nat(n), List.length(&2, U32, Con{h, rest})), U32.to_nat(M)), N.false_ne_true(e))
+      Empty.absurd(N.Le(Nat.add(U32.to_nat(n), List.length(&2, Word(8n), Con{h, rest})), U32.to_nat(M)), N.false_ne_true(e))
     case False{}:
       +x = U32.to_nat(n)
       +m = U32.to_nat(M)
-      +l = List.length(&2, U32, rest)
+      +l = List.length(&2, Word(8n), rest)
       +lt = lt_of_ne(U32.cmp(n, M), x, m, N.U32.rel(n, M), eb, hn)
       +hi = U32.inc_ge(n, M, lt)
       +hn2 = N.le_trans(U32.to_nat(U32.inc(n)), 1n+x, m, N.U32.inc_le(n), lt)
@@ -1611,9 +1611,9 @@ def small.step2(
           N.add_mono(1n+x, U32.to_nat(U32.inc(n)), l, l, hi, N.le_refl(l)), ih(e, hn2)))
 
 # Img.small(xs, n) true, n <= M = 67108863: n + |xs| <= M
-def small.le(xs: List<&2, U32>, +n: U32, +M: U32, +eM: {M == 67108863 : U32}, hn: N.Le(U32.to_nat(n), U32.to_nat(M)),
+def small.le(xs: List<&2, Word(8n)>, +n: U32, +M: U32, +eM: {M == 67108863 : U32}, hn: N.Le(U32.to_nat(n), U32.to_nat(M)),
   e: {C.Img.small(xs, n) == True{} : Bool}
-) -> N.Le(Nat.add(U32.to_nat(n), List.length(&2, U32, xs)), U32.to_nat(M)):
+) -> N.Le(Nat.add(U32.to_nat(n), List.length(&2, Word(8n), xs)), U32.to_nat(M)):
   match xs:
     case Nil{}:
       %Equal.sym(Nat, Nat.add(U32.to_nat(n), 0n), U32.to_nat(n), N.add_zero(U32.to_nat(n))) : N.Le(_, U32.to_nat(M))
@@ -1648,15 +1648,15 @@ def le_zero_u32(+M: U32) -> N.Le(U32.to_nat(0), U32.to_nat(M)):
 def D_succ(+q: Nat, +x: Nat) -> {N.D(1n+q, x) == Nat.double(N.D(q, x)) : Nat}:
   {==}
 
-# a book of at most m bytes, 1 + m = 2h, 363 <= h, has an image of fewer
+# a book of at most m bytes, 1 + m = 2h, 290 <= h, has an image of fewer
 # than 2h cells (m and h stay variables: the checker never expands them)
-def core.len(+p: List<&2, U32>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
+def core.len(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
   rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
-  hl: N.Le(List.length(&2, U32, p), m),
+  hl: N.Le(List.length(&2, Word(8n), p), m),
   vm: {1n+m == Nat.double(h25) : Nat},
-  h363: N.Le(363n, h25)
+  h290: N.Le(290n, h25)
 ) -> N.Le(1n+List.length(&2, C.Cir.Cell, C.Img.cells(ds)), Nat.double(h25)):
-  +l = List.length(&2, U32, p)
+  +l = List.length(&2, Word(8n), p)
   +w = Wd(ds, 0n)
   +b = Bl(ds, 0n)
   +cells = C.Img.cells(ds)
@@ -1664,31 +1664,31 @@ def core.len(+p: List<&2, U32>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
   +h3 = N.le_rw_r(1n+Nat.double(w), 1n+m, Nat.double(h25), vm, h2)
   +h4 = half_lt(w, h25, h3)
   +h5 = N.le_trans(1n+b, 1n+w, h25, blwd(ds, 0n, 0n, Unit{}), h4)
-  +h6 = N.add_mono(363n, h25, 1n+b, h25, h363, h5)
-  +h7 = N.le_rw_r(Nat.add(363n, 1n+b), Nat.add(h25, h25), Nat.double(h25), add_self(h25), h6)
-  +h8 = N.le_rw_l(Nat.add(363n, 1n+b), 1n+Nat.add(363n, b), Nat.double(h25), N.add_succ_r(363n, b), h7)
-  lt_rw_l(Nat.add(363n, b), List.length(&2, C.Cir.Cell, cells), Nat.double(h25),
-    Equal.sym(Nat, List.length(&2, C.Cir.Cell, cells), Nat.add(363n, b), cells_len(ds)), h8)
+  +h6 = N.add_mono(290n, h25, 1n+b, h25, h290, h5)
+  +h7 = N.le_rw_r(Nat.add(290n, 1n+b), Nat.add(h25, h25), Nat.double(h25), add_self(h25), h6)
+  +h8 = N.le_rw_l(Nat.add(290n, 1n+b), 1n+Nat.add(290n, b), Nat.double(h25), N.add_succ_r(290n, b), h7)
+  lt_rw_l(Nat.add(290n, b), List.length(&2, C.Cir.Cell, cells), Nat.double(h25),
+    Equal.sym(Nat, List.length(&2, C.Cir.Cell, cells), Nat.add(290n, b), cells_len(ds)), h8)
 
 # the same, for the U32 count of the cells
-def core(+p: List<&2, U32>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
+def core(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
   rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
-  hl: N.Le(List.length(&2, U32, p), m),
+  hl: N.Le(List.length(&2, Word(8n), p), m),
   vm: {1n+m == Nat.double(h25) : Nat},
-  h363: N.Le(363n, h25)
+  h290: N.Le(290n, h25)
 ) -> N.Le(1n+U32.to_nat(C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds))), Nat.double(h25)):
   +cells = C.Img.cells(ds)
   +len = C.Wasm.encode.len(C.Cir.Cell, cells)
   N.le_trans(1n+U32.to_nat(len), 1n+List.length(&2, C.Cir.Cell, cells), Nat.double(h25), enc_len_le(cells),
-    core.len(p, ds, m, h25, rd, hl, vm, h363))
+    core.len(p, ds, m, h25, rd, hl, vm, h290))
 
 # the image of a book of fewer than 2^26 bytes has fewer than 2^26 cells
 def img.small.proof(
-  +p: List<&2, U32>, +ds: List<&2, C.Def>,
+  +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>,
   rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
   small: {C.Img.small(p, 0) == True{} : Bool}
 ) -> {U32.is_lt(C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds)), 67108864) == True{} : Bool}:
-  +l = List.length(&2, U32, p)
+  +l = List.length(&2, Word(8n), p)
   +m = U32.to_nat(67108863)
   +d9 = N.D(9n, 1n)
   +h25 = N.D(25n, 1n)
@@ -1697,9 +1697,9 @@ def img.small.proof(
   +h0 = small.le(p, 0, 67108863, {==}, le_zero_u32(67108863), small)
   +h1 = N.le_rw_l(Nat.add(U32.to_nat(0), l), l, m, N.zero_add(l), h0)
   +vm = Equal.trans(Nat, 1n+m, h26, Nat.double(h25), N.val_M(), D_succ(25n, 1n))
-  +h363 = N.le_trans(363n, d9, h25, Unit{},
+  +h290 = N.le_trans(290n, d9, h25, Unit{},
     N.le_rw_r(d9, N.D(16n, d9), h25, N.D_add(16n, 9n, 25n, 1n, {==}), D_ge(16n, d9)))
-  +h10 = core(p, ds, m, h25, rd, h1, vm, h363)
+  +h10 = core(p, ds, m, h25, rd, h1, vm, h290)
   +e = Equal.trans(Nat, Nat.double(h25), h26, U32.to_nat(67108864),
     Equal.sym(Nat, h26, Nat.double(h25), D_succ(25n, 1n)), Equal.sym(Nat, U32.to_nat(67108864), h26, val_M2()))
   +h11 = N.le_rw_r(1n+U32.to_nat(len), Nat.double(h25), U32.to_nat(67108864), e, h10)
@@ -1724,11 +1724,11 @@ def lt_nat(+a: Nat, +b: Nat, h: N.Le(1n+a, b)) -> {Nat.is_lt(a, b) == True{} : B
 # the image of a book of fewer than 2^26 bytes has fewer than 2^26 cells,
 # counted as a Nat
 def img.small.nat(
-  +p: List<&2, U32>, +ds: List<&2, C.Def>,
+  +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>,
   rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
   small: {C.Img.small(p, 0) == True{} : Bool}
 ) -> {Nat.is_lt(List.length(&2, C.Cir.Cell, C.Img.cells(ds)), U32.to_nat(67108864)) == True{} : Bool}:
-  +l = List.length(&2, U32, p)
+  +l = List.length(&2, Word(8n), p)
   +m = U32.to_nat(67108863)
   +d9 = N.D(9n, 1n)
   +h25 = N.D(25n, 1n)
@@ -1737,9 +1737,9 @@ def img.small.nat(
   +h0 = small.le(p, 0, 67108863, {==}, le_zero_u32(67108863), small)
   +h1 = N.le_rw_l(Nat.add(U32.to_nat(0), l), l, m, N.zero_add(l), h0)
   +vm = Equal.trans(Nat, 1n+m, h26, Nat.double(h25), N.val_M(), D_succ(25n, 1n))
-  +h363 = N.le_trans(363n, d9, h25, Unit{},
+  +h290 = N.le_trans(290n, d9, h25, Unit{},
     N.le_rw_r(d9, N.D(16n, d9), h25, N.D_add(16n, 9n, 25n, 1n, {==}), D_ge(16n, d9)))
-  +h10 = core.len(p, ds, m, h25, rd, h1, vm, h363)
+  +h10 = core.len(p, ds, m, h25, rd, h1, vm, h290)
   +e = Equal.trans(Nat, Nat.double(h25), h26, U32.to_nat(67108864),
     Equal.sym(Nat, h26, Nat.double(h25), D_succ(25n, 1n)), Equal.sym(Nat, U32.to_nat(67108864), h26, val_M2()))
   +h11 = N.le_rw_r(1n+n, Nat.double(h25), U32.to_nat(67108864), e, h10)
