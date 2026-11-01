@@ -1,5 +1,6 @@
 HEADLINE(s):
-1 - This is a human-written version of PLAN.md that MUST NOT be touched by ANY agent for ANY reason and it is the ultimate source of truth for this whole plan. IF THERE IS ANY DRIFT CODE-WISE OR DOCUMENTATION-WISE - THIS IS CORRECT AND I SHOULD BE WARNED IMMEDIATELY. DESPITE WHAT ANY OTHER DOCS MAY SAY: UNTRUSTWORTHY BEND DOES NOT RUN ON WINDOWS OUTSIDE WSL. THERE IS NO BEND-LINT. THIS IS EVEN ABOVE AGENTS.MD AND ANY SKILL.
+1 - This is a human-written and MUST NOT be touched by ANY agent for ANY reason.
+2 - This is the ultimate source of truth for the project and every change must consult it to ensure the code or other docs are fully this-file compliant, so ANY drift must immediately pause the work and I should be communicated in detail what the blocker is and how to objectively best proceed.
 
 OUR GOALS:
 1 - Our goal is a Bend compiler written in Bend(this doesn't necessarily include creating bend's CHECKER in bend btw) THAT I CAN TRUST(NEVER DISAGREES WITH THE KERNEL ABOUT WHAT THE KERNEL PROVES OR DISPROVES). WE ACCEPT SLOWNESS OR A BEND INTERPRETER-OR-COMPILER WRITTEN IN LEAN ALONG THE WAY. GETTING THIS RIGHT FROM THE START IS AN ABSOLUTE MUST. BEND IS ONLY WHAT THE PROVEN KERNEL GIVES A MEANING TO: EACH DEF WITH A BODY. DEFS WITH NO BODY ARE OUT: F32, EFFECTS, HANDLES, ARRAY ATOMICS.  WHEN WE ADD TO OUR COMPILER (OPTIMIZATIONS, OR FEATURES BEYOND THE PROVEN BEND), THE LAW FOR THE PROVEN BEND (INVARIANTS #1 AND #4) STAYS EXACTLY AS IT IS AND MUST STILL PASS --verdict. SO OUR COMPILER ALWAYS STAYS A PROVEN BEND COMPILER
