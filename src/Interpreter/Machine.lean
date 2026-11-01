@@ -44,11 +44,34 @@ namespace Machine
 @[csimp] theorem get_getC : @Book.get = @getC := by
   funext bk k; unfold Book.get getC; split <;> simp_all
 
+-- what is known of a term: nothing, that it is a value, or that it is Data
+-- (so a λ+ takes it without a check)
+inductive Know where
+  | none
+  | value
+  | data
+
+-- known to be a value
+@[inline] def Know.isValue : Know → Bool
+  | .none => false
+  | _ => true
+
+-- a value when live
+@[inline] def Know.ofLive (b : Bool) : Know := if b then .value else .none
+
+-- a value, Data when d
+@[inline] def Know.ofData (d : Bool) : Know := if d then .data else .value
+
+-- known to be Data
+@[inline] def Know.isData : Know → Bool
+  | .data => true
+  | _ => false
+
 -- the terms of a term's variables, the innermost first: each under its own
--- locals, with whether it is known to be a value
+-- locals, with what is known of it
 inductive Locals where
   | nil
-  | cons (t : Term) (l : Locals) (k : Bool) (rest : Locals)
+  | cons (t : Term) (l : Locals) (k : Know) (rest : Locals)
 
 -- the term of each local, under its locals
 def Locals.terms : Locals → List Term
@@ -69,22 +92,22 @@ def Locals.drop : Locals → Nat → Locals
   | l, _ => l
 
 -- the local v of l, when l has it (inlined, so that the pair is not built)
-@[inline] def Locals.get? (l : Locals) (v : Nat) : Option (Term × Locals × Bool) :=
+@[inline] def Locals.get? (l : Locals) (v : Nat) : Option (Term × Locals × Know) :=
   match l.drop v with
   | .cons t l k _ => some (t, l, k)
   | .nil => none
 
--- an argument of a walk: its quantity, its term under its locals, and whether
--- it is known to be a value
+-- an argument of a walk: its quantity, its term under its locals, and what is
+-- known of it
 structure MArg where
   q : Quan
   t : Term
   l : Locals
-  k : Bool
+  k : Know
 
 -- the local v of l as an argument at q, or the variable that is beyond l
 def localArg (q : Quan) : Locals → Nat → MArg
-  | .nil, v => ⟨q, Var v, .nil, false⟩
+  | .nil, v => ⟨q, Var v, .nil, .none⟩
   | .cons t l k _, 0 => ⟨q, t, l, k⟩
   | .cons _ _ _ rest, v + 1 => localArg q rest v
 
@@ -128,7 +151,7 @@ def resolveVar : Term → Locals → Term × Locals
 -- locals, and the arguments, each under its locals; the live ones of a value
 -- are values
 def unspineL : Term → Locals → List MArg → Term × Locals × List MArg
-  | App q f x, l, xs => unspineL f l (⟨q, x, l, q.live⟩ :: xs)
+  | App q f x, l, xs => unspineL f l (⟨q, x, l, .ofLive q.live⟩ :: xs)
   | Var 0, .cons t l _ _, xs => unspineL t l xs
   | Var (v + 1), .cons _ _ _ rest, xs => unspineL (Var v) rest xs
   | t, l, xs => (t, l, xs)
@@ -144,9 +167,12 @@ def dataAt : Term → Locals → Bool
   | _, _ => false
 termination_by t l => (sizeOf l, sizeOf t)
 
--- bindsAt p q (close x l)
-def bindsAtL (p q : Quan) (x : Term) (l : Locals) : Bool :=
-  p.live == q.live && (p != Q2 || dataAt x l)
+-- bindsAt p q (close x l), with k known of it
+def bindsAtL (p q : Quan) (x : Term) (l : Locals) (k : Know) : Bool :=
+  p.live == q.live && (p != Q2 || k matches .data || dataAt x l)
+
+-- what is known of an argument that a λ of quantity p takes: Data, when p is 2
+@[inline] def Know.bind (p : Quan) (k : Know) : Know := if p = Q2 then .data else k
 
 -- the term has no variable: no locals change it
 def noVars : Term → Bool
@@ -157,10 +183,12 @@ def noVars : Term → Bool
     noVars a && noVars b
   | Eql a b c | Rwt a b c => noVars a && noVars b && noVars c
 
--- noVars t && value bk t, in one walk of a pair
-def closedValue (bk : Book) : Term → Bool
-  | Tup q a b => (if q.live then closedValue bk a else noVars a) && closedValue bk b
-  | t => noVars t && value bk t
+-- the term is labels and proofs in pairs, whose dead parts have no variable:
+-- Data, and its own value under any locals
+def closedData : Term → Bool
+  | Lab _ | Rfl => true
+  | Tup q a b => (if q.live then closedData a else noVars a) && closedData b
+  | _ => false
 
 -- where a walk of a case tree ends: at its leaf, under its locals, with the
 -- arguments left; at the node that needs more arguments, under its locals;
@@ -174,18 +202,19 @@ inductive Reach where
 -- arguments, it can go on from where it waits
 def walkOpen (bk : Book) : Term → Locals → List MArg → Reach
   | Lam p f, l, ⟨q, x, xl, k⟩ :: xs =>
-    if bindsAtL p q x xl then walkOpen bk f (.cons x xl k l) xs else .fail
+    if bindsAtL p q x xl k then walkOpen bk f (.cons x xl (k.bind p) l) xs else .fail
   | Prj h, l, ⟨q, x, xl, k⟩ :: xs =>
     match resolve x xl with
     | (Tup r a b, al) =>
-      if q.live then walkOpen bk h l (⟨Quan.fld r q, a, al, k && r.live⟩ :: ⟨q, b, al, k⟩ :: xs)
+      if q.live then
+        walkOpen bk h l (⟨Quan.fld r q, a, al, if r.live then k else .none⟩ :: ⟨q, b, al, k⟩ :: xs)
       else .fail
     | _ => .fail
   | Mat j h m, l, ⟨q, x, xl, _⟩ :: xs =>
     match resolve x xl with
     | (Lab i, _) =>
       if q.live then
-        if i = j then walkOpen bk h l xs else walkOpen bk m l (⟨q, Lab i, .nil, true⟩ :: xs)
+        if i = j then walkOpen bk h l xs else walkOpen bk m l (⟨q, Lab i, .nil, .data⟩ :: xs)
       else .fail
     | _ => .fail
   | App q f (Var v), l, xs =>
@@ -215,8 +244,8 @@ inductive Frame where
   | letIn (q : Quan) (f : Term) (l : Locals)
   -- Tup q □ b, with b under l
   | tupB (q : Quan) (b : Term) (l : Locals)
-  -- Tup q a □, with a under l a value when q is live
-  | tupA (q : Quan) (a : Term) (l : Locals)
+  -- Tup q a □, with a under l a value when q is live, known to be Data when d
+  | tupA (q : Quan) (a : Term) (l : Locals) (d : Bool)
   -- Rwt □ P f, with P and f under l
   | rwt (P f : Term) (l : Locals)
   -- Min □ b, with b under l
@@ -235,7 +264,7 @@ def Frame.plug : Frame → Term → Term
   | .appFun q f l, t => App q (close f l) t
   | .letIn q f l, t => Let q t (sub (Subst.up (subst l)) f)
   | .tupB q b l, t => Tup q t (close b l)
-  | .tupA q a l, t => Tup q (close a l) t
+  | .tupA q a l _, t => Tup q (close a l) t
   | .rwt P f l, t => Rwt t (sub (Subst.up (Subst.up (subst l))) P) (close f l)
   | .minB b l, t => Term.Min t (close b l)
   | .call k _ _ rxs q ys l, t => spine (App q (spine (Ref k) (rxs.reverse.map argOf)) t) (ys.map (argAt l))
@@ -244,8 +273,8 @@ def Frame.plug : Frame → Term → Term
 inductive Focus where
   -- t under l, to evaluate
   | ev (t : Term) (l : Locals)
-  -- the value v under l
-  | ret (v : Term) (l : Locals)
+  -- the value v under l, known to be Data when d
+  | ret (v : Term) (l : Locals) (d : Bool)
 
 -- the focus, and its frames, the innermost first
 structure State where
@@ -254,7 +283,7 @@ structure State where
 
 def Focus.term : Focus → Term
   | .ev t l => close t l
-  | .ret v l => close v l
+  | .ret v l _ => close v l
 
 -- the frames st around t, the innermost first
 def plugs (st : List Frame) (t : Term) : Term := st.foldl (fun t f => f.plug t) t
@@ -275,7 +304,7 @@ inductive Move where
   | stop (from_ : State)
 
 -- the frames of a spine's arguments, the innermost first
-def argFrames (ys : List MArg) : List Frame := ys.map fun ⟨q, y, l, k⟩ => .appVal q y l k
+def argFrames (ys : List MArg) : List Frame := ys.map fun ⟨q, y, l, k⟩ => .appVal q y l k.isValue
 
 -- an argument put together, from its head: the locals that its head does not
 -- use are not put into a term
@@ -294,14 +323,14 @@ def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat
 @[inline] def callMove (bk : Book) (tb : Ops.Table) (k : String) (xs : List MArg) (st : List Frame)
     (v : Term) (vl : Locals) (from_ : Unit → State) : Move :=
   match opsCall tb k xs with
-  | some (r, n) => .jump n ⟨.ret r .nil, st⟩ (from_ ())
+  | some (r, n) => .jump n ⟨.ret r .nil true, st⟩ (from_ ())
   | none =>
     match bk.get k with
     | none => .stop (from_ ())
     | some d =>
       match walkOpen bk d.v .nil xs with
       | .leaf t l ys => .step ⟨.ev t l, argFrames ys ++ st⟩
-      | .need _ _ => .admin ⟨.ret v vl, st⟩
+      | .need _ _ => .admin ⟨.ret v vl false, st⟩
       | .fail => .stop (from_ ())
 
 -- the frame that an application of a value came from: App q □ x (appArg),
@@ -315,9 +344,9 @@ inductive AppFrom where
 def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (x : Term)
     (xl : Locals) (st : List Frame) : State :=
   match w with
-  | .arg => ⟨.ret f fl, .appArg q x xl :: st⟩
-  | .val => ⟨.ret f fl, .appVal q x xl k :: st⟩
-  | .fun => ⟨.ret x xl, .appFun q f fl :: st⟩
+  | .arg => ⟨.ret f fl false, .appArg q x xl :: st⟩
+  | .val => ⟨.ret f fl false, .appVal q x xl k :: st⟩
+  | .fun => ⟨.ret x xl false, .appFun q f fl :: st⟩
 
 -- App q f x, in the frames st, with f under fl a value, and x under xl a value
 -- when q is live; it came from the frame w
@@ -325,7 +354,7 @@ def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (
     (xl : Locals) (st : List Frame) (w : AppFrom) (k : Bool) : Move :=
   match resolve f fl with
   | (Lam p b, bl) =>
-    if bindsAtL p q x xl then .step ⟨.ev b (.cons x xl q.live bl), st⟩
+    if bindsAtL p q x xl (.ofLive q.live) then .step ⟨.ev b (.cons x xl ((Know.ofLive q.live).bind p) bl), st⟩
     else .stop (w.state k q f fl x xl st)
   | (Prj h, hl) =>
     match resolve x xl with
@@ -341,9 +370,9 @@ def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (
       else .stop (w.state k q f fl x xl st)
     | _ => .stop (w.state k q f fl x xl st)
   | _ =>
-    match unspineL f fl [⟨q, x, xl, q.live⟩] with
+    match unspineL f fl [⟨q, x, xl, .ofLive q.live⟩] with
     | (Ref c, _, ys) =>
-      callMove bk tb c ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl q.live fl)
+      callMove bk tb c ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl (.ofLive q.live) fl)
         (fun _ => w.state k q f fl x xl st)
     | _ => .stop (w.state k q f fl x xl st)
 
@@ -369,46 +398,48 @@ theorem share_eq : share t = t := by
   · rfl
 
 -- the value of t under l, when it is one without a step and without a frame:
--- a value that l knows, a label, a node of a case tree or a former
-@[inline] def imm (t : Term) (l : Locals) : Option (Term × Locals) :=
+-- a value that l knows, a label, a node of a case tree or a former; and
+-- whether it is known to be Data
+@[inline] def imm (t : Term) (l : Locals) : Option (Term × Locals × Bool) :=
   match t with
   | Var i =>
     match l.get? i with
-    | some (x, xl, true) => some (x, xl)
-    | _ => none
-  | Lab _ | Rfl | Efq | Enu _ => some (t, .nil)
-  | Lam .. | Prj _ | Mat .. | Typ _ | All .. | Sig .. | Eql .. => some (t, l)
+    | some (x, xl, k) => if k.isValue then some (x, xl, k.isData) else none
+    | none => none
+  | Lab _ | Rfl => some (t, .nil, true)
+  | Efq | Enu _ => some (t, .nil, false)
+  | Lam .. | Prj _ | Mat .. | Typ _ | All .. | Sig .. | Eql .. => some (t, l, false)
   | _ => none
 
 -- the value t under l, when it is one without a step and without a frame (imm),
--- or a pair with no variable that is a value
-@[inline] def immTup (bk : Book) (t : Term) (l : Locals) : Option (Term × Locals) :=
+-- or Data in pairs with no variable (closedData)
+@[inline] def immTup (t : Term) (l : Locals) : Option (Term × Locals × Bool) :=
   match t with
-  | Tup .. => if closedValue bk t then some (t, .nil) else none
+  | Tup .. => if closedData t then some (t, .nil, true) else none
   | t => imm t l
 
--- the value v under vl in the frames st: each pair of the frames that it
--- completes without a step is put together
-def retTups (v : Term) (vl : Locals) : List Frame → State
-  | .tupA q a al :: st => retTups (share (Tup q (close a al) (close v vl))) .nil st
+-- the value v under vl, known to be Data when d, in the frames st: each pair of
+-- the frames that it completes without a step is put together
+def retTups (v : Term) (vl : Locals) (d : Bool) : List Frame → State
+  | .tupA q a al da :: st => retTups (share (Tup q (close a al) (close v vl))) .nil ((!q.live || da) && d) st
   | .tupB q b l :: st =>
     match imm b l with
-    | some (b', bl) => retTups (share (Tup q (close v vl) (close b' bl))) .nil st
-    | none => ⟨.ev b l, .tupA q v vl :: st⟩
-  | st => ⟨.ret v vl, st⟩
+    | some (b', bl, db) => retTups (share (Tup q (close v vl) (close b' bl))) .nil (d && db) st
+    | none => ⟨.ev b l, .tupA q v vl d :: st⟩
+  | st => ⟨.ret v vl d, st⟩
 
 -- Tup q a b under l, in the frames st: its value, or the frames of its parts
 -- down to the first part that takes a step
-def evTup (bk : Book) (q : Quan) (a b : Term) (l : Locals) (st : List Frame) : Move :=
-  match (if q.live then imm a l else some (a, l)) with
+def evTup (q : Quan) (a b : Term) (l : Locals) (st : List Frame) : Move :=
+  match (if q.live then imm a l else some (a, l, true)) with
   | none => .admin ⟨.ev a l, .tupB q b l :: st⟩
-  | some (a', al) =>
-    match immTup bk b l with
-    | some (b', bl) => .admin (retTups (share (Tup q (close a' al) (close b' bl))) .nil st)
+  | some (a', al, da) =>
+    match immTup b l with
+    | some (b', bl, db) => .admin (retTups (share (Tup q (close a' al) (close b' bl))) .nil (da && db) st)
     | none =>
       match b with
-      | Tup q' a2 b2 => evTup bk q' a2 b2 l (.tupA q a' al :: st)
-      | b => .admin ⟨.ev b l, .tupA q a' al :: st⟩
+      | Tup q' a2 b2 => evTup q' a2 b2 l (.tupA q a' al da :: st)
+      | b => .admin ⟨.ev b l, .tupA q a' al da :: st⟩
 
 -- the frames of the arguments ys under l, the first innermost, around st
 def appArgs (l : Locals) : List Arg → List Frame → List Frame
@@ -420,9 +451,9 @@ def appArgs (l : Locals) : List Arg → List Frame → List Frame
 def ready (q : Quan) (y : Term) (l : Locals) : Option MArg :=
   if q.live then
     match imm y l with
-    | some (x, xl) => some ⟨q, x, xl, true⟩
+    | some (x, xl, d) => some ⟨q, x, xl, .ofData d⟩
     | none => none
-  else some ⟨q, y, l, false⟩
+  else some ⟨q, y, l, .none⟩
 
 -- spine (Ref k) xs, with xs the last first (rxs), as a term under its locals
 def papOf (k : String) : List MArg → Term × Locals
@@ -438,16 +469,17 @@ def papOf (k : String) : List MArg → Term × Locals
   | .need u ul => next u ul
   | .leaf u ul zs =>
     match opsCall tb k (a :: rxs).reverse with
-    | some (r, n) => .jump n ⟨.ret r .nil, appArgs l ys st⟩ ⟨.ret a.t a.l, .call k t tl rxs a.q ys l :: st⟩
+    | some (r, n) =>
+      .jump n ⟨.ret r .nil true, appArgs l ys st⟩ ⟨.ret a.t a.l false, .call k t tl rxs a.q ys l :: st⟩
     | none => .step ⟨.ev u ul, argFrames zs ++ appArgs l ys st⟩
-  | .fail => .stop ⟨.ret a.t a.l, .call k t tl rxs a.q ys l :: st⟩
+  | .fail => .stop ⟨.ret a.t a.l false, .call k t tl rxs a.q ys l :: st⟩
 
 -- the arguments ys under l go, one after the other, into the call of k, whose
 -- walk waits at t under tl after rxs; one that must take steps first gets a
 -- frame
 def go (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs : List MArg)
     (l : Locals) (st : List Frame) : List Arg → Move
-  | [] => .admin ⟨.ret (papOf k rxs).1 (papOf k rxs).2, st⟩
+  | [] => .admin ⟨.ret (papOf k rxs).1 (papOf k rxs).2 false, st⟩
   | (q, y) :: ys =>
     match ready q y l with
     | some a => feed bk tb k t tl rxs a ys l st fun u ul => go bk tb k u ul (a :: rxs) l st ys
@@ -458,8 +490,7 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
     match t with
     | Var i =>
       match l.get? i with
-      | some (x, xl, true) => .admin ⟨.ret x xl, st⟩
-      | some (x, xl, false) => .admin ⟨.ev x xl, st⟩
+      | some (x, xl, k) => if k.isValue then .admin ⟨.ret x xl k.isData, st⟩ else .admin ⟨.ev x xl, st⟩
       | none => .stop ⟨.ev (Var i) l, st⟩
     | Ref k => callMove bk tb k [] st (Ref k) .nil (fun _ => ⟨.ev (Ref k) l, st⟩)
     | Ann x _ => .step ⟨.ev x l, st⟩
@@ -472,19 +503,19 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
       | _ => .admin ⟨.ev f l, .appArg q x l :: st⟩
     | Let q v f =>
       if q.live then .admin ⟨.ev v l, .letIn q f l :: st⟩
-      else .step ⟨.ev f (.cons v l false l), st⟩
+      else .step ⟨.ev f (.cons v l .none l), st⟩
     | Tup q a b =>
-      if closedValue bk (Tup q a b) then .admin ⟨.ret (Tup q a b) .nil, st⟩
-      else evTup bk q a b l st
+      if closedData (Tup q a b) then .admin ⟨.ret (Tup q a b) .nil true, st⟩
+      else evTup q a b l st
     | Rwt e P f => .admin ⟨.ev e l, .rwt P f l :: st⟩
     | Term.Min a b => .admin ⟨.ev a l, .minB b l :: st⟩
-    | Lab k => .admin ⟨.ret (Lab k) .nil, st⟩
-    | Rfl => .admin ⟨.ret Rfl .nil, st⟩
-    | Efq => .admin ⟨.ret Efq .nil, st⟩
-    | Enu ks => .admin ⟨.ret (Enu ks) .nil, st⟩
-    | t => .admin ⟨.ret t l, st⟩
-  | ⟨.ret v vl, []⟩ => .stop ⟨.ret v vl, []⟩
-  | ⟨.ret v vl, f :: st⟩ =>
+    | Lab k => .admin ⟨.ret (Lab k) .nil true, st⟩
+    | Rfl => .admin ⟨.ret Rfl .nil true, st⟩
+    | Efq => .admin ⟨.ret Efq .nil false, st⟩
+    | Enu ks => .admin ⟨.ret (Enu ks) .nil false, st⟩
+    | t => .admin ⟨.ret t l false, st⟩
+  | ⟨.ret v vl d, []⟩ => .stop ⟨.ret v vl d, []⟩
+  | ⟨.ret v vl d, f :: st⟩ =>
     match f with
     | .appArg q x l =>
       if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk tb q v vl x l st .arg false
@@ -493,22 +524,23 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
       else appMove bk tb q v vl x l st .val k
     | .appFun q g gl => appMove bk tb q g gl v vl st .fun false
     | .letIn q f l =>
-      if q != Q2 || dataAt v vl then .step ⟨.ev f (.cons v vl true l), st⟩
-      else .stop ⟨.ret v vl, .letIn q f l :: st⟩
-    | .tupB q b l => .admin (retTups v vl (.tupB q b l :: st))
-    | .tupA q a al => .admin (retTups v vl (.tupA q a al :: st))
+      if q != Q2 || d || dataAt v vl then .step ⟨.ev f (.cons v vl ((Know.ofData d).bind q) l), st⟩
+      else .stop ⟨.ret v vl d, .letIn q f l :: st⟩
+    | .tupB q b l => .admin (retTups v vl d (.tupB q b l :: st))
+    | .tupA q a al da => .admin (retTups v vl d (.tupA q a al da :: st))
     | .rwt P f l =>
-      if (resolve v vl).1 = Rfl then .step ⟨.ev f l, st⟩ else .stop ⟨.ret v vl, .rwt P f l :: st⟩
+      if (resolve v vl).1 = Rfl then .step ⟨.ev f l, st⟩ else .stop ⟨.ret v vl d, .rwt P f l :: st⟩
     | .minB b l =>
       .admin ⟨.ev b l, .minA (match resolve v vl with | (Lab i, _) => Lab i | _ => close v vl) :: st⟩
     | .call k t tl rxs q ys l =>
-      feed bk tb k t tl rxs ⟨q, v, vl, true⟩ ys l st fun u ul => go bk tb k u ul (⟨q, v, vl, true⟩ :: rxs) l st ys
+      feed bk tb k t tl rxs ⟨q, v, vl, .ofData d⟩ ys l st fun u ul =>
+        go bk tb k u ul (⟨q, v, vl, .ofData d⟩ :: rxs) l st ys
     | .minA a =>
       match a, (resolve v vl).1 with
       | Lab i, Lab j =>
         if i ∈ QS ∧ j ∈ QS then .step ⟨.ev (Term.qmin (Lab i) (Lab j)) .nil, st⟩
-        else .stop ⟨.ret v vl, .minA a :: st⟩
-      | _, _ => .stop ⟨.ret v vl, .minA a :: st⟩
+        else .stop ⟨.ret v vl d, .minA a :: st⟩
+      | _, _ => .stop ⟨.ret v vl d, .minA a :: st⟩
 
 -- the moves that a run makes before stepwise takes over: far more than a run
 -- can make in practice

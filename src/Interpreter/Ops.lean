@@ -440,4 +440,34 @@ theorem call_sound (h : call (prepare bk) k xs = some (r, n)) :
   next op e => exact Op.run_sound (prepare_sound k op e) h
   next => cases h
 
+-- the term of an operation is Data
+theorem Op.run_data (hok : Op.ok bk k op = true) (h : Op.run op xs = some (r, n)) : Data r := by
+  have hu : ∀ v, Data (mkU32 v) := fun v => by rw [mkU32_eq]; exact data_iff.1 data_u32
+  have hb : ∀ b, Data (boolT b) := fun b => by rw [boolT_eq]; exact data_bool
+  have hc : ∀ o, Data (cmpTF o) := fun o => by rw [cmpTF_eq]; exact data_ctor nofun
+  cases op
+  case lit v t =>
+    simp only [Op.ok, Bool.and_eq_true, beq_iff_eq] at hok
+    obtain ⟨-, rfl⟩ := hok
+    simp only [Op.run] at h
+    split at h
+    · cases h; exact data_iff.1 data_u32
+    · cases h
+  case to_nat =>
+    simp only [Op.run, Option.bind_eq_some_iff] at h
+    obtain ⟨v, -, e⟩ := h
+    split at e
+    · cases e; rw [natUp_eq]; exact data_nat
+    · cases e
+  all_goals
+    simp only [Op.run, Option.map_eq_some_iff, Prod.mk.injEq] at h
+    obtain ⟨_, -, rfl, -⟩ := h
+    first | exact hu _ | exact hb _ | exact hc _
+
+theorem call_data (h : call (prepare bk) k xs = some (r, n)) : Data r := by
+  unfold call at h
+  split at h
+  next op e => exact Op.run_data (prepare_sound k op e) h
+  next => cases h
+
 end Ops

@@ -10,24 +10,71 @@ open Quan Term
 
 namespace Machine
 
--- each local known to be a value is one, and its own locals know the same
+-- what is known of t is true
+def Know.Ok (bk : Book) (t : Term) : Know → Prop
+  | .none => True
+  | .value => Value bk t
+  | .data => Data t
+
+-- Data is a value
+theorem data_value (h : Data t) : Value bk t := by
+  induction h with
+  | lab => exact .lab
+  | rfl => exact .rfl
+  | tup _ _ iha ihb => exact .tup iha ihb
+
+-- a term known to be a value is one
+theorem Know.Ok.value (h : Know.Ok bk t k) (hv : k.isValue = true) : Value bk t := by
+  cases k
+  · cases hv
+  · exact h
+  · exact data_value h
+
+-- a term known to be Data is
+theorem Know.Ok.data (h : Know.Ok bk t k) (hd : k.isData = true) : Data t := by
+  cases k <;> simp [Know.isData] at hd
+  exact h
+
+theorem Know.ofData_ok (hv : Value bk t) (hd : d = true → Data t) : (Know.ofData d).Ok bk t := by
+  cases d
+  · exact hv
+  · exact hd rfl
+
+theorem Know.ofData_isValue : (Know.ofData d).isValue = true := by
+  cases d <;> rfl
+
+theorem Know.ofLive_ok (h : b = true → Value bk t) : (Know.ofLive b).Ok bk t := by
+  cases b
+  · trivial
+  · exact h rfl
+
+theorem Know.ofLive_isValue : (Know.ofLive b).isValue = b := by
+  cases b <;> rfl
+
+-- what a λ of quantity p knows of what it takes
+theorem Know.bind_ok (hk : Know.Ok bk t k) (hd : p = Q2 → Data t) : (k.bind p).Ok bk t := by
+  unfold Know.bind
+  split
+  · exact hd ‹_›
+  · exact hk
+
+-- what each local knows of itself is true, and its own locals know the same
 def Locals.Ok (bk : Book) : Locals → Prop
   | .nil => True
-  | .cons t l k rest => (k = true → Value bk (close t l)) ∧ l.Ok bk ∧ rest.Ok bk
+  | .cons t l k rest => k.Ok bk (close t l) ∧ l.Ok bk ∧ rest.Ok bk
 
 -- an argument put together, by its parts
 theorem argOf_eq : argOf a = (a.q, close a.t a.l) := rfl
 
--- the locals of an argument know what is true, and it is a value when its flag
--- says so
+-- the locals of an argument know what is true, and so does what is known of it
 def argOk (bk : Book) (a : MArg) : Prop :=
-  a.l.Ok bk ∧ (a.k = true → Value bk (close a.t a.l))
+  a.l.Ok bk ∧ a.k.Ok bk (close a.t a.l)
 
 -- a call of k whose walk waits at t under tl after the arguments rxs, the last
 -- first: each argument is a value when it is live, and the walk of k's case tree
 -- on them goes on as the walk from t under tl
 def CallOk (bk : Book) (k : String) (t : Term) (tl : Locals) (rxs : List MArg) : Prop :=
-  takes t = true ∧ tl.Ok bk ∧ (∀ a ∈ rxs, argOk bk a ∧ a.k = a.q.live) ∧
+  takes t = true ∧ tl.Ok bk ∧ (∀ a ∈ rxs, argOk bk a ∧ a.k.isValue = a.q.live) ∧
     ∃ d, Book.get bk k = some d ∧
       ∀ zs, walk bk d.v [] (rxs.reverse.map argOf ++ zs) = walk bk t tl.terms zs
 
@@ -38,7 +85,8 @@ def Frame.Ok (bk : Book) : Frame → Prop
   | .appFun q f l => q.live = true ∧ Value bk (close f l) ∧ l.Ok bk
   | .letIn q _ l => q.live = true ∧ l.Ok bk
   | .tupB q _ l => q.live = true ∧ l.Ok bk
-  | .tupA q a l => (q.live = true → Value bk (close a l)) ∧ l.Ok bk
+  | .tupA q a l d => (q.live = true → Value bk (close a l)) ∧ l.Ok bk ∧
+      (q.live = true → d = true → Data (close a l))
   | .rwt _ _ l => l.Ok bk
   | .minB _ l => l.Ok bk
   | .call k t tl rxs q _ l => q.live = true ∧ CallOk bk k t tl rxs ∧ l.Ok bk
@@ -46,7 +94,7 @@ def Frame.Ok (bk : Book) : Frame → Prop
 
 def Focus.Ok (bk : Book) : Focus → Prop
   | .ev _ l => l.Ok bk
-  | .ret v l => Value bk (close v l) ∧ l.Ok bk
+  | .ret v l d => Value bk (close v l) ∧ l.Ok bk ∧ (d = true → Data (close v l))
 
 -- what the state knows is true
 def State.Ok (bk : Book) (s : State) : Prop := s.focus.Ok bk ∧ ∀ f ∈ s.stack, f.Ok bk
@@ -118,13 +166,22 @@ theorem get?_zero : (Locals.cons t l k r).get? 0 = some (t, l, k) := rfl
 
 theorem get?_succ : (Locals.cons t l k r).get? (i + 1) = r.get? i := rfl
 
--- noVars t && value bk t, in one walk
-theorem closedValue_eq : closedValue bk t = (noVars t && value bk t) := by
-  induction t
-  case Tup q a b iha _ =>
-    simp only [closedValue, noVars, value, iha, *]
-    cases q.live <;> cases noVars a <;> cases value bk a <;> simp
-  all_goals simp only [closedValue]
+-- labels and proofs in pairs: no variable, and Data
+theorem closedData_ok (h : closedData t = true) : noVars t = true ∧ Data t := by
+  induction t with
+  | Lab => exact ⟨rfl, .lab⟩
+  | Rfl => exact ⟨rfl, .rfl⟩
+  | Tup q a b iha ihb =>
+    simp only [closedData, Bool.and_eq_true] at h
+    obtain ⟨ha, hb⟩ := h
+    have hb' := ihb hb
+    split at ha
+    next hq =>
+      have ha' := iha ha
+      exact ⟨by simp [noVars, ha'.1, hb'.1], .tup (fun _ => ha'.2) hb'.2⟩
+    next hq => exact ⟨by simp [noVars, ha, hb'.1], .tup (fun h => absurd h hq) hb'.2⟩
+  | Var | Ref | Ann | Let | Typ | Min | All | Lam | App | Sig | Prj | Enu | Mat | Efq | Eql | Rwt =>
+    simp [closedData] at h
 
 -- the local i, when l has it
 theorem get?_close (h : l.get? i = some (x, xl, k)) : subst l i = close x xl := by
@@ -140,7 +197,7 @@ theorem get?_close (h : l.get? i = some (x, xl, k)) : subst l i = close x xl := 
 
 -- the local i knows what is true
 theorem get?_ok {l : Locals} (hl : l.Ok bk) (h : l.get? i = some (x, xl, k)) :
-    (k = true → Value bk (close x xl)) ∧ xl.Ok bk := by
+    k.Ok bk (close x xl) ∧ xl.Ok bk := by
   induction l generalizing i with
   | nil => rw [get?_nil] at h; cases h
   | cons t l' k' r _ ih =>
@@ -163,7 +220,7 @@ theorem localArg_eq : argOf (localArg q l v) = (q, subst l v) := by
 -- the local v knows what is true
 theorem localArg_ok (hl : l.Ok bk) : argOk bk (localArg q l v) := by
   induction l generalizing v with
-  | nil => exact ⟨trivial, nofun⟩
+  | nil => exact ⟨trivial, trivial⟩
   | cons t l k r _ ih =>
     cases v with
     | zero => exact ⟨hl.2.1, hl.1⟩
@@ -243,8 +300,13 @@ theorem dataAt_eq : dataAt t l = data (close t l) := by
     all_goals simp_all [close_eq, sub, data]
 
 -- bindsAtL is bindsAt of the term
-theorem bindsAtL_eq : bindsAtL p q x l = bindsAt p q (close x l) := by
-  simp only [bindsAtL, bindsAt, dataAt_eq]
+theorem bindsAtL_eq (hk : Know.Ok bk (close x l) k) : bindsAtL p q x l k = bindsAt p q (close x l) := by
+  unfold bindsAtL bindsAt
+  rw [dataAt_eq]
+  cases k
+  · simp
+  · simp
+  · simp only [Know.Ok] at hk; simp [data_iff.2 hk]
 
 -- the term an unspine took apart
 theorem spine_unspine (h : unspine t ys = (u, zs)) : spine t ys = spine u zs := by
@@ -263,8 +325,8 @@ theorem unspineL_unspine : unspine (close t l) (xs.map argOf) =
 
 -- the arguments of unspineL have locals that know what is true, and their
 -- flags say whether they are live
-theorem unspineL_ok (hl : l.Ok bk) (hx : ∀ a ∈ xs, a.l.Ok bk ∧ a.k = a.q.live) :
-    ∀ a ∈ (unspineL t l xs).2.2, a.l.Ok bk ∧ a.k = a.q.live := by
+theorem unspineL_ok (hl : l.Ok bk) (hx : ∀ a ∈ xs, a.l.Ok bk ∧ a.k = .ofLive a.q.live) :
+    ∀ a ∈ (unspineL t l xs).2.2, a.l.Ok bk ∧ a.k = .ofLive a.q.live := by
   fun_induction unspineL t l xs
   case case1 ih =>
     refine ih hl fun a m => ?_
@@ -294,12 +356,12 @@ theorem values_of (h : ∀ p ∈ xs, p.1.live = true → Value bk p.2) : Values 
     exact .cons (h p List.mem_cons_self) (ih fun p' m => h p' (List.mem_cons_of_mem _ m))
 
 -- the arguments that went into a call are values where they are live
-theorem values_fed {rxs : List MArg} (h : ∀ a ∈ rxs, argOk bk a ∧ a.k = a.q.live) :
+theorem values_fed {rxs : List MArg} (h : ∀ a ∈ rxs, argOk bk a ∧ a.k.isValue = a.q.live) :
     Values bk (rxs.reverse.map argOf) := by
   refine values_of fun p m hl => ?_
   simp only [List.mem_map, List.mem_reverse] at m
   obtain ⟨a, m, rfl⟩ := m
-  exact (h a m).1.2 ((h a m).2.trans hl)
+  exact (h a m).1.2.value ((h a m).2.trans hl)
 
 -- the call so far is a value: its case tree needs more arguments
 theorem CallOk.value (h : CallOk bk k t tl rxs) : Value bk (spine (Ref k) (rxs.reverse.map argOf)) := by
@@ -405,7 +467,7 @@ theorem papOf_close : close (papOf k rxs).1 (papOf k rxs).2 = spine (Ref k) (rxs
     rw [spine_fed, ← ih]
     exact close_shift
 
-theorem papOf_ok (h : ∀ a ∈ rxs, argOk bk a ∧ a.k = a.q.live) : (papOf k rxs).2.Ok bk := by
+theorem papOf_ok (h : ∀ a ∈ rxs, argOk bk a ∧ a.k.isValue = a.q.live) : (papOf k rxs).2.Ok bk := by
   induction rxs with
   | nil => trivial
   | cons a rxs ih =>
@@ -418,47 +480,60 @@ theorem takes_value (h : takes t = true) : Value bk (close t l) := by
   cases t <;> simp [takes] at h <;> simp only [close_eq, sub] <;> constructor
 
 -- a value without a step: the term it stands for is the term
-theorem imm_ok (hl : l.Ok bk) (h : imm t l = some (v, vl)) :
-    close v vl = close t l ∧ Value bk (close v vl) ∧ vl.Ok bk := by
+theorem imm_ok (hl : l.Ok bk) (h : imm t l = some (v, vl, d)) :
+    close v vl = close t l ∧ Value bk (close v vl) ∧ vl.Ok bk ∧ (d = true → Data (close v vl)) := by
   cases t with
   | Var i =>
     simp only [imm] at h
     split at h
-    next x xl hx =>
-      cases h
-      have ho := get?_ok hl hx
-      exact ⟨by rw [close_var, get?_close hx], ho.1 rfl, ho.2⟩
+    next x xl k hx =>
+      split at h
+      next hv =>
+        cases h
+        have ho := get?_ok hl hx
+        refine ⟨by rw [close_var, get?_close hx], ho.1.value hv, ho.2, fun hd => ?_⟩
+        cases k <;> simp [Know.isData] at hd
+        exact ho.1
+      next => cases h
     next => cases h
-  | Lam | Prj | Mat => simp only [imm] at h; cases h; exact ⟨rfl, takes_value rfl, hl⟩
+  | Lam | Prj | Mat => simp only [imm] at h; cases h; exact ⟨rfl, takes_value rfl, hl, nofun⟩
   | Typ | All | Sig | Eql =>
     simp only [imm] at h; cases h
-    exact ⟨rfl, by simp only [close_eq, sub]; constructor, hl⟩
-  | Lab | Rfl | Efq | Enu =>
+    exact ⟨rfl, by simp only [close_eq, sub]; constructor, hl, nofun⟩
+  | Lab | Rfl =>
     simp only [imm] at h; cases h
-    refine ⟨by simp only [close_eq, sub], by simp only [close_eq, sub]; constructor, trivial⟩
+    refine ⟨by simp only [close_eq, sub], by simp only [close_eq, sub]; constructor, trivial, ?_⟩
+    intro; simp only [close_eq, sub]; constructor
+  | Efq | Enu =>
+    simp only [imm] at h; cases h
+    refine ⟨by simp only [close_eq, sub], by simp only [close_eq, sub]; constructor, trivial, nofun⟩
   | Ref | Ann | Let | Min | App | Rwt | Tup => simp [imm] at h
 
 -- the first part of a pair, when it needs no step: a dead one, or a value
 theorem imm_part {q : Quan} {a a' : Term} {l al : Locals} (hl : l.Ok bk)
-    (h : (if q.live then imm a l else some (a, l)) = some (a', al)) :
-    close a' al = close a l ∧ (q.live = true → Value bk (close a' al)) ∧ al.Ok bk := by
+    (h : (if q.live then imm a l else some (a, l, true)) = some (a', al, da)) :
+    close a' al = close a l ∧ (q.live = true → Value bk (close a' al)) ∧ al.Ok bk ∧
+      (q.live = true → da = true → Data (close a' al)) := by
   split at h
-  next hq => obtain ⟨e, v, o⟩ := imm_ok hl h; exact ⟨e, fun _ => v, o⟩
-  next hq => cases h; exact ⟨rfl, fun h => absurd h hq, hl⟩
+  next hq => obtain ⟨e, v, o, d⟩ := imm_ok hl h; exact ⟨e, fun _ => v, o, fun _ => d⟩
+  next hq => cases h; exact ⟨rfl, fun h => absurd h hq, hl, fun h => absurd h hq⟩
 
 -- an argument that is ready: the term it stands for, and what it knows is true
 theorem ready_ok (hl : l.Ok bk) (h : ready q y l = some a) :
-    argOf a = (q, close y l) ∧ argOk bk a ∧ a.k = a.q.live := by
+    argOf a = (q, close y l) ∧ argOk bk a ∧ a.k.isValue = a.q.live := by
   unfold ready at h
   split at h
   next hq =>
     split at h
-    next x xl hx =>
+    next x xl d hx =>
       cases h
-      obtain ⟨e, v, o⟩ := imm_ok hl hx
-      exact ⟨by simp [argOf, e], ⟨o, fun _ => v⟩, hq.symm⟩
+      obtain ⟨e, v, o, hd⟩ := imm_ok hl hx
+      refine ⟨by simp [argOf, e], ⟨o, ?_⟩, by cases d <;> simp [Know.ofData, Know.isValue, hq]⟩
+      cases d
+      · exact v
+      · exact hd rfl
     next => cases h
-  next hq => cases h; exact ⟨rfl, ⟨hl, nofun⟩, by simpa using hq⟩
+  next hq => cases h; exact ⟨rfl, ⟨hl, trivial⟩, by simp only [Bool.not_eq_true] at hq; simp [hq, Know.isValue]⟩
 
 -- an argument that is not ready is live
 theorem ready_live (h : ready q y l = none) : q.live = true := by
@@ -466,5 +541,20 @@ theorem ready_live (h : ready q y l = none) : q.live = true := by
   split at h
   next hq => exact hq
   next => cases h
+
+-- what is known of a pair is known of its parts (of the first, when it is live)
+theorem Know.Ok.tup (h : Know.Ok bk (Tup r a b) k) :
+    Know.Ok bk a (if r.live then k else .none) ∧ Know.Ok bk b k := by
+  cases k
+  · split <;> exact ⟨trivial, trivial⟩
+  · have ⟨va, vb⟩ := value_tup h
+    split
+    · exact ⟨va ‹_›, vb⟩
+    · exact ⟨trivial, vb⟩
+  · cases h with
+    | tup ha hb =>
+      split
+      · exact ⟨ha ‹_›, hb⟩
+      · exact ⟨trivial, hb⟩
 
 end Machine
