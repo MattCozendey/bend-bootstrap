@@ -8,14 +8,14 @@ This is the ultimate source of truth(over any skill or deterministic tool) for t
 
 ## 0. Core
 
-1 - If a skill does not load, read its file in `.agents/skills/`.
-2 - Do not change any `.md` file without asking me.
+0.1 - If a skill does not load, read its file in `.agents/skills/`.
+0.2 - Do not change any `.md` file without asking me.
 
 ## 1. Communication
 
-1 - Speak the language you are spoken to; but shortly and without dropping important information in
+1.1 - Speak the language you are spoken to; but shortly and without dropping important information in
   ASD-STE100 (or the language's equivalent), with learnings from the `i-have-adhd`.
-2 - Use a global counter for your non-trivial questions that grows through the session. Repeat each
+1.2 - Use a global counter for your non-trivial questions that grows through the session. Repeat each
   open question in each response until I answer it or tell you to use common sense.
 
 ## 2. Code
@@ -24,21 +24,19 @@ These rules hold for every language.
 
 ### Tools
 
-- Do not work around a lint rule. Suppress/expect a finding only with a directive whose reason says why
+2.1 - Do not work around a lint rule. Suppress/expect a finding only with a directive whose reason says why
   (for example, a measurement).
-- When a deterministic tool and a skill disagree, obey the tool.
-- Before you show me your changes, do sweeps. A sweep:
-  1. Reads each changed area once with `thermo-nuclear-code-quality-review` and `erasure`, and the
+2.2 - When a deterministic tool and a skill disagree, obey the tool.
+2.3 - Before you show me your changes, do sweeps. A sweep:
+  2.3.1. Reads each changed area once with `thermo-nuclear-code-quality-review` and `erasure`, and the
      changed functions with `cyclomatic-complexity`. It fixes what they find.
-  2. Runs the project's lint and type check until they pass.
-  3. Commits its in-area changes, then its cross-area changes.
+  2.3.2. Runs the project's lint and type check until they pass.
+  2.3.3. Commits its in-area changes, then its cross-area changes.
 
   Sweep 1 reads the branch diff from its base. Before each later sweep, ask me if it reads the
   whole repo, the whole diff, or the delta (the hunks changed since the previous sweep, and their
   callers). Repeat until a sweep finds nothing to delete, no structural regression, no missed large
-  simplification and no spaghetti growth. After sweep 3, stop and ask me.
-
-- A file over 1000 lines can be fine. Ask me before you split one.
+  simplification and no spaghetti growth. After sweep 3, stop and ask me. A file over 1000 lines can be fine. Ask me before you split one.
 
 ### Documentation
 
