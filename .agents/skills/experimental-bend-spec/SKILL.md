@@ -20,7 +20,9 @@ less. A caller bug has one of two causes:
 
 ## Layout
 
-- `shared.bend` (optional, see feature layout): A self-contained module(laws, proofs, tests live in it) which imports only from Base or other self-contained shared upwards modules. 
+- `shared.bend` (optional, see feature layout): A self-contained module
+  (its laws, proofs and tests live in it). It imports only Base and the `shared` of each layer on
+  the path from it up to `src/`.
 - `spec.bend`: the full public interface, and the claims about it. It imports Base only. The user
   owns it.
 - `impl.bend`: imports `./spec.bend as Spec`. It has the code, fills each interface law, and
@@ -84,3 +86,8 @@ the `#|` lines that its run must print.
 ## Folder structure and shared modules
 
 - Features are onion-like. For each layer, there may be a `shared.bend` file XOR a `shared` folder if the utility earns it(file grows too large). A `shared` folder, being a feature, may too contain `shared.bend` XOR a nested `shared` folder if needed.
+- A `shared` module never imports a cousin. When a module that is not a descendant of a helper's
+  layer needs the helper, move the helper to the `shared` of the nearest common ancestor layer,
+  not higher.
+- A module that needs another feature, not one of its helpers, imports that feature's
+  `spec.bend` and `impl.bend` (see Layout), never its `shared`. Do not move a feature into a `shared` module to get around the rule above.
