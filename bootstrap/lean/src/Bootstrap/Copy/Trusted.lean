@@ -1,6 +1,6 @@
 import Bootstrap.Book
 
--- Made by scripts/Defs.lean from the `bend -o` output of bootstrap/bend/src/compiler/trusted.bend (provisional: proof.bend does not check yet, so this is scripts/lower.ts on trusted.bend with proof.bend's import replaced by spec.bend's and each law's proof a hole; no def or type copied here names one).
+-- Made by scripts/Defs.lean from the `bend -o` output of bootstrap/bend/src/compiler/trusted.bend (while proof.bend has open TODOs, bend -o refuses it: this is the same lowering, bend2/safe.ts, of the book that bend2 checked, with each hole read as its own def; no def or type copied here names one).
 -- Do not edit it.
 
 open Quan Term
@@ -26,10 +26,10 @@ def «trustedCopy.Compiler.compile» : Def :=
     (Term.Lam Quan.Q2 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.compile.of") (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.module") (Term.Var 0)))) (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Img.small") (Term.Var 0)) (Term.Ref "U32.lit0"))) (Term.App Quan.Q1 (Term.Ref "Book.read") (Term.Var 0)))),
     false⟩
 
-def «trustedCopy.main» : Def :=
-  ⟨"main",
-    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8)))),
-    (Term.Lam Quan.Q2 (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 0))),
+def «trustedCopy.Nat.is_le» : Def :=
+  ⟨"Nat.is_le",
+    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Bool"))),
+    (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Cmp.is_le") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.cmp") (Term.Var 1)) (Term.Var 0))))),
     false⟩
 
 def «trustedCopy.Either.arms» : Def :=
@@ -50,10 +50,10 @@ def «trustedCopy.Or» : Def :=
     (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Either") (Term.Lab "Q1")) (Term.Lab "Q1")) (Term.Var 1)) (Term.Var 0)))),
     false⟩
 
-def «trustedCopy.Nat.is_le» : Def :=
-  ⟨"Nat.is_le",
-    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Bool"))),
-    (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Cmp.is_le") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.cmp") (Term.Var 1)) (Term.Var 0))))),
+def «trustedCopy.main» : Def :=
+  ⟨"main",
+    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8)))),
+    (Term.Lam Quan.Q2 (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 0))),
     false⟩
 
 def «trustedCopy.spec.no_wrong_result» : String × Term :=
@@ -201,8 +201,8 @@ def trustedCopy : List Def :=
   [«trustedCopy.Wasm.Outcome»,
    «trustedCopy.Wasm.run»,
    «trustedCopy.Compiler.compile»,
-   «trustedCopy.main»,
+   «trustedCopy.Nat.is_le»,
    «trustedCopy.Either.arms»,
    «trustedCopy.Either»,
    «trustedCopy.Or»,
-   «trustedCopy.Nat.is_le»]
+   «trustedCopy.main»]
