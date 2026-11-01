@@ -60,9 +60,7 @@ These rules hold for every language.
 Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY (see 2.4.3). In this project:
 
 - **2.4.1** I don't expect you to run bend (the untrusted one) for this project at all, but if you
-  do; you must know that before you build or test, you must run `bend version` in the shell that you
-  build in. As of 2026-11-01, Bend does not run natively on Windows. Use WSL (note: Even with WSL,
-  parallel code won't run on the GPU).
+  do; you must know that before you build or test, you must run precisely the one inside the `bend` submodule, via WSL(if you're on Linux). FYI: Parallel code won't ron on the GPU if you're on windows, WSL or not.
 - **2.4.2** Do not change, update or rebuild the Bend submodule.
 - **2.4.3** Since we are bootstrapping, the current UNTRUSTED TypeScript compiler and the Bend guide
   are only reference guides for ideas: don't assume things from them necessarily apply to us and our
