@@ -22,58 +22,59 @@ This is the ultimate source of truth(over any skill or deterministic tool) for t
 
 These rules hold for every language.
 
-### Tools
+### 2.1 Tools
 
-2.1 - Do not work around a lint rule. Suppress/expect a finding only with a directive whose reason says why
+2.1.1 - Do not work around a lint rule. Suppress/expect a finding only with a directive whose reason says why
   (for example, a measurement).
-2.2 - When a deterministic tool and a skill disagree, obey the tool.
-2.3 - Before you show me your changes, do sweeps. A sweep:
-  2.3.1. Reads each changed area once with `thermo-nuclear-code-quality-review` and `erasure`, and the
+2.1.2 - When a deterministic tool and a skill disagree, obey the tool.
+2.1.3 - Before you show me your changes, do sweeps. A sweep:
+  2.1.3.1 - Reads each changed area once with `thermo-nuclear-code-quality-review` and `erasure`, and the
      changed functions with `cyclomatic-complexity`. It fixes what they find.
-  2.3.2. Runs the project's lint and type check until they pass.
-  2.3.3. Commits its in-area changes, then its cross-area changes.
+  2.1.3.2 - Runs the project's lint and type check until they pass.
+  2.1.3.3 - Commits its in-area changes, then its cross-area changes.
 
   Sweep 1 reads the branch diff from its base. Before each later sweep, ask me if it reads the
   whole repo, the whole diff, or the delta (the hunks changed since the previous sweep, and their
   callers). Repeat until a sweep finds nothing to delete, no structural regression, no missed large
-  simplification and no spaghetti growth. After sweep 3, stop and ask me. A file over 1000 lines can be fine. Ask me before you split one.
+  simplification and no spaghetti growth. After sweep 3, stop and ask me.
+2.1.4 - A file over 1000 lines can be fine. Ask me before you split one.
 
-### Documentation
+### 2.2 Documentation
 
-- Give each fact one location. A comment must not repeat what the docs state or clearly imply.
+2.2.1 - Give each fact one location. A comment must not repeat what the docs state or clearly imply.
 
-### Checks
+### 2.3 Checks
 
-- Ask me before you write a check. Check only a property that matters, never an implementation
+2.3.1 - Ask me before you write a check. Check only a property that matters, never an implementation
   detail.
-- Do not try to check that generated data, or a copy of a standard's text, matches its source with
+2.3.2 - Do not try to check that generated data, or a copy of a standard's text, matches its source with
   our own code. Check generated data with a test against an independent source (for example,
   another implementation, or the standard's own test vectors). That test does not replace the
   checks of the code. Tell me which copies of standard text you changed, so that I can check them.
 
-### Bend
+### 2.4 Bend(Bootstrapped)
 
-Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see point 3). In this project:
+Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see 2.4.3). In this project:
 
-- I don't expect you to run bend(the untrusted one) for this project at all, but if you do; you must know that before you build or test, you must run `bend version` in the shell that you build in. As of 2026-11-01, Bend does not run natively on Windows. Use WSL(note: Even with WSL, parallel code won't run on the GPU).
-- Do not change, update or rebuild the Bend submodule.
-- Since we are bootstrapping, don't assume things from the bend guide necessarily apply to us and our decisions. The plan reigns.
+2.4.1 - I don't expect you to run bend(the untrusted one) for this project at all, but if you do; you must know that before you build or test, you must run `bend version` in the shell that you build in. As of 2026-11-01, Bend does not run natively on Windows. Use WSL(note: Even with WSL, parallel code won't run on the GPU).
+2.4.2 - Do not change, update or rebuild the Bend submodule.
+2.4.3 - Since we are bootstrapping, don't assume things from the bend guide necessarily apply to us and our decisions. The plan reigns.
   
-### TypeScript
+### 2.5 TypeScript
 
-- Write functional code without mutation, except when speed is a priority for a file (ask me);
+2.5.1 - Write functional code without mutation, except when speed is a priority for a file (ask me);
   wherein any and all optimization opportunities are fair game.
-- Lay out each file in this order, with a comment before each section (if the section is needed):
+2.5.2 - Lay out each file in this order, with a comment before each section (if the section is needed):
   imports, types, constants, functions, side effects.
-- Write functions as `const` arrow functions.
-- Inline a helper that has only one caller; extract one only when it has more than one.
-- Name a function by what it gives: `get…` for a value (`getRecord`), `is…` or `has…` for a Bool
+2.5.3 - Write functions as `const` arrow functions.
+2.5.4 - Inline a helper that has only one caller; extract one only when it has more than one.
+2.5.5 - Name a function by what it gives: `get…` for a value (`getRecord`), `is…` or `has…` for a Bool
   (`isSpan`). Name one that gives nothing by what it does (`writeFiles`, `prune`). `try…` catches
   what it calls, and gives the failure as a value (`undefined`, or a Result) or skips it. The type,
   not the name, says that a value can be `undefined`. Constants are SCREAMING_SNAKE_CASE, types
   PascalCase, other names camelCase. `result.ts` keeps the names of its Result (`ok`, `error`,
   `wrap`, `unwrap`).
-- Do not use barrel exports or re-exports (`export { x } from "..."`, `export * from "..."`). Import
+2.5.6 - Do not use barrel exports or re-exports (`export { x } from "..."`, `export * from "..."`). Import
   each name from the module that exports it.
 
 ## 3. Project
