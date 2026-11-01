@@ -3,10 +3,10 @@ import Bootstrap.EvalSteps.Step
 -- EvalSteps
 -- =========
 --
--- AGENTS.md 3.3.2: Eval.steps, the Bend copy of Eval
+-- AGENTS.md 3.3.2: Eval.steps, the Bend version of Eval
 -- (bootstrap/bend/src/compiler), gives what the kernel's Eval gives,
 -- after the same number of steps, in both directions. The proof goes through
--- step (Bootstrap/Interp.lean), which the copy follows case for case
+-- step (Bootstrap/Interp.lean), which the version follows case for case
 -- (src/Bootstrap/EvalSteps/).
 
 open Quan Term
@@ -22,29 +22,29 @@ private theorem maybe_term_some {o : Option Term} :
     rw [term_inj this]
 
 -- n steps of step are n steps of Eval
-theorem iterate_iff : EvalCopy.iterate bk n t = some u ↔ Steps bk n t u := by
+theorem iterate_iff : EvalVersion.iterate bk n t = some u ↔ Steps bk n t u := by
   induction n generalizing t with
   | zero =>
-    simp only [EvalCopy.iterate, Option.some.injEq]
+    simp only [EvalVersion.iterate, Option.some.injEq]
     exact ⟨fun h => h ▸ .refl, fun h => by cases h; rfl⟩
   | succ n ih =>
-    simp only [EvalCopy.iterate, Option.bind_eq_some_iff]
+    simp only [EvalVersion.iterate, Option.bind_eq_some_iff]
     constructor
     · rintro ⟨v, hv, hs⟩; exact .step (step_iff.1 hv) (ih.1 hs)
     · intro h; cases h with
       | step e s => exact ⟨_, step_iff.2 e, ih.2 s⟩
 
--- in a book that holds the copy of Eval, the copy says that t reaches u after
+-- in a book that holds the Bend version of Eval, the version says that t reaches u after
 -- n steps exactly when the kernel's Eval says so
-theorem copy_steps : Contains B evalCopy →
+theorem version_steps : Contains B evalVersion →
     (Runs B (App Q1 (App Q1 (App Q1 (Ref "Eval.steps") (Form.nat n)) (Form.defs bk.defs)) (Form.term t))
       (Form.some (Form.term u)) ↔ Steps bk n t u) := by
   intro h
   rw [← iterate_iff]
   constructor
   · rintro ⟨m, s, v⟩
-    have ⟨m', s', v'⟩ := EvalCopy.steps_copy (n := n) (bk := bk) (t := t) h
+    have ⟨m', s', v'⟩ := EvalVersion.steps_version (n := n) (bk := bk) (t := t) h
     exact maybe_term_some (steps_det s' v' s v).2
   · intro hi
-    have := EvalCopy.steps_copy (n := n) (bk := bk) (t := t) h
+    have := EvalVersion.steps_version (n := n) (bk := bk) (t := t) h
     rwa [hi] at this

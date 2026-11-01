@@ -7,68 +7,68 @@ open Quan Term
 
 set_option maxRecDepth 100000
 
-def «trustedCopy.Wasm.Outcome» : Def :=
+def «trustedVersion.Wasm.Outcome» : Def :=
   ⟨"Wasm.Outcome",
     (Term.Typ (Term.Lab "Q2")),
     (Term.Sig Quan.Q1 (Term.Enu ["Wasm.Outcome.result", "Wasm.Outcome.out_of_memory", "Wasm.Outcome.no_result", "Wasm.Outcome.unsupported",
  "Wasm.Outcome.trap", "Wasm.Outcome.not_done"]) (Term.App Quan.Q1 (Term.Ref "Wasm.Outcome.arms") (Term.Var 0))),
     false⟩
 
-def «trustedCopy.Wasm.run» : Def :=
+def «trustedVersion.Wasm.run» : Def :=
   ⟨"Wasm.run",
     (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Wasm.Outcome"))))),
     (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run.made") (Term.Var 3)) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.instantiate") (Term.Var 2)) (Term.Var 0))) (Term.Var 1)))))),
     false⟩
 
-def «trustedCopy.Compiler.compile» : Def :=
+def «trustedVersion.Compiler.compile» : Def :=
   ⟨"Compiler.compile",
     (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8)))),
     (Term.Lam Quan.Q2 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.compile.of") (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.module") (Term.Var 0)))) (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Img.small") (Term.Var 0)) (Term.Ref "U32.lit0"))) (Term.App Quan.Q1 (Term.Ref "Book.read") (Term.Var 0)))),
     false⟩
 
-def «trustedCopy.Nat.is_le» : Def :=
+def «trustedVersion.Nat.is_le» : Def :=
   ⟨"Nat.is_le",
     (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Bool"))),
     (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Cmp.is_le") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.cmp") (Term.Var 1)) (Term.Var 0))))),
     false⟩
 
-def «trustedCopy.Either.arms» : Def :=
+def «trustedVersion.Either.arms» : Def :=
   ⟨"Either.arms",
     (Term.All Quan.Q0 (Term.Enu ["Q0", "Q1", "Q2"]) (Term.All Quan.Q0 (Term.Enu ["Q0", "Q1", "Q2"]) (Term.All Quan.Q0 (Term.Typ (Term.Var 1)) (Term.All Quan.Q0 (Term.Typ (Term.Var 1)) (Term.All Quan.Q1 (Term.Enu ["Inl", "Inr"]) (Term.Typ (Term.Min (Term.Var 4) (Term.Var 3)))))))),
     (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.Mat "Inl" (Term.Sig Quan.Q1 (Term.Var 1) (Term.Enu ["()"])) (Term.Mat "Inr" (Term.Sig Quan.Q1 (Term.Var 0) (Term.Enu ["()"])) Term.Efq)))))),
     false⟩
 
-def «trustedCopy.Either» : Def :=
+def «trustedVersion.Either» : Def :=
   ⟨"Either",
     (Term.All Quan.Q0 (Term.Enu ["Q0", "Q1", "Q2"]) (Term.All Quan.Q0 (Term.Enu ["Q0", "Q1", "Q2"]) (Term.All Quan.Q0 (Term.Typ (Term.Var 1)) (Term.All Quan.Q0 (Term.Typ (Term.Var 1)) (Term.Typ (Term.Min (Term.Var 3) (Term.Var 2))))))),
     (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.Sig Quan.Q1 (Term.Enu ["Inl", "Inr"]) (Term.App Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Either.arms") (Term.Var 4)) (Term.Var 3)) (Term.Var 2)) (Term.Var 1)) (Term.Var 0))))))),
     false⟩
 
-def «trustedCopy.Or» : Def :=
+def «trustedVersion.Or» : Def :=
   ⟨"Or",
     (Term.All Quan.Q0 (Term.Typ (Term.Lab "Q1")) (Term.All Quan.Q0 (Term.Typ (Term.Lab "Q1")) (Term.Typ (Term.Lab "Q1")))),
     (Term.Lam Quan.Q0 (Term.Lam Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Either") (Term.Lab "Q1")) (Term.Lab "Q1")) (Term.Var 1)) (Term.Var 0)))),
     false⟩
 
-def «trustedCopy.main» : Def :=
+def «trustedVersion.main» : Def :=
   ⟨"main",
     (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8)))),
     (Term.Lam Quan.Q2 (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 0))),
     false⟩
 
-def «trustedCopy.spec.no_wrong_result» : String × Term :=
+def «trustedVersion.spec.no_wrong_result» : String × Term :=
   ("spec.no_wrong_result",
     (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "U32") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 4)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 3))) (Term.Var 2)) (Term.Var 1)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 0) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 5)) (Term.Var 4)) (Term.Var 0)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 2) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))))))))))))
 
-def «trustedCopy.spec.no_other_failure» : String × Term :=
+def «trustedVersion.spec.no_other_failure» : String × Term :=
   ("spec.no_other_failure",
     (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 4)) (Term.Var 3)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 1) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Or") (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 6))) (Term.Var 5)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 3) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome"))) (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 6))) (Term.Var 5)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.out_of_memory") (Term.Lab "()")) (Term.Ref "Wasm.Outcome"))))))))))))
 
-def «trustedCopy.spec.enough_memory» : String × Term :=
+def «trustedVersion.spec.enough_memory» : String × Term :=
   ("spec.enough_memory",
     (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 4)) (Term.Var 3)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 1) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))) (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.is_le") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q2 (Term.Ref "Program.need") (Term.Var 5)) (Term.Var 4)) (Term.Var 3))) (Term.App Quan.Q1 (Term.Ref "Program.memory") (Term.Var 1))) (Term.Tup Quan.Q1 (Term.Lab "True") (Term.Lab "()")) (Term.Ref "Bool")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 7))) (Term.Var 6)) (Term.Var 3)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 4) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome"))))))))))))
 
-def trustedCopy.names : List String :=
+def trustedVersion.names : List String :=
   ["Word.low", "Word.pad", "Byte.from_u32", "Byte.to_u32", "Byte.is_eq", "Quan.arms", "Quan.Q0", "Quan.Q1", "Quan.Q2",
  "Quan", "Term.arms", "Term.Var", "Term.Ref", "Term.Ann", "Term.Let", "Term.Typ", "Term.Min", "Term.All", "Term.Lam",
  "Term.App", "Term.Sig", "Term.Tup", "Term.Prj", "Term.Enu", "Term.Lab", "Term.Mat", "Term.Efq", "Term.Eql", "Term.Rfl",
@@ -118,28 +118,29 @@ def trustedCopy.names : List String :=
  "Wasm.decode.vec.qvv_5", "Wasm.decode.part.qvv_3", "Wasm.decode.items.qvv_6", "Wasm.decode.vec.qvv_6",
  "Wasm.decode.part.qvv_4", "Wasm.decode.items.qvv_7", "Wasm.decode.vec.qvv_7", "Wasm.decode.part.qvv_5",
  "Wasm.decode.items.qvv_8", "Wasm.decode.vec.qvv_8", "Wasm.decode.part.qvv_6", "Wasm.decode.module.parts",
- "Wasm.decode.module.if", "Wasm.decode.module.sections", "Wasm.decode.sections.if", "Wasm.decode.module.header",
- "Wasm.decode.module", "Wasm.Height.arms", "Wasm.Height.at", "Wasm.Height.any", "Wasm.Height", "Wasm.valid.if",
- "Wasm.valid.label.if", "Wasm.valid.label", "Wasm.valid.is_empty", "Wasm.valid.br", "Wasm.valid.br_if",
- "Wasm.valid.is_type", "Wasm.valid.table.all", "Wasm.valid.table", "Wasm.valid.go", "Wasm.valid.is_results",
- "Wasm.valid.func", "Wasm.valid.funcs", "Wasm.valid.max", "Wasm.valid.memory", "Wasm.export.name", "Wasm.valid.is_new",
- "Wasm.valid.exports", "Wasm.valid.data", "Wasm.valid.module", "Wasm.Bytes.arms", "Wasm.Bytes.zero", "Wasm.Bytes.byte",
- "Wasm.Bytes.node", "Wasm.Bytes", "Wasm.Peek.arms", "Wasm.Peek", "Wasm.Bytes.peek.lo", "Wasm.Bytes.peek.hi",
- "Wasm.Bytes.peek", "Wasm.Bytes.set", "Wasm.read8", "Wasm.peek.value", "Wasm.write8", "Wasm.read32.b3",
- "Wasm.read32.b2", "Wasm.read32.b1", "Wasm.read32.b0", "Wasm.read32", "Wasm.write32", "Wasm.read.bytes.of",
- "Wasm.read.bytes", "Wasm.write.bytes", "Wasm.fits.end", "Wasm.fits", "Wasm.inside", "Wasm.op", "Wasm.Memory.arms",
- "Wasm.Memory", "Wasm.Label.arms", "Wasm.Label", "Wasm.Frame.arms", "Wasm.Frame", "Wasm.Step.arms", "Wasm.Step.next",
- "Wasm.Step.done", "Wasm.Step.trap", "Wasm.Step", "Wasm.step.end", "Wasm.step.br.to", "Wasm.step.br", "Wasm.step.set",
- "Wasm.step.tee", "Wasm.step.op", "Wasm.step.eqz", "Wasm.load.of", "Wasm.step.peeked", "Wasm.step.loaded",
- "Wasm.step.load", "Wasm.store.of", "Wasm.step.stored", "Wasm.step.store", "Wasm.step.size", "Wasm.step.grown",
- "Wasm.step.grow", "Wasm.step.br_if.if", "Wasm.step.br_if", "Wasm.table.pick.if", "Wasm.table.pick", "Wasm.step.table",
- "Wasm.step.instr", "Wasm.step", "Wasm.Call.arms", "Wasm.Call.done", "Wasm.Call.trap", "Wasm.Call.not_done",
- "Wasm.Call", "Wasm.call.plus", "Wasm.call.stepped", "Wasm.call.go", "Wasm.call", "Wasm.Instance.arms", "Wasm.Instance",
- "Wasm.Made.arms", "Wasm.Made.instance", "Wasm.Made.unsupported", "Wasm.Made.out_of_memory", "Wasm.Made.trap",
- "Wasm.Made", "Wasm.min.if", "Wasm.min", "Wasm.limit", "Wasm.memory.of.if", "Wasm.memory.of", "Wasm.fits.len",
- "Wasm.memory.init.if", "Wasm.memory.init", "Wasm.instantiate.made", "Wasm.instantiate.sized", "Wasm.instantiate.valid",
- "Wasm.instantiate.decoded", "Wasm.instantiate", "Wasm.export.find.if", "Wasm.export.find", "Wasm.export.has_memory",
- "Wasm.func.at.if", "Wasm.func.at", "Wasm.export.func", "Wasm.func.is_type", "Wasm.Invoked.arms", "Wasm.Invoked.values",
+ "Wasm.decode.module.if", "Wasm.decode.module.sections", "Wasm.decode.sections.if", "Wasm.header",
+ "Wasm.decode.module.header", "Wasm.decode.module", "Wasm.Height.arms", "Wasm.Height.at", "Wasm.Height.any",
+ "Wasm.Height", "Wasm.valid.if", "Wasm.valid.label.if", "Wasm.valid.label", "Wasm.valid.is_empty", "Wasm.valid.br",
+ "Wasm.valid.br_if", "Wasm.valid.is_type", "Wasm.valid.table.all", "Wasm.valid.table", "Wasm.valid.go",
+ "Wasm.valid.is_results", "Wasm.valid.func", "Wasm.valid.funcs", "Wasm.valid.max", "Wasm.valid.memory",
+ "Wasm.export.name", "Wasm.valid.is_new", "Wasm.valid.exports", "Wasm.valid.data", "Wasm.valid.module",
+ "Wasm.Bytes.arms", "Wasm.Bytes.zero", "Wasm.Bytes.byte", "Wasm.Bytes.node", "Wasm.Bytes", "Wasm.Peek.arms",
+ "Wasm.Peek", "Wasm.Bytes.peek.lo", "Wasm.Bytes.peek.hi", "Wasm.Bytes.peek", "Wasm.Bytes.set", "Wasm.read8",
+ "Wasm.peek.value", "Wasm.write8", "Wasm.read32.b3", "Wasm.read32.b2", "Wasm.read32.b1", "Wasm.read32.b0",
+ "Wasm.read32", "Wasm.write32", "Wasm.read.bytes.of", "Wasm.read.bytes", "Wasm.write.bytes", "Wasm.fits.end",
+ "Wasm.fits", "Wasm.inside", "Wasm.op", "Wasm.Memory.arms", "Wasm.Memory", "Wasm.Label.arms", "Wasm.Label",
+ "Wasm.Frame.arms", "Wasm.Frame", "Wasm.Step.arms", "Wasm.Step.next", "Wasm.Step.done", "Wasm.Step.trap", "Wasm.Step",
+ "Wasm.step.end", "Wasm.step.br.to", "Wasm.step.br", "Wasm.step.set", "Wasm.step.tee", "Wasm.step.op", "Wasm.step.eqz",
+ "Wasm.load.of", "Wasm.step.peeked", "Wasm.step.loaded", "Wasm.step.load", "Wasm.store.of", "Wasm.step.stored",
+ "Wasm.step.store", "Wasm.step.size", "Wasm.step.grown", "Wasm.step.grow", "Wasm.step.br_if.if", "Wasm.step.br_if",
+ "Wasm.table.pick.if", "Wasm.table.pick", "Wasm.step.table", "Wasm.step.instr", "Wasm.step", "Wasm.Call.arms",
+ "Wasm.Call.done", "Wasm.Call.trap", "Wasm.Call.not_done", "Wasm.Call", "Wasm.call.plus", "Wasm.call.stepped",
+ "Wasm.call.go", "Wasm.call", "Wasm.Instance.arms", "Wasm.Instance", "Wasm.Made.arms", "Wasm.Made.instance",
+ "Wasm.Made.unsupported", "Wasm.Made.out_of_memory", "Wasm.Made.trap", "Wasm.Made", "Wasm.min.if", "Wasm.min",
+ "Wasm.limit", "Wasm.memory.of.if", "Wasm.memory.of", "Wasm.fits.len", "Wasm.memory.init.if", "Wasm.memory.init",
+ "Wasm.instantiate.made", "Wasm.instantiate.sized", "Wasm.instantiate.valid", "Wasm.instantiate.decoded",
+ "Wasm.instantiate", "Wasm.export.find.if", "Wasm.export.find", "Wasm.export.has_memory", "Wasm.func.at.if",
+ "Wasm.func.at", "Wasm.export.func", "Wasm.func.is_type", "Wasm.Invoked.arms", "Wasm.Invoked.values",
  "Wasm.Invoked.trap", "Wasm.Invoked.not_done", "Wasm.Invoked.unsupported", "Wasm.Invoked", "Wasm.invoked",
  "Wasm.invoke.arity", "Wasm.invoke.found", "Wasm.invoke", "Wasm.name.memory", "Wasm.name.alloc", "Wasm.name.run",
  "Wasm.run.output.if", "Wasm.run.output.n", "Wasm.run.output.a", "Wasm.run.output.at", "Wasm.run.output",
@@ -197,12 +198,12 @@ def trustedCopy.names : List String :=
  "Img.prefix", "Img.cells", "Img.small.if", "Img.small", "Compiler.halt", "Compiler.module", "Compiler.compile.of",
  "Compiler.compile"]
 
-def trustedCopy : List Def :=
-  [«trustedCopy.Wasm.Outcome»,
-   «trustedCopy.Wasm.run»,
-   «trustedCopy.Compiler.compile»,
-   «trustedCopy.Nat.is_le»,
-   «trustedCopy.Either.arms»,
-   «trustedCopy.Either»,
-   «trustedCopy.Or»,
-   «trustedCopy.main»]
+def trustedVersion : List Def :=
+  [«trustedVersion.Wasm.Outcome»,
+   «trustedVersion.Wasm.run»,
+   «trustedVersion.Compiler.compile»,
+   «trustedVersion.Nat.is_le»,
+   «trustedVersion.Either.arms»,
+   «trustedVersion.Either»,
+   «trustedVersion.Or»,
+   «trustedVersion.main»]

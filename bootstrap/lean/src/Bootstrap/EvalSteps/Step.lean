@@ -3,12 +3,12 @@ import Bootstrap.EvalSteps.Call
 -- EvalSteps.Step
 -- ==============
 --
--- The step of the Eval copy, and its runs of exactly n steps, give what step
+-- The step of the Bend version of Eval, and its runs of exactly n steps, give what step
 -- (Bootstrap/Interp.lean) gives.
 
 open Quan Term
 
-namespace EvalCopy
+namespace EvalVersion
 
 -- exactly n steps of step
 def iterate (bk : Book) : Nat → Term → Option Term
@@ -118,68 +118,68 @@ private theorem runs_some (r : Runs B x x') : Runs B (Form.some x) (Form.some x'
   exact ⟨_, steps_tup_b (fun _ => .lab) (steps_tup_a rfl s), value_ctor (by simp [v])⟩
 
 -- Eval.vals, not as arguments, gives value
-private theorem vals_false {bk : Book} (h : Contains B evalCopy) :
+private theorem vals_false {bk : Book} (h : Contains B evalVersion) :
     Runs B (spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term t), (Q1, Form.bool false)])
-      (Form.bool (value bk t)) := by simpa using vals_copy (a := false) h
+      (Form.bool (value bk t)) := by simpa using vals_version (a := false) h
 
 -- a call of Eval.step steps to the leaf of its walk
-private theorem step_call {bk : Book} (h : Contains B evalCopy)
-    (w : walk B «evalCopy.Eval.step».v [] [(Q2, Form.defs bk.defs), (Q2, Form.term t)] = some (some u))
+private theorem step_call {bk : Book} (h : Contains B evalVersion)
+    (w : walk B «evalVersion.Eval.step».v [] [(Q2, Form.defs bk.defs), (Q2, Form.term t)] = some (some u))
     (r : Runs B u v) : Runs B (spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term t)]) v := by
-  refine runs_call (h «evalCopy.Eval.step» (by simp [evalCopy])) (.v2 value_defs (.v2 value_term .nil)) ?_ w r
+  refine runs_call (h «evalVersion.Eval.step» (by simp [evalVersion])) (.v2 value_defs (.v2 value_term .nil)) ?_ w r
   intro m hm; simp at hm
-  rcases m with _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step», walk, takes, bindsAt, Quan.live, ddefs]
+  rcases m with _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step», walk, takes, bindsAt, Quan.live, ddefs]
 
 -- Eval.step.unlet gives f with v put in, when fits
-private theorem unlet_run (h : Contains B evalCopy)
+private theorem unlet_run (h : Contains B evalVersion)
     (rs : RunsArgs B es [(Q1, Form.bool b), (Q1, Form.term f), (Q1, Form.term v)]) :
     Runs B (spine (Ref "Eval.step.unlet") es) (Form.maybe Form.term (if b then some (inst f v) else none)) := by
-  have hk := h «evalCopy.Eval.step.unlet» (by simp [evalCopy])
+  have hk := h «evalVersion.Eval.step.unlet» (by simp [evalVersion])
   cases b
   · refine runs_call hk rs ?_ ?_ (.refl (value_maybe fun _ => value_term))
     · intro m hm; simp at hm
-      rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.unlet», walk, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld]
-    · simp [«evalCopy.Eval.step.unlet», walk, Form.bool, Form.maybe, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Term.spine]
+      rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.unlet», walk, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld]
+    · simp [«evalVersion.Eval.step.unlet», walk, Form.bool, Form.maybe, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Term.spine]
   · refine runs_call hk rs (u := Form.some (spine (Ref "Term.inst") [(Q1, Form.term f), (Q1, Form.term v)])) ?_ ?_
-      (runs_some (inst_copy h))
+      (runs_some (inst_version h))
     · intro m hm; simp at hm
-      rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.unlet», walk, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld]
-    · simp [«evalCopy.Eval.step.unlet», walk, Form.bool, Form.some, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Env.sub, Term.spine]
+      rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.unlet», walk, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld]
+    · simp [«evalVersion.Eval.step.unlet», walk, Form.bool, Form.some, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Env.sub, Term.spine]
 
 -- Eval.step.tup_b puts the step of b back in the pair
-private theorem tup_b_run (h : Contains B evalCopy)
+private theorem tup_b_run (h : Contains B evalVersion)
     (rs : RunsArgs B es [(Q1, Form.quan q), (Q1, Form.term a), (Q1, Form.maybe Form.term sb)]) :
     Runs B (spine (Ref "Eval.step.tup_b") es) (Form.maybe Form.term (sb.map (Tup q a ·))) := by
-  have hk := h «evalCopy.Eval.step.tup_b» (by simp [evalCopy])
+  have hk := h «evalVersion.Eval.step.tup_b» (by simp [evalVersion])
   refine runs_call hk rs ?_ ?_ (.refl (value_maybe fun _ => value_term))
   all_goals cases sb
   all_goals first
-    | (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.tup_b», walk, Form.maybe, Form.some, ctor, takes, bindsAt, Quan.live])
-    | simp [«evalCopy.Eval.step.tup_b», walk, Form.maybe, Form.some, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Env.sub, Term.spine]
+    | (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.tup_b», walk, Form.maybe, Form.some, ctor, takes, bindsAt, Quan.live])
+    | simp [«evalVersion.Eval.step.tup_b», walk, Form.maybe, Form.some, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Env.sub, Term.spine]
 
 -- Eval.step.cast gives f, when e is Rfl
-private theorem cast_run (h : Contains B evalCopy)
+private theorem cast_run (h : Contains B evalVersion)
     (rs : RunsArgs B es [(Q1, Form.term e), (Q1, Form.term f)]) :
     Runs B (spine (Ref "Eval.step.cast") es) (Form.maybe Form.term (if e = Rfl then some f else none)) := by
-  have hk := h «evalCopy.Eval.step.cast» (by simp [evalCopy])
+  have hk := h «evalVersion.Eval.step.cast» (by simp [evalVersion])
   refine runs_call hk rs ?_ ?_ (.refl (value_maybe fun _ => value_term))
   all_goals cases e
   all_goals first
-    | (intro m hm; simp at hm; rcases m with _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.cast», walk, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld])
-    | simp [«evalCopy.Eval.step.cast», walk, Form.maybe, Form.some, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Env.sub, Term.spine]
+    | (intro m hm; simp at hm; rcases m with _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.cast», walk, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld])
+    | simp [«evalVersion.Eval.step.cast», walk, Form.maybe, Form.some, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, Term.sub, Env.sub, Term.spine]
 
-theorem step_copy (h : Contains B evalCopy) :
+theorem step_version (h : Contains B evalVersion) :
     Runs B (spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term t)])
       (Form.maybe Form.term (step bk t)) := by
   induction t
   case Ann x T =>
     refine step_call h ?_ (.refl (value_maybe fun _ => value_term))
-    simp [«evalCopy.Eval.step», step, walk, Form.term, Form.maybe, Form.some, ctor, takes, bindsAt, Quan.live, Quan.fld, ddefs, dterm, Term.sub, Env.sub, Term.spine]
+    simp [«evalVersion.Eval.step», step, walk, Form.term, Form.maybe, Form.some, ctor, takes, bindsAt, Quan.live, Quan.fld, ddefs, dterm, Term.sub, Env.sub, Term.spine]
   case Ref k =>
-    refine step_call h (u := spine (Ref "Eval.call") [(Q2, Form.defs bk.defs), (Q2, Form.term (Ref k))]) ?_ (call_copy h)
-    simp [«evalCopy.Eval.step», walk, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, ddefs, dname, Term.sub, Env.sub, Term.spine]
+    refine step_call h (u := spine (Ref "Eval.call") [(Q2, Form.defs bk.defs), (Q2, Form.term (Ref k))]) ?_ (call_version h)
+    simp [«evalVersion.Eval.step», walk, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, ddefs, dname, Term.sub, Env.sub, Term.spine]
   case App q f x ihf ihx =>
-    have ha := h «evalCopy.Eval.step.app» (by simp [evalCopy])
+    have ha := h «evalVersion.Eval.step.app» (by simp [evalVersion])
     refine step_call h (u := spine (Ref "Eval.step.app") [(Q1, Form.quan q), (Q1, Form.term f), (Q1, Form.term x),
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term f)]),
       (Q1, spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term f), (Q1, Form.bool false)]),
@@ -187,95 +187,95 @@ theorem step_copy (h : Contains B evalCopy) :
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term x)]),
       (Q1, spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term x), (Q1, Form.bool false)]),
       (Q1, spine (Ref "Eval.redex") [(Q1, Form.defs bk.defs), (Q2, Form.quan q), (Q2, Form.term f), (Q2, Form.term x)])])
-      (by simp [«evalCopy.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dquan, dterm, ddefs, Term.sub, Env.sub, Term.spine])
+      (by simp [«evalVersion.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dquan, dterm, ddefs, Term.sub, Env.sub, Term.spine])
       (runs_call ha (.v1 value_quan (.v1 value_term (.v1 value_term
-        (.r1 ihf (.r1 (vals_false h) (.r1 (live_copy h) (.r1 ihx
-          (.r1 (vals_false h) (.r1 (redex_copy h) .nil))))))))) ?_ ?_
+        (.r1 ihf (.r1 (vals_false h) (.r1 (live_version h) (.r1 ihx
+          (.r1 (vals_false h) (.r1 (redex_version h) .nil))))))))) ?_ ?_
         (.refl (value_maybe fun _ => value_term)))
     all_goals cases q <;> cases hsf : step bk f <;> cases hvf : value bk f <;> cases hsx : step bk x <;> cases hvx : value bk x
     all_goals first
-      | (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.app», walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld, dquan, dterm])
-      | simp [«evalCopy.Eval.step.app», step, part, hsf, hvf, hsx, hvx, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine]
+      | (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.app», walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld, dquan, dterm])
+      | simp [«evalVersion.Eval.step.app», step, part, hsf, hvf, hsx, hvx, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine]
   case Min a b iha ihb =>
-    have ha := h «evalCopy.Eval.step.min» (by simp [evalCopy])
+    have ha := h «evalVersion.Eval.step.min» (by simp [evalVersion])
     refine step_call h (u := spine (Ref "Eval.step.min") [(Q1, Form.term a), (Q1, Form.term b),
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term a)]),
       (Q1, spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term a), (Q1, Form.bool false)]),
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term b)]),
       (Q1, spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term b), (Q1, Form.bool false)]),
       (Q1, spine (Ref "Eval.meet") [(Q1, Form.term a), (Q1, Form.term b)])])
-      (by simp [«evalCopy.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dterm, ddefs, Term.sub, Env.sub, Term.spine])
+      (by simp [«evalVersion.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dterm, ddefs, Term.sub, Env.sub, Term.spine])
       (runs_call ha (.v1 value_term (.v1 value_term
-        (.r1 iha (.r1 (vals_false h) (.r1 ihb (.r1 (vals_false h) (.r1 (meet_copy h) .nil))))))) ?_ ?_
+        (.r1 iha (.r1 (vals_false h) (.r1 ihb (.r1 (vals_false h) (.r1 (meet_version h) .nil))))))) ?_ ?_
         (.refl (value_maybe fun _ => value_term)))
     all_goals cases hsa : step bk a <;> cases hva : value bk a <;> cases hsb : step bk b <;> cases hvb : value bk b
     all_goals first
-      | (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.min», walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld, dterm])
-      | simp [«evalCopy.Eval.step.min», step, part, hsa, hva, hsb, hvb, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dterm, Term.sub, Env.sub, Term.spine]
+      | (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.min», walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, Quan.live, Quan.fld, dterm])
+      | simp [«evalVersion.Eval.step.min», step, part, hsa, hva, hsb, hvb, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, Quan.live, Quan.fld, dterm, Term.sub, Env.sub, Term.spine]
   case Let q v f ihv _ =>
-    have hl := h «evalCopy.Eval.step.let» (by simp [evalCopy])
+    have hl := h «evalVersion.Eval.step.let» (by simp [evalVersion])
     refine step_call h (u := spine (Ref "Eval.step.let") [(Q1, Form.quan q), (Q1, Form.term v), (Q1, Form.term f),
       (Q1, spine (Ref "Quan.live") [(Q1, Form.quan q)]),
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term v)]),
       (Q1, spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term v), (Q1, Form.bool false)]),
       (Q1, spine (Ref "Quan.fits") [(Q1, Form.quan q), (Q1, Form.term v)])])
-      (by simp [«evalCopy.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, live2, Quan.fld, dquan, dterm, ddefs, Term.sub, Env.sub, Term.spine]) ?_
+      (by simp [«evalVersion.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, live2, Quan.fld, dquan, dterm, ddefs, Term.sub, Env.sub, Term.spine]) ?_
     have rs := RunsArgs.v1 (value_quan (q := q)) (.v1 (value_term (t := v)) (.v1 (value_term (t := f))
-      (.r1 (live_copy (q := q) h) (.r1 ihv (.r1 (vals_false (bk := bk) (t := v) h) (.r1 (fits_copy (q := q) (v := v) h) .nil))))))
+      (.r1 (live_version (q := q) h) (.r1 ihv (.r1 (vals_false (bk := bk) (t := v) h) (.r1 (fits_version (q := q) (v := v) h) .nil))))))
     cases hq : q.live <;> cases hs : step bk v <;> cases hv : value bk v
     all_goals first
       | (refine runs_call hl rs ?_ ?_ (.refl (value_maybe fun _ => value_term))
-         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.let», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
-         · simp [«evalCopy.Eval.step.let», step, part, hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine])
+         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.let», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
+         · simp [«evalVersion.Eval.step.let», step, part, hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine])
       | (refine runs_call hl rs (u := spine (Ref "Eval.step.unlet") [(Q1, Form.bool (q != Q2 || data v)), (Q1, Form.term f), (Q1, Form.term v)]) ?_ ?_ (runs_eq (unlet_run h (.v1 value_bool (.v1 value_term (.v1 value_term .nil)))) ?_)
-         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.let», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
-         · simp [«evalCopy.Eval.step.let», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine]
+         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.let», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
+         · simp [«evalVersion.Eval.step.let», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine]
          · cases q <;> simp [Quan.live] at hq <;> simp [step, part, hs, hv, Quan.live])
   case Tup q a b iha ihb =>
-    have hl := h «evalCopy.Eval.step.tup» (by simp [evalCopy])
+    have hl := h «evalVersion.Eval.step.tup» (by simp [evalVersion])
     refine step_call h (u := spine (Ref "Eval.step.tup") [(Q1, Form.quan q), (Q1, Form.term a), (Q1, Form.term b),
       (Q1, spine (Ref "Quan.live") [(Q1, Form.quan q)]),
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term a)]),
       (Q1, spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term a), (Q1, Form.bool false)]),
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term b)])])
-      (by simp [«evalCopy.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, live2, Quan.fld, dquan, dterm, ddefs, Term.sub, Env.sub, Term.spine]) ?_
+      (by simp [«evalVersion.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, live2, Quan.fld, dquan, dterm, ddefs, Term.sub, Env.sub, Term.spine]) ?_
     have rs := RunsArgs.v1 (value_quan (q := q)) (.v1 (value_term (t := a)) (.v1 (value_term (t := b))
-      (.r1 (live_copy (q := q) h) (.r1 iha (.r1 (vals_false (bk := bk) (t := a) h) (.r1 ihb .nil))))))
+      (.r1 (live_version (q := q) h) (.r1 iha (.r1 (vals_false (bk := bk) (t := a) h) (.r1 ihb .nil))))))
     cases hq : q.live <;> cases hs : step bk a <;> cases hv : value bk a
     all_goals first
       | (refine runs_call hl rs ?_ ?_ (.refl (value_maybe fun _ => value_term))
-         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.tup», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
-         · simp [«evalCopy.Eval.step.tup», step, part, hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine])
+         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.tup», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
+         · simp [«evalVersion.Eval.step.tup», step, part, hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine])
       | (refine runs_call hl rs (u := spine (Ref "Eval.step.tup_b") [(Q1, Form.quan q), (Q1, Form.term a), (Q1, Form.maybe Form.term (step bk b))]) ?_ ?_ (runs_eq (tup_b_run h (.v1 value_quan (.v1 value_term (.v1 (value_maybe fun _ => value_term) .nil)))) ?_)
-         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.tup», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
-         · simp [«evalCopy.Eval.step.tup», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine]
+         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.tup», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm])
+         · simp [«evalVersion.Eval.step.tup», hq, hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, Term.sub, Env.sub, Term.spine]
          · simp [step, part, hq, hs, hv])
   case Rwt e P f ihe _ _ =>
-    have hl := h «evalCopy.Eval.step.rwt» (by simp [evalCopy])
+    have hl := h «evalVersion.Eval.step.rwt» (by simp [evalVersion])
     refine step_call h (u := spine (Ref "Eval.step.rwt") [(Q1, Form.term e), (Q1, Form.term P), (Q1, Form.term f),
       (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term e)]),
       (Q1, spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term e), (Q1, Form.bool false)])])
-      (by simp [«evalCopy.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, live2, Quan.fld, dterm, ddefs, Term.sub, Env.sub, Term.spine]) ?_
+      (by simp [«evalVersion.Eval.step», walk, Form.bool, Form.term, ctor, takes, bindsAt, live2, Quan.fld, dterm, ddefs, Term.sub, Env.sub, Term.spine]) ?_
     have rs := RunsArgs.v1 (value_term (t := e)) (.v1 (value_term (t := P)) (.v1 (value_term (t := f))
       (.r1 ihe (.r1 (vals_false (bk := bk) (t := e) h) .nil))))
     cases hs : step bk e <;> cases hv : value bk e
     all_goals first
       | (refine runs_call hl rs ?_ ?_ (.refl (value_maybe fun _ => value_term))
-         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.rwt», hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm])
-         · simp [«evalCopy.Eval.step.rwt», step, part, hs, hv, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm, Term.sub, Env.sub, Term.spine])
+         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.rwt», hs, hv, walk, Form.maybe, Form.some, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm])
+         · simp [«evalVersion.Eval.step.rwt», step, part, hs, hv, walk, Form.maybe, Form.some, Form.bool, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm, Term.sub, Env.sub, Term.spine])
       | (refine runs_call hl rs (u := spine (Ref "Eval.step.cast") [(Q1, Form.term e), (Q1, Form.term f)]) ?_ ?_ (runs_eq (cast_run h (.v1 value_term (.v1 value_term .nil))) ?_)
-         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.step.rwt», hs, hv, walk, Form.maybe, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm])
-         · simp [«evalCopy.Eval.step.rwt», hs, hv, walk, Form.maybe, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm, Term.sub, Env.sub, Term.spine]
+         · (intro m hm; simp at hm; rcases m with _ | _ | _ | _ | _ | _ | _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.step.rwt», hs, hv, walk, Form.maybe, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm])
+         · simp [«evalVersion.Eval.step.rwt», hs, hv, walk, Form.maybe, Form.bool, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm, Term.sub, Env.sub, Term.spine]
          · simp [step, part, hs, hv])
   all_goals
     refine step_call h ?_ (.refl (value_maybe fun _ => value_term))
-    simp [«evalCopy.Eval.step», step, walk, Form.maybe, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, ddefs, Term.sub, Term.spine, dnat, dname, dnames, data]
+    simp [«evalVersion.Eval.step», step, walk, Form.maybe, Form.term, ctor, takes, bindsAt, live1, live2, Quan.fld, dquan, dterm, ddefs, Term.sub, Term.spine, dnat, dname, dnames, data]
 
 -- Eval.run gives the state after n more steps
-private theorem run_copy {bk : Book} (h : Contains B evalCopy) : ∀ n r,
+private theorem run_version {bk : Book} (h : Contains B evalVersion) : ∀ n r,
     Runs B (spine (Ref "Eval.run") [(Q1, Form.nat n), (Q2, Form.defs bk.defs), (Q1, Form.maybe Form.term r)])
       (Form.maybe Form.term (r.bind (iterate bk n))) := by
-  have hk := h «evalCopy.Eval.run» (by simp [evalCopy])
+  have hk := h «evalVersion.Eval.run» (by simp [evalVersion])
   intro n
   induction n with
   | zero =>
@@ -284,34 +284,34 @@ private theorem run_copy {bk : Book} (h : Contains B evalCopy) : ∀ n r,
       (.refl (value_maybe fun _ => value_term))
     all_goals cases r
     all_goals first
-      | (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs])
-      | simp [«evalCopy.Eval.run», iterate, walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, Term.sub, Env.sub, Term.spine]
+      | (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs])
+      | simp [«evalVersion.Eval.run», iterate, walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, Term.sub, Env.sub, Term.spine]
   | succ n ih =>
     intro r
     cases r with
     | none =>
       refine runs_call hk (.v1 value_nat (.v2 value_defs (.v1 (value_maybe fun _ => value_term) .nil))) ?_ ?_
         (.refl (value_maybe fun _ => value_term))
-      · (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.run», walk, Form.maybe, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat])
-      · simp [«evalCopy.Eval.run», walk, Form.maybe, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat, Term.sub, Term.spine]
+      · (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.run», walk, Form.maybe, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat])
+      · simp [«evalVersion.Eval.run», walk, Form.maybe, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat, Term.sub, Term.spine]
     | some t =>
       refine runs_call hk (.v1 value_nat (.v2 value_defs (.v1 (value_maybe fun _ => value_term) .nil)))
         (u := spine (Ref "Eval.run") [(Q1, Form.nat n), (Q2, Form.defs bk.defs),
           (Q1, spine (Ref "Eval.step") [(Q2, Form.defs bk.defs), (Q2, Form.term t)])]) ?_ ?_
-        (runs_args hk (.v1 value_nat (.v2 value_defs (.r1 (step_copy h) .nil))) ?_ (ih (step bk t)))
-      · (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat])
-      · simp [«evalCopy.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm, ddefs, dnat, Term.sub, Env.sub, Term.spine]
-      · cases n <;> (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat])
+        (runs_args hk (.v1 value_nat (.v2 value_defs (.r1 (step_version h) .nil))) ?_ (ih (step bk t)))
+      · (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat])
+      · simp [«evalVersion.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, dterm, ddefs, dnat, Term.sub, Env.sub, Term.spine]
+      · cases n <;> (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.run», walk, Form.maybe, Form.some, Form.nat, ctor, takes, bindsAt, live1, live2, Quan.fld, ddefs, dnat])
 
-theorem steps_copy (h : Contains B evalCopy) :
+theorem steps_version (h : Contains B evalVersion) :
     Runs B (App Q1 (App Q1 (App Q1 (Ref "Eval.steps") (Form.nat n)) (Form.defs bk.defs)) (Form.term t))
       (Form.maybe Form.term (iterate bk n t)) := by
-  have hk := h «evalCopy.Eval.steps» (by simp [evalCopy])
+  have hk := h «evalVersion.Eval.steps» (by simp [evalVersion])
   show Runs B (spine (Ref "Eval.steps") [(Q1, Form.nat n), (Q1, Form.defs bk.defs), (Q1, Form.term t)]) _
   refine runs_call hk (.v1 value_nat (.v1 value_defs (.v1 value_term .nil)))
     (u := spine (Ref "Eval.run") [(Q1, Form.nat n), (Q2, Form.defs bk.defs), (Q1, Form.maybe Form.term (some t))])
-    ?_ ?_ (run_copy h n (some t))
-  · (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.steps», walk, takes, bindsAt, live1])
-  · simp [«evalCopy.Eval.steps», walk, Form.maybe, Form.some, ctor, takes, bindsAt, live1, dterm, ddefs, dnat, Term.sub, Env.sub, Term.spine]
+    ?_ ?_ (run_version h n (some t))
+  · (intro m hm; simp at hm; rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.steps», walk, takes, bindsAt, live1])
+  · simp [«evalVersion.Eval.steps», walk, Form.maybe, Form.some, ctor, takes, bindsAt, live1, dterm, ddefs, dnat, Term.sub, Env.sub, Term.spine]
 
-end EvalCopy
+end EvalVersion

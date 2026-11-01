@@ -5,8 +5,8 @@
 // file whose book bend2 checks but for its holes (?TODO): each hole is read as
 // a call of its own def, so that the defs that name a hole stay in the output.
 // Only the defs with a hole, and the proofs that call them, differ from what
-// `bend -o` will write once the holes are filled; scripts/Defs.lean copies
-// from it only defs and types that name no hole (src/Bootstrap/Copy/Trusted.lean).
+// `bend -o` will write once the holes are filled; scripts/Defs.lean writes Lean versions of
+// from it only defs and types that name no hole (src/Bootstrap/Version/Trusted.lean).
 //
 //   cd bootstrap/bend/src/compiler && bun ../../../lean/scripts/lower.ts trusted.bend out.bendtt
 

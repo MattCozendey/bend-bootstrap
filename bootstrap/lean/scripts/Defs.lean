@@ -3,12 +3,12 @@ import Bootstrap.Script
 -- Defs
 -- ====
 --
--- Writes a Lean copy of some defs that the kernel's parser reads from a
--- .bendtt file, as scripts/Copy.lean does, but of chosen defs only, for the
+-- Writes a Lean version of some defs that the kernel's parser reads from a
+-- .bendtt file, as scripts/Version.lean does, but of chosen defs only, for the
 -- laws about our Bend code (src/Bootstrap/Code.lean):
 --
---   ROOTS    the defs that these names need, them included (as Copy.lean),
---   EXCLUDE  minus the defs that these names need (copied elsewhere),
+--   ROOTS    the defs that these names need, them included (as Version.lean),
+--   EXCLUDE  minus the defs that these names need (written elsewhere),
 --   ONLY     plus these defs alone, without the defs they need,
 --   TYPES    plus the name and type of these defs, without their bodies: a
 --            law that a Lean theorem uses only needs a def of its type,
@@ -39,7 +39,7 @@ def refs : Term → List String
   | Eql a b c | Rwt a b c => refs a ++ refs b ++ refs c
   | Var _ | Enu _ | Lab _ | Efq | Rfl => []
 
--- the names that the names ks need, ks among them (as Copy.lean)
+-- the names that the names ks need, ks among them (as Version.lean)
 def needs (bk : Book) (ks : List String) : List String :=
   (List.range bk.defs.length).foldl (init := ks) fun seen _ =>
     (seen ++ seen.flatMap fun k => ((bk.get k).map fun d => refs d.T ++ refs d.v).getD []).eraseDups
@@ -121,7 +121,7 @@ def list (k : String) : IO (List String) := do
   | some v => pure ((v.splitOn ",").filter (· != ""))
   | none => pure []
 
-def copyDefs : IO Unit := do
+def versionDefs : IO Unit := do
   let name ← Script.env "NAME"
   let bk ← Script.book
   let p := (← IO.getEnv "STRIP").getD ""
@@ -145,4 +145,4 @@ def copyDefs : IO Unit := do
     s!"def {name} : List Def :=\n  [" ++ ",\n   ".intercalate (ds.map fun d => s!"«{name}.{k' d.k}»") ++ "]\n"
   IO.println s!"{ds.length} defs, {ts.length} types"
 
-#eval copyDefs
+#eval versionDefs

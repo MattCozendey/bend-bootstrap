@@ -4,7 +4,7 @@
 # The laws of spec.bend follow from two layers, each a lemma below:
 #
 #   A (translation): the module that Cir.module makes of the machine runs in
-#     the Bend copy of WASM as Cir.exec says (Cir.result), for any image of
+#     the Bend version of WASM as Cir.exec says (Cir.result), for any image of
 #     fewer than 2^26 cells, when Cir.exec never traps; and a module whose
 #     program halts at once gives no result.
 #   B (machine): from the image of a book, Mach.code never traps, and it

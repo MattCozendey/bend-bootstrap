@@ -1,8 +1,8 @@
 import Bootstrap.Values
-import Bootstrap.Copy.Reader
-import Bootstrap.Copy.Exists
-import Bootstrap.Copy.Program
-import Bootstrap.Copy.Need
+import Bootstrap.Version.Reader
+import Bootstrap.Version.Exists
+import Bootstrap.Version.Program
+import Bootstrap.Version.Need
 
 -- Trusted
 -- =======
@@ -10,7 +10,7 @@ import Bootstrap.Copy.Need
 -- The book of trusted.bend (bootstrap/bend/src/compiler), whose main is our
 -- own compiler, and which holds the laws of spec.bend with their proofs: what
 -- the theorems of Compiler.lean ask of a book B that the interpreter runs.
--- B holds the Lean copies of impl.bend's defs that the theorems need, under
+-- B holds the Lean versions of impl.bend's defs that the theorems need, under
 -- the names that trusted.bend's book gives them (Impl.lean), its main and
 -- Wasm.run, Base's Exists, and a def of the type of each law: a theorem
 -- needs a law's proof to exist, not to be a given one.
@@ -19,15 +19,15 @@ open Quan Term
 
 set_option linter.unusedSimpArgs false
 
--- the copies of impl.bend's defs (from its own book), and of trusted.bend's
+-- the versions of impl.bend's defs (from its own book), and of trusted.bend's
 -- main and Wasm.run (with impl.bend's names as in impl.bend's book), under
 -- the names that trusted.bend's book gives them
-def trustedDefs : List Def := (evalCopy ++ reader ++ programCopy ++ needCopy ++ trustedCopy).map (Rename.defn impl)
+def trustedDefs : List Def := (evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion).map (Rename.defn impl)
 
 -- the laws of spec.bend, by name and type (with impl.bend's names as in
 -- impl.bend's book)
 def laws : List (String × Term) :=
-  [«trustedCopy.spec.no_wrong_result», «trustedCopy.spec.no_other_failure», «trustedCopy.spec.enough_memory»]
+  [«trustedVersion.spec.no_wrong_result», «trustedVersion.spec.no_other_failure», «trustedVersion.spec.enough_memory»]
 
 -- B has a def named l.1, of the type l.2 under the names of trusted.bend's book
 def Declares (B : Book) (l : String × Term) : Prop :=
@@ -35,13 +35,13 @@ def Declares (B : Book) (l : String × Term) : Prop :=
 
 structure Trusted (B : Book) : Prop where
   defs : Contains B trustedDefs
-  exists_ : Contains B existsCopy
+  exists_ : Contains B existsVersion
   declares : ∀ l ∈ laws, Declares B l
 
 -- The terms of the theorems
 -- -------------------------
 
--- the Bend copy of WASM (impl.bend's Wasm.run), run with the fuel f on the
+-- the Bend version of WASM (impl.bend's Wasm.run), run with the fuel f on the
 -- module w, the input i and m pages of memory
 def wasmRun (f : Nat) (w i : List UInt8) (m : UInt32) : Term :=
   spine (Ref (impl "Wasm.run")) [(Q1, Form.nat f), (Q1, bytes w), (Q1, bytes i), (Q1, Form.u32 m)]
@@ -62,8 +62,8 @@ def outOfMemory : Term := ctor (impl "Wasm.Outcome.out_of_memory") []
 @[simp] theorem ren_u32 : Term.ren r (Form.u32 m) = Form.u32 m := plain_u32.ren
 @[simp] theorem sub_u32 : Term.sub s (Form.u32 m) = Form.u32 m := plain_u32.sub
 
--- a def of the copies, under its name in trusted.bend's book
-theorem Trusted.get (hB : Trusted B) (hd : d ∈ evalCopy ++ reader ++ programCopy ++ needCopy ++ trustedCopy) :
+-- a def of the versions, under its name in trusted.bend's book
+theorem Trusted.get (hB : Trusted B) (hd : d ∈ evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion) :
     Book.get B (impl d.k) = some (Rename.defn impl d) :=
   hB.defs _ (List.mem_map_of_mem hd)
 
@@ -71,17 +71,17 @@ theorem Trusted.get (hB : Trusted B) (hd : d ∈ evalCopy ++ reader ++ programCo
 theorem baseTypes_kept (hd : d ∈ baseTypes) : Rename.defn impl d = d := by
   simp only [baseTypes, List.mem_cons, List.not_mem_nil, or_false] at hd
   rcases hd with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-    simp [Rename.defn, Rename.term, «evalCopy.Nat», «evalCopy.Nat.arms», «evalCopy.List»,
-      «evalCopy.List.arms», «evalCopy.U32», «evalCopy.U32.arms», «evalCopy.Word», «evalCopy.Word.Nil»,
-      «evalCopy.Word.Nil.arms», «evalCopy.Word.Con», «evalCopy.Word.Con.arms», «evalCopy.Bool»,
-      «evalCopy.Bool.arms», «evalCopy.Maybe», «evalCopy.Maybe.arms»]
+    simp [Rename.defn, Rename.term, «evalVersion.Nat», «evalVersion.Nat.arms», «evalVersion.List»,
+      «evalVersion.List.arms», «evalVersion.U32», «evalVersion.U32.arms», «evalVersion.Word», «evalVersion.Word.Nil»,
+      «evalVersion.Word.Nil.arms», «evalVersion.Word.Con», «evalVersion.Word.Con.arms», «evalVersion.Bool»,
+      «evalVersion.Bool.arms», «evalVersion.Maybe», «evalVersion.Maybe.arms»]
 
 theorem Trusted.types (hB : Trusted B) : Contains B baseTypes := by
   intro d hd
-  have h1 : d ∈ evalCopy ++ reader ++ programCopy ++ needCopy ++ trustedCopy := by
+  have h1 : d ∈ evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion := by
     simp only [baseTypes, List.mem_cons, List.not_mem_nil, or_false] at hd
     rcases hd with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-      simp [evalCopy]
+      simp [evalVersion]
   have h2 := baseTypes_kept hd
   have := hB.get h1
   rwa [h2, show impl d.k = d.k from congrArg Def.k h2] at this

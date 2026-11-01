@@ -4,7 +4,7 @@ import Base
 # =====
 #
 # A byte is a Word(8n), its lowest bit first (AGENTS.md 3.1.3). Where the
-# WASM spec reads a byte as a number, the copy of WASM takes its value
+# WASM spec reads a byte as a number, the version of WASM takes its value
 # (Byte.to_u32); where it writes a number as a byte, its low byte
 # (Byte.from_u32), as load8_u and store8 do (spec 4.4.7).
 
@@ -381,7 +381,7 @@ def Book.read(xs: List<&2, Word(8n)>) -> Maybe<List<&2, Def>>:
 # Eval
 # ====
 #
-# A copy of the kernel's Eval: Eval.steps(n, ds, t) gives the term that t
+# A version of the kernel's Eval: Eval.steps(n, ds, t) gives the term that t
 # reaches after exactly n steps, in the book of the defs ds (AGENTS.md 3.3.2). It
 # follows step of bootstrap/lean/src/Bootstrap/Interp.lean case for
 # case, and works out each part that a case may need before it picks one.
@@ -3199,7 +3199,7 @@ def Program.memory(m: U32) -> Nat:
 # The compiler of AGENTS.md 3.6.4: a fixed machine (Machine, below) with the
 # program's book as the data of its memory. The machine is written in
 # Cir, a small language of memory cells, which Cir.module translates to a
-# module of the subset of WASM that the Bend copy of WASM models.
+# module of the subset of WASM that the Bend version of WASM models.
 
 # Encoding
 # --------

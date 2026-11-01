@@ -7,7 +7,7 @@ import Bootstrap.OrLaw
 --
 -- Checks that the book of a .bendtt file (trusted.bend's) holds what
 -- Trusted (src/Bootstrap/Trusted.lean) asks: each def of trustedDefs and
--- existsCopy, and a def of the type of each law. It runs the definitions,
+-- existsVersion, and a def of the type of each law. It runs the definitions,
 -- it proves nothing: the theorems take Trusted B as a premise.
 --
 --   bend bootstrap/bend/src/compiler/trusted.bend -o trusted.bendtt
@@ -21,7 +21,7 @@ def same (a b : Def) : Bool := a.k == b.k && a.T == b.T && a.v == b.v && a.o == 
 
 def check : IO Unit := do
   let bk ← Script.book
-  let ds := trustedDefs ++ existsCopy
+  let ds := trustedDefs ++ existsVersion
   let bad := ds.filter fun d => match bk.get d.k with
     | some d' => !same d d'
     | none => true

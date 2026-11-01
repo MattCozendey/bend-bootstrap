@@ -33,9 +33,9 @@ theorem data_value (h : Data t) : Value B t := by
 
 theorem typed_gives (hB : Trusted B) (cl : Book.Closed B) : Typed B [] (givesOf p i n) maybeList := by
   have hT := hB.types
-  have := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «programCopy.Program.gives») (by simp [programCopy]))
+  have := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «programVersion.Program.gives») (by simp [programVersion]))
   rw [sub_var] at this
-  simp [Rename.defn, Rename.term, «programCopy.Program.gives»] at this
+  simp [Rename.defn, Rename.term, «programVersion.Program.gives»] at this
   have := Typed.app (Typed.app (Typed.app this (typed_bytes hT cl (bs := p))) (typed_bytes hT cl (bs := i)))
     (typed_nat hT cl (n := n))
   simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, givesOf, spine, maybeList, listBytes, word8] using this
@@ -46,8 +46,8 @@ theorem law_no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
-  have h0 := hB.law (l := «trustedCopy.spec.no_wrong_result») (by simp [laws])
-  simp [Rename.term, «trustedCopy.spec.no_wrong_result»] at h0
+  have h0 := hB.law (l := «trustedVersion.spec.no_wrong_result») (by simp [laws])
+  simp [Rename.term, «trustedVersion.spec.no_wrong_result»] at h0
   have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_nat hT cl (n := f)))
     (typed_bytes hT cl (bs := p))) (typed_bytes hT cl (bs := i))) (typed_u32' hT cl (m := m)))
     (typed_bytes hT cl (bs := o))
@@ -57,10 +57,10 @@ theorem law_no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
       (Tup Q1 (Lab (impl "Wasm.Outcome.result")) (Tup Q1 (bytes o) (Lab "()"))) := hr
   have h2 := Typed.app h1 (runs_rfl hc hr' (T := Ref (impl "Wasm.Outcome")))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes] at h2
-  obtain ⟨d, hd, -⟩ := hB.declares «trustedCopy.spec.no_wrong_result» (by simp [laws])
+  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.spec.no_wrong_result» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
-    have := Typed.ref (Γ := []) (σ := Var) (hT «evalCopy.Nat» (by simp [baseTypes]))
-    simpa [sub_var, «evalCopy.Nat»] using this
+    have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
+    simpa [sub_var, «evalVersion.Nat»] using this
   have pa : ∀ a ∈ [(Q2, Form.nat f), (Q2, bytes p), (Q2, bytes i), (Q2, Form.u32 m), (Q2, bytes o),
       (Q1, Rfl)], Plain a.2 := by
     simp [plain_nat, plain_bytes, plain_u32, Plain.rfl]
@@ -69,6 +69,6 @@ theorem law_no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
   simp only [Term.inst, Term.sub, Subst.one, sub_bytes] at cw
   refine ⟨n, conv_runs hc ?_ ?_ (typed_gives hB cl) (typed_maybeList hT cl) ?_ cw⟩
   · exact closed_call (by simp [plain_nat, plain_bytes])
-  · exact live_call' (hB.get (d := «programCopy.Program.gives») (by simp [programCopy]))
+  · exact live_call' (hB.get (d := «programVersion.Program.gives») (by simp [programVersion]))
       (by simp [plain_nat, plain_bytes])
   · exact plain_ctor (by simp [plain_bytes])

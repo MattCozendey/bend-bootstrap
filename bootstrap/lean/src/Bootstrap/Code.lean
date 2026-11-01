@@ -5,9 +5,9 @@ import Bootstrap.Book
 -- ====
 --
 -- How a Lean law talks about our Bend code: Lean cannot see what the kernel's
--- parser gives, so a law is about a Lean copy of the defs that `bend -o` writes
--- for the code (src/Bootstrap/Copy/, made by scripts/Copy.lean), and holds in
--- each book that holds that copy.
+-- parser gives, so a law is about a Lean version of the defs that `bend -o` writes
+-- for the code (src/Bootstrap/Version/, made by scripts/Version.lean), and holds in
+-- each book that holds that version.
 
 open Quan Term
 

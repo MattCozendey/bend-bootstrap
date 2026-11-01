@@ -3,7 +3,7 @@
 
    cut.exe x.wast x.pure: the binary script of the test script x.wast, as
    wasm -d x.wast -o x.bin.wast writes it, except that each module that a
-   command defines keeps only its functions inside the subset of the Bend copy
+   command defines keeps only its functions inside the subset of the Bend version
    of WASM (W2), with their types and exports; the other functions and their
    exports go. A module with imports, tables, globals, elements, tags or a
    start function stays whole, as do the modules of assertions. So the model

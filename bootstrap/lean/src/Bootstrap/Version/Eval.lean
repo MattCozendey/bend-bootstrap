@@ -1,11 +1,11 @@
 import bendtt
 
--- Made by scripts/Copy.lean from the `bend -o` output of bootstrap/bend/src/compiler/impl.bend,
+-- Made by scripts/Version.lean from the `bend -o` output of bootstrap/bend/src/compiler/impl.bend,
 -- for the roots Eval.steps, and the defs that they need. Do not edit it.
 
 open Quan Term
 
-def «evalCopy.Word.low» : Def :=
+def «evalVersion.Word.low» : Def :=
   ⟨"Word.low",
     Term.All
       (Quan.Q1)
@@ -74,7 +74,7 @@ def «evalCopy.Word.low» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Byte.from_u32» : Def :=
+def «evalVersion.Byte.from_u32» : Def :=
   ⟨"Byte.from_u32",
     Term.All
       (Quan.Q1)
@@ -369,7 +369,7 @@ def «evalCopy.Byte.from_u32» : Def :=
         (Term.Efq)),
     false⟩
 
-def «evalCopy.Cmp.is_eq» : Def :=
+def «evalVersion.Cmp.is_eq» : Def :=
   ⟨"Cmp.is_eq",
     Term.All (Quan.Q1) (Term.Ref "Cmp") (Term.Ref "Bool"),
     Term.Prj
@@ -381,7 +381,7 @@ def «evalCopy.Cmp.is_eq» : Def :=
           (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()"))))),
     false⟩
 
-def «evalCopy.Bool.cmp» : Def :=
+def «evalVersion.Bool.cmp» : Def :=
   ⟨"Bool.cmp",
     Term.All (Quan.Q1) (Term.Ref "Bool") (Term.All (Quan.Q1) (Term.Ref "Bool") (Term.Ref "Cmp")),
     Term.Prj
@@ -414,7 +414,7 @@ def «evalCopy.Bool.cmp» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Word.cmp.fin» : Def :=
+def «evalVersion.Word.cmp.fin» : Def :=
   ⟨"Word.cmp.fin",
     Term.All
       (Quan.Q1)
@@ -443,7 +443,7 @@ def «evalCopy.Word.cmp.fin» : Def :=
                 (Term.Efq)))))),
     false⟩
 
-def «evalCopy.Word.cmp» : Def :=
+def «evalVersion.Word.cmp» : Def :=
   ⟨"Word.cmp",
     Term.All
       (Quan.Q1)
@@ -517,7 +517,7 @@ def «evalCopy.Word.cmp» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Byte.is_eq» : Def :=
+def «evalVersion.Byte.is_eq» : Def :=
   ⟨"Byte.is_eq",
     Term.All
       (Quan.Q1)
@@ -698,7 +698,7 @@ def «evalCopy.Byte.is_eq» : Def :=
             (Term.Var 0)))),
     false⟩
 
-def «evalCopy.Quan.arms» : Def :=
+def «evalVersion.Quan.arms» : Def :=
   ⟨"Quan.arms",
     Term.All (Quan.Q1) (Term.Enu ["Quan.Q0", "Quan.Q1", "Quan.Q2"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat
@@ -707,7 +707,7 @@ def «evalCopy.Quan.arms» : Def :=
       (Term.Mat "Quan.Q1" (Term.Enu ["()"]) (Term.Mat "Quan.Q2" (Term.Enu ["()"]) (Term.Efq))),
     false⟩
 
-def «evalCopy.Quan» : Def :=
+def «evalVersion.Quan» : Def :=
   ⟨"Quan",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig
@@ -716,7 +716,7 @@ def «evalCopy.Quan» : Def :=
       (Term.App (Quan.Q1) (Term.Ref "Quan.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Term.arms» : Def :=
+def «evalVersion.Term.arms» : Def :=
   ⟨"Term.arms",
     Term.All
       (Quan.Q1)
@@ -1082,7 +1082,7 @@ def «evalCopy.Term.arms» : Def :=
                                           (Term.Efq))))))))))))))))))),
     false⟩
 
-def «evalCopy.Term» : Def :=
+def «evalVersion.Term» : Def :=
   ⟨"Term",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig
@@ -1094,7 +1094,7 @@ def «evalCopy.Term» : Def :=
       (Term.App (Quan.Q1) (Term.Ref "Term.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Def.arms» : Def :=
+def «evalVersion.Def.arms» : Def :=
   ⟨"Def.arms",
     Term.All (Quan.Q1) (Term.Enu ["Def"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat
@@ -1166,13 +1166,13 @@ def «evalCopy.Def.arms» : Def :=
       (Term.Efq),
     false⟩
 
-def «evalCopy.Def» : Def :=
+def «evalVersion.Def» : Def :=
   ⟨"Def",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig (Quan.Q1) (Term.Enu ["Def"]) (Term.App (Quan.Q1) (Term.Ref "Def.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Arg.arms» : Def :=
+def «evalVersion.Arg.arms» : Def :=
   ⟨"Arg.arms",
     Term.All (Quan.Q1) (Term.Enu ["Arg"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat
@@ -1184,13 +1184,13 @@ def «evalCopy.Arg.arms» : Def :=
       (Term.Efq),
     false⟩
 
-def «evalCopy.Arg» : Def :=
+def «evalVersion.Arg» : Def :=
   ⟨"Arg",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig (Quan.Q1) (Term.Enu ["Arg"]) (Term.App (Quan.Q1) (Term.Ref "Arg.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Quan.live» : Def :=
+def «evalVersion.Quan.live» : Def :=
   ⟨"Quan.live",
     Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Bool"),
     Term.Prj
@@ -1206,7 +1206,7 @@ def «evalCopy.Quan.live» : Def :=
             (Term.Efq)))),
     false⟩
 
-def «evalCopy.Quan.lives_as» : Def :=
+def «evalVersion.Quan.lives_as» : Def :=
   ⟨"Quan.lives_as",
     Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Bool")),
     Term.Prj
@@ -1235,7 +1235,7 @@ def «evalCopy.Quan.lives_as» : Def :=
                   (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()"))))))))),
     false⟩
 
-def «evalCopy.Quan.fld» : Def :=
+def «evalVersion.Quan.fld» : Def :=
   ⟨"Quan.fld",
     Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Quan")),
     Term.Prj
@@ -1257,7 +1257,7 @@ def «evalCopy.Quan.fld» : Def :=
             (Term.Efq)))),
     false⟩
 
-def «evalCopy.Bool.and» : Def :=
+def «evalVersion.Bool.and» : Def :=
   ⟨"Bool.and",
     Term.All (Quan.Q1) (Term.Ref "Bool") (Term.All (Quan.Q1) (Term.Ref "Bool") (Term.Ref "Bool")),
     Term.Prj
@@ -1270,7 +1270,7 @@ def «evalCopy.Bool.and» : Def :=
         (Term.Mat "True" (Term.Mat "()" (Term.Lam (Quan.Q1) (Term.Var 0)) (Term.Efq)) (Term.Efq))),
     false⟩
 
-def «evalCopy.Name.is_eq» : Def :=
+def «evalVersion.Name.is_eq» : Def :=
   ⟨"Name.is_eq",
     Term.All
       (Quan.Q1)
@@ -1444,7 +1444,7 @@ def «evalCopy.Name.is_eq» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Bool.or» : Def :=
+def «evalVersion.Bool.or» : Def :=
   ⟨"Bool.or",
     Term.All (Quan.Q1) (Term.Ref "Bool") (Term.All (Quan.Q1) (Term.Ref "Bool") (Term.Ref "Bool")),
     Term.Prj
@@ -1460,7 +1460,7 @@ def «evalCopy.Bool.or» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Bool.not» : Def :=
+def «evalVersion.Bool.not» : Def :=
   ⟨"Bool.not",
     Term.All (Quan.Q1) (Term.Ref "Bool") (Term.Ref "Bool"),
     Term.Prj
@@ -1473,7 +1473,7 @@ def «evalCopy.Bool.not» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Term.is_data» : Def :=
+def «evalVersion.Term.is_data» : Def :=
   ⟨"Term.is_data",
     Term.All (Quan.Q1) (Term.Ref "Term") (Term.Ref "Bool"),
     Term.Prj
@@ -1521,7 +1521,7 @@ def «evalCopy.Term.is_data» : Def :=
               (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()"))))))),
     false⟩
 
-def «evalCopy.Quan.fits» : Def :=
+def «evalVersion.Quan.fits» : Def :=
   ⟨"Quan.fits",
     Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Term") (Term.Ref "Bool")),
     Term.Prj
@@ -1538,7 +1538,7 @@ def «evalCopy.Quan.fits» : Def :=
             (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()")))))),
     false⟩
 
-def «evalCopy.Quan.binds» : Def :=
+def «evalVersion.Quan.binds» : Def :=
   ⟨"Quan.binds",
     Term.All
       (Quan.Q2)
@@ -1568,7 +1568,7 @@ def «evalCopy.Quan.binds» : Def :=
               (Term.Var 0))))),
     false⟩
 
-def «evalCopy.Term.is_former» : Def :=
+def «evalVersion.Term.is_former» : Def :=
   ⟨"Term.is_former",
     Term.All (Quan.Q1) (Term.Ref "Term") (Term.Ref "Bool"),
     Term.Prj
@@ -1714,7 +1714,7 @@ def «evalCopy.Term.is_former» : Def :=
                                     (Term.Lab "()")))))))))))))))),
     false⟩
 
-def «evalCopy.Term.takes» : Def :=
+def «evalVersion.Term.takes» : Def :=
   ⟨"Term.takes",
     Term.All (Quan.Q1) (Term.Ref "Term") (Term.Ref "Bool"),
     Term.Prj
@@ -1759,7 +1759,7 @@ def «evalCopy.Term.takes» : Def :=
                 (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()")))))))),
     false⟩
 
-def «evalCopy.Term.head» : Def :=
+def «evalVersion.Term.head» : Def :=
   ⟨"Term.head",
     Term.All (Quan.Q1) (Term.Ref "Term") (Term.Ref "Term"),
     Term.Prj
@@ -1781,7 +1781,7 @@ def «evalCopy.Term.head» : Def :=
         (Term.Lam (Quan.Q1) (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Var 1) (Term.Var 0))))),
     false⟩
 
-def «evalCopy.Term.args» : Def :=
+def «evalVersion.Term.args» : Def :=
   ⟨"Term.args",
     Term.All
       (Quan.Q1)
@@ -1829,7 +1829,7 @@ def «evalCopy.Term.args» : Def :=
         (Term.Lam (Quan.Q1) (Term.Lam (Quan.Q1) (Term.Lam (Quan.Q1) (Term.Var 0))))),
     false⟩
 
-def «evalCopy.Term.spine» : Def :=
+def «evalVersion.Term.spine» : Def :=
   ⟨"Term.spine",
     Term.All
       (Quan.Q1)
@@ -1879,7 +1879,7 @@ def «evalCopy.Term.spine» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Env.sub» : Def :=
+def «evalVersion.Env.sub» : Def :=
   ⟨"Env.sub",
     Term.All
       (Quan.Q1)
@@ -1928,7 +1928,7 @@ def «evalCopy.Env.sub» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Nat.add» : Def :=
+def «evalVersion.Nat.add» : Def :=
   ⟨"Nat.add",
     Term.All (Quan.Q1) (Term.Ref "Nat") (Term.All (Quan.Q1) (Term.Ref "Nat") (Term.Ref "Nat")),
     Term.Prj
@@ -1958,7 +1958,7 @@ def «evalCopy.Nat.add» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Term.shift.at» : Def :=
+def «evalVersion.Term.shift.at» : Def :=
   ⟨"Term.shift.at",
     Term.All
       (Quan.Q1)
@@ -1984,7 +1984,7 @@ def «evalCopy.Term.shift.at» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Cmp.is_lt» : Def :=
+def «evalVersion.Cmp.is_lt» : Def :=
   ⟨"Cmp.is_lt",
     Term.All (Quan.Q1) (Term.Ref "Cmp") (Term.Ref "Bool"),
     Term.Prj
@@ -1996,7 +1996,7 @@ def «evalCopy.Cmp.is_lt» : Def :=
           (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()"))))),
     false⟩
 
-def «evalCopy.Nat.cmp» : Def :=
+def «evalVersion.Nat.cmp» : Def :=
   ⟨"Nat.cmp",
     Term.All (Quan.Q1) (Term.Ref "Nat") (Term.All (Quan.Q1) (Term.Ref "Nat") (Term.Ref "Cmp")),
     Term.Prj
@@ -2047,7 +2047,7 @@ def «evalCopy.Nat.cmp» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Nat.is_lt» : Def :=
+def «evalVersion.Nat.is_lt» : Def :=
   ⟨"Nat.is_lt",
     Term.All (Quan.Q1) (Term.Ref "Nat") (Term.All (Quan.Q1) (Term.Ref "Nat") (Term.Ref "Bool")),
     Term.Lam
@@ -2060,7 +2060,7 @@ def «evalCopy.Nat.is_lt» : Def :=
           (Term.App (Quan.Q1) (Term.App (Quan.Q1) (Term.Ref "Nat.cmp") (Term.Var 1)) (Term.Var 0)))),
     false⟩
 
-def «evalCopy.Term.shift» : Def :=
+def «evalVersion.Term.shift» : Def :=
   ⟨"Term.shift",
     Term.All
       (Quan.Q1)
@@ -2773,7 +2773,7 @@ def «evalCopy.Term.shift» : Def :=
                                             (Term.Efq)))))))))))))))))))),
     false⟩
 
-def «evalCopy.Term.lift.at» : Def :=
+def «evalVersion.Term.lift.at» : Def :=
   ⟨"Term.lift.at",
     Term.All
       (Quan.Q1)
@@ -2799,7 +2799,7 @@ def «evalCopy.Term.lift.at» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Nat.sub» : Def :=
+def «evalVersion.Nat.sub» : Def :=
   ⟨"Nat.sub",
     Term.All (Quan.Q1) (Term.Ref "Nat") (Term.All (Quan.Q1) (Term.Ref "Nat") (Term.Ref "Nat")),
     Term.Prj
@@ -2843,7 +2843,7 @@ def «evalCopy.Nat.sub» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Term.lift» : Def :=
+def «evalVersion.Term.lift» : Def :=
   ⟨"Term.lift",
     Term.All
       (Quan.Q2)
@@ -2913,7 +2913,7 @@ def «evalCopy.Term.lift» : Def :=
             (Term.Efq)))),
     false⟩
 
-def «evalCopy.Term.subst» : Def :=
+def «evalVersion.Term.subst» : Def :=
   ⟨"Term.subst",
     Term.All
       (Quan.Q1)
@@ -3620,7 +3620,7 @@ def «evalCopy.Term.subst» : Def :=
                                             (Term.Efq)))))))))))))))))))),
     false⟩
 
-def «evalCopy.Term.inst» : Def :=
+def «evalVersion.Term.inst» : Def :=
   ⟨"Term.inst",
     Term.All (Quan.Q1) (Term.Ref "Term") (Term.All (Quan.Q1) (Term.Ref "Term") (Term.Ref "Term")),
     Term.Lam
@@ -3645,7 +3645,7 @@ def «evalCopy.Term.inst» : Def :=
           (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()")))),
     false⟩
 
-def «evalCopy.Book.get.if» : Def :=
+def «evalVersion.Book.get.if» : Def :=
   ⟨"Book.get.if",
     Term.All
       (Quan.Q1)
@@ -3683,7 +3683,7 @@ def «evalCopy.Book.get.if» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Book.get» : Def :=
+def «evalVersion.Book.get» : Def :=
   ⟨"Book.get",
     Term.All
       (Quan.Q1)
@@ -3826,7 +3826,7 @@ def «evalCopy.Book.get» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.walk.if» : Def :=
+def «evalVersion.Eval.walk.if» : Def :=
   ⟨"Eval.walk.if",
     Term.All
       (Quan.Q1)
@@ -3860,7 +3860,7 @@ def «evalCopy.Eval.walk.if» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.walk.pick» : Def :=
+def «evalVersion.Eval.walk.pick» : Def :=
   ⟨"Eval.walk.pick",
     Term.All
       (Quan.Q1)
@@ -3900,7 +3900,7 @@ def «evalCopy.Eval.walk.pick» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.walk.app» : Def :=
+def «evalVersion.Eval.walk.app» : Def :=
   ⟨"Eval.walk.app",
     Term.All
       (Quan.Q1)
@@ -3950,7 +3950,7 @@ def «evalCopy.Eval.walk.app» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.walk.leaf» : Def :=
+def «evalVersion.Eval.walk.leaf» : Def :=
   ⟨"Eval.walk.leaf",
     Term.All
       (Quan.Q1)
@@ -4016,7 +4016,7 @@ def «evalCopy.Eval.walk.leaf» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.walk» : Def :=
+def «evalVersion.Eval.walk» : Def :=
   ⟨"Eval.walk",
     Term.All
       (Quan.Q2)
@@ -4892,7 +4892,7 @@ def «evalCopy.Eval.walk» : Def :=
                             (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))))))))))))),
     false⟩
 
-def «evalCopy.Eval.callWalk.def» : Def :=
+def «evalVersion.Eval.callWalk.def» : Def :=
   ⟨"Eval.callWalk.def",
     Term.All
       (Quan.Q1)
@@ -4951,7 +4951,7 @@ def «evalCopy.Eval.callWalk.def» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.callWalk.head» : Def :=
+def «evalVersion.Eval.callWalk.head» : Def :=
   ⟨"Eval.callWalk.head",
     Term.All
       (Quan.Q1)
@@ -5002,7 +5002,7 @@ def «evalCopy.Eval.callWalk.head» : Def :=
               (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()"))))))),
     false⟩
 
-def «evalCopy.Eval.callWalk» : Def :=
+def «evalVersion.Eval.callWalk» : Def :=
   ⟨"Eval.callWalk",
     Term.All
       (Quan.Q1)
@@ -5033,7 +5033,7 @@ def «evalCopy.Eval.callWalk» : Def :=
             (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))))),
     false⟩
 
-def «evalCopy.Eval.waits» : Def :=
+def «evalVersion.Eval.waits» : Def :=
   ⟨"Eval.waits",
     Term.All
       (Quan.Q1)
@@ -5069,7 +5069,7 @@ def «evalCopy.Eval.waits» : Def :=
           (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()"))))),
     false⟩
 
-def «evalCopy.Eval.vals.app» : Def :=
+def «evalVersion.Eval.vals.app» : Def :=
   ⟨"Eval.vals.app",
     Term.All
       (Quan.Q1)
@@ -5107,7 +5107,7 @@ def «evalCopy.Eval.vals.app» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.vals.ref» : Def :=
+def «evalVersion.Eval.vals.ref» : Def :=
   ⟨"Eval.vals.ref",
     Term.All
       (Quan.Q1)
@@ -5138,7 +5138,7 @@ def «evalCopy.Eval.vals.ref» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.vals.other» : Def :=
+def «evalVersion.Eval.vals.other» : Def :=
   ⟨"Eval.vals.other",
     Term.All (Quan.Q1) (Term.Ref "Bool") (Term.All (Quan.Q1) (Term.Ref "Bool") (Term.Ref "Bool")),
     Term.Prj
@@ -5151,7 +5151,7 @@ def «evalCopy.Eval.vals.other» : Def :=
         (Term.Mat "False" (Term.Mat "()" (Term.Lam (Quan.Q1) (Term.Var 0)) (Term.Efq)) (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.vals» : Def :=
+def «evalVersion.Eval.vals» : Def :=
   ⟨"Eval.vals",
     Term.All
       (Quan.Q2)
@@ -5315,7 +5315,7 @@ def «evalCopy.Eval.vals» : Def :=
                         (Term.Tup (Quan.Q1) (Term.Var 2) (Term.Var 1))))))))))),
     false⟩
 
-def «evalCopy.Eval.call.if» : Def :=
+def «evalVersion.Eval.call.if» : Def :=
   ⟨"Eval.call.if",
     Term.All
       (Quan.Q1)
@@ -5377,7 +5377,7 @@ def «evalCopy.Eval.call.if» : Def :=
             (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()")))))),
     false⟩
 
-def «evalCopy.Eval.call» : Def :=
+def «evalVersion.Eval.call» : Def :=
   ⟨"Eval.call",
     Term.All
       (Quan.Q2)
@@ -5411,7 +5411,7 @@ def «evalCopy.Eval.call» : Def :=
             (Term.Var 0)))),
     false⟩
 
-def «evalCopy.Eval.redex.if» : Def :=
+def «evalVersion.Eval.redex.if» : Def :=
   ⟨"Eval.redex.if",
     Term.All
       (Quan.Q1)
@@ -5444,7 +5444,7 @@ def «evalCopy.Eval.redex.if» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.redex.pick» : Def :=
+def «evalVersion.Eval.redex.pick» : Def :=
   ⟨"Eval.redex.pick",
     Term.All
       (Quan.Q1)
@@ -5463,7 +5463,7 @@ def «evalCopy.Eval.redex.pick» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.redex» : Def :=
+def «evalVersion.Eval.redex» : Def :=
   ⟨"Eval.redex",
     Term.All
       (Quan.Q1)
@@ -5714,7 +5714,7 @@ def «evalCopy.Eval.redex» : Def :=
                               (Term.Tup (Quan.Q1) (Term.Var 0) (Term.Lab "()")))))))))))))),
     false⟩
 
-def «evalCopy.Quan.read.if» : Def :=
+def «evalVersion.Quan.read.if» : Def :=
   ⟨"Quan.read.if",
     Term.All
       (Quan.Q1)
@@ -5752,7 +5752,7 @@ def «evalCopy.Quan.read.if» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.U32.lit81» : Def :=
+def «evalVersion.U32.lit81» : Def :=
   ⟨"U32.lit81",
     Term.Ref "U32",
     Term.Tup
@@ -6214,7 +6214,7 @@ def «evalCopy.U32.lit81» : Def :=
         (Term.Lab "()")),
     false⟩
 
-def «evalCopy.U32.lit48» : Def :=
+def «evalVersion.U32.lit48» : Def :=
   ⟨"U32.lit48",
     Term.Ref "U32",
     Term.Tup
@@ -6676,7 +6676,7 @@ def «evalCopy.U32.lit48» : Def :=
         (Term.Lab "()")),
     false⟩
 
-def «evalCopy.U32.lit49» : Def :=
+def «evalVersion.U32.lit49» : Def :=
   ⟨"U32.lit49",
     Term.Ref "U32",
     Term.Tup
@@ -7138,7 +7138,7 @@ def «evalCopy.U32.lit49» : Def :=
         (Term.Lab "()")),
     false⟩
 
-def «evalCopy.U32.lit50» : Def :=
+def «evalVersion.U32.lit50» : Def :=
   ⟨"U32.lit50",
     Term.Ref "U32",
     Term.Tup
@@ -7600,7 +7600,7 @@ def «evalCopy.U32.lit50» : Def :=
         (Term.Lab "()")),
     false⟩
 
-def «evalCopy.Quan.name» : Def :=
+def «evalVersion.Quan.name» : Def :=
   ⟨"Quan.name",
     Term.All
       (Quan.Q1)
@@ -7736,7 +7736,7 @@ def «evalCopy.Quan.name» : Def :=
             (Term.Efq)))),
     false⟩
 
-def «evalCopy.Quan.read» : Def :=
+def «evalVersion.Quan.read» : Def :=
   ⟨"Quan.read",
     Term.All
       (Quan.Q2)
@@ -7846,7 +7846,7 @@ def «evalCopy.Quan.read» : Def :=
             (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()"))))),
     false⟩
 
-def «evalCopy.Quan.min» : Def :=
+def «evalVersion.Quan.min» : Def :=
   ⟨"Quan.min",
     Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Quan")),
     Term.Prj
@@ -7906,7 +7906,7 @@ def «evalCopy.Quan.min» : Def :=
                         (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q1") (Term.Lab "()"))))))))))),
     false⟩
 
-def «evalCopy.Eval.meet.of» : Def :=
+def «evalVersion.Eval.meet.of» : Def :=
   ⟨"Eval.meet.of",
     Term.All
       (Quan.Q1)
@@ -7968,7 +7968,7 @@ def «evalCopy.Eval.meet.of» : Def :=
             (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()")))))),
     false⟩
 
-def «evalCopy.Eval.meet» : Def :=
+def «evalVersion.Eval.meet» : Def :=
   ⟨"Eval.meet",
     Term.All
       (Quan.Q1)
@@ -8015,7 +8015,7 @@ def «evalCopy.Eval.meet» : Def :=
             (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()")))))),
     false⟩
 
-def «evalCopy.Eval.step.app» : Def :=
+def «evalVersion.Eval.step.app» : Def :=
   ⟨"Eval.step.app",
     Term.All
       (Quan.Q1)
@@ -8199,7 +8199,7 @@ def «evalCopy.Eval.step.app» : Def :=
                 (Term.Efq)))))),
     false⟩
 
-def «evalCopy.Eval.step.unlet» : Def :=
+def «evalVersion.Eval.step.unlet» : Def :=
   ⟨"Eval.step.unlet",
     Term.All
       (Quan.Q1)
@@ -8245,7 +8245,7 @@ def «evalCopy.Eval.step.unlet» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.step.let» : Def :=
+def «evalVersion.Eval.step.let» : Def :=
   ⟨"Eval.step.let",
     Term.All
       (Quan.Q1)
@@ -8367,7 +8367,7 @@ def «evalCopy.Eval.step.let» : Def :=
                 (Term.Efq)))))),
     false⟩
 
-def «evalCopy.Eval.step.tup_b» : Def :=
+def «evalVersion.Eval.step.tup_b» : Def :=
   ⟨"Eval.step.tup_b",
     Term.All
       (Quan.Q1)
@@ -8420,7 +8420,7 @@ def «evalCopy.Eval.step.tup_b» : Def :=
               (Term.Efq))))),
     false⟩
 
-def «evalCopy.Eval.step.tup» : Def :=
+def «evalVersion.Eval.step.tup» : Def :=
   ⟨"Eval.step.tup",
     Term.All
       (Quan.Q1)
@@ -8545,7 +8545,7 @@ def «evalCopy.Eval.step.tup» : Def :=
                 (Term.Efq)))))),
     false⟩
 
-def «evalCopy.Eval.step.cast» : Def :=
+def «evalVersion.Eval.step.cast» : Def :=
   ⟨"Eval.step.cast",
     Term.All
       (Quan.Q1)
@@ -8576,7 +8576,7 @@ def «evalCopy.Eval.step.cast» : Def :=
             (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()")))))),
     false⟩
 
-def «evalCopy.Eval.step.rwt» : Def :=
+def «evalVersion.Eval.step.rwt» : Def :=
   ⟨"Eval.step.rwt",
     Term.All
       (Quan.Q1)
@@ -8658,7 +8658,7 @@ def «evalCopy.Eval.step.rwt» : Def :=
                 (Term.Efq)))))),
     false⟩
 
-def «evalCopy.Eval.step.min» : Def :=
+def «evalVersion.Eval.step.min» : Def :=
   ⟨"Eval.step.min",
     Term.All
       (Quan.Q1)
@@ -8800,7 +8800,7 @@ def «evalCopy.Eval.step.min» : Def :=
               (Term.Efq))))),
     false⟩
 
-def «evalCopy.Eval.step» : Def :=
+def «evalVersion.Eval.step» : Def :=
   ⟨"Eval.step",
     Term.All
       (Quan.Q2)
@@ -9110,7 +9110,7 @@ def «evalCopy.Eval.step» : Def :=
                           (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()")))))))))))),
     false⟩
 
-def «evalCopy.Eval.run» : Def :=
+def «evalVersion.Eval.run» : Def :=
   ⟨"Eval.run",
     Term.All
       (Quan.Q1)
@@ -9171,7 +9171,7 @@ def «evalCopy.Eval.run» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Eval.steps» : Def :=
+def «evalVersion.Eval.steps» : Def :=
   ⟨"Eval.steps",
     Term.All
       (Quan.Q1)
@@ -9204,7 +9204,7 @@ def «evalCopy.Eval.steps» : Def :=
               (Term.Tup (Quan.Q1) (Term.Var 0) (Term.Lab "()")))))),
     false⟩
 
-def «evalCopy.U32.arms» : Def :=
+def «evalVersion.U32.arms» : Def :=
   ⟨"U32.arms",
     Term.All (Quan.Q1) (Term.Enu ["U32"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat
@@ -9444,13 +9444,13 @@ def «evalCopy.U32.arms» : Def :=
       (Term.Efq),
     false⟩
 
-def «evalCopy.U32» : Def :=
+def «evalVersion.U32» : Def :=
   ⟨"U32",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig (Quan.Q1) (Term.Enu ["U32"]) (Term.App (Quan.Q1) (Term.Ref "U32.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Maybe.arms» : Def :=
+def «evalVersion.Maybe.arms» : Def :=
   ⟨"Maybe.arms",
     Term.All
       (Quan.Q0)
@@ -9469,7 +9469,7 @@ def «evalCopy.Maybe.arms» : Def :=
           (Term.Mat "Some" (Term.Sig (Quan.Q1) (Term.Var 0) (Term.Enu ["()"])) (Term.Efq)))),
     false⟩
 
-def «evalCopy.Maybe» : Def :=
+def «evalVersion.Maybe» : Def :=
   ⟨"Maybe",
     Term.All
       (Quan.Q0)
@@ -9491,7 +9491,7 @@ def «evalCopy.Maybe» : Def :=
             (Term.Var 0)))),
     false⟩
 
-def «evalCopy.List.arms» : Def :=
+def «evalVersion.List.arms» : Def :=
   ⟨"List.arms",
     Term.All
       (Quan.Q0)
@@ -9522,7 +9522,7 @@ def «evalCopy.List.arms» : Def :=
             (Term.Efq)))),
     false⟩
 
-def «evalCopy.List» : Def :=
+def «evalVersion.List» : Def :=
   ⟨"List",
     Term.All
       (Quan.Q0)
@@ -9544,7 +9544,7 @@ def «evalCopy.List» : Def :=
             (Term.Var 0)))),
     false⟩
 
-def «evalCopy.Cmp.arms» : Def :=
+def «evalVersion.Cmp.arms» : Def :=
   ⟨"Cmp.arms",
     Term.All (Quan.Q1) (Term.Enu ["LT", "EQ", "GT"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat
@@ -9553,7 +9553,7 @@ def «evalCopy.Cmp.arms» : Def :=
       (Term.Mat "EQ" (Term.Enu ["()"]) (Term.Mat "GT" (Term.Enu ["()"]) (Term.Efq))),
     false⟩
 
-def «evalCopy.Cmp» : Def :=
+def «evalVersion.Cmp» : Def :=
   ⟨"Cmp",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig
@@ -9562,13 +9562,13 @@ def «evalCopy.Cmp» : Def :=
       (Term.App (Quan.Q1) (Term.Ref "Cmp.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Bool.arms» : Def :=
+def «evalVersion.Bool.arms» : Def :=
   ⟨"Bool.arms",
     Term.All (Quan.Q1) (Term.Enu ["False", "True"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat "False" (Term.Enu ["()"]) (Term.Mat "True" (Term.Enu ["()"]) (Term.Efq)),
     false⟩
 
-def «evalCopy.Bool» : Def :=
+def «evalVersion.Bool» : Def :=
   ⟨"Bool",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig
@@ -9577,19 +9577,19 @@ def «evalCopy.Bool» : Def :=
       (Term.App (Quan.Q1) (Term.Ref "Bool.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Word.Nil.arms» : Def :=
+def «evalVersion.Word.Nil.arms» : Def :=
   ⟨"Word.Nil.arms",
     Term.All (Quan.Q1) (Term.Enu ["WNil"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat "WNil" (Term.Enu ["()"]) (Term.Efq),
     false⟩
 
-def «evalCopy.Word.Nil» : Def :=
+def «evalVersion.Word.Nil» : Def :=
   ⟨"Word.Nil",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig (Quan.Q1) (Term.Enu ["WNil"]) (Term.App (Quan.Q1) (Term.Ref "Word.Nil.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.Word.Con.arms» : Def :=
+def «evalVersion.Word.Con.arms» : Def :=
   ⟨"Word.Con.arms",
     Term.All
       (Quan.Q0)
@@ -9609,7 +9609,7 @@ def «evalCopy.Word.Con.arms» : Def :=
         (Term.Efq)),
     false⟩
 
-def «evalCopy.Word.Con» : Def :=
+def «evalVersion.Word.Con» : Def :=
   ⟨"Word.Con",
     Term.All (Quan.Q0) (Term.Ref "Nat") (Term.Typ (Term.Lab "Q2")),
     Term.Lam
@@ -9623,7 +9623,7 @@ def «evalCopy.Word.Con» : Def :=
           (Term.Var 0))),
     false⟩
 
-def «evalCopy.Word» : Def :=
+def «evalVersion.Word» : Def :=
   ⟨"Word",
     Term.All (Quan.Q1) (Term.Ref "Nat") (Term.Typ (Term.Lab "Q2")),
     Term.Prj
@@ -9639,7 +9639,7 @@ def «evalCopy.Word» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Nat.arms» : Def :=
+def «evalVersion.Nat.arms» : Def :=
   ⟨"Nat.arms",
     Term.All (Quan.Q1) (Term.Enu ["Zero", "Succ"]) (Term.Typ (Term.Lab "Q2")),
     Term.Mat
@@ -9648,7 +9648,7 @@ def «evalCopy.Nat.arms» : Def :=
       (Term.Mat "Succ" (Term.Sig (Quan.Q1) (Term.Ref "Nat") (Term.Enu ["()"])) (Term.Efq)),
     false⟩
 
-def «evalCopy.Nat» : Def :=
+def «evalVersion.Nat» : Def :=
   ⟨"Nat",
     Term.Typ (Term.Lab "Q2"),
     Term.Sig
@@ -9657,104 +9657,104 @@ def «evalCopy.Nat» : Def :=
       (Term.App (Quan.Q1) (Term.Ref "Nat.arms") (Term.Var 0)),
     false⟩
 
-def evalCopy : List Def :=
-  [«evalCopy.Word.low»,
-   «evalCopy.Byte.from_u32»,
-   «evalCopy.Cmp.is_eq»,
-   «evalCopy.Bool.cmp»,
-   «evalCopy.Word.cmp.fin»,
-   «evalCopy.Word.cmp»,
-   «evalCopy.Byte.is_eq»,
-   «evalCopy.Quan.arms»,
-   «evalCopy.Quan»,
-   «evalCopy.Term.arms»,
-   «evalCopy.Term»,
-   «evalCopy.Def.arms»,
-   «evalCopy.Def»,
-   «evalCopy.Arg.arms»,
-   «evalCopy.Arg»,
-   «evalCopy.Quan.live»,
-   «evalCopy.Quan.lives_as»,
-   «evalCopy.Quan.fld»,
-   «evalCopy.Bool.and»,
-   «evalCopy.Name.is_eq»,
-   «evalCopy.Bool.or»,
-   «evalCopy.Bool.not»,
-   «evalCopy.Term.is_data»,
-   «evalCopy.Quan.fits»,
-   «evalCopy.Quan.binds»,
-   «evalCopy.Term.is_former»,
-   «evalCopy.Term.takes»,
-   «evalCopy.Term.head»,
-   «evalCopy.Term.args»,
-   «evalCopy.Term.spine»,
-   «evalCopy.Env.sub»,
-   «evalCopy.Nat.add»,
-   «evalCopy.Term.shift.at»,
-   «evalCopy.Cmp.is_lt»,
-   «evalCopy.Nat.cmp»,
-   «evalCopy.Nat.is_lt»,
-   «evalCopy.Term.shift»,
-   «evalCopy.Term.lift.at»,
-   «evalCopy.Nat.sub»,
-   «evalCopy.Term.lift»,
-   «evalCopy.Term.subst»,
-   «evalCopy.Term.inst»,
-   «evalCopy.Book.get.if»,
-   «evalCopy.Book.get»,
-   «evalCopy.Eval.walk.if»,
-   «evalCopy.Eval.walk.pick»,
-   «evalCopy.Eval.walk.app»,
-   «evalCopy.Eval.walk.leaf»,
-   «evalCopy.Eval.walk»,
-   «evalCopy.Eval.callWalk.def»,
-   «evalCopy.Eval.callWalk.head»,
-   «evalCopy.Eval.callWalk»,
-   «evalCopy.Eval.waits»,
-   «evalCopy.Eval.vals.app»,
-   «evalCopy.Eval.vals.ref»,
-   «evalCopy.Eval.vals.other»,
-   «evalCopy.Eval.vals»,
-   «evalCopy.Eval.call.if»,
-   «evalCopy.Eval.call»,
-   «evalCopy.Eval.redex.if»,
-   «evalCopy.Eval.redex.pick»,
-   «evalCopy.Eval.redex»,
-   «evalCopy.Quan.read.if»,
-   «evalCopy.U32.lit81»,
-   «evalCopy.U32.lit48»,
-   «evalCopy.U32.lit49»,
-   «evalCopy.U32.lit50»,
-   «evalCopy.Quan.name»,
-   «evalCopy.Quan.read»,
-   «evalCopy.Quan.min»,
-   «evalCopy.Eval.meet.of»,
-   «evalCopy.Eval.meet»,
-   «evalCopy.Eval.step.app»,
-   «evalCopy.Eval.step.unlet»,
-   «evalCopy.Eval.step.let»,
-   «evalCopy.Eval.step.tup_b»,
-   «evalCopy.Eval.step.tup»,
-   «evalCopy.Eval.step.cast»,
-   «evalCopy.Eval.step.rwt»,
-   «evalCopy.Eval.step.min»,
-   «evalCopy.Eval.step»,
-   «evalCopy.Eval.run»,
-   «evalCopy.Eval.steps»,
-   «evalCopy.U32.arms»,
-   «evalCopy.U32»,
-   «evalCopy.Maybe.arms»,
-   «evalCopy.Maybe»,
-   «evalCopy.List.arms»,
-   «evalCopy.List»,
-   «evalCopy.Cmp.arms»,
-   «evalCopy.Cmp»,
-   «evalCopy.Bool.arms»,
-   «evalCopy.Bool»,
-   «evalCopy.Word.Nil.arms»,
-   «evalCopy.Word.Nil»,
-   «evalCopy.Word.Con.arms»,
-   «evalCopy.Word.Con»,
-   «evalCopy.Word»,
-   «evalCopy.Nat.arms»,
-   «evalCopy.Nat»]
+def evalVersion : List Def :=
+  [«evalVersion.Word.low»,
+   «evalVersion.Byte.from_u32»,
+   «evalVersion.Cmp.is_eq»,
+   «evalVersion.Bool.cmp»,
+   «evalVersion.Word.cmp.fin»,
+   «evalVersion.Word.cmp»,
+   «evalVersion.Byte.is_eq»,
+   «evalVersion.Quan.arms»,
+   «evalVersion.Quan»,
+   «evalVersion.Term.arms»,
+   «evalVersion.Term»,
+   «evalVersion.Def.arms»,
+   «evalVersion.Def»,
+   «evalVersion.Arg.arms»,
+   «evalVersion.Arg»,
+   «evalVersion.Quan.live»,
+   «evalVersion.Quan.lives_as»,
+   «evalVersion.Quan.fld»,
+   «evalVersion.Bool.and»,
+   «evalVersion.Name.is_eq»,
+   «evalVersion.Bool.or»,
+   «evalVersion.Bool.not»,
+   «evalVersion.Term.is_data»,
+   «evalVersion.Quan.fits»,
+   «evalVersion.Quan.binds»,
+   «evalVersion.Term.is_former»,
+   «evalVersion.Term.takes»,
+   «evalVersion.Term.head»,
+   «evalVersion.Term.args»,
+   «evalVersion.Term.spine»,
+   «evalVersion.Env.sub»,
+   «evalVersion.Nat.add»,
+   «evalVersion.Term.shift.at»,
+   «evalVersion.Cmp.is_lt»,
+   «evalVersion.Nat.cmp»,
+   «evalVersion.Nat.is_lt»,
+   «evalVersion.Term.shift»,
+   «evalVersion.Term.lift.at»,
+   «evalVersion.Nat.sub»,
+   «evalVersion.Term.lift»,
+   «evalVersion.Term.subst»,
+   «evalVersion.Term.inst»,
+   «evalVersion.Book.get.if»,
+   «evalVersion.Book.get»,
+   «evalVersion.Eval.walk.if»,
+   «evalVersion.Eval.walk.pick»,
+   «evalVersion.Eval.walk.app»,
+   «evalVersion.Eval.walk.leaf»,
+   «evalVersion.Eval.walk»,
+   «evalVersion.Eval.callWalk.def»,
+   «evalVersion.Eval.callWalk.head»,
+   «evalVersion.Eval.callWalk»,
+   «evalVersion.Eval.waits»,
+   «evalVersion.Eval.vals.app»,
+   «evalVersion.Eval.vals.ref»,
+   «evalVersion.Eval.vals.other»,
+   «evalVersion.Eval.vals»,
+   «evalVersion.Eval.call.if»,
+   «evalVersion.Eval.call»,
+   «evalVersion.Eval.redex.if»,
+   «evalVersion.Eval.redex.pick»,
+   «evalVersion.Eval.redex»,
+   «evalVersion.Quan.read.if»,
+   «evalVersion.U32.lit81»,
+   «evalVersion.U32.lit48»,
+   «evalVersion.U32.lit49»,
+   «evalVersion.U32.lit50»,
+   «evalVersion.Quan.name»,
+   «evalVersion.Quan.read»,
+   «evalVersion.Quan.min»,
+   «evalVersion.Eval.meet.of»,
+   «evalVersion.Eval.meet»,
+   «evalVersion.Eval.step.app»,
+   «evalVersion.Eval.step.unlet»,
+   «evalVersion.Eval.step.let»,
+   «evalVersion.Eval.step.tup_b»,
+   «evalVersion.Eval.step.tup»,
+   «evalVersion.Eval.step.cast»,
+   «evalVersion.Eval.step.rwt»,
+   «evalVersion.Eval.step.min»,
+   «evalVersion.Eval.step»,
+   «evalVersion.Eval.run»,
+   «evalVersion.Eval.steps»,
+   «evalVersion.U32.arms»,
+   «evalVersion.U32»,
+   «evalVersion.Maybe.arms»,
+   «evalVersion.Maybe»,
+   «evalVersion.List.arms»,
+   «evalVersion.List»,
+   «evalVersion.Cmp.arms»,
+   «evalVersion.Cmp»,
+   «evalVersion.Bool.arms»,
+   «evalVersion.Bool»,
+   «evalVersion.Word.Nil.arms»,
+   «evalVersion.Word.Nil»,
+   «evalVersion.Word.Con.arms»,
+   «evalVersion.Word.Con»,
+   «evalVersion.Word»,
+   «evalVersion.Nat.arms»,
+   «evalVersion.Nat»]

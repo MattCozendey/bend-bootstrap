@@ -16,63 +16,63 @@ namespace Gives
 -- what Program.gives computes, in Lean: the bytes of the value that the run
 -- from start i reaches after exactly n steps of step, if any
 def givesL (bk : Book) (i : List UInt8) (n : Nat) : Option (List UInt8) :=
-  (EvalCopy.iterate bk n (start i)).bind fun v => if value bk v then unbytes v else none
+  (EvalVersion.iterate bk n (start i)).bind fun v => if value bk v then unbytes v else none
 
 theorem result_run (h : Holds B) {bk : Book} (r : Runs B R (Form.maybe Form.term o)) :
     Runs B (App Q1 (App Q1 (Ref "Program.result") (Form.defs bk.defs)) R)
       (Form.maybe bytes (o.bind fun v => if value bk v then unbytes v else none)) := by
-  have hk := h.get (d := «programCopy.Program.result»)
-  have hi := h.get (d := «programCopy.Program.result.if»)
+  have hk := h.get (d := «programVersion.Program.result»)
+  have hi := h.get (d := «programVersion.Program.result.if»)
   show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
   refine Kit.runs_args hk (.v rfl value_defs (.r rfl r .nil)) ?_ ?_
   · intro m hm; simp at hm
-    rcases o with _ | v <;> rcases m with _ | _ | m <;> first | omega | walks' «programCopy.Program.result»
+    rcases o with _ | v <;> rcases m with _ | _ | m <;> first | omega | walks' «programVersion.Program.result»
   rcases o with _ | v
   · exact Kit.call hk (.cons (fun _ => value_defs) (.cons (fun _ => value_maybe' (fun _ => value_term)) .nil))
-      (u := ctor "None" []) (by walks' «programCopy.Program.result») ctor0
+      (u := ctor "None" []) (by walks' «programVersion.Program.result») ctor0
   refine Kit.call hk (.cons (fun _ => value_defs) (.cons (fun _ => value_maybe' (fun _ => value_term)) .nil))
     (u := App Q1 (App Q1 (Ref "Program.result.if")
       (spine (Ref "Eval.vals") [(Q2, Form.defs bk.defs), (Q2, Form.term v), (Q1, Form.bool false)])) (Form.term v))
-    (by simp [«programCopy.Program.result», walk, list, ctor, bindsAt, Quan.live, Quan.fld, takes,
+    (by simp [«programVersion.Program.result», walk, list, ctor, bindsAt, Quan.live, Quan.fld, takes,
       Term.sub, Env.sub, Term.spine, Form.term, Form.some, Form.maybe, Form.bool, data, ddefs, dterm]) ?_
   show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
-  have rv := EvalCopy.vals_copy (bk := bk) (t := v) (a := false) h.eval
+  have rv := EvalVersion.vals_version (bk := bk) (t := v) (a := false) h.eval
   simp only [Bool.false_eq_true, ↓reduceIte] at rv
   refine Kit.runs_args hi (.r rfl rv (.v rfl value_term .nil)) ?_ ?_
   · intro m hm; simp at hm
-    rcases m with _ | _ | m <;> first | omega | (cases value bk v <;> walks' «programCopy.Program.result.if»)
+    rcases m with _ | _ | m <;> first | omega | (cases value bk v <;> walks' «programVersion.Program.result.if»)
   cases hv : value bk v
   · exact Kit.call hi (.cons (fun _ => value_bool) (.cons (fun _ => value_term) .nil)) (u := ctor "None" [])
-      (by walks' «programCopy.Program.result.if») (Kit.runs_eq ctor0 (by simp [hv]; rfl))
+      (by walks' «programVersion.Program.result.if») (Kit.runs_eq ctor0 (by simp [hv]; rfl))
   · exact Kit.call hi (.cons (fun _ => value_bool) (.cons (fun _ => value_term) .nil))
       (u := App Q1 (Ref "Program.unbytes") (Form.term v))
-      (by walks' «programCopy.Program.result.if») (Kit.runs_eq (unbytes_run h) (by simp [hv]))
+      (by walks' «programVersion.Program.result.if») (Kit.runs_eq (unbytes_run h) (by simp [hv]))
 
 theorem gives_run (h : Holds B) :
     Runs B (spine (Ref "Program.gives") [(Q1, bytes (write bk)), (Q1, bytes i), (Q1, Form.nat n)])
       (Form.maybe bytes (givesL bk i n)) := by
-  have hk := h.get (d := «programCopy.Program.gives»)
-  have ho := h.get (d := «programCopy.Program.gives.of»)
-  have hs : Book.get B "Eval.steps" = some «evalCopy.Eval.steps» := h.eval «evalCopy.Eval.steps» (by simp [evalCopy])
+  have hk := h.get (d := «programVersion.Program.gives»)
+  have ho := h.get (d := «programVersion.Program.gives.of»)
+  have hs : Book.get B "Eval.steps" = some «evalVersion.Eval.steps» := h.eval «evalVersion.Eval.steps» (by simp [evalVersion])
   refine Kit.call hk (.cons (fun _ => value_bytes) (.cons (fun _ => value_bytes) (.cons (fun _ => value_nat) .nil)))
     (u := spine (Ref "Program.gives.of") [(Q1, App Q1 (Ref "Book.read") (bytes (write bk))), (Q1, bytes i),
-      (Q1, Form.nat n)]) (by walks' «programCopy.Program.gives») ?_
+      (Q1, Form.nat n)]) (by walks' «programVersion.Program.gives») ?_
   refine Kit.runs_args ho (.r rfl (read_write h.reader) (.v rfl value_bytes (.v rfl value_nat .nil))) ?_ ?_
   · intro m hm; simp at hm
-    rcases m with _ | _ | _ | m <;> first | omega | simp [«programCopy.Program.gives.of», walk, list, ctor,
+    rcases m with _ | _ | _ | m <;> first | omega | simp [«programVersion.Program.gives.of», walk, list, ctor,
       bindsAt, Quan.live, Quan.fld, takes, Form.some, Form.maybe, data, ddefs, dbytes, dnat]
   refine Kit.call ho (.cons (fun _ => value_ctor (by simp [value_defs])) (.cons (fun _ => value_bytes)
     (.cons (fun _ => value_nat) .nil)))
     (u := App Q1 (App Q1 (Ref "Program.result") (Form.defs bk.defs)) (App Q1 (App Q1 (App Q1 (Ref "Eval.steps")
       (Form.nat n)) (Form.defs bk.defs)) (App Q1 (Ref "Program.start") (bytes i))))
-    (by simp [«programCopy.Program.gives.of», walk, list, ctor, bindsAt, Quan.live, Quan.fld, takes,
+    (by simp [«programVersion.Program.gives.of», walk, list, ctor, bindsAt, Quan.live, Quan.fld, takes,
       Term.sub, Env.sub, Term.spine, Form.term, Form.some, Form.maybe, Form.bool, data, ddefs, dterm, dbytes, dnat]) ?_
   refine result_run h ?_
   show Runs B (spine (Ref _) [(Q1, _), (Q1, _), (Q1, _)]) _
   refine Kit.runs_args hs (.v rfl value_nat (.v rfl value_defs (.r rfl (start_run h) .nil))) ?_
-    (EvalCopy.steps_copy h.eval)
+    (EvalVersion.steps_version h.eval)
   intro m hm; simp at hm
-  rcases m with _ | _ | _ | m <;> first | omega | simp [«evalCopy.Eval.steps», walk, takes, bindsAt, Quan.live]
+  rcases m with _ | _ | _ | m <;> first | omega | simp [«evalVersion.Eval.steps», walk, takes, bindsAt, Quan.live]
 
 theorem maybe_bytes_inj : Form.maybe bytes o = Form.some (bytes x) → o = some x := by
   cases o with
@@ -94,7 +94,7 @@ theorem givesL_iff : givesL bk i n = some o ↔ Gives bk i o n := by
   · rintro ⟨v, hs, hv, hu⟩
     exact ⟨v, iterate_iff.2 hs, by simp [value_iff.2 hv, hu]⟩
 
--- the bridge: in a book that holds the copies, Program.gives(write bk, i, n)
+-- the bridge: in a book that holds the versions, Program.gives(write bk, i, n)
 -- runs to Some{o} exactly when bk gives o on i after n steps
 theorem gives_iff (h : Holds B) :
     Runs B (spine (Ref "Program.gives") [(Q1, bytes (write bk)), (Q1, bytes i), (Q1, Form.nat n)])

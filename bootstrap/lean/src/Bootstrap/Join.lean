@@ -1,5 +1,5 @@
 import Bootstrap.Code
-import Bootstrap.Copy.Exists
+import Bootstrap.Version.Exists
 
 -- Join
 -- ====
@@ -121,8 +121,8 @@ private theorem canon_sig (wt : Book.WellTyped B) (v : Value B t) (h : Typed B [
 
 -- Base's Exists A P unfolds to a Σ over the one label "Tuple"
 private theorem exists_pars (cl : Book.Closed B)
-    (hE : Book.get B "Exists" = some «existsCopy.Exists»)
-    (hS : Book.get B "Sigma" = some «existsCopy.Sigma») :
+    (hE : Book.get B "Exists" = some «existsVersion.Exists»)
+    (hS : Book.get B "Sigma" = some «existsVersion.Sigma») :
     Pars B (App Q0 (App Q0 (Ref "Exists") A) P)
       (Sig Q1 (Enu ["Tuple"])
         (App Q1
@@ -132,13 +132,13 @@ private theorem exists_pars (cl : Book.Closed B)
             (ren Nat.succ (Lam Q0 (App Q0 (ren Nat.succ P) (Var 0)))))
           (Var 0))) := by
   refine .step (.app (.app (.delta hE (cl _ _ hE)) par_refl) par_refl) ?_
-  dsimp only [«existsCopy.Exists»]
+  dsimp only [«existsVersion.Exists»]
   refine .step (.app (.beta par_refl par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up]
   refine .step (.beta par_refl par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, sub_succ, one_ren]
   refine .step (.app (.app (.app (.app (.delta hS (cl _ _ hS)) par_refl) par_refl) par_refl) par_refl) ?_
-  dsimp only [«existsCopy.Sigma»]
+  dsimp only [«existsVersion.Sigma»]
   refine .step (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up]
   refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
@@ -151,11 +151,11 @@ private theorem exists_pars (cl : Book.Closed B)
 
 -- Sigma.arms at "Tuple" unfolds to the Σ of the two fields
 private theorem arms_pars (cl : Book.Closed B)
-    (hA : Book.get B "Sigma.arms" = some «existsCopy.Sigma.arms») :
+    (hA : Book.get B "Sigma.arms" = some «existsVersion.Sigma.arms») :
     Pars B (App Q1 (App Q0 (App Q0 (App Q0 (App Q0 (Ref "Sigma.arms") q0) q1) A) P) (Lab "Tuple"))
       (Sig Q1 A (Sig Q1 (App Q0 (ren Nat.succ P) (Var 0)) (Enu ["()"]))) := by
   refine .step (.app (.app (.app (.app (.app (.delta hA (cl _ _ hA)) par_refl) par_refl) par_refl) par_refl) par_refl) ?_
-  dsimp only [«existsCopy.Sigma.arms»]
+  dsimp only [«existsVersion.Sigma.arms»]
   refine .step (.app (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.up]
   refine .step (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) ?_
@@ -170,16 +170,16 @@ private theorem arms_pars (cl : Book.Closed B)
 -- in a book that --verdict accepts and that holds Base's Exists, a closed, live
 -- proof e that there is a y : A with x == z, for a Data type A, has a witness w:
 -- a Data value of type A at which x and z convert
-theorem exists_conv : Book.check B = .ok () → Contains B existsCopy →
+theorem exists_conv : Book.check B = .ok () → Contains B existsVersion →
     Term.Closed e → Term.Live B e →
     Typed B [] e (App Q0 (App Q0 (Ref "Exists") A) (Lam Q0 (Eql x z T))) →
     Typed B [] A T2 →
     ∃ w, Data w ∧ Typed B [] w A ∧ Conv B (Term.inst x w) (Term.inst z w) := by
   intro hc hk hcl hl ht hA
   obtain ⟨wt, lv⟩ := book_check B hc
-  have hE := hk «existsCopy.Exists» (by simp [existsCopy])
-  have hS := hk «existsCopy.Sigma» (by simp [existsCopy])
-  have hR := hk «existsCopy.Sigma.arms» (by simp [existsCopy])
+  have hE := hk «existsVersion.Exists» (by simp [existsVersion])
+  have hS := hk «existsVersion.Sigma» (by simp [existsVersion])
+  have hR := hk «existsVersion.Sigma.arms» (by simp [existsVersion])
   obtain ⟨v, ⟨_, _, vv⟩, pv⟩ := runs_acc wt lv (halts B e lv hcl hl) ht
   have hv := pars_sr wt ht pv
   -- the pair of the label and the rest

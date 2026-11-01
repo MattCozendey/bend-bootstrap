@@ -1,11 +1,11 @@
 import bendtt
 
--- Made by scripts/Copy.lean from the `bend -o` output of a file that uses Base's Exists (impl.bend uses none yet),
+-- Made by scripts/Version.lean from the `bend -o` output of a file that uses Base's Exists (impl.bend uses none yet),
 -- for the roots Exists, and the defs that they need. Do not edit it.
 
 open Quan Term
 
-def «existsCopy.Sigma.arms» : Def :=
+def «existsVersion.Sigma.arms» : Def :=
   ⟨"Sigma.arms",
     Term.All
       (Quan.Q0)
@@ -43,7 +43,7 @@ def «existsCopy.Sigma.arms» : Def :=
               (Term.Efq))))),
     false⟩
 
-def «existsCopy.Sigma» : Def :=
+def «existsVersion.Sigma» : Def :=
   ⟨"Sigma",
     Term.All
       (Quan.Q0)
@@ -84,7 +84,7 @@ def «existsCopy.Sigma» : Def :=
                 (Term.Var 0)))))),
     false⟩
 
-def «existsCopy.Exists» : Def :=
+def «existsVersion.Exists» : Def :=
   ⟨"Exists",
     Term.All
       (Quan.Q0)
@@ -109,7 +109,7 @@ def «existsCopy.Exists» : Def :=
           (Term.Lam (Quan.Q0) (Term.App (Quan.Q0) (Term.Var 1) (Term.Var 0))))),
     false⟩
 
-def existsCopy : List Def :=
-  [«existsCopy.Sigma.arms»,
-   «existsCopy.Sigma»,
-   «existsCopy.Exists»]
+def existsVersion : List Def :=
+  [«existsVersion.Sigma.arms»,
+   «existsVersion.Sigma»,
+   «existsVersion.Exists»]

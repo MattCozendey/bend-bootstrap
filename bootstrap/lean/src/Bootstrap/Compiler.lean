@@ -10,7 +10,7 @@ import Bootstrap.NeedRun
 -- writes for a book bk, the bytes w that it gives follow the laws of 3.6.4
 -- (spec.bend), in each book B that --verdict accepts for trusted.bend
 -- (Book.check B = .ok ()) and that holds trusted.bend's defs (Trusted B):
--- the Bend copy of WASM, run on w, gives only what bk gives (no wrong
+-- the Bend version of WASM, run on w, gives only what bk gives (no wrong
 -- result), and when bk gives something, it gives it or runs out of memory
 -- (no other failure), and with the memory of 3.7.1.4 it gives it
 -- (enough memory).
@@ -45,9 +45,9 @@ theorem unbytes_eq : unbytes v = some bs → v = bytes bs := by
   rw [unbits_eq hx]
   simp [bytes, list, byte, ctor, toUInt8_toNat (Gives.unbits_lt hx)]
 
--- in trusted.bend's book, renamed back to impl.bend's names, the copies hold
+-- in trusted.bend's book, renamed back to impl.bend's names, the versions hold
 theorem Trusted.holds (hB : Trusted B) : Holds (Rename.book impl B) := by
-  have sub (ds : List Def) (hs : ∀ d ∈ ds, d ∈ evalCopy ++ reader ++ programCopy ++ needCopy ++ trustedCopy) :
+  have sub (ds : List Def) (hs : ∀ d ∈ ds, d ∈ evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion) :
       Contains (Rename.book impl B) ds :=
     Rename.contains_book impl_ok fun d hd => by
       obtain ⟨d', hd', rfl⟩ := List.mem_map.1 hd
@@ -62,8 +62,8 @@ theorem Trusted.gives (hB : Trusted B) :
 
 -- main, our compiler, steps to Compiler.compile on its input
 theorem Trusted.main (hB : Trusted B) : Eval B (start p) (compileOf p) := by
-  have hk := hB.get (d := «trustedCopy.main») (by simp [trustedCopy])
-  simp only [Rename.defn, «trustedCopy.main», impl_main] at hk
+  have hk := hB.get (d := «trustedVersion.main») (by simp [trustedVersion])
+  simp only [Rename.defn, «trustedVersion.main», impl_main] at hk
   exact Eval.walk (xs := [(Q1, bytes p)]) hk (.cons (fun _ => value_bytes) .nil)
     (by simp [walk, Rename.term, bindsAt, Quan.live, takes, Term.sub, Env.sub, Term.spine, compileOf,
       unspine, Gives.dbytes])
@@ -85,16 +85,16 @@ theorem Trusted.compiles (hB : Trusted B) (hw : interp B fuel p = some (w, k)) :
 -- Compiler.compile(p) runs to
 theorem Trusted.wasm (hB : Trusted B) (rc : Runs B c (bytes w))
     (hr : Runs B (wasmRun f w i m) r) : Runs B (wasmOf f c i m) r := by
-  have hk := hB.get (d := «trustedCopy.Wasm.run») (by simp [trustedCopy])
+  have hk := hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion])
   refine Kit.runs_args hk (.v rfl value_nat (.r rfl rc (.v rfl value_bytes (.v rfl plain_u32.value .nil)))) ?_ hr
   intro m hm; simp at hm
   rcases m with _ | _ | _ | _ | m <;> first | omega |
-    simp [Rename.defn, Rename.term, «trustedCopy.Wasm.run», walk, bindsAt, Quan.live, takes]
+    simp [Rename.defn, Rename.term, «trustedVersion.Wasm.run», walk, bindsAt, Quan.live, takes]
 
 -- The theorems
 -- ------------
 
--- no wrong result: a result that the Bend copy of WASM gives for the module
+-- no wrong result: a result that the Bend version of WASM gives for the module
 -- that our compiler writes is one that the book gives
 theorem no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
     (hw : interp B fuel (write bk) = some (w, k))
@@ -117,14 +117,14 @@ theorem Runs.of_steps (s : Steps B n a b) (r : Runs B a v) : Runs B b v := by
 -- Compiler.compile(p) runs to
 theorem Trusted.wasm_steps (hB : Trusted B) (rc : Runs B c (bytes w))
     (hr : Runs B (wasmOf f c i m) r) : Runs B (wasmRun f w i m) r := by
-  have hk := hB.get (d := «trustedCopy.Wasm.run») (by simp [trustedCopy])
+  have hk := hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion])
   obtain ⟨_, s, -⟩ := rc
   have vf : Value B (App Q1 (Ref (impl "Wasm.run")) (Form.nat f)) :=
     Kit.part (xs := [(Q1, _)]) hk (.cons (fun _ => value_nat) .nil)
-      (by simp [Rename.defn, Rename.term, «trustedCopy.Wasm.run», walk, bindsAt, Quan.live, takes])
+      (by simp [Rename.defn, Rename.term, «trustedVersion.Wasm.run», walk, bindsAt, Quan.live, takes])
   exact Runs.of_steps (s.app_x vf rfl).app_f.app_f hr
 
--- no other failure: when the book gives a result, the Bend copy of WASM, run
+-- no other failure: when the book gives a result, the Bend version of WASM, run
 -- on the module that our compiler writes, gives it, or runs out of memory
 theorem no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
     (hw : interp B fuel (write bk) = some (w, k)) (hg : Gives bk i o n) :
@@ -133,16 +133,16 @@ theorem no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
   · exact ⟨f, .inl (hB.wasm_steps (hB.compiles hw) r)⟩
   · exact ⟨f, .inr (hB.wasm_steps (hB.compiles hw) r)⟩
 
--- in trusted.bend's book, renamed back to impl.bend's names, the copies that
+-- in trusted.bend's book, renamed back to impl.bend's names, the versions that
 -- Program.need and Program.memory need hold
 theorem Trusted.needHolds (hB : Trusted B) : NeedHolds (Rename.book impl B) := by
-  have sub (ds : List Def) (hs : ∀ d ∈ ds, d ∈ evalCopy ++ reader ++ programCopy ++ needCopy ++ trustedCopy) :
+  have sub (ds : List Def) (hs : ∀ d ∈ ds, d ∈ evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion) :
       Contains (Rename.book impl B) ds :=
     Rename.contains_book impl_ok fun d hd => by
       obtain ⟨d', hd', rfl⟩ := List.mem_map.1 hd
       exact hB.defs _ (List.mem_map_of_mem (hs d' hd'))
   exact ⟨hB.holds, sub _ (by simp +contextual),
-    sub [«trustedCopy.Nat.is_le»] (by simp [trustedCopy]) «trustedCopy.Nat.is_le» (by simp)⟩
+    sub [«trustedVersion.Nat.is_le»] (by simp [trustedVersion]) «trustedVersion.Nat.is_le» (by simp)⟩
 
 -- F fits in the memory of m pages exactly when Nat.is_le(Program.need(p, i, n),
 -- Program.memory(m)) runs to True in trusted.bend's book
@@ -153,7 +153,7 @@ theorem Trusted.big (hB : Trusted B) (hm : need bk i n ≤ memory m) :
   have := (Rename.runs_iff' impl_ok).1 r
   simpa [Rename.term_spine, Rename.arg, Rename.term, bigOf, Form.bool, impl_ctor] using this
 
--- enough memory: with the memory that F of AGENTS.md 3.7.1.4 asks, the Bend copy
+-- enough memory: with the memory that F of AGENTS.md 3.7.1.4 asks, the Bend version
 -- of WASM, run on the module that our compiler writes, gives the result that
 -- the book gives
 theorem enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)

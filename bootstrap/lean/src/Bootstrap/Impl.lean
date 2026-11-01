@@ -1,5 +1,5 @@
 import Bootstrap.Rename
-import Bootstrap.Copy.Trusted
+import Bootstrap.Version.Trusted
 
 -- Impl
 -- ====
@@ -7,7 +7,7 @@ import Bootstrap.Copy.Trusted
 -- The names that `bend -o` gives impl.bend's defs and labels in the book of
 -- a file that imports it (trusted.bend): impl.k for each name k of impl.bend's
 -- own, and Base's names as they are. impl is the renaming of Rename that
--- swaps k and impl.k for each such k (trustedCopy.names, as the book of
+-- swaps k and impl.k for each such k (trustedVersion.names, as the book of
 -- trusted.bend names them), and keeps the names of `kept`: Base's names that
 -- the theorems name.
 
@@ -28,7 +28,7 @@ def unimpl (s : String) : Option String :=
 
 -- t is a name of impl.bend's own, which the book of trusted.bend names impl.t
 def Moves (t : String) : Prop :=
-  t ∉ kept ∧ "impl." ++ t ∉ kept ∧ t ∈ trustedCopy.names ∧ "impl." ++ t ∉ trustedCopy.names
+  t ∉ kept ∧ "impl." ++ t ∉ kept ∧ t ∈ trustedVersion.names ∧ "impl." ++ t ∉ trustedVersion.names
 
 instance : DecidablePred Moves := fun _ => inferInstanceAs (Decidable (_ ∧ _))
 

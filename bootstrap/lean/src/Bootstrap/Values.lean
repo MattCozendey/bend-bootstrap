@@ -1,6 +1,6 @@
 import Bootstrap.Join
 import Bootstrap.Impl
-import Bootstrap.Copy.Eval
+import Bootstrap.Version.Eval
 
 -- Values
 -- ======
@@ -143,10 +143,10 @@ theorem impl_ctor (hk : impl k = k) : Rename.term impl (ctor k fs) = ctor k (fs.
 
 -- Base's defs of the types of the values
 def baseTypes : List Def :=
-  [«evalCopy.Nat», «evalCopy.Nat.arms», «evalCopy.List», «evalCopy.List.arms», «evalCopy.U32»,
-   «evalCopy.U32.arms», «evalCopy.Word», «evalCopy.Word.Nil», «evalCopy.Word.Nil.arms»,
-   «evalCopy.Word.Con», «evalCopy.Word.Con.arms», «evalCopy.Bool», «evalCopy.Bool.arms»,
-   «evalCopy.Maybe», «evalCopy.Maybe.arms»]
+  [«evalVersion.Nat», «evalVersion.Nat.arms», «evalVersion.List», «evalVersion.List.arms», «evalVersion.U32»,
+   «evalVersion.U32.arms», «evalVersion.Word», «evalVersion.Word.Nil», «evalVersion.Word.Nil.arms»,
+   «evalVersion.Word.Con», «evalVersion.Word.Con.arms», «evalVersion.Bool», «evalVersion.Bool.arms»,
+   «evalVersion.Maybe», «evalVersion.Maybe.arms»]
 
 -- Base's Word(8n)
 def word8 : Term := App Q1 (Ref "Word") (Form.nat 8)
@@ -178,10 +178,10 @@ private theorem lab1 (h : k ∈ ks) (c : Pars B T (Enu ks)) : Typed B [] (Lab k)
 
 theorem typed_bool (hT : Contains B baseTypes) (cl : Book.Closed B) (c : Prop) [Decidable c] :
     Typed B [] (ctor (if c then "True" else "False") []) (Ref "Bool") := by
-  refine tup1 (.lab (by by_cases hc : c <;> simp [hc])) ?_ (.step (delta hT cl «evalCopy.Bool») .refl)
+  refine tup1 (.lab (by by_cases hc : c <;> simp [hc])) ?_ (.step (delta hT cl «evalVersion.Bool») .refl)
   refine lab1 (ks := ["()"]) (by simp) ?_
   simp only [Term.inst, Term.sub, Subst.one]
-  refine .step (.app (delta hT cl «evalCopy.Bool.arms») par_refl) ?_
+  refine .step (.app (delta hT cl «evalVersion.Bool.arms») par_refl) ?_
   by_cases hc : c <;> simp only [hc, ite_true, ite_false]
   · exact .step (.miss (by decide) par_refl) (.step (.hit par_refl) .refl)
   · exact .step (.hit par_refl) .refl
@@ -189,16 +189,16 @@ theorem typed_bool (hT : Contains B baseTypes) (cl : Book.Closed B) (c : Prop) [
 theorem typed_nat (hT : Contains B baseTypes) (cl : Book.Closed B) : Typed B [] (Form.nat n) (Ref "Nat") := by
   induction n with
   | zero =>
-    refine tup1 (.lab (by simp)) ?_ (.step (delta hT cl «evalCopy.Nat») .refl)
+    refine tup1 (.lab (by simp)) ?_ (.step (delta hT cl «evalVersion.Nat») .refl)
     refine lab1 (ks := ["()"]) (by simp) ?_
     simp only [Term.inst, Term.sub, Subst.one]
-    exact .step (.app (delta hT cl «evalCopy.Nat.arms») par_refl) (.step (.hit par_refl) .refl)
+    exact .step (.app (delta hT cl «evalVersion.Nat.arms») par_refl) (.step (.hit par_refl) .refl)
   | succ n ih =>
-    refine tup1 (.lab (by simp)) ?_ (.step (delta hT cl «evalCopy.Nat») .refl)
+    refine tup1 (.lab (by simp)) ?_ (.step (delta hT cl «evalVersion.Nat») .refl)
     simp only [Term.inst, Term.sub, Subst.one]
     refine tup1 (Bt := Enu ["()"]) ih (lab1 (ks := ["()"]) (by simp) ?_) ?_
     · simp only [Term.inst, Term.sub]; exact .refl
-    · exact .step (.app (delta hT cl «evalCopy.Nat.arms») par_refl)
+    · exact .step (.app (delta hT cl «evalVersion.Nat.arms») par_refl)
         (.step (.miss (by decide) par_refl) (.step (.hit par_refl) .refl))
 
 theorem typed_bits (hT : Contains B baseTypes) (cl : Book.Closed B) :
@@ -208,12 +208,12 @@ theorem typed_bits (hT : Contains B baseTypes) (cl : Book.Closed B) :
     refine tup1 (A := Enu ["WNil"]) (Bt := App Q1 (Ref "Word.Nil.arms") (Var 0)) (.lab (by simp)) ?_ ?_
     · refine lab1 (ks := ["()"]) (by simp) ?_
       simp only [Term.inst, Term.sub, Subst.one]
-      exact .step (.app (delta hT cl «evalCopy.Word.Nil.arms») par_refl) (.step (.hit par_refl) .refl)
-    · refine .step (.app (delta hT cl «evalCopy.Word») par_refl) ?_
+      exact .step (.app (delta hT cl «evalVersion.Word.Nil.arms») par_refl) (.step (.hit par_refl) .refl)
+    · refine .step (.app (delta hT cl «evalVersion.Word») par_refl) ?_
       refine .step (.split par_refl par_refl par_refl) ?_
       refine .step (.app (.hit par_refl) par_refl) ?_
       refine .step (.hit par_refl) ?_
-      exact .step (delta hT cl «evalCopy.Word.Nil») .refl
+      exact .step (delta hT cl «evalVersion.Word.Nil») .refl
   | succ n ih =>
     refine tup1 (A := Enu ["WCon"]) (Bt := App Q1 (App Q0 (Ref "Word.Con.arms") (Form.nat n)) (Var 0))
       (.lab (by simp)) ?_ ?_
@@ -222,11 +222,11 @@ theorem typed_bits (hT : Contains B baseTypes) (cl : Book.Closed B) :
       · try simp only [Term.inst, Term.sub, Subst.one, Subst.up, plain_nat.ren, plain_nat.sub]
         refine tup1 (Bt := Enu ["()"]) ih (lab1 (ks := ["()"]) (by simp) ?_) .refl
         simp only [Term.inst, Term.sub]; exact .refl
-      · refine .step (.app (.app (delta hT cl «evalCopy.Word.Con.arms») par_refl) par_refl) ?_
+      · refine .step (.app (.app (delta hT cl «evalVersion.Word.Con.arms») par_refl) par_refl) ?_
         refine .step (.app (.beta par_refl par_refl) par_refl) ?_
         simp only [Term.inst, Term.sub, Subst.one, Subst.up, plain_nat.ren, plain_nat.sub]
         exact .step (.hit par_refl) .refl
-    · refine .step (.app (delta hT cl «evalCopy.Word») par_refl) ?_
+    · refine .step (.app (delta hT cl «evalVersion.Word») par_refl) ?_
       refine .step (.split par_refl par_refl par_refl) ?_
       refine .step (.app (.miss (by decide) par_refl) par_refl) ?_
       refine .step (.app (.hit par_refl) par_refl) ?_
@@ -234,24 +234,24 @@ theorem typed_bits (hT : Contains B baseTypes) (cl : Book.Closed B) :
       refine .step (.app (.beta par_refl par_refl) par_refl) ?_
       simp only [Term.inst, Term.sub, Subst.one, Subst.up, Quan.fld]
       refine .step (.hit par_refl) ?_
-      refine .step (.app (delta hT cl «evalCopy.Word.Con») par_refl) ?_
+      refine .step (.app (delta hT cl «evalVersion.Word.Con») par_refl) ?_
       refine .step (.beta par_refl par_refl) ?_
       simp only [Term.inst, Term.sub, Subst.one, Subst.up, plain_nat.ren, plain_nat.sub]
       exact .refl
 
 theorem typed_u32 (hT : Contains B baseTypes) (cl : Book.Closed B) :
     Typed B [] (ctor "U32" [bits 32 v]) (Ref "U32") := by
-  refine tup1 (.lab (by simp)) ?_ (.step (delta hT cl «evalCopy.U32») .refl)
+  refine tup1 (.lab (by simp)) ?_ (.step (delta hT cl «evalVersion.U32») .refl)
   simp only [Term.inst, Term.sub, Subst.one]
   refine tup1 (Bt := Enu ["()"]) (typed_bits hT cl) (lab1 (ks := ["()"]) (by simp) ?_) ?_
   · simp only [Term.inst, Term.sub]; exact .refl
-  · exact .step (.app (delta hT cl «evalCopy.U32.arms») par_refl) (.step (.hit par_refl) .refl)
+  · exact .step (.app (delta hT cl «evalVersion.U32.arms») par_refl) (.step (.hit par_refl) .refl)
 
 theorem typed_bytes (hT : Contains B baseTypes) (cl : Book.Closed B) :
     Typed B [] (bytes bs) listBytes := by
   have hl : Pars B listBytes (Sig Q1 (Enu ["Nil", "Con"])
       (App Q1 (App Q0 (App Q0 (Ref "List.arms") (Lab "Q2")) word8) (Var 0))) := by
-    refine .step (.app (.app (delta hT cl «evalCopy.List») par_refl) par_refl) ?_
+    refine .step (.app (.app (delta hT cl «evalVersion.List») par_refl) par_refl) ?_
     refine .step (.app (.beta par_refl par_refl) par_refl) ?_
     simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
     refine .step (.beta par_refl par_refl) ?_
@@ -262,7 +262,7 @@ theorem typed_bytes (hT : Contains B baseTypes) (cl : Book.Closed B) :
     refine tup1 (.lab (by simp)) ?_ hl
     refine lab1 (ks := ["()"]) (by simp) ?_
     simp only [Term.inst, Term.sub, Subst.one]
-    refine .step (.app (.app (.app (delta hT cl «evalCopy.List.arms») par_refl) par_refl) par_refl) ?_
+    refine .step (.app (.app (.app (delta hT cl «evalVersion.List.arms») par_refl) par_refl) par_refl) ?_
     refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
     refine .step (.app (.beta par_refl par_refl) par_refl) ?_
     simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
@@ -275,7 +275,7 @@ theorem typed_bytes (hT : Contains B baseTypes) (cl : Book.Closed B) :
     · simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
       refine tup1 (Bt := Enu ["()"]) ih (lab1 (ks := ["()"]) (by simp) ?_) .refl
       simp only [Term.inst, Term.sub]; exact .refl
-    · refine .step (.app (.app (.app (delta hT cl «evalCopy.List.arms») par_refl) par_refl) par_refl) ?_
+    · refine .step (.app (.app (.app (delta hT cl «evalVersion.List.arms») par_refl) par_refl) par_refl) ?_
       refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
       refine .step (.app (.beta par_refl par_refl) par_refl) ?_
       simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
@@ -286,19 +286,19 @@ theorem typed_u32' (hT : Contains B baseTypes) (cl : Book.Closed B) :
     Typed B [] (Form.u32 m) (Ref "U32") := typed_u32 hT cl
 
 theorem typed_listBytes (hT : Contains B baseTypes) (cl : Book.Closed B) : Typed B [] listBytes T2 := by
-  have h1 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalCopy.List»)
-  have h2 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalCopy.Word»)
+  have h1 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalVersion.List»)
+  have h2 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalVersion.Word»)
   rw [sub_var] at h1 h2
   have h3 := Typed.app h2 (typed_nat hT cl (n := 8))
   have := Typed.app (Typed.app h1 (.lab (k := "Q2") (by simp))) h3
-  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, listBytes, word8, «evalCopy.List»,
-    «evalCopy.Word»] using this
+  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, listBytes, word8, «evalVersion.List»,
+    «evalVersion.Word»] using this
 
 theorem typed_maybeList (hT : Contains B baseTypes) (cl : Book.Closed B) : Typed B [] maybeList T2 := by
-  have h1 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalCopy.Maybe»)
+  have h1 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalVersion.Maybe»)
   rw [sub_var] at h1
   have := Typed.app (Typed.app h1 (.lab (k := "Q2") (by simp))) (typed_listBytes hT cl)
-  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, maybeList, «evalCopy.Maybe»] using this
+  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, maybeList, «evalVersion.Maybe»] using this
 
 end typing
 
@@ -325,18 +325,18 @@ private theorem canon_nat_lt (wt : Book.WellTyped B) (hT : Contains B baseTypes)
   | succ s ih =>
   intro w hs v h
   obtain ⟨a, b, rfl, ha, hb⟩ := canon_sig wt v h
-    ⟨_, .step (delta hT cl «evalCopy.Nat») .refl, .refl⟩
+    ⟨_, .step (delta hT cl «evalVersion.Nat») .refl, .refl⟩
   have ⟨va, vb⟩ := value_tup v
   obtain ⟨k, hk, rfl⟩ := canon_enu wt (va rfl) ha crefl
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hk
   simp only [Term.inst, Term.sub, Subst.one] at hb
   rcases hk with rfl | rfl
   · obtain ⟨u, hu, rfl⟩ := canon_enu wt vb hb
-      ⟨_, .step (.app (delta hT cl «evalCopy.Nat.arms») par_refl) (.step (.hit par_refl) .refl), .refl⟩
+      ⟨_, .step (.app (delta hT cl «evalVersion.Nat.arms») par_refl) (.step (.hit par_refl) .refl), .refl⟩
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hu
     subst hu; exact ⟨0, rfl⟩
   · obtain ⟨c, u, rfl, hc, hu⟩ := canon_sig wt vb hb
-      ⟨_, .step (.app (delta hT cl «evalCopy.Nat.arms») par_refl)
+      ⟨_, .step (.app (delta hT cl «evalVersion.Nat.arms») par_refl)
         (.step (.miss (by decide) par_refl) (.step (.hit par_refl) .refl)), .refl⟩
     have ⟨vc, vu⟩ := value_tup vb
     simp only [Term.inst, Term.sub] at hu

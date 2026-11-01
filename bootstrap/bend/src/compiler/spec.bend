@@ -2,8 +2,8 @@
 # =====================================
 #
 # They hold for every program, not only for the ones that the kernel accepts
-# (AGENTS.md 3.3.1): Wasm.run is the Bend copy of WASM's meaning (3.7.1.2),
-# Program.gives what a program gives by the Bend copy of Eval (3.3.2 and
+# (AGENTS.md 3.3.1): Wasm.run is the Bend version of WASM's meaning (3.7.1.2),
+# Program.gives what a program gives by the Bend version of Eval (3.3.2 and
 # 3.3.3), and Program.need the memory F that 3.7.1.4 grants it (3.3.4).
 
 import Base

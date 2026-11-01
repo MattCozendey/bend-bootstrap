@@ -12,7 +12,7 @@ open Quan Term
 set_option linter.unusedSimpArgs false
 
 -- Base's Or and Either, under their names in trusted.bend's book
-def orCopy : List Def := [«trustedCopy.Or», «trustedCopy.Either», «trustedCopy.Either.arms»]
+def orVersion : List Def := [«trustedVersion.Or», «trustedVersion.Either», «trustedVersion.Either.arms»]
 
 -- a closed typed term whose evaluation is accessible runs to a value it
 -- reduces to (as Join.lean's)
@@ -33,8 +33,8 @@ private theorem one_ren : sub (Subst.one v) (ren Nat.succ t) = t := by
 
 -- Base's Exists A P unfolds to a Σ over the one label "Tuple" (as Join.lean's)
 private theorem exists_pars (cl : Book.Closed B)
-    (hE : Book.get B "Exists" = some «existsCopy.Exists»)
-    (hS : Book.get B "Sigma" = some «existsCopy.Sigma») :
+    (hE : Book.get B "Exists" = some «existsVersion.Exists»)
+    (hS : Book.get B "Sigma" = some «existsVersion.Sigma») :
     Pars B (App Q0 (App Q0 (Ref "Exists") A) P)
       (Sig Q1 (Enu ["Tuple"])
         (App Q1
@@ -44,13 +44,13 @@ private theorem exists_pars (cl : Book.Closed B)
             (ren Nat.succ (Lam Q0 (App Q0 (ren Nat.succ P) (Var 0)))))
           (Var 0))) := by
   refine .step (.app (.app (.delta hE (cl _ _ hE)) par_refl) par_refl) ?_
-  dsimp only [«existsCopy.Exists»]
+  dsimp only [«existsVersion.Exists»]
   refine .step (.app (.beta par_refl par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up]
   refine .step (.beta par_refl par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, sub_succ, one_ren]
   refine .step (.app (.app (.app (.app (.delta hS (cl _ _ hS)) par_refl) par_refl) par_refl) par_refl) ?_
-  dsimp only [«existsCopy.Sigma»]
+  dsimp only [«existsVersion.Sigma»]
   refine .step (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up]
   refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
@@ -63,11 +63,11 @@ private theorem exists_pars (cl : Book.Closed B)
 
 -- Sigma.arms at "Tuple" unfolds to the Σ of the two fields (as Join.lean's)
 private theorem arms_pars (cl : Book.Closed B)
-    (hA : Book.get B "Sigma.arms" = some «existsCopy.Sigma.arms») :
+    (hA : Book.get B "Sigma.arms" = some «existsVersion.Sigma.arms») :
     Pars B (App Q1 (App Q0 (App Q0 (App Q0 (App Q0 (Ref "Sigma.arms") q0) q1) A) P) (Lab "Tuple"))
       (Sig Q1 A (Sig Q1 (App Q0 (ren Nat.succ P) (Var 0)) (Enu ["()"]))) := by
   refine .step (.app (.app (.app (.app (.app (.delta hA (cl _ _ hA)) par_refl) par_refl) par_refl) par_refl) par_refl) ?_
-  dsimp only [«existsCopy.Sigma.arms»]
+  dsimp only [«existsVersion.Sigma.arms»]
   refine .step (.app (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.up]
   refine .step (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) ?_
@@ -80,20 +80,20 @@ private theorem arms_pars (cl : Book.Closed B)
   exact .refl
 
 -- Base's Or X Y unfolds to a Σ over Inl and Inr
-private theorem or_pars (cl : Book.Closed B) (ho : Contains B orCopy) :
+private theorem or_pars (cl : Book.Closed B) (ho : Contains B orVersion) :
     Pars B (App Q0 (App Q0 (Ref "Or") X) Y)
       (Sig Q1 (Enu ["Inl", "Inr"]) (App Q1 (App Q0 (App Q0 (App Q0 (App Q0 (Ref "Either.arms")
         (Lab "Q1")) (Lab "Q1")) (ren Nat.succ X)) (ren Nat.succ Y)) (Var 0))) := by
-  have hO := ho «trustedCopy.Or» (by simp [orCopy])
-  have hE := ho «trustedCopy.Either» (by simp [orCopy])
+  have hO := ho «trustedVersion.Or» (by simp [orVersion])
+  have hE := ho «trustedVersion.Either» (by simp [orVersion])
   refine .step (.app (.app (.delta hO (cl _ _ hO)) par_refl) par_refl) ?_
-  dsimp only [«trustedCopy.Or»]
+  dsimp only [«trustedVersion.Or»]
   refine .step (.app (.beta par_refl par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up]
   refine .step (.beta par_refl par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, sub_succ, one_ren]
   refine .step (.app (.app (.app (.app (.delta hE (cl _ _ hE)) par_refl) par_refl) par_refl) par_refl) ?_
-  dsimp only [«trustedCopy.Either»]
+  dsimp only [«trustedVersion.Either»]
   refine .step (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) ?_
   simp only [Term.inst, Term.sub, Subst.one, Subst.up]
   refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
@@ -105,15 +105,15 @@ private theorem or_pars (cl : Book.Closed B) (ho : Contains B orCopy) :
   exact .refl
 
 -- Either.arms at Inl, and at Inr, unfolds to the Σ of its field
-private theorem either_pars (cl : Book.Closed B) (ho : Contains B orCopy) :
+private theorem either_pars (cl : Book.Closed B) (ho : Contains B orVersion) :
     Pars B (App Q1 (App Q0 (App Q0 (App Q0 (App Q0 (Ref "Either.arms") q0) q1) X) Y) (Lab "Inl"))
       (Sig Q1 X (Enu ["()"])) ∧
     Pars B (App Q1 (App Q0 (App Q0 (App Q0 (App Q0 (Ref "Either.arms") q0) q1) X) Y) (Lab "Inr"))
       (Sig Q1 Y (Enu ["()"])) := by
-  have hA := ho «trustedCopy.Either.arms» (by simp [orCopy])
+  have hA := ho «trustedVersion.Either.arms» (by simp [orVersion])
   constructor <;>
   · refine .step (.app (.app (.app (.app (.app (.delta hA (cl _ _ hA)) par_refl) par_refl) par_refl) par_refl) par_refl) ?_
-    dsimp only [«trustedCopy.Either.arms»]
+    dsimp only [«trustedVersion.Either.arms»]
     refine .step (.app (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) par_refl) ?_
     simp only [Term.inst, Term.sub, Subst.up]
     refine .step (.app (.app (.app (.beta par_refl par_refl) par_refl) par_refl) par_refl) ?_
@@ -130,7 +130,7 @@ private theorem either_pars (cl : Book.Closed B) (ho : Contains B orCopy) :
 -- closed, live proof e that there is a y : A with x == z or x' == z', for a
 -- Data type A, has a witness w: a Data value of type A at which x and z, or
 -- x' and z', convert
-theorem exists_or_conv (hc : Book.check B = .ok ()) (hk : Contains B existsCopy) (ho : Contains B orCopy)
+theorem exists_or_conv (hc : Book.check B = .ok ()) (hk : Contains B existsVersion) (ho : Contains B orVersion)
     (hcl : Term.Closed e) (hl : Term.Live B e)
     (ht : Typed B [] e (App Q0 (App Q0 (Ref "Exists") A)
       (Lam Q0 (App Q0 (App Q0 (Ref "Or") (Eql x z T)) (Eql x' z' T')))))
@@ -138,9 +138,9 @@ theorem exists_or_conv (hc : Book.check B = .ok ()) (hk : Contains B existsCopy)
     ∃ w, Data w ∧ Typed B [] w A ∧
       (Conv B (Term.inst x w) (Term.inst z w) ∨ Conv B (Term.inst x' w) (Term.inst z' w)) := by
   obtain ⟨wt, lv⟩ := book_check B hc
-  have hE := hk «existsCopy.Exists» (by simp [existsCopy])
-  have hS := hk «existsCopy.Sigma» (by simp [existsCopy])
-  have hR := hk «existsCopy.Sigma.arms» (by simp [existsCopy])
+  have hE := hk «existsVersion.Exists» (by simp [existsVersion])
+  have hS := hk «existsVersion.Sigma» (by simp [existsVersion])
+  have hR := hk «existsVersion.Sigma.arms» (by simp [existsVersion])
   obtain ⟨v, ⟨_, _, vv⟩, pv⟩ := runs_acc' wt lv (halts B e lv hcl hl) ht
   have hv := pars_sr wt ht pv
   -- the pair of the label and the rest
@@ -182,16 +182,16 @@ theorem exists_or_conv (hc : Book.check B = .ok ()) (hk : Contains B existsCopy)
     obtain ⟨-, c⟩ := canon_eql wt ((value_tup vr).1 rfl) hq crefl
     exact ⟨w, dw, hw, .inr c⟩
 
-theorem Trusted.ors (hB : Trusted B) : Contains B orCopy := by
+theorem Trusted.ors (hB : Trusted B) : Contains B orVersion := by
   intro d hd
-  simp only [orCopy, List.mem_cons, List.not_mem_nil, or_false] at hd
+  simp only [orVersion, List.mem_cons, List.not_mem_nil, or_false] at hd
   rcases hd with rfl | rfl | rfl
-  · have := hB.get (d := «trustedCopy.Or») (by simp [trustedCopy])
-    simpa [Rename.defn, Rename.term, «trustedCopy.Or»] using this
-  · have := hB.get (d := «trustedCopy.Either») (by simp [trustedCopy])
-    simpa [Rename.defn, Rename.term, «trustedCopy.Either»] using this
-  · have := hB.get (d := «trustedCopy.Either.arms») (by simp [trustedCopy])
-    simpa [Rename.defn, Rename.term, «trustedCopy.Either.arms»] using this
+  · have := hB.get (d := «trustedVersion.Or») (by simp [trustedVersion])
+    simpa [Rename.defn, Rename.term, «trustedVersion.Or»] using this
+  · have := hB.get (d := «trustedVersion.Either») (by simp [trustedVersion])
+    simpa [Rename.defn, Rename.term, «trustedVersion.Either»] using this
+  · have := hB.get (d := «trustedVersion.Either.arms») (by simp [trustedVersion])
+    simpa [Rename.defn, Rename.term, «trustedVersion.Either.arms»] using this
 
 -- a closed, live call on closed, live arguments
 theorem live_args (hk : Book.get B k = some d) (h : ∀ a ∈ xs, Term.Live B a.2) :
@@ -203,10 +203,10 @@ theorem live_args (hk : Book.get B k = some d) (h : ∀ a ∈ xs, Term.Live B a.
 theorem typed_wasm (hB : Trusted B) (cl : Book.Closed B) :
     Typed B [] (wasmOf f (compileOf p) i m) (Ref (impl "Wasm.Outcome")) := by
   have hT := hB.types
-  have h1 := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedCopy.Wasm.run») (by simp [trustedCopy]))
-  have h2 := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedCopy.Compiler.compile») (by simp [trustedCopy]))
+  have h1 := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion]))
+  have h2 := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedVersion.Compiler.compile») (by simp [trustedVersion]))
   rw [sub_var] at h1 h2
-  simp [Rename.defn, Rename.term, «trustedCopy.Wasm.run», «trustedCopy.Compiler.compile»] at h1 h2
+  simp [Rename.defn, Rename.term, «trustedVersion.Wasm.run», «trustedVersion.Compiler.compile»] at h1 h2
   have hc := Typed.app h2 (typed_bytes hT cl (bs := p))
   simp [Term.inst, Term.sub, Subst.one] at hc
   have := Typed.app (Typed.app (Typed.app (Typed.app h1 (typed_nat hT cl (n := f))) hc)
@@ -214,8 +214,8 @@ theorem typed_wasm (hB : Trusted B) (cl : Book.Closed B) :
   simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, wasmOf, compileOf, spine] using this
 
 theorem typed_outcome (hB : Trusted B) : Typed B [] (Ref (impl "Wasm.Outcome")) T2 := by
-  have := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedCopy.Wasm.Outcome») (by simp [trustedCopy]))
-  simpa [sub_var, Rename.defn, Rename.term, «trustedCopy.Wasm.Outcome»] using this
+  have := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedVersion.Wasm.Outcome») (by simp [trustedVersion]))
+  simpa [sub_var, Rename.defn, Rename.term, «trustedVersion.Wasm.Outcome»] using this
 
 theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
     (hg : Runs B (givesOf p i n) (Form.some (bytes o))) :
@@ -223,8 +223,8 @@ theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
-  have h0 := hB.law (l := «trustedCopy.spec.no_other_failure») (by simp [laws])
-  simp [Rename.term, «trustedCopy.spec.no_other_failure»] at h0
+  have h0 := hB.law (l := «trustedVersion.spec.no_other_failure») (by simp [laws])
+  simp [Rename.term, «trustedVersion.spec.no_other_failure»] at h0
   have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_bytes hT cl (bs := p)))
     (typed_bytes hT cl (bs := i))) (typed_nat hT cl (n := n))) (typed_bytes hT cl (bs := o)))
     (typed_u32' hT cl (m := m))
@@ -234,18 +234,18 @@ theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
   have h2 := Typed.app h1 (runs_rfl hc hg' (T := maybeList))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes, sub_nat, ren_nat,
     sub_u32, ren_u32] at h2
-  obtain ⟨d, hd, -⟩ := hB.declares «trustedCopy.spec.no_other_failure» (by simp [laws])
+  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.spec.no_other_failure» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
-    have := Typed.ref (Γ := []) (σ := Var) (hT «evalCopy.Nat» (by simp [baseTypes]))
-    simpa [sub_var, «evalCopy.Nat»] using this
+    have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
+    simpa [sub_var, «evalVersion.Nat»] using this
   have pa : ∀ a ∈ [(Q2, bytes p), (Q2, bytes i), (Q2, Form.nat n), (Q2, bytes o), (Q2, Form.u32 m),
       (Q1, Rfl)], Plain a.2 := by
     simp [plain_nat, plain_bytes, plain_u32, Plain.rfl]
   obtain ⟨w, dw, tw, cw⟩ := exists_or_conv hc hB.exists_ hB.ors (closed_call pa) (live_call' hd pa) h2 hN
   obtain ⟨f, rfl⟩ := canon_nat wt hT cl (data_value dw) tw
-  have hk : Book.get B (impl "Wasm.run") = _ := hB.get (d := «trustedCopy.Wasm.run») (by simp [trustedCopy])
+  have hk : Book.get B (impl "Wasm.run") = _ := hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion])
   have hcmp : Book.get B (impl "Compiler.compile") = _ :=
-    hB.get (d := «trustedCopy.Compiler.compile») (by simp [trustedCopy])
+    hB.get (d := «trustedVersion.Compiler.compile») (by simp [trustedVersion])
   have pc : Term.Closed (compileOf p) := closed_call (xs := [(Q2, bytes p)]) (by simp [plain_bytes])
   have lc : Term.Live B (compileOf p) := live_call' (xs := [(Q2, bytes p)]) hcmp (by simp [plain_bytes])
   have cw' : Term.Closed (wasmOf f (compileOf p) i m) :=
@@ -273,8 +273,8 @@ theorem law_enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
-  have h0 := hB.law (l := «trustedCopy.spec.enough_memory») (by simp [laws])
-  simp [Rename.term, «trustedCopy.spec.enough_memory»] at h0
+  have h0 := hB.law (l := «trustedVersion.spec.enough_memory») (by simp [laws])
+  simp [Rename.term, «trustedVersion.spec.enough_memory»] at h0
   have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_bytes hT cl (bs := p)))
     (typed_bytes hT cl (bs := i))) (typed_nat hT cl (n := n))) (typed_bytes hT cl (bs := o)))
     (typed_u32' hT cl (m := m))
@@ -290,18 +290,18 @@ theorem law_enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)
   have h3 := Typed.app h2 (runs_rfl hc hb' (T := Ref "Bool"))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes, sub_nat, ren_nat,
     sub_u32, ren_u32] at h3
-  obtain ⟨d, hd, -⟩ := hB.declares «trustedCopy.spec.enough_memory» (by simp [laws])
+  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.spec.enough_memory» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
-    have := Typed.ref (Γ := []) (σ := Var) (hT «evalCopy.Nat» (by simp [baseTypes]))
-    simpa [sub_var, «evalCopy.Nat»] using this
+    have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
+    simpa [sub_var, «evalVersion.Nat»] using this
   have pa : ∀ a ∈ [(Q2, bytes p), (Q2, bytes i), (Q2, Form.nat n), (Q2, bytes o), (Q2, Form.u32 m),
       (Q1, Rfl), (Q1, Rfl)], Plain a.2 := by
     simp [plain_nat, plain_bytes, plain_u32, Plain.rfl]
   obtain ⟨w, dw, tw, cw⟩ := exists_conv hc hB.exists_ (closed_call pa) (live_call' hd pa) h3 hN
   obtain ⟨f, rfl⟩ := canon_nat wt hT cl (data_value dw) tw
-  have hk : Book.get B (impl "Wasm.run") = _ := hB.get (d := «trustedCopy.Wasm.run») (by simp [trustedCopy])
+  have hk : Book.get B (impl "Wasm.run") = _ := hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion])
   have hcmp : Book.get B (impl "Compiler.compile") = _ :=
-    hB.get (d := «trustedCopy.Compiler.compile») (by simp [trustedCopy])
+    hB.get (d := «trustedVersion.Compiler.compile») (by simp [trustedVersion])
   have pc : Term.Closed (compileOf p) := closed_call (xs := [(Q2, bytes p)]) (by simp [plain_bytes])
   have lc : Term.Live B (compileOf p) := live_call' (xs := [(Q2, bytes p)]) hcmp (by simp [plain_bytes])
   have cw' : Term.Closed (wasmOf f (compileOf p) i m) :=
