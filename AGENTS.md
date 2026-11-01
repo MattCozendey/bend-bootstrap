@@ -8,14 +8,14 @@ This is the ultimate source of truth(over any skill or deterministic tool) for t
 
 ## 0. Core
 
-- If a skill does not load, read its file in `.agents/skills/`.
-- Do not change any `.md` file without asking me.
+1 - If a skill does not load, read its file in `.agents/skills/`.
+2 - Do not change any `.md` file without asking me.
 
 ## 1. Communication
 
-- Speak the language you are spoken to; but shortly and without dropping important information in
+1 - Speak the language you are spoken to; but shortly and without dropping important information in
   ASD-STE100 (or the language's equivalent), with learnings from the `i-have-adhd`.
-- Use a global counter for your non-trivial questions that grows through the session. Repeat each
+2 - Use a global counter for your non-trivial questions that grows through the session. Repeat each
   open question in each response until I answer it or tell you to use common sense.
 
 ## 2. Code
