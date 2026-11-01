@@ -64,15 +64,6 @@ Follow the `bend2` skill. In this project:
   a bug that its Windows support caused.
 - Bend code must pass bend-lint (configured in `bend-lint.json`): `bun run lint` must add no
   finding. `bunx bend-lint --fix-dangerously <file>` formats a file.
-- A module is a folder in `src/`. Its files:
-  - `impl.bend`: its entrypoint, and the only file that it must have. Prefer to keep all of its
-    implementation in this file. Other implementation files can exist; they do not contain laws.
-  - `shared.bend` (optional): what its implementation or test files have in common. It does not
-    contain laws.
-  - `spec.bend` (optional): its laws.
-  - `tests.bend` (optional): its tests, of the properties of the module that a law cannot state.
-- `src/shared/` is the module for helpers that are too small for a module of their own (for
-  example, with no effects, or too simple to matter).
 
 ### TypeScript
 
