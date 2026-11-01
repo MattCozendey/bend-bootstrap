@@ -23,7 +23,7 @@
 #    (p -> x -> 1): Ag's {Mem(ps2, x) == False} fails.
 #
 # C. r = 39 (croot): M.copy.end writes K.root (45) into field 0 of the
-#    result. r = 3 (pend): register r ends with the root, tag 45. r = 64: a
+#    result. r = 3 (pend): register r ends with the root, tag 45. r = 63: a
 #    trap. src = 39: the root's part is the root itself.
 #
 # D. A local whose term has a free variable near 2^32 (CopyPost, as fixed,
@@ -63,16 +63,16 @@ def Cx.z(n: Nat) -> List<&2, U32>:
 def Cx.tbl() -> C.Cir.Cells:
   C.Cir.Cells.set(
     C.Cir.Cells.set(
-      C.Cir.Cells.set(C.Cir.Cells.none{}, 349, C.Cir.Cell{0, 0, 1, 0, 1}),
-      356,
+      C.Cir.Cells.set(C.Cir.Cells.none{}, 276, C.Cir.Cell{0, 0, 1, 0, 1}),
+      283,
       C.Cir.Cell{0, 0, 1, 0, 1}
     ),
-    362,
+    289,
     C.Cir.Cell{0, 0, 0, 0, 1}
   )
 
 def Cx.st(regs: List<&2, U32>, m: C.Cir.Cells, nx: U32) -> C.Cir.State:
-  C.Cir.State{regs, m, nx, 400, 363, 1, 1, Nil{}, Nil{}, 0}
+  C.Cir.State{regs, m, nx, 400, 290, 1, 1, Nil{}, Nil{}, 0}
 
 def Cx.reg(o: C.Cir.Out, r: Nat) -> Maybe<&2, U32>:
   match o:
@@ -109,7 +109,7 @@ def A.m() -> C.Cir.Cells:
 
 # src = 13 holds c, pend = p, cenv = 0, clen = 0
 def A.regs() -> List<&2, U32>:
-  List.set(&2, U32, List.set(&2, U32, Cx.z(64n), 13n, 401), 3n, 400)
+  List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 13n, 401), 3n, 400)
 
 def A.copy() -> C.Cir.Out:
   C.Cir.exec(4n, C.M.copy(15n, 13n), Cx.st(A.regs(), A.m(), 402))
@@ -171,7 +171,7 @@ def B.regs() -> List<&2, U32>:
       List.set(
         &2,
         U32,
-        List.set(&2, U32, List.set(&2, U32, Cx.z(64n), 0n, 403), 13n, 403),
+        List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 0n, 403), 13n, 403),
         3n,
         400
       ),
@@ -205,7 +205,7 @@ def C2.m() -> C.Cir.Cells:
   C.Cir.Cells.set(Cx.tbl(), 400, C.Cir.Cell{17, 1, 0, 0, 0})
 
 def C2.regs(+src: Nat) -> List<&2, U32>:
-  List.set(&2, U32, List.set(&2, U32, Cx.z(64n), 0n, 400), src, 400)
+  List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 0n, 400), src, 400)
 
 def C2.copy(r: Nat, +src: Nat) -> C.Cir.Out:
   C.Cir.exec(4n, C.M.copy(r, src), Cx.st(C2.regs(src), C2.m(), 401))
@@ -224,8 +224,8 @@ def C2.r3_reg() -> {Cx.reg(C2.copy(3n, 13n), 3n) == Some{401}: Maybe<&2, U32>}:
 def C2.r3_tag() -> {Cx.fd(C2.copy(3n, 13n), 0n, 401) == 45: U32}:
   {==}
 
-# r = 64: a trap
-def C2.r64() -> {Cx.trap(C2.copy(64n, 13n)) == True{}: Bool}:
+# r = 63: a trap
+def C2.r63() -> {Cx.trap(C2.copy(63n, 13n)) == True{}: Bool}:
   {==}
 
 # src = 39: the result is the root itself, of tag K.root
@@ -240,7 +240,7 @@ def C2.s39_tag() -> {Cx.fd(C2.copy(15n, 39n), 0n, 401) == 45: U32}:
 
 # the table's row of Lam (7) too
 def D.tbl() -> C.Cir.Cells:
-  C.Cir.Cells.set(Cx.tbl(), 352, C.Cir.Cell{0, 0, 1, 1, 1})
+  C.Cir.Cells.set(Cx.tbl(), 279, C.Cir.Cell{0, 0, 1, 1, 1})
 
 # c = 400: Lam (7), fv 1, count 1, part 401; 401: Var 1, fv 2, count 1;
 # a = 402: K.arg (41), OWNED, last, term 403; 403: Var 4294967295, fv fv_max
@@ -268,7 +268,7 @@ def D.regs() -> List<&2, U32>:
     List.set(
       &2,
       U32,
-      List.set(&2, U32, List.set(&2, U32, Cx.z(64n), 0n, 400), 13n, 400),
+      List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 0n, 400), 13n, 400),
       36n,
       402
     ),
@@ -311,7 +311,7 @@ def E.m() -> C.Cir.Cells:
   C.Cir.Cells.set(Cx.tbl(), 400, C.Cir.Cell{17, 4294967295, 0, 0, 0})
 
 def E.regs() -> List<&2, U32>:
-  List.set(&2, U32, List.set(&2, U32, Cx.z(64n), 0n, 400), 13n, 400)
+  List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 0n, 400), 13n, 400)
 
 def E.copy() -> C.Cir.Out:
   C.Cir.exec(4n, C.M.copy(15n, 13n), Cx.st(E.regs(), E.m(), 401))
