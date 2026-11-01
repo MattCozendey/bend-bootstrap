@@ -9,12 +9,12 @@ open Quan Term
 
 namespace Machine
 
--- the frames of arguments known to be values where their flag says so
+-- the frames of arguments that know what is true
 private theorem argFrames_ok (h : ∀ a ∈ ys, argOk bk a) : ∀ f ∈ argFrames ys, f.Ok bk := by
   intro f m
   simp only [argFrames, List.mem_map] at m
-  obtain ⟨⟨q, y, l, k⟩, m, rfl⟩ := m
-  exact ⟨(h _ m).2.value, (h _ m).1⟩
+  obtain ⟨a, m, rfl⟩ := m
+  exact h a m
 
 -- the call that Ops knows reaches its value after its steps
 theorem opsCall_sound (htb : tb = Ops.prepare bk) (h : opsCall tb k xs = some (r, n)) :
@@ -103,18 +103,22 @@ private theorem appMove_call (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
   have m' : (a.q, close a.t a.l) ∈ ys.map argOf := List.mem_map_of_mem m
   exact Know.ofLive_ok (values_mem vs m')
 
--- App q f x, with f under fl a value, and x under xl a value when q is live
+-- App a.q f a.t, with f under fl a value, and the argument a a value when it
+-- is live
 theorem appMove_ok (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
-    (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk) (hst : ∀ g ∈ st, g.Ok bk)
-    (hw : (from_ ()).term = plugs st (App q (close f fl) (close x xl))) :
-    (appMove bk tb q f fl x xl st from_).Ok bk (plugs st (App q (close f fl) (close x xl))) := by
+    (ha : argOk bk a) (hx : a.q.live = true → Value bk (close a.t a.l)) (hst : ∀ g ∈ st, g.Ok bk)
+    (hw : (from_ ()).term = plugs st (App a.q (close f fl) (close a.t a.l))) :
+    (appMove bk tb f fl a st from_).Ok bk (plugs st (App a.q (close f fl) (close a.t a.l))) := by
+  obtain ⟨q, x, xl, k⟩ := a
+  obtain ⟨hxl, hk⟩ := ha
+  dsimp only at hx hw hk hxl ⊢
   unfold appMove
   split
   next p b bl e =>
     split
     next hb =>
-      rw [bindsAtL_eq (Know.ofLive_ok hx)] at hb
-      refine ⟨⟨⟨Know.bind_ok (Know.ofLive_ok hx) (bindsAt_iff.1 hb).2, hxl, resolve_ok' hfl e⟩, hst⟩, ?_⟩
+      rw [bindsAtL_eq hk] at hb
+      refine ⟨⟨⟨Know.bind_ok hk (bindsAt_iff.1 hb).2, hxl, resolve_ok' hfl e⟩, hst⟩, ?_⟩
       simp only [State.term, Focus.term, close_cons]
       rw [resolve_eq e, close_lam]
       exact Eval.plugs hst (.beta (bindsAt_iff.1 hb).1 hx (bindsAt_iff.1 hb).2)
@@ -126,13 +130,13 @@ theorem appMove_ok (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl
       next hq =>
         have hal := resolve_ok' hxl e2
         have ex : close x xl = Tup r (close a al) (close b al) := by rw [resolve_eq e2, close_tup]
-        have ⟨va, vb⟩ := value_tup (ex ▸ hx hq)
+        have hkt : Know.Ok bk (Tup r (close a al) (close b al)) k := ex ▸ hk
         refine ⟨⟨resolve_ok' hfl e, ?_⟩, ?_⟩
         · intro g m
           simp only [List.mem_cons] at m
           rcases m with rfl | rfl | m
-          · exact ⟨va, hal⟩
-          · exact ⟨fun _ => vb, hal⟩
+          · exact ⟨hal, hkt.tup.1⟩
+          · exact ⟨hal, hkt.tup.2⟩
           · exact hst g m
         · rw [resolve_eq e, close_prj, ex]
           exact Eval.plugs hst (.split hq (ex ▸ hx hq))
@@ -155,7 +159,7 @@ theorem appMove_ok (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl
           · intro g m
             simp only [List.mem_cons] at m
             rcases m with rfl | m
-            · exact ⟨fun _ => .lab, trivial⟩
+            · exact ⟨trivial, .lab⟩
             · exact hst g m
           · rw [resolve_eq e, close_mat, ex]
             exact Eval.plugs hst (.miss hq hij)

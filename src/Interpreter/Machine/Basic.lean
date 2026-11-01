@@ -81,7 +81,7 @@ def CallOk (bk : Book) (k : String) (t : Term) (tl : Locals) (rxs : List MArg) :
 -- what a frame knows is true
 def Frame.Ok (bk : Book) : Frame → Prop
   | .appArg _ _ l => l.Ok bk
-  | .appVal _ x l k => (k = true → Value bk (close x l)) ∧ l.Ok bk
+  | .appVal a => argOk bk a
   | .appFun q f l => q.live = true ∧ Value bk (close f l) ∧ l.Ok bk
   | .letIn q _ l => q.live = true ∧ l.Ok bk
   | .tupB q _ l => q.live = true ∧ l.Ok bk
@@ -304,9 +304,9 @@ theorem bindsAtL_eq (hk : Know.Ok bk (close x l) k) : bindsAtL p q x l k = binds
   unfold bindsAtL bindsAt
   rw [dataAt_eq]
   cases k
-  · simp
-  · simp
-  · simp only [Know.Ok] at hk; simp [data_iff.2 hk]
+  · simp [Know.isData]
+  · simp [Know.isData]
+  · simp only [Know.Ok] at hk; simp [Know.isData, data_iff.2 hk]
 
 -- the term an unspine took apart
 theorem spine_unspine (h : unspine t ys = (u, zs)) : spine t ys = spine u zs := by

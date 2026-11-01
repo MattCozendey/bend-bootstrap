@@ -148,7 +148,7 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
     next hi =>
     cases t
     case Var i =>
-      dsimp only
+      simp only [evMove]
       split
       · rename_i x xl k hx
         refine ⟨⟨(get?_ok hf hx).2, hst⟩, ?_⟩
@@ -157,11 +157,11 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
     case Ref k =>
       have e : State.term ⟨.ev (Ref k) l, st⟩ = plugs st (spine (Ref k) (([] : List MArg).map argOf)) := by
         simp only [State.term, Focus.term, close_ref, List.map_nil, spine]
-      dsimp only
+      simp only [evMove]
       rw [e]
       exact callMove_ok htb .nil nofun rfl trivial hst e
     case Ann x T =>
-      dsimp only
+      simp only [evMove]
       refine ⟨⟨hf, hst⟩, Eval.plugs hst ?_⟩
       simp only [Focus.term, close_eq, Term.sub]
       exact .ann
@@ -169,7 +169,7 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
       have hpush : (Move.admin ⟨.ev f l, .appArg q x l :: st⟩).Ok bk (State.term ⟨.ev (App q f x) l, st⟩) :=
         ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
           simp only [State.term, Focus.term, close_app, plugs, List.foldl, Frame.plug]⟩
-      dsimp only
+      simp only [evMove]
       split
       next k d ys hc =>
         obtain ⟨e, hd, ht⟩ := spineCall_some hc
@@ -182,7 +182,7 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
         exact go_ok htb ⟨ht, trivial, nofun, d, hd, fun zs => rfl⟩ hf hst
       next => exact hpush
     case Let q v f =>
-      dsimp only
+      simp only [evMove]
       split
       · rename_i hq
         exact ⟨⟨hf, List.forall_mem_cons.2 ⟨⟨hq, hf⟩, hst⟩⟩, by
@@ -192,14 +192,16 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
         simp only [Focus.term, close_cons]
         simp only [close_eq, Term.sub]
         exact .unlet (fun h => absurd h hq) (fun e => by subst e; exact absurd rfl hq)
-    case Tup q a b => exact evTup_ok hf hst
+    case Tup q a b => simp only [evMove]; exact evTup_ok hf hst
     case Rwt e P f =>
+      simp only [evMove]
       exact ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
         simp only [State.term, Focus.term, close_eq, Term.sub, plugs, List.foldl, Frame.plug]⟩
     case Min a b =>
+      simp only [evMove]
       exact ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
         simp only [State.term, Focus.term, close_eq, Term.sub, plugs, List.foldl, Frame.plug]⟩
-    all_goals rfl
+    all_goals simp only [evMove]; rfl
   | ret v vl d =>
     simp only [Focus.Ok] at hf
     cases st with
@@ -208,22 +210,24 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
       have hg := hst g List.mem_cons_self
       have hs := fun g' h => hst g' (List.mem_cons_of_mem g h)
       clear hst
-      cases g <;> simp only [Frame.Ok] at hg <;> simp only [move]
+      cases g <;> simp only [Frame.Ok] at hg <;> simp only [move, retMove]
       case appArg q x l =>
         split
         · rename_i hq
           exact ⟨⟨hg, List.forall_mem_cons.2 ⟨⟨hq, hf.1, hf.2.1⟩, hs⟩⟩, rfl⟩
         · rename_i hq
-          exact appMove_ok htb hf.1 hf.2.1 (fun h => absurd h hq) hg hs rfl
-      case appVal q x l k =>
+          exact appMove_ok (a := ⟨q, x, l, .none⟩) htb hf.1 hf.2.1 ⟨hg, trivial⟩ (fun h => absurd h hq) hs rfl
+      case appVal a =>
         split
         · rename_i hq
           simp only [Bool.and_eq_true, Bool.not_eq_true'] at hq
-          exact ⟨⟨hg.2, List.forall_mem_cons.2 ⟨⟨hq.1, hf.1, hf.2.1⟩, hs⟩⟩, rfl⟩
+          exact ⟨⟨hg.1, List.forall_mem_cons.2 ⟨⟨hq.1, hf.1, hf.2.1⟩, hs⟩⟩, rfl⟩
         · rename_i hq
           simp only [Bool.and_eq_true, Bool.not_eq_true', not_and, Bool.not_eq_false] at hq
-          exact appMove_ok htb hf.1 hf.2.1 (fun h => hg.1 (hq h)) hg.2 hs rfl
-      case appFun q f fl => exact appMove_ok htb hg.2.1 hg.2.2 (fun _ => hf.1) hf.2.1 hs rfl
+          exact appMove_ok htb hf.1 hf.2.1 hg (fun h => hg.2.value (hq h)) hs rfl
+      case appFun q f fl =>
+        exact appMove_ok (a := ⟨q, v, vl, .ofData d⟩) htb hg.2.1 hg.2.2
+          ⟨hf.2.1, Know.ofData_ok hf.1 hf.2.2⟩ (fun _ => hf.1) hs rfl
       case letIn q f l =>
         split
         · rename_i hq
