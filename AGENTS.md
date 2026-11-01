@@ -55,13 +55,8 @@ These rules hold for every language.
 
 Follow the `bend2` skill. In this project:
 
-- Before you build or test, run `bend version` in the shell that you build in. As of 2026-10-28,
-  Bend does not run natively on Windows; a build with the build tag `win` (`bend <version>+win`)
-  is a fork that does. On Windows, run Bend natively only with such a build; otherwise, use Bend in
-  WSL. If no shell has a Bend that fits, stop and ask me. When you report a result, give the shell
-  and the `bend version` that ran.
-- Do not change, update or rebuild Bend. Modify a fork only when I expressly allow it, and only for
-  a bug that its Windows support caused.
+- I don't expect you to run bend(the untrusted one) for this project at all, but if you do; you must know that before you build or test, you must run `bend version` in the shell that you build in. As of 2026-11-01, Bend does not run natively on Windows. Use WSL(note: Even with WSL, parallel code won't run on the GPU).
+- Do not change, update or rebuild the Bend submodule.
 
 ### TypeScript
 
