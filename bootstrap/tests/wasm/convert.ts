@@ -1,5 +1,5 @@
 // convert.ts WORK: the binary scripts of the official WebAssembly tests that the Bend version of
-// WASM is tested with (AGENTS.md 3.8.1.3), made by cut.ml, which reads each test script with the
+// WASM is tested with (AGENTS.md 3.9.1.3), made by cut.ml, which reads each test script with the
 // spec's own reference interpreter, keeps in each module that a command defines only its functions
 // inside the subset, and writes the script as wasm -d x.wast -o x.bin.wast does. The spec's commit
 // is pinned: the script refuses any other. It needs ocaml, dune and menhir. WORK is a folder for the

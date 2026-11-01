@@ -3,7 +3,7 @@ import Bootstrap.EvalSteps.Step
 -- EvalSteps
 -- =========
 --
--- AGENTS.md 3.4.2: Eval.steps, the Bend version of Eval
+-- AGENTS.md 3.6.3: Eval.steps, the Bend version of Eval
 -- (bootstrap/bend/src/compiler), gives what the kernel's Eval gives,
 -- after the same number of steps, in both directions. The proof goes through
 -- step (Bootstrap/Interp.lean), which the version follows case for case

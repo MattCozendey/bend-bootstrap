@@ -3,7 +3,7 @@ import Base
 # Bytes
 # =====
 #
-# A byte is a Word(8n), its lowest bit first (AGENTS.md 3.2.1). Where the
+# A byte is a Word(8n), its lowest bit first (AGENTS.md 3.3.1). Where the
 # WASM spec reads a byte as a number, the version of WASM takes its value
 # (Byte.to_u32); where it writes a number as a byte, its low byte
 # (Byte.from_u32), as load8_u and store8 do (spec 4.4.7).
@@ -46,7 +46,7 @@ def Byte.is_eq(a: Word(8n), b: Word(8n)) -> Bool:
 #
 # BendTT's book (bend/bend2/bendtt.lean) as Bend data, field for field, and
 # Book.read, which reads back the bytes that the Lean writer writes for a book
-# (AGENTS.md 3.4.5). A name is the list of its UTF-8 bytes.
+# (AGENTS.md 3.6.4). A name is the list of its UTF-8 bytes.
 
 # Types
 # -----
@@ -382,7 +382,7 @@ def Book.read(xs: List<&2, Word(8n)>) -> Maybe<List<&2, Def>>:
 # ====
 #
 # A version of the kernel's Eval: Eval.steps(n, ds, t) gives the term that t
-# reaches after exactly n steps, in the book of the defs ds (AGENTS.md 3.4.2). It
+# reaches after exactly n steps, in the book of the defs ds (AGENTS.md 3.6.3). It
 # follows step of bootstrap/lean/src/Bootstrap/Interp.lean case for
 # case, and works out each part that a case may need before it picks one.
 
@@ -1003,7 +1003,7 @@ def Eval.steps(n: Nat, ds: List<&2, Def>, t: Term) -> Maybe<Term>:
 # Wasm
 # ====
 #
-# The part of WebAssembly that our compiler uses (AGENTS.md 3.8.1.2), as the
+# The part of WebAssembly that our compiler uses (AGENTS.md 3.9.1.2), as the
 # WebAssembly core spec defines it.
 # Wasm.run(f, w, i, m) runs the module of the bytes w on the input bytes i,
 # in at most f steps, with at most m pages (of 64 KiB) of memory. A module
@@ -2940,10 +2940,10 @@ def Wasm.run(f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, m: U32) -> Wa
 # Program
 # =======
 #
-# What a program gives on its input (AGENTS.md 3.4.3), and the memory that the
-# laws of 3.7.4 (spec.bend) grant it (3.4.4, 3.8.1.4). The terms mirror
+# What a program gives on its input (AGENTS.md 3.3.3, 3.3.4), and the memory
+# that the laws of 3.6.1 (spec.bend) grant it (3.3.10, 3.9.1.4). The terms mirror
 # bootstrap/lean/src/Bootstrap/Bytes.lean, and Program.gives mirrors Gives in
-# Program.lean, so that the proof of 3.7.6 can join them.
+# Program.lean, so that the theorem of 3.6.6 can join them.
 
 # the names of the constructors of a list of bytes, as `bend -o` writes them
 def Program.name.unit() -> List<&2, Word(8n)>:
@@ -3008,7 +3008,7 @@ def Program.bytes(i: List<&2, Word(8n)>) -> Term:
     case Con{b, rest}:
       Program.ctor(Program.name.con(), [Program.word(8n, b), Program.bytes(rest)])
 
-# the start term of a run (AGENTS.md 3.2.3): main, applied once at quantity 1 to the
+# the start term of a run (AGENTS.md 3.3.3): main, applied once at quantity 1 to the
 # input's bytes
 def Program.start(i: List<&2, Word(8n)>) -> Term:
   Term.App{Quan.Q1{}, Term.Ref{Program.name.main()}, Program.bytes(i)}
@@ -3109,7 +3109,7 @@ def Program.gives.of(r: Maybe<List<&2, Def>>, i: List<&2, Word(8n)>, n: Nat) -> 
     case Some{+ds}:
       Program.result(ds, Eval.steps(n, ds, Program.start(i)))
 
-# AGENTS.md 3.4.3: what the program of the book bytes p (3.4.5) gives on
+# AGENTS.md 3.3.4: what the program of the book bytes p (3.6.4) gives on
 # the input i after exactly n steps of Eval: the list of bytes of the value that
 # it reaches, or nothing
 def Program.gives(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Maybe<&2, List<&2, Word(8n)>>:
@@ -3180,12 +3180,12 @@ def Program.largest.of(r: Maybe<List<&2, Def>>, i: List<&2, Word(8n)>, n: Nat) -
     case Some{ds}:
       Program.largest.go(n, ds, Program.start(i))
 
-# The largest term of AGENTS.md 3.4.4: the most nodes (3.2.4) of a term that
+# The largest term of AGENTS.md 3.3.10: the most nodes (3.3.7) of a term that
 # the run on the input i reaches within n steps; the input is in the first term
 def Program.largest(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Program.largest.of(Book.read(p), i, n)
 
-# The nodes of a value's data form (AGENTS.md 3.2.2), as `bend -o` writes it: a
+# The nodes of a value's data form (AGENTS.md 3.3.5), as `bend -o` writes it: a
 # constructor k{f1, .., fn} is (.k, (f1, (.., (fn, ())))), 3 + n nodes with
 # the nodes s of its fields
 def Form.size.ctor(n: Nat, s: Nat) -> Nat:
@@ -3265,12 +3265,12 @@ def Program.size.of(r: Maybe<List<&2, Def>>) -> Nat:
     case Some{ds}:
       Form.size.defs(ds)
 
-# the program's size of AGENTS.md 3.2.5: the nodes of the data form of the book
+# the program's size of AGENTS.md 3.3.8: the nodes of the data form of the book
 # of the bytes p; 0 when they are no book
 def Program.size(p: List<&2, Word(8n)>) -> Nat:
   Program.size.of(Book.read(p))
 
-# F of AGENTS.md 3.8.1.4: 64 × (the program's size + the largest term) + 2^24
+# F of AGENTS.md 3.9.1.4: 64 × (the program's size + the largest term) + 2^24
 # bytes
 def Program.need(+p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Nat.add(Nat.mul(64n, Nat.add(Program.size(p), Program.largest(p, i, n))), 16777216n)
@@ -3283,7 +3283,7 @@ def Program.memory(m: U32) -> Nat:
 # Compiler
 # ========
 #
-# The compiler of AGENTS.md 3.7.4: a fixed machine (Machine, below) with the
+# The compiler of AGENTS.md 3.8.4: a fixed machine (Machine, below) with the
 # program's book as the data of its memory. The machine is written in
 # Cir, a small language of memory cells, which Cir.module translates to a
 # module of the subset of WASM that the Bend version of WASM models.
@@ -4296,7 +4296,7 @@ def Cir.result(fuel: Nat, prog: Cir.Stmt, +regs: Nat, +cells: List<&2, Cir.Cell>
 # variables the copy does not reach is shared, not copied. A cell whose count
 # drops to 0 goes to a list of cells to reuse, and its parts lose a pointer
 # when the cell is reused. As cells form no cycle, every cell that can no
-# longer be reached is freed so (AGENTS.md 3.8.1.4); only the image and the
+# longer be reached is freed so (AGENTS.md 3.9.1.4); only the image and the
 # cache of the input's bytes are STATIC, never freed.
 
 # building Cir
@@ -5999,8 +5999,8 @@ def Compiler.compile.of(machine: List<&2, Cir.Cell> -> List<&2, Word(8n)>, small
     case True{} Some{+ds}:
       machine(Img.cells(ds))
 
-# the compiler of AGENTS.md 3.7.4: the bytes of the module of the program whose
-# book has the bytes p (3.4.5). A book of 2^26 bytes or more needs more memory
+# the compiler of AGENTS.md 3.8.4: the bytes of the module of the program whose
+# book has the bytes p (3.6.4). A book of 2^26 bytes or more needs more memory
 # than a module can have (Img.small): its module runs out of memory at once. Bytes that
 # are no book give a module that gives no result
 def Compiler.compile(+p: List<&2, Word(8n)>) -> List<&2, Word(8n)>:

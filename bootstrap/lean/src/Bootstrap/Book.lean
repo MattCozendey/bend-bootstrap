@@ -4,7 +4,7 @@ import Bootstrap.Bytes
 -- ====
 --
 -- The Bend data form of the kernel's book (bootstrap/bend/src/compiler),
--- as `bend -o` writes its values, and the Lean writer of AGENTS.md 3.4.5, whose
+-- as `bend -o` writes its values, and the Lean writer of AGENTS.md 3.6.4, whose
 -- tokens Book.read reads back. That Bend file states the tokens. The writer
 -- puts each list last to first, as the reader puts each item in front.
 
@@ -68,7 +68,7 @@ end Form
 
 -- One to one
 -- ----------
--- AGENTS.md 3.2.2: no two terms, defs or books share a data form.
+-- AGENTS.md 3.6.2: no two terms, defs or books share a data form.
 
 -- a chain of fields that ends in () gives back its fields
 private theorem fields_inj {fs fs' : List Term} :

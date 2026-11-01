@@ -1,11 +1,11 @@
-// run.ts WORK: tests of kind c of the compiler of AGENTS.md 3.7.4, which the laws of
+// run.ts WORK: tests of kind c of the compiler of AGENTS.md 3.8.4, which the laws of
 // bootstrap/bend/src/compiler/spec.bend (no_wrong_result, no_other_failure, enough_memory) replace
 // once they are proven. Each program of progs/ is compiled, and its module runs on each input in a
 // real engine, bun's JavaScriptCore, as the host of Wasm.run does. It must give the result that the
 // Lean interpreter gives (scripts/Run.lean, which gives what Eval gives), or no result when it
 // gives none. The compiler runs as the JS that `bend -o` writes for compile.bend; with TRUSTED=1,
 // the Lean interpreter also runs it on progs/echo.bend, and must write the same bytes (this takes a
-// few minutes: about 47 million steps of Eval). bun is pinned: the script refuses any other. WORK
+// few minutes: about 44.4 million steps of Eval). bun is pinned: the script refuses any other. WORK
 // is a folder for what the tests write.
 //
 //   [TRUSTED=1] bun run.ts WORK

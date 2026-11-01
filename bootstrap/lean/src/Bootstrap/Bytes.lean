@@ -3,7 +3,7 @@ import bendtt
 -- Bytes
 -- =====
 --
--- AGENTS.md 3.2.1's list of bytes, as `bend -o` writes a value of Base's
+-- AGENTS.md 3.3.1's list of bytes, as `bend -o` writes a value of Base's
 -- List<&2, Word(8n)>: a constructor k{x, y} is the tuple (.k, x, y, ()) at
 -- quantity 1, and a byte is its Word(8n), the lowest bit first.
 
