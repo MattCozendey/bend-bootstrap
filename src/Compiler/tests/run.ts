@@ -142,10 +142,11 @@ const progFails = readdirSync(join(HERE, "progs"))
           INPUT: at("in"),
           OUTPUT: at("want"),
         }),
-        stdout: "ignore",
+        stdout: "pipe",
         stderr: "pipe",
       });
-      const leanError = lean.stderr.toString();
+      // lake lean prints a script's error on stdout
+      const leanError = lean.stdout.toString() + lean.stderr.toString();
       const says = Bun.spawnSync({
         cmd: [process.execPath, join(HERE, "host.ts"), at("wasm"), at("in"), at("bun")],
         stderr: "inherit",
