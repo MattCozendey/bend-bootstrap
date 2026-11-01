@@ -27,7 +27,7 @@ INVARIANT(S):
 4 - "ENOUGH MEMORY": FOR EACH PROGRAM AND INPUT THAT `Eval` GIVES A RESULT FOR, SOME AMOUNT OF MEMORY IS ENOUGH. A STRONGER LAW WITH A MEMORY FORMULA MAY BE ADDED LATER, NEXT TO THIS ONE, NOT INSTEAD OF IT.
 5 - OUR COMPILER DOES NOT READ .bendtt TEXT. ITS INPUT IS THE BOOK THAT THE KERNEL'S OWN PARSER (`Book.parse`) GIVES FOR THAT TEXT, WRITTEN AS A LIST OF BYTES (DEFINITION #3) BY THE LEAN WRITER (NOT A `partial def`). FOR EVERY BOOK, THE BEND READER, WHICH THE LAWS OF STEP 1 USE, GIVES BACK EXACTLY THAT BOOK'S DATA FORM (DEFINITION #4) FROM THE BYTES THAT THE LEAN WRITER WRITES FOR IT. A LEAN THEOREM PROVES IT.
 
-WHAT WE TRUST:
+TRUSTED PIECE(S):
 1 - Lean itself.
 2 - The LEAN-VALIDATED, PROVEN-SOUND kernel (DEFINITION #1) is the definition of Bend. What it says a program computes IS what the program actually computes. IT IS FIXED: WE CANNOT TOUCH IT IN ANY WAY WHATSOEVER.
 3 - From #2 follows that every proof in a Bend program that `--verdict` accepts is true (`--verdict` runs the kernel)
@@ -35,7 +35,7 @@ WHAT WE TRUST:
 5 - A WASM engine follows the WASM spec.
 6 - Our Bend copy of WASM's meaning: only the part of WASM that our compiler uses, its binary format included. It is reviewed against the WASM spec and tested with the spec's official test suite. It is not proven, because we know of no Lean or Bend version of the spec. This is a named exception to WHAT WE DON'T TRUST #3.
 
-WHAT WE DON'T TRUST:
+UNTRUSTED PIECE(S):
 1 - The current Bend compiler written in TypeScript.
 2 - A checker result without --verdict.
 3 - OUR OWN BOOTSTRAP CODE UNTIL IT'S SOMEHOW PROOF-VALIDATED.
