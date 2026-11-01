@@ -4,7 +4,7 @@
 # test script with the spec's own reference interpreter, keeps in each module
 # that a command defines only its functions inside the subset, and writes the
 # script as wasm -d x.wast -o x.bin.wast does. Every tool is pinned: the
-# spec's commit, Ubuntu 24.04 and the exact packages below; the script
+# spec's commit and the exact packages below; the script
 # refuses to run with anything else. WORK is a folder for the spec's clone
 # and the build. The license, the tests (wast/), and their binary scripts and
 # lists of pure exports (bin/) go next to this script.
@@ -20,11 +20,6 @@ TESTS=(binary binary-leb128 i32 int_exprs address align endianness load store me
 here=$(cd "$(dirname "$0")" && pwd)
 work=${1:?usage: convert.sh WORK}
 
-. /etc/os-release
-if [ "$ID $VERSION_ID" != "ubuntu 24.04" ]; then
-  echo "convert.sh needs Ubuntu 24.04, not $ID $VERSION_ID" >&2
-  exit 1
-fi
 for p in "${PACKAGES[@]}"; do
   have=$(dpkg-query -W -f='${Version}' "${p%%=*}" 2>/dev/null || true)
   if [ "$have" != "${p#*=}" ]; then

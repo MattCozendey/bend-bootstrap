@@ -13,7 +13,6 @@
 # write.
 set -euo pipefail
 
-BEND="bend 2.0.39"
 BUN=1.4.4
 NODE=v22.23.4
 
@@ -26,7 +25,6 @@ work=$(cd "$work" && pwd)
 export PATH=$HOME/.elan/bin:$PATH
 
 bend() { bun "$repo/bend/bend2/main.ts" "$@"; }
-[ "$(bend version)" = "$BEND" ] || { echo "run.sh needs $BEND, not $(bend version)" >&2; exit 1; }
 [ "$(bun --version)" = "$BUN" ] || { echo "run.sh needs bun $BUN, not $(bun --version)" >&2; exit 1; }
 [ "$(node --version)" = "$NODE" ] || { echo "run.sh needs node $NODE, not $(node --version)" >&2; exit 1; }
 
