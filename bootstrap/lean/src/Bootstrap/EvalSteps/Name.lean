@@ -10,27 +10,6 @@ open Quan Term
 
 namespace EvalCopy
 
--- ByteArray.toList.loop puts the bytes from i after the reversed r
-private theorem toList_loop (bs : ByteArray) (i : Nat) (r : List UInt8) :
-    ByteArray.toList.loop bs i r = r.reverse ++ bs.data.toList.drop i := by
-  fun_induction ByteArray.toList.loop bs i r with
-  | case1 i r hi ih =>
-    rw [ih]
-    have hi' : i < bs.data.toList.length := by rw [Array.length_toList]; exact hi
-    rw [List.drop_eq_getElem_cons hi']
-    simp [ByteArray.get!, hi]
-  | case2 i r hi =>
-    have hi' : bs.data.toList.length ≤ i := by rw [Array.length_toList]; exact Nat.le_of_not_lt hi
-    simp [List.drop_eq_nil_of_le hi']
-
--- the form of a name, its UTF-8 bytes, says which name it is
-theorem name_inj : Form.name a = Form.name b → a = b := by
-  intro h
-  have h1 := congrArg unbytes h
-  simp only [Form.name, unbytes_bytes, Option.some.injEq, ByteArray.toList, toList_loop,
-    String.toUTF8, List.reverse_nil, List.nil_append, List.drop_zero] at h1
-  exact String.toByteArray_inj.1 (ByteArray.ext (Array.ext' h1))
-
 -- a call whose arguments are values steps to the leaf of its walk
 private theorem run_call (hk : Book.get B k = some d) (vs : Values B xs)
     (w : walk B d.v [] xs = some (some u)) (r : Runs B u v) : Runs B (spine (Ref k) xs) v :=

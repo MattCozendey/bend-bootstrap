@@ -49,7 +49,7 @@ STEP(S):
 6 - We must write the LEAN WRITER, the BEND READER and the LEAN PROOF of INVARIANTS #5. This is because the kernel's parser is made of `partial def`s, so no Lean theorem can say what it returns, and the kernel is fixed (WHAT WE TRUST #2): a Bend copy of the parser could never be proven to read a text as the kernel does. Without this proof, our compiler could compile a different book than the one the kernel read.
 7 - We must write a LEAN VERSION OF THE OFFICIAL WASM SEMANTICS of the subset that our compiler uses, TRANSLATED BY A PROGRAM FROM THE SPEC'S OWN FORMAL SOURCE (SpecTec), and a LEAN PROOF that the Bend copy of WASM (#5) gives what it gives. This is because our Bend copy is only reviewed and tested (WHAT WE TRUST #6). With this proof we trust the spec's SpecTec source and the translator instead. The official tests of #5 stay, for historical reasons.
 
-NOTES:
+NOTE(S):
 1 - The current UNTRUSTED TypeScript compiler is only a reference guide for ideas.
 2 - ALL BOOTSTRAP CODE LIVES STRICTLY INSIDE HERE(BOOTSTRAP FOLDER). DON'T CARE ABOUT REPO GATES OR STUFF LIKE THAT.
 3 - PROOF QUALITY DOESN'T MATTER UNLESS PROOFS ARE SO SLOW THEY BLOCK. PROOFS DON'T TAKE PART IN REVIEW SWEEPS UNLESS I TELL YOU TO. LAWS AND THEOREMS (BEND AND LEAN), AND THE DEFINITIONS THEY USE, ON THE OTHER HAND, SHOULD ALWAYS BE DOUBLE-QUESTIONED TO ENSURE THEY REALLY REALLY MATCH MY INTENT; THEN THE LAWS AND THEOREMS ARE PROVEN. THIS DOES NOT MEAN OVERDO LAWS. WE WANT ENOUGH LAWS FOR THE COMPILER TO BE EXACTLY AS SAFE AS IT NEEDS TO BE, NOT MORE NOT LESS.

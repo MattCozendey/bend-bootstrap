@@ -66,6 +66,118 @@ def args (xs : List Arg) : Term := list (xs.map arg)
 
 end Form
 
+-- One to one
+-- ----------
+-- DEFINITION #4: no two terms, defs or books share a data form.
+
+-- a chain of fields that ends in () gives back its fields
+private theorem fields_inj {fs fs' : List Term} :
+    fs.foldr (Tup Q1) (Lab "()") = fs'.foldr (Tup Q1) (Lab "()") → fs = fs' := by
+  induction fs generalizing fs' with
+  | nil => cases fs' <;> simp
+  | cons f fs ih =>
+    cases fs' with
+    | nil => simp
+    | cons f' fs' => simp only [List.foldr_cons, Tup.injEq]; exact fun h => by rw [h.2.1, ih h.2.2]
+
+-- constructors with equal forms have equal labels and fields
+theorem ctor_inj : ctor k fs = ctor k' fs' → k = k' ∧ fs = fs' := by
+  intro h
+  simp only [ctor, Term.Tup.injEq, Term.Lab.injEq] at h
+  exact ⟨h.2.1, fields_inj h.2.2⟩
+
+-- ByteArray.toList.loop puts the bytes from i after the reversed r
+theorem toList_loop (bs : ByteArray) (i : Nat) (r : List UInt8) :
+    ByteArray.toList.loop bs i r = r.reverse ++ bs.data.toList.drop i := by
+  fun_induction ByteArray.toList.loop bs i r with
+  | case1 i r hi ih =>
+    rw [ih]
+    have hi' : i < bs.data.toList.length := by rw [Array.length_toList]; exact hi
+    rw [List.drop_eq_getElem_cons hi']
+    simp [ByteArray.get!, hi]
+  | case2 i r hi =>
+    have hi' : bs.data.toList.length ≤ i := by rw [Array.length_toList]; exact Nat.le_of_not_lt hi
+    simp [List.drop_eq_nil_of_le hi']
+
+-- the form of a name, its UTF-8 bytes, says which name it is
+theorem name_inj : Form.name a = Form.name b → a = b := by
+  intro h
+  have h1 := congrArg unbytes h
+  simp only [Form.name, unbytes_bytes, Option.some.injEq, ByteArray.toList, toList_loop,
+    String.toUTF8, List.reverse_nil, List.nil_append, List.drop_zero] at h1
+  exact String.toByteArray_inj.1 (ByteArray.ext (Array.ext' h1))
+
+-- the form of a nat says which nat it is
+private theorem nat_inj {a b : Nat} : Form.nat a = Form.nat b → a = b := by
+  induction a generalizing b with
+  | zero =>
+    cases b with
+    | zero => intro; rfl
+    | succ m => intro h; simp only [Form.nat] at h; have := (ctor_inj h).1; simp at this
+  | succ n ih =>
+    cases b with
+    | zero => intro h; simp only [Form.nat] at h; have := (ctor_inj h).1; simp at this
+    | succ m => intro h; have := (ctor_inj h).2; simp at this; exact congrArg (· + 1) (ih this)
+
+-- the form of a quantity says which quantity it is
+private theorem quan_inj {a b : Quan} : Form.quan a = Form.quan b → a = b := by
+  cases a <;> cases b <;> intro h <;> have := (ctor_inj h).1 <;> simp_all [Form.quan]
+
+-- the form of a bool says which bool it is
+private theorem bool_inj {a b : Bool} : Form.bool a = Form.bool b → a = b := by
+  cases a <;> cases b <;> intro h <;> have := (ctor_inj h).1 <;> simp_all [Form.bool]
+
+-- the form of a list says which list it is
+private theorem list_inj {xs ys : List Term} : list xs = list ys → xs = ys := by
+  induction xs generalizing ys with
+  | nil => cases ys <;> intro h <;> have := (ctor_inj h).1 <;> simp_all [list]
+  | cons x xs ih =>
+    cases ys with
+    | nil => intro h; have := (ctor_inj h).1; simp_all [list]
+    | cons y ys => intro h; have := (ctor_inj h).2; simp at this; rw [this.1, ih this.2]
+
+-- the form of a list of names says which names they are
+private theorem names_inj {ks ks' : List String} :
+    list (ks.map Form.name) = list (ks'.map Form.name) → ks = ks' :=
+  fun h => (List.map_inj_right fun _ _ => name_inj).1 (list_inj h)
+
+-- the form of a term says which term it is
+theorem term_inj {a b : Term} : Form.term a = Form.term b → a = b := by
+  induction a generalizing b <;> cases b <;> intro h <;> (try rfl) <;> simp only [Form.term] at h <;>
+    have ⟨hk, hf⟩ := ctor_inj h <;> (try simp at hk) <;>
+    revert hf <;> simp only [List.cons.injEq, and_true, and_imp] <;> intros <;>
+    simp only [Term.Var.injEq, Term.Ref.injEq, Term.Ann.injEq, Term.Let.injEq, Term.Typ.injEq,
+      Term.Min.injEq, Term.All.injEq, Term.Lam.injEq, Term.App.injEq, Term.Sig.injEq,
+      Term.Tup.injEq, Term.Prj.injEq, Term.Enu.injEq, Term.Lab.injEq, Term.Mat.injEq,
+      Term.Eql.injEq, Term.Rwt.injEq] <;>
+    (try refine ⟨?_, ?_, ?_⟩) <;> (try refine ⟨?_, ?_⟩) <;>
+    first
+      | rfl
+      | exact nat_inj ‹_›
+      | exact quan_inj ‹_›
+      | exact names_inj ‹_›
+      | exact name_inj ‹_›
+      | (apply_assumption; assumption)
+
+-- the form of a def says which def it is
+theorem defn_inj {d d' : Def} : Form.defn d = Form.defn d' → d = d' := by
+  cases d; cases d'
+  intro h
+  simp only [Form.defn] at h
+  have := (ctor_inj h).2
+  simp only [List.cons.injEq, and_true] at this
+  obtain ⟨hk, hT, hv, ho⟩ := this
+  rw [name_inj hk, term_inj hT, term_inj hv, bool_inj ho]
+
+-- the form of a book, the list of its defs, says which book it is
+theorem book_inj {a b : Book} : Form.defs a.defs = Form.defs b.defs → a = b := by
+  obtain ⟨ds, l, o⟩ := a
+  obtain ⟨ds', l', o'⟩ := b
+  intro h
+  have e : ds = ds' := (List.map_inj_right fun _ _ => defn_inj).1 (list_inj h)
+  subst e o o'
+  rfl
+
 namespace Write
 
 def tok (tag : Nat) (arg : UInt8 := 0) : List UInt8 := [tag.toUInt8, arg]

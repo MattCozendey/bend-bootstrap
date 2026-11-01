@@ -37,19 +37,6 @@ theorem dcell : data (cell b) = true := data_iff.2 data_cell
 theorem _root_.Holds.get (h : Holds B) (hd : d ∈ programCopy := by simp [programCopy]) :
     Book.get B d.k = some d := h.program d hd
 
--- ByteArray.toList.loop puts the bytes from i after the reversed r (as EvalSteps' own)
-theorem toList_loop (bs : ByteArray) (i : Nat) (r : List UInt8) :
-    ByteArray.toList.loop bs i r = r.reverse ++ bs.data.toList.drop i := by
-  fun_induction ByteArray.toList.loop bs i r with
-  | case1 i r hi ih =>
-    rw [ih]
-    have hi' : i < bs.data.toList.length := by rw [Array.length_toList]; exact hi
-    rw [List.drop_eq_getElem_cons hi']
-    simp [ByteArray.get!, hi]
-  | case2 i r hi =>
-    have hi' : bs.data.toList.length ≤ i := by rw [Array.length_toList]; exact Nat.le_of_not_lt hi
-    simp [List.drop_eq_nil_of_le hi']
-
 -- the name k is the list of its UTF-8 bytes
 theorem name_bytes (h : k = String.ofList cs) (e : (List.utf8Encode cs).data.toList = bs) :
     Form.name k = bytes bs := by
