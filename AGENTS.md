@@ -2,7 +2,9 @@
 
 Contribution guidelines, for agents and humans alike.
 
-The rules stated here have priority over any and all rules in any skill file or tool(UNLESS EXPLICITLY TOLD BY A HUMAN OTHERWISE PER SESSION, WHICH MUST NOT BE STORED)
+This is human-written and MUST NOT be touched by ANY agent for ANY reason beyond EXPLICIT PERMISSION
+
+This is the ultimate source of truth for the project and every change must consult it to ensure the code or other docs are fully this-file compliant, so ANY drift must immediately pause the work and I should be communicated in detail what the blocker is and how to objectively best proceed. The rules stated here have priority over any and all rules in any skill file or tool(UNLESS EXPLICITLY TOLD BY A HUMAN OTHERWISE)
 
 ## 0. Core
 
@@ -75,3 +77,6 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see point
   `wrap`, `unwrap`).
 - Do not use barrel exports or re-exports (`export { x } from "..."`, `export * from "..."`). Import
   each name from the module that exports it.
+
+## 3. Project
+
