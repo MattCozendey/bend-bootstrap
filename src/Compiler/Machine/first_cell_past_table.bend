@@ -6,8 +6,9 @@
 # premise hF). Cir.first picks k + 1 when 20 (k + 1) >= end; else it is
 # (end - 1) / 20 + 1 with end > 20 (k + 1), so the quotient is past k.
 #
-# The long division (dm and what it needs) is copied from Compiler/Cir/simulation_first_cell_division.bend
-# and its imports (compiler/cir/simulation_* are edited elsewhere): it gives q 20 + r = x
+# The long division (dm and what it needs) is copied from
+# Compiler/Cir/simulation_first_cell_division.bend and its imports
+# (Compiler/Cir/simulation_* are edited elsewhere): it gives q 20 + r = x
 # with r < 20 for U32.div(x, 20) = q. Big closed numbers (2^26, 2^32,
 # 214748364) only ever appear in types spelled the same, so the checker never
 # expands them.

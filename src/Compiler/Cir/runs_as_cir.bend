@@ -1,4 +1,4 @@
-# compiler/cir: layer A of the proofs of the laws (Compiler/proof.bend)
+# Compiler/Cir: layer A of the proofs of the laws (Compiler/proof.bend)
 # =====================================================================
 #
 #   A (translation): the module that Cir.module makes of the machine runs in

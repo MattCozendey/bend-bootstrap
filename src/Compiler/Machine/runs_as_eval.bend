@@ -1,4 +1,4 @@
-# compiler/machine: layer B of the proofs of the laws (Compiler/proof.bend)
+# Compiler/Machine: layer B of the proofs of the laws (Compiler/proof.bend)
 # =========================================================================
 #
 #   B (machine): from the image of a book, Mach.code never traps, and it

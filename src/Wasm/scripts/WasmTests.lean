@@ -7,7 +7,7 @@ import Shared.Script
 --
 -- A test of kind b (bend2 skill): the Bend version of WASM (the section Wasm of
 -- src/Wasm/impl.bend) against the official WebAssembly
--- tests of src/wasm/tests (AGENTS.md 3.9.1.3), run by the Lean interpreter that the
+-- tests of src/Wasm/tests (AGENTS.md 3.9.1.3), run by the Lean interpreter that the
 -- plan trusts (src/Interpreter/Run.lean), not by the TypeScript compiler.
 --
 --   bend src/Wasm/impl.bend -o <file.bendtt>

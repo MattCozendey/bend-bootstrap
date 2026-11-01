@@ -19,10 +19,11 @@ target paths : Unit := Job.sync do
   let fs := (← System.FilePath.walkDir (__dir__ / "src")).filter (·.extension == some "lean")
   setTrace (.ofHash (Hash.ofString ("\n".intercalate ((fs.map toString).qsort (· < ·)).toList)))
 
--- its root, src/Bootstrap.lean, imports each module and ends with the guard
+-- one root per feature (src/Book.lean imports each module of src/Book/, and so on),
+-- and src/Bootstrap.lean, which imports them and ends with the guard
 @[default_target]
 lean_lib Bootstrap where
   srcDir := "src"
-  roots := #[`Bootstrap]
+  roots := #[`Bootstrap, `Shared, `Book, `Eval, `Program, `Interpreter, `Joining]
   needs := #[paths]
   precompileModules := true
