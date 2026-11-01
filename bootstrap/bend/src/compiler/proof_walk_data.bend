@@ -93,7 +93,7 @@ def sub.l(l: Bool, -rest: List<&2, Bool>, -a: C.Term, -u: C.Term, -G: Type, e: {
 
 # the cell at a path of v's cell stands for v's part there
 def is.sub(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, p: List<&2, Bool>, v: C.Term, +c: U32, -u: C.Term,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, p: List<&2, Bool>, v: C.Term, +c: U32, -u: C.Term,
   h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, c, v), e: {Sub(p, v) == Some{u} : Maybe<&2, C.Term>}) ->
   PM.IsK(dk, ds, m, im, fi, nx, ks, img, Cl(m, p, c), u):
   match p v:
@@ -267,7 +267,7 @@ def data.sub(p: List<&2, Bool>, v: C.Term, -u: C.Term, hv: {C.Term.is_data(v) ==
       Empty.absurd({C.Term.is_data(u) == True{} : Bool}, mt.ne(u, e))
 
 # what the cell of a term says of itself, for either dk
-def isk.nd(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def isk.nd(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, t: C.Term, h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, c, t)) ->
   PM.NdK(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), t, PM.A.tag(t)):
   match t:
@@ -349,18 +349,18 @@ def ndk.cell(-dk: Bool, -ds: List<&2, C.Def>, -im: U32, -fi: U32, -nx: U32, -c: 
   (e0, r0) = h
   e0
 
-def isk.cell(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def isk.cell(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, +t: C.Term, h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, c, t)) ->
   {C.Cir.is_cell(c, im, fi, nx) == True{} : Bool}:
   ndk.cell(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), t, PM.A.tag(t), isk.nd(dk, ds, m, im, fi, nx, ks, img, c, t, h))
 
-def isk.tag(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def isk.tag(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, +t: C.Term, h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, c, t)) ->
   {PM.TgW(PM.Fd(0n, m, c)) == PM.A.tag(t) : U32}:
   PM.nd.tgk(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), t, PM.A.tag(t), isk.nd(dk, ds, m, im, fi, nx, ks, img, c, t, h))
 
 # the parts of a pair's cell are STATIC or have a pointer
-def tup.hd(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def tup.hd(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32, +q: C.Quan, +a: C.Term, +b: C.Term,
   tbl: PM.Tbl(m, im, fi, nx), h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, c, C.Term.Tup{q, a, b})) ->
   PM.P2({PM.Hd(m, nx, fi, ps, rs, PM.Fd(2n, m, c)) == True{} : Bool}, {PM.Hd(m, nx, fi, ps, rs, PM.Fd(3n, m, c)) == True{} : Bool}):
