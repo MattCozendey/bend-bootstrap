@@ -84,19 +84,6 @@ theorem maybe_bytes_inj : Form.maybe bytes o = Form.some (bytes x) → o = some 
     rw [unbytes_bytes, unbytes_bytes] at this
     rw [Option.some.inj this]
 
--- exactly n steps of step are exactly n steps of Eval (as EvalSteps' own)
-theorem iterate_iff : EvalCopy.iterate bk n t = some u ↔ Steps bk n t u := by
-  induction n generalizing t with
-  | zero =>
-    simp only [EvalCopy.iterate, Option.some.injEq]
-    exact ⟨fun h => h ▸ .refl, fun h => by cases h; rfl⟩
-  | succ n ih =>
-    simp only [EvalCopy.iterate, Option.bind_eq_some_iff]
-    constructor
-    · rintro ⟨v, hv, hs⟩; exact .step (step_iff.1 hv) (ih.1 hs)
-    · intro h; cases h with
-      | step e s => exact ⟨_, step_iff.2 e, ih.2 s⟩
-
 theorem givesL_iff : givesL bk i n = some o ↔ Gives bk i o n := by
   simp only [givesL, Option.bind_eq_some_iff, Gives]
   constructor

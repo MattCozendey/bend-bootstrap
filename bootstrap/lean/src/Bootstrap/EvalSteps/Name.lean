@@ -88,7 +88,7 @@ private theorem run_tup (ra : Runs B a a') (rb : Runs B b b') : Runs B (Tup Q1 a
   exact ⟨_, s'.trans t', .tup (fun _ => va) vb⟩
 
 -- the comparison of two words, as Word.cmp makes it from the top bit down
-private def wc : Nat → Nat → Nat → Ordering
+def wc : Nat → Nat → Nat → Ordering
   | 0, _, _ => .eq
   | n + 1, v, w =>
     match wc n (v / 2) (w / 2) with
@@ -97,13 +97,13 @@ private def wc : Nat → Nat → Nat → Ordering
     | .gt => .gt
 
 -- the form of a Cmp
-private def cmpForm : Ordering → Term
+def cmpForm : Ordering → Term
   | .lt => ctor "LT" []
   | .eq => ctor "EQ" []
   | .gt => ctor "GT" []
 
 -- a Cmp form is a value
-private theorem value_cmp : Value B (cmpForm o) := by cases o <;> exact value_ctor nofun
+theorem value_cmp : Value B (cmpForm o) := by cases o <;> exact value_ctor nofun
 
 -- two words compare equal when they are equal modulo 2 ^ n
 private theorem wc_eq : wc n v w = .eq ↔ v % 2 ^ n = w % 2 ^ n := by
@@ -123,10 +123,10 @@ private theorem wc_eq : wc n v w = .eq ↔ v % 2 ^ n = w % 2 ^ n := by
       simp only [reduceCtorEq, false_iff]; omega
 
 -- the form of a word's lowest bit
-private abbrev bitForm (v : Nat) : Term := ctor (if v % 2 = 1 then "True" else "False") []
+abbrev bitForm (v : Nat) : Term := ctor (if v % 2 = 1 then "True" else "False") []
 
 -- Bool.cmp compares two bits
-private theorem bool_cmp (h : Contains B evalCopy) :
+theorem bool_cmp (h : Contains B evalCopy) :
     Runs B (App Q1 (App Q1 (Ref "Bool.cmp") (bitForm v)) (bitForm w))
       (cmpForm (compare (v % 2) (w % 2))) := by
   have hk : Book.get B "Bool.cmp" = some «evalCopy.Bool.cmp» := h «evalCopy.Bool.cmp» (by simp [evalCopy])
@@ -138,7 +138,7 @@ private theorem bool_cmp (h : Contains B evalCopy) :
     (.refl value_cmp)
 
 -- Word.cmp compares two words of n bits
-private theorem word_cmp (h : Contains B evalCopy) :
+theorem word_cmp (h : Contains B evalCopy) :
     Runs B (App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat n)) (bits n v)) (bits n w))
       (cmpForm (wc n v w)) := by
   have hk : Book.get B "Word.cmp" = some «evalCopy.Word.cmp» := h «evalCopy.Word.cmp» (by simp [evalCopy])

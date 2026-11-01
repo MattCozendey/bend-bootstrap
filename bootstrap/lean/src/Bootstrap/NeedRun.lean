@@ -13,6 +13,7 @@ import Bootstrap.Copy.Trusted
 -- min(m, 2^16) pages of 2^16 bytes.
 
 open Quan Term
+open EvalCopy (wc cmpForm value_cmp word_cmp)
 
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 20000

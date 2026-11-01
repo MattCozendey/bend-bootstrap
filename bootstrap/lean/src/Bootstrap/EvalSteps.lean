@@ -22,7 +22,7 @@ private theorem maybe_term_some {o : Option Term} :
     rw [term_inj this]
 
 -- n steps of step are n steps of Eval
-private theorem iterate_iff : EvalCopy.iterate bk n t = some u ↔ Steps bk n t u := by
+theorem iterate_iff : EvalCopy.iterate bk n t = some u ↔ Steps bk n t u := by
   induction n generalizing t with
   | zero =>
     simp only [EvalCopy.iterate, Option.some.injEq]

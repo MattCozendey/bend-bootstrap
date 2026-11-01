@@ -14,6 +14,7 @@ import Bootstrap.Copy.Program
 -- start and unbytes.
 
 open Quan Term
+open EvalCopy (wc cmpForm value_cmp word_cmp)
 
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 20000
@@ -303,25 +304,8 @@ theorem start_run (h : Holds B) : Runs B (App Q1 (Ref "Program.start") (bytes i)
     (ctor3 vq1 (ctor1 (names_run h).2.2.2.2.2.2.2.2) (bytes_run h))
   walks «programCopy.Program.start»
 
--- Comparisons (as EvalSteps' own)
--- ---------------------------------
-
--- the comparison of two words, as Word.cmp makes it from the top bit down
-def wc : Nat → Nat → Nat → Ordering
-  | 0, _, _ => .eq
-  | n + 1, v, w =>
-    match wc n (v / 2) (w / 2) with
-    | .lt => .lt
-    | .eq => compare (v % 2) (w % 2)
-    | .gt => .gt
-
--- the form of a Cmp
-def cmpForm : Ordering → Term
-  | .lt => ctor "LT" []
-  | .eq => ctor "EQ" []
-  | .gt => ctor "GT" []
-
-theorem value_cmp : Value B (cmpForm o) := by cases o <;> exact value_ctor nofun
+-- Comparisons
+-- -----------
 
 -- Word.cmp compares the words as numbers modulo 2 ^ n
 theorem wc_compare : wc n v w = compare (v % 2 ^ n) (w % 2 ^ n) := by
@@ -342,58 +326,6 @@ theorem wc_compare : wc n v w = compare (v % 2 ^ n) (w % 2 ^ n) := by
       · rw [Nat.compare_eq_eq] at hd; exact (Nat.compare_eq_eq.2 (by omega)).symm
       · rw [Nat.compare_eq_gt] at hd; exact (Nat.compare_eq_gt.2 (by omega)).symm
     · rw [Nat.compare_eq_gt] at hc; exact (Nat.compare_eq_gt.2 (by omega)).symm
-
--- the form of a word's lowest bit
-abbrev bitForm (v : Nat) : Term := ctor (if v % 2 = 1 then "True" else "False") []
-
-theorem bool_cmp (h : Contains B evalCopy) :
-    Runs B (App Q1 (App Q1 (Ref "Bool.cmp") (bitForm v)) (bitForm w))
-      (cmpForm (compare (v % 2) (w % 2))) := by
-  have hk : Book.get B "Bool.cmp" = some «evalCopy.Bool.cmp» := h «evalCopy.Bool.cmp» (by simp [evalCopy])
-  rcases Nat.mod_two_eq_zero_or_one v with hv | hv <;>
-  rcases Nat.mod_two_eq_zero_or_one w with hw | hw <;>
-  exact Kit.call (xs := [(Q1, _), (Q1, _)]) hk
-    (.cons (fun _ => value_ctor nofun) (.cons (fun _ => value_ctor nofun) .nil))
-    (by simp [walk, «evalCopy.Bool.cmp», hv, hw, ctor, cmpForm, takes, Quan.live, Quan.fld, sub, spine, compare, compareOfLessAndEq])
-    (.refl value_cmp)
-
-theorem word_cmp (h : Contains B evalCopy) :
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat n)) (bits n v)) (bits n w))
-      (cmpForm (wc n v w)) := by
-  have hk : Book.get B "Word.cmp" = some «evalCopy.Word.cmp» := h «evalCopy.Word.cmp» (by simp [evalCopy])
-  have hf : Book.get B "Word.cmp.fin" = some «evalCopy.Word.cmp.fin» := h «evalCopy.Word.cmp.fin» (by simp [evalCopy])
-  induction n generalizing v w with
-  | zero =>
-    exact Kit.call (xs := [(Q1, _), (Q1, _), (Q1, _)]) hk
-      (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) (.cons (fun _ => value_bits) .nil)))
-      (by simp [walk, «evalCopy.Word.cmp», Form.nat, bits, ctor, cmpForm, wc, takes, Quan.live, Quan.fld, sub, spine, bindsAt])
-      (.refl value_cmp)
-  | succ n ih =>
-    refine Kit.call (xs := [(Q1, _), (Q1, _), (Q1, _)]) hk
-      (u := App Q1 (App Q1 (App Q1 (Ref "Word.cmp.fin") (bitForm v)) (bitForm w))
-        (App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat n)) (bits n (v / 2))) (bits n (w / 2))))
-      (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) (.cons (fun _ => value_bits) .nil)))
-      ?_ ?_
-    · simp [walk, «evalCopy.Word.cmp», Form.nat, bits, ctor, takes, Quan.live, Quan.fld, sub, spine, bindsAt, Env.sub, data_iff.2 data_nat, data_iff.2 data_bits]
-    · have vs : Values B [(Q1, bitForm v), (Q1, bitForm w)] :=
-        .cons (fun _ => value_ctor nofun) (.cons (fun _ => value_ctor nofun) .nil)
-      refine Kit.run_x (Kit.part (xs := [(Q1, _), (Q1, _)]) hf vs
-        (by simp [walk, «evalCopy.Word.cmp.fin», ctor, takes, bindsAt])) rfl ih ?_
-      have vs3 : Values B [(Q1, bitForm v), (Q1, bitForm w), (Q1, cmpForm (wc n (v / 2) (w / 2)))] :=
-        .cons (fun _ => value_ctor nofun) (.cons (fun _ => value_ctor nofun)
-          (.cons (fun _ => value_cmp) .nil))
-      revert vs3
-      cases ho : wc n (v / 2) (w / 2) <;> intro vs3
-      · exact Kit.call (xs := [(Q1, _), (Q1, _), (Q1, _)]) hf vs3 (u := cmpForm .lt)
-          (by simp [walk, «evalCopy.Word.cmp.fin», ctor, cmpForm, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine])
-          (by simp only [wc, ho]; exact .refl value_cmp)
-      · exact Kit.call (xs := [(Q1, _), (Q1, _), (Q1, _)]) hf vs3
-          (u := App Q1 (App Q1 (Ref "Bool.cmp") (bitForm v)) (bitForm w))
-          (by simp [walk, «evalCopy.Word.cmp.fin», ctor, cmpForm, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine, Env.sub])
-          (by simp only [wc, ho]; exact bool_cmp h)
-      · exact Kit.call (xs := [(Q1, _), (Q1, _), (Q1, _)]) hf vs3 (u := cmpForm .gt)
-          (by simp [walk, «evalCopy.Word.cmp.fin», ctor, cmpForm, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine])
-          (by simp only [wc, ho]; exact .refl value_cmp)
 
 -- U32.is_lt says whether a word is below another
 theorem u32_is_lt (h : Holds B) (ry : Runs B y (ctor "U32" [bits 32 w])) :
