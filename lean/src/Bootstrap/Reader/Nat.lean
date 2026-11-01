@@ -1,5 +1,5 @@
-import Bootstrap.Code
-import Bootstrap.Version.Reader
+import Bootstrap.Shared.Code
+import Bootstrap.Generated.Reader
 
 -- Read.Nat
 -- ========

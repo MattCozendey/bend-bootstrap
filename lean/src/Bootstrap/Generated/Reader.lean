@@ -1,6 +1,6 @@
 import bendtt
 
--- Made by scripts/Version.lean from the `bend -o` output of bootstrap/bend/src/compiler/impl.bend,
+-- Made by scripts/Version.lean from the `bend -o` output of src/main.bend (tools/lower.ts),
 -- for the roots Book.read, and the defs that they need. Do not edit it.
 
 open Quan Term
@@ -5538,59 +5538,6 @@ def «reader.Maybe» : Def :=
             (Term.Var 0)))),
     false⟩
 
-def «reader.List.arms» : Def :=
-  ⟨"List.arms",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All
-        (Quan.Q0)
-        (Term.Typ (Term.Var 0))
-        (Term.All (Quan.Q1) (Term.Enu ["Nil", "Con"]) (Term.Typ (Term.Var 2)))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Mat
-          "Nil"
-          (Term.Enu ["()"])
-          (Term.Mat
-            "Con"
-            (Term.Sig
-              (Quan.Q1)
-              (Term.Var 0)
-              (Term.Sig
-                (Quan.Q1)
-                (Term.App
-                  (Quan.Q0)
-                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Var 2))
-                  (Term.Var 1))
-                (Term.Enu ["()"])))
-            (Term.Efq)))),
-    false⟩
-
-def «reader.List» : Def :=
-  ⟨"List",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Sig
-          (Quan.Q1)
-          (Term.Enu ["Nil", "Con"])
-          (Term.App
-            (Quan.Q1)
-            (Term.App
-              (Quan.Q0)
-              (Term.App (Quan.Q0) (Term.Ref "List.arms") (Term.Var 2))
-              (Term.Var 1))
-            (Term.Var 0)))),
-    false⟩
-
 def «reader.Bool.arms» : Def :=
   ⟨"Bool.arms",
     Term.All (Quan.Q1) (Term.Enu ["False", "True"]) (Term.Typ (Term.Lab "Q2")),
@@ -5604,6 +5551,24 @@ def «reader.Bool» : Def :=
       (Quan.Q1)
       (Term.Enu ["False", "True"])
       (Term.App (Quan.Q1) (Term.Ref "Bool.arms") (Term.Var 0)),
+    false⟩
+
+def «reader.Nat.arms» : Def :=
+  ⟨"Nat.arms",
+    Term.All (Quan.Q1) (Term.Enu ["Zero", "Succ"]) (Term.Typ (Term.Lab "Q2")),
+    Term.Mat
+      "Zero"
+      (Term.Enu ["()"])
+      (Term.Mat "Succ" (Term.Sig (Quan.Q1) (Term.Ref "Nat") (Term.Enu ["()"])) (Term.Efq)),
+    false⟩
+
+def «reader.Nat» : Def :=
+  ⟨"Nat",
+    Term.Typ (Term.Lab "Q2"),
+    Term.Sig
+      (Quan.Q1)
+      (Term.Enu ["Zero", "Succ"])
+      (Term.App (Quan.Q1) (Term.Ref "Nat.arms") (Term.Var 0)),
     false⟩
 
 def «reader.Word.Nil.arms» : Def :=
@@ -5668,22 +5633,57 @@ def «reader.Word» : Def :=
           (Term.Efq))),
     false⟩
 
-def «reader.Nat.arms» : Def :=
-  ⟨"Nat.arms",
-    Term.All (Quan.Q1) (Term.Enu ["Zero", "Succ"]) (Term.Typ (Term.Lab "Q2")),
-    Term.Mat
-      "Zero"
-      (Term.Enu ["()"])
-      (Term.Mat "Succ" (Term.Sig (Quan.Q1) (Term.Ref "Nat") (Term.Enu ["()"])) (Term.Efq)),
+def «reader.List.arms» : Def :=
+  ⟨"List.arms",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All
+        (Quan.Q0)
+        (Term.Typ (Term.Var 0))
+        (Term.All (Quan.Q1) (Term.Enu ["Nil", "Con"]) (Term.Typ (Term.Var 2)))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Mat
+          "Nil"
+          (Term.Enu ["()"])
+          (Term.Mat
+            "Con"
+            (Term.Sig
+              (Quan.Q1)
+              (Term.Var 0)
+              (Term.Sig
+                (Quan.Q1)
+                (Term.App
+                  (Quan.Q0)
+                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Var 2))
+                  (Term.Var 1))
+                (Term.Enu ["()"])))
+            (Term.Efq)))),
     false⟩
 
-def «reader.Nat» : Def :=
-  ⟨"Nat",
-    Term.Typ (Term.Lab "Q2"),
-    Term.Sig
-      (Quan.Q1)
-      (Term.Enu ["Zero", "Succ"])
-      (Term.App (Quan.Q1) (Term.Ref "Nat.arms") (Term.Var 0)),
+def «reader.List» : Def :=
+  ⟨"List",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Sig
+          (Quan.Q1)
+          (Term.Enu ["Nil", "Con"])
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q0)
+              (Term.App (Quan.Q0) (Term.Ref "List.arms") (Term.Var 2))
+              (Term.Var 1))
+            (Term.Var 0)))),
     false⟩
 
 def reader : List Def :=
@@ -5730,14 +5730,14 @@ def reader : List Def :=
    «reader.Book.read»,
    «reader.Maybe.arms»,
    «reader.Maybe»,
-   «reader.List.arms»,
-   «reader.List»,
    «reader.Bool.arms»,
    «reader.Bool»,
+   «reader.Nat.arms»,
+   «reader.Nat»,
    «reader.Word.Nil.arms»,
    «reader.Word.Nil»,
    «reader.Word.Con.arms»,
    «reader.Word.Con»,
    «reader.Word»,
-   «reader.Nat.arms»,
-   «reader.Nat»]
+   «reader.List.arms»,
+   «reader.List»]

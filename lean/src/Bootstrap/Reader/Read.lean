@@ -1,14 +1,14 @@
-import Bootstrap.Read.Go
-import Bootstrap.Read.Write
+import Bootstrap.Reader.Go
+import Bootstrap.Reader.Write
 
 -- Read
 -- ====
 --
--- AGENTS.md 3.4.5: the Bend reader (bootstrap/bend/src/compiler) gives back
+-- AGENTS.md 3.4.5: the Bend reader (src/book/impl.bend) gives back
 -- each book from the bytes that the Lean writer writes for it. The proof goes
 -- through a Lean model of the reader's stack machine, over the terms of its
 -- stack items: the model reads back the writer's bytes, and the Bend code does
--- what the model does (src/Bootstrap/Read/).
+-- what the model does (src/Bootstrap/Reader/).
 
 open Quan Term
 

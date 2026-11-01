@@ -1,13 +1,13 @@
-import Bootstrap.EvalSteps
-import Bootstrap.Read
-import Bootstrap.Kit
-import Bootstrap.Program
-import Bootstrap.Version.Program
+import Bootstrap.EvalVersion.EvalSteps
+import Bootstrap.Reader.Read
+import Bootstrap.Joining.Kit
+import Bootstrap.Interpreter.Program
+import Bootstrap.Generated.Program
 
 -- Gives
 -- =====
 --
--- The Bend Program.gives (impl.bend), on the bytes that the Lean writer
+-- The Bend Program.gives (src/program/impl.bend), on the bytes that the Lean writer
 -- writes for a book bk, gives what Lean's Gives says that bk gives: through
 -- the reader (read_write), the Bend version of Eval (version_steps, vals_version), and the
 -- versions of Program.start and Program.unbytes, which give the forms of Lean's

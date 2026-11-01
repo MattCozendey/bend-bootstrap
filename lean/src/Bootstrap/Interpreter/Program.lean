@@ -1,5 +1,5 @@
-import Bootstrap.Run
-import Bootstrap.Bytes
+import Bootstrap.Interpreter.Run
+import Bootstrap.DataForm.Bytes
 
 -- Program
 -- =======

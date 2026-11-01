@@ -1,9 +1,9 @@
-import Bootstrap.Code
+import Bootstrap.Shared.Code
 
 -- Ops.Kit
 -- =======
 --
--- Exact counts of the steps of Eval, for the proofs of Bootstrap/Ops.lean: a
+-- Exact counts of the steps of Eval, for the proofs of Bootstrap/Interpreter/Ops.lean: a
 -- call steps once to the leaf of its walk; the arguments of a call and the
 -- fields of a pair take their steps in order, one after the other.
 
@@ -146,7 +146,7 @@ theorem nat_succ : Form.nat (n + 1) = ctor "Succ" [Form.nat n] := rfl
 -- Arguments
 -- ---------
 
--- the labels of a byte (Bootstrap/Bytes.lean), taken from the bytes: compiled
+-- the labels of a byte (Bootstrap/DataForm/Bytes.lean), taken from the bytes: compiled
 -- code compares two strings by pointer first, so a byte's labels, and those of
 -- the words built here, compare at once
 def labWCon : String := match byte 1 with | Tup _ (Lab k) _ => k | _ => "WCon"

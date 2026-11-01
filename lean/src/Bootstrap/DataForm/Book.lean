@@ -1,9 +1,9 @@
-import Bootstrap.Bytes
+import Bootstrap.DataForm.Bytes
 
 -- Book
 -- ====
 --
--- The Bend data form of the kernel's book (bootstrap/bend/src/compiler),
+-- The Bend data form of the kernel's book (src/book/impl.bend),
 -- as `bend -o` writes its values, and the Lean writer of AGENTS.md 3.4.5, whose
 -- tokens Book.read reads back. That Bend file states the tokens. The writer
 -- puts each list last to first, as the reader puts each item in front.

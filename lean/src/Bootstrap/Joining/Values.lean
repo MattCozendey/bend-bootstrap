@@ -1,6 +1,6 @@
-import Bootstrap.Join
-import Bootstrap.Impl
-import Bootstrap.Version.Eval
+import Bootstrap.Joining.Join
+import Bootstrap.Joining.Impl
+import Bootstrap.Generated.Eval
 
 -- Values
 -- ======

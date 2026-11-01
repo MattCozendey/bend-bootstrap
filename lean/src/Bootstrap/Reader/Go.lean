@@ -1,7 +1,7 @@
-import Bootstrap.Read.Nat
-import Bootstrap.Read.TokenLow
-import Bootstrap.Read.TokenMiddle
-import Bootstrap.Read.TokenHigh
+import Bootstrap.Reader.Nat
+import Bootstrap.Reader.TokenLow
+import Bootstrap.Reader.TokenMiddle
+import Bootstrap.Reader.TokenHigh
 
 -- Read.Go
 -- =======

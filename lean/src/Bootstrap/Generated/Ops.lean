@@ -1,4 +1,4 @@
-import Bootstrap.Book
+import Bootstrap.DataForm.Book
 
 -- Made by scripts/Defs.lean from the `bend -o` output of bootstrap/tests/compiler/compile.bend.
 -- Do not edit it.

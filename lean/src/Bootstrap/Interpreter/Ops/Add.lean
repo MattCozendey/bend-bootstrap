@@ -1,4 +1,4 @@
-import Bootstrap.Ops.Cmp
+import Bootstrap.Interpreter.Ops.Cmp
 
 -- Ops.Add
 -- =======

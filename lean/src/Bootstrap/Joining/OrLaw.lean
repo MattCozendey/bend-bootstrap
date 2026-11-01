@@ -1,4 +1,4 @@
-import Bootstrap.Laws
+import Bootstrap.Joining.Laws
 
 -- OrLaw
 -- =====
@@ -11,7 +11,7 @@ open Quan Term
 
 set_option linter.unusedSimpArgs false
 
--- Base's Or and Either, under their names in trusted.bend's book
+-- Base's Or and Either, under their names in main.bend's book
 def orVersion : List Def := [«trustedVersion.Or», «trustedVersion.Either», «trustedVersion.Either.arms»]
 
 -- a closed typed term whose evaluation is accessible runs to a value it
@@ -223,8 +223,8 @@ theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
-  have h0 := hB.law (l := «trustedVersion.spec.no_other_failure») (by simp [laws])
-  simp [Rename.term, «trustedVersion.spec.no_other_failure»] at h0
+  have h0 := hB.law (l := «trustedVersion.compiler_2f_spec.no_other_failure») (by simp [laws])
+  simp [Rename.term, «trustedVersion.compiler_2f_spec.no_other_failure»] at h0
   have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_bytes hT cl (bs := p)))
     (typed_bytes hT cl (bs := i))) (typed_nat hT cl (n := n))) (typed_bytes hT cl (bs := o)))
     (typed_u32' hT cl (m := m))
@@ -234,7 +234,7 @@ theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
   have h2 := Typed.app h1 (runs_rfl hc hg' (T := maybeList))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes, sub_nat, ren_nat,
     sub_u32, ren_u32] at h2
-  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.spec.no_other_failure» (by simp [laws])
+  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.compiler_2f_spec.no_other_failure» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
     have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
     simpa [sub_var, «evalVersion.Nat»] using this
@@ -273,8 +273,8 @@ theorem law_enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
-  have h0 := hB.law (l := «trustedVersion.spec.enough_memory») (by simp [laws])
-  simp [Rename.term, «trustedVersion.spec.enough_memory»] at h0
+  have h0 := hB.law (l := «trustedVersion.compiler_2f_spec.enough_memory») (by simp [laws])
+  simp [Rename.term, «trustedVersion.compiler_2f_spec.enough_memory»] at h0
   have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_bytes hT cl (bs := p)))
     (typed_bytes hT cl (bs := i))) (typed_nat hT cl (n := n))) (typed_bytes hT cl (bs := o)))
     (typed_u32' hT cl (m := m))
@@ -290,7 +290,7 @@ theorem law_enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)
   have h3 := Typed.app h2 (runs_rfl hc hb' (T := Ref "Bool"))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes, sub_nat, ren_nat,
     sub_u32, ren_u32] at h3
-  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.spec.enough_memory» (by simp [laws])
+  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.compiler_2f_spec.enough_memory» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
     have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
     simpa [sub_var, «evalVersion.Nat»] using this

@@ -1,17 +1,20 @@
-import Bootstrap.Script
+import Bootstrap.Shared.Script
 
 -- Version
 -- =======
 --
 -- Writes a Lean version of the defs that the kernel's parser reads from a .bendtt
--- file, for the laws about our Bend code (src/Bootstrap/Code.lean): the defs
+-- file, for the laws about our Bend code (src/Bootstrap/Shared/Code.lean): the defs
 -- that the defs ROOTS need, them included, in the order of the file.
 --
 --   bend <file.bend> -o <file.bendtt>
 --   BOOK=<file.bendtt> ROOTS=<name>,... NAME=<name> SOURCE=<file.bend> \
---     OUTPUT=<file.lean> lake lean scripts/Version.lean
+--     OUTPUT=<file.lean> [STRIP=<prefix>,..] lake lean scripts/Version.lean
 --
--- The Lean file defines a def «NAME.k» per def k, and NAME : List Def.
+-- STRIP: the first of these prefixes that a name has is taken off it, first
+-- (bend -o names an imported file's defs with its path); ROOTS are names
+-- without them. The Lean file defines a def «NAME.k» per def k, and
+-- NAME : List Def.
 
 open Term
 
@@ -39,7 +42,9 @@ def versionDef (name : String) (d : Def) : String :=
 def versionBook : IO Unit := do
   let name ← Script.env "NAME"
   let roots ← Script.env "ROOTS"
-  let bk ← Script.book
+  let ps ← Script.list "STRIP"
+  let bk := Book.of ((← Script.book).defs.map fun d =>
+    ⟨Script.unprefixName ps d.k, Script.unprefix ps d.T, Script.unprefix ps d.v, d.o⟩)
   let ks := needs bk (roots.splitOn ",")
   let ds := bk.defs.filter (ks.contains ·.k)
   IO.FS.writeFile (← Script.env "OUTPUT") <|

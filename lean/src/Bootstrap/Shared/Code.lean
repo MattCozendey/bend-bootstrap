@@ -1,12 +1,12 @@
-import Bootstrap.Interp
-import Bootstrap.Book
+import Bootstrap.Shared.Interp
+import Bootstrap.DataForm.Book
 
 -- Code
 -- ====
 --
 -- How a Lean law talks about our Bend code: Lean cannot see what the kernel's
 -- parser gives, so a law is about a Lean version of the defs that `bend -o` writes
--- for the code (src/Bootstrap/Version/, made by scripts/Version.lean), and holds in
+-- for the code (src/Bootstrap/Generated/, made by scripts/Version.lean), and holds in
 -- each book that holds that version.
 
 open Quan Term

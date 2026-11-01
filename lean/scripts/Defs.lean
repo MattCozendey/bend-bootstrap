@@ -1,11 +1,11 @@
-import Bootstrap.Script
+import Bootstrap.Shared.Script
 
 -- Defs
 -- ====
 --
 -- Writes a Lean version of some defs that the kernel's parser reads from a
 -- .bendtt file, as scripts/Version.lean does, but of chosen defs only, for the
--- laws about our Bend code (src/Bootstrap/Code.lean):
+-- laws about our Bend code (src/Bootstrap/Shared/Code.lean):
 --
 --   ROOTS    the defs that these names need, them included (as Version.lean),
 --   EXCLUDE  minus the defs that these names need (written elsewhere),
@@ -13,12 +13,14 @@ import Bootstrap.Script
 --   TYPES    plus the name and type of these defs, without their bodies: a
 --            law that a Lean theorem uses only needs a def of its type,
 --            whatever its proof,
---   STRIP    with this prefix taken off each name that has it, and
---            NAME.names: each name of the book that has it, without it,
+--   STRIP    with the first of these prefixes that a name has taken off it
+--            (bend -o names an imported file's defs with its path),
+--   NAMES    when 1, also NAME.prefixes, STRIP's prefixes, and NAME.names:
+--            each name of the book that has one of them, as the book has it,
 --
 --   bend <file.bend> -o <file.bendtt>
 --   BOOK=<file.bendtt> NAME=<name> SOURCE=<file.bend> OUTPUT=<file.lean> \
---     [ROOTS=..] [EXCLUDE=..] [ONLY=..] [TYPES=..] [STRIP=<prefix>] \
+--     [ROOTS=..] [EXCLUDE=..] [ONLY=..] [TYPES=..] [STRIP=<prefix>,..] [NAMES=1] \
 --     lake lean scripts/Defs.lean
 --
 -- Each list is names separated by commas, in the file's names (prefix
@@ -54,29 +56,6 @@ def names : Term → List String
     names a ++ names b
   | Eql a b c | Rwt a b c => names a ++ names b ++ names c
   | Var _ | Efq | Rfl => []
-
--- k without the prefix p, when it has it
-def unprefixName (p k : String) : String :=
-  if p.isPrefixOf k then String.ofList (k.toList.drop p.length) else k
-
-def Term.unprefix (p : String) : Term → Term
-  | Ref k => Ref (unprefixName p k)
-  | Lab k => Lab (unprefixName p k)
-  | Mat k a b => Mat (unprefixName p k) (Term.unprefix p a) (Term.unprefix p b)
-  | Enu ks => Enu (ks.map (unprefixName p))
-  | Typ a => Typ (Term.unprefix p a)
-  | Prj a => Prj (Term.unprefix p a)
-  | Lam q a => Lam q (Term.unprefix p a)
-  | Ann a b => Ann (Term.unprefix p a) (Term.unprefix p b)
-  | Term.Min a b => Term.Min (Term.unprefix p a) (Term.unprefix p b)
-  | Let q a b => Let q (Term.unprefix p a) (Term.unprefix p b)
-  | All q a b => All q (Term.unprefix p a) (Term.unprefix p b)
-  | App q a b => App q (Term.unprefix p a) (Term.unprefix p b)
-  | Sig q a b => Sig q (Term.unprefix p a) (Term.unprefix p b)
-  | Tup q a b => Tup q (Term.unprefix p a) (Term.unprefix p b)
-  | Eql a b c => Eql (Term.unprefix p a) (Term.unprefix p b) (Term.unprefix p c)
-  | Rwt a b c => Rwt (Term.unprefix p a) (Term.unprefix p b) (Term.unprefix p c)
-  | t => t
 
 -- the n of a term that is the form of the Nat n
 def natOf : Term → Option Nat
@@ -116,31 +95,27 @@ where
   | Rfl => "Term.Rfl"
   | Rwt a b c => s!"(Term.Rwt {lean a} {lean b} {lean c})"
 
-def list (k : String) : IO (List String) := do
-  match ← IO.getEnv k with
-  | some v => pure ((v.splitOn ",").filter (· != ""))
-  | none => pure []
-
 def versionDefs : IO Unit := do
   let name ← Script.env "NAME"
   let bk ← Script.book
-  let p := (← IO.getEnv "STRIP").getD ""
-  let roots ← list "ROOTS"
-  let ex := needs bk (← list "EXCLUDE")
-  let ks := (needs bk roots).filter (!ex.contains ·) ++ (← list "ONLY")
+  let ps ← Script.list "STRIP"
+  let roots ← Script.list "ROOTS"
+  let ex := needs bk (← Script.list "EXCLUDE")
+  let ks := (needs bk roots).filter (!ex.contains ·) ++ (← Script.list "ONLY")
   let ds := bk.defs.filter (ks.contains ·.k)
-  let ts := (← list "TYPES").filterMap bk.get
-  let k' (k : String) := unprefixName p k
+  let ts := (← Script.list "TYPES").filterMap bk.get
+  let k' (k : String) := Script.unprefixName ps k
   let defs := String.join <| ds.map fun d =>
-    s!"def «{name}.{k' d.k}» : Def :=\n  ⟨{repr (k' d.k)},\n    {lean (d.T.unprefix p)},\n" ++
-    s!"    {lean (d.v.unprefix p)},\n    {d.o}⟩\n\n"
+    s!"def «{name}.{k' d.k}» : Def :=\n  ⟨{repr (k' d.k)},\n    {lean (Script.unprefix ps d.T)},\n" ++
+    s!"    {lean (Script.unprefix ps d.v)},\n    {d.o}⟩\n\n"
   let types := String.join <| ts.map fun d =>
-    s!"def «{name}.{k' d.k}» : String × Term :=\n  ({repr (k' d.k)},\n    {lean (d.T.unprefix p)})\n\n"
+    s!"def «{name}.{k' d.k}» : String × Term :=\n  ({repr (k' d.k)},\n    {lean (Script.unprefix ps d.T)})\n\n"
   let all := (bk.defs.flatMap fun d => d.k :: names d.T ++ names d.v).eraseDups
-  let ns := if p == "" then "" else
-    s!"def {name}.names : List String :=\n  {repr ((all.filter p.isPrefixOf).map k')}\n\n"
+  let ns := if (← IO.getEnv "NAMES") != some "1" then "" else
+    s!"def {name}.prefixes : List String :=\n  {repr ps}\n\n" ++
+    s!"def {name}.names : List String :=\n  {repr (all.filter fun k => ps.any (·.isPrefixOf k))}\n\n"
   IO.FS.writeFile (← Script.env "OUTPUT") <|
-    s!"import Bootstrap.Book\n\n-- Made by scripts/Defs.lean from the `bend -o` output of {← Script.env "SOURCE"}.\n" ++
+    s!"import Bootstrap.DataForm.Book\n\n-- Made by scripts/Defs.lean from the `bend -o` output of {← Script.env "SOURCE"}.\n" ++
     "-- Do not edit it.\n\nopen Quan Term\n\nset_option maxRecDepth 100000\n\n" ++ defs ++ types ++ ns ++
     s!"def {name} : List Def :=\n  [" ++ ",\n   ".intercalate (ds.map fun d => s!"«{name}.{k' d.k}»") ++ "]\n"
   IO.println s!"{ds.length} defs, {ts.length} types"

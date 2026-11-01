@@ -1,11 +1,11 @@
-import Bootstrap.Stepwise
-import Bootstrap.Bytes
+import Bootstrap.Interpreter.Stepwise
+import Bootstrap.DataForm.Bytes
 
 -- Machine
 -- =======
 --
 -- Runs of Eval that cost about the same for each step, at any size of the
--- term. stepwise (Bootstrap/Stepwise.lean) starts each step again from the top
+-- term. stepwise (Bootstrap/Interpreter/Stepwise.lean) starts each step again from the top
 -- of the term, and checks again that each part to the left is a value. The
 -- machine keeps its place: a focus, and the frames around it. It evaluates a
 -- term under the terms of its variables, its locals, each under locals of its
@@ -93,7 +93,7 @@ def noVars : Term → Bool
     noVars a && noVars b
   | Eql a b c | Rwt a b c => noVars a && noVars b && noVars c
 
--- walk (Bootstrap/Interp.lean), with its leaf left open: the leaf, its locals,
+-- walk (Bootstrap/Shared/Interp.lean), with its leaf left open: the leaf, its locals,
 -- and the arguments left
 def walkOpen (bk : Book) : Term → Locals → List MArg → Option (Option (Term × Locals × List MArg))
   | Lam p f, l, (q, x, xl, k) :: xs =>
@@ -270,7 +270,7 @@ def pick (c t : Term) : Term := if c = t then c else t
 theorem pick_eq : pick c t = t := by
   unfold pick; split <;> simp_all
 
--- t, or its copy in byteTable when t is a byte (Bootstrap/Bytes.lean)
+-- t, or its copy in byteTable when t is a byte (Bootstrap/DataForm/Bytes.lean)
 def share (t : Term) : Term :=
   match unbits 8 t with
   | some v => if h : v < 256 then pick (byteTable[v]'(by rw [byteTable_size]; exact h)) t else t

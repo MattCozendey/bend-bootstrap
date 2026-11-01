@@ -1,6 +1,6 @@
-import Bootstrap.Ops.Shift
-import Bootstrap.Ops.Logic
-import Bootstrap.Ops.Cmp
+import Bootstrap.Interpreter.Ops.Shift
+import Bootstrap.Interpreter.Ops.Logic
+import Bootstrap.Interpreter.Ops.Cmp
 
 -- Ops.Nat
 -- =======

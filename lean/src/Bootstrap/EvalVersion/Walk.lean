@@ -1,5 +1,5 @@
-import Bootstrap.EvalSteps.Name
-import Bootstrap.EvalSteps.Subst
+import Bootstrap.EvalVersion.Name
+import Bootstrap.EvalVersion.Subst
 
 -- EvalSteps.Walk
 -- ==============

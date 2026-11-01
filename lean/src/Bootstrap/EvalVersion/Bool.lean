@@ -1,5 +1,5 @@
-import Bootstrap.Code
-import Bootstrap.Version.Eval
+import Bootstrap.Shared.Code
+import Bootstrap.Generated.Eval
 
 -- EvalSteps.Bool
 -- ==============

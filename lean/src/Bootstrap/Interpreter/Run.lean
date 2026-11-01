@@ -1,10 +1,10 @@
-import Bootstrap.Machine.Loop
+import Bootstrap.Interpreter.Machine.Loop
 
 -- Run
 -- ===
 --
--- Runs of Eval: Steps (Bootstrap/Eval.lean), computed by the machine
--- (Bootstrap/Machine.lean).
+-- Runs of Eval: Steps (Bootstrap/OneResult/Eval.lean), computed by the machine
+-- (Bootstrap/Interpreter/Machine.lean).
 
 open Quan Term
 

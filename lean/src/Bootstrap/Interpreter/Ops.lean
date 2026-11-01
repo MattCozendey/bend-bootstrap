@@ -1,25 +1,25 @@
 import Std.Data.HashMap.Lemmas
-import Bootstrap.Ops.Shift
-import Bootstrap.Ops.Cmp
-import Bootstrap.Ops.Logic
-import Bootstrap.Ops.Nat
-import Bootstrap.Ops.Add
+import Bootstrap.Interpreter.Ops.Shift
+import Bootstrap.Interpreter.Ops.Cmp
+import Bootstrap.Interpreter.Ops.Logic
+import Bootstrap.Interpreter.Ops.Nat
+import Bootstrap.Interpreter.Ops.Add
 
 -- Ops
 -- ===
 --
--- Fast calls of Base's U32 operations, for the machine (Bootstrap/Machine.lean):
+-- Fast calls of Base's U32 operations, for the machine (Bootstrap/Interpreter/Machine.lean):
 -- for a call of an operation on U32 terms (and a Nat term for a count), the
 -- term that Eval reaches and its exact number of steps, computed natively.
 --
 -- Ops.prepare checks once which operations the book holds exactly as Base's:
 -- the def of each operation, and each def that its evaluation reaches, is
--- equal as a Term to the one of src/Bootstrap/Ops/Defs.lean, which
+-- equal as a Term to the one of src/Bootstrap/Generated/Ops.lean, which
 -- scripts/Defs.lean wrote from the `bend -o` output of our compiler:
 --
---   bun bend/bend2/main.ts bootstrap/tests/compiler/compile.bend -o compile.bendtt
---   BOOK=compile.bendtt NAME=opsDefs SOURCE=bootstrap/tests/compiler/compile.bend \
---     OUTPUT=src/Bootstrap/Ops/Defs.lean ONLY=<the 45 defs that Op.defs names> \
+--   bun bend/bend2/main.ts src/compiler/tests/compile.bend -o compile.bendtt
+--   BOOK=compile.bendtt NAME=opsDefs SOURCE=src/compiler/tests/compile.bend \
+--     OUTPUT=src/Bootstrap/Generated/Ops.lean ONLY=<the 45 defs that Op.defs names> \
 --     lake lean scripts/Defs.lean
 --
 -- and each def U32.litN whose term is a U32. Ops.call answers only for those,
@@ -50,7 +50,7 @@ import Bootstrap.Ops.Add
 --   (x_i is the bit i of x, and each sum is over the 32 bits i)
 --
 -- The labels of the words that Ops builds are those of the bytes
--- (Bootstrap/Bytes.lean), so that the labels of a byte and of a result of Ops
+-- (Bootstrap/DataForm/Bytes.lean), so that the labels of a byte and of a result of Ops
 -- compare by pointer.
 
 open Quan Term

@@ -1,10 +1,10 @@
-import Bootstrap.Book
+import Bootstrap.DataForm.Book
 
 -- Read.Model
 -- ==========
 --
 -- A Lean model of the stack machine of the Bend reader
--- (bootstrap/bend/src/compiler), over the terms of its stack items.
+-- (src/book/impl.bend), over the terms of its stack items.
 
 open Quan Term
 

@@ -1,4 +1,4 @@
-import Bootstrap.Gives
+import Bootstrap.Joining.Gives
 
 -- Unbytes
 -- =======

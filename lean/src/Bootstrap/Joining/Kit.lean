@@ -1,4 +1,4 @@
-import Bootstrap.Code
+import Bootstrap.Shared.Code
 
 -- Kit
 -- ===

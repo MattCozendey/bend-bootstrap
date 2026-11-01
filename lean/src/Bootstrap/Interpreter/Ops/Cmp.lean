@@ -1,5 +1,5 @@
-import Bootstrap.Ops.Kit
-import Bootstrap.Ops.Defs
+import Bootstrap.Interpreter.Ops.Kit
+import Bootstrap.Generated.Ops
 
 -- Ops.Cmp
 -- =======

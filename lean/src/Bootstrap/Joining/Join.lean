@@ -1,5 +1,5 @@
-import Bootstrap.Code
-import Bootstrap.Version.Exists
+import Bootstrap.Shared.Code
+import Bootstrap.Generated.Exists
 
 -- Join
 -- ====

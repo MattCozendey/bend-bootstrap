@@ -1,6 +1,6 @@
-import Bootstrap.Code
-import Bootstrap.Version.Reader
-import Bootstrap.Read.Model
+import Bootstrap.Shared.Code
+import Bootstrap.Generated.Reader
+import Bootstrap.Reader.Model
 
 -- Read.TokenLow
 -- =============

@@ -1,15 +1,15 @@
-import Bootstrap.OrLaw
-import Bootstrap.GivesRun
-import Bootstrap.NeedRun
+import Bootstrap.Joining.OrLaw
+import Bootstrap.Joining.GivesRun
+import Bootstrap.Joining.NeedRun
 
 -- Compiler
 -- ========
 --
--- AGENTS.md 3.7.6: when the interpreter (Program.lean) runs our own
--- compiler, the main of trusted.bend, on the bytes that the Lean writer
+-- AGENTS.md 3.7.6: when the interpreter (Interpreter/Program.lean) runs our own
+-- compiler, the main of main.bend, on the bytes that the Lean writer
 -- writes for a book bk, the bytes w that it gives follow the laws of 3.7.4
--- (spec.bend), in each book B that --verdict accepts for trusted.bend
--- (Book.check B = .ok ()) and that holds trusted.bend's defs (Trusted B):
+-- (compiler/spec.bend), in each book B that --verdict accepts for main.bend
+-- (Book.check B = .ok ()) and that holds main.bend's defs (Trusted B):
 -- the Bend version of WASM, run on w, gives only what bk gives (no wrong
 -- result), and when bk gives something, it gives it or runs out of memory
 -- (no other failure), and with the memory of 3.8.1.4 it gives it
@@ -45,7 +45,7 @@ theorem unbytes_eq : unbytes v = some bs → v = bytes bs := by
   rw [unbits_eq hx]
   simp [bytes, list, byte, ctor, toUInt8_toNat (Gives.unbits_lt hx)]
 
--- in trusted.bend's book, renamed back to impl.bend's names, the versions hold
+-- in main.bend's book, renamed back to our code's names (Impl.lean), the versions hold
 theorem Trusted.holds (hB : Trusted B) : Holds (Rename.book impl B) := by
   have sub (ds : List Def) (hs : ∀ d ∈ ds, d ∈ evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion) :
       Contains (Rename.book impl B) ds :=
@@ -54,7 +54,7 @@ theorem Trusted.holds (hB : Trusted B) : Holds (Rename.book impl B) := by
       exact hB.defs _ (List.mem_map_of_mem (hs d' hd'))
   exact ⟨sub _ (by simp +contextual), sub _ (by simp +contextual), sub _ (by simp +contextual)⟩
 
--- Program.gives in trusted.bend's book is Lean's Gives
+-- Program.gives in main.bend's book is Lean's Gives
 theorem Trusted.gives (hB : Trusted B) :
     Runs B (givesOf (write bk) i n) (Form.some (bytes o)) ↔ Gives bk i o n := by
   rw [← Gives.gives_iff hB.holds, Rename.runs_iff' impl_ok]
@@ -133,7 +133,7 @@ theorem no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
   · exact ⟨f, .inl (hB.wasm_steps (hB.compiles hw) r)⟩
   · exact ⟨f, .inr (hB.wasm_steps (hB.compiles hw) r)⟩
 
--- in trusted.bend's book, renamed back to impl.bend's names, the versions that
+-- in main.bend's book, renamed back to our code's names (Impl.lean), the versions that
 -- Program.need and Program.memory need hold
 theorem Trusted.needHolds (hB : Trusted B) : NeedHolds (Rename.book impl B) := by
   have sub (ds : List Def) (hs : ∀ d ∈ ds, d ∈ evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion) :
@@ -145,7 +145,7 @@ theorem Trusted.needHolds (hB : Trusted B) : NeedHolds (Rename.book impl B) := b
     sub [«trustedVersion.Nat.is_le»] (by simp [trustedVersion]) «trustedVersion.Nat.is_le» (by simp)⟩
 
 -- F fits in the memory of m pages exactly when Nat.is_le(Program.need(p, i, n),
--- Program.memory(m)) runs to True in trusted.bend's book
+-- Program.memory(m)) runs to True in main.bend's book
 theorem Trusted.big (hB : Trusted B) (hm : need bk i n ≤ memory m) :
     Runs B (bigOf (write bk) i n m) (Form.bool true) := by
   have r := Gives.big_run (bk := bk) (i := i) (n := n) (m := m) hB.needHolds

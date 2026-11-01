@@ -1,17 +1,17 @@
-import Bootstrap.Run
-import Bootstrap.Book
-import Bootstrap.Script
+import Bootstrap.Interpreter.Run
+import Bootstrap.DataForm.Book
+import Bootstrap.Shared.Script
 
 -- WasmTests
 -- =========
 --
 -- A test of kind b (bend2 skill): the Bend version of WASM (the section Wasm of
--- bootstrap/bend/src/compiler/impl.bend) against the official WebAssembly
--- tests of bootstrap/tests/wasm (AGENTS.md 3.8.1.3), run by the Lean interpreter that the
--- plan trusts (src/Bootstrap/Run.lean), not by the TypeScript compiler.
+-- src/wasm/impl.bend) against the official WebAssembly
+-- tests of src/wasm/tests (AGENTS.md 3.8.1.3), run by the Lean interpreter that the
+-- plan trusts (src/Bootstrap/Interpreter/Run.lean), not by the TypeScript compiler.
 --
---   bend bootstrap/bend/src/compiler/impl.bend -o <file.bendtt>
---   BOOK=<file.bendtt> TESTS=../tests/wasm/bin ONLY=<test>,... \
+--   bend src/wasm/impl.bend -o <file.bendtt>
+--   BOOK=<file.bendtt> TESTS=../src/wasm/tests/bin ONLY=<test>,... \
 --     OUT=<file.log> lake lean scripts/WasmTests.lean
 --
 -- It runs each command of a binary script (spec interpreter README: Binary
@@ -104,7 +104,7 @@ partial def parseSeq (cs : List Char) (inner : Bool) (acc : Array Sexp) :
 -- a U32, as Base's U32
 def u32 (v : Nat) : Term := ctor "U32" [bits 32 v]
 
--- the constructor and fields of a value in the `bend -o` form (Bytes.lean)
+-- the constructor and fields of a value in the `bend -o` form (DataForm/Bytes.lean)
 partial def unctor : Term → Option (String × List Term)
   | Tup Q1 (Lab k) rest =>
     let rec fields : Term → Option (List Term)

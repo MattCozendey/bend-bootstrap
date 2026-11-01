@@ -1,11 +1,11 @@
-import Bootstrap.Interp
+import Bootstrap.Shared.Interp
 
 -- Stepwise
 -- ========
 --
--- Runs of step, one step at a time: Steps (Bootstrap/Eval.lean), computed.
+-- Runs of step, one step at a time: Steps (Bootstrap/OneResult/Eval.lean), computed.
 -- Each step starts again from the top of the term. The machine
--- (Bootstrap/Machine.lean) is fast, and hands over to this when it stops.
+-- (Bootstrap/Interpreter/Machine.lean) is fast, and hands over to this when it stops.
 
 open Quan Term
 

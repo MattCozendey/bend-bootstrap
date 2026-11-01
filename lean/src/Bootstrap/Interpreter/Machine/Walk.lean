@@ -1,9 +1,9 @@
-import Bootstrap.Machine.Basic
+import Bootstrap.Interpreter.Machine.Basic
 
 -- Machine.Walk
 -- ============
 --
--- walkOpen walks as walk (Bootstrap/Interp.lean) does, and what it knows is true.
+-- walkOpen walks as walk (Bootstrap/Shared/Interp.lean) does, and what it knows is true.
 
 open Quan Term
 

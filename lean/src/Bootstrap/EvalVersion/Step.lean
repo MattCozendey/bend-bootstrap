@@ -1,10 +1,10 @@
-import Bootstrap.EvalSteps.Call
+import Bootstrap.EvalVersion.Call
 
 -- EvalSteps.Step
 -- ==============
 --
 -- The step of the Bend version of Eval, and its runs of exactly n steps, give what step
--- (Bootstrap/Interp.lean) gives.
+-- (Bootstrap/Shared/Interp.lean) gives.
 
 open Quan Term
 

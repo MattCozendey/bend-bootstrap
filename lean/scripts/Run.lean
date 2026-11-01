@@ -1,11 +1,11 @@
-import Bootstrap.Program
-import Bootstrap.Script
+import Bootstrap.Interpreter.Program
+import Bootstrap.Shared.Script
 
 -- Run
 -- ===
 --
 -- Runs the program of a .bendtt file on the bytes of a file with interp
--- (src/Bootstrap/Program.lean), and writes the bytes it gives to a file.
+-- (src/Bootstrap/Interpreter/Program.lean), and writes the bytes it gives to a file.
 --
 --   BOOK=prog.bendtt INPUT=in OUTPUT=out [FUEL=n] lake lean scripts/Run.lean
 --

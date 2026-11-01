@@ -1,4 +1,4 @@
-import Bootstrap.Machine
+import Bootstrap.Interpreter.Machine
 
 -- Machine.Basic
 -- =============

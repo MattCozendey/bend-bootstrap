@@ -1,10 +1,10 @@
-import Bootstrap.Trusted
+import Bootstrap.Joining.Trusted
 
 -- Laws
 -- ====
 --
--- What the laws of spec.bend say in a book B that --verdict accepts and that
--- holds trusted.bend's defs (Trusted.lean): each law, applied to the Bend
+-- What the laws of compiler/spec.bend say in a book B that --verdict accepts and that
+-- holds main.bend's defs (Trusted.lean): each law, applied to the Bend
 -- values of its arguments and to a proof of its "if" part (a run, by
 -- runs_rfl), is a closed, live, typed proof, and its "there is" part gives a
 -- witness (exists_conv), a Nat (canon_nat), at which its sides convert, so
@@ -46,8 +46,8 @@ theorem law_no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
-  have h0 := hB.law (l := «trustedVersion.spec.no_wrong_result») (by simp [laws])
-  simp [Rename.term, «trustedVersion.spec.no_wrong_result»] at h0
+  have h0 := hB.law (l := «trustedVersion.compiler_2f_spec.no_wrong_result») (by simp [laws])
+  simp [Rename.term, «trustedVersion.compiler_2f_spec.no_wrong_result»] at h0
   have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_nat hT cl (n := f)))
     (typed_bytes hT cl (bs := p))) (typed_bytes hT cl (bs := i))) (typed_u32' hT cl (m := m)))
     (typed_bytes hT cl (bs := o))
@@ -57,7 +57,7 @@ theorem law_no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
       (Tup Q1 (Lab (impl "Wasm.Outcome.result")) (Tup Q1 (bytes o) (Lab "()"))) := hr
   have h2 := Typed.app h1 (runs_rfl hc hr' (T := Ref (impl "Wasm.Outcome")))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes] at h2
-  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.spec.no_wrong_result» (by simp [laws])
+  obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.compiler_2f_spec.no_wrong_result» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
     have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
     simpa [sub_var, «evalVersion.Nat»] using this

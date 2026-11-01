@@ -1,4 +1,4 @@
-import Bootstrap.Read.Model
+import Bootstrap.Reader.Model
 
 -- Read.Write
 -- ==========

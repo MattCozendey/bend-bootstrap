@@ -1,11 +1,11 @@
-import Bootstrap.Book
-import Bootstrap.Script
+import Bootstrap.DataForm.Book
+import Bootstrap.Shared.Script
 
 -- Write
 -- =====
 --
 -- Writes the bytes of the book of a .bendtt file, as the Lean writer of
--- src/Bootstrap/Book.lean writes them (AGENTS.md 3.4.5): the input of the
+-- src/Bootstrap/DataForm/Book.lean writes them (AGENTS.md 3.4.5): the input of the
 -- compiler of 3.7.4.
 --
 --   BOOK=prog.bendtt OUTPUT=prog.book lake lean scripts/Write.lean

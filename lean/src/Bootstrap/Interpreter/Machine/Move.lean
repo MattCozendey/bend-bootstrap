@@ -1,4 +1,4 @@
-import Bootstrap.Machine.App
+import Bootstrap.Interpreter.Machine.App
 
 -- Machine.Move
 -- ============

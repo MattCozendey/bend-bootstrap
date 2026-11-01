@@ -1,13 +1,13 @@
-import Bootstrap.EvalSteps.Step
+import Bootstrap.EvalVersion.Step
 
 -- EvalSteps
 -- =========
 --
 -- AGENTS.md 3.4.2: Eval.steps, the Bend version of Eval
--- (bootstrap/bend/src/compiler), gives what the kernel's Eval gives,
+-- (src/eval/impl.bend), gives what the kernel's Eval gives,
 -- after the same number of steps, in both directions. The proof goes through
--- step (Bootstrap/Interp.lean), which the version follows case for case
--- (src/Bootstrap/EvalSteps/).
+-- step (Bootstrap/Shared/Interp.lean), which the version follows case for case
+-- (src/Bootstrap/EvalVersion/).
 
 open Quan Term
 

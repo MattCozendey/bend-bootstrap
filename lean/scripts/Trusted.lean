@@ -1,19 +1,19 @@
-import Bootstrap.Script
-import Bootstrap.Trusted
-import Bootstrap.OrLaw
+import Bootstrap.Shared.Script
+import Bootstrap.Joining.Trusted
+import Bootstrap.Joining.OrLaw
 
 -- Trusted
 -- =======
 --
--- Checks that the book of a .bendtt file (trusted.bend's) holds what
--- Trusted (src/Bootstrap/Trusted.lean) asks: each def of trustedDefs and
+-- Checks that the book of a .bendtt file (main.bend's) holds what
+-- Trusted (src/Bootstrap/Joining/Trusted.lean) asks: each def of trustedDefs and
 -- existsVersion, and a def of the type of each law. It runs the definitions,
 -- it proves nothing: the theorems take Trusted B as a premise.
 --
---   bend bootstrap/bend/src/compiler/trusted.bend -o trusted.bendtt
---   BOOK=trusted.bendtt lake lean scripts/Trusted.lean
+--   bend src/main.bend -o main.bendtt
+--   BOOK=main.bendtt lake lean scripts/Trusted.lean
 --
--- (While proof.bend has open TODOs, `bend -o` refuses trusted.bend;
+-- (While compiler/proof.bend has open TODOs, `bend -o` refuses main.bend;
 -- scripts/lower.ts writes the same lowering with each hole read as its own
 -- def, which changes no def or type that Trusted names.)
 

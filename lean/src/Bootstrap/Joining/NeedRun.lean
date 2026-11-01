@@ -1,12 +1,12 @@
-import Bootstrap.GivesRun
-import Bootstrap.Values
-import Bootstrap.Version.Need
-import Bootstrap.Version.Trusted
+import Bootstrap.Joining.GivesRun
+import Bootstrap.Joining.Values
+import Bootstrap.Generated.Need
+import Bootstrap.Generated.Trusted
 
 -- NeedRun
 -- =======
 --
--- Program.need(p, i, n) and Program.memory(m) (impl.bend), on the bytes p
+-- Program.need(p, i, n) and Program.memory(m) (src/program/impl.bend), on the bytes p
 -- that the Lean writer writes for the book bk, give F of AGENTS.md 3.8.1.4 as Lean
 -- computes it (need, memory): 64 × (P + S) + 2^24, with P the nodes of the
 -- data form of bk (Form.defs), S the most nodes of a term that the run from
@@ -19,7 +19,7 @@ open EvalVersion (wc cmpForm value_cmp word_cmp)
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 20000
 
--- the nodes of a term, as impl.bend's Term.size counts them
+-- the nodes of a term, as src/program/impl.bend's Term.size counts them
 def Term.nodes : Term → Nat
   | Var _ | Ref _ | Enu _ | Lab _ | Efq | Rfl => 1
   | Ann a b | Let _ a b | Term.Min a b | All _ a b | App _ a b | Sig _ a b | Tup _ a b | Mat _ a b =>
@@ -28,7 +28,7 @@ def Term.nodes : Term → Nat
   | Eql a b c | Rwt a b c => a.nodes + (b.nodes + c.nodes) + 1
 
 -- the most nodes of a term that the run from t reaches within n steps of
--- Eval (through step, Interp.lean), t included
+-- Eval (through step, Shared/Interp.lean), t included
 def largest (bk : Book) : Nat → Term → Nat
   | 0, t => t.nodes
   | n + 1, t => max t.nodes (match step bk t with
@@ -150,7 +150,7 @@ theorem size_run (h : NeedHolds B) : Runs B (App Q1 (Ref "Term.size") (Form.term
 
 -- Program size
 -- ------------
--- Form.size.defs (impl.bend), on the form of a list of defs, gives the nodes
+-- Form.size.defs (src/program/impl.bend), on the form of a list of defs, gives the nodes
 -- of that form.
 
 theorem nodes_ctor : (ctor k fs).nodes = fs.length + 3 + (fs.map Term.nodes).sum := by

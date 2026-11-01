@@ -1,13 +1,13 @@
-import Bootstrap.Code
+import Bootstrap.Shared.Code
 
 -- Rename
 -- ======
 --
 -- A book runs as itself after a renaming of its names (its defs' names, refs
 -- and labels) by an involution σ that keeps the labels of quantities. `bend -o`
--- names the defs and labels of an imported file with a prefix (impl.Term.Var
--- for impl.bend's Term.Var), so a book that imports impl.bend holds its defs
--- renamed: the laws about impl.bend's own book still hold there, through
+-- names the defs and labels of an imported file with a prefix (book_2f_impl.Term.Var
+-- for src/book/impl.bend's Term.Var), so a book that imports our code holds its defs
+-- renamed: the laws about our code's own book still hold there, through
 -- Rename.book.
 
 open Quan Term
