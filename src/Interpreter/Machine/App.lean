@@ -16,12 +16,41 @@ private theorem argFrames_ok (h : ∀ a ∈ ys, argOk bk a) : ∀ f ∈ argFrame
   obtain ⟨⟨q, y, l, k⟩, m, rfl⟩ := m
   exact ⟨(h _ m).2, (h _ m).1⟩
 
+-- the call that Ops knows reaches its value after its steps
+theorem opsCall_sound (htb : tb = Ops.prepare bk) (h : opsCall tb k xs = some (r, n)) :
+    Steps bk n (spine (Ref k) (xs.map argOf)) r ∧ Value bk r := by
+  have hm : xs.map argOfR = xs.map argOf :=
+    List.map_congr_left fun ⟨q, x, l, _⟩ _ => congrArg (q, ·) resolve_close
+  have e : opsCall tb k xs = Ops.call tb k (xs.map argOf) := by
+    unfold opsCall Ops.call
+    rw [hm]
+    split <;> simp_all
+  subst htb
+  exact Ops.call_sound (e ▸ h)
+
+-- a call that Ops knows: its steps, to its value
+theorem callMove_jump (htb : tb = Ops.prepare bk) (hst : ∀ f ∈ st, f.Ok bk)
+    (h : callMove bk tb k xs st v vl = .jump n s') :
+    s'.Ok bk ∧ Steps bk n (plugs st (spine (Ref k) (xs.map argOf))) s'.term := by
+  unfold callMove at h
+  split at h
+  next r m e =>
+    cases h
+    obtain ⟨s, hr⟩ := opsCall_sound htb e
+    exact ⟨⟨⟨hr, trivial⟩, hst⟩, Steps.plugs hst s⟩
+  next =>
+    split at h
+    · cases h
+    · split at h <;> cases h
+
 -- a call that waits for more arguments: v under vl is a value
 theorem callMove_admin (vs : Values bk (xs.map argOf))
     (hv : close v vl = spine (Ref k) (xs.map argOf)) (hvl : vl.Ok bk) (hst : ∀ f ∈ st, f.Ok bk)
-    (h : callMove bk k xs st v vl = .admin s') :
+    (h : callMove bk tb k xs st v vl = .admin s') :
     s'.Ok bk ∧ s'.term = plugs st (close v vl) := by
   unfold callMove at h
+  split at h
+  · cases h
   split at h
   · cases h
   next d hk =>
@@ -38,9 +67,11 @@ theorem callMove_admin (vs : Values bk (xs.map argOf))
 
 -- a call that takes a step
 theorem callMove_step (vs : Values bk (xs.map argOf)) (hx : ∀ a ∈ xs, argOk bk a)
-    (hst : ∀ f ∈ st, f.Ok bk) (h : callMove bk k xs st v vl = .step s') :
+    (hst : ∀ f ∈ st, f.Ok bk) (h : callMove bk tb k xs st v vl = .step s') :
     s'.Ok bk ∧ Eval bk (plugs st (spine (Ref k) (xs.map argOf))) s'.term := by
   unfold callMove at h
+  split at h
+  · cases h
   split at h
   · cases h
   next d hk =>
@@ -95,7 +126,7 @@ private theorem appMove_call (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
 -- App q f x, with f under fl a value, and x under xl a value when q is live
 theorem appMove_admin (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
     (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk q f fl x xl st = .admin s') :
+    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st = .admin s') :
     s'.Ok bk ∧ s'.term = plugs st (App q (close f fl) (close x xl)) := by
   unfold appMove at h
   split at h
@@ -118,7 +149,7 @@ theorem appMove_admin (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
 
 theorem appMove_step (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
     (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk q f fl x xl st = .step s') :
+    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st = .step s') :
     s'.Ok bk ∧ Eval bk (plugs st (App q (close f fl) (close x xl))) s'.term := by
   unfold appMove at h
   split at h
@@ -182,6 +213,31 @@ theorem appMove_step (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
       have ⟨hv, vs, hys⟩ := appMove_call hf hfl hx hxl e
       rw [hv]
       exact callMove_step vs hys hst h
+    · cases h
+
+
+-- App q f x, with f under fl a value, and x under xl a value when q is live:
+-- a call that Ops knows
+theorem appMove_jump (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
+    (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
+    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st = .jump n s') :
+    s'.Ok bk ∧ Steps bk n (plugs st (App q (close f fl) (close x xl))) s'.term := by
+  unfold appMove at h
+  split at h
+  · split at h <;> cases h
+  · split at h
+    · split at h <;> cases h
+    · cases h
+  · split at h
+    · split at h
+      · split at h <;> cases h
+      · cases h
+    · cases h
+  · split at h
+    next k kl ys e =>
+      obtain ⟨hv, -, -⟩ := appMove_call hf hfl hx hxl e
+      rw [hv]
+      exact callMove_jump htb hst h
     · cases h
 
 end Machine

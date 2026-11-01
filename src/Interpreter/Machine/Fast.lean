@@ -13,32 +13,39 @@ open Quan Term
 
 namespace Machine
 
--- a move, with the state itself when it stops
+-- a move, with the state itself when it stops, or when it jumps (for a run
+-- with less fuel than the jump's steps)
 inductive MoveF where
   | admin (s : State)
   | step (s : State)
+  | jump (n : Nat) (s : State) (from_ : State)
   | stop (s : State)
 
--- the move m of the state s, with s when m stops
+-- the move m of the state s, with s when m stops or jumps
 def Move.withState : Move → State → MoveF
   | .admin s', _ => .admin s'
   | .step s', _ => .step s'
+  | .jump n s', s => .jump n s' s
   | .stop, s => .stop s
 
--- callMove, its stop with the state stopS () (built only on a stop)
-@[inline] def callMoveF (bk : Book) (k : String) (xs : List MArg) (st : List Frame) (v : Term)
-    (vl : Locals) (stopS : Unit → State) : MoveF :=
-  match bk.get k with
-  | none => .stop (stopS ())
-  | some d =>
-    match walkOpen bk d.v .nil xs with
-    | some (some (t, l, ys)) => .step ⟨.ev t l, argFrames ys ++ st⟩
-    | some none => .admin ⟨.ret v vl, st⟩
+-- callMove, its stop and its jump with the state stopS () (built only then)
+@[inline] def callMoveF (bk : Book) (tb : Ops.Table) (k : String) (xs : List MArg) (st : List Frame)
+    (v : Term) (vl : Locals) (stopS : Unit → State) : MoveF :=
+  match opsCall tb k xs with
+  | some (r, n) => .jump n ⟨.ret r .nil, st⟩ (stopS ())
+  | none =>
+    match bk.get k with
     | none => .stop (stopS ())
+    | some d =>
+      match walkOpen bk d.v .nil xs with
+      | some (some (t, l, ys)) => .step ⟨.ev t l, argFrames ys ++ st⟩
+      | some none => .admin ⟨.ret v vl, st⟩
+      | none => .stop (stopS ())
 
-theorem callMoveF_eq : callMoveF bk k xs st v vl stopS = (callMove bk k xs st v vl).withState (stopS ()) := by
+theorem callMoveF_eq :
+    callMoveF bk tb k xs st v vl stopS = (callMove bk tb k xs st v vl).withState (stopS ()) := by
   unfold callMoveF callMove
-  split <;> (try split) <;> simp_all [Move.withState]
+  split <;> (try split) <;> (try split) <;> simp_all [Move.withState]
 
 -- the frame that an application of a value came from: App q □ x (appArg),
 -- App q □ x with x known or not to be a value (appVal), or App q f □ (appFun)
@@ -56,8 +63,8 @@ def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (
   | .fun => ⟨.ret x xl, .appFun q f fl :: st⟩
 
 -- appMove, its stop with the state that it came from
-@[inline] def appMoveF (bk : Book) (q : Quan) (f : Term) (fl : Locals) (x : Term) (xl : Locals)
-    (st : List Frame) (w : AppFrom) (k : Bool) : MoveF :=
+@[inline] def appMoveF (bk : Book) (tb : Ops.Table) (q : Quan) (f : Term) (fl : Locals) (x : Term)
+    (xl : Locals) (st : List Frame) (w : AppFrom) (k : Bool) : MoveF :=
   match resolve f fl with
   | (Lam p b, bl) =>
     if bindsAtL p q x xl then .step ⟨.ev b (.cons x xl q.live bl), st⟩
@@ -78,12 +85,12 @@ def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (
   | _ =>
     match unspineL f fl [(q, x, xl, q.live)] with
     | (Ref c, _, ys) =>
-      callMoveF bk c ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl q.live fl)
+      callMoveF bk tb c ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl q.live fl)
         (fun _ => w.state k q f fl x xl st)
     | _ => .stop (w.state k q f fl x xl st)
 
-theorem appMoveF_eq :
-    appMoveF bk q f fl x xl st w k = (appMove bk q f fl x xl st).withState (w.state k q f fl x xl st) := by
+theorem appMoveF_eq : appMoveF bk tb q f fl x xl st w k =
+    (appMove bk tb q f fl x xl st).withState (w.state k q f fl x xl st) := by
   unfold appMoveF appMove
   rcases resolve f fl with ⟨t, tl⟩
   cases t
@@ -103,7 +110,7 @@ theorem appMoveF_eq :
 
 -- move (with its pairs shared, as moveS), each stop with the state it stops in,
 -- rebuilt from its parts so that the state itself is free when the move goes on
-@[inline] def moveF (bk : Book) (s : State) : MoveF :=
+@[inline] def moveF (bk : Book) (tb : Ops.Table) (s : State) : MoveF :=
   match s with
   | ⟨.ev t l, st⟩ =>
     match t with
@@ -112,7 +119,7 @@ theorem appMoveF_eq :
       | some (x, xl, true) => .admin ⟨.ret x xl, st⟩
       | some (x, xl, false) => .admin ⟨.ev x xl, st⟩
       | none => .stop ⟨.ev (Var i) l, st⟩
-    | Ref k => callMoveF bk k [] st (Ref k) .nil (fun _ => ⟨.ev (Ref k) l, st⟩)
+    | Ref k => callMoveF bk tb k [] st (Ref k) .nil (fun _ => ⟨.ev (Ref k) l, st⟩)
     | Ann x _ => .step ⟨.ev x l, st⟩
     | App q f x => .admin ⟨.ev f l, .appArg q x l :: st⟩
     | Let q v f =>
@@ -133,10 +140,10 @@ theorem appMoveF_eq :
   | ⟨.ret v vl, f :: st⟩ =>
     match f with
     | .appArg q x l =>
-      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMoveF bk q v vl x l st .arg false
+      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMoveF bk tb q v vl x l st .arg false
     | .appVal q x l k =>
-      if q.live && !k then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMoveF bk q v vl x l st .val k
-    | .appFun q g gl => appMoveF bk q g gl v vl st .fun false
+      if q.live && !k then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMoveF bk tb q v vl x l st .val k
+    | .appFun q g gl => appMoveF bk tb q g gl v vl st .fun false
     | .letIn q f l =>
       if q != Q2 || dataAt v vl then .step ⟨.ev f (.cons v vl true l), st⟩
       else .stop ⟨.ret v vl, .letIn q f l :: st⟩
@@ -153,7 +160,7 @@ theorem appMoveF_eq :
         else .stop ⟨.ret v vl, .minA a :: st⟩
       | _, _ => .stop ⟨.ret v vl, .minA a :: st⟩
 
-theorem moveF_eq : moveF bk s = (move bk s).withState s := by
+theorem moveF_eq : moveF bk tb s = (move bk tb s).withState s := by
   obtain ⟨fc, st⟩ := s
   cases fc with
   | ev t l =>
@@ -189,17 +196,19 @@ theorem moveF_eq : moveF bk s = (move bk s).withState s := by
       all_goals (try split) <;> rfl
 
 -- run, each state handed to its move
-def runF (bk : Book) : Nat → Nat → State → Nat → Term × Nat
+def runF (bk : Book) (tb : Ops.Table) : Nat → Nat → State → Nat → Term × Nat
   | 0, fuel, s, n => stepwise bk fuel s.term n
-  | gas + 1, 0, s, n => run bk (gas + 1) 0 s n
+  | gas + 1, 0, s, n => run bk tb (gas + 1) 0 s n
   | gas + 1, fuel + 1, s, n =>
-    match moveF bk s with
-    | .admin s' => runF bk gas (fuel + 1) s' n
-    | .step s' => runF bk gas fuel s' (n + 1)
+    match moveF bk tb s with
+    | .admin s' => runF bk tb gas (fuel + 1) s' n
+    | .step s' => runF bk tb gas fuel s' (n + 1)
+    | .jump k s' s =>
+      if k ≤ fuel + 1 then runF bk tb gas (fuel + 1 - k) s' (n + k) else (s.term, n)
     | .stop s => stepwise bk (fuel + 1) s.term n
 
 @[csimp] theorem run_runF : @run = @runF := by
-  funext bk g fuel s n
+  funext bk tb g fuel s n
   induction g generalizing fuel s n with
   | zero => rfl
   | succ g ih =>
@@ -207,6 +216,6 @@ def runF (bk : Book) : Nat → Nat → State → Nat → Term × Nat
     | zero => simp only [runF]
     | succ fuel =>
       simp only [run, runF, moveF_eq]
-      cases move bk s <;> simp only [Move.withState, ih]
+      cases move bk tb s <;> simp only [Move.withState, ih]
 
 end Machine

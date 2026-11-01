@@ -284,6 +284,13 @@ theorem Eval.plugs (hs : ∀ f ∈ st, f.Ok bk) (h : Eval bk t u) : Eval bk (plu
     case minB => exact .min_a h
     case minA => exact .min_b hf h
 
+-- steps in the hole are steps of the whole term
+theorem Steps.plugs (hs : ∀ f ∈ st, f.Ok bk) (h : Steps bk n t u) :
+    Steps bk n (plugs st t) (plugs st u) := by
+  induction h with
+  | refl => exact .refl
+  | step e _ ih => exact .step (Eval.plugs hs e) ih
+
 -- the frames of a spine's arguments
 theorem plugs_argFrames : plugs (argFrames ys) t = spine t (ys.map argOf) := by
   induction ys generalizing t with

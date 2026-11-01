@@ -3,15 +3,15 @@ import Interpreter.Machine.App
 -- Machine.Move
 -- ============
 --
--- A move that is no step keeps the term, and a move that is a step is one step
--- of Eval. Each keeps what the state knows true.
+-- A move that is no step keeps the term, a move that is a step is one step of
+-- Eval, and a jump is its steps of Eval. Each keeps what the state knows true.
 
 open Quan Term
 
 namespace Machine
 
 -- a move that is no step keeps the term, and what the state knows true
-theorem move_admin (hs : s.Ok bk) (h : move bk s = .admin s') : s'.Ok bk ∧ s'.term = s.term := by
+theorem move_admin (hs : s.Ok bk) (h : move bk tb s = .admin s') : s'.Ok bk ∧ s'.term = s.term := by
   obtain ⟨fc, st⟩ := s
   obtain ⟨hf, hst⟩ := hs
   simp only at hst
@@ -106,7 +106,7 @@ theorem move_admin (hs : s.Ok bk) (h : move bk s = .admin s') : s'.Ok bk ∧ s'.
       case minA a => split at h <;> (try split at h) <;> cases h
 
 -- a move that is a step is one step of Eval, and keeps what the state knows true
-theorem move_step (hs : s.Ok bk) (h : move bk s = .step s') : s'.Ok bk ∧ Eval bk s.term s'.term := by
+theorem move_step (hs : s.Ok bk) (h : move bk tb s = .step s') : s'.Ok bk ∧ Eval bk s.term s'.term := by
   obtain ⟨fc, st⟩ := s
   obtain ⟨hf, hst⟩ := hs
   simp only at hst
@@ -185,5 +185,50 @@ theorem move_step (hs : s.Ok bk) (h : move bk s = .step s') : s'.Ok bk ∧ Eval 
         simp only [State.term, Focus.term, plugs, List.foldl, Frame.plug]
         rw [← ev]
         exact Eval.plugs hs (.meet hq.1 hq.2)
+
+-- a move that is a jump takes its steps of Eval, and keeps what the state knows
+-- true
+theorem move_jump (htb : tb = Ops.prepare bk) (hs : s.Ok bk) (h : move bk tb s = .jump n s') :
+    s'.Ok bk ∧ Steps bk n s.term s'.term := by
+  obtain ⟨fc, st⟩ := s
+  obtain ⟨hf, hst⟩ := hs
+  simp only at hst
+  cases fc with
+  | ev t l =>
+    simp only [Focus.Ok] at hf
+    cases t <;> simp only [move] at h
+    case Var i => split at h <;> cases h
+    case Ref k =>
+      have := callMove_jump (xs := []) htb hst h
+      simp only [State.term, Focus.term, close_ref]
+      exact this
+    case Let => split at h <;> cases h
+    case Tup => split at h <;> (try split at h) <;> cases h
+    all_goals cases h
+  | ret v vl =>
+    simp only [Focus.Ok] at hf
+    cases st with
+    | nil => simp only [move] at h; cases h
+    | cons g st =>
+      have hg := hst g List.mem_cons_self
+      have hs := fun g' h => hst g' (List.mem_cons_of_mem g h)
+      clear hst
+      cases g <;> simp only [move] at h <;> simp only [Frame.Ok] at hg
+      case appArg q x l =>
+        split at h
+        · cases h
+        · rename_i hq
+          exact appMove_jump htb hf.1 hf.2 (fun h => absurd h hq) hg hs h
+      case appVal q x l k =>
+        split at h
+        · cases h
+        · rename_i hq
+          simp only [Bool.and_eq_true, Bool.not_eq_true', not_and, Bool.not_eq_false] at hq
+          exact appMove_jump htb hf.1 hf.2 (fun h => hg.1 (hq h)) hg.2 hs h
+      case appFun q f fl => exact appMove_jump htb hg.2.1 hg.2.2 (fun _ => hf.1) hf.2 hs h
+      case letIn => split at h <;> cases h
+      case rwt => split at h <;> cases h
+      case minA => split at h <;> (try split at h) <;> cases h
+      all_goals cases h
 
 end Machine

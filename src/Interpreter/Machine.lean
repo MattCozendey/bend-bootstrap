@@ -1,4 +1,5 @@
 import Interpreter.Stepwise
+import Interpreter.Ops
 import Shared.Bytes
 
 -- Machine
@@ -12,8 +13,9 @@ import Shared.Bytes
 -- own, and remembers which of them are values. A value keeps its locals too,
 -- and so do the arguments of a call that waits for more, so a λ costs the
 -- same whatever it holds: the machine puts locals into a term only when the
--- term goes into a pair, or is needed whole. When it stops, or runs out of
--- gas, stepwise goes on from its term.
+-- term goes into a pair, or is needed whole. A call that Ops knows
+-- (src/Interpreter/Ops.lean) takes all its steps in one move. When it stops,
+-- or runs out of gas, stepwise goes on from its term.
 
 open Quan Term
 
@@ -174,31 +176,47 @@ def State.term (s : State) : Term := plugs s.stack s.focus.term
 
 def init (t : Term) : State := ⟨.ev t .nil, []⟩
 
--- a move: no step of Eval, or one, or none possible
+-- a move: no step of Eval, or one, or n at once, or none possible
 inductive Move where
   | admin (s : State)
   | step (s : State)
+  | jump (n : Nat) (s : State)
   | stop
 
 -- the frames of a spine's arguments, the innermost first
 def argFrames (ys : List MArg) : List Frame := ys.map fun (q, y, l, k) => .appVal q y l k
 
--- a call of k on xs, in the frames st: the leaf of its case tree; or v under
--- vl, a value, when the case tree needs more arguments
-def callMove (bk : Book) (k : String) (xs : List MArg) (st : List Frame) (v : Term) (vl : Locals) :
-    Move :=
-  match bk.get k with
-  | none => .stop
-  | some d =>
-    match walkOpen bk d.v .nil xs with
-    | some (some (t, l, ys)) => .step ⟨.ev t l, argFrames ys ++ st⟩
-    | some none => .admin ⟨.ret v vl, st⟩
+-- an argument put together, from its head: the locals that its head does not
+-- use are not put into a term
+def argOfR : MArg → Arg
+  | (q, x, l, _) => (q, close (resolve x l).1 (resolve x l).2)
+
+-- the call of k on xs, when the table tb of Ops has k: its value and its steps
+def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat) :=
+  match tb.ops[k]? with
+  | some op => op.run (xs.map argOfR)
+  | none => none
+
+-- a call of k on xs, in the frames st: its value, when Ops knows it; else the
+-- leaf of its case tree; or v under vl, a value, when the case tree needs more
+-- arguments
+def callMove (bk : Book) (tb : Ops.Table) (k : String) (xs : List MArg) (st : List Frame) (v : Term)
+    (vl : Locals) : Move :=
+  match opsCall tb k xs with
+  | some (r, n) => .jump n ⟨.ret r .nil, st⟩
+  | none =>
+    match bk.get k with
     | none => .stop
+    | some d =>
+      match walkOpen bk d.v .nil xs with
+      | some (some (t, l, ys)) => .step ⟨.ev t l, argFrames ys ++ st⟩
+      | some none => .admin ⟨.ret v vl, st⟩
+      | none => .stop
 
 -- App q f x, in the frames st, with f under fl a value, and x under xl a value
 -- when q is live
-def appMove (bk : Book) (q : Quan) (f : Term) (fl : Locals) (x : Term) (xl : Locals)
-    (st : List Frame) : Move :=
+def appMove (bk : Book) (tb : Ops.Table) (q : Quan) (f : Term) (fl : Locals) (x : Term)
+    (xl : Locals) (st : List Frame) : Move :=
   match resolve f fl with
   | (Lam p b, bl) => if bindsAtL p q x xl then .step ⟨.ev b (.cons x xl q.live bl), st⟩ else .stop
   | (Prj h, hl) =>
@@ -216,10 +234,11 @@ def appMove (bk : Book) (q : Quan) (f : Term) (fl : Locals) (x : Term) (xl : Loc
     | _ => .stop
   | _ =>
     match unspineL f fl [(q, x, xl, q.live)] with
-    | (Ref k, _, ys) => callMove bk k ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl q.live fl)
+    | (Ref k, _, ys) =>
+      callMove bk tb k ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl q.live fl)
     | _ => .stop
 
-def move (bk : Book) : State → Move
+def move (bk : Book) (tb : Ops.Table) : State → Move
   | ⟨.ev t l, st⟩ =>
     match t with
     | Var i =>
@@ -227,7 +246,7 @@ def move (bk : Book) : State → Move
       | some (x, xl, true) => .admin ⟨.ret x xl, st⟩
       | some (x, xl, false) => .admin ⟨.ev x xl, st⟩
       | none => .stop
-    | Ref k => callMove bk k [] st (Ref k) .nil
+    | Ref k => callMove bk tb k [] st (Ref k) .nil
     | Ann x _ => .step ⟨.ev x l, st⟩
     | App q f x => .admin ⟨.ev f l, .appArg q x l :: st⟩
     | Let q v f =>
@@ -248,10 +267,10 @@ def move (bk : Book) : State → Move
   | ⟨.ret v vl, f :: st⟩ =>
     match f with
     | .appArg q x l =>
-      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk q v vl x l st
+      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk tb q v vl x l st
     | .appVal q x l k =>
-      if q.live && !k then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk q v vl x l st
-    | .appFun q g gl => appMove bk q g gl v vl st
+      if q.live && !k then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk tb q v vl x l st
+    | .appFun q g gl => appMove bk tb q g gl v vl st
     | .letIn q f l => if q != Q2 || dataAt v vl then .step ⟨.ev f (.cons v vl true l), st⟩ else .stop
     | .tupB q b l => .admin ⟨.ev b l, .tupA q v vl :: st⟩
     | .tupA q a al => .admin ⟨.ret (Tup q (close a al) (close v vl)) .nil, st⟩
@@ -286,13 +305,13 @@ theorem share_eq : share t = t := by
 
 -- move, with each pair that it builds shared: compiled code, and so run, calls
 -- it for move
-def moveS (bk : Book) (s : State) : Move :=
+def moveS (bk : Book) (tb : Ops.Table) (s : State) : Move :=
   match s with
   | ⟨.ret v vl, .tupA q a al :: st⟩ => .admin ⟨.ret (share (Tup q (close a al) (close v vl))) .nil, st⟩
-  | s => move bk s
+  | s => move bk tb s
 
 @[csimp] theorem move_moveS : @move = @moveS := by
-  funext bk s
+  funext bk tb s
   unfold moveS
   split
   · rw [share_eq]; rfl
@@ -303,16 +322,17 @@ def moveS (bk : Book) (s : State) : Move :=
 def gas : Nat := 2 ^ 60
 
 -- at most fuel more steps of the state s, after n: the term reached, and the
--- steps in all
-def run (bk : Book) : Nat → Nat → State → Nat → Term × Nat
+-- steps in all; tb is the book's table of Ops (Ops.prepare)
+def run (bk : Book) (tb : Ops.Table) : Nat → Nat → State → Nat → Term × Nat
   | 0, fuel, s, n => stepwise bk fuel s.term n
   | gas + 1, fuel, s, n =>
-    match move bk s with
-    | .admin s' => run bk gas fuel s' n
+    match move bk tb s with
+    | .admin s' => run bk tb gas fuel s' n
     | .step s' =>
       match fuel with
       | 0 => (s.term, n)
-      | fuel + 1 => run bk gas fuel s' (n + 1)
+      | fuel + 1 => run bk tb gas fuel s' (n + 1)
+    | .jump k s' => if k ≤ fuel then run bk tb gas (fuel - k) s' (n + k) else (s.term, n)
     | .stop => stepwise bk fuel s.term n
 
 end Machine
