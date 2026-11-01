@@ -1,4 +1,4 @@
-import Interpreter.Machine.Loop
+import Interpreter.Machine.Fast
 
 -- Run
 -- ===
