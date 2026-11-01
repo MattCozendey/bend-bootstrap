@@ -4287,7 +4287,7 @@ def Cir.result(fuel: Nat, prog: Cir.Stmt, +regs: Nat, +cells: List<&2, Cir.Cell>
 # to 12) and fv (bits 13 up): 1 + the highest free variable of its term, 0
 # when it has none. Field 1 counts the pointers to it, or links it into a
 # list. Fields 2 to 4 hold its parts: as the kernel's formers do, in order;
-# a Ref holds its def's body and its name, a Lab and a Mat their name, by the
+# a Ref holds its def's body (0 for none), a Lab and a Mat their name, by the
 # number that the image gives it.
 #
 # The machine runs as the Lean machine (bootstrap/lean, Machine.lean) does,
