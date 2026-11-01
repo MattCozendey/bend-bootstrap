@@ -52,13 +52,8 @@ These rules hold for every language.
 
 ### 2.3 Checks
 
-- **2.3.1** Ask me before you write a check. Check only a property that matters, never an
-  implementation detail.
-- **2.3.2** Do not try to check that generated data, or a copy of a standard's text, matches its
-  source with our own code. Check generated data with a test against an independent source (for
-  example, another implementation, or the standard's own test vectors). That test does not replace
-  the checks of the code. Tell me which copies of standard text you changed, so that I can check
-  them.
+- **2.3.1** Ask me before you write a test/check/invariant, and only propose properties that matter over implementation details. Examples of implementation details: whether a list we wrote sorted really is sorted; whether generated data really matches what we generated; etc. Use common sense.
+- **2.3.2** Proof quality doesn't matter unless their checking is so slow it blocks you, and they don't take part in review sweeps unless I explicitly tell you to. What DOES matter, and matters A LOT is the invariants/theorems/laws as stated(they must ALWAYS be double-questioned) to ensure they REALLY match my intent on all fronts. I want the rules I need - no more; no less. Don't overdo and check trivial properties I do not care for.
 
 ### 2.4 Bend (Bootstrapped)
 
@@ -249,10 +244,5 @@ Everything in a target's entry is ours.
 
 ### 3.9 Notes
 
-- **3.9.1** PROOF QUALITY DOESN'T MATTER UNLESS PROOFS ARE SO SLOW THEY BLOCK. PROOFS DON'T TAKE
-  PART IN REVIEW SWEEPS UNLESS I TELL YOU TO. LAWS AND THEOREMS (BEND AND LEAN), AND THE DEFINITIONS
-  THEY USE, ON THE OTHER HAND, SHOULD ALWAYS BE DOUBLE-QUESTIONED TO ENSURE THEY REALLY REALLY MATCH
-  MY INTENT; THEN THE LAWS AND THEOREMS ARE PROVEN. THIS DOES NOT MEAN OVERDO LAWS. WE WANT ENOUGH
-  LAWS FOR THE COMPILER TO BE EXACTLY AS SAFE AS IT NEEDS TO BE, NOT MORE NOT LESS.
-- **3.9.2** EFFECTS LATER: MODEL THEM AS PURE DATA (`main` GIVES REQUESTS, A HOST ANSWERS), SO
+- **3.9.1** EFFECTS LATER: MODEL THEM AS PURE DATA (`main` GIVES REQUESTS, A HOST ANSWERS), SO
   `Eval` STILL GIVES THEM A MEANING.
