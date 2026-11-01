@@ -5,7 +5,10 @@ HEADLINE(s):
 DEFINITION(S):
 1 - Kernel: `bend/bend2/bendtt.lean`: Unchanged and the source of truth.
 2 - Bend: the language that the kernel gives a meaning to. Its code is a Book, as the kernel's `Book.parse` gives it. Its meaning is the kernel's `Eval`. Nothing more, nothing less. `.bend` text is a way to write Bend, through `bend -o`.
-3 - Program: a Book with a def named `main` (no `main`: fail). `main` takes a list of bytes and gives a list of bytes. A byte is a `Word(8)`, and a list is a `List`.
+3 - Program: a Book with a def named `main` (no `main`: fail). `main` takes a list of bytes and gives a list of bytes, as values of these shapes (what `bend -o` gives for `base.bend`'s `List<Word(8)>`):
+    - list: `(.Nil, ())`, or `(.Con, (byte, (list, ())))`.
+    - byte: 8 bits, lowest first: `(.WCon, (bit, (rest, ())))` 8 times, then `(.WNil, ())`.
+    - bit: `(.False, ())` is 0, `(.True, ())` is 1.
 
 GOAL(S):
 1 - A Bend compiler written in Bend(this doesn't necessarily include creating bend's CHECKER in bend btw) THAT I CAN TRUST(GIVES WHAT `Eval` GIVES: INVARIANTS #1). WE ACCEPT SLOWNESS OR A BEND INTERPRETER-OR-COMPILER WRITTEN IN LEAN ALONG THE WAY. GETTING THIS RIGHT FROM THE START IS AN ABSOLUTE MUST. IT IS PURE AND SELF-HOSTING: IT COMPILES ITS OWN BOOK. WHEN WE ADD TO OUR COMPILER (OPTIMIZATIONS, OR FEATURES BEYOND BEND; CHANGING INTERNAL REPRESENTATIONS, OR ADDING TARGETS, IS AN ADDITION TOO), THE LAW FOR BEND (INVARIANTS #1 AND #4) STAYS EXACTLY AS IT IS AND MUST STILL PASS --verdict. SO OUR COMPILER ALWAYS STAYS A PROVEN BEND COMPILER
