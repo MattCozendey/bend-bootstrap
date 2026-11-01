@@ -3,10 +3,9 @@ import bendtt
 -- Bytes
 -- =====
 --
--- INVARIANTS #3's list of bytes, as `bend -o` writes a value of Base's
--- List<&2, U32>: a constructor k{x, y} is the tuple (.k, x, y, ()) at
--- quantity 1, and each cell is a U32 below 256, whose Word(32n) has the
--- lowest bit first.
+-- DEFINITION #3's list of bytes, as `bend -o` writes a value of Base's
+-- List<&2, Word(8n)>: a constructor k{x, y} is the tuple (.k, x, y, ()) at
+-- quantity 1, and a byte is its Word(8n), the lowest bit first.
 
 open Quan Term
 
@@ -24,28 +23,28 @@ def list : List Term → Term
   | [] => ctor "Nil" []
   | x :: xs => ctor "Con" [x, list xs]
 
-def cell (b : UInt8) : Term := ctor "U32" [bits 32 b.toNat]
+def byte (b : UInt8) : Term := bits 8 b.toNat
 
 -- Sharing
 -- -------
--- A cell is 263 nodes, and a list of bytes holds one for each byte. Compiled
--- code takes each cell from cells, made once (cell_cellS), so equal cells are
--- one term in memory: the terms are the same, only their copies change. The
--- machine shares the cells that it builds the same way (Machine.share).
+-- A byte is 67 nodes, and a list of bytes holds one for each byte. Compiled
+-- code takes each byte from byteTable, made once (byte_byteS), so equal bytes
+-- are one term in memory: the terms are the same, only their copies change.
+-- The machine shares the bytes that it builds the same way (Machine.share).
 
--- the 256 cells
-def cells : Array Term := Array.ofFn fun (i : Fin 256) => cell i.val.toUInt8
+-- the 256 bytes
+def byteTable : Array Term := Array.ofFn fun (i : Fin 256) => byte i.val.toUInt8
 
-theorem cells_size : cells.size = 256 := Array.size_ofFn
+theorem byteTable_size : byteTable.size = 256 := Array.size_ofFn
 
--- cell, from cells
-def cellS (b : UInt8) : Term := cells[b.toNat]'(by rw [cells_size]; exact b.toNat_lt)
+-- byte, from byteTable
+def byteS (b : UInt8) : Term := byteTable[b.toNat]'(by rw [byteTable_size]; exact b.toNat_lt)
 
-@[csimp] theorem cell_cellS : @cell = @cellS := by
+@[csimp] theorem byte_byteS : @byte = @byteS := by
   funext b
-  simp [cellS, cells]
+  simp [byteS, byteTable]
 
-def bytes (bs : List UInt8) : Term := list (bs.map cell)
+def bytes (bs : List UInt8) : Term := list (bs.map byte)
 
 -- the value of a Word(n)
 def unbits : Nat → Term → Option Nat
@@ -58,9 +57,9 @@ def unbits : Nat → Term → Option Nat
 
 def unbytes : Term → Option (List UInt8)
   | Tup Q1 (Lab "Nil") (Lab "()") => some []
-  | Tup Q1 (Lab "Con") (Tup Q1 (Tup Q1 (Lab "U32") (Tup Q1 w (Lab "()"))) (Tup Q1 t (Lab "()"))) =>
-    match unbits 32 w, unbytes t with
-    | some v, some bs => if v < 256 then some (v.toUInt8 :: bs) else none
+  | Tup Q1 (Lab "Con") (Tup Q1 w (Tup Q1 t (Lab "()"))) =>
+    match unbits 8 w, unbytes t with
+    | some v, some bs => some (v.toUInt8 :: bs)
     | _, _ => none
   | _ => none
 
@@ -79,8 +78,6 @@ theorem unbytes_bytes : unbytes (bytes i) = some i := by
   induction i with
   | nil => simp [bytes, list, ctor, unbytes]
   | cons b bs ih =>
-    have hb : b.toNat < 256 := b.toNat_lt
-    have h : b.toNat % 2 ^ 32 = b.toNat := Nat.mod_eq_of_lt (by omega)
+    have h : b.toNat % 2 ^ 8 = b.toNat := Nat.mod_eq_of_lt b.toNat_lt
     simp only [bytes] at ih
-    simp [bytes, list, cell, ctor, unbytes, unbits_bits, h, ih]
-    exact hb
+    simp [bytes, list, byte, ctor, unbytes, unbits_bits, h, ih]
