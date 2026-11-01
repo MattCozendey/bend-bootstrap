@@ -724,7 +724,7 @@ def fv.get.if(
 # the def of a name, in defs below B, has a body below B
 def fv.get(
   ds: List<&2, C.Def>,
-  +k: List<&2, U32>,
+  +k: List<&2, Word(8n)>,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool}
 ) -> {fv.Md(C.Book.get(ds, k), B) == True{} : Bool}:
@@ -1239,22 +1239,17 @@ def fv.word(n: Nat, w: Word(n)) -> {PM.Term.below(C.Program.word(n, w), 0n) == T
             fv.bit(b),
             fv.and_i(PM.Term.below(C.Program.word(p, t), 0n), True{}, fv.word(p, t), {==}))
 
-def fv.cell.of(c: U32) -> {PM.Term.below(C.Program.cell.of(c), 0n) == True{} : Bool}:
-  match c:
-    case U32{+w}:
-      fv.and_i(PM.Term.below(C.Program.word(32n, w), 0n), True{}, fv.word(32n, w), {==})
-
-def fv.bytes(i: List<&2, U32>) -> {PM.Term.below(C.Program.bytes(i), 0n) == True{} : Bool}:
+def fv.bytes(i: List<&2, Word(8n)>) -> {PM.Term.below(C.Program.bytes(i), 0n) == True{} : Bool}:
   match i:
     case Nil{}:
       {==}
     case Con{+b, +rest}:
       fv.and_i(
-        PM.Term.below(C.Program.cell(b), 0n),
+        PM.Term.below(C.Program.word(8n, b), 0n),
         Bool.and(PM.Term.below(C.Program.bytes(rest), 0n), True{}),
-        fv.cell.of(U32.and(b, 255)),
+        fv.word(8n, b),
         fv.and_i(PM.Term.below(C.Program.bytes(rest), 0n), True{}, fv.bytes(rest), {==}))
 
 # the start term is closed
-def fv.start(i: List<&2, U32>) -> {PM.Term.below(C.Program.start(i), 0n) == True{} : Bool}:
+def fv.start(i: List<&2, Word(8n)>) -> {PM.Term.below(C.Program.start(i), 0n) == True{} : Bool}:
   fv.bytes(i)
