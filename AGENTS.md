@@ -53,11 +53,11 @@ These rules hold for every language.
 
 ### Bend
 
-Follow the `bend2` skill. In this project:
+Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see point 3). In this project:
 
 - I don't expect you to run bend(the untrusted one) for this project at all, but if you do; you must know that before you build or test, you must run `bend version` in the shell that you build in. As of 2026-11-01, Bend does not run natively on Windows. Use WSL(note: Even with WSL, parallel code won't run on the GPU).
 - Do not change, update or rebuild the Bend submodule.
-
+- Since we are bootstrapping, don't assume things from the bend guide necessarily apply to us and our decisions. The plan reigns.
 ### TypeScript
 
 - Write functional code without mutation, except when speed is a priority for a file (ask me);
