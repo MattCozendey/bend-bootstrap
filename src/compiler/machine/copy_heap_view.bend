@@ -4,7 +4,7 @@
 # In the middle of a copy (M.copy.walk), HS does not hold of the cells: a
 # new cell on the walk's stack has a term's tag, field 1 is the stack's link,
 # not a count, and its fields hold the parts of its source that are still to
-# copy, which their counts do not count. The proofs of the copy (proof_copy_hs
+# copy, which their counts do not count. The proofs of the copy (this file
 # and the rest) keep HS of a view instead: the cells v, which agree with the
 # real cells m but at the cells zs of the stacks (Agr), where v holds cells
 # that point nowhere and that nothing points to. The machine's statements run
