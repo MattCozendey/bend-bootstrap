@@ -30,23 +30,32 @@ theorem opsCall_sound (htb : tb = Ops.prepare bk) (h : opsCall tb k xs = some (r
 
 -- a call that Ops knows: its steps, to its value
 theorem callMove_jump (htb : tb = Ops.prepare bk) (hst : ∀ f ∈ st, f.Ok bk)
-    (h : callMove bk tb k xs st v vl = .jump n s') :
-    s'.Ok bk ∧ Steps bk n (plugs st (spine (Ref k) (xs.map argOf))) s'.term := by
+    (h : callMove bk tb k xs st v vl from_ = .jump n s' f) :
+    s'.Ok bk ∧ Steps bk n (plugs st (spine (Ref k) (xs.map argOf))) s'.term ∧ f = from_ () := by
   unfold callMove at h
   split at h
   next r m e =>
     cases h
     obtain ⟨s, hr⟩ := opsCall_sound htb e
-    exact ⟨⟨⟨hr, trivial⟩, hst⟩, Steps.plugs hst s⟩
+    exact ⟨⟨⟨hr, trivial⟩, hst⟩, Steps.plugs hst s, rfl⟩
   next =>
     split at h
     · cases h
     · split at h <;> cases h
 
+-- a call that stops gives the state that it came from
+theorem callMove_stop (h : callMove bk tb k xs st v vl from_ = .stop s') : s' = from_ () := by
+  unfold callMove at h
+  split at h
+  · cases h
+  · split at h
+    · cases h; rfl
+    · split at h <;> cases h; rfl
+
 -- a call that waits for more arguments: v under vl is a value
 theorem callMove_admin (vs : Values bk (xs.map argOf))
     (hv : close v vl = spine (Ref k) (xs.map argOf)) (hvl : vl.Ok bk) (hst : ∀ f ∈ st, f.Ok bk)
-    (h : callMove bk tb k xs st v vl = .admin s') :
+    (h : callMove bk tb k xs st v vl from_ = .admin s') :
     s'.Ok bk ∧ s'.term = plugs st (close v vl) := by
   unfold callMove at h
   split at h
@@ -67,7 +76,7 @@ theorem callMove_admin (vs : Values bk (xs.map argOf))
 
 -- a call that takes a step
 theorem callMove_step (vs : Values bk (xs.map argOf)) (hx : ∀ a ∈ xs, argOk bk a)
-    (hst : ∀ f ∈ st, f.Ok bk) (h : callMove bk tb k xs st v vl = .step s') :
+    (hst : ∀ f ∈ st, f.Ok bk) (h : callMove bk tb k xs st v vl from_ = .step s') :
     s'.Ok bk ∧ Eval bk (plugs st (spine (Ref k) (xs.map argOf))) s'.term := by
   unfold callMove at h
   split at h
@@ -126,7 +135,7 @@ private theorem appMove_call (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
 -- App q f x, with f under fl a value, and x under xl a value when q is live
 theorem appMove_admin (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
     (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st = .admin s') :
+    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st w k = .admin s') :
     s'.Ok bk ∧ s'.term = plugs st (App q (close f fl) (close x xl)) := by
   unfold appMove at h
   split at h
@@ -149,7 +158,7 @@ theorem appMove_admin (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
 
 theorem appMove_step (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
     (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st = .step s') :
+    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st w k = .step s') :
     s'.Ok bk ∧ Eval bk (plugs st (App q (close f fl) (close x xl))) s'.term := by
   unfold appMove at h
   split at h
@@ -220,8 +229,9 @@ theorem appMove_step (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
 -- a call that Ops knows
 theorem appMove_jump (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
     (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st = .jump n s') :
-    s'.Ok bk ∧ Steps bk n (plugs st (App q (close f fl) (close x xl))) s'.term := by
+    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st w k = .jump n s' f') :
+    s'.Ok bk ∧ Steps bk n (plugs st (App q (close f fl) (close x xl))) s'.term ∧
+      f' = w.state k q f fl x xl st := by
   unfold appMove at h
   split at h
   · split at h <;> cases h
@@ -239,5 +249,23 @@ theorem appMove_jump (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (h
       rw [hv]
       exact callMove_jump htb hst h
     · cases h
+
+-- an application that stops gives the state that it came from
+theorem appMove_stop (h : appMove bk tb q f fl x xl st w k = .stop s') :
+    s' = w.state k q f fl x xl st := by
+  unfold appMove at h
+  split at h
+  · split at h <;> cases h; rfl
+  · split at h
+    · split at h <;> cases h; rfl
+    · cases h; rfl
+  · split at h
+    · split at h
+      · split at h <;> cases h
+      · cases h; rfl
+    · cases h; rfl
+  · split at h
+    · exact callMove_stop h
+    · cases h; rfl
 
 end Machine

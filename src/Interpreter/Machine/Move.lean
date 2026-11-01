@@ -90,7 +90,8 @@ theorem move_admin (hs : s.Ok bk) (h : move bk tb s = .admin s') : s'.Ok bk ∧ 
       case letIn => split at h <;> cases h
       case tupB q b l =>
         cases h; exact ⟨⟨hg.2, List.forall_mem_cons.2 ⟨⟨fun _ => hf.1, hf.2⟩, hs⟩⟩, rfl⟩
-      case tupA q a al => cases h; exact ⟨⟨⟨Value.tup hg.1 hf.1, trivial⟩, hs⟩, rfl⟩
+      case tupA q a al =>
+        cases h; simp only [share_eq]; exact ⟨⟨⟨Value.tup hg.1 hf.1, trivial⟩, hs⟩, rfl⟩
       case rwt => split at h <;> cases h
       case minB b l =>
         cases h
@@ -186,10 +187,10 @@ theorem move_step (hs : s.Ok bk) (h : move bk tb s = .step s') : s'.Ok bk ∧ Ev
         rw [← ev]
         exact Eval.plugs hs (.meet hq.1 hq.2)
 
--- a move that is a jump takes its steps of Eval, and keeps what the state knows
--- true
-theorem move_jump (htb : tb = Ops.prepare bk) (hs : s.Ok bk) (h : move bk tb s = .jump n s') :
-    s'.Ok bk ∧ Steps bk n s.term s'.term := by
+-- a move that is a jump takes its steps of Eval, keeps what the state knows
+-- true, and gives the state that it came from
+theorem move_jump (htb : tb = Ops.prepare bk) (hs : s.Ok bk) (h : move bk tb s = .jump n s' f) :
+    s'.Ok bk ∧ Steps bk n s.term s'.term ∧ f = s := by
   obtain ⟨fc, st⟩ := s
   obtain ⟨hf, hst⟩ := hs
   simp only at hst
@@ -229,6 +230,36 @@ theorem move_jump (htb : tb = Ops.prepare bk) (hs : s.Ok bk) (h : move bk tb s =
       case letIn => split at h <;> cases h
       case rwt => split at h <;> cases h
       case minA => split at h <;> (try split at h) <;> cases h
+      all_goals cases h
+
+-- a move that stops gives the state that it came from
+theorem move_stop (h : move bk tb s = .stop s') : s' = s := by
+  obtain ⟨fc, st⟩ := s
+  cases fc with
+  | ev t l =>
+    cases t <;> simp only [move] at h
+    case Var i => split at h <;> cases h <;> rfl
+    case Ref k => exact callMove_stop h
+    case Let => split at h <;> cases h
+    case Tup => split at h <;> (try split at h) <;> cases h
+    all_goals cases h
+  | ret v vl =>
+    cases st with
+    | nil => simp only [move] at h; cases h; rfl
+    | cons g st =>
+      cases g <;> simp only [move] at h
+      case appArg =>
+        split at h
+        · cases h
+        · exact appMove_stop h
+      case appVal =>
+        split at h
+        · cases h
+        · exact appMove_stop h
+      case appFun => exact appMove_stop h
+      case letIn => split at h <;> cases h <;> rfl
+      case rwt => split at h <;> cases h <;> rfl
+      case minA => split at h <;> (try split at h) <;> cases h <;> rfl
       all_goals cases h
 
 end Machine

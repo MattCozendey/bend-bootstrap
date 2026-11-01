@@ -176,12 +176,15 @@ def State.term (s : State) : Term := plugs s.stack s.focus.term
 
 def init (t : Term) : State := ⟨.ev t .nil, []⟩
 
--- a move: no step of Eval, or one, or n at once, or none possible
+-- a move: no step of Eval, or one, or n at once (with the state it came from,
+-- for a run with less fuel), or none possible (with the state it came from,
+-- for stepwise). A move gets its state for itself, so that it can build the
+-- next state in the memory of the old one.
 inductive Move where
   | admin (s : State)
   | step (s : State)
-  | jump (n : Nat) (s : State)
-  | stop
+  | jump (n : Nat) (s from_ : State)
+  | stop (from_ : State)
 
 -- the frames of a spine's arguments, the innermost first
 def argFrames (ys : List MArg) : List Frame := ys.map fun (q, y, l, k) => .appVal q y l k
@@ -199,44 +202,83 @@ def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat
 
 -- a call of k on xs, in the frames st: its value, when Ops knows it; else the
 -- leaf of its case tree; or v under vl, a value, when the case tree needs more
--- arguments
-def callMove (bk : Book) (tb : Ops.Table) (k : String) (xs : List MArg) (st : List Frame) (v : Term)
-    (vl : Locals) : Move :=
+-- arguments. from_ () is the state that it came from.
+@[inline] def callMove (bk : Book) (tb : Ops.Table) (k : String) (xs : List MArg) (st : List Frame)
+    (v : Term) (vl : Locals) (from_ : Unit → State) : Move :=
   match opsCall tb k xs with
-  | some (r, n) => .jump n ⟨.ret r .nil, st⟩
+  | some (r, n) => .jump n ⟨.ret r .nil, st⟩ (from_ ())
   | none =>
     match bk.get k with
-    | none => .stop
+    | none => .stop (from_ ())
     | some d =>
       match walkOpen bk d.v .nil xs with
       | some (some (t, l, ys)) => .step ⟨.ev t l, argFrames ys ++ st⟩
       | some none => .admin ⟨.ret v vl, st⟩
-      | none => .stop
+      | none => .stop (from_ ())
+
+-- the frame that an application of a value came from: App q □ x (appArg),
+-- App q □ x with x known or not to be a value (appVal), or App q f □ (appFun)
+inductive AppFrom where
+  | arg
+  | val
+  | fun
+
+-- the state that appMove bk tb q f fl x xl st w k comes from
+def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (x : Term)
+    (xl : Locals) (st : List Frame) : State :=
+  match w with
+  | .arg => ⟨.ret f fl, .appArg q x xl :: st⟩
+  | .val => ⟨.ret f fl, .appVal q x xl k :: st⟩
+  | .fun => ⟨.ret x xl, .appFun q f fl :: st⟩
 
 -- App q f x, in the frames st, with f under fl a value, and x under xl a value
--- when q is live
-def appMove (bk : Book) (tb : Ops.Table) (q : Quan) (f : Term) (fl : Locals) (x : Term)
-    (xl : Locals) (st : List Frame) : Move :=
+-- when q is live; it came from the frame w
+@[inline] def appMove (bk : Book) (tb : Ops.Table) (q : Quan) (f : Term) (fl : Locals) (x : Term)
+    (xl : Locals) (st : List Frame) (w : AppFrom) (k : Bool) : Move :=
   match resolve f fl with
-  | (Lam p b, bl) => if bindsAtL p q x xl then .step ⟨.ev b (.cons x xl q.live bl), st⟩ else .stop
+  | (Lam p b, bl) =>
+    if bindsAtL p q x xl then .step ⟨.ev b (.cons x xl q.live bl), st⟩
+    else .stop (w.state k q f fl x xl st)
   | (Prj h, hl) =>
     match resolve x xl with
     | (Tup r a b, al) =>
       if q.live then .step ⟨.ev h hl, .appVal (Quan.fld r q) a al r.live :: .appVal q b al true :: st⟩
-      else .stop
-    | _ => .stop
+      else .stop (w.state k q f fl x xl st)
+    | _ => .stop (w.state k q f fl x xl st)
   | (Mat j h m, hl) =>
     match resolve x xl with
     | (Lab i, _) =>
       if q.live then
         if i = j then .step ⟨.ev h hl, st⟩ else .step ⟨.ev m hl, .appVal q (Lab i) .nil true :: st⟩
-      else .stop
-    | _ => .stop
+      else .stop (w.state k q f fl x xl st)
+    | _ => .stop (w.state k q f fl x xl st)
   | _ =>
     match unspineL f fl [(q, x, xl, q.live)] with
-    | (Ref k, _, ys) =>
-      callMove bk tb k ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl q.live fl)
-    | _ => .stop
+    | (Ref c, _, ys) =>
+      callMove bk tb c ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl q.live fl)
+        (fun _ => w.state k q f fl x xl st)
+    | _ => .stop (w.state k q f fl x xl st)
+
+-- c when it is t, else t: t either way
+def pick (c t : Term) : Term := if c = t then c else t
+
+theorem pick_eq : pick c t = t := by
+  unfold pick; split <;> simp_all
+
+-- t, or its copy in byteTable when t is a byte (src/Shared/Bytes.lean): each
+-- pair that the machine builds is shared
+def share (t : Term) : Term :=
+  match unbits 8 t with
+  | some v => if h : v < 256 then pick (byteTable[v]'(by rw [byteTable_size]; exact h)) t else t
+  | none => t
+
+theorem share_eq : share t = t := by
+  unfold share
+  split
+  · split
+    · exact pick_eq
+    · rfl
+  · rfl
 
 def move (bk : Book) (tb : Ops.Table) : State → Move
   | ⟨.ev t l, st⟩ =>
@@ -245,8 +287,8 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
       match l.get? i with
       | some (x, xl, true) => .admin ⟨.ret x xl, st⟩
       | some (x, xl, false) => .admin ⟨.ev x xl, st⟩
-      | none => .stop
-    | Ref k => callMove bk tb k [] st (Ref k) .nil
+      | none => .stop ⟨.ev (Var i) l, st⟩
+    | Ref k => callMove bk tb k [] st (Ref k) .nil (fun _ => ⟨.ev (Ref k) l, st⟩)
     | Ann x _ => .step ⟨.ev x l, st⟩
     | App q f x => .admin ⟨.ev f l, .appArg q x l :: st⟩
     | Let q v f =>
@@ -263,59 +305,30 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
     | Efq => .admin ⟨.ret Efq .nil, st⟩
     | Enu ks => .admin ⟨.ret (Enu ks) .nil, st⟩
     | t => .admin ⟨.ret t l, st⟩
-  | ⟨.ret _ _, []⟩ => .stop
+  | ⟨.ret v vl, []⟩ => .stop ⟨.ret v vl, []⟩
   | ⟨.ret v vl, f :: st⟩ =>
     match f with
     | .appArg q x l =>
-      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk tb q v vl x l st
+      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk tb q v vl x l st .arg false
     | .appVal q x l k =>
-      if q.live && !k then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk tb q v vl x l st
-    | .appFun q g gl => appMove bk tb q g gl v vl st
-    | .letIn q f l => if q != Q2 || dataAt v vl then .step ⟨.ev f (.cons v vl true l), st⟩ else .stop
+      if q.live && !k then .admin ⟨.ev x l, .appFun q v vl :: st⟩
+      else appMove bk tb q v vl x l st .val k
+    | .appFun q g gl => appMove bk tb q g gl v vl st .fun false
+    | .letIn q f l =>
+      if q != Q2 || dataAt v vl then .step ⟨.ev f (.cons v vl true l), st⟩
+      else .stop ⟨.ret v vl, .letIn q f l :: st⟩
     | .tupB q b l => .admin ⟨.ev b l, .tupA q v vl :: st⟩
-    | .tupA q a al => .admin ⟨.ret (Tup q (close a al) (close v vl)) .nil, st⟩
-    | .rwt _ f l => if (resolve v vl).1 = Rfl then .step ⟨.ev f l, st⟩ else .stop
+    | .tupA q a al => .admin ⟨.ret (share (Tup q (close a al) (close v vl))) .nil, st⟩
+    | .rwt P f l =>
+      if (resolve v vl).1 = Rfl then .step ⟨.ev f l, st⟩ else .stop ⟨.ret v vl, .rwt P f l :: st⟩
     | .minB b l =>
       .admin ⟨.ev b l, .minA (match resolve v vl with | (Lab i, _) => Lab i | _ => close v vl) :: st⟩
     | .minA a =>
       match a, (resolve v vl).1 with
       | Lab i, Lab j =>
-        if i ∈ QS ∧ j ∈ QS then .step ⟨.ev (Term.qmin (Lab i) (Lab j)) .nil, st⟩ else .stop
-      | _, _ => .stop
-
--- c when it is t, else t: t either way
-def pick (c t : Term) : Term := if c = t then c else t
-
-theorem pick_eq : pick c t = t := by
-  unfold pick; split <;> simp_all
-
--- t, or its copy in byteTable when t is a byte (src/Shared/Bytes.lean)
-def share (t : Term) : Term :=
-  match unbits 8 t with
-  | some v => if h : v < 256 then pick (byteTable[v]'(by rw [byteTable_size]; exact h)) t else t
-  | none => t
-
-theorem share_eq : share t = t := by
-  unfold share
-  split
-  · split
-    · exact pick_eq
-    · rfl
-  · rfl
-
--- move, with each pair that it builds shared: compiled code, and so run, calls
--- it for move
-def moveS (bk : Book) (tb : Ops.Table) (s : State) : Move :=
-  match s with
-  | ⟨.ret v vl, .tupA q a al :: st⟩ => .admin ⟨.ret (share (Tup q (close a al) (close v vl))) .nil, st⟩
-  | s => move bk tb s
-
-@[csimp] theorem move_moveS : @move = @moveS := by
-  funext bk tb s
-  unfold moveS
-  split
-  · rw [share_eq]; rfl
-  · rfl
+        if i ∈ QS ∧ j ∈ QS then .step ⟨.ev (Term.qmin (Lab i) (Lab j)) .nil, st⟩
+        else .stop ⟨.ret v vl, .minA a :: st⟩
+      | _, _ => .stop ⟨.ret v vl, .minA a :: st⟩
 
 -- the moves that a run makes before stepwise takes over: far more than a run
 -- can make in practice
@@ -325,14 +338,12 @@ def gas : Nat := 2 ^ 60
 -- steps in all; tb is the book's table of Ops (Ops.prepare)
 def run (bk : Book) (tb : Ops.Table) : Nat → Nat → State → Nat → Term × Nat
   | 0, fuel, s, n => stepwise bk fuel s.term n
-  | gas + 1, fuel, s, n =>
+  | _ + 1, 0, s, n => (s.term, n)
+  | gas + 1, fuel + 1, s, n =>
     match move bk tb s with
-    | .admin s' => run bk tb gas fuel s' n
-    | .step s' =>
-      match fuel with
-      | 0 => (s.term, n)
-      | fuel + 1 => run bk tb gas fuel s' (n + 1)
-    | .jump k s' => if k ≤ fuel then run bk tb gas (fuel - k) s' (n + k) else (s.term, n)
-    | .stop => stepwise bk fuel s.term n
+    | .admin s' => run bk tb gas (fuel + 1) s' n
+    | .step s' => run bk tb gas fuel s' (n + 1)
+    | .jump k s' s => if k ≤ fuel + 1 then run bk tb gas (fuel + 1 - k) s' (n + k) else (s.term, n)
+    | .stop s => stepwise bk (fuel + 1) s.term n
 
 end Machine

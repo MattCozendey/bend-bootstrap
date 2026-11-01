@@ -37,29 +37,32 @@ theorem run_sound (htb : tb = Ops.prepare bk) (hs : s.Ok bk) :
   | zero => intro h; exact stepwise_sound h
   | succ g ih =>
     intro h
-    simp only [run] at h
-    split at h
-    · rename_i s' hm
-      obtain ⟨hs', he⟩ := move_admin hs hm
-      rw [← he]; exact ih hs' h
-    · rename_i s' hm
-      obtain ⟨hs', he⟩ := move_step hs hm
+    cases fuel with
+    | zero =>
+      simp only [run, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨0, rfl, .refl, Nat.le_refl _⟩
+    | succ fuel =>
+      simp only [run] at h
       split at h
-      · simp only [Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        exact ⟨0, rfl, .refl, Nat.le_refl _⟩
-      · rename_i fuel
+      · rename_i s' hm
+        obtain ⟨hs', he⟩ := move_admin hs hm
+        rw [← he]; exact ih hs' h
+      · rename_i s' hm
+        obtain ⟨hs', he⟩ := move_step hs hm
         obtain ⟨k, rfl, hk, hle⟩ := ih hs' h
         exact ⟨k + 1, by omega, .step he hk, by omega⟩
-    · rename_i j s' hm
-      obtain ⟨hs', he⟩ := move_jump htb hs hm
-      split at h
-      · obtain ⟨k, rfl, hk, hle⟩ := ih hs' h
-        exact ⟨j + k, by omega, he.trans hk, by omega⟩
-      · simp only [Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        exact ⟨0, rfl, .refl, Nat.zero_le _⟩
-    · exact stepwise_sound h
+      · rename_i j s' f hm
+        obtain ⟨hs', he, rfl⟩ := move_jump htb hs hm
+        split at h
+        · obtain ⟨k, rfl, hk, hle⟩ := ih hs' h
+          exact ⟨j + k, by omega, he.trans hk, by omega⟩
+        · simp only [Prod.mk.injEq] at h
+          obtain ⟨rfl, rfl⟩ := h
+          exact ⟨0, rfl, .refl, Nat.zero_le _⟩
+      · rename_i s' hm
+        obtain rfl := move_stop hm
+        exact stepwise_sound h
 
 -- a run reaches each value that Eval reaches within its fuel, after as many steps
 theorem run_complete (htb : tb = Ops.prepare bk) (hs : s.Ok bk) :
@@ -68,30 +71,34 @@ theorem run_complete (htb : tb = Ops.prepare bk) (hs : s.Ok bk) :
   induction g generalizing fuel s m n with
   | zero => exact stepwise_complete hst hv hn
   | succ g ih =>
-    simp only [run]
-    split
-    · rename_i s' hm
-      obtain ⟨hs', he⟩ := move_admin hs hm
-      exact ih hs' (he ▸ hst) hn
-    · rename_i s' hm
-      obtain ⟨hs', he⟩ := move_step hs hm
-      cases hst with
-      | refl => exact (eval_value he hv).elim
-      | step h1 hr =>
-        rename_i n' w
-        have hw := eval_det h1 he
-        subst hw
-        cases fuel with
-        | zero => omega
-        | succ fuel =>
-          simp only
+    cases fuel with
+    | zero =>
+      obtain rfl : n = 0 := by omega
+      cases hst
+      simp [run]
+    | succ fuel =>
+      simp only [run]
+      split
+      · rename_i s' hm
+        obtain ⟨hs', he⟩ := move_admin hs hm
+        exact ih hs' (he ▸ hst) hn
+      · rename_i s' hm
+        obtain ⟨hs', he⟩ := move_step hs hm
+        cases hst with
+        | refl => exact (eval_value he hv).elim
+        | step h1 hr =>
+          rename_i n' w
+          have hw := eval_det h1 he
+          subst hw
           rw [ih hs' hr (by omega)]
           congr 1; omega
-    · rename_i j s' hm
-      obtain ⟨hs', he⟩ := move_jump htb hs hm
-      obtain ⟨hj, hr⟩ := steps_prefix he hst hv
-      rw [if_pos (by omega), ih hs' hr (by omega)]
-      congr 1; omega
-    · exact stepwise_complete hst hv hn
+      · rename_i j s' f hm
+        obtain ⟨hs', he, rfl⟩ := move_jump htb hs hm
+        obtain ⟨hj, hr⟩ := steps_prefix he hst hv
+        rw [if_pos (by omega), ih hs' hr (by omega)]
+        congr 1; omega
+      · rename_i s' hm
+        obtain rfl := move_stop hm
+        exact stepwise_complete hst hv hn
 
 end Machine

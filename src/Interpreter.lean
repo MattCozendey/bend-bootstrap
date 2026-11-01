@@ -2,7 +2,6 @@ import Interpreter.Generated.Ops
 import Interpreter.Machine
 import Interpreter.Machine.App
 import Interpreter.Machine.Basic
-import Interpreter.Machine.Fast
 import Interpreter.Machine.Loop
 import Interpreter.Machine.Move
 import Interpreter.Machine.Walk
