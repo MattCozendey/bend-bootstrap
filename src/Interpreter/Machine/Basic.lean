@@ -80,8 +80,7 @@ def CallOk (bk : Book) (k : String) (t : Term) (tl : Locals) (rxs : List MArg) :
 
 -- what a frame knows is true
 def Frame.Ok (bk : Book) : Frame → Prop
-  | .appArg _ _ l => l.Ok bk
-  | .appVal a => argOk bk a
+  | .appArg a => argOk bk a
   | .appFun q f l => q.live = true ∧ Value bk (close f l) ∧ l.Ok bk
   | .letIn q _ l => q.live = true ∧ l.Ok bk
   | .tupB q _ l => q.live = true ∧ l.Ok bk
@@ -392,7 +391,6 @@ theorem Eval.plugs (hs : ∀ f ∈ st, f.Ok bk) (h : Eval bk t u) : Eval bk (plu
     apply ih (fun g hg => hs g (by simp [hg]))
     cases f <;> simp only [Frame.Ok] at hf <;> simp only [Frame.plug]
     case appArg => exact .app_f h
-    case appVal => exact .app_f h
     case appFun => exact .app_x hf.2.1 hf.1 h
     case letIn => exact .lett hf.1 h
     case tupB => exact .tup_a hf.1 h
@@ -449,7 +447,7 @@ theorem appArgs_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) : ∀ f ∈ appA
     obtain ⟨q, y⟩ := y
     intro f m
     rcases List.mem_cons.1 m with rfl | m
-    · exact hl
+    · exact ⟨hl, trivial⟩
     · exact ih f m
 
 -- the call so far, with one more argument

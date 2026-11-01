@@ -166,8 +166,9 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
       simp only [Focus.term, close_eq, Term.sub]
       exact .ann
     case App q f x =>
-      have hpush : (Move.admin ⟨.ev f l, .appArg q x l :: st⟩).Ok bk (State.term ⟨.ev (App q f x) l, st⟩) :=
-        ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
+      have hpush : (Move.admin ⟨.ev f l, .appArg ⟨q, x, l, .none⟩ :: st⟩).Ok bk
+          (State.term ⟨.ev (App q f x) l, st⟩) :=
+        ⟨⟨hf, List.forall_mem_cons.2 ⟨⟨hf, trivial⟩, hst⟩⟩, by
           simp only [State.term, Focus.term, close_app, plugs, List.foldl, Frame.plug]⟩
       simp only [evMove]
       split
@@ -210,14 +211,8 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
       have hg := hst g List.mem_cons_self
       have hs := fun g' h => hst g' (List.mem_cons_of_mem g h)
       clear hst
-      cases g <;> simp only [Frame.Ok] at hg <;> simp only [move, retMove]
-      case appArg q x l =>
-        split
-        · rename_i hq
-          exact ⟨⟨hg, List.forall_mem_cons.2 ⟨⟨hq, hf.1, hf.2.1⟩, hs⟩⟩, rfl⟩
-        · rename_i hq
-          exact appMove_ok (a := ⟨q, x, l, .none⟩) htb hf.1 hf.2.1 ⟨hg, trivial⟩ (fun h => absurd h hq) hs rfl
-      case appVal a =>
+      cases g <;> simp only [Frame.Ok] at hg <;> simp only [move, retMove, meetMove]
+      case appArg a =>
         split
         · rename_i hq
           simp only [Bool.and_eq_true, Bool.not_eq_true'] at hq
@@ -231,6 +226,7 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
       case letIn q f l =>
         split
         · rename_i hq
+          simp only [letTakes] at hq
           have hd : q = Q2 → Data (close v vl) := fun e => by
             subst e
             simp only [bne_self_eq_false, Bool.false_or, Bool.or_eq_true] at hq

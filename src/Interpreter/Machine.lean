@@ -260,10 +260,8 @@ def argAt (l : Locals) : Arg → Arg
 
 -- a term with a hole, around the focus
 inductive Frame where
-  -- App q □ x, with x under l
-  | appArg (q : Quan) (x : Term) (l : Locals)
   -- App a.q □ a.t, with the argument a under its locals
-  | appVal (a : MArg)
+  | appArg (a : MArg)
   -- App q f □, with f under l a value
   | appFun (q : Quan) (f : Term) (l : Locals)
   -- Let q □ f, with f under l
@@ -285,8 +283,7 @@ inductive Frame where
 
 -- the frame, with t in its hole
 def Frame.plug : Frame → Term → Term
-  | .appArg q x l, t => App q t (close x l)
-  | .appVal a, t => App a.q t (close a.t a.l)
+  | .appArg a, t => App a.q t (close a.t a.l)
   | .appFun q f l, t => App q (close f l) t
   | .letIn q f l, t => Let q t (sub (Subst.up (subst l)) f)
   | .tupB q b l, t => Tup q t (close b l)
@@ -330,7 +327,7 @@ inductive Move where
   | stop (from_ : State)
 
 -- the frames of a spine's arguments, the innermost first
-def argFrames (ys : List MArg) : List Frame := ys.map .appVal
+def argFrames (ys : List MArg) : List Frame := ys.map .appArg
 
 -- the call of k on xs, when the table tb of Ops has k: its value and its steps
 def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat) :=
@@ -370,14 +367,14 @@ def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat
   | (Prj h, hl) =>
     match resolve a.t a.l with
     | (Tup r x y, xl) =>
-      if a.q.live then .step ⟨.ev h hl, .appVal ⟨Quan.fld r a.q, x, xl, a.k.fst r⟩ :: .appVal ⟨a.q, y, xl, a.k⟩ :: st⟩
+      if a.q.live then .step ⟨.ev h hl, .appArg ⟨Quan.fld r a.q, x, xl, a.k.fst r⟩ :: .appArg ⟨a.q, y, xl, a.k⟩ :: st⟩
       else .stop (from_ ())
     | _ => .stop (from_ ())
   | (Mat j h m, hl) =>
     match resolve a.t a.l with
     | (Lab i, _) =>
       if a.q.live then
-        if i = j then .step ⟨.ev h hl, st⟩ else .step ⟨.ev m hl, .appVal ⟨a.q, Lab i, .nil, .data⟩ :: st⟩
+        if i = j then .step ⟨.ev h hl, st⟩ else .step ⟨.ev m hl, .appArg ⟨a.q, Lab i, .nil, .data⟩ :: st⟩
       else .stop (from_ ())
     | _ => .stop (from_ ())
   | _ =>
@@ -448,7 +445,7 @@ def evTup (q : Quan) (a b : Term) (l : Locals) (st : List Frame) : Move :=
 -- the frames of the arguments ys under l, the first innermost, around st
 def appArgs (l : Locals) : List Arg → List Frame → List Frame
   | [], st => st
-  | (q, y) :: ys, st => .appArg q y l :: appArgs l ys st
+  | (q, y) :: ys, st => .appArg ⟨q, y, l, .none⟩ :: appArgs l ys st
 
 -- the argument y at q under l, when it can go into a walk without a move: dead,
 -- or a value without a step
@@ -508,7 +505,7 @@ def go (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs :
   | App q f x =>
     match spineCall bk (App q f x) with
     | some (k, d, ys) => go bk tb k d.v .nil [] l st ys
-    | none => .admin ⟨.ev f l, .appArg q x l :: st⟩
+    | none => .admin ⟨.ev f l, .appArg ⟨q, x, l, .none⟩ :: st⟩
   | Let q v f =>
     if q.live then .admin ⟨.ev v l, .letIn q f l :: st⟩
     else .step ⟨.ev f (.cons v l .none l), st⟩
@@ -517,19 +514,30 @@ def go (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs :
   | Term.Min a b => .admin ⟨.ev a l, .minB b l :: st⟩
   | t => .stop ⟨.ev t l, st⟩
 
+-- a let of quantity q takes the value v under vl, known to be Data when d: Data,
+-- when q is 2
+@[inline] def letTakes (q : Quan) (v : Term) (vl : Locals) (d : Bool) : Bool :=
+  q != Q2 || d || dataAt v vl
+
+-- Min a v, with v under vl known to be Data when d, in the frames st: the meet
+-- of two labels of quantities
+@[inline] def meetMove (a v : Term) (vl : Locals) (d : Bool) (st : List Frame) : Move :=
+  match a, (resolve v vl).1 with
+  | Lab i, Lab j =>
+    if i ∈ QS ∧ j ∈ QS then .step ⟨.ev (Term.qmin (Lab i) (Lab j)) .nil, st⟩
+    else .stop ⟨.ret v vl d, .minA a :: st⟩
+  | _, _ => .stop ⟨.ret v vl d, .minA a :: st⟩
+
 -- the value v under vl, known to be Data when d, into the frame f around st
 @[inline] def retMove (bk : Book) (tb : Ops.Table) (v : Term) (vl : Locals) (d : Bool) (f : Frame)
     (st : List Frame) : Move :=
   match f with
-  | .appArg q x l =>
-    if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩
-    else appMove bk tb v vl ⟨q, x, l, .none⟩ st fun _ => ⟨.ret v vl d, .appArg q x l :: st⟩
-  | .appVal a =>
+  | .appArg a =>
     if a.q.live && !a.k.isValue then .admin ⟨.ev a.t a.l, .appFun a.q v vl :: st⟩
-    else appMove bk tb v vl a st fun _ => ⟨.ret v vl d, .appVal a :: st⟩
+    else appMove bk tb v vl a st fun _ => ⟨.ret v vl d, .appArg a :: st⟩
   | .appFun q g gl => appMove bk tb g gl ⟨q, v, vl, .ofData d⟩ st fun _ => ⟨.ret v vl d, .appFun q g gl :: st⟩
   | .letIn q f l =>
-    if q != Q2 || d || dataAt v vl then .step ⟨.ev f (.cons v vl ((Know.ofData d).bind q) l), st⟩
+    if letTakes q v vl d then .step ⟨.ev f (.cons v vl ((Know.ofData d).bind q) l), st⟩
     else .stop ⟨.ret v vl d, .letIn q f l :: st⟩
   | .tupB q b l => .admin (retTups v vl d (.tupB q b l :: st))
   | .tupA q a al da => .admin (retTups v vl d (.tupA q a al da :: st))
@@ -540,12 +548,7 @@ def go (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs :
   | .call k t tl rxs q ys l =>
     feed bk tb k t tl rxs ⟨q, v, vl, .ofData d⟩ ys l st fun u ul =>
       go bk tb k u ul (⟨q, v, vl, .ofData d⟩ :: rxs) l st ys
-  | .minA a =>
-    match a, (resolve v vl).1 with
-    | Lab i, Lab j =>
-      if i ∈ QS ∧ j ∈ QS then .step ⟨.ev (Term.qmin (Lab i) (Lab j)) .nil, st⟩
-      else .stop ⟨.ret v vl d, .minA a :: st⟩
-    | _, _ => .stop ⟨.ret v vl d, .minA a :: st⟩
+  | .minA a => meetMove a v vl d st
 
 def move (bk : Book) (tb : Ops.Table) : State → Move
   | ⟨.ev t l, st⟩ =>
