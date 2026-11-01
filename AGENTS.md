@@ -67,10 +67,10 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY (see 2.4.
 - **2.4.3** Since we are bootstrapping, the current UNTRUSTED TypeScript compiler and the Bend guide
   are only reference guides for ideas: don't assume things from them necessarily apply to us and our
   decisions. Section 3 reigns. Imports don't exist in the kernel: `bend -o` resolves the imports of
-  our `.bend` source into one flat Book (3.5.4), so our source may use them, and our compiler never
-  sees one (3.4.5). Don't use any bend linter (they assume untrusted code)
+  our `.bend` source into one flat Book (3.7.3), so our source may use them, and our compiler never
+  sees one (3.6.4). Don't use any bend linter (they assume untrusted code)
 - **2.4.4** The `bend` submodule is not our source, so it does not belong in `src/`: it stays at the
-  repo root, where 3.1.1 points (`bend/bend2/bendtt.lean`).
+  repo root, where 3.2.1 points (`bend/bend2/bendtt.lean`).
 
 ### 2.5 TypeScript
 
@@ -91,158 +91,202 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY (see 2.4.
 
 ## 3. Project
 
-### 3.1 Kernel
+### 3.1 In short
 
-- **3.1.1** Kernel: `bend/bend2/bendtt.lean`: Unchanged and the source of truth.
-- **3.1.2** Bend: the language that the kernel gives a meaning to. Its code is a Book, as the
-  kernel's `Book.parse` gives it. Its meaning is the kernel's `Eval`. Nothing more, nothing less.
-  `.bend` text is a way to write Bend, through `bend -o`.
+We build a compiler for Bend, written in Bend, that we can trust without trusting its code. The
+kernel says what every Bend program means. The compiler comes with laws: its output gives exactly
+what the kernel says the program gives. The kernel itself checks those laws (`--verdict`). Lean
+theorems connect the remaining pieces, so that the trust reaches the binary that runs on the PC.
 
-### 3.2 Our choices
+### 3.2 Words from the kernel
 
-The kernel says nothing about these; they are ours (some borrowed from the TypeScript compiler or
-`base.bend`).
+The kernel fixes these. We cannot change them.
 
-- **3.2.1** Program: a Book with a def named `main` (no `main`: fail). `main` takes a list of bytes
-  and gives a list of bytes, as values of these shapes (what `bend -o` gives for `base.bend`'s
-  `List<Word(8)>`):
-  - **3.2.1.1** list: `(.Nil, ())`, or `(.Con, (byte, (list, ())))`.
-  - **3.2.1.2** byte: 8 bits, lowest first: `(.WCon, (bit, (rest, ())))` 8 times, then `(.WNil,
-    ())`.
-  - **3.2.1.3** bit: `(.False, ())` is 0, `(.True, ())` is 1.
-- **3.2.2** Data form: how a kernel term or Book is written as a Bend value. Each term or Book has
-  exactly one data form (the data form is a Lean function, not a `partial def`), and no two share
-  one (a Lean theorem proves it). 3.4.2 and 3.4.5 compare Lean and Bend through it.
-- **3.2.3** Start term: a run of a program on an input starts at `(main input)`, that is `App Q1
-  (Ref "main") input`. Why: the kernel has no entry point.
-- **3.2.4** Term size: the size of a term is its number of nodes: each constructor of the kernel's
-  `Term` is one node; a name is one node. Why: `Eval` never makes a name; it only copies names from
-  the program, and the program's size (3.2.5) already counts each name's bytes.
-- **3.2.5** Program size: the size (3.2.4) of the program's data form (3.2.2). Why: the data form
-  writes each name as its bytes and each `Var` index as a unary number, so long names and huge
-  indices count; a plain node count misses both.
+- **3.2.1** Kernel: the file `bend/bend2/bendtt.lean`, at the commit that the `bend` submodule
+  pins. It is the only source of truth about Bend.
+- **3.2.2** Book: a list of defs. Each def has a name, a type and a body.
+- **3.2.3** Bend: the language that the kernel gives a meaning to. Its code is a Book, as the
+  kernel's `Book.parse` reads it from `.bendtt` text. Nothing more, nothing less: what the kernel
+  gives no meaning to (for example effects, or primitives with no body) is not Bend. We write Bend
+  as `.bend` text, which `bend -o` turns into `.bendtt` text.
+- **3.2.4** `Eval`: the kernel's rules for running a term, one step at a time. It is the meaning of
+  Bend. `Eval` does not check types: it runs any term until it reaches a value or gets stuck.
+- **3.2.5** `--verdict`: runs the kernel's checker on a Book. Only "ALL PROOFS CHECK" is an
+  acceptance. Anything else, a run out of fuel included, proves nothing.
 
-### 3.3 Goals
+### 3.3 Words we chose
 
-- **3.3.1** A PURE, SELF-HOSTING BEND COMPILER, WRITTEN IN BEND, THAT I CAN TRUST. GETTING THIS
-  RIGHT FROM THE START IS AN ABSOLUTE MUST.
-  - **3.3.1.1** INPUT: A BEND BOOK (3.1.2), ITS OWN BOOK INCLUDED.
-  - **3.3.1.2** PROMISE: THE COMPILED PROGRAM GIVES WHAT `Eval` GIVES (3.4.1).
-  - **3.3.1.3** PROOF: `--verdict` PROVES THE PROMISE ABOUT THE COMPILER'S OWN BOOK.
-  - **3.3.1.4** RUNNING IT: THE TRUST REACHES THE BINARY THAT RUNS ON THE PC. WE ACCEPT SLOWNESS, OR
-    A BEND INTERPRETER-OR-COMPILER WRITTEN IN LEAN, ALONG THE WAY.
-- **3.3.2** IT CAN GROW: I CAN ADD OPTIMIZATIONS, FEATURES BEYOND BEND, NEW INTERNAL REPRESENTATIONS
-  OR NEW TARGETS. THE LAW FOR BEND (3.4.1 AND 3.4.4) STAYS EXACTLY AS IT IS AND MUST STILL PASS
-  `--verdict`. SO OUR COMPILER ALWAYS STAYS A PROVEN BEND COMPILER.
-- **3.3.3** TARGETS: OUR LAWS HOLD FOR ANY TARGET WHOSE MEANING IS WRITTEN IN BEND. 3.8 LISTS THEM.
+The kernel says nothing about these. Each says why we chose it. Some are borrowed from the
+TypeScript compiler or from `base.bend`.
 
-### 3.4 Invariants
+- **3.3.1** Bytes: a list of bytes is a value of these shapes (the shapes that `bend -o` gives for
+  `base.bend`'s `List<Word(8)>`):
+  - **3.3.1.1** list: `(.Nil, ())`, or `(.Con, (byte, (list, ())))`.
+  - **3.3.1.2** byte: 8 bits, lowest first: `(.WCon, (bit, (rest, ())))` 8 times, then
+    `(.WNil, ())`.
+  - **3.3.1.3** bit: `(.False, ())` is 0, `(.True, ())` is 1.
+- **3.3.2** Program: a Book with a def named `main`. A Book without `main` does not compile.
+- **3.3.3** Run: a run of a program on an input (a list of bytes) is what `Eval` does from the start
+  term `(main input)`, that is `App Q1 (Ref "main") input`. Why: the kernel has no entry point.
+- **3.3.4** Result: if the run reaches a value that is a list of bytes, that list is the result.
+  Any other end (a different value, a stuck term, a run that never ends) is "no result".
+- **3.3.5** Data form: how a kernel term or Book is written as a Bend value, so that Bend code can
+  work on it. It is a Lean function (not a `partial def`), so each term or Book has exactly one data
+  form; 3.6.2 proves that no two share one.
+- **3.3.6** Bend version of X: a Bend function that does what X does, where X is written in another
+  language (for example `Eval`, or a target's meaning). Each one comes with a Lean theorem that it
+  agrees with X.
+- **3.3.7** Term size: the number of nodes of a term. Each constructor of the kernel's `Term` is one
+  node; a name is one node. Why: `Eval` never makes a name, it only copies names from the program,
+  and the program size (3.3.8) already counts each name's bytes.
+- **3.3.8** Program size: the term size of the program's data form. Why: the data form writes each
+  name as its bytes and each `Var` index as a unary number, so long names and huge indices count. A
+  plain node count misses both.
+- **3.3.9** Target: a machine language that we compile to, such as WASM. Its meaning is written as
+  a Bend version (3.3.6). 3.9 lists the targets.
+- **3.3.10** Memory formula F: the number of bytes that a target promises is enough for a run. Each
+  target fixes its own F (3.9). F may only use the program size, the term size of the largest term
+  of the run (the input is in the first term), and the number of steps of the run. The compiler
+  cannot change any of these.
 
-- **3.4.1** FOR EVERY PROGRAM, NOT ONLY THE ONES THAT THE KERNEL ACCEPTS (SO WE NEED NO BEND VERSION
-  OF THE CHECKER): IF THE COMPILED PROGRAM, RUN BY ITS TARGET'S MEANING (ITS BEND VERSION: 3.8),
-  GIVES A RESULT, IT IS THE RESULT THAT `Eval` GIVES (`Eval` GIVES AT MOST ONE RESULT, AFTER ONE
-  NUMBER OF STEPS: A LEAN THEOREM PROVES IT). IF `Eval` GIVES A RESULT, THE COMPILED PROGRAM GIVES
-  IT OR RUNS OUT OF MEMORY; WITH ENOUGH MEMORY (3.4.4), IT ALWAYS GIVES IT. SO OUR COMPILER DOES NOT
-  CHECK TYPES: A PROGRAM THAT THE KERNEL REJECTS MAY RUN FOREVER OR GET STUCK, AND ITS OWN LAWS HOLD
-  ONLY AFTER `--verdict` ACCEPTS IT.
-- **3.4.2** THE BEND VERSION OF `Eval`, WHICH THE LAWS OF 3.7.4 USE, GIVES WHAT THE REAL ONE GIVES
-  (EACH TERM AS ITS DATA FORM: 3.2.2), AFTER THE SAME NUMBER OF STEPS, IN BOTH DIRECTIONS (NO EXTRA
-  RESULT, NO MISSING RESULT). A LEAN THEOREM PROVES IT.
-- **3.4.3** A RUN OF A PROGRAM (3.2.1) STARTS AT ITS START TERM (3.2.3). THE LIST OF BYTES THAT IT
-  GIVES IS ITS RESULT, AND 3.4.1 HOLDS FOR EVERY INPUT. IF `Eval`'S FINAL VALUE IS NOT A LIST OF
-  BYTES, BOTH SIDES COUNT AS "NO RESULT".
-- **3.4.4** "ENOUGH MEMORY": EACH TARGET'S LAW FIXES A FORMULA F OF MEASURES THAT THE COMPILER CAN'T
-  CHANGE: THE PROGRAM'S SIZE (3.2.5), THE SIZE (3.2.4) OF THE LARGEST TERM THAT `Eval` REACHES
-  BEFORE IT GIVES THE RESULT (THE INPUT IS IN THE FIRST TERM), AND THE NUMBER OF STEPS. WITH AT
-  LEAST F BYTES, THE COMPILED PROGRAM GIVES THE RESULT. THE COMPILER CAN'T CHOOSE F. A TARGET MAY
-  ADD A STRONGER F LATER, NEXT TO ITS FIRST ONE. WHEN F IS MORE THAN THE TARGET CAN HAVE, THE LAW
-  PROMISES NOTHING FOR THAT RUN.
-- **3.4.5** OUR COMPILER DOES NOT READ .bendtt TEXT. ITS INPUT IS THE BOOK THAT THE KERNEL'S OWN
-  PARSER (`Book.parse`) GIVES FOR THAT TEXT, WRITTEN AS A LIST OF BYTES (3.2.1) BY THE LEAN WRITER
-  (NOT A `partial def`). FOR EVERY BOOK, THE BEND READER, WHICH THE LAWS OF 3.7.4 USE, GIVES BACK
-  EXACTLY THAT BOOK'S DATA FORM (3.2.2) FROM THE BYTES THAT THE LEAN WRITER WRITES FOR IT. A LEAN
-  THEOREM PROVES IT.
+### 3.4 Goals
 
-### 3.5 Trusted
+- **3.4.1** A pure, self-hosting Bend compiler, written in Bend, that we can trust. Getting this
+  right from the start is a must.
+  - **3.4.1.1** Input: any Program (3.3.2), the compiler's own Book included.
+  - **3.4.1.2** Promise: the laws (3.6) hold, and `--verdict` proves them about the compiler's own
+    Book.
+  - **3.4.1.3** Running it: the trust reaches the binary that runs on the PC. We accept slowness, or
+    a Bend interpreter or compiler written in Lean, on the way there.
+  - **3.4.1.4** Self-hosting fits: on each target, the compiler compiling itself needs no more than
+    the target can have (its F is below the target's limit).
+- **3.4.2** It can grow. We can add optimizations, features beyond Bend, new internal
+  representations and new targets. The laws stay exactly as they are and must still pass
+  `--verdict`. A target may add a stronger F later, next to its first one. So the compiler always
+  stays a proven Bend compiler.
 
-- **3.5.1** Lean itself.
-- **3.5.2** The LEAN-VALIDATED, PROVEN-SOUND kernel (3.1.1) is the definition of Bend. What it says
-  a program computes IS what the program actually computes. IT IS FIXED: WE CANNOT TOUCH IT IN ANY
-  WAY WHATSOEVER.
-- **3.5.3** From 3.5.2 follows that every proof in a Bend program that `--verdict` accepts is true
-  (`--verdict` runs the kernel).
-- **3.5.4** The .bendtt text produced from a .bend file via `bend -o` means what said .bend file
-  says. This is a named exception to 3.6.1, only so that the laws we read in `.bend` are the laws
-  that `--verdict` proves.
-- **3.5.5** What each target's entry in 3.8 trusts.
+### 3.5 The trust chain
 
-### 3.6 Untrusted
+How a `.bend` file becomes a trusted binary. Each link is either trusted (3.7) or proven.
 
-- **3.6.1** The current Bend compiler written in TypeScript.
-- **3.6.2** A checker result without --verdict.
-- **3.6.3** OUR OWN BOOTSTRAP CODE UNTIL IT'S SOMEHOW PROOF-VALIDATED.
+1. Our `.bend` source becomes `.bendtt` text through `bend -o`. Trusted: 3.7.3.
+2. The kernel reads that text as a Book (`Book.parse`) and checks it (`--verdict`). Trusted:
+   3.7.2.
+3. The Lean writer writes the Book as a list of bytes; the Bend reader reads it back as the Book's
+   data form. Proven: 3.6.4.
+4. The compiler turns the data form into the target's bytes. Proven: the laws (3.6), through the
+   Bend version of `Eval` (3.6.3) and of the target's meaning (3.9).
+5. The Lean interpreter runs the compiler. Proven: 3.6.5, and joined to the laws by 3.6.6.
+6. The interpreter compiles the compiler itself; that binary becomes our compiler (3.8.7).
+7. A real engine runs the binary. Trusted: the target's entry in 3.9.
 
-### 3.7 Steps
+### 3.6 Laws and theorems
 
-- **3.7.1** We must write the BEND VERSION of `Eval` and the LEAN PROOF of 3.4.2. This is because
-  Bend can't use Lean's `Eval`, so 3.7.4 can only state its laws through a version. Without this
-  proof, a wrong version makes 3.7.4 prove the wrong thing.
-- **3.7.2** We must write the LEAN WRITER, the BEND READER and the LEAN PROOF of 3.4.5. This is
-  because the kernel's parser is made of `partial def`s, so no Lean theorem can say what it returns,
-  and the kernel is fixed (3.5.2): a Bend version of the parser could never be proven to read a text
-  as the kernel does. Without this proof, our compiler could compile a different book than the one
-  the kernel read.
-- **3.7.3** For each target, we must write the BEND VERSION OF ITS MEANING (3.8), so that the laws
-  of 3.7.4 can say what a compiled program gives. This is because the target's spec is not written
-  in Bend.
-- **3.7.4** We must write >OUR OWN< compiler and BEND LAWS IN BEND'S SYNTAX about it, so that
-  `--verdict` proves that it is correct by the rules of `Eval`. This is because our compiler is Bend
-  code, and a Bend proof can talk about it directly (a Lean proof could only reason about it from
-  the outside).
-- **3.7.5** We must write a BEND INTERPRETER IN LEAN, with a Lean proof that it gives what `Eval`
-  gives, so that we have a trusted way to RUN >OUR OWN< compiler (it runs any Bend program, ours
-  included). This is because `Eval` is a list of rules, not a program (it can't run anything), we
-  don't trust the current compiler, and our compiler can't run itself before it is compiled. It
-  needs no earlier step.
-- **3.7.6** We must write a LEAN PROOF THAT JOINS 3.7.4 AND 3.7.5: when the interpreter runs >OUR
-  OWN< compiler, the bytes it writes follow the laws of 3.7.4 (it works for any Bend program and its
-  laws, ours included). This is because 3.7.4 only says that the compiler is correct by the rules of
-  `Eval`, and 3.7.5 only says that the interpreter follows `Eval`. Without this proof, nothing says
-  that the laws hold for what actually runs on the PC.
-- **3.7.7** SELF-HOSTING: the interpreter (3.7.5) runs >OUR OWN< compiler on its own Book, and the
-  binary that it writes becomes our compiler. This is because 3.3.1 asks for a self-hosting compiler
-  whose trust reaches the binary that runs on the PC (3.3.1.4): by 3.7.6 and 3.4.1, that binary
-  gives what our compiler gives by `Eval`, so from then on it compiles any Bend program, itself
-  included, without the interpreter.
-- **3.7.8** For each target, we must do the steps that its entry in 3.8 lists.
+The laws are written in Bend, and `--verdict` proves them. They hold for every program, not only
+for the ones that the kernel accepts. So the compiler needs no Bend version of the kernel's checker,
+and it does not check types: a program that the kernel rejects may run forever or get stuck, as it
+does with `Eval`. A program's own laws hold only after `--verdict` accepts that program.
 
-### 3.8 Targets
+- **3.6.1** The laws. In each, the compiled program runs by its target's Bend version, and `Eval`
+  runs through its Bend version (3.6.3). By 3.6.7, `Eval` gives at most one result.
+  - **3.6.1.1** `no_wrong_result`: if the compiled program gives a result, it is the result that
+    `Eval` gives.
+  - **3.6.1.2** `no_other_failure`: if `Eval` gives a result, the compiled program gives it, or runs
+    out of memory.
+  - **3.6.1.3** `enough_memory`: if `Eval` gives a result and the compiled program has at least F
+    bytes of memory (3.3.10), it gives that result. When F is more than the target can have, this
+    law promises nothing for that run.
 
-Everything in a target's entry is ours.
+The theorems are written in Lean, because only Lean can see the kernel's `Eval` and its parser.
 
-- **3.8.1** WASM (WEBASSEMBLY):
-  - **3.8.1.1** WHY: IT IS SMALL AND HAS AN OFFICIAL FORMAL SPEC. NATIVE MACHINE CODE HAS NO COMPACT
-    FORMAL SPEC, AND C'S MEANING IS HUGE AND FULL OF UNDEFINED BEHAVIOR.
-  - **3.8.1.2** MEANING: Our Bend version of WASM's meaning: only the part of WASM that our compiler
-    uses, its binary format included.
-  - **3.8.1.3** TRUSTED: A WASM engine follows the WASM spec. Our Bend version of WASM's meaning is
-    reviewed against the WASM spec and tested with the spec's official test suite. It is not proven,
-    because we know of no Lean or Bend version of the spec. This is a named exception to 3.6.3.
-  - **3.8.1.4** MEMORY (3.4.4): F = 64 × (THE PROGRAM'S SIZE + THE SIZE OF THE LARGEST TERM (3.4.4))
-    + 2^24 BYTES. THE COMPILED CODE MUST REUSE MEMORY: IT FREES EVERY CELL THAT CAN NO LONGER BE
-    REACHED. ONLY THE PROGRAM'S IMAGE AND THE INPUT'S BYTE CACHE (AT MOST 6144 CELLS) ARE NEVER
-    FREED. EACH NAME IS STORED ONCE; A COPY OF A TERM REFERS TO IT, SO COPIES DON'T REPEAT A NAME'S
-    BYTES. THE TARGET CAN HAVE AT MOST 4 GiB (32-BIT ADDRESSES).
-  - **3.8.1.5** STACK: THE COMPILED CODE KEEPS ITS STACK IN WASM MEMORY, NOT ON THE ENGINE'S CALL
-    STACK. THE WASM SPEC LETS AN ENGINE STOP A PROGRAM WHEN THE ENGINE'S CALL STACK RUNS OUT, SO
-    MEMORY MUST BE THE ONLY RESOURCE LIMIT (3.4.4).
-  - **3.8.1.6** STEP: We must write a LEAN VERSION OF THE OFFICIAL WASM SEMANTICS of the subset that
-    our compiler uses, TRANSLATED BY A PROGRAM FROM THE SPEC'S OWN FORMAL SOURCE (SpecTec), and a
-    LEAN PROOF that our Bend version of WASM gives what it gives. This is because our Bend version
-    is only reviewed and tested (3.8.1.3). With this proof we trust the spec's SpecTec source and
-    the translator instead. The official tests stay, for historical reasons.
+- **3.6.2** Data form: no two terms or Books share a data form. Why: the compiler only sees data
+  forms. If two programs shared one, the compiler would treat them the same, while `Eval` could
+  treat them differently.
+- **3.6.3** Bend version of `Eval`: it gives what `Eval` gives, after the same number of steps, in
+  both directions (no extra result, no missing result), each term as its data form. Why: Bend
+  cannot see Lean's `Eval`, so the laws can only speak about it through a Bend version. A wrong
+  version would make `--verdict` prove the wrong thing.
+- **3.6.4** Reader: for every Book, the Bend reader gives back exactly the Book's data form from
+  the bytes that the Lean writer writes for it. Why: the compiler does not read `.bendtt` text. The
+  kernel's parser is made of `partial def`s, so no theorem can say what it returns, and a Bend
+  version of it could never be proven to read text as the kernel does. Without this theorem, the
+  compiler could compile a different Book than the one the kernel read.
+- **3.6.5** Interpreter: the Lean interpreter gives what `Eval` gives. Why: `Eval` is a list of
+  rules, not a program, so it cannot run anything; we do not trust the TypeScript compiler; and our
+  compiler cannot run itself before it is compiled.
+- **3.6.6** Joining: when the interpreter runs our compiler, the bytes that it writes follow the
+  laws. Why: the laws only speak about the compiler by the rules of `Eval`, and 3.6.5 only speaks
+  about the interpreter. Without this theorem, nothing says that the laws hold for what really runs.
+- **3.6.7** One result: a run of `Eval` reaches at most one value, after one number of steps. Why:
+  the laws speak of "the result" of a run.
 
-### 3.9 Notes
+### 3.7 What we trust
 
-- **3.9.1** EFFECTS LATER: MODEL THEM AS PURE DATA (`main` GIVES REQUESTS, A HOST ANSWERS), SO
-  `Eval` STILL GIVES THEM A MEANING.
+Everything not listed here is untrusted until it is proven. For example: the TypeScript compiler, a
+checker result without `--verdict`, and all of our own code.
+
+- **3.7.1** Lean.
+- **3.7.2** The kernel (3.2.1). It is proven sound in Lean: what it says a program computes is what
+  the program computes. It is fixed: we never touch it. So every proof that `--verdict` accepts is
+  true.
+- **3.7.3** `bend -o`: the `.bendtt` text that it writes means what the `.bend` file says. This is
+  the only trust we give the TypeScript compiler, and only so that the laws we read in `.bend` are
+  the laws that `--verdict` proves.
+- **3.7.4** Whatever each target's entry in 3.9 trusts.
+
+### 3.8 Steps
+
+In order. Each step says what to write and what to prove.
+
+- **3.8.1** The Bend version of `Eval`, and its theorem (3.6.3).
+- **3.8.2** The Lean writer and the Bend reader, and their theorem (3.6.4).
+- **3.8.3** For each target, the Bend version of its meaning (3.9).
+- **3.8.4** The compiler, and its laws (3.6.1), proven by `--verdict`. The laws are in Bend because
+  the compiler is Bend code: a Bend proof speaks about it directly, while a Lean proof could only
+  speak about it from the outside.
+- **3.8.5** The Lean interpreter, and its theorem (3.6.5). It needs no earlier step.
+- **3.8.6** The joining theorem (3.6.6).
+- **3.8.7** Self-hosting: the interpreter runs the compiler on the compiler's own Book, and the
+  binary that it writes becomes our compiler. By 3.6.6 and the laws, that binary gives what our
+  compiler gives by `Eval`. From then on, it compiles any program, itself included, without the
+  interpreter.
+- **3.8.8** For each target, the extra steps that its entry lists.
+
+### 3.9 Targets
+
+Everything in a target's entry is our choice. Each entry has the same parts:
+
+- Why: why this target.
+- Meaning: what our Bend version of its meaning covers.
+- Trusted: what we trust about it, and why.
+- Memory: its F (3.3.10), its limit, and the rules that its compiled code follows to stay within F.
+- Extra steps: what makes it more trusted later.
+
+The entries:
+
+- **3.9.1** WASM (WebAssembly)
+  - **3.9.1.1** Why: it is small and has an official formal spec. Native machine code has no
+    compact formal spec, and C's meaning is huge and full of undefined behavior.
+  - **3.9.1.2** Meaning: our Bend version covers only the part of WASM that the compiler uses, its
+    binary format included.
+  - **3.9.1.3** Trusted: a WASM engine follows the WASM spec. Our Bend version of WASM's meaning is
+    reviewed against the spec and tested with the spec's official test suite, but not proven,
+    because we know of no Lean or Bend version of the spec. This is a named exception to "all of
+    our own code is untrusted" (3.7).
+  - **3.9.1.4** Memory: F = 64 × (program size + term size of the largest term) + 2^24 bytes. The
+    limit is 4 GiB (32-bit addresses). To stay within F, the compiled code:
+    - frees every cell that it can no longer reach; only the program's image and the input's byte
+      cache (at most 6144 cells) are never freed;
+    - stores each name once, and a copy of a term refers to it, so copies never repeat a name's
+      bytes;
+    - keeps its stack in WASM memory, not on the engine's call stack, because the spec lets an
+      engine stop a program when its call stack runs out. Memory must be the only limit.
+  - **3.9.1.5** Extra steps: a Lean version of the official WASM semantics of the subset, made by a
+    program from the spec's own formal source (SpecTec), and a Lean proof that our Bend version
+    gives what it gives. Then we trust SpecTec's source and the translator instead of our review.
+    The official tests stay, for historical reasons.
+
+### 3.10 Notes
+
+- **3.10.1** Effects later: model them as pure data (`main` gives requests, a host answers), so
+  that `Eval` still gives them a meaning.
