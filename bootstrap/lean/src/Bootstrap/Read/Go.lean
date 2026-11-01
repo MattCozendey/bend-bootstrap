@@ -17,7 +17,7 @@ theorem value_go : Contains B reader → Value B (App Q1 (Ref "Book.read.go") (b
   have hk := h «reader.Book.read.go» (by simp [reader])
   refine Value.call (xs := [(Q1, bytes xs)]) hk (.cons (fun _ => value_bytes) .nil) (walk_iff.1 ?_)
   rcases xs with _ | ⟨_, _ | ⟨_, _⟩⟩ <;>
-    simp [«reader.Book.read.go», walk, bytes, list, ctor, cell, bindsAt, Quan.live, takes, data, Quan.fld]
+    simp [«reader.Book.read.go», walk, bytes, list, ctor, byte, bindsAt, Quan.live, takes, Quan.fld]
 
 -- Book.read.token alone is a value
 theorem value_token : Contains B reader → Value B (Ref "Book.read.token") := by
@@ -27,7 +27,7 @@ theorem value_token : Contains B reader → Value B (Ref "Book.read.token") := b
 
 -- Book.read.token does what the model does, for every tag, on a stack of values
 theorem token_run : Contains B reader → (∀ x ∈ s, Value B x) → Read.token t b s = some s' →
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (cell b))
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (byte b))
       (Form.some (list s')) := by
   intro h hs e
   by_cases h1 : t ≤ 10
@@ -39,19 +39,20 @@ theorem token_run : Contains B reader → (∀ x ∈ s, Value B x) → Read.toke
 -- Book.read.step on a stack of values does what the model's token does
 theorem step_run : Contains B reader → (∀ x ∈ s, Value B x) → Read.token t.toNat b s = some s' →
     ∃ n, Steps B n
-      (App Q1 (App Q1 (App Q1 (Ref "Book.read.step") (Form.some (list s))) (cell t)) (cell b))
+      (App Q1 (App Q1 (App Q1 (Ref "Book.read.step") (Form.some (list s))) (byte t)) (byte b))
       (Form.some (list s')) ∧ Value B (Form.some (list s')) := by
   intro h hs e
   have hk := h «reader.Book.read.step» (by simp [reader])
   have ev : Eval B (spine (Ref "Book.read.step")
-      [(Q1, Form.some (list s)), (Q1, cell t), (Q1, cell b)])
-      (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (App Q1 (Ref "U32.to_nat") (cell t)))
-        (list s)) (cell b)) := by
-    refine Eval.walk hk (.cons (fun _ => ?_) (.cons (fun _ => value_cell) (.cons (fun _ => value_cell) .nil))) ?_
+      [(Q1, Form.some (list s)), (Q1, byte t), (Q1, byte b)])
+      (App Q1 (App Q1 (App Q1 (Ref "Book.read.token")
+        (App Q1 (App Q1 (Ref "Word.to_nat") (Form.nat 8)) (byte t)))
+        (list s)) (byte b)) := by
+    refine Eval.walk hk (.cons (fun _ => ?_) (.cons (fun _ => value_byte) (.cons (fun _ => value_byte) .nil))) ?_
     · exact value_ctor (by simpa using value_list hs)
-    · simp [«reader.Book.read.step», walk, Form.some, ctor, cell, bindsAt, Quan.live, takes, data,
+    · simp [«reader.Book.read.step», walk, Form.some, Form.nat, ctor, byte, bindsAt, Quan.live, takes,
         Quan.fld, Term.sub, Env.sub, Term.spine]
-  obtain ⟨n1, s1, _⟩ := to_nat_cell (b := t) h
+  obtain ⟨n1, s1, _⟩ := to_nat_byte (b := t) h
   obtain ⟨n2, s2, v2⟩ := token_run h hs e
   exact ⟨_, .step ev ((s1.app_x (value_token h) rfl).app_f.app_f.trans s2), v2⟩
 
@@ -92,5 +93,5 @@ theorem go_run : Contains B reader → ∀ xs s, (∀ x ∈ s, Value B x) →
     refine .step (Eval.walk hk (xs := [(Q1, _), (Q1, _)])
       (.cons (fun _ => value_bytes) (.cons (fun _ => value_ctor (by simpa using value_list hs)) .nil)) ?_)
       (.steps (st.app_x (value_go h) rfl) (go_run h xs s' hs' e2))
-    simp [«reader.Book.read.go», walk, bytes, list, ctor, cell, bindsAt, Quan.live, takes, data,
+    simp [«reader.Book.read.go», walk, bytes, list, ctor, byte, bindsAt, Quan.live, takes,
       Quan.fld, Term.sub, Env.sub, Term.spine]

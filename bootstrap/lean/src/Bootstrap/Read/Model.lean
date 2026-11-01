@@ -27,7 +27,7 @@ def token : Nat → UInt8 → List Term → Option (List Term)
   | 3, _, s => some (item "nat" (Form.nat 0) :: s)
   | 4, _, n :: s => return item "nat" (ctor "Succ" [← unitem "nat" n]) :: s
   | 5, _, s => some (item "name" (list []) :: s)
-  | 6, b, k :: s => return item "name" (ctor "Con" [cell b, ← unitem "name" k]) :: s
+  | 6, b, k :: s => return item "name" (ctor "Con" [byte b, ← unitem "name" k]) :: s
   | 7, _, s => some (item "names" (list []) :: s)
   | 8, _, k :: ks :: s =>
     return item "names" (ctor "Con" [← unitem "name" k, ← unitem "names" ks]) :: s

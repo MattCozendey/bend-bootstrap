@@ -5,309 +5,368 @@ import bendtt
 
 open Quan Term
 
-def «evalCopy.Quan.arms» : Def :=
-  ⟨"Quan.arms",
-    Term.All (Quan.Q1) (Term.Enu ["Quan.Q0", "Quan.Q1", "Quan.Q2"]) (Term.Typ (Term.Lab "Q2")),
-    Term.Mat
-      "Quan.Q0"
-      (Term.Enu ["()"])
-      (Term.Mat "Quan.Q1" (Term.Enu ["()"]) (Term.Mat "Quan.Q2" (Term.Enu ["()"]) (Term.Efq))),
-    false⟩
-
-def «evalCopy.Quan» : Def :=
-  ⟨"Quan",
-    Term.Typ (Term.Lab "Q2"),
-    Term.Sig
-      (Quan.Q1)
-      (Term.Enu ["Quan.Q0", "Quan.Q1", "Quan.Q2"])
-      (Term.App (Quan.Q1) (Term.Ref "Quan.arms") (Term.Var 0)),
-    false⟩
-
-def «evalCopy.Term.arms» : Def :=
-  ⟨"Term.arms",
+def «evalCopy.Word.low» : Def :=
+  ⟨"Word.low",
     Term.All
       (Quan.Q1)
-      (Term.Enu
-        ["Term.Var", "Term.Ref", "Term.Ann", "Term.Let", "Term.Typ", "Term.Min", "Term.All",
-         "Term.Lam", "Term.App", "Term.Sig", "Term.Tup", "Term.Prj", "Term.Enu", "Term.Lab",
-         "Term.Mat", "Term.Efq", "Term.Eql", "Term.Rfl", "Term.Rwt"])
-      (Term.Typ (Term.Lab "Q2")),
-    Term.Mat
-      "Term.Var"
-      (Term.Sig (Quan.Q1) (Term.Ref "Nat") (Term.Enu ["()"]))
-      (Term.Mat
-        "Term.Ref"
-        (Term.Sig
+      (Term.Ref "Nat")
+      (Term.All
+        (Quan.Q1)
+        (Term.Ref "Nat")
+        (Term.All
           (Quan.Q1)
           (Term.App
-            (Quan.Q0)
-            (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-            (Term.Ref "U32"))
-          (Term.Enu ["()"]))
-        (Term.Mat
-          "Term.Ann"
-          (Term.Sig
             (Quan.Q1)
-            (Term.Ref "Term")
-            (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
-          (Term.Mat
-            "Term.Let"
-            (Term.Sig
+            (Term.Ref "Word")
+            (Term.App
               (Quan.Q1)
-              (Term.Ref "Quan")
-              (Term.Sig
-                (Quan.Q1)
-                (Term.Ref "Term")
-                (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
-            (Term.Mat
-              "Term.Typ"
-              (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))
-              (Term.Mat
-                "Term.Min"
-                (Term.Sig
-                  (Quan.Q1)
-                  (Term.Ref "Term")
-                  (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
-                (Term.Mat
-                  "Term.All"
-                  (Term.Sig
-                    (Quan.Q1)
-                    (Term.Ref "Quan")
-                    (Term.Sig
-                      (Quan.Q1)
-                      (Term.Ref "Term")
-                      (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
-                  (Term.Mat
-                    "Term.Lam"
-                    (Term.Sig
-                      (Quan.Q1)
-                      (Term.Ref "Quan")
-                      (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
-                    (Term.Mat
-                      "Term.App"
-                      (Term.Sig
-                        (Quan.Q1)
-                        (Term.Ref "Quan")
-                        (Term.Sig
-                          (Quan.Q1)
-                          (Term.Ref "Term")
-                          (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
-                      (Term.Mat
-                        "Term.Sig"
-                        (Term.Sig
-                          (Quan.Q1)
-                          (Term.Ref "Quan")
-                          (Term.Sig
-                            (Quan.Q1)
-                            (Term.Ref "Term")
-                            (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
-                        (Term.Mat
-                          "Term.Tup"
-                          (Term.Sig
-                            (Quan.Q1)
-                            (Term.Ref "Quan")
-                            (Term.Sig
-                              (Quan.Q1)
-                              (Term.Ref "Term")
-                              (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
-                          (Term.Mat
-                            "Term.Prj"
-                            (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))
-                            (Term.Mat
-                              "Term.Enu"
-                              (Term.Sig
-                                (Quan.Q1)
-                                (Term.App
-                                  (Quan.Q0)
-                                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                                  (Term.App
-                                    (Quan.Q0)
-                                    (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                                    (Term.Ref "U32")))
-                                (Term.Enu ["()"]))
-                              (Term.Mat
-                                "Term.Lab"
-                                (Term.Sig
-                                  (Quan.Q1)
-                                  (Term.App
-                                    (Quan.Q0)
-                                    (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                                    (Term.Ref "U32"))
-                                  (Term.Enu ["()"]))
-                                (Term.Mat
-                                  "Term.Mat"
-                                  (Term.Sig
-                                    (Quan.Q1)
-                                    (Term.App
-                                      (Quan.Q0)
-                                      (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                                      (Term.Ref "U32"))
-                                    (Term.Sig
-                                      (Quan.Q1)
-                                      (Term.Ref "Term")
-                                      (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
-                                  (Term.Mat
-                                    "Term.Efq"
-                                    (Term.Enu ["()"])
-                                    (Term.Mat
-                                      "Term.Eql"
-                                      (Term.Sig
-                                        (Quan.Q1)
-                                        (Term.Ref "Term")
-                                        (Term.Sig
-                                          (Quan.Q1)
-                                          (Term.Ref "Term")
-                                          (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
-                                      (Term.Mat
-                                        "Term.Rfl"
-                                        (Term.Enu ["()"])
-                                        (Term.Mat
-                                          "Term.Rwt"
-                                          (Term.Sig
-                                            (Quan.Q1)
-                                            (Term.Ref "Term")
-                                            (Term.Sig
-                                              (Quan.Q1)
-                                              (Term.Ref "Term")
-                                              (Term.Sig
-                                                (Quan.Q1)
-                                                (Term.Ref "Term")
-                                                (Term.Enu ["()"]))))
-                                          (Term.Efq))))))))))))))))))),
-    false⟩
-
-def «evalCopy.Term» : Def :=
-  ⟨"Term",
-    Term.Typ (Term.Lab "Q2"),
-    Term.Sig
-      (Quan.Q1)
-      (Term.Enu
-        ["Term.Var", "Term.Ref", "Term.Ann", "Term.Let", "Term.Typ", "Term.Min", "Term.All",
-         "Term.Lam", "Term.App", "Term.Sig", "Term.Tup", "Term.Prj", "Term.Enu", "Term.Lab",
-         "Term.Mat", "Term.Efq", "Term.Eql", "Term.Rfl", "Term.Rwt"])
-      (Term.App (Quan.Q1) (Term.Ref "Term.arms") (Term.Var 0)),
-    false⟩
-
-def «evalCopy.Def.arms» : Def :=
-  ⟨"Def.arms",
-    Term.All (Quan.Q1) (Term.Enu ["Def"]) (Term.Typ (Term.Lab "Q2")),
-    Term.Mat
-      "Def"
-      (Term.Sig
-        (Quan.Q1)
-        (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
-        (Term.Sig
-          (Quan.Q1)
-          (Term.Ref "Term")
-          (Term.Sig
-            (Quan.Q1)
-            (Term.Ref "Term")
-            (Term.Sig (Quan.Q1) (Term.Ref "Bool") (Term.Enu ["()"])))))
-      (Term.Efq),
-    false⟩
-
-def «evalCopy.Def» : Def :=
-  ⟨"Def",
-    Term.Typ (Term.Lab "Q2"),
-    Term.Sig (Quan.Q1) (Term.Enu ["Def"]) (Term.App (Quan.Q1) (Term.Ref "Def.arms") (Term.Var 0)),
-    false⟩
-
-def «evalCopy.Arg.arms» : Def :=
-  ⟨"Arg.arms",
-    Term.All (Quan.Q1) (Term.Enu ["Arg"]) (Term.Typ (Term.Lab "Q2")),
-    Term.Mat
-      "Arg"
-      (Term.Sig
-        (Quan.Q1)
-        (Term.Ref "Quan")
-        (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
-      (Term.Efq),
-    false⟩
-
-def «evalCopy.Arg» : Def :=
-  ⟨"Arg",
-    Term.Typ (Term.Lab "Q2"),
-    Term.Sig (Quan.Q1) (Term.Enu ["Arg"]) (Term.App (Quan.Q1) (Term.Ref "Arg.arms") (Term.Var 0)),
-    false⟩
-
-def «evalCopy.Quan.live» : Def :=
-  ⟨"Quan.live",
-    Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Bool"),
+              (Term.App (Quan.Q1) (Term.Ref "Nat.add") (Term.Var 1))
+              (Term.Var 0)))
+          (Term.App (Quan.Q1) (Term.Ref "Word") (Term.Var 2)))),
     Term.Prj
       (Term.Mat
-        "Quan.Q0"
-        (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()")) (Term.Efq))
-        (Term.Mat
-          "Quan.Q1"
-          (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()")) (Term.Efq))
-          (Term.Mat
-            "Quan.Q2"
-            (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()")) (Term.Efq))
-            (Term.Efq)))),
-    false⟩
-
-def «evalCopy.Quan.lives_as» : Def :=
-  ⟨"Quan.lives_as",
-    Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Bool")),
-    Term.Prj
-      (Term.Mat
-        "Quan.Q0"
+        "Zero"
         (Term.Mat
           "()"
-          (Term.Prj
-            (Term.Mat
-              "Quan.Q0"
-              (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()")) (Term.Efq))
-              (Term.Lam
-                (Quan.Q1)
-                (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()"))))))
-          (Term.Efq))
-        (Term.Lam
-          (Quan.Q1)
           (Term.Lam
             (Quan.Q1)
-            (Term.Prj
+            (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "WNil") (Term.Lab "()"))))
+          (Term.Efq))
+        (Term.Mat
+          "Succ"
+          (Term.Prj
+            (Term.Lam
+              (Quan.Q1)
               (Term.Mat
-                "Quan.Q0"
-                (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()")) (Term.Efq))
+                "()"
                 (Term.Lam
                   (Quan.Q1)
-                  (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()"))))))))),
+                  (Term.Prj
+                    (Term.Mat
+                      "WCon"
+                      (Term.Prj
+                        (Term.Lam
+                          (Quan.Q1)
+                          (Term.Prj
+                            (Term.Lam
+                              (Quan.Q1)
+                              (Term.Mat
+                                "()"
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "WCon")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Var 1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.App
+                                        (Quan.Q1)
+                                        (Term.App
+                                          (Quan.Q1)
+                                          (Term.App (Quan.Q1) (Term.Ref "Word.low") (Term.Var 3))
+                                          (Term.Var 2))
+                                        (Term.Var 0))
+                                      (Term.Lab "()"))))
+                                (Term.Efq))))))
+                      (Term.Efq))))
+                (Term.Efq))))
+          (Term.Efq))),
     false⟩
 
-def «evalCopy.Quan.fld» : Def :=
-  ⟨"Quan.fld",
-    Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Quan")),
+def «evalCopy.Byte.from_u32» : Def :=
+  ⟨"Byte.from_u32",
+    Term.All
+      (Quan.Q1)
+      (Term.Ref "U32")
+      (Term.App
+        (Quan.Q1)
+        (Term.Ref "Word")
+        (Term.Tup
+          (Quan.Q1)
+          (Term.Lab "Succ")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()")))
+            (Term.Lab "()")))),
     Term.Prj
       (Term.Mat
-        "Quan.Q0"
-        (Term.Mat
-          "()"
-          (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q0") (Term.Lab "()")))
-          (Term.Efq))
-        (Term.Mat
-          "Quan.Q1"
-          (Term.Mat "()" (Term.Lam (Quan.Q1) (Term.Var 0)) (Term.Efq))
-          (Term.Mat
-            "Quan.Q2"
+        "U32"
+        (Term.Prj
+          (Term.Lam
+            (Quan.Q1)
             (Term.Mat
               "()"
-              (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q2") (Term.Lab "()")))
-              (Term.Efq))
-            (Term.Efq)))),
-    false⟩
-
-def «evalCopy.Bool.and» : Def :=
-  ⟨"Bool.and",
-    Term.All (Quan.Q1) (Term.Ref "Bool") (Term.All (Quan.Q1) (Term.Ref "Bool") (Term.Ref "Bool")),
-    Term.Prj
-      (Term.Mat
-        "False"
-        (Term.Mat
-          "()"
-          (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()")))
-          (Term.Efq))
-        (Term.Mat "True" (Term.Mat "()" (Term.Lam (Quan.Q1) (Term.Var 0)) (Term.Efq)) (Term.Efq))),
+              (Term.App
+                (Quan.Q1)
+                (Term.App
+                  (Quan.Q1)
+                  (Term.App
+                    (Quan.Q1)
+                    (Term.Ref "Word.low")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Lab "Succ")
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Lab "Succ")
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Lab "Zero")
+                                                      (Term.Lab "()"))
+                                                    (Term.Lab "()")))
+                                                (Term.Lab "()")))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()"))))
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Lab "Succ")
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Lab "Succ")
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Lab "Succ")
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Tup
+                                                        (Quan.Q1)
+                                                        (Term.Lab "Succ")
+                                                        (Term.Tup
+                                                          (Quan.Q1)
+                                                          (Term.Tup
+                                                            (Quan.Q1)
+                                                            (Term.Lab "Succ")
+                                                            (Term.Tup
+                                                              (Quan.Q1)
+                                                              (Term.Tup
+                                                                (Quan.Q1)
+                                                                (Term.Lab "Succ")
+                                                                (Term.Tup
+                                                                  (Quan.Q1)
+                                                                  (Term.Tup
+                                                                    (Quan.Q1)
+                                                                    (Term.Lab "Succ")
+                                                                    (Term.Tup
+                                                                      (Quan.Q1)
+                                                                      (Term.Tup
+                                                                        (Quan.Q1)
+                                                                        (Term.Lab "Succ")
+                                                                        (Term.Tup
+                                                                          (Quan.Q1)
+                                                                          (Term.Tup
+                                                                            (Quan.Q1)
+                                                                            (Term.Lab "Succ")
+                                                                            (Term.Tup
+                                                                              (Quan.Q1)
+                                                                              (Term.Tup
+                                                                                (Quan.Q1)
+                                                                                (Term.Lab "Succ")
+                                                                                (Term.Tup
+                                                                                  (Quan.Q1)
+                                                                                  (Term.Tup
+                                                                                    (Quan.Q1)
+                                                                                    (Term.Lab
+                                                                                      "Succ")
+                                                                                    (Term.Tup
+                                                                                      (Quan.Q1)
+                                                                                      (Term.Tup
+                                                                                        (Quan.Q1)
+                                                                                        (Term.Lab
+                                                                                          "Succ")
+                                                                                        (Term.Tup
+                                                                                          (Quan.Q1)
+                                                                                          (Term.Tup
+                                                                                            (Quan.Q1)
+                                                                                            (Term.Lab
+                                                                                              "Succ")
+                                                                                            (Term.Tup
+                                                                                              (Quan.Q1)
+                                                                                              (Term.Tup
+                                                                                                (Quan.Q1)
+                                                                                                (Term.Lab
+                                                                                                  "Succ")
+                                                                                                (Term.Tup
+                                                                                                  (Quan.Q1)
+                                                                                                  (Term.Tup
+                                                                                                    (Quan.Q1)
+                                                                                                    (Term.Lab
+                                                                                                      "Succ")
+                                                                                                    (Term.Tup
+                                                                                                      (Quan.Q1)
+                                                                                                      (Term.Tup
+                                                                                                        (Quan.Q1)
+                                                                                                        (Term.Lab
+                                                                                                          "Succ")
+                                                                                                        (Term.Tup
+                                                                                                          (Quan.Q1)
+                                                                                                          (Term.Tup
+                                                                                                            (Quan.Q1)
+                                                                                                            (Term.Lab
+                                                                                                              "Succ")
+                                                                                                            (Term.Tup
+                                                                                                              (Quan.Q1)
+                                                                                                              (Term.Tup
+                                                                                                                (Quan.Q1)
+                                                                                                                (Term.Lab
+                                                                                                                  "Succ")
+                                                                                                                (Term.Tup
+                                                                                                                  (Quan.Q1)
+                                                                                                                  (Term.Tup
+                                                                                                                    (Quan.Q1)
+                                                                                                                    (Term.Lab
+                                                                                                                      "Zero")
+                                                                                                                    (Term.Lab
+                                                                                                                      "()"))
+                                                                                                                  (Term.Lab
+                                                                                                                    "()")))
+                                                                                                              (Term.Lab
+                                                                                                                "()")))
+                                                                                                          (Term.Lab
+                                                                                                            "()")))
+                                                                                                      (Term.Lab
+                                                                                                        "()")))
+                                                                                                  (Term.Lab
+                                                                                                    "()")))
+                                                                                              (Term.Lab
+                                                                                                "()")))
+                                                                                          (Term.Lab
+                                                                                            "()")))
+                                                                                      (Term.Lab
+                                                                                        "()")))
+                                                                                  (Term.Lab "()")))
+                                                                              (Term.Lab "()")))
+                                                                          (Term.Lab "()")))
+                                                                      (Term.Lab "()")))
+                                                                  (Term.Lab "()")))
+                                                              (Term.Lab "()")))
+                                                          (Term.Lab "()")))
+                                                      (Term.Lab "()")))
+                                                  (Term.Lab "()")))
+                                              (Term.Lab "()")))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()"))))
+                (Term.Var 0))
+              (Term.Efq))))
+        (Term.Efq)),
     false⟩
 
 def «evalCopy.Cmp.is_eq» : Def :=
@@ -458,32 +517,92 @@ def «evalCopy.Word.cmp» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.U32.cmp» : Def :=
-  ⟨"U32.cmp",
-    Term.All (Quan.Q1) (Term.Ref "U32") (Term.All (Quan.Q1) (Term.Ref "U32") (Term.Ref "Cmp")),
-    Term.Prj
-      (Term.Mat
-        "U32"
-        (Term.Prj
-          (Term.Lam
+def «evalCopy.Byte.is_eq» : Def :=
+  ⟨"Byte.is_eq",
+    Term.All
+      (Quan.Q1)
+      (Term.App
+        (Quan.Q1)
+        (Term.Ref "Word")
+        (Term.Tup
+          (Quan.Q1)
+          (Term.Lab "Succ")
+          (Term.Tup
             (Quan.Q1)
-            (Term.Mat
-              "()"
-              (Term.Prj
-                (Term.Mat
-                  "U32"
-                  (Term.Prj
-                    (Term.Lam
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
                       (Quan.Q1)
-                      (Term.Mat
-                        "()"
-                        (Term.App
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
                           (Quan.Q1)
-                          (Term.App
+                          (Term.Lab "Succ")
+                          (Term.Tup
                             (Quan.Q1)
-                            (Term.App
+                            (Term.Tup
                               (Quan.Q1)
-                              (Term.Ref "Word.cmp")
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()")))
+            (Term.Lab "()"))))
+      (Term.All
+        (Quan.Q1)
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Word")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Lab "Succ")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
                               (Term.Tup
                                 (Quan.Q1)
                                 (Term.Lab "Succ")
@@ -494,6 +613,263 @@ def «evalCopy.U32.cmp» : Def :=
                                     (Term.Lab "Succ")
                                     (Term.Tup
                                       (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))
+              (Term.Lab "()"))))
+        (Term.Ref "Bool")),
+    Term.Lam
+      (Quan.Q1)
+      (Term.Lam
+        (Quan.Q1)
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Cmp.is_eq")
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q1)
+              (Term.App
+                (Quan.Q1)
+                (Term.Ref "Word.cmp")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Lab "Succ")
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Lab "Zero")
+                                                  (Term.Lab "()"))
+                                                (Term.Lab "()")))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()"))))
+              (Term.Var 1))
+            (Term.Var 0)))),
+    false⟩
+
+def «evalCopy.Quan.arms» : Def :=
+  ⟨"Quan.arms",
+    Term.All (Quan.Q1) (Term.Enu ["Quan.Q0", "Quan.Q1", "Quan.Q2"]) (Term.Typ (Term.Lab "Q2")),
+    Term.Mat
+      "Quan.Q0"
+      (Term.Enu ["()"])
+      (Term.Mat "Quan.Q1" (Term.Enu ["()"]) (Term.Mat "Quan.Q2" (Term.Enu ["()"]) (Term.Efq))),
+    false⟩
+
+def «evalCopy.Quan» : Def :=
+  ⟨"Quan",
+    Term.Typ (Term.Lab "Q2"),
+    Term.Sig
+      (Quan.Q1)
+      (Term.Enu ["Quan.Q0", "Quan.Q1", "Quan.Q2"])
+      (Term.App (Quan.Q1) (Term.Ref "Quan.arms") (Term.Var 0)),
+    false⟩
+
+def «evalCopy.Term.arms» : Def :=
+  ⟨"Term.arms",
+    Term.All
+      (Quan.Q1)
+      (Term.Enu
+        ["Term.Var", "Term.Ref", "Term.Ann", "Term.Let", "Term.Typ", "Term.Min", "Term.All",
+         "Term.Lam", "Term.App", "Term.Sig", "Term.Tup", "Term.Prj", "Term.Enu", "Term.Lab",
+         "Term.Mat", "Term.Efq", "Term.Eql", "Term.Rfl", "Term.Rwt"])
+      (Term.Typ (Term.Lab "Q2")),
+    Term.Mat
+      "Term.Var"
+      (Term.Sig (Quan.Q1) (Term.Ref "Nat") (Term.Enu ["()"]))
+      (Term.Mat
+        "Term.Ref"
+        (Term.Sig
+          (Quan.Q1)
+          (Term.App
+            (Quan.Q0)
+            (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+            (Term.App
+              (Quan.Q1)
+              (Term.Ref "Word")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Lab "Succ")
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                              (Term.Lab "()")))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))))
+          (Term.Enu ["()"]))
+        (Term.Mat
+          "Term.Ann"
+          (Term.Sig
+            (Quan.Q1)
+            (Term.Ref "Term")
+            (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
+          (Term.Mat
+            "Term.Let"
+            (Term.Sig
+              (Quan.Q1)
+              (Term.Ref "Quan")
+              (Term.Sig
+                (Quan.Q1)
+                (Term.Ref "Term")
+                (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
+            (Term.Mat
+              "Term.Typ"
+              (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))
+              (Term.Mat
+                "Term.Min"
+                (Term.Sig
+                  (Quan.Q1)
+                  (Term.Ref "Term")
+                  (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
+                (Term.Mat
+                  "Term.All"
+                  (Term.Sig
+                    (Quan.Q1)
+                    (Term.Ref "Quan")
+                    (Term.Sig
+                      (Quan.Q1)
+                      (Term.Ref "Term")
+                      (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
+                  (Term.Mat
+                    "Term.Lam"
+                    (Term.Sig
+                      (Quan.Q1)
+                      (Term.Ref "Quan")
+                      (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
+                    (Term.Mat
+                      "Term.App"
+                      (Term.Sig
+                        (Quan.Q1)
+                        (Term.Ref "Quan")
+                        (Term.Sig
+                          (Quan.Q1)
+                          (Term.Ref "Term")
+                          (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
+                      (Term.Mat
+                        "Term.Sig"
+                        (Term.Sig
+                          (Quan.Q1)
+                          (Term.Ref "Quan")
+                          (Term.Sig
+                            (Quan.Q1)
+                            (Term.Ref "Term")
+                            (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
+                        (Term.Mat
+                          "Term.Tup"
+                          (Term.Sig
+                            (Quan.Q1)
+                            (Term.Ref "Quan")
+                            (Term.Sig
+                              (Quan.Q1)
+                              (Term.Ref "Term")
+                              (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
+                          (Term.Mat
+                            "Term.Prj"
+                            (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))
+                            (Term.Mat
+                              "Term.Enu"
+                              (Term.Sig
+                                (Quan.Q1)
+                                (Term.App
+                                  (Quan.Q0)
+                                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+                                  (Term.App
+                                    (Quan.Q0)
+                                    (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+                                    (Term.App
+                                      (Quan.Q1)
+                                      (Term.Ref "Word")
                                       (Term.Tup
                                         (Quan.Q1)
                                         (Term.Lab "Succ")
@@ -536,180 +912,8 @@ def «evalCopy.U32.cmp» : Def :=
                                                                       (Quan.Q1)
                                                                       (Term.Tup
                                                                         (Quan.Q1)
-                                                                        (Term.Lab "Succ")
-                                                                        (Term.Tup
-                                                                          (Quan.Q1)
-                                                                          (Term.Tup
-                                                                            (Quan.Q1)
-                                                                            (Term.Lab "Succ")
-                                                                            (Term.Tup
-                                                                              (Quan.Q1)
-                                                                              (Term.Tup
-                                                                                (Quan.Q1)
-                                                                                (Term.Lab "Succ")
-                                                                                (Term.Tup
-                                                                                  (Quan.Q1)
-                                                                                  (Term.Tup
-                                                                                    (Quan.Q1)
-                                                                                    (Term.Lab
-                                                                                      "Succ")
-                                                                                    (Term.Tup
-                                                                                      (Quan.Q1)
-                                                                                      (Term.Tup
-                                                                                        (Quan.Q1)
-                                                                                        (Term.Lab
-                                                                                          "Succ")
-                                                                                        (Term.Tup
-                                                                                          (Quan.Q1)
-                                                                                          (Term.Tup
-                                                                                            (Quan.Q1)
-                                                                                            (Term.Lab
-                                                                                              "Succ")
-                                                                                            (Term.Tup
-                                                                                              (Quan.Q1)
-                                                                                              (Term.Tup
-                                                                                                (Quan.Q1)
-                                                                                                (Term.Lab
-                                                                                                  "Succ")
-                                                                                                (Term.Tup
-                                                                                                  (Quan.Q1)
-                                                                                                  (Term.Tup
-                                                                                                    (Quan.Q1)
-                                                                                                    (Term.Lab
-                                                                                                      "Succ")
-                                                                                                    (Term.Tup
-                                                                                                      (Quan.Q1)
-                                                                                                      (Term.Tup
-                                                                                                        (Quan.Q1)
-                                                                                                        (Term.Lab
-                                                                                                          "Succ")
-                                                                                                        (Term.Tup
-                                                                                                          (Quan.Q1)
-                                                                                                          (Term.Tup
-                                                                                                            (Quan.Q1)
-                                                                                                            (Term.Lab
-                                                                                                              "Succ")
-                                                                                                            (Term.Tup
-                                                                                                              (Quan.Q1)
-                                                                                                              (Term.Tup
-                                                                                                                (Quan.Q1)
-                                                                                                                (Term.Lab
-                                                                                                                  "Succ")
-                                                                                                                (Term.Tup
-                                                                                                                  (Quan.Q1)
-                                                                                                                  (Term.Tup
-                                                                                                                    (Quan.Q1)
-                                                                                                                    (Term.Lab
-                                                                                                                      "Succ")
-                                                                                                                    (Term.Tup
-                                                                                                                      (Quan.Q1)
-                                                                                                                      (Term.Tup
-                                                                                                                        (Quan.Q1)
-                                                                                                                        (Term.Lab
-                                                                                                                          "Succ")
-                                                                                                                        (Term.Tup
-                                                                                                                          (Quan.Q1)
-                                                                                                                          (Term.Tup
-                                                                                                                            (Quan.Q1)
-                                                                                                                            (Term.Lab
-                                                                                                                              "Succ")
-                                                                                                                            (Term.Tup
-                                                                                                                              (Quan.Q1)
-                                                                                                                              (Term.Tup
-                                                                                                                                (Quan.Q1)
-                                                                                                                                (Term.Lab
-                                                                                                                                  "Succ")
-                                                                                                                                (Term.Tup
-                                                                                                                                  (Quan.Q1)
-                                                                                                                                  (Term.Tup
-                                                                                                                                    (Quan.Q1)
-                                                                                                                                    (Term.Lab
-                                                                                                                                      "Succ")
-                                                                                                                                    (Term.Tup
-                                                                                                                                      (Quan.Q1)
-                                                                                                                                      (Term.Tup
-                                                                                                                                        (Quan.Q1)
-                                                                                                                                        (Term.Lab
-                                                                                                                                          "Succ")
-                                                                                                                                        (Term.Tup
-                                                                                                                                          (Quan.Q1)
-                                                                                                                                          (Term.Tup
-                                                                                                                                            (Quan.Q1)
-                                                                                                                                            (Term.Lab
-                                                                                                                                              "Succ")
-                                                                                                                                            (Term.Tup
-                                                                                                                                              (Quan.Q1)
-                                                                                                                                              (Term.Tup
-                                                                                                                                                (Quan.Q1)
-                                                                                                                                                (Term.Lab
-                                                                                                                                                  "Succ")
-                                                                                                                                                (Term.Tup
-                                                                                                                                                  (Quan.Q1)
-                                                                                                                                                  (Term.Tup
-                                                                                                                                                    (Quan.Q1)
-                                                                                                                                                    (Term.Lab
-                                                                                                                                                      "Succ")
-                                                                                                                                                    (Term.Tup
-                                                                                                                                                      (Quan.Q1)
-                                                                                                                                                      (Term.Tup
-                                                                                                                                                        (Quan.Q1)
-                                                                                                                                                        (Term.Lab
-                                                                                                                                                          "Succ")
-                                                                                                                                                        (Term.Tup
-                                                                                                                                                          (Quan.Q1)
-                                                                                                                                                          (Term.Tup
-                                                                                                                                                            (Quan.Q1)
-                                                                                                                                                            (Term.Lab
-                                                                                                                                                              "Succ")
-                                                                                                                                                            (Term.Tup
-                                                                                                                                                              (Quan.Q1)
-                                                                                                                                                              (Term.Tup
-                                                                                                                                                                (Quan.Q1)
-                                                                                                                                                                (Term.Lab
-                                                                                                                                                                  "Zero")
-                                                                                                                                                                (Term.Lab
-                                                                                                                                                                  "()"))
-                                                                                                                                                              (Term.Lab
-                                                                                                                                                                "()")))
-                                                                                                                                                          (Term.Lab
-                                                                                                                                                            "()")))
-                                                                                                                                                      (Term.Lab
-                                                                                                                                                        "()")))
-                                                                                                                                                  (Term.Lab
-                                                                                                                                                    "()")))
-                                                                                                                                              (Term.Lab
-                                                                                                                                                "()")))
-                                                                                                                                          (Term.Lab
-                                                                                                                                            "()")))
-                                                                                                                                      (Term.Lab
-                                                                                                                                        "()")))
-                                                                                                                                  (Term.Lab
-                                                                                                                                    "()")))
-                                                                                                                              (Term.Lab
-                                                                                                                                "()")))
-                                                                                                                          (Term.Lab
-                                                                                                                            "()")))
-                                                                                                                      (Term.Lab
-                                                                                                                        "()")))
-                                                                                                                  (Term.Lab
-                                                                                                                    "()")))
-                                                                                                              (Term.Lab
-                                                                                                                "()")))
-                                                                                                          (Term.Lab
-                                                                                                            "()")))
-                                                                                                      (Term.Lab
-                                                                                                        "()")))
-                                                                                                  (Term.Lab
-                                                                                                    "()")))
-                                                                                              (Term.Lab
-                                                                                                "()")))
-                                                                                          (Term.Lab
-                                                                                            "()")))
-                                                                                      (Term.Lab
-                                                                                        "()")))
-                                                                                  (Term.Lab "()")))
-                                                                              (Term.Lab "()")))
-                                                                          (Term.Lab "()")))
+                                                                        (Term.Lab "Zero")
+                                                                        (Term.Lab "()"))
                                                                       (Term.Lab "()")))
                                                                   (Term.Lab "()")))
                                                               (Term.Lab "()")))
@@ -717,38 +921,471 @@ def «evalCopy.U32.cmp» : Def :=
                                                       (Term.Lab "()")))
                                                   (Term.Lab "()")))
                                               (Term.Lab "()")))
-                                          (Term.Lab "()")))
-                                      (Term.Lab "()")))
-                                  (Term.Lab "()"))))
-                            (Term.Var 1))
-                          (Term.Var 0))
-                        (Term.Efq))))
-                  (Term.Efq)))
-              (Term.Efq))))
-        (Term.Efq)),
+                                          (Term.Lab "()"))))))
+                                (Term.Enu ["()"]))
+                              (Term.Mat
+                                "Term.Lab"
+                                (Term.Sig
+                                  (Quan.Q1)
+                                  (Term.App
+                                    (Quan.Q0)
+                                    (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+                                    (Term.App
+                                      (Quan.Q1)
+                                      (Term.Ref "Word")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Lab "Succ")
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Lab "Succ")
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Lab "Succ")
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Tup
+                                                        (Quan.Q1)
+                                                        (Term.Lab "Succ")
+                                                        (Term.Tup
+                                                          (Quan.Q1)
+                                                          (Term.Tup
+                                                            (Quan.Q1)
+                                                            (Term.Lab "Succ")
+                                                            (Term.Tup
+                                                              (Quan.Q1)
+                                                              (Term.Tup
+                                                                (Quan.Q1)
+                                                                (Term.Lab "Succ")
+                                                                (Term.Tup
+                                                                  (Quan.Q1)
+                                                                  (Term.Tup
+                                                                    (Quan.Q1)
+                                                                    (Term.Lab "Succ")
+                                                                    (Term.Tup
+                                                                      (Quan.Q1)
+                                                                      (Term.Tup
+                                                                        (Quan.Q1)
+                                                                        (Term.Lab "Zero")
+                                                                        (Term.Lab "()"))
+                                                                      (Term.Lab "()")))
+                                                                  (Term.Lab "()")))
+                                                              (Term.Lab "()")))
+                                                          (Term.Lab "()")))
+                                                      (Term.Lab "()")))
+                                                  (Term.Lab "()")))
+                                              (Term.Lab "()")))
+                                          (Term.Lab "()")))))
+                                  (Term.Enu ["()"]))
+                                (Term.Mat
+                                  "Term.Mat"
+                                  (Term.Sig
+                                    (Quan.Q1)
+                                    (Term.App
+                                      (Quan.Q0)
+                                      (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+                                      (Term.App
+                                        (Quan.Q1)
+                                        (Term.Ref "Word")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Lab "Succ")
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Lab "Succ")
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Lab "Succ")
+                                                      (Term.Tup
+                                                        (Quan.Q1)
+                                                        (Term.Tup
+                                                          (Quan.Q1)
+                                                          (Term.Lab "Succ")
+                                                          (Term.Tup
+                                                            (Quan.Q1)
+                                                            (Term.Tup
+                                                              (Quan.Q1)
+                                                              (Term.Lab "Succ")
+                                                              (Term.Tup
+                                                                (Quan.Q1)
+                                                                (Term.Tup
+                                                                  (Quan.Q1)
+                                                                  (Term.Lab "Succ")
+                                                                  (Term.Tup
+                                                                    (Quan.Q1)
+                                                                    (Term.Tup
+                                                                      (Quan.Q1)
+                                                                      (Term.Lab "Succ")
+                                                                      (Term.Tup
+                                                                        (Quan.Q1)
+                                                                        (Term.Tup
+                                                                          (Quan.Q1)
+                                                                          (Term.Lab "Zero")
+                                                                          (Term.Lab "()"))
+                                                                        (Term.Lab "()")))
+                                                                    (Term.Lab "()")))
+                                                                (Term.Lab "()")))
+                                                            (Term.Lab "()")))
+                                                        (Term.Lab "()")))
+                                                    (Term.Lab "()")))
+                                                (Term.Lab "()")))
+                                            (Term.Lab "()")))))
+                                    (Term.Sig
+                                      (Quan.Q1)
+                                      (Term.Ref "Term")
+                                      (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
+                                  (Term.Mat
+                                    "Term.Efq"
+                                    (Term.Enu ["()"])
+                                    (Term.Mat
+                                      "Term.Eql"
+                                      (Term.Sig
+                                        (Quan.Q1)
+                                        (Term.Ref "Term")
+                                        (Term.Sig
+                                          (Quan.Q1)
+                                          (Term.Ref "Term")
+                                          (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"]))))
+                                      (Term.Mat
+                                        "Term.Rfl"
+                                        (Term.Enu ["()"])
+                                        (Term.Mat
+                                          "Term.Rwt"
+                                          (Term.Sig
+                                            (Quan.Q1)
+                                            (Term.Ref "Term")
+                                            (Term.Sig
+                                              (Quan.Q1)
+                                              (Term.Ref "Term")
+                                              (Term.Sig
+                                                (Quan.Q1)
+                                                (Term.Ref "Term")
+                                                (Term.Enu ["()"]))))
+                                          (Term.Efq))))))))))))))))))),
     false⟩
 
-def «evalCopy.U32.is_eq» : Def :=
-  ⟨"U32.is_eq",
-    Term.All (Quan.Q1) (Term.Ref "U32") (Term.All (Quan.Q1) (Term.Ref "U32") (Term.Ref "Bool")),
-    Term.Lam
+def «evalCopy.Term» : Def :=
+  ⟨"Term",
+    Term.Typ (Term.Lab "Q2"),
+    Term.Sig
       (Quan.Q1)
-      (Term.Lam
+      (Term.Enu
+        ["Term.Var", "Term.Ref", "Term.Ann", "Term.Let", "Term.Typ", "Term.Min", "Term.All",
+         "Term.Lam", "Term.App", "Term.Sig", "Term.Tup", "Term.Prj", "Term.Enu", "Term.Lab",
+         "Term.Mat", "Term.Efq", "Term.Eql", "Term.Rfl", "Term.Rwt"])
+      (Term.App (Quan.Q1) (Term.Ref "Term.arms") (Term.Var 0)),
+    false⟩
+
+def «evalCopy.Def.arms» : Def :=
+  ⟨"Def.arms",
+    Term.All (Quan.Q1) (Term.Enu ["Def"]) (Term.Typ (Term.Lab "Q2")),
+    Term.Mat
+      "Def"
+      (Term.Sig
         (Quan.Q1)
         (Term.App
+          (Quan.Q0)
+          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+          (Term.App
+            (Quan.Q1)
+            (Term.Ref "Word")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()")))))
+        (Term.Sig
           (Quan.Q1)
-          (Term.Ref "Cmp.is_eq")
-          (Term.App (Quan.Q1) (Term.App (Quan.Q1) (Term.Ref "U32.cmp") (Term.Var 1)) (Term.Var 0)))),
+          (Term.Ref "Term")
+          (Term.Sig
+            (Quan.Q1)
+            (Term.Ref "Term")
+            (Term.Sig (Quan.Q1) (Term.Ref "Bool") (Term.Enu ["()"])))))
+      (Term.Efq),
+    false⟩
+
+def «evalCopy.Def» : Def :=
+  ⟨"Def",
+    Term.Typ (Term.Lab "Q2"),
+    Term.Sig (Quan.Q1) (Term.Enu ["Def"]) (Term.App (Quan.Q1) (Term.Ref "Def.arms") (Term.Var 0)),
+    false⟩
+
+def «evalCopy.Arg.arms» : Def :=
+  ⟨"Arg.arms",
+    Term.All (Quan.Q1) (Term.Enu ["Arg"]) (Term.Typ (Term.Lab "Q2")),
+    Term.Mat
+      "Arg"
+      (Term.Sig
+        (Quan.Q1)
+        (Term.Ref "Quan")
+        (Term.Sig (Quan.Q1) (Term.Ref "Term") (Term.Enu ["()"])))
+      (Term.Efq),
+    false⟩
+
+def «evalCopy.Arg» : Def :=
+  ⟨"Arg",
+    Term.Typ (Term.Lab "Q2"),
+    Term.Sig (Quan.Q1) (Term.Enu ["Arg"]) (Term.App (Quan.Q1) (Term.Ref "Arg.arms") (Term.Var 0)),
+    false⟩
+
+def «evalCopy.Quan.live» : Def :=
+  ⟨"Quan.live",
+    Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Bool"),
+    Term.Prj
+      (Term.Mat
+        "Quan.Q0"
+        (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()")) (Term.Efq))
+        (Term.Mat
+          "Quan.Q1"
+          (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()")) (Term.Efq))
+          (Term.Mat
+            "Quan.Q2"
+            (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()")) (Term.Efq))
+            (Term.Efq)))),
+    false⟩
+
+def «evalCopy.Quan.lives_as» : Def :=
+  ⟨"Quan.lives_as",
+    Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Bool")),
+    Term.Prj
+      (Term.Mat
+        "Quan.Q0"
+        (Term.Mat
+          "()"
+          (Term.Prj
+            (Term.Mat
+              "Quan.Q0"
+              (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()")) (Term.Efq))
+              (Term.Lam
+                (Quan.Q1)
+                (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()"))))))
+          (Term.Efq))
+        (Term.Lam
+          (Quan.Q1)
+          (Term.Lam
+            (Quan.Q1)
+            (Term.Prj
+              (Term.Mat
+                "Quan.Q0"
+                (Term.Mat "()" (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()")) (Term.Efq))
+                (Term.Lam
+                  (Quan.Q1)
+                  (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "True") (Term.Lab "()"))))))))),
+    false⟩
+
+def «evalCopy.Quan.fld» : Def :=
+  ⟨"Quan.fld",
+    Term.All (Quan.Q1) (Term.Ref "Quan") (Term.All (Quan.Q1) (Term.Ref "Quan") (Term.Ref "Quan")),
+    Term.Prj
+      (Term.Mat
+        "Quan.Q0"
+        (Term.Mat
+          "()"
+          (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q0") (Term.Lab "()")))
+          (Term.Efq))
+        (Term.Mat
+          "Quan.Q1"
+          (Term.Mat "()" (Term.Lam (Quan.Q1) (Term.Var 0)) (Term.Efq))
+          (Term.Mat
+            "Quan.Q2"
+            (Term.Mat
+              "()"
+              (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q2") (Term.Lab "()")))
+              (Term.Efq))
+            (Term.Efq)))),
+    false⟩
+
+def «evalCopy.Bool.and» : Def :=
+  ⟨"Bool.and",
+    Term.All (Quan.Q1) (Term.Ref "Bool") (Term.All (Quan.Q1) (Term.Ref "Bool") (Term.Ref "Bool")),
+    Term.Prj
+      (Term.Mat
+        "False"
+        (Term.Mat
+          "()"
+          (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "False") (Term.Lab "()")))
+          (Term.Efq))
+        (Term.Mat "True" (Term.Mat "()" (Term.Lam (Quan.Q1) (Term.Var 0)) (Term.Efq)) (Term.Efq))),
     false⟩
 
 def «evalCopy.Name.is_eq» : Def :=
   ⟨"Name.is_eq",
     Term.All
       (Quan.Q1)
-      (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
+      (Term.App
+        (Quan.Q0)
+        (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Word")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Lab "Succ")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))
+              (Term.Lab "()")))))
       (Term.All
         (Quan.Q1)
-        (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
+        (Term.App
+          (Quan.Q0)
+          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+          (Term.App
+            (Quan.Q1)
+            (Term.Ref "Word")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()")))))
         (Term.Ref "Bool")),
     Term.Prj
       (Term.Mat
@@ -791,7 +1428,7 @@ def «evalCopy.Name.is_eq» : Def :=
                                       (Term.Ref "Bool.and")
                                       (Term.App
                                         (Quan.Q1)
-                                        (Term.App (Quan.Q1) (Term.Ref "U32.is_eq") (Term.Var 3))
+                                        (Term.App (Quan.Q1) (Term.Ref "Byte.is_eq") (Term.Var 3))
                                         (Term.Var 1)))
                                     (Term.App
                                       (Quan.Q1)
@@ -3053,7 +3690,61 @@ def «evalCopy.Book.get» : Def :=
       (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "Def"))
       (Term.All
         (Quan.Q2)
-        (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
+        (Term.App
+          (Quan.Q0)
+          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+          (Term.App
+            (Quan.Q1)
+            (Term.Ref "Word")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()")))))
         (Term.App
           (Quan.Q0)
           (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
@@ -6909,113 +7600,66 @@ def «evalCopy.U32.lit50» : Def :=
         (Term.Lab "()")),
     false⟩
 
-def «evalCopy.Quan.read» : Def :=
-  ⟨"Quan.read",
-    Term.All
-      (Quan.Q2)
-      (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
-      (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1")) (Term.Ref "Quan")),
-    Term.Lam
-      (Quan.Q2)
-      (Term.App
-        (Quan.Q1)
-        (Term.App
-          (Quan.Q1)
-          (Term.App
-            (Quan.Q1)
-            (Term.Ref "Quan.read.if")
-            (Term.App
-              (Quan.Q1)
-              (Term.App (Quan.Q1) (Term.Ref "Name.is_eq") (Term.Var 0))
-              (Term.Tup
-                (Quan.Q1)
-                (Term.Lab "Con")
-                (Term.Tup
-                  (Quan.Q1)
-                  (Term.Ref "U32.lit81")
-                  (Term.Tup
-                    (Quan.Q1)
-                    (Term.Tup
-                      (Quan.Q1)
-                      (Term.Lab "Con")
-                      (Term.Tup
-                        (Quan.Q1)
-                        (Term.Ref "U32.lit48")
-                        (Term.Tup
-                          (Quan.Q1)
-                          (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
-                          (Term.Lab "()"))))
-                    (Term.Lab "()"))))))
-          (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q0") (Term.Lab "()")))
-        (Term.App
-          (Quan.Q1)
-          (Term.App
-            (Quan.Q1)
-            (Term.App
-              (Quan.Q1)
-              (Term.Ref "Quan.read.if")
-              (Term.App
-                (Quan.Q1)
-                (Term.App (Quan.Q1) (Term.Ref "Name.is_eq") (Term.Var 0))
-                (Term.Tup
-                  (Quan.Q1)
-                  (Term.Lab "Con")
-                  (Term.Tup
-                    (Quan.Q1)
-                    (Term.Ref "U32.lit81")
-                    (Term.Tup
-                      (Quan.Q1)
-                      (Term.Tup
-                        (Quan.Q1)
-                        (Term.Lab "Con")
-                        (Term.Tup
-                          (Quan.Q1)
-                          (Term.Ref "U32.lit49")
-                          (Term.Tup
-                            (Quan.Q1)
-                            (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
-                            (Term.Lab "()"))))
-                      (Term.Lab "()"))))))
-            (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q1") (Term.Lab "()")))
-          (Term.App
-            (Quan.Q1)
-            (Term.App
-              (Quan.Q1)
-              (Term.App
-                (Quan.Q1)
-                (Term.Ref "Quan.read.if")
-                (Term.App
-                  (Quan.Q1)
-                  (Term.App (Quan.Q1) (Term.Ref "Name.is_eq") (Term.Var 0))
-                  (Term.Tup
-                    (Quan.Q1)
-                    (Term.Lab "Con")
-                    (Term.Tup
-                      (Quan.Q1)
-                      (Term.Ref "U32.lit81")
-                      (Term.Tup
-                        (Quan.Q1)
-                        (Term.Tup
-                          (Quan.Q1)
-                          (Term.Lab "Con")
-                          (Term.Tup
-                            (Quan.Q1)
-                            (Term.Ref "U32.lit50")
-                            (Term.Tup
-                              (Quan.Q1)
-                              (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
-                              (Term.Lab "()"))))
-                        (Term.Lab "()"))))))
-              (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q2") (Term.Lab "()")))
-            (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()"))))),
-    false⟩
-
 def «evalCopy.Quan.name» : Def :=
   ⟨"Quan.name",
     Term.All
       (Quan.Q1)
       (Term.Ref "Quan")
-      (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32")),
+      (Term.App
+        (Quan.Q0)
+        (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Word")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Lab "Succ")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))
+              (Term.Lab "()"))))),
     Term.Prj
       (Term.Mat
         "Quan.Q0"
@@ -7026,7 +7670,7 @@ def «evalCopy.Quan.name» : Def :=
             (Term.Lab "Con")
             (Term.Tup
               (Quan.Q1)
-              (Term.Ref "U32.lit81")
+              (Term.App (Quan.Q1) (Term.Ref "Byte.from_u32") (Term.Ref "U32.lit81"))
               (Term.Tup
                 (Quan.Q1)
                 (Term.Tup
@@ -7034,7 +7678,7 @@ def «evalCopy.Quan.name» : Def :=
                   (Term.Lab "Con")
                   (Term.Tup
                     (Quan.Q1)
-                    (Term.Ref "U32.lit48")
+                    (Term.App (Quan.Q1) (Term.Ref "Byte.from_u32") (Term.Ref "U32.lit48"))
                     (Term.Tup
                       (Quan.Q1)
                       (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
@@ -7050,7 +7694,7 @@ def «evalCopy.Quan.name» : Def :=
               (Term.Lab "Con")
               (Term.Tup
                 (Quan.Q1)
-                (Term.Ref "U32.lit81")
+                (Term.App (Quan.Q1) (Term.Ref "Byte.from_u32") (Term.Ref "U32.lit81"))
                 (Term.Tup
                   (Quan.Q1)
                   (Term.Tup
@@ -7058,7 +7702,7 @@ def «evalCopy.Quan.name» : Def :=
                     (Term.Lab "Con")
                     (Term.Tup
                       (Quan.Q1)
-                      (Term.Ref "U32.lit49")
+                      (Term.App (Quan.Q1) (Term.Ref "Byte.from_u32") (Term.Ref "U32.lit49"))
                       (Term.Tup
                         (Quan.Q1)
                         (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
@@ -7074,7 +7718,7 @@ def «evalCopy.Quan.name» : Def :=
                 (Term.Lab "Con")
                 (Term.Tup
                   (Quan.Q1)
-                  (Term.Ref "U32.lit81")
+                  (Term.App (Quan.Q1) (Term.Ref "Byte.from_u32") (Term.Ref "U32.lit81"))
                   (Term.Tup
                     (Quan.Q1)
                     (Term.Tup
@@ -7082,7 +7726,7 @@ def «evalCopy.Quan.name» : Def :=
                       (Term.Lab "Con")
                       (Term.Tup
                         (Quan.Q1)
-                        (Term.Ref "U32.lit50")
+                        (Term.App (Quan.Q1) (Term.Ref "Byte.from_u32") (Term.Ref "U32.lit50"))
                         (Term.Tup
                           (Quan.Q1)
                           (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
@@ -7090,6 +7734,116 @@ def «evalCopy.Quan.name» : Def :=
                     (Term.Lab "()"))))
               (Term.Efq))
             (Term.Efq)))),
+    false⟩
+
+def «evalCopy.Quan.read» : Def :=
+  ⟨"Quan.read",
+    Term.All
+      (Quan.Q2)
+      (Term.App
+        (Quan.Q0)
+        (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Word")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Lab "Succ")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))
+              (Term.Lab "()")))))
+      (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1")) (Term.Ref "Quan")),
+    Term.Lam
+      (Quan.Q2)
+      (Term.App
+        (Quan.Q1)
+        (Term.App
+          (Quan.Q1)
+          (Term.App
+            (Quan.Q1)
+            (Term.Ref "Quan.read.if")
+            (Term.App
+              (Quan.Q1)
+              (Term.App (Quan.Q1) (Term.Ref "Name.is_eq") (Term.Var 0))
+              (Term.App
+                (Quan.Q1)
+                (Term.Ref "Quan.name")
+                (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q0") (Term.Lab "()")))))
+          (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q0") (Term.Lab "()")))
+        (Term.App
+          (Quan.Q1)
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q1)
+              (Term.Ref "Quan.read.if")
+              (Term.App
+                (Quan.Q1)
+                (Term.App (Quan.Q1) (Term.Ref "Name.is_eq") (Term.Var 0))
+                (Term.App
+                  (Quan.Q1)
+                  (Term.Ref "Quan.name")
+                  (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q1") (Term.Lab "()")))))
+            (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q1") (Term.Lab "()")))
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q1)
+              (Term.App
+                (Quan.Q1)
+                (Term.Ref "Quan.read.if")
+                (Term.App
+                  (Quan.Q1)
+                  (Term.App (Quan.Q1) (Term.Ref "Name.is_eq") (Term.Var 0))
+                  (Term.App
+                    (Quan.Q1)
+                    (Term.Ref "Quan.name")
+                    (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q2") (Term.Lab "()")))))
+              (Term.Tup (Quan.Q1) (Term.Lab "Quan.Q2") (Term.Lab "()")))
+            (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()"))))),
     false⟩
 
 def «evalCopy.Quan.min» : Def :=
@@ -8696,6 +9450,100 @@ def «evalCopy.U32» : Def :=
     Term.Sig (Quan.Q1) (Term.Enu ["U32"]) (Term.App (Quan.Q1) (Term.Ref "U32.arms") (Term.Var 0)),
     false⟩
 
+def «evalCopy.Maybe.arms» : Def :=
+  ⟨"Maybe.arms",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All
+        (Quan.Q0)
+        (Term.Typ (Term.Var 0))
+        (Term.All (Quan.Q1) (Term.Enu ["None", "Some"]) (Term.Typ (Term.Var 2)))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Mat
+          "None"
+          (Term.Enu ["()"])
+          (Term.Mat "Some" (Term.Sig (Quan.Q1) (Term.Var 0) (Term.Enu ["()"])) (Term.Efq)))),
+    false⟩
+
+def «evalCopy.Maybe» : Def :=
+  ⟨"Maybe",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Sig
+          (Quan.Q1)
+          (Term.Enu ["None", "Some"])
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q0)
+              (Term.App (Quan.Q0) (Term.Ref "Maybe.arms") (Term.Var 2))
+              (Term.Var 1))
+            (Term.Var 0)))),
+    false⟩
+
+def «evalCopy.List.arms» : Def :=
+  ⟨"List.arms",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All
+        (Quan.Q0)
+        (Term.Typ (Term.Var 0))
+        (Term.All (Quan.Q1) (Term.Enu ["Nil", "Con"]) (Term.Typ (Term.Var 2)))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Mat
+          "Nil"
+          (Term.Enu ["()"])
+          (Term.Mat
+            "Con"
+            (Term.Sig
+              (Quan.Q1)
+              (Term.Var 0)
+              (Term.Sig
+                (Quan.Q1)
+                (Term.App
+                  (Quan.Q0)
+                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Var 2))
+                  (Term.Var 1))
+                (Term.Enu ["()"])))
+            (Term.Efq)))),
+    false⟩
+
+def «evalCopy.List» : Def :=
+  ⟨"List",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Sig
+          (Quan.Q1)
+          (Term.Enu ["Nil", "Con"])
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q0)
+              (Term.App (Quan.Q0) (Term.Ref "List.arms") (Term.Var 2))
+              (Term.Var 1))
+            (Term.Var 0)))),
+    false⟩
+
 def «evalCopy.Cmp.arms» : Def :=
   ⟨"Cmp.arms",
     Term.All (Quan.Q1) (Term.Enu ["LT", "EQ", "GT"]) (Term.Typ (Term.Lab "Q2")),
@@ -8712,6 +9560,21 @@ def «evalCopy.Cmp» : Def :=
       (Quan.Q1)
       (Term.Enu ["LT", "EQ", "GT"])
       (Term.App (Quan.Q1) (Term.Ref "Cmp.arms") (Term.Var 0)),
+    false⟩
+
+def «evalCopy.Bool.arms» : Def :=
+  ⟨"Bool.arms",
+    Term.All (Quan.Q1) (Term.Enu ["False", "True"]) (Term.Typ (Term.Lab "Q2")),
+    Term.Mat "False" (Term.Enu ["()"]) (Term.Mat "True" (Term.Enu ["()"]) (Term.Efq)),
+    false⟩
+
+def «evalCopy.Bool» : Def :=
+  ⟨"Bool",
+    Term.Typ (Term.Lab "Q2"),
+    Term.Sig
+      (Quan.Q1)
+      (Term.Enu ["False", "True"])
+      (Term.App (Quan.Q1) (Term.Ref "Bool.arms") (Term.Var 0)),
     false⟩
 
 def «evalCopy.Word.Nil.arms» : Def :=
@@ -8776,62 +9639,6 @@ def «evalCopy.Word» : Def :=
           (Term.Efq))),
     false⟩
 
-def «evalCopy.Maybe.arms» : Def :=
-  ⟨"Maybe.arms",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All
-        (Quan.Q0)
-        (Term.Typ (Term.Var 0))
-        (Term.All (Quan.Q1) (Term.Enu ["None", "Some"]) (Term.Typ (Term.Var 2)))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Mat
-          "None"
-          (Term.Enu ["()"])
-          (Term.Mat "Some" (Term.Sig (Quan.Q1) (Term.Var 0) (Term.Enu ["()"])) (Term.Efq)))),
-    false⟩
-
-def «evalCopy.Maybe» : Def :=
-  ⟨"Maybe",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Sig
-          (Quan.Q1)
-          (Term.Enu ["None", "Some"])
-          (Term.App
-            (Quan.Q1)
-            (Term.App
-              (Quan.Q0)
-              (Term.App (Quan.Q0) (Term.Ref "Maybe.arms") (Term.Var 2))
-              (Term.Var 1))
-            (Term.Var 0)))),
-    false⟩
-
-def «evalCopy.Bool.arms» : Def :=
-  ⟨"Bool.arms",
-    Term.All (Quan.Q1) (Term.Enu ["False", "True"]) (Term.Typ (Term.Lab "Q2")),
-    Term.Mat "False" (Term.Enu ["()"]) (Term.Mat "True" (Term.Enu ["()"]) (Term.Efq)),
-    false⟩
-
-def «evalCopy.Bool» : Def :=
-  ⟨"Bool",
-    Term.Typ (Term.Lab "Q2"),
-    Term.Sig
-      (Quan.Q1)
-      (Term.Enu ["False", "True"])
-      (Term.App (Quan.Q1) (Term.Ref "Bool.arms") (Term.Var 0)),
-    false⟩
-
 def «evalCopy.Nat.arms» : Def :=
   ⟨"Nat.arms",
     Term.All (Quan.Q1) (Term.Enu ["Zero", "Succ"]) (Term.Typ (Term.Lab "Q2")),
@@ -8850,61 +9657,15 @@ def «evalCopy.Nat» : Def :=
       (Term.App (Quan.Q1) (Term.Ref "Nat.arms") (Term.Var 0)),
     false⟩
 
-def «evalCopy.List.arms» : Def :=
-  ⟨"List.arms",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All
-        (Quan.Q0)
-        (Term.Typ (Term.Var 0))
-        (Term.All (Quan.Q1) (Term.Enu ["Nil", "Con"]) (Term.Typ (Term.Var 2)))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Mat
-          "Nil"
-          (Term.Enu ["()"])
-          (Term.Mat
-            "Con"
-            (Term.Sig
-              (Quan.Q1)
-              (Term.Var 0)
-              (Term.Sig
-                (Quan.Q1)
-                (Term.App
-                  (Quan.Q0)
-                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Var 2))
-                  (Term.Var 1))
-                (Term.Enu ["()"])))
-            (Term.Efq)))),
-    false⟩
-
-def «evalCopy.List» : Def :=
-  ⟨"List",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Sig
-          (Quan.Q1)
-          (Term.Enu ["Nil", "Con"])
-          (Term.App
-            (Quan.Q1)
-            (Term.App
-              (Quan.Q0)
-              (Term.App (Quan.Q0) (Term.Ref "List.arms") (Term.Var 2))
-              (Term.Var 1))
-            (Term.Var 0)))),
-    false⟩
-
 def evalCopy : List Def :=
-  [«evalCopy.Quan.arms»,
+  [«evalCopy.Word.low»,
+   «evalCopy.Byte.from_u32»,
+   «evalCopy.Cmp.is_eq»,
+   «evalCopy.Bool.cmp»,
+   «evalCopy.Word.cmp.fin»,
+   «evalCopy.Word.cmp»,
+   «evalCopy.Byte.is_eq»,
+   «evalCopy.Quan.arms»,
    «evalCopy.Quan»,
    «evalCopy.Term.arms»,
    «evalCopy.Term»,
@@ -8916,12 +9677,6 @@ def evalCopy : List Def :=
    «evalCopy.Quan.lives_as»,
    «evalCopy.Quan.fld»,
    «evalCopy.Bool.and»,
-   «evalCopy.Cmp.is_eq»,
-   «evalCopy.Bool.cmp»,
-   «evalCopy.Word.cmp.fin»,
-   «evalCopy.Word.cmp»,
-   «evalCopy.U32.cmp»,
-   «evalCopy.U32.is_eq»,
    «evalCopy.Name.is_eq»,
    «evalCopy.Bool.or»,
    «evalCopy.Bool.not»,
@@ -8970,8 +9725,8 @@ def evalCopy : List Def :=
    «evalCopy.U32.lit48»,
    «evalCopy.U32.lit49»,
    «evalCopy.U32.lit50»,
-   «evalCopy.Quan.read»,
    «evalCopy.Quan.name»,
+   «evalCopy.Quan.read»,
    «evalCopy.Quan.min»,
    «evalCopy.Eval.meet.of»,
    «evalCopy.Eval.meet»,
@@ -8988,18 +9743,18 @@ def evalCopy : List Def :=
    «evalCopy.Eval.steps»,
    «evalCopy.U32.arms»,
    «evalCopy.U32»,
+   «evalCopy.Maybe.arms»,
+   «evalCopy.Maybe»,
+   «evalCopy.List.arms»,
+   «evalCopy.List»,
    «evalCopy.Cmp.arms»,
    «evalCopy.Cmp»,
+   «evalCopy.Bool.arms»,
+   «evalCopy.Bool»,
    «evalCopy.Word.Nil.arms»,
    «evalCopy.Word.Nil»,
    «evalCopy.Word.Con.arms»,
    «evalCopy.Word.Con»,
    «evalCopy.Word»,
-   «evalCopy.Maybe.arms»,
-   «evalCopy.Maybe»,
-   «evalCopy.Bool.arms»,
-   «evalCopy.Bool»,
    «evalCopy.Nat.arms»,
-   «evalCopy.Nat»,
-   «evalCopy.List.arms»,
-   «evalCopy.List»]
+   «evalCopy.Nat»]

@@ -81,9 +81,9 @@ theorem value_bits : Value B (bits n v) := by
   | zero => exact value_ctor nofun
   | succ n ih => exact value_ctor (by simpa using ⟨value_ctor nofun, ih⟩)
 
-theorem value_cell : Value B (cell b) := value_ctor (by simpa using value_bits)
+theorem value_byte : Value B (byte b) := value_bits
 
-theorem value_bytes : Value B (bytes bs) := value_list (by simpa using fun _ _ => value_cell)
+theorem value_bytes : Value B (bytes bs) := value_list (by simpa using fun _ _ => value_byte)
 
 theorem value_nat : Value B (Form.nat n) := by
   induction n with
@@ -133,9 +133,9 @@ theorem data_bits : Data (bits n v) := by
   | zero => exact data_ctor nofun
   | succ n ih => exact data_ctor (by simpa using ⟨data_ctor nofun, ih⟩)
 
-theorem data_cell : Data (cell b) := data_ctor (by simpa using data_bits)
+theorem data_byte : Data (byte b) := data_bits
 
-theorem data_bytes : Data (bytes bs) := data_list (by simpa using fun _ _ => data_cell)
+theorem data_bytes : Data (bytes bs) := data_list (by simpa using fun _ _ => data_byte)
 
 theorem data_nat : Data (Form.nat n) := by
   induction n with

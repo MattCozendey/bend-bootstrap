@@ -264,21 +264,16 @@ def move (bk : Book) : State → Move
         if i ∈ QS ∧ j ∈ QS then .step ⟨.ev (Term.qmin (Lab i) (Lab j)) .nil, st⟩ else .stop
       | _, _ => .stop
 
--- the value of t, when t is a cell (Bootstrap/Bytes.lean)
-def cellValue : Term → Option Nat
-  | Tup Q1 (Lab "U32") (Tup Q1 w (Lab "()")) => unbits 32 w
-  | _ => none
-
 -- c when it is t, else t: t either way
 def pick (c t : Term) : Term := if c = t then c else t
 
 theorem pick_eq : pick c t = t := by
   unfold pick; split <;> simp_all
 
--- t, or its copy in cells when t is a cell below 256
+-- t, or its copy in byteTable when t is a byte (Bootstrap/Bytes.lean)
 def share (t : Term) : Term :=
-  match cellValue t with
-  | some v => if h : v < 256 then pick (cells[v]'(by rw [cells_size]; exact h)) t else t
+  match unbits 8 t with
+  | some v => if h : v < 256 then pick (byteTable[v]'(by rw [byteTable_size]; exact h)) t else t
   | none => t
 
 theorem share_eq : share t = t := by

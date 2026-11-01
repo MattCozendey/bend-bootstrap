@@ -26,10 +26,10 @@ private theorem value_item' (h : Value B x) : Value B (Read.item k x) :=
 -- the first call of Book.read.token, on a stack of values, steps to its leaf
 private theorem token_call (h : Contains B reader) (hs : ∀ x ∈ s, Value B x)
     (w : walk B «reader.Book.read.token».v []
-      [(Q1, Form.nat t), (Q1, list s), (Q1, cell b)] = some (some u)) (r : Runs B u v) :
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (cell b)) v :=
+      [(Q1, Form.nat t), (Q1, list s), (Q1, byte b)] = some (some u)) (r : Runs B u v) :
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (byte b)) v :=
   .step (Eval.walk (h «reader.Book.read.token» (by simp [reader])) (xs := [(Q1, _), (Q1, _), (Q1, _)])
-    (.cons (fun _ => value_nat) (.cons (fun _ => value_list hs) (.cons (fun _ => value_cell) .nil)))
+    (.cons (fun _ => value_nat) (.cons (fun _ => value_list hs) (.cons (fun _ => value_byte) .nil)))
     w) r
 
 -- a call of Book.read.token8, on a stack of values, steps to its leaf
@@ -55,7 +55,7 @@ private theorem call2 (h : Contains B reader) (hd : d ∈ reader) (vx : Value B 
 
 theorem token_low : Contains B reader → t ≤ 10 → (∀ x ∈ s, Value B x) →
     Read.token t b s = some s' →
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (cell b))
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (byte b))
       (Form.some (list s')) := by
   intro h ht hs e
   match t, ht with
@@ -117,10 +117,10 @@ theorem token_low : Contains B reader → t ≤ 10 → (∀ x ∈ s, Value B x) 
         cases unitem_some hy
         have vy := value_item (hs _ List.mem_cons_self)
         refine token_call h hs
-          (u := App Q1 (App Q1 (Ref "Book.read.byte") (list (Read.item "name" y :: s))) (cell b))
-          ?_ (call2 (d := «reader.Book.read.byte») h (by simp [reader]) (value_list hs) value_cell ?_
+          (u := App Q1 (App Q1 (Ref "Book.read.byte") (list (Read.item "name" y :: s))) (byte b))
+          ?_ (call2 (d := «reader.Book.read.byte») h (by simp [reader]) (value_list hs) value_byte ?_
             (.refl (value_some_list (List.forall_mem_cons.2
-              ⟨value_item' (value_ctor (by simpa using ⟨value_cell, vy⟩)),
+              ⟨value_item' (value_ctor (by simpa using ⟨value_byte, vy⟩)),
                 fun x hx => hs x (by simp [hx])⟩))))
         · simp [«reader.Book.read.token», walk, Form.nat,
             ctor, bindsAt, Quan.live, takes, Quan.fld, Term.sub, Env.sub, Term.spine]

@@ -4,7 +4,7 @@ import Bootstrap.Copy.Reader
 -- Read.Nat
 -- ========
 --
--- Base's U32.to_nat, which the reader calls on each tag, gives the cell's value.
+-- Base's Word.to_nat, which the reader calls on each tag, gives the byte's value.
 
 open Quan Term
 
@@ -78,15 +78,8 @@ theorem word_nat (h : Contains B reader) :
         rw [e, hv, Nat.add_comm]
         exact ⟨i, u.succ, value_nat⟩
 
-theorem to_nat_cell : Contains B reader →
-    Runs B (App Q1 (Ref "U32.to_nat") (cell b)) (Form.nat b.toNat) := by
+theorem to_nat_byte : Contains B reader →
+    Runs B (App Q1 (App Q1 (Ref "Word.to_nat") (Form.nat 8)) (byte b)) (Form.nat b.toNat) := by
   intro h
-  have hk := h «reader.U32.to_nat» (by simp [reader])
-  have hb : b.toNat % 2 ^ 32 = b.toNat := Nat.mod_eq_of_lt (by have := b.toNat_lt; omega)
-  refine .step (Eval.walk (xs := [(Q1, _)])
-    (u := App Q1 (App Q1 (Ref "Word.to_nat") (Form.nat 32)) (bits 32 b.toNat))
-    hk (.cons (fun _ => value_cell) .nil) ?_) ?_
-  · simp [walk, «reader.U32.to_nat», cell, ctor, takes, Quan.live, Quan.fld, sub, spine, bindsAt,
-      Env.sub, Form.nat]
-  · have r := word_nat h (n := 32) (v := b.toNat)
-    rwa [hb] at r
+  have r := word_nat h (n := 8) (v := b.toNat)
+  rwa [Nat.mod_eq_of_lt b.toNat_lt] at r

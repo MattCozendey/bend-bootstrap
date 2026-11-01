@@ -7,6 +7,18 @@ open Quan Term
 
 set_option maxRecDepth 100000
 
+def «needCopy.U32.cmp» : Def :=
+  ⟨"U32.cmp",
+    (Term.All Quan.Q1 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Cmp"))),
+    (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.cmp") (Form.nat 32)) (Term.Var 1)) (Term.Var 0)) Term.Efq))) Term.Efq)) Term.Efq))) Term.Efq)),
+    false⟩
+
+def «needCopy.U32.to_nat» : Def :=
+  ⟨"U32.to_nat",
+    (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Nat")),
+    (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.to_nat") (Form.nat 32)) (Term.Var 0)) Term.Efq))) Term.Efq)),
+    false⟩
+
 def «needCopy.List.length» : Def :=
   ⟨"List.length",
     (Term.All Quan.Q0 (Term.Enu ["Q0", "Q1", "Q2"]) (Term.All Quan.Q0 (Term.Typ (Term.Var 0)) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Var 1)) (Term.Var 0)) (Term.Ref "Nat")))),
@@ -69,13 +81,13 @@ def «needCopy.Program.largest.go» : Def :=
 
 def «needCopy.Program.largest.of» : Def :=
   ⟨"Program.largest.of",
-    (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q1")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "Def"))) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32")) (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")))),
+    (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q1")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "Def"))) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")))),
     (Term.Prj (Term.Mat "None" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "Zero") (Term.Lab "()")))) Term.Efq) (Term.Mat "Some" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q2 (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Program.largest.go") (Term.Var 0)) (Term.Var 2)) (Term.App Quan.Q1 (Term.Ref "Program.start") (Term.Var 1))))) Term.Efq))) Term.Efq))),
     false⟩
 
 def «needCopy.Program.largest» : Def :=
   ⟨"Program.largest",
-    (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32")) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32")) (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")))),
+    (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")))),
     (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.largest.of") (Term.App Quan.Q1 (Term.Ref "Book.read") (Term.Var 2))) (Term.Var 1)) (Term.Var 0))))),
     false⟩
 
@@ -87,8 +99,8 @@ def «needCopy.Nat.mul» : Def :=
 
 def «needCopy.Program.need» : Def :=
   ⟨"Program.need",
-    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32")) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32")) (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")))),
-    (Term.Lam Quan.Q2 (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.add") (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Nat.mul") (Form.nat 64)) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.add") (Term.App Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List.length") (Term.Lab "Q2")) (Term.Ref "U32")) (Term.Var 2))) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.largest") (Term.Var 2)) (Term.Var 1)) (Term.Var 0))))) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.add") (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Nat.mul") (Form.nat 4096)) (Form.nat 4096))) (Term.Tup Quan.Q1 (Term.Lab "Zero") (Term.Lab "()"))))))),
+    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")))),
+    (Term.Lam Quan.Q2 (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.add") (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Nat.mul") (Form.nat 64)) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.add") (Term.App Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List.length") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.Var 2))) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.largest") (Term.Var 2)) (Term.Var 1)) (Term.Var 0))))) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.add") (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Nat.mul") (Form.nat 4096)) (Form.nat 4096))) (Term.Tup Quan.Q1 (Term.Lab "Zero") (Term.Lab "()"))))))),
     false⟩
 
 def «needCopy.Program.memory» : Def :=
@@ -98,7 +110,9 @@ def «needCopy.Program.memory» : Def :=
     false⟩
 
 def needCopy : List Def :=
-  [«needCopy.List.length»,
+  [«needCopy.U32.cmp»,
+   «needCopy.U32.to_nat»,
+   «needCopy.List.length»,
    «needCopy.Cmp.is_le»,
    «needCopy.U32.is_le»,
    «needCopy.U32.lit65536»,

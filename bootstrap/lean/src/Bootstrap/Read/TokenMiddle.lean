@@ -13,11 +13,11 @@ open Quan Term
 -- a call of Book.read.token on the tag 8 + p goes on to Book.read.token8 with p
 private theorem token_eight (h : Contains B reader) (vl : Value B (list s))
     (r : Runs B (App Q1 (App Q1 (Ref "Book.read.token8") (Form.nat p)) (list s)) v) :
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat (p + 8))) (list s)) (cell b)) v := by
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat (p + 8))) (list s)) (byte b)) v := by
   have hk := h «reader.Book.read.token» (by simp [reader])
   refine .step (Eval.walk (xs := [(Q1, _), (Q1, _), (Q1, _)]) hk
-    (.cons (fun _ => value_nat) (.cons (fun _ => vl) (.cons (fun _ => value_cell) .nil))) ?_) r
-  simp [walk, «reader.Book.read.token», Form.nat, ctor, cell, bindsAt, Quan.live, takes, data,
+    (.cons (fun _ => value_nat) (.cons (fun _ => vl) (.cons (fun _ => value_byte) .nil))) ?_) r
+  simp [walk, «reader.Book.read.token», Form.nat, ctor, byte, bindsAt, Quan.live, takes,
         Quan.fld, Term.sub, Env.sub, Term.spine]
 
 -- a call of Book.read.token8 on 8 + p goes on to Book.read.token16 with p
@@ -41,7 +41,7 @@ private theorem run_pop (h8 : Book.get B k8 = some d8) (hk : Book.get B k = some
 
 theorem token_middle : Contains B reader → 11 ≤ t → t ≤ 21 → (∀ x ∈ s, Value B x) →
     Read.token t b s = some s' →
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (cell b))
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (byte b))
       (Form.some (list s')) := by
   intro h h1 h2 hs e
   have vl := value_list hs

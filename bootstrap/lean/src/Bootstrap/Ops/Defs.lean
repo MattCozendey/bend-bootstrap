@@ -7,30 +7,6 @@ open Quan Term
 
 set_option maxRecDepth 100000
 
-def «opsDefs.Nat.double» : Def :=
-  ⟨"Nat.double",
-    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")),
-    (Term.Prj (Term.Mat "Zero" (Term.Mat "()" (Term.Tup Quan.Q1 (Term.Lab "Zero") (Term.Lab "()")) Term.Efq) (Term.Mat "Succ" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Tup Quan.Q1 (Term.Lab "Succ") (Term.Tup Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "Succ") (Term.Tup Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.double") (Term.Var 0)) (Term.Lab "()"))) (Term.Lab "()"))) Term.Efq))) Term.Efq))),
-    false⟩
-
-def «opsDefs.Word.to_nat» : Def :=
-  ⟨"Word.to_nat",
-    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word") (Term.Var 0)) (Term.Ref "Nat"))),
-    (Term.Prj (Term.Mat "Zero" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "Zero") (Term.Lab "()"))) Term.Efq) (Term.Mat "Succ" (Term.Prj (Term.Lam Quan.Q2 (Term.Mat "()" (Term.Prj (Term.Mat "WCon" (Term.Prj (Term.Prj (Term.Mat "False" (Term.Mat "()" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.Ref "Nat.double") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.to_nat") (Term.Var 1)) (Term.Var 0))) Term.Efq))) Term.Efq) (Term.Mat "True" (Term.Mat "()" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Tup Quan.Q1 (Term.Lab "Succ") (Term.Tup Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.double") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.to_nat") (Term.Var 1)) (Term.Var 0))) (Term.Lab "()"))) Term.Efq))) Term.Efq) Term.Efq)))) Term.Efq)) Term.Efq))) Term.Efq))),
-    false⟩
-
-def «opsDefs.U32.to_nat» : Def :=
-  ⟨"U32.to_nat",
-    (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Nat")),
-    (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.to_nat") (Form.nat 32)) (Term.Var 0)) Term.Efq))) Term.Efq)),
-    false⟩
-
-def «opsDefs.Bool.and» : Def :=
-  ⟨"Bool.and",
-    (Term.All Quan.Q1 (Term.Ref "Bool") (Term.All Quan.Q1 (Term.Ref "Bool") (Term.Ref "Bool"))),
-    (Term.Prj (Term.Mat "False" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "False") (Term.Lab "()"))) Term.Efq) (Term.Mat "True" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Var 0)) Term.Efq) Term.Efq))),
-    false⟩
-
 def «opsDefs.Cmp.is_eq» : Def :=
   ⟨"Cmp.is_eq",
     (Term.All Quan.Q1 (Term.Ref "Cmp") (Term.Ref "Bool")),
@@ -55,16 +31,22 @@ def «opsDefs.Word.cmp» : Def :=
     (Term.Prj (Term.Mat "Zero" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "EQ") (Term.Lab "()")))) Term.Efq) (Term.Mat "Succ" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Prj (Term.Mat "WCon" (Term.Prj (Term.Lam Quan.Q1 (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Prj (Term.Mat "WCon" (Term.Prj (Term.Lam Quan.Q1 (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.cmp.fin") (Term.Var 3)) (Term.Var 1)) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.cmp") (Term.Var 4)) (Term.Var 2)) (Term.Var 0))) Term.Efq))))) Term.Efq)) Term.Efq))))) Term.Efq)) Term.Efq))) Term.Efq))),
     false⟩
 
-def «opsDefs.U32.cmp» : Def :=
-  ⟨"U32.cmp",
-    (Term.All Quan.Q1 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Cmp"))),
-    (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.cmp") (Form.nat 32)) (Term.Var 1)) (Term.Var 0)) Term.Efq))) Term.Efq)) Term.Efq))) Term.Efq)),
+def «opsDefs.Nat.double» : Def :=
+  ⟨"Nat.double",
+    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Nat")),
+    (Term.Prj (Term.Mat "Zero" (Term.Mat "()" (Term.Tup Quan.Q1 (Term.Lab "Zero") (Term.Lab "()")) Term.Efq) (Term.Mat "Succ" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Tup Quan.Q1 (Term.Lab "Succ") (Term.Tup Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "Succ") (Term.Tup Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.double") (Term.Var 0)) (Term.Lab "()"))) (Term.Lab "()"))) Term.Efq))) Term.Efq))),
     false⟩
 
-def «opsDefs.U32.is_eq» : Def :=
-  ⟨"U32.is_eq",
-    (Term.All Quan.Q1 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Bool"))),
-    (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Cmp.is_eq") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "U32.cmp") (Term.Var 1)) (Term.Var 0))))),
+def «opsDefs.Word.to_nat» : Def :=
+  ⟨"Word.to_nat",
+    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word") (Term.Var 0)) (Term.Ref "Nat"))),
+    (Term.Prj (Term.Mat "Zero" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "Zero") (Term.Lab "()"))) Term.Efq) (Term.Mat "Succ" (Term.Prj (Term.Lam Quan.Q2 (Term.Mat "()" (Term.Prj (Term.Mat "WCon" (Term.Prj (Term.Prj (Term.Mat "False" (Term.Mat "()" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.Ref "Nat.double") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.to_nat") (Term.Var 1)) (Term.Var 0))) Term.Efq))) Term.Efq) (Term.Mat "True" (Term.Mat "()" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Tup Quan.Q1 (Term.Lab "Succ") (Term.Tup Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.double") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.to_nat") (Term.Var 1)) (Term.Var 0))) (Term.Lab "()"))) Term.Efq))) Term.Efq) Term.Efq)))) Term.Efq)) Term.Efq))) Term.Efq))),
+    false⟩
+
+def «opsDefs.Bool.and» : Def :=
+  ⟨"Bool.and",
+    (Term.All Quan.Q1 (Term.Ref "Bool") (Term.All Quan.Q1 (Term.Ref "Bool") (Term.Ref "Bool"))),
+    (Term.Prj (Term.Mat "False" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "False") (Term.Lab "()"))) Term.Efq) (Term.Mat "True" (Term.Mat "()" (Term.Lam Quan.Q1 (Term.Var 0)) Term.Efq) Term.Efq))),
     false⟩
 
 def «opsDefs.Bool.or» : Def :=
@@ -133,6 +115,12 @@ def «opsDefs.U32.shln» : Def :=
     (Term.Lam Quan.Q2 (Term.Prj (Term.Mat "Zero" (Term.Mat "()" (Term.Var 0) Term.Efq) (Term.Mat "Succ" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.Ref "U32.shl") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "U32.shln") (Term.Var 1)) (Term.Var 0))) Term.Efq))) Term.Efq)))),
     false⟩
 
+def «opsDefs.U32.cmp» : Def :=
+  ⟨"U32.cmp",
+    (Term.All Quan.Q1 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Cmp"))),
+    (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.cmp") (Form.nat 32)) (Term.Var 1)) (Term.Var 0)) Term.Efq))) Term.Efq)) Term.Efq))) Term.Efq)),
+    false⟩
+
 def «opsDefs.U32.is_lt» : Def :=
   ⟨"U32.is_lt",
     (Term.All Quan.Q1 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Bool"))),
@@ -181,6 +169,12 @@ def «opsDefs.U32.sub» : Def :=
     (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.Tup Quan.Q1 (Term.Lab "U32") (Term.Tup Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.sub") (Form.nat 32)) (Term.Var 1)) (Term.Var 0)) (Term.Lab "()"))) Term.Efq))) Term.Efq)) Term.Efq))) Term.Efq)),
     false⟩
 
+def «opsDefs.U32.is_eq» : Def :=
+  ⟨"U32.is_eq",
+    (Term.All Quan.Q1 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Bool"))),
+    (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Cmp.is_eq") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "U32.cmp") (Term.Var 1)) (Term.Var 0))))),
+    false⟩
+
 def «opsDefs.Word.inc» : Def :=
   ⟨"Word.inc",
     (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word") (Term.Var 0)) (Term.App Quan.Q1 (Term.Ref "Word") (Term.Var 1)))),
@@ -203,6 +197,12 @@ def «opsDefs.U32.is_zero» : Def :=
   ⟨"U32.is_zero",
     (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Bool")),
     (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "U32.is_eq") (Term.Var 0)) (Term.Ref "U32.lit0"))),
+    false⟩
+
+def «opsDefs.U32.to_nat» : Def :=
+  ⟨"U32.to_nat",
+    (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Nat")),
+    (Term.Prj (Term.Mat "U32" (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Word.to_nat") (Form.nat 32)) (Term.Var 0)) Term.Efq))) Term.Efq)),
     false⟩
 
 def «opsDefs.Cmp.is_le» : Def :=
@@ -278,16 +278,13 @@ def «opsDefs.U32.is_ne» : Def :=
     false⟩
 
 def opsDefs : List Def :=
-  [«opsDefs.Nat.double»,
-   «opsDefs.Word.to_nat»,
-   «opsDefs.U32.to_nat»,
-   «opsDefs.Bool.and»,
-   «opsDefs.Cmp.is_eq»,
+  [«opsDefs.Cmp.is_eq»,
    «opsDefs.Bool.cmp»,
    «opsDefs.Word.cmp.fin»,
    «opsDefs.Word.cmp»,
-   «opsDefs.U32.cmp»,
-   «opsDefs.U32.is_eq»,
+   «opsDefs.Nat.double»,
+   «opsDefs.Word.to_nat»,
+   «opsDefs.Bool.and»,
    «opsDefs.Bool.or»,
    «opsDefs.Bool.not»,
    «opsDefs.Cmp.is_lt»,
@@ -299,6 +296,7 @@ def opsDefs : List Def :=
    «opsDefs.Word.shl»,
    «opsDefs.U32.shl»,
    «opsDefs.U32.shln»,
+   «opsDefs.U32.cmp»,
    «opsDefs.U32.is_lt»,
    «opsDefs.Cmp.is_ge»,
    «opsDefs.U32.is_ge»,
@@ -307,10 +305,12 @@ def opsDefs : List Def :=
    «opsDefs.Word.adc.group»,
    «opsDefs.Word.sub»,
    «opsDefs.U32.sub»,
+   «opsDefs.U32.is_eq»,
    «opsDefs.Word.inc»,
    «opsDefs.U32.inc»,
    «opsDefs.U32.lit0»,
    «opsDefs.U32.is_zero»,
+   «opsDefs.U32.to_nat»,
    «opsDefs.Cmp.is_le»,
    «opsDefs.U32.is_le»,
    «opsDefs.Word.add»,

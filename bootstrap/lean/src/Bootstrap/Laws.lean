@@ -38,7 +38,7 @@ theorem typed_gives (hB : Trusted B) (cl : Book.Closed B) : Typed B [] (givesOf 
   simp [Rename.defn, Rename.term, «programCopy.Program.gives»] at this
   have := Typed.app (Typed.app (Typed.app this (typed_bytes hT cl (bs := p))) (typed_bytes hT cl (bs := i)))
     (typed_nat hT cl (n := n))
-  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, givesOf, spine, maybeList, listU32] using this
+  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, givesOf, spine, maybeList, listBytes, word8] using this
 
 theorem law_no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
     (hr : Runs B (wasmOf f (compileOf p) i m) (resultOf o)) :
@@ -67,7 +67,7 @@ theorem law_no_wrong_result (hc : Book.check B = .ok ()) (hB : Trusted B)
   obtain ⟨w, dw, tw, cw⟩ := exists_conv hc hB.exists_ (closed_call pa) (live_call' hd pa) h2 hN
   obtain ⟨n, rfl⟩ := canon_nat wt hT cl (data_value dw) tw
   simp only [Term.inst, Term.sub, Subst.one, sub_bytes] at cw
-  refine ⟨n, conv_runs hc ?_ ?_ (typed_gives hB cl) (typed_maybeList hT) ?_ cw⟩
+  refine ⟨n, conv_runs hc ?_ ?_ (typed_gives hB cl) (typed_maybeList hT cl) ?_ cw⟩
   · exact closed_call (by simp [plain_nat, plain_bytes])
   · exact live_call' (hB.get (d := «programCopy.Program.gives») (by simp [programCopy]))
       (by simp [plain_nat, plain_bytes])

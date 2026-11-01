@@ -49,10 +49,9 @@ import Bootstrap.Ops.Add
 --   (2) T x: the number of trailing ones of x mod 2^32, at most 32
 --   (x_i is the bit i of x, and each sum is over the 32 bits i)
 --
--- A result below 256 is its cell (Bootstrap/Bytes.lean), so that equal
--- results share memory; the labels of the words that Ops builds are those of
--- the cells, so that decoding a cell, or a result of Ops, compares each label
--- by pointer.
+-- The labels of the words that Ops builds are those of the bytes
+-- (Bootstrap/Bytes.lean), so that the labels of a byte and of a result of Ops
+-- compare by pointer.
 
 open Quan Term
 
