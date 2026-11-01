@@ -3,16 +3,14 @@
 # the Bend copy of WASM is tested with (W6), made by cut.ml, which reads each
 # test script with the spec's own reference interpreter, keeps in each module
 # that a command defines only its functions inside the subset, and writes the
-# script as wasm -d x.wast -o x.bin.wast does. Every tool is pinned: the
-# spec's commit and the exact packages below; the script
-# refuses to run with anything else. WORK is a folder for the spec's clone
-# and the build. The license, the tests (wast/), and their binary scripts and
+# script as wasm -d x.wast -o x.bin.wast does. The spec's commit is pinned:
+# the script refuses any other. It needs ocaml, dune and menhir. WORK is a
+# folder for the spec's clone and the build. The license, the tests (wast/), and their binary scripts and
 # lists of pure exports (bin/) go next to this script.
 set -euo pipefail
 
 SPEC=https://github.com/WebAssembly/spec.git
 COMMIT=6057acdb1a213f85369c64454c078a15f11ac4b1
-PACKAGES=(ocaml=4.14.1-1ubuntu1 ocaml-dune=3.14.0-1 menhir=20231231+ds-1 libmenhir-ocaml-dev=20231231+ds-1)
 TESTS=(binary binary-leb128 i32 int_exprs address align endianness load store memory memory_grow
   memory_size memory_trap data block loop br br_if br_table labels local_get local_set local_tee
   exports unreached-invalid)
@@ -20,12 +18,8 @@ TESTS=(binary binary-leb128 i32 int_exprs address align endianness load store me
 here=$(cd "$(dirname "$0")" && pwd)
 work=${1:?usage: convert.sh WORK}
 
-for p in "${PACKAGES[@]}"; do
-  have=$(dpkg-query -W -f='${Version}' "${p%%=*}" 2>/dev/null || true)
-  if [ "$have" != "${p#*=}" ]; then
-    echo "convert.sh needs ${p%%=*} ${p#*=}, not '${have:-none}': apt-get install ${PACKAGES[*]}" >&2
-    exit 1
-  fi
+for t in ocaml dune menhir; do
+  command -v "$t" > /dev/null || { echo "convert.sh needs $t" >&2; exit 1; }
 done
 
 mkdir -p "$work"
