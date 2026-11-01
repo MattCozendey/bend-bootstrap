@@ -81,6 +81,26 @@ def Locals.terms : Locals → List Term
 
 def subst (l : Locals) : Nat → Term := Env.sub l.terms
 
+-- subst, for compiled code: the term of a variable is put together only when a
+-- term has the variable, not with the terms of all the locals
+def substL : Locals → Nat → Term
+  | .nil, i => Var i
+  | .cons t .nil _ _, 0 => t
+  | .cons t l _ _, 0 => sub (substL l) t
+  | .cons _ _ _ rest, i + 1 => substL rest i
+
+@[csimp] theorem subst_substL : @subst = @substL := by
+  funext l
+  induction l with
+  | nil => funext i; rfl
+  | cons t l k r ihl ihr =>
+    funext i
+    cases i with
+    | zero => cases l <;> simp_all [subst, Locals.terms, Env.sub, substL]
+    | succ i =>
+      have := congrFun ihr i
+      cases l <;> simp_all [subst, Locals.terms, Env.sub, substL]
+
 -- the term t under its locals l
 def close (t : Term) : Locals → Term
   | .nil => t
@@ -306,15 +326,10 @@ inductive Move where
 -- the frames of a spine's arguments, the innermost first
 def argFrames (ys : List MArg) : List Frame := ys.map fun ⟨q, y, l, k⟩ => .appVal q y l k.isValue
 
--- an argument put together, from its head: the locals that its head does not
--- use are not put into a term
-def argOfR : MArg → Arg
-  | ⟨q, x, l, _⟩ => (q, close (resolve x l).1 (resolve x l).2)
-
 -- the call of k on xs, when the table tb of Ops has k: its value and its steps
 def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat) :=
   match tb.ops[k]? with
-  | some op => op.run (xs.map argOfR)
+  | some op => op.run (xs.map argOf)
   | none => none
 
 -- a call of k on xs, in the frames st: its value, when Ops knows it; else the

@@ -19,11 +19,8 @@ private theorem argFrames_ok (h : ∀ a ∈ ys, argOk bk a) : ∀ f ∈ argFrame
 -- the call that Ops knows reaches its value after its steps
 theorem opsCall_sound (htb : tb = Ops.prepare bk) (h : opsCall tb k xs = some (r, n)) :
     Steps bk n (spine (Ref k) (xs.map argOf)) r ∧ Value bk r ∧ Data r := by
-  have hm : xs.map argOfR = xs.map argOf :=
-    List.map_congr_left fun ⟨q, x, l, _⟩ _ => congrArg (q, ·) resolve_close
   have e : opsCall tb k xs = Ops.call tb k (xs.map argOf) := by
     unfold opsCall Ops.call
-    rw [hm]
     split <;> simp_all
   subst htb
   exact ⟨(Ops.call_sound (e ▸ h)).1, (Ops.call_sound (e ▸ h)).2, Ops.call_data (e ▸ h)⟩
