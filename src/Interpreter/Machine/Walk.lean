@@ -43,7 +43,7 @@ theorem walkOpen_walk : (walkOpen bk t l xs).out = _root_.walk bk t l.terms (xs.
   case case8 e hq =>
     simp [Reach.out, argOf, resolve_eq e, close_lab, _root_.walk, hq]
   case case10 ht ih =>
-    rw [ih]; simp [argOf_eq, localAt_eq, _root_.walk, ht, subst]
+    rw [ih]; simp [localArg_eq, _root_.walk, ht, subst]
   case case11 ht =>
     simp [Reach.out, _root_.walk, ht, close_eq, subst]
   case case9 j h m l q x xl k xs hr =>
@@ -109,7 +109,7 @@ theorem walkOpen_ok (hl : l.Ok bk) (hx : ∀ a ∈ xs, argOk bk a) : (walkOpen b
     refine ih hl ?_
     intro a m
     rcases List.mem_cons.1 m with rfl | m
-    · exact localAt_ok hl
+    · exact localArg_ok hl
     · exact hx a m
   case case12 ht _ => exact ⟨hl, ht⟩
   case case11 => exact ⟨hl, hx⟩
@@ -133,14 +133,14 @@ theorem walkOpen_append (h : walkOpen bk t l xs = .need u ul) :
 -- a walk that waits goes on from where it waits, with any more arguments
 theorem walk_resume (h : walkOpen bk t l xs = .need u ul) (zs : List Arg) :
     walk bk t l.terms (xs.map argOf ++ zs) = walk bk u ul.terms zs := by
-  have e : zs = (zs.map fun (q, x) => ((q, x, Locals.nil, false) : MArg)).map argOf := by
+  have e : zs = (zs.map fun (q, x) => (⟨q, x, Locals.nil, false⟩ : MArg)).map argOf := by
     induction zs with
     | nil => rfl
     | cons z zs ih => obtain ⟨q, x⟩ := z; simp only [List.map_cons, argOf, close_nil]; rw [← ih]
   rw [e, ← List.map_append, ← walkOpen_walk, ← walkOpen_walk, walkOpen_append h]
 
 -- the call goes on, with the argument a in its walk
-theorem CallOk.feed (hc : CallOk bk k t tl rxs) (ha : argOk bk a ∧ a.2.2.2 = a.1.live)
+theorem CallOk.feed (hc : CallOk bk k t tl rxs) (ha : argOk bk a ∧ a.k = a.q.live)
     (hw : walkOpen bk t tl [a] = .need u ul) : CallOk bk k u ul (a :: rxs) := by
   obtain ⟨-, htl, hrx, d, hd, hwk⟩ := hc
   have ho := walkOpen_ok (bk := bk) (t := t) (l := tl) (xs := [a]) htl (by simpa using ha.1)

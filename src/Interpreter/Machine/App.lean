@@ -82,17 +82,17 @@ private theorem app_call (hf : Value bk f) (hx : q.live = true → Value bk x)
 -- is true
 private theorem appMove_call (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
     (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (e : unspineL f fl [(q, x, xl, q.live)] = (Ref k, kl, ys)) :
+    (e : unspineL f fl [⟨q, x, xl, q.live⟩] = (Ref k, kl, ys)) :
     App q (close f fl) (close x xl) = spine (Ref k) (ys.map argOf) ∧
       Values bk (ys.map argOf) ∧ ∀ a ∈ ys, argOk bk a := by
-  have u := unspineL_unspine (t := f) (l := fl) (xs := [(q, x, xl, q.live)])
+  have u := unspineL_unspine (t := f) (l := fl) (xs := [⟨q, x, xl, q.live⟩])
   rw [e] at u
   simp only [close_ref, List.map_cons, List.map_nil, argOf, unspine] at u
   have ⟨hv, vs⟩ := app_call hf hx u
-  have ho := unspineL_ok (t := f) (xs := [(q, x, xl, q.live)]) hfl (by simp [hxl])
+  have ho := unspineL_ok (t := f) (xs := [⟨q, x, xl, q.live⟩]) hfl (by simp [hxl])
   rw [e] at ho
   refine ⟨hv, vs, fun a m => ⟨(ho a m).1, fun hk => ?_⟩⟩
-  have m' : (a.1, close a.2.1 a.2.2.1) ∈ ys.map argOf := List.mem_map_of_mem m
+  have m' : (a.q, close a.t a.l) ∈ ys.map argOf := List.mem_map_of_mem m
   exact values_mem vs m' ((ho a m).2 ▸ hk)
 
 -- App q f x, with f under fl a value, and x under xl a value when q is live
@@ -164,12 +164,12 @@ theorem appMove_ok (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl
 -- the argument a goes into a call: its value when Ops knows it, else a step to
 -- the leaf of its walk, or what next gives when the walk waits
 theorem feed_ok (htb : tb = Ops.prepare bk) (hc : CallOk bk k t tl rxs)
-    (ha : argOk bk a ∧ a.2.2.2 = a.1.live) (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk)
+    (ha : argOk bk a ∧ a.k = a.q.live) (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk)
     (hnext : ∀ u ul, walkOpen bk t tl [a] = .need u ul →
       (next u ul).Ok bk (plugs st (spine (spine (Ref k) ((a :: rxs).reverse.map argOf)) (ys.map (argAt l))))) :
     (feed bk tb k t tl rxs a ys l st next).Ok bk
       (plugs st (spine (spine (Ref k) ((a :: rxs).reverse.map argOf)) (ys.map (argAt l)))) := by
-  have hfrom : State.term ⟨.ret a.2.1 a.2.2.1, .call k t tl rxs a.1 ys l :: st⟩ =
+  have hfrom : State.term ⟨.ret a.t a.l, .call k t tl rxs a.q ys l :: st⟩ =
       plugs st (spine (spine (Ref k) ((a :: rxs).reverse.map argOf)) (ys.map (argAt l))) := by
     simp only [State.term, Focus.term, plugs, List.foldl, Frame.plug, spine_fed]
   unfold feed

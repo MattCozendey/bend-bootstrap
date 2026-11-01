@@ -16,18 +16,18 @@ def Locals.Ok (bk : Book) : Locals → Prop
   | .cons t l k rest => (k = true → Value bk (close t l)) ∧ l.Ok bk ∧ rest.Ok bk
 
 -- an argument put together, by its parts
-theorem argOf_eq : argOf a = (a.1, close a.2.1 a.2.2.1) := rfl
+theorem argOf_eq : argOf a = (a.q, close a.t a.l) := rfl
 
 -- the locals of an argument know what is true, and it is a value when its flag
 -- says so
 def argOk (bk : Book) (a : MArg) : Prop :=
-  a.2.2.1.Ok bk ∧ (a.2.2.2 = true → Value bk (close a.2.1 a.2.2.1))
+  a.l.Ok bk ∧ (a.k = true → Value bk (close a.t a.l))
 
 -- a call of k whose walk waits at t under tl after the arguments rxs, the last
 -- first: each argument is a value when it is live, and the walk of k's case tree
 -- on them goes on as the walk from t under tl
 def CallOk (bk : Book) (k : String) (t : Term) (tl : Locals) (rxs : List MArg) : Prop :=
-  takes t = true ∧ tl.Ok bk ∧ (∀ a ∈ rxs, argOk bk a ∧ a.2.2.2 = a.1.live) ∧
+  takes t = true ∧ tl.Ok bk ∧ (∀ a ∈ rxs, argOk bk a ∧ a.k = a.q.live) ∧
     ∃ d, Book.get bk k = some d ∧
       ∀ zs, walk bk d.v [] (rxs.reverse.map argOf ++ zs) = walk bk t tl.terms zs
 
@@ -110,42 +110,58 @@ theorem noVars_sub (h : noVars t = true) : sub σ t = t := by
 theorem noVars_close (h : noVars t = true) : close t l = t := by
   rw [close_eq, noVars_sub h]
 
+-- the local i of l, by the head of l
+theorem get?_nil : Locals.nil.get? i = none := by
+  cases i <;> rfl
+
+theorem get?_zero : (Locals.cons t l k r).get? 0 = some (t, l, k) := rfl
+
+theorem get?_succ : (Locals.cons t l k r).get? (i + 1) = r.get? i := rfl
+
+-- noVars t && value bk t, in one walk
+theorem closedValue_eq : closedValue bk t = (noVars t && value bk t) := by
+  induction t
+  case Tup q a b iha _ =>
+    simp only [closedValue, noVars, value, iha, *]
+    cases q.live <;> cases noVars a <;> cases value bk a <;> simp
+  all_goals simp only [closedValue]
+
 -- the local i, when l has it
 theorem get?_close (h : l.get? i = some (x, xl, k)) : subst l i = close x xl := by
   induction l generalizing i with
-  | nil => cases h
+  | nil => rw [get?_nil] at h; cases h
   | cons t l' k' r _ ih =>
     cases i with
     | zero =>
-      simp only [Locals.get?, Option.some.injEq, Prod.mk.injEq] at h
+      simp only [get?_zero, Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl, rfl⟩ := h
       exact subst_zero
-    | succ i => rw [subst_succ]; exact ih h
+    | succ i => rw [subst_succ]; rw [get?_succ] at h; exact ih h
 
 -- the local i knows what is true
 theorem get?_ok {l : Locals} (hl : l.Ok bk) (h : l.get? i = some (x, xl, k)) :
     (k = true → Value bk (close x xl)) ∧ xl.Ok bk := by
   induction l generalizing i with
-  | nil => cases h
+  | nil => rw [get?_nil] at h; cases h
   | cons t l' k' r _ ih =>
     cases i with
     | zero =>
-      simp only [Locals.get?, Option.some.injEq, Prod.mk.injEq] at h
+      simp only [get?_zero, Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl, rfl⟩ := h
       exact ⟨hl.1, hl.2.1⟩
-    | succ i => exact ih hl.2.2 h
+    | succ i => rw [get?_succ] at h; exact ih hl.2.2 h
 
 -- the local v, or the variable beyond l
-theorem localAt_eq : close (localAt l v).1 (localAt l v).2.1 = subst l v := by
+theorem localArg_eq : argOf (localArg q l v) = (q, subst l v) := by
   induction l generalizing v with
   | nil => rfl
   | cons t l k r _ ih =>
     cases v with
-    | zero => exact subst_zero.symm
+    | zero => simp only [localArg, argOf, subst_zero]
     | succ v => rw [subst_succ]; exact ih
 
 -- the local v knows what is true
-theorem localAt_ok (hl : l.Ok bk) : argOk bk (q, localAt l v) := by
+theorem localArg_ok (hl : l.Ok bk) : argOk bk (localArg q l v) := by
   induction l generalizing v with
   | nil => exact ⟨trivial, nofun⟩
   | cons t l k r _ ih =>
@@ -247,8 +263,8 @@ theorem unspineL_unspine : unspine (close t l) (xs.map argOf) =
 
 -- the arguments of unspineL have locals that know what is true, and their
 -- flags say whether they are live
-theorem unspineL_ok (hl : l.Ok bk) (hx : ∀ a ∈ xs, a.2.2.1.Ok bk ∧ a.2.2.2 = a.1.live) :
-    ∀ a ∈ (unspineL t l xs).2.2, a.2.2.1.Ok bk ∧ a.2.2.2 = a.1.live := by
+theorem unspineL_ok (hl : l.Ok bk) (hx : ∀ a ∈ xs, a.l.Ok bk ∧ a.k = a.q.live) :
+    ∀ a ∈ (unspineL t l xs).2.2, a.l.Ok bk ∧ a.k = a.q.live := by
   fun_induction unspineL t l xs
   case case1 ih =>
     refine ih hl fun a m => ?_
@@ -278,7 +294,7 @@ theorem values_of (h : ∀ p ∈ xs, p.1.live = true → Value bk p.2) : Values 
     exact .cons (h p List.mem_cons_self) (ih fun p' m => h p' (List.mem_cons_of_mem _ m))
 
 -- the arguments that went into a call are values where they are live
-theorem values_fed {rxs : List MArg} (h : ∀ a ∈ rxs, argOk bk a ∧ a.2.2.2 = a.1.live) :
+theorem values_fed {rxs : List MArg} (h : ∀ a ∈ rxs, argOk bk a ∧ a.k = a.q.live) :
     Values bk (rxs.reverse.map argOf) := by
   refine values_of fun p m hl => ?_
   simp only [List.mem_map, List.mem_reverse] at m
@@ -376,7 +392,7 @@ theorem appArgs_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) : ∀ f ∈ appA
 
 -- the call so far, with one more argument
 theorem spine_fed : spine (Ref k) ((a :: rxs).reverse.map argOf) =
-    App a.1 (spine (Ref k) (rxs.reverse.map argOf)) (close a.2.1 a.2.2.1) := by
+    App a.q (spine (Ref k) (rxs.reverse.map argOf)) (close a.t a.l) := by
   rw [List.reverse_cons, List.map_append]
   exact spine_snoc
 
@@ -389,7 +405,7 @@ theorem papOf_close : close (papOf k rxs).1 (papOf k rxs).2 = spine (Ref k) (rxs
     rw [spine_fed, ← ih]
     exact close_shift
 
-theorem papOf_ok (h : ∀ a ∈ rxs, argOk bk a ∧ a.2.2.2 = a.1.live) : (papOf k rxs).2.Ok bk := by
+theorem papOf_ok (h : ∀ a ∈ rxs, argOk bk a ∧ a.k = a.q.live) : (papOf k rxs).2.Ok bk := by
   induction rxs with
   | nil => trivial
   | cons a rxs ih =>
@@ -432,7 +448,7 @@ theorem imm_part {q : Quan} {a a' : Term} {l al : Locals} (hl : l.Ok bk)
 
 -- an argument that is ready: the term it stands for, and what it knows is true
 theorem ready_ok (hl : l.Ok bk) (h : ready q y l = some a) :
-    argOf a = (q, close y l) ∧ argOk bk a ∧ a.2.2.2 = a.1.live := by
+    argOf a = (q, close y l) ∧ argOk bk a ∧ a.k = a.q.live := by
   unfold ready at h
   split at h
   next hq =>

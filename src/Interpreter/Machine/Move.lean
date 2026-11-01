@@ -57,7 +57,7 @@ theorem evTup_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) :
         split at hb
         next hc =>
           cases hb
-          simp only [Bool.and_eq_true] at hc
+          simp only [closedValue_eq, Bool.and_eq_true] at hc
           have := retTups_ok (st := st) (v := share (Tup q (close a' al) (close (Tup q' a2 b2) .nil)))
             (vl := .nil) (by rw [share_eq, close_nil, close_nil]; exact .tup ha'.2.1 (value_iff.1 hc.2))
             trivial hst
@@ -160,7 +160,7 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
       simp only [move]
       split
       · rename_i hv
-        simp only [Bool.and_eq_true] at hv
+        simp only [closedValue_eq, Bool.and_eq_true] at hv
         refine ⟨⟨⟨value_iff.1 hv.2, trivial⟩, hst⟩, ?_⟩
         simp only [State.term, Focus.term, noVars_close hv.1]
       · exact evTup_ok hf hst
@@ -233,9 +233,9 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
           · rename_i e; rw [resolve_eq e, close_lab]
           · rfl
       case call k t tl rxs q ys l =>
-        have ha : argOk bk (q, v, vl, true) ∧ true = q.live := ⟨⟨hf.2, fun _ => hf.1⟩, hg.1.symm⟩
+        have ha : argOk bk ⟨q, v, vl, true⟩ ∧ true = q.live := ⟨⟨hf.2, fun _ => hf.1⟩, hg.1.symm⟩
         have hT : State.term ⟨.ret v vl, .call k t tl rxs q ys l :: st⟩ =
-            plugs st (spine (spine (Ref k) (((q, v, vl, true) :: rxs).reverse.map argOf)) (ys.map (argAt l))) := by
+            plugs st (spine (spine (Ref k) ((⟨q, v, vl, true⟩ :: rxs).reverse.map argOf)) (ys.map (argAt l))) := by
           simp only [State.term, Focus.term, plugs, List.foldl, Frame.plug, spine_fed]
         rw [hT]
         exact feed_ok htb hg.2.1 ha hg.2.2 hs fun u ul hw => go_ok htb (hg.2.1.feed ha hw) hg.2.2 hs
