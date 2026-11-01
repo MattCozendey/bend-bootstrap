@@ -10,12 +10,15 @@ import Shared.Bytes
 -- of the term, and checks again that each part to the left is a value. The
 -- machine keeps its place: a focus, and the frames around it. It evaluates a
 -- term under the terms of its variables, its locals, each under locals of its
--- own, and remembers which of them are values. A value keeps its locals too,
--- and so do the arguments of a call that waits for more, so a λ costs the
+-- own, and remembers what it knows of each: a value, or Data (so that a λ+
+-- takes it without a check). A value keeps its locals too, so a λ costs the
 -- same whatever it holds: the machine puts locals into a term only when the
--- term goes into a pair, or is needed whole. A call that Ops knows
--- (src/Interpreter/Ops.lean) takes all its steps in one move. When it stops,
--- or runs out of gas, stepwise goes on from its term.
+-- term goes into a pair, or is needed whole. A spine on a def goes into the
+-- def's case tree one argument after the other, each where the walk waits,
+-- and a call that Ops knows (src/Interpreter/Ops.lean) takes all its steps in
+-- one move. A value that needs no step (a local, a label, a pair of them) is
+-- taken in the move that needs it. When the machine stops, or runs out of gas,
+-- stepwise goes on from its term.
 
 open Quan Term
 
@@ -332,64 +335,53 @@ def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat
   | some op => op.run (xs.map argOf)
   | none => none
 
--- a call of k on xs, in the frames st: its value, when Ops knows it; else the
--- leaf of its case tree; or v under vl, a value, when the case tree needs more
--- arguments. from_ () is the state that it came from.
-@[inline] def callMove (bk : Book) (tb : Ops.Table) (k : String) (xs : List MArg) (st : List Frame)
-    (v : Term) (vl : Locals) (from_ : Unit → State) : Move :=
+-- the call of k on xs, in the frames st, whose walk leaves its case tree at u
+-- under ul with the arguments zs left: its value, when Ops knows it, else a
+-- step to the leaf. from_ () is the state that it came from.
+@[inline] def fire (tb : Ops.Table) (k : String) (xs : List MArg) (u : Term) (ul : Locals)
+    (zs : List MArg) (st : List Frame) (from_ : Unit → State) : Move :=
   match opsCall tb k xs with
   | some (r, n) => .jump n ⟨.ret r .nil true, st⟩ (from_ ())
-  | none =>
-    match bk.get k with
-    | none => .stop (from_ ())
-    | some d =>
-      match walkOpen bk d.v .nil xs with
-      | .leaf t l ys => .step ⟨.ev t l, argFrames ys ++ st⟩
-      | .need _ _ => .admin ⟨.ret v vl false, st⟩
-      | .fail => .stop (from_ ())
+  | none => .step ⟨.ev u ul, argFrames zs ++ st⟩
 
--- the frame that an application of a value came from: App q □ x (appArg),
--- App q □ x with x known or not to be a value (appVal), or App q f □ (appFun)
-inductive AppFrom where
-  | arg
-  | val
-  | fun
-
--- the state that appMove bk tb q f fl x xl st w k comes from
-def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (x : Term)
-    (xl : Locals) (st : List Frame) : State :=
-  match w with
-  | .arg => ⟨.ret f fl false, .appArg q x xl :: st⟩
-  | .val => ⟨.ret f fl false, .appVal q x xl k :: st⟩
-  | .fun => ⟨.ret x xl false, .appFun q f fl :: st⟩
+-- a call of k on xs, in the frames st: fire at the leaf of its case tree; or v
+-- under vl, a value, when the case tree needs more arguments
+@[inline] def callMove (bk : Book) (tb : Ops.Table) (k : String) (xs : List MArg) (st : List Frame)
+    (v : Term) (vl : Locals) (from_ : Unit → State) : Move :=
+  match bk.get k with
+  | none => .stop (from_ ())
+  | some d =>
+    match walkOpen bk d.v .nil xs with
+    | .leaf u ul zs => fire tb k xs u ul zs st from_
+    | .need _ _ => .admin ⟨.ret v vl false, st⟩
+    | .fail => .stop (from_ ())
 
 -- App q f x, in the frames st, with f under fl a value, and x under xl a value
--- when q is live; it came from the frame w
+-- when q is live; from_ () is the state that it came from
 @[inline] def appMove (bk : Book) (tb : Ops.Table) (q : Quan) (f : Term) (fl : Locals) (x : Term)
-    (xl : Locals) (st : List Frame) (w : AppFrom) (k : Bool) : Move :=
+    (xl : Locals) (st : List Frame) (from_ : Unit → State) : Move :=
   match resolve f fl with
   | (Lam p b, bl) =>
     if bindsAtL p q x xl (.ofLive q.live) then .step ⟨.ev b (.cons x xl ((Know.ofLive q.live).bind p) bl), st⟩
-    else .stop (w.state k q f fl x xl st)
+    else .stop (from_ ())
   | (Prj h, hl) =>
     match resolve x xl with
     | (Tup r a b, al) =>
       if q.live then .step ⟨.ev h hl, .appVal (Quan.fld r q) a al r.live :: .appVal q b al true :: st⟩
-      else .stop (w.state k q f fl x xl st)
-    | _ => .stop (w.state k q f fl x xl st)
+      else .stop (from_ ())
+    | _ => .stop (from_ ())
   | (Mat j h m, hl) =>
     match resolve x xl with
     | (Lab i, _) =>
       if q.live then
         if i = j then .step ⟨.ev h hl, st⟩ else .step ⟨.ev m hl, .appVal q (Lab i) .nil true :: st⟩
-      else .stop (w.state k q f fl x xl st)
-    | _ => .stop (w.state k q f fl x xl st)
+      else .stop (from_ ())
+    | _ => .stop (from_ ())
   | _ =>
     match unspineL f fl [⟨q, x, xl, .ofLive q.live⟩] with
     | (Ref c, _, ys) =>
-      callMove bk tb c ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl (.ofLive q.live) fl)
-        (fun _ => w.state k q f fl x xl st)
-    | _ => .stop (w.state k q f fl x xl st)
+      callMove bk tb c ys st (App q (Term.ren Nat.succ f) (Var 0)) (.cons x xl (.ofLive q.live) fl) from_
+    | _ => .stop (from_ ())
 
 -- c when it is t, else t: t either way
 def pick (c t : Term) : Term := if c = t then c else t
@@ -413,8 +405,8 @@ theorem share_eq : share t = t := by
   · rfl
 
 -- the value of t under l, when it is one without a step and without a frame:
--- a value that l knows, a label, a node of a case tree or a former; and
--- whether it is known to be Data
+-- a value that l knows, a label, Data in pairs with no variable, a node of a
+-- case tree or a former; and whether it is known to be Data
 @[inline] def imm (t : Term) (l : Locals) : Option (Term × Locals × Bool) :=
   match t with
   | Var i =>
@@ -422,16 +414,10 @@ theorem share_eq : share t = t := by
     | some (x, xl, k) => if k.isValue then some (x, xl, k.isData) else none
     | none => none
   | Lab _ | Rfl => some (t, .nil, true)
+  | Tup .. => if closedData t then some (t, .nil, true) else none
   | Efq | Enu _ => some (t, .nil, false)
   | Lam .. | Prj _ | Mat .. | Typ _ | All .. | Sig .. | Eql .. => some (t, l, false)
   | _ => none
-
--- the value t under l, when it is one without a step and without a frame (imm),
--- or Data in pairs with no variable (closedData)
-@[inline] def immTup (t : Term) (l : Locals) : Option (Term × Locals × Bool) :=
-  match t with
-  | Tup .. => if closedData t then some (t, .nil, true) else none
-  | t => imm t l
 
 -- the value v under vl, known to be Data when d, in the frames st: each pair of
 -- the frames that it completes without a step is put together
@@ -449,7 +435,7 @@ def evTup (q : Quan) (a b : Term) (l : Locals) (st : List Frame) : Move :=
   match (if q.live then imm a l else some (a, l, true)) with
   | none => .admin ⟨.ev a l, .tupB q b l :: st⟩
   | some (a', al, da) =>
-    match immTup b l with
+    match imm b l with
     | some (b', bl, db) => .admin (retTups (share (Tup q (close a' al) (close b' bl))) .nil (da && db) st)
     | none =>
       match b with
@@ -476,17 +462,15 @@ def papOf (k : String) : List MArg → Term × Locals
   | ⟨q, x, xl, b⟩ :: rxs => (App q (Term.ren Nat.succ (papOf k rxs).1) (Var 0), .cons x xl b (papOf k rxs).2)
 
 -- the argument a goes into the call of k, whose walk waits at t under tl after
--- rxs, with the arguments ys under l after it: the leaf of its case tree (or
--- its value, when Ops knows it), or next u ul when the walk waits at u under ul
+-- rxs, with the arguments ys under l after it: fire at the leaf of its case
+-- tree, or next u ul when the walk waits at u under ul
 @[inline] def feed (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs : List MArg)
     (a : MArg) (ys : List Arg) (l : Locals) (st : List Frame) (next : Term → Locals → Move) : Move :=
   match walkOpen bk t tl [a] with
   | .need u ul => next u ul
   | .leaf u ul zs =>
-    match opsCall tb k (a :: rxs).reverse with
-    | some (r, n) =>
-      .jump n ⟨.ret r .nil true, appArgs l ys st⟩ ⟨.ret a.t a.l false, .call k t tl rxs a.q ys l :: st⟩
-    | none => .step ⟨.ev u ul, argFrames zs ++ appArgs l ys st⟩
+    fire tb k (a :: rxs).reverse u ul zs (appArgs l ys st)
+      fun _ => ⟨.ret a.t a.l false, .call k t tl rxs a.q ys l :: st⟩
   | .fail => .stop ⟨.ret a.t a.l false, .call k t tl rxs a.q ys l :: st⟩
 
 -- the arguments ys under l go, one after the other, into the call of k, whose
@@ -500,44 +484,49 @@ def go (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs :
     | some a => feed bk tb k t tl rxs a ys l st fun u ul => go bk tb k u ul (a :: rxs) l st ys
     | none => .admin ⟨.ev y l, .call k t tl rxs q ys l :: st⟩
 
+-- the call that the spine t starts: its def, whose case tree takes arguments,
+-- and its arguments
+@[inline] def spineCall (bk : Book) (t : Term) : Option (String × Def × List Arg) :=
+  match unspine t [] with
+  | (Ref k, ys) =>
+    match bk.get k with
+    | some d => if takes d.v then some (k, d, ys) else none
+    | none => none
+  | _ => none
+
 def move (bk : Book) (tb : Ops.Table) : State → Move
   | ⟨.ev t l, st⟩ =>
+    match imm t l with
+    | some (v, vl, d) => .admin ⟨.ret v vl d, st⟩
+    | none =>
     match t with
     | Var i =>
       match l.get? i with
-      | some (x, xl, k) => if k.isValue then .admin ⟨.ret x xl k.isData, st⟩ else .admin ⟨.ev x xl, st⟩
+      | some (x, xl, _) => .admin ⟨.ev x xl, st⟩
       | none => .stop ⟨.ev (Var i) l, st⟩
     | Ref k => callMove bk tb k [] st (Ref k) .nil (fun _ => ⟨.ev (Ref k) l, st⟩)
     | Ann x _ => .step ⟨.ev x l, st⟩
     | App q f x =>
-      match unspine f [(q, x)] with
-      | (Ref k, ys) =>
-        match bk.get k with
-        | some d => if takes d.v then go bk tb k d.v .nil [] l st ys else .admin ⟨.ev f l, .appArg q x l :: st⟩
-        | none => .admin ⟨.ev f l, .appArg q x l :: st⟩
-      | _ => .admin ⟨.ev f l, .appArg q x l :: st⟩
+      match spineCall bk (App q f x) with
+      | some (k, d, ys) => go bk tb k d.v .nil [] l st ys
+      | none => .admin ⟨.ev f l, .appArg q x l :: st⟩
     | Let q v f =>
       if q.live then .admin ⟨.ev v l, .letIn q f l :: st⟩
       else .step ⟨.ev f (.cons v l .none l), st⟩
-    | Tup q a b =>
-      if closedData (Tup q a b) then .admin ⟨.ret (Tup q a b) .nil true, st⟩
-      else evTup q a b l st
+    | Tup q a b => evTup q a b l st
     | Rwt e P f => .admin ⟨.ev e l, .rwt P f l :: st⟩
     | Term.Min a b => .admin ⟨.ev a l, .minB b l :: st⟩
-    | Lab k => .admin ⟨.ret (Lab k) .nil true, st⟩
-    | Rfl => .admin ⟨.ret Rfl .nil true, st⟩
-    | Efq => .admin ⟨.ret Efq .nil false, st⟩
-    | Enu ks => .admin ⟨.ret (Enu ks) .nil false, st⟩
-    | t => .admin ⟨.ret t l false, st⟩
+    | t => .stop ⟨.ev t l, st⟩
   | ⟨.ret v vl d, []⟩ => .stop ⟨.ret v vl d, []⟩
   | ⟨.ret v vl d, f :: st⟩ =>
     match f with
     | .appArg q x l =>
-      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩ else appMove bk tb q v vl x l st .arg false
+      if q.live then .admin ⟨.ev x l, .appFun q v vl :: st⟩
+      else appMove bk tb q v vl x l st fun _ => ⟨.ret v vl d, .appArg q x l :: st⟩
     | .appVal q x l k =>
       if q.live && !k then .admin ⟨.ev x l, .appFun q v vl :: st⟩
-      else appMove bk tb q v vl x l st .val k
-    | .appFun q g gl => appMove bk tb q g gl v vl st .fun false
+      else appMove bk tb q v vl x l st fun _ => ⟨.ret v vl d, .appVal q x l k :: st⟩
+    | .appFun q g gl => appMove bk tb q g gl v vl st fun _ => ⟨.ret v vl d, .appFun q g gl :: st⟩
     | .letIn q f l =>
       if q != Q2 || d || dataAt v vl then .step ⟨.ev f (.cons v vl ((Know.ofData d).bind q) l), st⟩
       else .stop ⟨.ret v vl d, .letIn q f l :: st⟩

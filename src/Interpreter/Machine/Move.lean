@@ -66,7 +66,7 @@ theorem evTup_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) :
       have ha' := imm_part hl hra
       split
       next b' bl db hb =>
-        simp only [immTup] at hb
+        simp only [imm] at hb
         split at hb
         next hc =>
           cases hb
@@ -103,7 +103,6 @@ theorem evTup_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) :
       have ha' := imm_part hl hra
       split
       next b' bl db hb =>
-        simp only [immTup] at hb
         have hb' := imm_ok hl hb
         have := retTups_ok (st := st) (v := share (Tup q (close a' al) (close b' bl))) (vl := .nil)
           (d := da && db)
@@ -120,6 +119,20 @@ theorem evTup_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) :
         exact ⟨⟨hl, List.forall_mem_cons.2 ⟨⟨ha'.2.1, ha'.2.2.1, ha'.2.2.2⟩, hst⟩⟩, by
           simp only [State.term, Focus.term, close_tup, plugs, List.foldl, Frame.plug, ha'.1]⟩
 
+-- the call that a spine starts
+theorem spineCall_some (h : spineCall bk t = some (k, d, ys)) :
+    unspine t [] = (Ref k, ys) ∧ Book.get bk k = some d ∧ takes d.v = true := by
+  unfold spineCall at h
+  split at h
+  next k' ys' e =>
+    split at h
+    next d' hd =>
+      split at h
+      next ht => cases h; exact ⟨e, hd, ht⟩
+      next => cases h
+    next => cases h
+  next => cases h
+
 theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok bk s.term := by
   obtain ⟨fc, st⟩ := s
   obtain ⟨hf, hst⟩ := hs
@@ -127,27 +140,28 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
   cases fc with
   | ev t l =>
     simp only [Focus.Ok] at hf
+    simp only [move]
+    split
+    next v vl d hi =>
+      obtain ⟨e, hv, hvl, hd⟩ := imm_ok hf hi
+      exact ⟨⟨⟨hv, hvl, hd⟩, hst⟩, by simp only [State.term, Focus.term, e]⟩
+    next hi =>
     cases t
     case Var i =>
-      simp only [move]
+      dsimp only
       split
       · rename_i x xl k hx
-        have ho := get?_ok hf hx
-        split
-        · rename_i hv
-          refine ⟨⟨⟨ho.1.value hv, ho.2, ho.1.data⟩, hst⟩, ?_⟩
-          simp only [State.term, Focus.term, close_var, get?_close hx]
-        · refine ⟨⟨ho.2, hst⟩, ?_⟩
-          simp only [State.term, Focus.term, close_var, get?_close hx]
+        refine ⟨⟨(get?_ok hf hx).2, hst⟩, ?_⟩
+        simp only [State.term, Focus.term, close_var, get?_close hx]
       · rfl
     case Ref k =>
       have e : State.term ⟨.ev (Ref k) l, st⟩ = plugs st (spine (Ref k) (([] : List MArg).map argOf)) := by
         simp only [State.term, Focus.term, close_ref, List.map_nil, spine]
-      simp only [move]
+      dsimp only
       rw [e]
       exact callMove_ok htb .nil nofun rfl trivial hst e
     case Ann x T =>
-      simp only [move]
+      dsimp only
       refine ⟨⟨hf, hst⟩, Eval.plugs hst ?_⟩
       simp only [Focus.term, close_eq, Term.sub]
       exact .ann
@@ -155,25 +169,20 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
       have hpush : (Move.admin ⟨.ev f l, .appArg q x l :: st⟩).Ok bk (State.term ⟨.ev (App q f x) l, st⟩) :=
         ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
           simp only [State.term, Focus.term, close_app, plugs, List.foldl, Frame.plug]⟩
-      simp only [move]
+      dsimp only
       split
-      next k ys e =>
-        split
-        next d hd =>
-          split
-          next ht =>
-            have hT : State.term ⟨.ev (App q f x) l, st⟩ =
-                plugs st (spine (spine (Ref k) (([] : List MArg).reverse.map argOf)) (ys.map (argAt l))) := by
-              have h1 : App q f x = spine (Ref k) ys := spine_unspine e
-              simp only [State.term, Focus.term, h1, close_spine, close_ref, List.reverse_nil,
-                List.map_nil, spine]
-            rw [hT]
-            exact go_ok htb ⟨ht, trivial, nofun, d, hd, fun zs => rfl⟩ hf hst
-          next => exact hpush
-        next => exact hpush
+      next k d ys hc =>
+        obtain ⟨e, hd, ht⟩ := spineCall_some hc
+        have hT : State.term ⟨.ev (App q f x) l, st⟩ =
+            plugs st (spine (spine (Ref k) (([] : List MArg).reverse.map argOf)) (ys.map (argAt l))) := by
+          have h1 : App q f x = spine (Ref k) ys := spine_unspine e
+          simp only [State.term, Focus.term, h1, close_spine, close_ref, List.reverse_nil,
+            List.map_nil, spine]
+        rw [hT]
+        exact go_ok htb ⟨ht, trivial, nofun, d, hd, fun zs => rfl⟩ hf hst
       next => exact hpush
     case Let q v f =>
-      simp only [move]
+      dsimp only
       split
       · rename_i hq
         exact ⟨⟨hf, List.forall_mem_cons.2 ⟨⟨hq, hf⟩, hst⟩⟩, by
@@ -183,26 +192,14 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
         simp only [Focus.term, close_cons]
         simp only [close_eq, Term.sub]
         exact .unlet (fun h => absurd h hq) (fun e => by subst e; exact absurd rfl hq)
-    case Tup q a b =>
-      simp only [move]
-      split
-      · rename_i hv
-        have hc := closedData_ok hv
-        refine ⟨⟨⟨data_value hc.2, trivial, fun _ => hc.2⟩, hst⟩, ?_⟩
-        simp only [State.term, Focus.term, noVars_close hc.1]
-      · exact evTup_ok hf hst
-    all_goals simp only [move]
-    all_goals first
-      | exact ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
-          simp only [State.term, Focus.term, close_eq, Term.sub, plugs, List.foldl, Frame.plug]⟩
-      | exact ⟨⟨hf, List.forall_mem_cons.2 ⟨⟨hf, hf⟩, hst⟩⟩, by
-          simp only [State.term, Focus.term, close_eq, Term.sub, plugs, List.foldl, Frame.plug]⟩
-      | exact ⟨⟨⟨by simp only [close_eq, Term.sub]; constructor, trivial,
-          fun _ => by simp only [close_eq, Term.sub]; constructor⟩, hst⟩, by
-          simp only [State.term, Focus.term, close_eq, Term.sub]⟩
-      | exact ⟨⟨⟨by simp only [close_eq, Term.sub]; constructor, trivial, nofun⟩, hst⟩, by
-          simp only [State.term, Focus.term, close_eq, Term.sub]⟩
-      | exact ⟨⟨⟨by simp only [close_eq, Term.sub]; constructor, hf, nofun⟩, hst⟩, rfl⟩
+    case Tup q a b => exact evTup_ok hf hst
+    case Rwt e P f =>
+      exact ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
+        simp only [State.term, Focus.term, close_eq, Term.sub, plugs, List.foldl, Frame.plug]⟩
+    case Min a b =>
+      exact ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
+        simp only [State.term, Focus.term, close_eq, Term.sub, plugs, List.foldl, Frame.plug]⟩
+    all_goals rfl
   | ret v vl d =>
     simp only [Focus.Ok] at hf
     cases st with

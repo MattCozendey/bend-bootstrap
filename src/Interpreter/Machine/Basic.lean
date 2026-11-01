@@ -507,7 +507,15 @@ theorem imm_ok (hl : l.Ok bk) (h : imm t l = some (v, vl, d)) :
   | Efq | Enu =>
     simp only [imm] at h; cases h
     refine ⟨by simp only [close_eq, sub], by simp only [close_eq, sub]; constructor, trivial, nofun⟩
-  | Ref | Ann | Let | Min | App | Rwt | Tup => simp [imm] at h
+  | Tup q a b =>
+    simp only [imm] at h
+    split at h
+    next hc =>
+      cases h
+      have hc' := closedData_ok hc
+      exact ⟨(noVars_close hc'.1).symm, data_value hc'.2, trivial, fun _ => hc'.2⟩
+    next => cases h
+  | Ref | Ann | Let | Min | App | Rwt => simp [imm] at h
 
 -- the first part of a pair, when it needs no step: a dead one, or a value
 theorem imm_part {q : Quan} {a a' : Term} {l al : Locals} (hl : l.Ok bk)

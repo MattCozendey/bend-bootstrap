@@ -25,40 +25,50 @@ theorem opsCall_sound (htb : tb = Ops.prepare bk) (h : opsCall tb k xs = some (r
   subst htb
   exact ⟨(Ops.call_sound (e ▸ h)).1, (Ops.call_sound (e ▸ h)).2, Ops.call_data (e ▸ h)⟩
 
--- a call of k on xs: its value when Ops knows it, else a step to the leaf of
--- its walk, or v under vl, the call itself, when its case tree needs more
+-- a call at the leaf of its walk: its value when Ops knows it, else a step to
+-- the leaf
+theorem fire_ok (htb : tb = Ops.prepare bk) (hk : Book.get bk k = some d)
+    (vs : Values bk (xs.map argOf))
+    (hw : walk bk d.v [] (xs.map argOf) = some (some (spine (close u ul) (zs.map argOf))))
+    (hul : ul.Ok bk) (hzs : ∀ a ∈ zs, argOk bk a) (hst : ∀ f ∈ st, f.Ok bk)
+    (hf : (from_ ()).term = plugs st (spine (Ref k) (xs.map argOf))) :
+    (fire tb k xs u ul zs st from_).Ok bk (plugs st (spine (Ref k) (xs.map argOf))) := by
+  unfold fire
+  split
+  next r m e =>
+    obtain ⟨s, hr, hd⟩ := opsCall_sound htb e
+    exact ⟨⟨⟨hr, trivial, fun _ => hd⟩, hst⟩, Steps.plugs hst s, hf⟩
+  next =>
+    refine ⟨⟨hul, fun f m => ?_⟩, ?_⟩
+    · rcases List.mem_append.1 m with m | m
+      · exact argFrames_ok hzs f m
+      · exact hst f m
+    · simp only [State.term, Focus.term, plugs_append, plugs_argFrames]
+      exact Eval.plugs hst (.call hk vs (walk_iff.1 hw))
+
+-- a call of k on xs: fire at the leaf of its walk, or v under vl, the call
+-- itself, when its case tree needs more
 theorem callMove_ok (htb : tb = Ops.prepare bk) (vs : Values bk (xs.map argOf))
     (hx : ∀ a ∈ xs, argOk bk a) (hv : close v vl = spine (Ref k) (xs.map argOf)) (hvl : vl.Ok bk)
     (hst : ∀ f ∈ st, f.Ok bk) (hf : (from_ ()).term = plugs st (spine (Ref k) (xs.map argOf))) :
     (callMove bk tb k xs st v vl from_).Ok bk (plugs st (spine (Ref k) (xs.map argOf))) := by
   unfold callMove
   split
-  next r m e =>
-    obtain ⟨s, hr, hd⟩ := opsCall_sound htb e
-    exact ⟨⟨⟨hr, trivial, fun _ => hd⟩, hst⟩, Steps.plugs hst s, hf⟩
-  next =>
+  · exact hf
+  next d hk =>
+    have w := walkOpen_walk (bk := bk) (t := d.v) (l := .nil) (xs := xs) trivial hx
+    have ho := walkOpen_ok (bk := bk) (t := d.v) (l := .nil) (xs := xs) trivial hx
     split
-    · exact hf
-    next d hk =>
-      have w := walkOpen_walk (bk := bk) (t := d.v) (l := .nil) (xs := xs) trivial hx
-      have ho := walkOpen_ok (bk := bk) (t := d.v) (l := .nil) (xs := xs) trivial hx
-      split
-      next t l ys hw =>
-        rw [hw] at w ho
-        have w' := walk_iff.1 w.symm
-        refine ⟨⟨ho.1, fun f m => ?_⟩, ?_⟩
-        · rcases List.mem_append.1 m with m | m
-          · exact argFrames_ok ho.2 f m
-          · exact hst f m
-        · simp only [State.term, Focus.term, plugs_append, plugs_argFrames]
-          exact Eval.plugs hst (.call hk vs w')
-      next hw =>
-        rw [hw] at w
-        have w' := walk_iff.1 w.symm
-        refine ⟨⟨⟨?_, hvl, nofun⟩, hst⟩, ?_⟩
-        · rw [hv]; exact .call hk vs w'
-        · simp only [State.term, Focus.term, hv]
-      next => exact hf
+    next u ul zs hw =>
+      rw [hw] at w ho
+      exact fire_ok htb hk vs w.symm ho.1 ho.2 hst hf
+    next hw =>
+      rw [hw] at w
+      have w' := walk_iff.1 w.symm
+      refine ⟨⟨⟨?_, hvl, nofun⟩, hst⟩, ?_⟩
+      · rw [hv]; exact .call hk vs w'
+      · simp only [State.term, Focus.term, hv]
+    next => exact hf
 
 -- an App of a value whose spine is on a def is a spine of values on a def
 private theorem app_call (hf : Value bk f) (hx : q.live = true → Value bk x)
@@ -96,8 +106,8 @@ private theorem appMove_call (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
 -- App q f x, with f under fl a value, and x under xl a value when q is live
 theorem appMove_ok (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
     (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk) (hst : ∀ g ∈ st, g.Ok bk)
-    (hw : (w.state k q f fl x xl st).term = plugs st (App q (close f fl) (close x xl))) :
-    (appMove bk tb q f fl x xl st w k).Ok bk (plugs st (App q (close f fl) (close x xl))) := by
+    (hw : (from_ ()).term = plugs st (App q (close f fl) (close x xl))) :
+    (appMove bk tb q f fl x xl st from_).Ok bk (plugs st (App q (close f fl) (close x xl))) := by
   unfold appMove
   split
   next p b bl e =>
@@ -185,20 +195,11 @@ theorem feed_ok (htb : tb = Ops.prepare bk) (hc : CallOk bk k t tl rxs)
       rcases List.mem_cons.1 m with rfl | m
       · exact ha
       · exact hrx a' m
-    have e := Eval.call hd vs (walk_iff.1 wk)
-    split
-    next r n eo =>
-      obtain ⟨s, hr, hd⟩ := opsCall_sound htb eo
-      refine ⟨⟨⟨hr, trivial, fun _ => hd⟩, appArgs_ok hl hst⟩, ?_, hfrom⟩
-      simp only [State.term, Focus.term, close_nil, plugs_appArgs]
-      exact Steps.plugs hst (Steps.spine_f s)
-    next =>
-      refine ⟨⟨ho.1, fun f m => ?_⟩, ?_⟩
-      · rcases List.mem_append.1 m with m | m
-        · exact argFrames_ok ho.2 f m
-        · exact appArgs_ok hl hst f m
-      · simp only [State.term, Focus.term, plugs_append, plugs_argFrames, plugs_appArgs]
-        exact Eval.plugs hst (Eval.spine_f e)
+    have := fire_ok (st := appArgs l ys st)
+      (from_ := fun _ => ⟨.ret a.t a.l false, .call k t tl rxs a.q ys l :: st⟩) htb hd vs wk ho.1 ho.2
+      (appArgs_ok hl hst) (by rw [plugs_appArgs]; exact hfrom)
+    rw [plugs_appArgs] at this
+    exact this
   next => exact hfrom
 
 -- the arguments ys go into a call one after the other
