@@ -270,7 +270,8 @@ The entries:
   - **3.9.1.1** Why: it is small and has an official formal spec. Native machine code has no
     compact formal spec, and C's meaning is huge and full of undefined behavior.
   - **3.9.1.2** Meaning: our Bend version covers only the part of WASM that the compiler uses, its
-    binary format included.
+    binary format included. The version is WASM 3.0, at the commit `6057acdb` of the official spec
+    (github.com/WebAssembly/spec), which the tests pin.
   - **3.9.1.3** Trusted: a WASM engine follows the WASM spec. Our Bend version of WASM's meaning is
     reviewed against the spec and tested with the spec's official test suite, but not proven,
     because we know of no Lean or Bend version of the spec. This is a named exception to "all of
