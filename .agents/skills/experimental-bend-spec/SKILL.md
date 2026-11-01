@@ -20,7 +20,7 @@ less. A caller bug has one of two causes:
 
 ## Layout
 
-- `shared.bend` (optional, see feature layout): A self-contained module(laws, proofs, tests live in it) which imports only from Base only or other self-contained shared upwards modules. 
+- `shared.bend` (optional, see feature layout): A self-contained module(laws, proofs, tests live in it) which imports only from Base or other self-contained shared upwards modules. 
 - `spec.bend`: the full public interface, and the claims about it. It imports Base only. The user
   owns it.
 - `impl.bend`: imports `./spec.bend as Spec`. It has the code, fills each interface law, and
