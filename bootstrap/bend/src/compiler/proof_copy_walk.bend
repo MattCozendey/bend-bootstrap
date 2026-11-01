@@ -112,7 +112,7 @@ def MoOK(+mo: D.Mo, t: C.Term) -> Bool:
 # the field v of a frame, of the part of status s: the source's cell x, or
 # its copy, of Mo.F(mo, t, dd), or the frame above (cn, of the source term
 # cT, at the depth cd)
-def FS(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def FS(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +v: U32, +x: U32, +t: C.Term, s: St, +dd: Nat, +cn: U32, +cT: C.Term, +cd: Nat) -> Data:
   match s:
     case St.un{}:
@@ -201,7 +201,7 @@ def Fr.tag(+h: U32) -> Nat:
 
 # the source term of a frame: of its tag and quantity, the name in field 2,
 # and the terms of its parts
-def Fr.src(+h: U32, +n: U32, +y2: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +t2: C.Term, +t3: C.Term,
+def Fr.src(+h: U32, +n: U32, +y2: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +t2: C.Term, +t3: C.Term,
   +t4: C.Term) -> Maybe<&2, C.Term>:
   T.tm.cell(Fr.tag(h), T.tm.quan(U32.and(U32.shrn(h, 6n), 3)), n, y2, ks, img, u => Some{t2}, u => Some{t3}, u => Some{t4})
 
@@ -209,7 +209,7 @@ def Fr.src(+h: U32, +n: U32, +y2: U32, +ks: List<&2, List<&2, U32>>, +img: List<
 # holds the header h with the todo bits of its pending parts, and its parts
 # by their statuses; it is one of the machine's own cells, which may not be
 # read (one of X), with a tag that the walk copies
-def FrOK(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def FrOK(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, fr: Fr, +top: Bool, +cn: U32, +cT: C.Term, +cd: Nat) -> Data:
   match fr:
     case Fr{+n, +h, +x2, +T0, +y2, +y3, +y4, +t2, +t3, +t4, +s2, +s3, +s4, +d}:
@@ -229,7 +229,7 @@ def FrOK(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2
 
 # the frames frs, from the cell at on, linked by field 1, the top first (top),
 # each below the one before (cn, cT, cd); 0 after the last
-def Frs(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Frs(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, frs: List<&2, Fr>, +at: U32, +top: Bool, +cn: U32, +cT: C.Term, +cd: Nat) -> Data:
   match frs:
     case Nil{}:
@@ -269,7 +269,7 @@ def Wm(frs: List<&2, Fr>) -> Nat:
 # the last of the frames is the root: a Prj of the source's cell x, of the term
 # t, at the depth 0, in the cell root; once the frames are gone, the root's field 2 holds the
 # copy, of Mo.F(mo, t, 0)
-def Root(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Root(+mo: D.Mo, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, frs: List<&2, Fr>, +root: U32, +x: U32, +t: C.Term) -> Data:
   match frs:
     case Nil{}:
@@ -357,7 +357,7 @@ def Al.post(+r: Nat, +R: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +K: U32, +F: 
   +rg: List<&2, U32>, +ms: C.Cir.Cells, +nx2: U32) -> Data:
   match w:
     case Aw{+c, +fresh, +P2, +Q2, +ws, +a}:
-      D.P2({rg == List.set(&2, U32, Rp(a, D.Rg.ex(64n, R, 0n)), r, c) : List<&2, U32>},
+      D.P2({rg == List.set(&2, U32, Rp(a, D.Rg.ex(63n, R, 0n)), r, c) : List<&2, U32>},
       D.P2({ms == C.Cir.Cells.set(W1s(ws, m), c, C.Cir.Cell.zero()) : C.Cir.Cells},
       D.P2({W1s.in(ws, P) == True{} : Bool},
       D.P2(Al.how(fresh, P, c, P2, nx, nx2),
@@ -370,12 +370,12 @@ def Al.post(+r: Nat, +R: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +K: U32, +F: 
 # list, whose reuse drops the counts of its parts; the allocation's invariant
 # holds again, without that cell
 def Al.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
-  +I: List<&2, U32>, +P: List<&2, U32>, +Q: List<&2, U32>, +Bu: U32,
+  +I: List<&2, Word(8n)>, +P: List<&2, U32>, +Q: List<&2, U32>, +Bu: U32,
   hal: {D.AL(m, T.tm.reg(R, 3n), P, Q, K, F, nx, Bu) == True{} : Bool},
-  hr: {Bool.and(Nat.is_lt(r, 64n), Bool.not(Bool.and(Nat.is_le(3n, r), Nat.is_le(r, 7n)))) == True{} : Bool},
-  hk: {U32.is_le(363, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool}, hfn: {U32.is_le(F, nx) == True{} : Bool},
+  hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Bool.and(Nat.is_le(3n, r), Nat.is_le(r, 7n)))) == True{} : Bool},
+  hk: {U32.is_le(290, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool}, hfn: {U32.is_le(F, nx) == True{} : Bool},
   tb: D.Tb(m)) ->
-  D.Ok(C.Cir.exec(1n+f, C.M.alloc(r), D.S(D.Rg.ex(64n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I,
+  D.Ok(C.Cir.exec(1n+f, C.M.alloc(r), D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I,
     rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Bu, w, rg, ms, nx2))):
   ?TODO
 

@@ -99,7 +99,7 @@ def Cg.three(-k: C.Term -> C.Term -> C.Term -> C.Term, r1: Maybe<&2, C.Term>, r2
     case Some{+a}:
       Cg.three.s(k, a, r2, r3, s1, s2, s3, t, g1(a, {==}), h, g2, g3)
 
-def Cg.mat.t(+kk: List<&2, U32>, +a: C.Term, r2: Maybe<&2, C.Term>, s1: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t: C.Term,
+def Cg.mat.t(+kk: List<&2, Word(8n)>, +a: C.Term, r2: Maybe<&2, C.Term>, s1: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t: C.Term,
   e1: {s1 == Some{a} : Maybe<&2, C.Term>}, h: {T.tm.mat(Some{kk}, Some{a}, r2) == Some{t} : Maybe<&2, C.Term>},
   g2: @b: C.Term -> {r2 == Some{b} : Maybe<&2, C.Term>} -> {s2 == Some{b} : Maybe<&2, C.Term>}) ->
   {T.tm.mat(Some{kk}, s1, s2) == Some{t} : Maybe<&2, C.Term>}:
@@ -111,7 +111,7 @@ def Cg.mat.t(+kk: List<&2, U32>, +a: C.Term, r2: Maybe<&2, C.Term>, s1: Maybe<&2
       %Equal.sym(Maybe<&2, C.Term>, s2, Some{b}, g2(b, {==})) : {T.tm.mat(Some{kk}, Some{a}, _) == Some{t} : Maybe<&2, C.Term>}
       h
 
-def Cg.mat.s(+kk: List<&2, U32>, r1: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>, s1: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t: C.Term,
+def Cg.mat.s(+kk: List<&2, Word(8n)>, r1: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>, s1: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t: C.Term,
   h: {T.tm.mat(Some{kk}, r1, r2) == Some{t} : Maybe<&2, C.Term>},
   g1: @a: C.Term -> {r1 == Some{a} : Maybe<&2, C.Term>} -> {s1 == Some{a} : Maybe<&2, C.Term>},
   g2: @b: C.Term -> {r2 == Some{b} : Maybe<&2, C.Term>} -> {s2 == Some{b} : Maybe<&2, C.Term>}) ->
@@ -122,7 +122,7 @@ def Cg.mat.s(+kk: List<&2, U32>, r1: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>, s
     case Some{+a}:
       Cg.mat.t(kk, a, r2, s1, s2, t, g1(a, {==}), h, g2)
 
-def Cg.mat(n: Maybe<&2, List<&2, U32>>, r1: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>, s1: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t: C.Term,
+def Cg.mat(n: Maybe<&2, List<&2, Word(8n)>>, r1: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>, s1: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t: C.Term,
   h: {T.tm.mat(n, r1, r2) == Some{t} : Maybe<&2, C.Term>},
   g1: @a: C.Term -> {r1 == Some{a} : Maybe<&2, C.Term>} -> {s1 == Some{a} : Maybe<&2, C.Term>},
   g2: @b: C.Term -> {r2 == Some{b} : Maybe<&2, C.Term>} -> {s2 == Some{b} : Maybe<&2, C.Term>}) ->
@@ -134,7 +134,7 @@ def Cg.mat(n: Maybe<&2, List<&2, U32>>, r1: Maybe<&2, C.Term>, r2: Maybe<&2, C.T
       Cg.mat.s(kk, r1, r2, s1, s2, t, h, g1, g2)
 
 # T.tm.cell gives the same term t from parts that give at least what they gave
-def Cg(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>,
+def Cg(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
   p2: Unit -> Maybe<&2, C.Term>, p3: Unit -> Maybe<&2, C.Term>, p4: Unit -> Maybe<&2, C.Term>,
   q2: Unit -> Maybe<&2, C.Term>, q3: Unit -> Maybe<&2, C.Term>, q4: Unit -> Maybe<&2, C.Term>, -t: C.Term,
   h: {T.tm.cell(tag, q, c, f2, ks, img, p2, p3, p4) == Some{t} : Maybe<&2, C.Term>},
@@ -199,7 +199,7 @@ def Tm.chk.cg(+tag: Nat, +fvf: U32, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, 
 
 # the checked term of the cell c, whose content is cell, with the fuel 1 + f,
 # when ok says that c may be read
-def Tm.at.b(ok: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.at.b(ok: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, +cell: C.Cir.Cell) -> Maybe<&2, C.Term>:
   +f0 = C.Cir.Cell.get(0n, cell)
   +tag = U32.to_nat(U32.and(f0, 63))
@@ -209,17 +209,17 @@ def Tm.at.b(ok: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +i
       u => D.Tm(f, m, ks, img, K, F, X, N, C.Cir.Cell.get(3n, cell)),
       u => D.Tm(f, m, ks, img, K, F, X, N, C.Cir.Cell.get(4n, cell)))))
 
-def Tm.at(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.at(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, +cell: C.Cir.Cell) -> Maybe<&2, C.Term>:
   Tm.at.b(D.Al(K, F, X, N, c), f, m, ks, img, K, F, X, N, c, cell)
 
-def Tm.at.eq(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.at.eq(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32) ->
   {D.Tm(1n+f, m, ks, img, K, F, X, N, c) == Tm.at(f, m, ks, img, K, F, X, N, c, C.Cir.Cells.get(m, c)) : Maybe<&2, C.Term>}:
   {==}
 
 # a cell that a checked term reads may be read
-def Tm.al.if(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.al.if(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, +cell: C.Cir.Cell, -t: C.Term, eb: {b == D.Al(K, F, X, N, c) : Bool},
   h: {Tm.at.b(b, f, m, ks, img, K, F, X, N, c, cell) == Some{t} : Maybe<&2, C.Term>}) -> {D.Al(K, F, X, N, c) == True{} : Bool}:
   match b:
@@ -242,7 +242,7 @@ def Al.ne.if(b: Bool, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +c: U32, +i:
       Equal.sym(Bool, False{}, U32.is_eq(c, i), eb)
 
 # the round at a readable cell, from parts that give at least what they gave
-def Tm.at.cg(b: Bool, +f: Nat, +f2: Nat, +m: C.Cir.Cells, +m2: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>,
+def Tm.at.cg(b: Bool, +f: Nat, +f2: Nat, +m: C.Cir.Cells, +m2: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
   +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +X2: List<&2, U32>, +N2: U32, +b2: Bool, +c: U32, +cell: C.Cir.Cell, -t: C.Term,
   eb: {b == b2 : Bool},
   h: {Tm.at.b(b, f, m, ks, img, K, F, X, N, c, cell) == Some{t} : Maybe<&2, C.Term>},
@@ -273,7 +273,7 @@ def Tm.at.cg(b: Bool, +f: Nat, +f2: Nat, +m: C.Cir.Cells, +m2: C.Cir.Cells, +ks:
           u => D.Tm(f2, m2, ks, img, K, F, X2, N2, C.Cir.Cell.get(4n, cell)), a, ha, g2, g3, g4))
 
 # writing a cell i that may not be read keeps a checked term
-def Tm.wx(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.wx(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, +i: U32, +x: C.Cir.Cell, -t: C.Term, +hi: {False{} == D.Al(K, F, X, N, i) : Bool},
   +h: {D.Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}) ->
   {D.Tm(f, C.Cir.Cells.set(m, i, x), ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}:
@@ -293,7 +293,7 @@ def Tm.wx(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, 
         a => ha4 => Tm.wx(p, m, ks, img, K, F, X, N, C.Cir.Cell.get(4n, cell), i, x, a, hi, ha4))
 
 # a count's write leaves the cell's term the same
-def Tm.at.s1(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.at.s1(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, cl: C.Cir.Cell, +v: U32) ->
   {Tm.at(f, m, ks, img, K, F, X, N, c, cl) == Tm.at(f, m, ks, img, K, F, X, N, c, C.Cir.Cell.set(1n, cl, v)) : Maybe<&2, C.Term>}:
   match cl:
@@ -301,7 +301,7 @@ def Tm.at.s1(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<
       {==}
 
 # the cell c after a write of the count of i: c's cell, or i's with another count
-def Tm.w1.cell(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.w1.cell(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, +i: U32, +v: U32, eb: {b == U32.is_eq(c, i) : Bool}) ->
   {Tm.at(f, C.Cir.Cells.set(m, i, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, i), v)), ks, img, K, F, X, N, c, C.Cir.Cells.get(m, c)) ==
     Tm.at(f, C.Cir.Cells.set(m, i, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, i), v)), ks, img, K, F, X, N, c,
@@ -321,7 +321,7 @@ def Tm.w1.cell(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, 
       {==}
 
 # writing the count of any cell i keeps a checked term: no term reads it
-def Tm.w1(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.w1(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, +i: U32, +v: U32, -t: C.Term,
   +h: {D.Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}) ->
   {D.Tm(f, C.Cir.Cells.set(m, i, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, i), v)), ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}:
@@ -339,7 +339,7 @@ def Tm.w1(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, 
         a => ha4 => Tm.w1(p, m, ks, img, K, F, X, N, C.Cir.Cell.get(4n, cell), i, v, a, ha4))
 
 # more fuel keeps a checked term
-def Tm.lift(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.lift(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, -t: C.Term, +h: {D.Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}) ->
   {D.Tm(1n+f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}:
   match f:
@@ -369,7 +369,7 @@ def Tm.chk.inv(+tag: Nat, +fvf: U32, r: Maybe<&2, C.Term>, -t: C.Term, h: {D.Tm.
       Tm.chk.inv.ok(D.FvOK(tag, fvf, a), a, t, h)
 
 # the cell's term by T.tm.of, at a cell that Tm reads, from parts that give what Tm gave
-def Tm.of.at(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.of.at(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, +cell: C.Cir.Cell, -t: C.Term,
   h: {Tm.at.b(b, f, m, ks, img, K, F, X, N, c, cell) == Some{t} : Maybe<&2, C.Term>},
   g2: Pt(u => D.Tm(f, m, ks, img, K, F, X, N, C.Cir.Cell.get(2n, cell)), u => T.tm.of(f, m, ks, img, C.Cir.Cell.get(2n, cell))),
@@ -399,7 +399,7 @@ def Tm.of.at(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +i
           u => D.Tm(f, m, ks, img, K, F, X, N, C.Cir.Cell.get(4n, cell))), t, h), g2, g3, g4)
 
 # a checked term is the cell's term by T.tm.of (proof_term.bend)
-def Tm.of(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.of(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +c: U32, -t: C.Term, +h: {D.Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}) ->
   {T.tm.of(f, m, ks, img, c) == Some{t} : Maybe<&2, C.Term>}:
   match f:
@@ -487,7 +487,7 @@ def Al.incl(+K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +X2: List<&2, U32>, +N
     K.Bo.and_i(Bool.not(D.Has(X2, x)), Bool.not(D.Tbc(x)), K.Bo.not_i(D.Has(X2, x), nh2), nt))
 
 # more cells that may be read keep a checked term
-def Tm.mono(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Tm.mono(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, +X2: List<&2, U32>, +N2: U32, +c: U32, -t: C.Term,
   +hin: {D.Incl(X, N, X2, N2) == True{} : Bool}, +hkn: {U32.is_lt(K, N) == True{} : Bool},
   +h: {D.Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}) ->

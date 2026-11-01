@@ -246,7 +246,7 @@ def F.Rwt(
 
 def F.mat(
   mo: D.Mo,
-  +k: List<&2, U32>,
+  +k: List<&2, Word(8n)>,
   +a3: C.Term,
   +a4: C.Term,
   +d: Nat
@@ -266,7 +266,7 @@ def F.mat(
 
 def F.lab(
   mo: D.Mo,
-  +k: List<&2, U32>,
+  +k: List<&2, Word(8n)>,
   +d: Nat
 ) -> {D.Mo.F(mo, C.Term.Lab{k}, d) == C.Term.Lab{k}: C.Term}:
   match mo:
@@ -939,7 +939,7 @@ def Tg.c0(
 
 def Tg.c14(
   +mo: D.Mo,
-  +k: List<&2, U32>,
+  +k: List<&2, Word(8n)>,
   +t3: C.Term,
   +t4: C.Term,
   +d: Nat,
@@ -983,7 +983,7 @@ def Tg.c14(
 
 # a label: its name, from field 2
 def Tg.lab(
-  nm: Maybe<&2, List<&2, U32>>,
+  nm: Maybe<&2, List<&2, Word(8n)>>,
   +mo: D.Mo,
   +d: Nat,
   -T0: C.Term,
@@ -997,7 +997,7 @@ def Tg.lab(
 
 # a λ-match of labels: its name, from field 2, and its parts in fields 3, 4
 def Tg.mat(
-  nm: Maybe<&2, List<&2, U32>>,
+  nm: Maybe<&2, List<&2, Word(8n)>>,
   +mo: D.Mo,
   +t3: C.Term,
   +t4: C.Term,
@@ -1032,7 +1032,7 @@ def Tg.cg(
   +n2: U32,
   +x2: U32,
   +z2: U32,
-  +ks: List<&2, List<&2, U32>>,
+  +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>,
   +t2: C.Term,
   +t3: C.Term,
