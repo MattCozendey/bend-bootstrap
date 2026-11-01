@@ -1,0 +1,18 @@
+import Shared.DataForm
+import Shared.Script
+
+-- Write
+-- =====
+--
+-- Writes the bytes of the book of a .bendtt file, as the Lean writer of
+-- src/Shared/DataForm.lean writes them (AGENTS.md 3.6.4): the input of the
+-- compiler of 3.8.4.
+--
+--   BOOK=prog.bendtt OUTPUT=prog.book lake lean src/Book/scripts/Write.lean
+
+def writeBook : IO Unit := do
+  let bs := write (← Script.book)
+  IO.FS.writeBinFile (← Script.env "OUTPUT") ⟨bs.toArray⟩
+  IO.println s!"{bs.length} bytes"
+
+#eval writeBook
