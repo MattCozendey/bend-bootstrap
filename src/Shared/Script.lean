@@ -15,11 +15,22 @@ def env (k : String) : IO String := do
   let some v ← IO.getEnv k | throw (IO.userError s!"{k} is not set")
   pure v
 
--- the book of the .bendtt file that BOOK names
-def book : IO Book := do
-  match Book.parse (← IO.FS.readFile (← env "BOOK")) with
+-- the book of the .bendtt file at path
+def bookAt (path : String) : IO Book := do
+  match Book.parse (← IO.FS.readFile path) with
   | .error msg => throw (IO.userError msg)
   | .ok bk => pure bk
+
+-- the book of the .bendtt file that BOOK names
+def book : IO Book := do
+  bookAt (← env "BOOK")
+
+-- the jobs of the file that JOBS names, when it is set: one job a line, its fields
+-- separated by tabs
+def jobs : IO (Option (List (List String))) := do
+  match ← IO.getEnv "JOBS" with
+  | some f => pure (some (((← IO.FS.lines f).toList.filter (· != "")).map (·.splitOn "\t")))
+  | none => pure none
 
 -- the names of the variable k, separated by commas; none when it is not set
 def list (k : String) : IO (List String) := do

@@ -292,3 +292,7 @@ The entries:
 
 - **3.10.1** Effects later: model them as pure data (`main` gives requests, a host answers), so
   that `Eval` still gives them a meaning.
+- **3.10.2** TODO: `run.ts` caches the answers of the Lean interpreter (`.cache/interp/`), by a
+  hash of the interpreter's code, the book, the input and the fuel. The cache is for development
+  only: it is a file that anyone can change, so it is not trusted (3.7). The run of 3.8.7 must run
+  fresh (`FRESH=1`), and so must any run whose answer we use as proof.

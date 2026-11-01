@@ -8,11 +8,24 @@
 // (this takes a few minutes: about 44.4 million steps of Eval). bun is pinned: the script refuses
 // any other. WORK is a folder for what the tests write.
 //
-//   [TRUSTED=1] bun run.ts WORK
+// The interpreter runs all its jobs in one process. Its answers are cached in .cache/interp/, by
+// a hash of what decides them: the interpreter's code (each Lean file of src/, the kernel, the
+// Lean project's config), the book, the input and the fuel. FRESH=1 runs each job again (AGENTS.md
+// 3.10.2: the cache is for development only).
+//
+//   [TRUSTED=1] [FRESH=1] [FUEL=n] bun run.ts WORK
 
 // imports
 
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { basename, delimiter, join, resolve } from "node:path";
 import { getArgs, run } from "../../Shared/shared.ts";
@@ -25,11 +38,37 @@ type Input = string | { readonly file: string; readonly bytes: Uint8Array };
 // a line of the report
 type Line = { readonly ok: boolean; readonly text: string };
 
+// a run of the Lean interpreter: a book, an input file, and where its answer goes
+type Job = { readonly book: string; readonly input: string; readonly output: string };
+
+// what the interpreter says of a job: a result; no result (stuck, or a value that is not a list
+// of bytes); or no answer (a crash, or no result within its fuel), with why
+type Answer =
+  | { readonly kind: "result"; readonly bytes: Buffer }
+  | { readonly kind: "none" | "unknown"; readonly why: string };
+
 // constants
 
 const BUN = "1.4.4";
 const HERE = import.meta.dir;
 const REPO = resolve(HERE, "../../..");
+const RUN = "src/Interpreter/scripts/Run.lean";
+const CACHE = join(REPO, ".cache", "interp");
+
+// the hash of the interpreter's code: each Lean file of src/, the kernel, the Lean project's config
+const CODE_HASH = [
+  ...new Bun.Glob("src/**/*.lean").scanSync({ cwd: REPO }),
+  "bend/bend2/bendtt.lean",
+  "lakefile.lean",
+  "lake-manifest.json",
+  "lean-toolchain",
+]
+  .toSorted()
+  .reduce(
+    (hasher, file) => hasher.update(`${file}\0`).update(readFileSync(join(REPO, file))),
+    new Bun.CryptoHasher("sha256"),
+  )
+  .digest("hex");
 
 // the env of lake: elan's folder first on PATH (whose key is Path on Windows)
 const PATH_KEY = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
@@ -94,6 +133,74 @@ const isFail = ({ ok, text }: Line): boolean => {
   return !ok;
 };
 
+// the cache file of a job's answer with this fuel
+const getCacheFile = ({ book, input }: Job, fuel: string): string => {
+  const [b, i] = [readFileSync(book), readFileSync(input)];
+  const hasher = new Bun.CryptoHasher("sha256").update(CODE_HASH);
+  return join(
+    CACHE,
+    hasher
+      .update(`${b.length}:`)
+      .update(b)
+      .update(`${i.length}:`)
+      .update(i)
+      .update(fuel)
+      .digest("hex"),
+  );
+};
+
+// the answer that Run.lean left at output: a result there, or why there is none in output.none
+const tryAnswer = (output: string): Answer | undefined => {
+  if (existsSync(output)) return { kind: "result", bytes: readFileSync(output) };
+  if (!existsSync(`${output}.none`)) return undefined;
+  const why = readFileSync(`${output}.none`, "utf8");
+  return { kind: why.startsWith("no result: ") ? "none" : "unknown", why };
+};
+
+// the answers of the jobs with this fuel: from the cache (but with FRESH=1), else from one run of
+// Run.lean over the jobs file, which puts its known answers in the cache
+const getAnswers = <J extends Job>(
+  jobs: readonly J[],
+  fuel: string,
+  jobsFile: string,
+): readonly (J & { readonly answer: Answer })[] => {
+  mkdirSync(CACHE, { recursive: true });
+  const keyed = jobs.map((job) => {
+    rmSync(job.output, { force: true });
+    rmSync(`${job.output}.none`, { force: true });
+    const cache = getCacheFile(job, fuel);
+    const isCached = !process.env.FRESH && tryAnswer(cache) !== undefined;
+    if (isCached && existsSync(cache)) copyFileSync(cache, job.output);
+    if (isCached && !existsSync(cache)) copyFileSync(`${cache}.none`, `${job.output}.none`);
+    return { job, cache, isCached };
+  });
+  const todo = keyed.filter(({ isCached }) => !isCached);
+  writeFileSync(
+    jobsFile,
+    todo.map(({ job }) => `${job.book}\t${job.input}\t${job.output}\n`).join(""),
+  );
+  const lake =
+    todo.length === 0
+      ? undefined
+      : Bun.spawnSync({
+          ...getLake(RUN, { JOBS: jobsFile, FUEL: fuel }),
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+  // lake lean prints a script's error on stdout
+  const crash =
+    lake?.success === false ? `${lake.stdout}${lake.stderr}`.trim().split("\n").at(-1) : undefined;
+  return keyed.map(({ job, cache, isCached }) => {
+    const answer = tryAnswer(job.output) ?? {
+      kind: "unknown" as const,
+      why: crash ?? "the interpreter left no answer",
+    };
+    if (!isCached && answer.kind === "result") copyFileSync(job.output, cache);
+    if (!isCached && answer.kind === "none") copyFileSync(`${job.output}.none`, `${cache}.none`);
+    return { ...job, answer };
+  });
+};
+
 // side effects
 
 const [workArg] = getArgs("WORK");
@@ -102,95 +209,95 @@ if (Bun.version !== BUN) {
   process.exit(1);
 }
 const work = resolve(workArg);
+const at = (file: string) => join(work, file);
 mkdirSync(work, { recursive: true });
-run(getBend(join(HERE, "compile.bend"), join(work, "compile.mjs")));
+run(getBend(join(HERE, "compile.bend"), at("compile.mjs")));
 
-const progFails = readdirSync(join(HERE, "progs"))
+const progs = readdirSync(join(HERE, "progs"))
   .filter((file) => file.endsWith(".bend"))
   .toSorted()
-  .flatMap((file) => {
-    const n = basename(file, ".bend");
-    const at = (ext: string) => join(work, `${n}.${ext}`);
-    run(getBend(join(HERE, "progs", file), at("bendtt")));
-    run({
-      ...getLake("src/Book/scripts/Write.lean", { BOOK: at("bendtt"), OUTPUT: at("book") }),
-      stdout: "ignore",
-      stderr: "ignore",
-    });
-    run({
-      cmd: [
-        ...BIG_STACK,
-        process.execPath,
-        join(HERE, "compile.ts"),
-        join(work, "compile.mjs"),
-        at("book"),
-        at("wasm"),
-      ],
-      env: { ...process.env, BUN_JSC_maxPerThreadStackUsage: String(STACK_BYTES) },
-    });
-    return (INPUTS[n] ?? []).map((input) => {
-      const [name, bytes] =
-        typeof input === "string"
-          ? [`text:${input}`, Buffer.from(input)]
-          : [`file:${input.file}`, input.bytes];
-      writeFileSync(at("in"), bytes);
-      rmSync(at("want"), { force: true });
-      rmSync(at("bun"), { force: true });
-      const lean = Bun.spawnSync({
-        ...getLake("src/Interpreter/scripts/Run.lean", {
-          BOOK: at("bendtt"),
-          INPUT: at("in"),
-          OUTPUT: at("want"),
-        }),
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      // lake lean prints a script's error on stdout
-      const leanError = lean.stdout.toString() + lean.stderr.toString();
-      const says = Bun.spawnSync({
-        cmd: [process.execPath, join(HERE, "host.ts"), at("wasm"), at("in"), at("bun")],
-        stderr: "inherit",
-      })
-        .stdout.toString()
-        .trimEnd();
-      // Run.lean exits with 0 on a result, and with an error "no result: ..." when the run
-      // gets stuck or ends in a value that is not a list of bytes; any other end (a crash,
-      // or no result within its fuel) says nothing about the run
-      const isKnown = lean.exitCode === 0 || leanError.includes("error: no result: ");
-      const want = lean.exitCode === 0 ? readFileSync(at("want")) : undefined;
-      const got = says === "result" ? readFileSync(at("bun")) : undefined;
-      const isSame = want === undefined ? got === undefined : got !== undefined && want.equals(got);
-      const text = !isKnown
-        ? `the interpreter gives no answer: ${leanError.trim().split("\n").at(-1) ?? ""}`
+  .map((file) => basename(file, ".bend"));
+progs.forEach((n) => run(getBend(join(HERE, "progs", `${n}.bend`), at(`${n}.bendtt`))));
+writeFileSync(
+  at("write.jobs"),
+  progs.map((n) => `${at(`${n}.bendtt`)}\t${at(`${n}.book`)}\n`).join(""),
+);
+run({ ...getLake("src/Book/scripts/Write.lean", { JOBS: at("write.jobs") }), stdout: "ignore" });
+progs.forEach((n) =>
+  run({
+    cmd: [
+      ...BIG_STACK,
+      process.execPath,
+      join(HERE, "compile.ts"),
+      at("compile.mjs"),
+      at(`${n}.book`),
+      at(`${n}.wasm`),
+    ],
+    env: { ...process.env, BUN_JSC_maxPerThreadStackUsage: String(STACK_BYTES) },
+  }),
+);
+
+const cases = progs.flatMap((n) =>
+  (INPUTS[n] ?? []).map((input, k) => {
+    const [name, bytes] =
+      typeof input === "string"
+        ? [`text:${input}`, Buffer.from(input)]
+        : [`file:${input.file}`, input.bytes];
+    writeFileSync(at(`${n}.${k}.in`), bytes);
+    return {
+      n,
+      name,
+      book: at(`${n}.bendtt`),
+      input: at(`${n}.${k}.in`),
+      output: at(`${n}.${k}.want`),
+    };
+  }),
+);
+const progFails = getAnswers(cases, process.env.FUEL ?? "", at("run.jobs")).filter(
+  ({ n, name, input, output, answer }) => {
+    rmSync(`${output}.bun`, { force: true });
+    const says = Bun.spawnSync({
+      cmd: [process.execPath, join(HERE, "host.ts"), at(`${n}.wasm`), input, `${output}.bun`],
+      stderr: "inherit",
+    })
+      .stdout.toString()
+      .trimEnd();
+    const want = answer.kind === "result" ? answer.bytes : undefined;
+    const got = says === "result" ? readFileSync(`${output}.bun`) : undefined;
+    const isSame = want === undefined ? got === undefined : got !== undefined && want.equals(got);
+    const text =
+      answer.kind === "unknown"
+        ? `the interpreter gives no answer: ${answer.why}`
         : !isSame
           ? `bun ${says}, the interpreter ${want ? "a" : "no"} result`
           : want
             ? `the same ${want.length} bytes`
             : `no result (bun ${says})`;
-      return isFail({ ok: isKnown && isSame, text: `${n} ${name}: ${text}` });
-    });
-  })
-  .filter(Boolean).length;
+    return isFail({ ok: answer.kind !== "unknown" && isSame, text: `${n} ${name}: ${text}` });
+  },
+).length;
 
 const isTrustedFail =
   Boolean(process.env.TRUSTED) &&
   (() => {
-    run(getBend(join(HERE, "compile.bend"), join(work, "compile.bendtt")));
-    run({
-      ...getLake("src/Interpreter/scripts/Run.lean", {
-        BOOK: join(work, "compile.bendtt"),
-        INPUT: join(work, "echo.book"),
-        OUTPUT: join(work, "echo.trusted.wasm"),
-        FUEL: "1000000000000",
-      }),
-      stdout: "ignore",
-    });
-    const isSame = readFileSync(join(work, "echo.wasm")).equals(
-      readFileSync(join(work, "echo.trusted.wasm")),
+    run(getBend(join(HERE, "compile.bend"), at("compile.bendtt")));
+    const job = {
+      book: at("compile.bendtt"),
+      input: at("echo.book"),
+      output: at("echo.trusted.wasm"),
+    };
+    const [{ answer } = { answer: { kind: "unknown", why: "no job" } as Answer }] = getAnswers(
+      [job],
+      "1000000000000",
+      at("trusted.jobs"),
     );
+    const isSame = answer.kind === "result" && readFileSync(at("echo.wasm")).equals(answer.bytes);
     return isFail({
       ok: isSame,
-      text: `the Lean interpreter compiles echo to ${isSame ? "the same" : "other"} bytes`,
+      text:
+        answer.kind === "result"
+          ? `the Lean interpreter compiles echo to ${isSame ? "the same" : "other"} bytes`
+          : `the Lean interpreter compiles echo to no bytes: ${answer.why}`,
     });
   })();
 
