@@ -21,30 +21,30 @@ import ./proof_img.bend as G
 # Lists
 # -----
 
-def app.nil(xs: List<&2, U32>) -> {List.append(&2, U32, xs, []) == xs : List<&2, U32>}:
+def app.nil(-A: Data, xs: List<&2, A>) -> {List.append(&2, A, xs, []) == xs : List<&2, A>}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, t}:
-      Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{x, l}, List.append(&2, U32, t, []), t, app.nil(t))
+      Equal.cong(List<&2, A>, List<&2, A>, l => Con{x, l}, List.append(&2, A, t, []), t, app.nil(A, t))
 
-def app.assoc(xs: List<&2, U32>, +ys: List<&2, U32>, +zs: List<&2, U32>) ->
-  {List.append(&2, U32, List.append(&2, U32, xs, ys), zs) == List.append(&2, U32, xs, List.append(&2, U32, ys, zs)) : List<&2, U32>}:
+def app.assoc(-A: Data, xs: List<&2, A>, +ys: List<&2, A>, +zs: List<&2, A>) ->
+  {List.append(&2, A, List.append(&2, A, xs, ys), zs) == List.append(&2, A, xs, List.append(&2, A, ys, zs)) : List<&2, A>}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, t}:
-      Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{x, l},
-        List.append(&2, U32, List.append(&2, U32, t, ys), zs), List.append(&2, U32, t, List.append(&2, U32, ys, zs)), app.assoc(t, ys, zs))
+      Equal.cong(List<&2, A>, List<&2, A>, l => Con{x, l},
+        List.append(&2, A, List.append(&2, A, t, ys), zs), List.append(&2, A, t, List.append(&2, A, ys, zs)), app.assoc(A, t, ys, zs))
 
-def len.app(xs: List<&2, U32>, +ys: List<&2, U32>) ->
-  {List.length(&2, U32, List.append(&2, U32, xs, ys)) == Nat.add(List.length(&2, U32, xs), List.length(&2, U32, ys)) : Nat}:
+def len.app(-A: Data, xs: List<&2, A>, +ys: List<&2, A>) ->
+  {List.length(&2, A, List.append(&2, A, xs, ys)) == Nat.add(List.length(&2, A, xs), List.length(&2, A, ys)) : Nat}:
   match xs:
     case Nil{}:
       {==}
     case Con{x, t}:
-      Equal.cong(Nat, Nat, n => 1n+n, List.length(&2, U32, List.append(&2, U32, t, ys)),
-        Nat.add(List.length(&2, U32, t), List.length(&2, U32, ys)), len.app(t, ys))
+      Equal.cong(Nat, Nat, n => 1n+n, List.length(&2, A, List.append(&2, A, t, ys)),
+        Nat.add(List.length(&2, A, t), List.length(&2, A, ys)), len.app(A, t, ys))
 
 def add.assoc(a: Nat, +b: Nat, +c: Nat) -> {Nat.add(a, Nat.add(b, c)) == Nat.add(Nat.add(a, b), c) : Nat}:
   match a:
@@ -54,19 +54,19 @@ def add.assoc(a: Nat, +b: Nat, +c: Nat) -> {Nat.add(a, Nat.add(b, c)) == Nat.add
       Equal.cong(Nat, Nat, n => 1n+n, Nat.add(p, Nat.add(b, c)), Nat.add(Nat.add(p, b), c), add.assoc(p, b, c))
 
 # the bytes xs, then ys: |xs| of them are xs
-def take.app(xs: List<&2, U32>, +ys: List<&2, U32>) ->
-  {C.Wasm.decode.take(List.length(&2, U32, xs), List.append(&2, U32, xs, ys)) == Some{C.Wasm.Decoded{xs, ys}} : Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>}:
+def take.app(xs: List<&2, Word(8n)>, +ys: List<&2, Word(8n)>) ->
+  {C.Wasm.decode.take(List.length(&2, Word(8n), xs), List.append(&2, Word(8n), xs, ys)) == Some{C.Wasm.Decoded{xs, ys}} : Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +t}:
-      %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>, C.Wasm.decode.take(List.length(&2, U32, t), List.append(&2, U32, t, ys)),
+      %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>, C.Wasm.decode.take(List.length(&2, Word(8n), t), List.append(&2, Word(8n), t, ys)),
         Some{C.Wasm.Decoded{t, ys}}, take.app(t, ys)) :
-        {C.Wasm.decode.cons(U32, x, _) == Some{C.Wasm.Decoded{Con{x, t}, ys}} : Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>}
+        {C.Wasm.decode.cons(Word(8n), x, _) == Some{C.Wasm.Decoded{Con{x, t}, ys}} : Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>}
       {==}
 
 # every list holds 0 bytes
-def has0(xs: List<&2, U32>) -> {C.Wasm.has(xs, 0) == True{} : Bool}:
+def has0(xs: List<&2, Word(8n)>) -> {C.Wasm.has(xs, 0) == True{} : Bool}:
   match xs:
     case Nil{}:
       {==}
@@ -96,93 +96,116 @@ def nz.of(a: U32, l: N.Le(1n, U32.to_nat(U32.inc(a)))) -> {U32.is_zero(U32.inc(a
 def nz(+a: U32, +M: U32, h: N.Le(1n+U32.to_nat(a), U32.to_nat(M))) -> {U32.is_zero(U32.inc(a)) == False{} : Bool}:
   nz.of(a, N.le_trans(1n, 1n+U32.to_nat(a), U32.to_nat(U32.inc(a)), N.le_zero(U32.to_nat(a)), G.U32.inc_ge(a, M, h)))
 
+# each suffix of the bytes bs has a length, plus one, that is not 0 in a U32
+def fits.bytes(bs: List<&2, Word(8n)>) -> Bool:
+  match bs:
+    case Nil{}:
+      True{}
+    case Con{_, +rest}:
+      Bool.and(Bool.not(U32.is_zero(U32.inc(C.Wasm.encode.len(Word(8n), rest)))), fits.bytes(rest))
+
+# the number of the bytes bs, as a Nat
+def bytes.nat(bs: List<&2, Word(8n)>, +h: {fits.bytes(bs) == True{} : Bool}) ->
+  {List.length(&2, Word(8n), bs) == U32.to_nat(C.Wasm.encode.len(Word(8n), bs)) : Nat}:
+  match bs:
+    case Nil{}:
+      {==}
+    case Con{b, +rest}:
+      +z = U32.is_zero(U32.inc(C.Wasm.encode.len(Word(8n), rest)))
+      +ih = bytes.nat(rest, I.and.r(Bool.not(z), fits.bytes(rest), h))
+      +e = I.U32.inc_nat(C.Wasm.encode.len(Word(8n), rest), I.not.t(z, I.and.l(Bool.not(z), fits.bytes(rest), h)))
+      Equal.trans(Nat, 1n+List.length(&2, Word(8n), rest), 1n+U32.to_nat(C.Wasm.encode.len(Word(8n), rest)),
+        U32.to_nat(U32.inc(C.Wasm.encode.len(Word(8n), rest))),
+        Equal.cong(Nat, Nat, n => 1n+n, List.length(&2, Word(8n), rest), U32.to_nat(C.Wasm.encode.len(Word(8n), rest)), ih),
+        Equal.sym(Nat, U32.to_nat(U32.inc(C.Wasm.encode.len(Word(8n), rest))), 1n+U32.to_nat(C.Wasm.encode.len(Word(8n), rest)), e))
+
 # a list of at most M bytes: each suffix's length, plus one, is not 0
-def fits.of_le(xs: List<&2, U32>, +M: U32, +h: N.Le(List.length(&2, U32, xs), U32.to_nat(M))) -> {I.fits.labels(xs) == True{} : Bool}:
+def fits.of_le(xs: List<&2, Word(8n)>, +M: U32, +h: N.Le(List.length(&2, Word(8n), xs), U32.to_nat(M))) -> {fits.bytes(xs) == True{} : Bool}:
   match xs:
     case Nil{}:
       {==}
     case Con{_, +t}:
-      +ih = fits.of_le(t, M, N.weaken(List.length(&2, U32, t), U32.to_nat(M), h))
-      +n = I.labels.nat(t, ih)
-      +h2 = N.le_rw_l(1n+List.length(&2, U32, t), 1n+U32.to_nat(C.Wasm.encode.len(U32, t)), U32.to_nat(M),
-        Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, U32, t), U32.to_nat(C.Wasm.encode.len(U32, t)), n), h)
-      +z = nz(C.Wasm.encode.len(U32, t), M, h2)
-      %Equal.sym(Bool, U32.is_zero(U32.inc(C.Wasm.encode.len(U32, t))), False{}, z) : {Bool.and(Bool.not(_), I.fits.labels(t)) == True{} : Bool}
+      +ih = fits.of_le(t, M, N.weaken(List.length(&2, Word(8n), t), U32.to_nat(M), h))
+      +n = bytes.nat(t, ih)
+      +h2 = N.le_rw_l(1n+List.length(&2, Word(8n), t), 1n+U32.to_nat(C.Wasm.encode.len(Word(8n), t)), U32.to_nat(M),
+        Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, Word(8n), t), U32.to_nat(C.Wasm.encode.len(Word(8n), t)), n), h)
+      +z = nz(C.Wasm.encode.len(Word(8n), t), M, h2)
+      %Equal.sym(Bool, U32.is_zero(U32.inc(C.Wasm.encode.len(Word(8n), t))), False{}, z) : {Bool.and(Bool.not(_), fits.bytes(t)) == True{} : Bool}
       ih
 
 # xs, then A, hold as many bytes as xs has
-def has.app(xs: List<&2, U32>, +A: List<&2, U32>, +h: {I.fits.labels(xs) == True{} : Bool}) ->
-  {C.Wasm.has(List.append(&2, U32, xs, A), C.Wasm.encode.len(U32, xs)) == True{} : Bool}:
+def has.app(xs: List<&2, Word(8n)>, +A: List<&2, Word(8n)>, +h: {fits.bytes(xs) == True{} : Bool}) ->
+  {C.Wasm.has(List.append(&2, Word(8n), xs, A), C.Wasm.encode.len(Word(8n), xs)) == True{} : Bool}:
   match xs:
     case Nil{}:
       has0(A)
     case Con{+y, +t}:
-      +z = U32.is_zero(U32.inc(C.Wasm.encode.len(U32, t)))
-      I.has.inc(y, [], List.append(&2, U32, t, A), C.Wasm.encode.len(U32, t),
-        I.not.t(z, I.and.l(Bool.not(z), I.fits.labels(t), h)),
-        has.app(t, A, I.and.r(Bool.not(z), I.fits.labels(t), h)))
+      +z = U32.is_zero(U32.inc(C.Wasm.encode.len(Word(8n), t)))
+      I.has.inc(y, [], List.append(&2, Word(8n), t, A), C.Wasm.encode.len(Word(8n), t),
+        I.not.t(z, I.and.l(Bool.not(z), fits.bytes(t), h)),
+        has.app(t, A, I.and.r(Bool.not(z), fits.bytes(t), h)))
 
 # Vectors and sections
 # --------------------
 
 # the number of the bytes c, then c and acc: |c|
-def count.sized(+c: List<&2, U32>, +acc: List<&2, U32>, +h: {I.fits.labels(c) == True{} : Bool}) ->
-  {C.Wasm.decode.count(List.append(&2, U32, C.Wasm.encode.uleb(C.Wasm.encode.len(U32, c)), List.append(&2, U32, c, acc))) ==
-    Some{C.Wasm.Decoded{List.length(&2, U32, c), List.append(&2, U32, c, acc)}} : Maybe<&2, C.Wasm.Decoded<Nat>>}:
-  +X = List.append(&2, U32, c, acc)
-  +v = C.Wasm.encode.len(U32, c)
+def count.sized(+c: List<&2, Word(8n)>, +acc: List<&2, Word(8n)>, +h: {fits.bytes(c) == True{} : Bool}) ->
+  {C.Wasm.decode.count(List.append(&2, Word(8n), C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), c)), List.append(&2, Word(8n), c, acc))) ==
+    Some{C.Wasm.Decoded{List.length(&2, Word(8n), c), List.append(&2, Word(8n), c, acc)}} : Maybe<&2, C.Wasm.Decoded<Nat>>}:
+  +X = List.append(&2, Word(8n), c, acc)
+  +v = C.Wasm.encode.len(Word(8n), c)
   %I.uleb.back(v, X) : {C.Wasm.decode.bind(U32, Nat, _, +n => +r => C.Wasm.decode.count.if(C.Wasm.has(r, n), n, r)) ==
-    Some{C.Wasm.Decoded{List.length(&2, U32, c), X}} : Maybe<&2, C.Wasm.Decoded<Nat>>}
+    Some{C.Wasm.Decoded{List.length(&2, Word(8n), c), X}} : Maybe<&2, C.Wasm.Decoded<Nat>>}
   %Equal.sym(Bool, C.Wasm.has(X, v), True{}, has.app(c, acc, h)) : {C.Wasm.decode.count.if(_, v, X) ==
-    Some{C.Wasm.Decoded{List.length(&2, U32, c), X}} : Maybe<&2, C.Wasm.Decoded<Nat>>}
-  %I.labels.nat(c, h) : {Some{C.Wasm.Decoded{_, X}} == Some{C.Wasm.Decoded{List.length(&2, U32, c), X}} : Maybe<&2, C.Wasm.Decoded<Nat>>}
+    Some{C.Wasm.Decoded{List.length(&2, Word(8n), c), X}} : Maybe<&2, C.Wasm.Decoded<Nat>>}
+  %bytes.nat(c, h) : {Some{C.Wasm.Decoded{_, X}} == Some{C.Wasm.Decoded{List.length(&2, Word(8n), c), X}} : Maybe<&2, C.Wasm.Decoded<Nat>>}
   {==}
 
 # a section of the content c, then acc
-def sec.round(+id: U32, +c: List<&2, U32>, +acc: List<&2, U32>, +h: {I.fits.labels(c) == True{} : Bool}) ->
-  {C.Wasm.decode.section(C.Wasm.encode.section(id, c, acc)) == Some{C.Wasm.Decoded{C.Wasm.Section{id, c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}:
-  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(U32, c))
-  +X = List.append(&2, U32, c, acc)
-  %Equal.sym(List<&2, U32>, List.append(&2, U32, List.append(&2, U32, u, c), acc), List.append(&2, U32, u, X), app.assoc(u, c, acc)) :
-    {C.Wasm.decode.section(Con{id, _}) == Some{C.Wasm.Decoded{C.Wasm.Section{id, c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(List.append(&2, U32, u, X)), Some{C.Wasm.Decoded{List.length(&2, U32, c), X}}, count.sized(c, acc, h)) :
+def sec.round(+id: U32, +c: List<&2, Word(8n)>, +acc: List<&2, Word(8n)>, +h: {fits.bytes(c) == True{} : Bool}) ->
+  {C.Wasm.decode.section(C.Wasm.encode.section(id, c, acc)) == Some{C.Wasm.Decoded{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}:
+  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), c))
+  +X = List.append(&2, Word(8n), c, acc)
+  %Equal.sym(List<&2, Word(8n)>, List.append(&2, Word(8n), List.append(&2, Word(8n), u, c), acc), List.append(&2, Word(8n), u, X), app.assoc(Word(8n), u, c, acc)) :
+    {C.Wasm.decode.section(Con{C.Byte.from_u32(id), _}) == Some{C.Wasm.Decoded{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(List.append(&2, Word(8n), u, X)), Some{C.Wasm.Decoded{List.length(&2, Word(8n), c), X}}, count.sized(c, acc, h)) :
     {C.Wasm.decode.bind(Nat, C.Wasm.Section, _, n => r =>
-      C.Wasm.decode.bind(List<&2, U32>, C.Wasm.Section, C.Wasm.decode.take(n, r), c2 => r2 =>
-        Some{C.Wasm.Decoded{C.Wasm.Section{id, c2}, r2}})) == Some{C.Wasm.Decoded{C.Wasm.Section{id, c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>, C.Wasm.decode.take(List.length(&2, U32, c), X), Some{C.Wasm.Decoded{c, acc}}, take.app(c, acc)) :
-    {C.Wasm.decode.bind(List<&2, U32>, C.Wasm.Section, _, c2 => r2 =>
-        Some{C.Wasm.Decoded{C.Wasm.Section{id, c2}, r2}}) == Some{C.Wasm.Decoded{C.Wasm.Section{id, c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}
+      C.Wasm.decode.bind(List<&2, Word(8n)>, C.Wasm.Section, C.Wasm.decode.take(n, r), c2 => r2 =>
+        Some{C.Wasm.Decoded{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c2}, r2}})) == Some{C.Wasm.Decoded{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>, C.Wasm.decode.take(List.length(&2, Word(8n), c), X), Some{C.Wasm.Decoded{c, acc}}, take.app(c, acc)) :
+    {C.Wasm.decode.bind(List<&2, Word(8n)>, C.Wasm.Section, _, c2 => r2 =>
+        Some{C.Wasm.Decoded{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c2}, r2}}) == Some{C.Wasm.Decoded{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, acc}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>}
   {==}
 
 # the fuel g + |the section|: 1 more than g, its size, and the bytes after it
-def fuel.sec(+g: Nat, +id: U32, +c: List<&2, U32>, +acc: List<&2, U32>) ->
-  {Nat.add(g, List.length(&2, U32, C.Wasm.encode.section(id, c, acc))) ==
-    1n+Nat.add(Nat.add(g, List.length(&2, U32, C.Wasm.encode.sized(c))), List.length(&2, U32, acc)) : Nat}:
+def fuel.sec(+g: Nat, +id: U32, +c: List<&2, Word(8n)>, +acc: List<&2, Word(8n)>) ->
+  {Nat.add(g, List.length(&2, Word(8n), C.Wasm.encode.section(id, c, acc))) ==
+    1n+Nat.add(Nat.add(g, List.length(&2, Word(8n), C.Wasm.encode.sized(c))), List.length(&2, Word(8n), acc)) : Nat}:
   +s = C.Wasm.encode.sized(c)
-  +ls = List.length(&2, U32, s)
-  +la = List.length(&2, U32, acc)
-  +lx = List.length(&2, U32, List.append(&2, U32, s, acc))
+  +ls = List.length(&2, Word(8n), s)
+  +la = List.length(&2, Word(8n), acc)
+  +lx = List.length(&2, Word(8n), List.append(&2, Word(8n), s, acc))
   Equal.trans(Nat, Nat.add(g, 1n+lx), 1n+Nat.add(g, lx), 1n+Nat.add(Nat.add(g, ls), la),
     I.add.succ(g, lx),
     Equal.cong(Nat, Nat, n => 1n+n, Nat.add(g, lx), Nat.add(Nat.add(g, ls), la),
       Equal.trans(Nat, Nat.add(g, lx), Nat.add(g, Nat.add(ls, la)), Nat.add(Nat.add(g, ls), la),
-        Equal.cong(Nat, Nat, n => Nat.add(g, n), lx, Nat.add(ls, la), len.app(s, acc)),
+        Equal.cong(Nat, Nat, n => Nat.add(g, n), lx, Nat.add(ls, la), len.app(Word(8n), s, acc)),
         add.assoc(g, ls, la))))
 
 # the sections, from one of the content c
-def secs.step(+g: Nat, +id: U32, +c: List<&2, U32>, +acc: List<&2, U32>, -ss: List<&2, C.Wasm.Section>,
-  +h: {I.fits.labels(c) == True{} : Bool},
-  rest: {C.Wasm.decode.sections(Nat.add(Nat.add(g, List.length(&2, U32, C.Wasm.encode.sized(c))), List.length(&2, U32, acc)), acc) == Some{ss} : Maybe<&2, List<&2, C.Wasm.Section>>}
-) -> {C.Wasm.decode.sections(Nat.add(g, List.length(&2, U32, C.Wasm.encode.section(id, c, acc))), C.Wasm.encode.section(id, c, acc)) ==
-    Some{Con{C.Wasm.Section{id, c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}:
+def secs.step(+g: Nat, +id: U32, +c: List<&2, Word(8n)>, +acc: List<&2, Word(8n)>, -ss: List<&2, C.Wasm.Section>,
+  +h: {fits.bytes(c) == True{} : Bool},
+  rest: {C.Wasm.decode.sections(Nat.add(Nat.add(g, List.length(&2, Word(8n), C.Wasm.encode.sized(c))), List.length(&2, Word(8n), acc)), acc) == Some{ss} : Maybe<&2, List<&2, C.Wasm.Section>>}
+) -> {C.Wasm.decode.sections(Nat.add(g, List.length(&2, Word(8n), C.Wasm.encode.section(id, c, acc))), C.Wasm.encode.section(id, c, acc)) ==
+    Some{Con{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}:
   +S = C.Wasm.encode.section(id, c, acc)
-  +F = Nat.add(Nat.add(g, List.length(&2, U32, C.Wasm.encode.sized(c))), List.length(&2, U32, acc))
-  %Equal.sym(Nat, Nat.add(g, List.length(&2, U32, S)), 1n+F, fuel.sec(g, id, c, acc)) :
-    {C.Wasm.decode.sections(_, S) == Some{Con{C.Wasm.Section{id, c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>, C.Wasm.decode.section(S), Some{C.Wasm.Decoded{C.Wasm.Section{id, c}, acc}}, sec.round(id, c, acc, h)) :
-    {C.Wasm.decode.sections.got(_, r => C.Wasm.decode.sections(F, r)) == Some{Con{C.Wasm.Section{id, c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}
+  +F = Nat.add(Nat.add(g, List.length(&2, Word(8n), C.Wasm.encode.sized(c))), List.length(&2, Word(8n), acc))
+  %Equal.sym(Nat, Nat.add(g, List.length(&2, Word(8n), S)), 1n+F, fuel.sec(g, id, c, acc)) :
+    {C.Wasm.decode.sections(_, S) == Some{Con{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Section>>, C.Wasm.decode.section(S), Some{C.Wasm.Decoded{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, acc}}, sec.round(id, c, acc, h)) :
+    {C.Wasm.decode.sections.got(_, r => C.Wasm.decode.sections(F, r)) == Some{Con{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}
   %Equal.sym(Maybe<&2, List<&2, C.Wasm.Section>>, C.Wasm.decode.sections(F, acc), Some{ss}, rest) :
-    {C.Wasm.decode.sections.cons(C.Wasm.Section{id, c}, _) == Some{Con{C.Wasm.Section{id, c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}
+    {C.Wasm.decode.sections.cons(C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, _) == Some{Con{C.Wasm.Section{C.Byte.to_u32(C.Byte.from_u32(id)), c}, ss}} : Maybe<&2, List<&2, C.Wasm.Section>>}
   {==}
 
 def secs.nil(f: Nat) -> {C.Wasm.decode.sections(f, []) == Some{[]} : Maybe<&2, List<&2, C.Wasm.Section>>}:
@@ -193,14 +216,14 @@ def secs.nil(f: Nat) -> {C.Wasm.decode.sections(f, []) == Some{[]} : Maybe<&2, L
       {==}
 
 # the six sections of the contents c1 to c11
-def secs.bytes(c1: List<&2, U32>, c3: List<&2, U32>, c5: List<&2, U32>, c7: List<&2, U32>, c10: List<&2, U32>, c11: List<&2, U32>) -> List<&2, U32>:
+def secs.bytes(c1: List<&2, Word(8n)>, c3: List<&2, Word(8n)>, c5: List<&2, Word(8n)>, c7: List<&2, Word(8n)>, c10: List<&2, Word(8n)>, c11: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   C.Wasm.encode.section(1, c1, C.Wasm.encode.section(3, c3, C.Wasm.encode.section(5, c5,
     C.Wasm.encode.section(7, c7, C.Wasm.encode.section(10, c10, C.Wasm.encode.section(11, c11, []))))))
 
-def secs.six(+c1: List<&2, U32>, +c3: List<&2, U32>, +c5: List<&2, U32>, +c7: List<&2, U32>, +c10: List<&2, U32>, +c11: List<&2, U32>,
-  +h1: {I.fits.labels(c1) == True{} : Bool}, +h3: {I.fits.labels(c3) == True{} : Bool}, +h5: {I.fits.labels(c5) == True{} : Bool},
-  +h7: {I.fits.labels(c7) == True{} : Bool}, +h10: {I.fits.labels(c10) == True{} : Bool}, +h11: {I.fits.labels(c11) == True{} : Bool}
-) -> {C.Wasm.decode.sections(List.length(&2, U32, secs.bytes(c1, c3, c5, c7, c10, c11)), secs.bytes(c1, c3, c5, c7, c10, c11)) ==
+def secs.six(+c1: List<&2, Word(8n)>, +c3: List<&2, Word(8n)>, +c5: List<&2, Word(8n)>, +c7: List<&2, Word(8n)>, +c10: List<&2, Word(8n)>, +c11: List<&2, Word(8n)>,
+  +h1: {fits.bytes(c1) == True{} : Bool}, +h3: {fits.bytes(c3) == True{} : Bool}, +h5: {fits.bytes(c5) == True{} : Bool},
+  +h7: {fits.bytes(c7) == True{} : Bool}, +h10: {fits.bytes(c10) == True{} : Bool}, +h11: {fits.bytes(c11) == True{} : Bool}
+) -> {C.Wasm.decode.sections(List.length(&2, Word(8n), secs.bytes(c1, c3, c5, c7, c10, c11)), secs.bytes(c1, c3, c5, c7, c10, c11)) ==
     Some{[C.Wasm.Section{1, c1}, C.Wasm.Section{3, c3}, C.Wasm.Section{5, c5}, C.Wasm.Section{7, c7}, C.Wasm.Section{10, c10}, C.Wasm.Section{11, c11}]} :
     Maybe<&2, List<&2, C.Wasm.Section>>}:
   +S11 = C.Wasm.encode.section(11, c11, [])
@@ -208,12 +231,12 @@ def secs.six(+c1: List<&2, U32>, +c3: List<&2, U32>, +c5: List<&2, U32>, +c7: Li
   +S7 = C.Wasm.encode.section(7, c7, S10)
   +S5 = C.Wasm.encode.section(5, c5, S7)
   +S3 = C.Wasm.encode.section(3, c3, S5)
-  +g1 = Nat.add(0n, List.length(&2, U32, C.Wasm.encode.sized(c1)))
-  +g3 = Nat.add(g1, List.length(&2, U32, C.Wasm.encode.sized(c3)))
-  +g5 = Nat.add(g3, List.length(&2, U32, C.Wasm.encode.sized(c5)))
-  +g7 = Nat.add(g5, List.length(&2, U32, C.Wasm.encode.sized(c7)))
-  +g10 = Nat.add(g7, List.length(&2, U32, C.Wasm.encode.sized(c10)))
-  +g11 = Nat.add(g10, List.length(&2, U32, C.Wasm.encode.sized(c11)))
+  +g1 = Nat.add(0n, List.length(&2, Word(8n), C.Wasm.encode.sized(c1)))
+  +g3 = Nat.add(g1, List.length(&2, Word(8n), C.Wasm.encode.sized(c3)))
+  +g5 = Nat.add(g3, List.length(&2, Word(8n), C.Wasm.encode.sized(c5)))
+  +g7 = Nat.add(g5, List.length(&2, Word(8n), C.Wasm.encode.sized(c7)))
+  +g10 = Nat.add(g7, List.length(&2, Word(8n), C.Wasm.encode.sized(c10)))
+  +g11 = Nat.add(g10, List.length(&2, Word(8n), C.Wasm.encode.sized(c11)))
   secs.step(0n, 1, c1, S3, [C.Wasm.Section{3, c3}, C.Wasm.Section{5, c5}, C.Wasm.Section{7, c7}, C.Wasm.Section{10, c10}, C.Wasm.Section{11, c11}], h1,
     secs.step(g1, 3, c3, S5, [C.Wasm.Section{5, c5}, C.Wasm.Section{7, c7}, C.Wasm.Section{10, c10}, C.Wasm.Section{11, c11}], h3,
       secs.step(g3, 5, c5, S7, [C.Wasm.Section{7, c7}, C.Wasm.Section{10, c10}, C.Wasm.Section{11, c11}], h5,
@@ -239,10 +262,10 @@ def parts(
                 Some{C.Wasm.Module{fs, mem2, es2, seg2}})))))))
 
 # a module of the six sections decodes to the items of their contents
-def mod.of(+c1: List<&2, U32>, +c3: List<&2, U32>, +c5: List<&2, U32>, +c7: List<&2, U32>, +c10: List<&2, U32>, +c11: List<&2, U32>,
-  +h1: {I.fits.labels(c1) == True{} : Bool}, +h3: {I.fits.labels(c3) == True{} : Bool}, +h5: {I.fits.labels(c5) == True{} : Bool},
-  +h7: {I.fits.labels(c7) == True{} : Bool}, +h10: {I.fits.labels(c10) == True{} : Bool}, +h11: {I.fits.labels(c11) == True{} : Bool}
-) -> {C.Wasm.decode.module(Con{0, Con{97, Con{115, Con{109, Con{1, Con{0, Con{0, Con{0, secs.bytes(c1, c3, c5, c7, c10, c11)}}}}}}}}) ==
+def mod.of(+c1: List<&2, Word(8n)>, +c3: List<&2, Word(8n)>, +c5: List<&2, Word(8n)>, +c7: List<&2, Word(8n)>, +c10: List<&2, Word(8n)>, +c11: List<&2, Word(8n)>,
+  +h1: {fits.bytes(c1) == True{} : Bool}, +h3: {fits.bytes(c3) == True{} : Bool}, +h5: {fits.bytes(c5) == True{} : Bool},
+  +h7: {fits.bytes(c7) == True{} : Bool}, +h10: {fits.bytes(c10) == True{} : Bool}, +h11: {fits.bytes(c11) == True{} : Bool}
+) -> {C.Wasm.decode.module(Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(97), Con{C.Byte.from_u32(115), Con{C.Byte.from_u32(109), Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(0), secs.bytes(c1, c3, c5, c7, c10, c11)}}}}}}}}) ==
     parts(C.Wasm.decode.part(~C.Wasm.Type, ~C.Wasm.decode.functype, Some{c1}),
       C.Wasm.decode.part(~U32, ~C.Wasm.decode.u32, Some{c3}),
       C.Wasm.decode.one(C.Wasm.Limits, C.Wasm.decode.part(~C.Wasm.Limits, ~C.Wasm.decode.limits, Some{c5})),
@@ -250,7 +273,7 @@ def mod.of(+c1: List<&2, U32>, +c3: List<&2, U32>, +c5: List<&2, U32>, +c7: List
       C.Wasm.decode.part(~C.Wasm.Code, ~C.Wasm.decode.code, Some{c10}),
       C.Wasm.decode.one(C.Wasm.Segment, C.Wasm.decode.part(~C.Wasm.Segment, ~C.Wasm.decode.data, Some{c11}))) : Maybe<&2, C.Wasm.Module>}:
   +B = secs.bytes(c1, c3, c5, c7, c10, c11)
-  %Equal.sym(Maybe<&2, List<&2, C.Wasm.Section>>, C.Wasm.decode.sections(List.length(&2, U32, B), B),
+  %Equal.sym(Maybe<&2, List<&2, C.Wasm.Section>>, C.Wasm.decode.sections(List.length(&2, Word(8n), B), B),
     Some{[C.Wasm.Section{1, c1}, C.Wasm.Section{3, c3}, C.Wasm.Section{5, c5}, C.Wasm.Section{7, c7}, C.Wasm.Section{10, c10}, C.Wasm.Section{11, c11}]},
     secs.six(c1, c3, c5, c7, c10, c11, h1, h3, h5, h7, h10, h11)) :
     {C.Wasm.decode.module.sections(_) ==
@@ -266,28 +289,28 @@ def mod.of(+c1: List<&2, U32>, +c3: List<&2, U32>, +c5: List<&2, U32>, +c7: List
 # ------------------
 
 # a vector of one item, then the byte y
-def count1(+y: U32, +U: List<&2, U32>) -> {C.Wasm.decode.count(Con{1, Con{y, U}}) == Some{C.Wasm.Decoded{1n, Con{y, U}}} : Maybe<&2, C.Wasm.Decoded<Nat>>}:
+def count1(+y: Word(8n), +U: List<&2, Word(8n)>) -> {C.Wasm.decode.count(Con{C.Byte.from_u32(1), Con{y, U}}) == Some{C.Wasm.Decoded{1n, Con{y, U}}} : Maybe<&2, C.Wasm.Decoded<Nat>>}:
   %Equal.sym(Bool, C.Wasm.has(Con{y, U}, 1), True{}, has0(U)) :
     {C.Wasm.decode.count.if(_, 1, Con{y, U}) == Some{C.Wasm.Decoded{1n, Con{y, U}}} : Maybe<&2, C.Wasm.Decoded<Nat>>}
   {==}
 
-def lim(+P: U32) -> {C.Wasm.decode.limits(Con{0, C.Wasm.encode.uleb(P)}) == Some{C.Wasm.Decoded{C.Wasm.Limits{P, None{}}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Limits>>}:
+def lim(+P: U32) -> {C.Wasm.decode.limits(Con{C.Byte.from_u32(0), C.Wasm.encode.uleb(P)}) == Some{C.Wasm.Decoded{C.Wasm.Limits{P, None{}}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Limits>>}:
   +U = C.Wasm.encode.uleb(P)
-  %app.nil(U) : {C.Wasm.decode.limits(Con{0, _}) == Some{C.Wasm.Decoded{C.Wasm.Limits{P, None{}}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Limits>>}
+  %app.nil(Word(8n), U) : {C.Wasm.decode.limits(Con{C.Byte.from_u32(0), _}) == Some{C.Wasm.Decoded{C.Wasm.Limits{P, None{}}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Limits>>}
   %I.uleb.back(P, []) : {C.Wasm.decode.bind(U32, C.Wasm.Limits, _, n => r => Some{C.Wasm.Decoded{C.Wasm.Limits{n, None{}}, r}}) ==
     Some{C.Wasm.Decoded{C.Wasm.Limits{P, None{}}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Limits>>}
   {==}
 
 # the memory section's content decodes to its limits
 def part.mem(+P: U32) ->
-  {C.Wasm.decode.one(C.Wasm.Limits, C.Wasm.decode.part(~C.Wasm.Limits, ~C.Wasm.decode.limits, Some{Con{1, Con{0, C.Wasm.encode.uleb(P)}}})) ==
+  {C.Wasm.decode.one(C.Wasm.Limits, C.Wasm.decode.part(~C.Wasm.Limits, ~C.Wasm.decode.limits, Some{Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), C.Wasm.encode.uleb(P)}}})) ==
     Some{Some{C.Wasm.Limits{P, None{}}}} : Maybe<&2, Maybe<&2, C.Wasm.Limits>>}:
   +U = C.Wasm.encode.uleb(P)
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(Con{1, Con{0, U}}), Some{C.Wasm.Decoded{1n, Con{0, U}}}, count1(0, U)) :
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), U}}), Some{C.Wasm.Decoded{1n, Con{C.Byte.from_u32(0), U}}}, count1(C.Byte.from_u32(0), U)) :
     {C.Wasm.decode.one(C.Wasm.Limits, C.Wasm.decode.done(List<&2, C.Wasm.Limits>,
       C.Wasm.decode.bind(Nat, List<&2, C.Wasm.Limits>, _, n => r => C.Wasm.decode.items(~C.Wasm.Limits, ~C.Wasm.decode.limits, n, r)))) ==
       Some{Some{C.Wasm.Limits{P, None{}}}} : Maybe<&2, Maybe<&2, C.Wasm.Limits>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Limits>>, C.Wasm.decode.limits(Con{0, U}), Some{C.Wasm.Decoded{C.Wasm.Limits{P, None{}}, []}}, lim(P)) :
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Limits>>, C.Wasm.decode.limits(Con{C.Byte.from_u32(0), U}), Some{C.Wasm.Decoded{C.Wasm.Limits{P, None{}}, []}}, lim(P)) :
     {C.Wasm.decode.one(C.Wasm.Limits, C.Wasm.decode.done(List<&2, C.Wasm.Limits>,
       C.Wasm.decode.bind(C.Wasm.Limits, List<&2, C.Wasm.Limits>, _, x => r =>
         C.Wasm.decode.cons(C.Wasm.Limits, x, C.Wasm.decode.items(~C.Wasm.Limits, ~C.Wasm.decode.limits, 0n, r))))) ==
@@ -297,34 +320,34 @@ def part.mem(+P: U32) ->
 # The data section
 # ----------------
 
-def dbytes(+B: List<&2, U32>, +h: {I.fits.labels(B) == True{} : Bool}) ->
-  {C.Wasm.decode.bytes(C.Wasm.encode.sized(B)) == Some{C.Wasm.Decoded{B, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>}:
-  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(U32, B))
-  %app.nil(B) : {C.Wasm.decode.bytes(List.append(&2, U32, u, _)) == Some{C.Wasm.Decoded{B, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(List.append(&2, U32, u, List.append(&2, U32, B, []))),
-    Some{C.Wasm.Decoded{List.length(&2, U32, B), List.append(&2, U32, B, [])}}, count.sized(B, [], h)) :
-    {C.Wasm.decode.bind(Nat, List<&2, U32>, _, n => r => C.Wasm.decode.take(n, r)) == Some{C.Wasm.Decoded{B, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>}
+def dbytes(+B: List<&2, Word(8n)>, +h: {fits.bytes(B) == True{} : Bool}) ->
+  {C.Wasm.decode.bytes(C.Wasm.encode.sized(B)) == Some{C.Wasm.Decoded{B, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>}:
+  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), B))
+  %app.nil(Word(8n), B) : {C.Wasm.decode.bytes(List.append(&2, Word(8n), u, _)) == Some{C.Wasm.Decoded{B, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>}
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(List.append(&2, Word(8n), u, List.append(&2, Word(8n), B, []))),
+    Some{C.Wasm.Decoded{List.length(&2, Word(8n), B), List.append(&2, Word(8n), B, [])}}, count.sized(B, [], h)) :
+    {C.Wasm.decode.bind(Nat, List<&2, Word(8n)>, _, n => r => C.Wasm.decode.take(n, r)) == Some{C.Wasm.Decoded{B, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>}
   take.app(B, [])
 
-def ddata(+B: List<&2, U32>, +h: {I.fits.labels(B) == True{} : Bool}) ->
-  {C.Wasm.decode.data(Con{0, Con{65, List.append(&2, U32, C.Wasm.encode.sleb(20), Con{11, C.Wasm.encode.sized(B)})}}) ==
+def ddata(+B: List<&2, Word(8n)>, +h: {fits.bytes(B) == True{} : Bool}) ->
+  {C.Wasm.decode.data(Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(65), List.append(&2, Word(8n), C.Wasm.encode.sleb(20), Con{C.Byte.from_u32(11), C.Wasm.encode.sized(B)})}}) ==
     Some{C.Wasm.Decoded{C.Wasm.Segment{20, B}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Segment>>}:
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>, C.Wasm.decode.bytes(C.Wasm.encode.sized(B)), Some{C.Wasm.Decoded{B, []}}, dbytes(B, h)) :
-    {C.Wasm.decode.bind(List<&2, U32>, C.Wasm.Segment, _, b => r4 => Some{C.Wasm.Decoded{C.Wasm.Segment{20, b}, r4}}) ==
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>, C.Wasm.decode.bytes(C.Wasm.encode.sized(B)), Some{C.Wasm.Decoded{B, []}}, dbytes(B, h)) :
+    {C.Wasm.decode.bind(List<&2, Word(8n)>, C.Wasm.Segment, _, b => r4 => Some{C.Wasm.Decoded{C.Wasm.Segment{20, b}, r4}}) ==
       Some{C.Wasm.Decoded{C.Wasm.Segment{20, B}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Segment>>}
   {==}
 
 # the data section's content decodes to its segment
-def part.data(+B: List<&2, U32>, +h: {I.fits.labels(B) == True{} : Bool}) ->
+def part.data(+B: List<&2, Word(8n)>, +h: {fits.bytes(B) == True{} : Bool}) ->
   {C.Wasm.decode.one(C.Wasm.Segment, C.Wasm.decode.part(~C.Wasm.Segment, ~C.Wasm.decode.data,
-    Some{Con{1, Con{0, Con{65, List.append(&2, U32, C.Wasm.encode.sleb(20), Con{11, C.Wasm.encode.sized(B)})}}}})) ==
+    Some{Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(65), List.append(&2, Word(8n), C.Wasm.encode.sleb(20), Con{C.Byte.from_u32(11), C.Wasm.encode.sized(B)})}}}})) ==
     Some{Some{C.Wasm.Segment{20, B}}} : Maybe<&2, Maybe<&2, C.Wasm.Segment>>}:
-  +U = {Con{65, List.append(&2, U32, C.Wasm.encode.sleb(20), Con{11, C.Wasm.encode.sized(B)})} : List<&2, U32>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(Con{1, Con{0, U}}), Some{C.Wasm.Decoded{1n, Con{0, U}}}, count1(0, U)) :
+  +U = {Con{C.Byte.from_u32(65), List.append(&2, Word(8n), C.Wasm.encode.sleb(20), Con{C.Byte.from_u32(11), C.Wasm.encode.sized(B)})} : List<&2, Word(8n)>}
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), U}}), Some{C.Wasm.Decoded{1n, Con{C.Byte.from_u32(0), U}}}, count1(C.Byte.from_u32(0), U)) :
     {C.Wasm.decode.one(C.Wasm.Segment, C.Wasm.decode.done(List<&2, C.Wasm.Segment>,
       C.Wasm.decode.bind(Nat, List<&2, C.Wasm.Segment>, _, n => r => C.Wasm.decode.items(~C.Wasm.Segment, ~C.Wasm.decode.data, n, r)))) ==
       Some{Some{C.Wasm.Segment{20, B}}} : Maybe<&2, Maybe<&2, C.Wasm.Segment>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Segment>>, C.Wasm.decode.data(Con{0, U}), Some{C.Wasm.Decoded{C.Wasm.Segment{20, B}, []}}, ddata(B, h)) :
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Segment>>, C.Wasm.decode.data(Con{C.Byte.from_u32(0), U}), Some{C.Wasm.Decoded{C.Wasm.Segment{20, B}, []}}, ddata(B, h)) :
     {C.Wasm.decode.one(C.Wasm.Segment, C.Wasm.decode.done(List<&2, C.Wasm.Segment>,
       C.Wasm.decode.bind(C.Wasm.Segment, List<&2, C.Wasm.Segment>, _, x => r =>
         C.Wasm.decode.cons(C.Wasm.Segment, x, C.Wasm.decode.items(~C.Wasm.Segment, ~C.Wasm.decode.data, 0n, r))))) ==
@@ -335,42 +358,42 @@ def part.data(+B: List<&2, U32>, +h: {I.fits.labels(B) == True{} : Bool}) ->
 # ----------------
 
 # an entry of the code section, whose code X decodes to Cd
-def code.round(+X: List<&2, U32>, +rest: List<&2, U32>, -Cd: C.Wasm.Code, +hF: {I.fits.labels(X) == True{} : Bool},
+def code.round(+X: List<&2, Word(8n)>, +rest: List<&2, Word(8n)>, -Cd: C.Wasm.Code, +hF: {fits.bytes(X) == True{} : Bool},
   d: {C.Wasm.decode.func(X) == Some{C.Wasm.Decoded{Cd, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}) ->
-  {C.Wasm.decode.code(List.append(&2, U32, C.Wasm.encode.sized(X), rest)) == Some{C.Wasm.Decoded{Cd, rest}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}:
-  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(U32, X))
-  +Y = List.append(&2, U32, X, rest)
-  %Equal.sym(List<&2, U32>, List.append(&2, U32, List.append(&2, U32, u, X), rest), List.append(&2, U32, u, Y), app.assoc(u, X, rest)) :
+  {C.Wasm.decode.code(List.append(&2, Word(8n), C.Wasm.encode.sized(X), rest)) == Some{C.Wasm.Decoded{Cd, rest}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}:
+  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), X))
+  +Y = List.append(&2, Word(8n), X, rest)
+  %Equal.sym(List<&2, Word(8n)>, List.append(&2, Word(8n), List.append(&2, Word(8n), u, X), rest), List.append(&2, Word(8n), u, Y), app.assoc(Word(8n), u, X, rest)) :
     {C.Wasm.decode.code(_) == Some{C.Wasm.Decoded{Cd, rest}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(List.append(&2, U32, u, Y)), Some{C.Wasm.Decoded{List.length(&2, U32, X), Y}}, count.sized(X, rest, hF)) :
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<Nat>>, C.Wasm.decode.count(List.append(&2, Word(8n), u, Y)), Some{C.Wasm.Decoded{List.length(&2, Word(8n), X), Y}}, count.sized(X, rest, hF)) :
     {C.Wasm.decode.bind(Nat, C.Wasm.Code, _, n => r =>
-      C.Wasm.decode.bind(List<&2, U32>, C.Wasm.Code, C.Wasm.decode.take(n, r), c => r2 =>
+      C.Wasm.decode.bind(List<&2, Word(8n)>, C.Wasm.Code, C.Wasm.decode.take(n, r), c => r2 =>
         C.Wasm.decode.whole(C.Wasm.Code, C.Wasm.decode.func(c), r2))) == Some{C.Wasm.Decoded{Cd, rest}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, U32>>>, C.Wasm.decode.take(List.length(&2, U32, X), Y), Some{C.Wasm.Decoded{X, rest}}, take.app(X, rest)) :
-    {C.Wasm.decode.bind(List<&2, U32>, C.Wasm.Code, _, c => r2 =>
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, Word(8n)>>>, C.Wasm.decode.take(List.length(&2, Word(8n), X), Y), Some{C.Wasm.Decoded{X, rest}}, take.app(X, rest)) :
+    {C.Wasm.decode.bind(List<&2, Word(8n)>, C.Wasm.Code, _, c => r2 =>
         C.Wasm.decode.whole(C.Wasm.Code, C.Wasm.decode.func(c), r2)) == Some{C.Wasm.Decoded{Cd, rest}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
   %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>, C.Wasm.decode.func(X), Some{C.Wasm.Decoded{Cd, []}}, d) :
     {C.Wasm.decode.whole(C.Wasm.Code, _, rest) == Some{C.Wasm.Decoded{Cd, rest}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
   {==}
 
 # two entries hold 2 bytes
-def has.two(+ya: U32, +ta: List<&2, U32>, +Z: List<&2, U32>) ->
-  {C.Wasm.has(List.append(&2, U32, C.Wasm.encode.sized(Con{ya, ta}), Z), 2) == True{} : Bool}:
-  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(U32, Con{ya, ta}))
-  %Equal.sym(List<&2, U32>, List.append(&2, U32, List.append(&2, U32, u, Con{ya, ta}), Z), List.append(&2, U32, u, Con{ya, List.append(&2, U32, ta, Z)}),
-    app.assoc(u, Con{ya, ta}, Z)) : {C.Wasm.has(_, 2) == True{} : Bool}
-  I.has.uleb(C.Wasm.encode.len(U32, Con{ya, ta}), Con{ya, List.append(&2, U32, ta, Z)}, 1, {==}, has0(List.append(&2, U32, ta, Z)))
+def has.two(+ya: Word(8n), +ta: List<&2, Word(8n)>, +Z: List<&2, Word(8n)>) ->
+  {C.Wasm.has(List.append(&2, Word(8n), C.Wasm.encode.sized(Con{ya, ta}), Z), 2) == True{} : Bool}:
+  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), Con{ya, ta}))
+  %Equal.sym(List<&2, Word(8n)>, List.append(&2, Word(8n), List.append(&2, Word(8n), u, Con{ya, ta}), Z), List.append(&2, Word(8n), u, Con{ya, List.append(&2, Word(8n), ta, Z)}),
+    app.assoc(Word(8n), u, Con{ya, ta}, Z)) : {C.Wasm.has(_, 2) == True{} : Bool}
+  I.has.uleb(C.Wasm.encode.len(Word(8n), Con{ya, ta}), Con{ya, List.append(&2, Word(8n), ta, Z)}, 1, {==}, has0(List.append(&2, Word(8n), ta, Z)))
 
 # the code section's content, of two functions, decodes to their codes
-def part.code(+ya: U32, +ta: List<&2, U32>, +XR: List<&2, U32>, -CA: C.Wasm.Code, -CR: C.Wasm.Code,
-  +hA: {I.fits.labels(Con{ya, ta}) == True{} : Bool}, +hR: {I.fits.labels(XR) == True{} : Bool},
+def part.code(+ya: Word(8n), +ta: List<&2, Word(8n)>, +XR: List<&2, Word(8n)>, -CA: C.Wasm.Code, -CR: C.Wasm.Code,
+  +hA: {fits.bytes(Con{ya, ta}) == True{} : Bool}, +hR: {fits.bytes(XR) == True{} : Bool},
   dA: {C.Wasm.decode.func(Con{ya, ta}) == Some{C.Wasm.Decoded{CA, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>},
   dR: {C.Wasm.decode.func(XR) == Some{C.Wasm.Decoded{CR, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}) ->
   {C.Wasm.decode.part(~C.Wasm.Code, ~C.Wasm.decode.code,
-    Some{Con{2, List.append(&2, U32, C.Wasm.encode.sized(Con{ya, ta}), List.append(&2, U32, C.Wasm.encode.sized(XR), []))}}) ==
+    Some{Con{C.Byte.from_u32(2), List.append(&2, Word(8n), C.Wasm.encode.sized(Con{ya, ta}), List.append(&2, Word(8n), C.Wasm.encode.sized(XR), []))}}) ==
     Some{[CA, CR]} : Maybe<&2, List<&2, C.Wasm.Code>>}:
-  +ZR = List.append(&2, U32, C.Wasm.encode.sized(XR), [])
-  +Y = List.append(&2, U32, C.Wasm.encode.sized(Con{ya, ta}), ZR)
+  +ZR = List.append(&2, Word(8n), C.Wasm.encode.sized(XR), [])
+  +Y = List.append(&2, Word(8n), C.Wasm.encode.sized(Con{ya, ta}), ZR)
   %Equal.sym(Bool, C.Wasm.has(Y, 2), True{}, has.two(ya, ta, ZR)) :
     {C.Wasm.decode.done(List<&2, C.Wasm.Code>, C.Wasm.decode.bind(Nat, List<&2, C.Wasm.Code>, C.Wasm.decode.count.if(_, 2, Y), n => r =>
       C.Wasm.decode.items(~C.Wasm.Code, ~C.Wasm.decode.code, n, r))) == Some{[CA, CR]} : Maybe<&2, List<&2, C.Wasm.Code>>}
@@ -402,29 +425,29 @@ def U32.add0(x: U32) -> {U32.add(0, x) == x : U32}:
       Equal.cong(Word(32n), U32, y => U32{y}, Word.adc(32n, Word.zero(32n), w, False{}, False{}), w, Word.add0(32n, w))
 
 # a function's code of 3 locals, whose body decodes to b
-def func.three(+bs: List<&2, U32>, -b: List<&2, C.Wasm.Instr>,
-  h: {C.Wasm.decode.instrs(1n+List.length(&2, U32, bs), bs) == Some{C.Wasm.Decoded{b, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}) ->
-  {C.Wasm.decode.func(Con{1, Con{3, Con{127, bs}}}) == Some{C.Wasm.Decoded{C.Wasm.Code{3n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}:
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>, C.Wasm.decode.instrs(1n+List.length(&2, U32, bs), bs),
+def func.three(+bs: List<&2, Word(8n)>, -b: List<&2, C.Wasm.Instr>,
+  h: {C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), bs), bs) == Some{C.Wasm.Decoded{b, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}) ->
+  {C.Wasm.decode.func(Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(3), Con{C.Byte.from_u32(127), bs}}}) == Some{C.Wasm.Decoded{C.Wasm.Code{3n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}:
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>, C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), bs), bs),
     Some{C.Wasm.Decoded{b, []}}, h) :
     {C.Wasm.decode.bind(List<&2, C.Wasm.Instr>, C.Wasm.Code, _, x => r => Some{C.Wasm.Decoded{C.Wasm.Code{U32.to_nat(3), x}, r}}) ==
       Some{C.Wasm.Decoded{C.Wasm.Code{3n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
   {==}
 
 # one group of N locals, then the bytes IR
-def has.locals(+N: U32, +IR: List<&2, U32>) ->
-  {C.Wasm.has(List.append(&2, U32, List.append(&2, U32, C.Wasm.encode.uleb(N), [127]), IR), 1) == True{} : Bool}:
+def has.locals(+N: U32, +IR: List<&2, Word(8n)>) ->
+  {C.Wasm.has(List.append(&2, Word(8n), List.append(&2, Word(8n), C.Wasm.encode.uleb(N), [C.Byte.from_u32(127)]), IR), 1) == True{} : Bool}:
   +u = C.Wasm.encode.uleb(N)
-  %Equal.sym(List<&2, U32>, List.append(&2, U32, List.append(&2, U32, u, [127]), IR), List.append(&2, U32, u, Con{127, IR}), app.assoc(u, [127], IR)) :
+  %Equal.sym(List<&2, Word(8n)>, List.append(&2, Word(8n), List.append(&2, Word(8n), u, [C.Byte.from_u32(127)]), IR), List.append(&2, Word(8n), u, Con{C.Byte.from_u32(127), IR}), app.assoc(Word(8n), u, [C.Byte.from_u32(127)], IR)) :
     {C.Wasm.has(_, 1) == True{} : Bool}
-  I.has.uleb(N, Con{127, IR}, 0, {==}, has0(Con{127, IR}))
+  I.has.uleb(N, Con{C.Byte.from_u32(127), IR}, 0, {==}, has0(Con{C.Byte.from_u32(127), IR}))
 
-def local.round(+N: U32, +IR: List<&2, U32>) ->
-  {C.Wasm.decode.local(List.append(&2, U32, List.append(&2, U32, C.Wasm.encode.uleb(N), [127]), IR)) == Some{C.Wasm.Decoded{N, IR}} : Maybe<&2, C.Wasm.Decoded<U32>>}:
+def local.round(+N: U32, +IR: List<&2, Word(8n)>) ->
+  {C.Wasm.decode.local(List.append(&2, Word(8n), List.append(&2, Word(8n), C.Wasm.encode.uleb(N), [C.Byte.from_u32(127)]), IR)) == Some{C.Wasm.Decoded{N, IR}} : Maybe<&2, C.Wasm.Decoded<U32>>}:
   +u = C.Wasm.encode.uleb(N)
-  %Equal.sym(List<&2, U32>, List.append(&2, U32, List.append(&2, U32, u, [127]), IR), List.append(&2, U32, u, Con{127, IR}), app.assoc(u, [127], IR)) :
+  %Equal.sym(List<&2, Word(8n)>, List.append(&2, Word(8n), List.append(&2, Word(8n), u, [C.Byte.from_u32(127)]), IR), List.append(&2, Word(8n), u, Con{C.Byte.from_u32(127), IR}), app.assoc(Word(8n), u, [C.Byte.from_u32(127)], IR)) :
     {C.Wasm.decode.local(_) == Some{C.Wasm.Decoded{N, IR}} : Maybe<&2, C.Wasm.Decoded<U32>>}
-  %I.uleb.back(N, Con{127, IR}) :
+  %I.uleb.back(N, Con{C.Byte.from_u32(127), IR}) :
     {C.Wasm.decode.bind(U32, U32, _, n => r => C.Wasm.decode.bind(U32, U32, C.Wasm.decode.byte(127, r), t => r2 => Some{C.Wasm.Decoded{n, r2}})) ==
       Some{C.Wasm.Decoded{N, IR}} : Maybe<&2, C.Wasm.Decoded<U32>>}
   {==}
@@ -435,12 +458,12 @@ def locals.one(+N: U32, +hN: {U32.is_le(N, 50000) == True{} : Bool}) -> {C.Wasm.
   {==}
 
 # a function's code of one group of N locals, whose body decodes to b
-def func.many(+N: U32, -n: Nat, +IR: List<&2, U32>, -b: List<&2, C.Wasm.Instr>,
+def func.many(+N: U32, -n: Nat, +IR: List<&2, Word(8n)>, -b: List<&2, C.Wasm.Instr>,
   +hN: {U32.is_le(N, 50000) == True{} : Bool}, eN: {U32.to_nat(N) == n : Nat},
-  h: {C.Wasm.decode.instrs(1n+List.length(&2, U32, IR), IR) == Some{C.Wasm.Decoded{b, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}) ->
-  {C.Wasm.decode.func(Con{1, List.append(&2, U32, List.append(&2, U32, C.Wasm.encode.uleb(N), [127]), IR)}) ==
+  h: {C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), IR), IR) == Some{C.Wasm.Decoded{b, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}) ->
+  {C.Wasm.decode.func(Con{C.Byte.from_u32(1), List.append(&2, Word(8n), List.append(&2, Word(8n), C.Wasm.encode.uleb(N), [C.Byte.from_u32(127)]), IR)}) ==
     Some{C.Wasm.Decoded{C.Wasm.Code{n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}:
-  +W = List.append(&2, U32, List.append(&2, U32, C.Wasm.encode.uleb(N), [127]), IR)
+  +W = List.append(&2, Word(8n), List.append(&2, Word(8n), C.Wasm.encode.uleb(N), [C.Byte.from_u32(127)]), IR)
   %Equal.sym(Bool, C.Wasm.has(W, 1), True{}, has.locals(N, IR)) :
     {C.Wasm.decode.bind(List<&2, U32>, C.Wasm.Code,
       C.Wasm.decode.bind(Nat, List<&2, U32>, C.Wasm.decode.count.if(_, 1, W), n => r => C.Wasm.decode.items(~U32, ~C.Wasm.decode.local, n, r)),
@@ -451,7 +474,7 @@ def func.many(+N: U32, -n: Nat, +IR: List<&2, U32>, -b: List<&2, C.Wasm.Instr>,
       ns => r => C.Wasm.decode.func.body(C.Wasm.locals.sum(ns, 0), r)) == Some{C.Wasm.Decoded{C.Wasm.Code{n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
   %Equal.sym(Maybe<&2, U32>, C.Wasm.locals.sum([N], 0), Some{N}, locals.one(N, hN)) :
     {C.Wasm.decode.func.body(_, IR) == Some{C.Wasm.Decoded{C.Wasm.Code{n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>, C.Wasm.decode.instrs(1n+List.length(&2, U32, IR), IR),
+  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>, C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), IR), IR),
     Some{C.Wasm.Decoded{b, []}}, h) :
     {C.Wasm.decode.bind(List<&2, C.Wasm.Instr>, C.Wasm.Code, _, x => r => Some{C.Wasm.Decoded{C.Wasm.Code{U32.to_nat(N), x}, r}}) ==
       Some{C.Wasm.Decoded{C.Wasm.Code{n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
@@ -475,8 +498,7 @@ def fits.expr(e: C.Cir.Expr, +acc: List<&2, C.Wasm.Instr>) -> {I.fits(C.Cir.code
     case C.Cir.Expr.field{+k, +c}:
       fits.expr(c, C.Cir.code.at(Con{C.Wasm.Instr.load{U32.shln(U32.from_nat(k), 2n)}, acc}))
     case C.Cir.Expr.byte{+i}:
-      fits.expr(i, Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0},
-        Con{C.Cir.i.const(255), Con{C.Cir.i.op(C.Wasm.Op.and{}), acc}}}}})
+      fits.expr(i, Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0}, acc}}})
     case C.Cir.Expr.size{}:
       {==}
 
@@ -541,22 +563,22 @@ def fits.run(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> {I.fits(body(C.Cir.run(p
   {==}
 
 # the code of alloc, after its size
-def XA(+k: U32) -> List<&2, U32>:
-  Con{1, Con{3, Con{127, C.Wasm.encode.instrs(body(C.Cir.alloc(k)), [11])}}}
+def XA(+k: U32) -> List<&2, Word(8n)>:
+  Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(3), Con{C.Byte.from_u32(127), C.Wasm.encode.instrs(body(C.Cir.alloc(k)), [C.Byte.from_u32(11)])}}}
 
 # the code of run, after its size
-def XR(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, U32>:
-  Con{1, List.append(&2, U32, List.append(&2, U32, C.Wasm.encode.uleb(U32.from_nat(6n+regs)), [127]),
-    C.Wasm.encode.instrs(body(C.Cir.run(prog, regs, k)), [11]))}
+def XR(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, Word(8n)>:
+  Con{C.Byte.from_u32(1), List.append(&2, Word(8n), List.append(&2, Word(8n), C.Wasm.encode.uleb(U32.from_nat(6n+regs)), [C.Byte.from_u32(127)]),
+    C.Wasm.encode.instrs(body(C.Cir.run(prog, regs, k)), [C.Byte.from_u32(11)]))}
 
-def c10(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, U32>:
-  Con{2, List.append(&2, U32, C.Wasm.encode.sized(XA(k)), List.append(&2, U32, C.Wasm.encode.sized(XR(prog, regs, k)), []))}
+def c10(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, Word(8n)>:
+  Con{C.Byte.from_u32(2), List.append(&2, Word(8n), C.Wasm.encode.sized(XA(k)), List.append(&2, Word(8n), C.Wasm.encode.sized(XR(prog, regs, k)), []))}
 
-def c11(+cells: List<&2, C.Cir.Cell>) -> List<&2, U32>:
-  Con{1, Con{0, Con{65, List.append(&2, U32, C.Wasm.encode.sleb(20), Con{11, C.Wasm.encode.sized(C.Cir.bytes(cells))})}}}
+def c11(+cells: List<&2, C.Cir.Cell>) -> List<&2, Word(8n)>:
+  Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(65), List.append(&2, Word(8n), C.Wasm.encode.sleb(20), Con{C.Byte.from_u32(11), C.Wasm.encode.sized(C.Cir.bytes(cells))})}}}
 
-def c5(+k: U32) -> List<&2, U32>:
-  Con{1, Con{0, C.Wasm.encode.uleb(C.Cir.pages(C.Cir.input.at(k)))}}
+def c5(+k: U32) -> List<&2, Word(8n)>:
+  Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), C.Wasm.encode.uleb(C.Cir.pages(C.Cir.input.at(k)))}}
 
 def fs(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, C.Wasm.Func>:
   [C.Cir.alloc(k), C.Cir.run(prog, regs, k)]
@@ -564,29 +586,29 @@ def fs(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, C.Wasm.Func>:
 def es() -> List<&2, C.Wasm.Export>:
   [C.Wasm.Export.memory{C.Wasm.name.memory()}, C.Wasm.Export.func{C.Wasm.name.alloc(), 0}, C.Wasm.Export.func{C.Wasm.name.run(), 1}]
 
-def c1(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, U32>:
+def c1(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, Word(8n)>:
   C.Wasm.encode.vec(2, C.Wasm.encode.functypes(fs(prog, regs, k)))
 
-def c3(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, U32>:
+def c3(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, Word(8n)>:
   C.Wasm.encode.vec(2, C.Wasm.encode.indices(fs(prog, regs, k), 0))
 
-def c7() -> List<&2, U32>:
+def c7() -> List<&2, Word(8n)>:
   C.Wasm.encode.vec(3, C.Wasm.encode.exports(es()))
 
 def enc(+prog: C.Cir.Stmt, +regs: Nat, +cells: List<&2, C.Cir.Cell>) ->
   {C.Wasm.encode(C.Cir.module(prog, regs, cells)) ==
-    Con{0, Con{97, Con{115, Con{109, Con{1, Con{0, Con{0, Con{0,
+    Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(97), Con{C.Byte.from_u32(115), Con{C.Byte.from_u32(109), Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(0),
       secs.bytes(c1(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells)), c3(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells)),
-        c5(C.Wasm.encode.len(C.Cir.Cell, cells)), c7(), c10(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells)), c11(cells))}}}}}}}} : List<&2, U32>}:
+        c5(C.Wasm.encode.len(C.Cir.Cell, cells)), c7(), c10(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells)), c11(cells))}}}}}}}} : List<&2, Word(8n)>}:
   {==}
 
 def round.of(+prog: C.Cir.Stmt, +regs: Nat, +cells: List<&2, C.Cir.Cell>,
-  +h5: {I.fits.labels(c5(C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
-  +h10: {I.fits.labels(c10(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
-  +h11: {I.fits.labels(c11(cells)) == True{} : Bool},
-  +hA: {I.fits.labels(XA(C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
-  +hR: {I.fits.labels(XR(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
-  +hB: {I.fits.labels(C.Cir.bytes(cells)) == True{} : Bool},
+  +h5: {fits.bytes(c5(C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
+  +h10: {fits.bytes(c10(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
+  +h11: {fits.bytes(c11(cells)) == True{} : Bool},
+  +hA: {fits.bytes(XA(C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
+  +hR: {fits.bytes(XR(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))) == True{} : Bool},
+  +hB: {fits.bytes(C.Cir.bytes(cells)) == True{} : Bool},
   +hN: {U32.is_le(U32.from_nat(6n+regs), 50000) == True{} : Bool},
   eN: {U32.to_nat(U32.from_nat(6n+regs)) == 6n+regs : Nat}
 ) -> {C.Wasm.decode.module(C.Wasm.encode(C.Cir.module(prog, regs, cells))) == Some{C.Cir.module(prog, regs, cells)} : Maybe<&2, C.Wasm.Module>}:
@@ -594,14 +616,14 @@ def round.of(+prog: C.Cir.Stmt, +regs: Nat, +cells: List<&2, C.Cir.Cell>,
   +M = C.Cir.module(prog, regs, cells)
   +A = C.Cir.alloc(k)
   +R = C.Cir.run(prog, regs, k)
-  +IA = C.Wasm.encode.instrs(body(A), [11])
-  +IR = C.Wasm.encode.instrs(body(R), [11])
+  +IA = C.Wasm.encode.instrs(body(A), [C.Byte.from_u32(11)])
+  +IR = C.Wasm.encode.instrs(body(R), [C.Byte.from_u32(11)])
   +N = U32.from_nat(6n+regs)
   +CA = {C.Wasm.Code{3n, body(A)} : C.Wasm.Code}
   +CR = {C.Wasm.Code{6n+regs, body(R)} : C.Wasm.Code}
   +dA = func.three(IA, body(A), I.instrs.round(body(A), fits.alloc(k)))
   +dR = func.many(N, 6n+regs, IR, body(R), hN, eN, I.instrs.round(body(R), fits.run(prog, regs, k)))
-  +p10 = part.code(1, {Con{3, Con{127, IA}} : List<&2, U32>}, XR(prog, regs, k), CA, CR, hA, hR, dA, dR)
+  +p10 = part.code(C.Byte.from_u32(1), {Con{C.Byte.from_u32(3), Con{C.Byte.from_u32(127), IA}} : List<&2, Word(8n)>}, XR(prog, regs, k), CA, CR, hA, hR, dA, dR)
   +p5 = part.mem(C.Cir.pages(C.Cir.input.at(k)))
   +p11 = part.data(C.Cir.bytes(cells), hB)
   +q1 = C.Wasm.decode.part(~C.Wasm.Type, ~C.Wasm.decode.functype, Some{c1(prog, regs, k)})
@@ -624,8 +646,8 @@ def round.of(+prog: C.Cir.Stmt, +regs: Nat, +cells: List<&2, C.Cir.Cell>,
 # Sizes
 # -----
 
-def ulen.if(c: Bool, +b: U32, +f: Nat, +r: U32, ih: N.Le(List.length(&2, U32, C.Wasm.encode.uleb.go(f, r)), f)) ->
-  N.Le(List.length(&2, U32, C.Wasm.encode.leb.if(c, b, u => C.Wasm.encode.uleb.go(f, r))), 1n+f):
+def ulen.if(c: Bool, +b: U32, +f: Nat, +r: U32, ih: N.Le(List.length(&2, Word(8n), C.Wasm.encode.uleb.go(f, r)), f)) ->
+  N.Le(List.length(&2, Word(8n), C.Wasm.encode.leb.if(c, b, u => C.Wasm.encode.uleb.go(f, r))), 1n+f):
   match c:
     case True{}:
       N.le_zero(f)
@@ -633,7 +655,7 @@ def ulen.if(c: Bool, +b: U32, +f: Nat, +r: U32, ih: N.Le(List.length(&2, U32, C.
       ih
 
 # the unsigned LEB128 bytes of k rounds are at most k
-def ulen(+k: Nat, +v: U32) -> N.Le(List.length(&2, U32, C.Wasm.encode.uleb.go(k, v)), k):
+def ulen(+k: Nat, +v: U32) -> N.Le(List.length(&2, Word(8n), C.Wasm.encode.uleb.go(k, v)), k):
   match k:
     case 0n:
       Unit{}
@@ -670,12 +692,12 @@ def lt_double(+y: Nat, h: N.Le(1n, y)) -> N.Le(1n+y, Nat.double(y)):
       G.le_double(p)
 
 # the bytes of the cells: at most 32 for each
-def bytes.le(cs: List<&2, C.Cir.Cell>) -> N.Le(List.length(&2, U32, C.Cir.bytes(cs)), N.D(5n, List.length(&2, C.Cir.Cell, cs))):
+def bytes.le(cs: List<&2, C.Cir.Cell>) -> N.Le(List.length(&2, Word(8n), C.Cir.bytes(cs)), N.D(5n, List.length(&2, C.Cir.Cell, cs))):
   match cs:
     case Nil{}:
       Unit{}
     case Con{C.Cir.Cell{a, b, c, d, e}, +rest}:
-      N.add_mono(20n, 32n, List.length(&2, U32, C.Cir.bytes(rest)), N.D(5n, List.length(&2, C.Cir.Cell, rest)), Unit{}, bytes.le(rest))
+      N.add_mono(20n, 32n, List.length(&2, Word(8n), C.Cir.bytes(rest)), N.D(5n, List.length(&2, C.Cir.Cell, rest)), Unit{}, bytes.le(rest))
 
 # the number of n, as a U32, is n, when n <= M
 def tofrom(+n: Nat, +M: U32, +h: N.Le(n, U32.to_nat(M))) -> {U32.to_nat(U32.from_nat(n)) == n : Nat}:
@@ -700,53 +722,53 @@ def le_true(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(x, y)) -> {Cmp.
       Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h)))
 
 # X sits inside u, X, then Z
-def le.mid(+u: List<&2, U32>, +X: List<&2, U32>, +Z: List<&2, U32>) ->
-  N.Le(List.length(&2, U32, X), List.length(&2, U32, List.append(&2, U32, List.append(&2, U32, u, X), Z))):
-  +lu = List.length(&2, U32, u)
-  +lx = List.length(&2, U32, X)
-  +ux = List.append(&2, U32, u, X)
-  +lux = List.length(&2, U32, ux)
-  N.le_trans(lx, lux, List.length(&2, U32, List.append(&2, U32, ux, Z)),
-    N.le_rw_r(lx, Nat.add(lu, lx), lux, Equal.sym(Nat, lux, Nat.add(lu, lx), len.app(u, X)), N.le_add_l(lu, lx)),
-    N.le_rw_r(lux, Nat.add(lux, List.length(&2, U32, Z)), List.length(&2, U32, List.append(&2, U32, ux, Z)),
-      Equal.sym(Nat, List.length(&2, U32, List.append(&2, U32, ux, Z)), Nat.add(lux, List.length(&2, U32, Z)), len.app(ux, Z)),
-      N.le_add_r(lux, List.length(&2, U32, Z))))
+def le.mid(+u: List<&2, Word(8n)>, +X: List<&2, Word(8n)>, +Z: List<&2, Word(8n)>) ->
+  N.Le(List.length(&2, Word(8n), X), List.length(&2, Word(8n), List.append(&2, Word(8n), List.append(&2, Word(8n), u, X), Z))):
+  +lu = List.length(&2, Word(8n), u)
+  +lx = List.length(&2, Word(8n), X)
+  +ux = List.append(&2, Word(8n), u, X)
+  +lux = List.length(&2, Word(8n), ux)
+  N.le_trans(lx, lux, List.length(&2, Word(8n), List.append(&2, Word(8n), ux, Z)),
+    N.le_rw_r(lx, Nat.add(lu, lx), lux, Equal.sym(Nat, lux, Nat.add(lu, lx), len.app(Word(8n), u, X)), N.le_add_l(lu, lx)),
+    N.le_rw_r(lux, Nat.add(lux, List.length(&2, Word(8n), Z)), List.length(&2, Word(8n), List.append(&2, Word(8n), ux, Z)),
+      Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), ux, Z)), Nat.add(lux, List.length(&2, Word(8n), Z)), len.app(Word(8n), ux, Z)),
+      N.le_add_r(lux, List.length(&2, Word(8n), Z))))
 
 # X sits at the end of P, X
-def le.tail(+P: List<&2, U32>, +X: List<&2, U32>) -> N.Le(List.length(&2, U32, X), List.length(&2, U32, List.append(&2, U32, P, X))):
-  +lp = List.length(&2, U32, P)
-  +lx = List.length(&2, U32, X)
-  N.le_rw_r(lx, Nat.add(lp, lx), List.length(&2, U32, List.append(&2, U32, P, X)),
-    Equal.sym(Nat, List.length(&2, U32, List.append(&2, U32, P, X)), Nat.add(lp, lx), len.app(P, X)), N.le_add_l(lp, lx))
+def le.tail(+P: List<&2, Word(8n)>, +X: List<&2, Word(8n)>) -> N.Le(List.length(&2, Word(8n), X), List.length(&2, Word(8n), List.append(&2, Word(8n), P, X))):
+  +lp = List.length(&2, Word(8n), P)
+  +lx = List.length(&2, Word(8n), X)
+  N.le_rw_r(lx, Nat.add(lp, lx), List.length(&2, Word(8n), List.append(&2, Word(8n), P, X)),
+    Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), P, X)), Nat.add(lp, lx), len.app(Word(8n), P, X)), N.le_add_l(lp, lx))
 
-def codes(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, U32>:
+def codes(+prog: C.Cir.Stmt, +regs: Nat, +k: U32) -> List<&2, Word(8n)>:
   C.Wasm.encode.codes([C.Cir.alloc(k), C.Cir.run(prog, regs, k)])
 
-def fits.c10(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, +h: N.Le(1n+List.length(&2, U32, codes(prog, regs, k)), U32.to_nat(M))) ->
-  {I.fits.labels(c10(prog, regs, k)) == True{} : Bool}:
+def fits.c10(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, +h: N.Le(1n+List.length(&2, Word(8n), codes(prog, regs, k)), U32.to_nat(M))) ->
+  {fits.bytes(c10(prog, regs, k)) == True{} : Bool}:
   fits.of_le(c10(prog, regs, k), M, h)
 
-def fits.XA(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, +h: N.Le(1n+List.length(&2, U32, codes(prog, regs, k)), U32.to_nat(M))) ->
-  {I.fits.labels(XA(k)) == True{} : Bool}:
-  +ZR = List.append(&2, U32, C.Wasm.encode.sized(XR(prog, regs, k)), [])
-  +Y = List.append(&2, U32, C.Wasm.encode.sized(XA(k)), ZR)
-  fits.of_le(XA(k), M, N.le_trans(List.length(&2, U32, XA(k)), List.length(&2, U32, Y), U32.to_nat(M),
-    le.mid(C.Wasm.encode.uleb(C.Wasm.encode.len(U32, XA(k))), XA(k), ZR), N.weaken(List.length(&2, U32, Y), U32.to_nat(M), h)))
+def fits.XA(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, +h: N.Le(1n+List.length(&2, Word(8n), codes(prog, regs, k)), U32.to_nat(M))) ->
+  {fits.bytes(XA(k)) == True{} : Bool}:
+  +ZR = List.append(&2, Word(8n), C.Wasm.encode.sized(XR(prog, regs, k)), [])
+  +Y = List.append(&2, Word(8n), C.Wasm.encode.sized(XA(k)), ZR)
+  fits.of_le(XA(k), M, N.le_trans(List.length(&2, Word(8n), XA(k)), List.length(&2, Word(8n), Y), U32.to_nat(M),
+    le.mid(C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), XA(k))), XA(k), ZR), N.weaken(List.length(&2, Word(8n), Y), U32.to_nat(M), h)))
 
-def fits.XR(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, +h: N.Le(1n+List.length(&2, U32, codes(prog, regs, k)), U32.to_nat(M))) ->
-  {I.fits.labels(XR(prog, regs, k)) == True{} : Bool}:
+def fits.XR(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, +h: N.Le(1n+List.length(&2, Word(8n), codes(prog, regs, k)), U32.to_nat(M))) ->
+  {fits.bytes(XR(prog, regs, k)) == True{} : Bool}:
   +X = XR(prog, regs, k)
-  +ZR = List.append(&2, U32, C.Wasm.encode.sized(X), [])
-  +Y = List.append(&2, U32, C.Wasm.encode.sized(XA(k)), ZR)
-  fits.of_le(X, M, N.le_trans(List.length(&2, U32, X), List.length(&2, U32, Y), U32.to_nat(M),
-    N.le_trans(List.length(&2, U32, X), List.length(&2, U32, ZR), List.length(&2, U32, Y),
-      le.mid(C.Wasm.encode.uleb(C.Wasm.encode.len(U32, X)), X, []), le.tail(C.Wasm.encode.sized(XA(k)), ZR)),
-    N.weaken(List.length(&2, U32, Y), U32.to_nat(M), h)))
+  +ZR = List.append(&2, Word(8n), C.Wasm.encode.sized(X), [])
+  +Y = List.append(&2, Word(8n), C.Wasm.encode.sized(XA(k)), ZR)
+  fits.of_le(X, M, N.le_trans(List.length(&2, Word(8n), X), List.length(&2, Word(8n), Y), U32.to_nat(M),
+    N.le_trans(List.length(&2, Word(8n), X), List.length(&2, Word(8n), ZR), List.length(&2, Word(8n), Y),
+      le.mid(C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), X)), X, []), le.tail(C.Wasm.encode.sized(XA(k)), ZR)),
+    N.weaken(List.length(&2, Word(8n), Y), U32.to_nat(M), h)))
 
 # the memory section's content: at most 7 bytes
-def fits.c5(+k: U32) -> {I.fits.labels(c5(k)) == True{} : Bool}:
+def fits.c5(+k: U32) -> {fits.bytes(c5(k)) == True{} : Bool}:
   +P = C.Cir.pages(C.Cir.input.at(k))
-  +x = List.length(&2, U32, C.Wasm.encode.uleb(P))
+  +x = List.length(&2, Word(8n), C.Wasm.encode.uleb(P))
   fits.of_le(c5(k), 255, N.le_trans(2n+x, 7n, U32.to_nat(255), ulen(5n, P), Unit{}))
 
 # 4294967295 is the word of 32 set bits
@@ -774,27 +796,27 @@ def le.pow(+q: Nat, +m: Nat, vm: {1n+m == N.D(1n+q, 1n) : Nat}) -> N.Le(N.D(q, 1
 # at most y31 = 2^5 h26 <= M bytes
 def le.c11(+cells: List<&2, C.Cir.Cell>, +K: U32, +M: U32, +h26: Nat, +y31: Nat,
   vK: {U32.to_nat(K) == h26 : Nat}, e31: {N.D(5n, h26) == y31 : Nat}, l31: N.Le(y31, U32.to_nat(M)),
-  hL: N.Le(1n+List.length(&2, C.Cir.Cell, cells), U32.to_nat(K))) -> N.Le(List.length(&2, U32, c11(cells)), U32.to_nat(M)):
+  hL: N.Le(1n+List.length(&2, C.Cir.Cell, cells), U32.to_nat(K))) -> N.Le(List.length(&2, Word(8n), c11(cells)), U32.to_nat(M)):
   +B = C.Cir.bytes(cells)
   +l = List.length(&2, C.Cir.Cell, cells)
-  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(U32, B))
-  +x = List.length(&2, U32, u)
-  +y = List.length(&2, U32, B)
+  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), B))
+  +x = List.length(&2, Word(8n), u)
+  +y = List.length(&2, Word(8n), B)
   +d5 = N.D(5n, l)
-  +a = List.length(&2, U32, List.append(&2, U32, u, B))
-  +s3 = N.add_mono(x, 5n, y, d5, ulen(5n, C.Wasm.encode.len(U32, B)), bytes.le(cells))
-  +s4 = N.le_rw_l(Nat.add(x, y), a, Nat.add(5n, d5), Equal.sym(Nat, a, Nat.add(x, y), len.app(u, B)), s3)
+  +a = List.length(&2, Word(8n), List.append(&2, Word(8n), u, B))
+  +s3 = N.add_mono(x, 5n, y, d5, ulen(5n, C.Wasm.encode.len(Word(8n), B)), bytes.le(cells))
+  +s4 = N.le_rw_l(Nat.add(x, y), a, Nat.add(5n, d5), Equal.sym(Nat, a, Nat.add(x, y), len.app(Word(8n), u, B)), s3)
   +s45 = {step32(a, d5, s4) : N.Le(5n+a, N.D(5n, 1n+l))}
   +s5 = D_mono(5n, 1n+l, h26, N.le_rw_r(1n+l, U32.to_nat(K), h26, vK, hL))
   +s6 = N.le_rw_r(5n+a, N.D(5n, h26), y31, e31, N.le_trans(5n+a, N.D(5n, 1n+l), N.D(5n, h26), s45, s5))
   N.le_trans(5n+a, y31, U32.to_nat(M), s6, l31)
 
-def fits.B(+cells: List<&2, C.Cir.Cell>, +M: U32, +h: N.Le(List.length(&2, U32, c11(cells)), U32.to_nat(M))) ->
-  {I.fits.labels(C.Cir.bytes(cells)) == True{} : Bool}:
+def fits.B(+cells: List<&2, C.Cir.Cell>, +M: U32, +h: N.Le(List.length(&2, Word(8n), c11(cells)), U32.to_nat(M))) ->
+  {fits.bytes(C.Cir.bytes(cells)) == True{} : Bool}:
   +B = C.Cir.bytes(cells)
-  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(U32, B))
-  +a = List.length(&2, U32, List.append(&2, U32, u, B))
-  fits.of_le(B, M, N.le_trans(List.length(&2, U32, B), a, U32.to_nat(M), le.tail(u, B),
+  +u = C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), B))
+  +a = List.length(&2, Word(8n), List.append(&2, Word(8n), u, B))
+  fits.of_le(B, M, N.le_trans(List.length(&2, Word(8n), B), a, U32.to_nat(M), le.tail(u, B),
     N.le_trans(a, 5n+a, U32.to_nat(M), N.le_add_l(5n, a), h)))
 
 # the round trip, with the limits as variables: K = 2^26 cells, M = 2^32 - 1
@@ -803,7 +825,7 @@ def round.sized(+prog: C.Cir.Stmt, +regs: Nat, +cells: List<&2, C.Cir.Cell>, +K:
   vK: {U32.to_nat(K) == N.D(26n, 1n) : Nat}, vM: {1n+U32.to_nat(M) == N.D(32n, 1n) : Nat}, eW: {W == 50000 : U32},
   hc: N.Le(1n+List.length(&2, C.Cir.Cell, cells), U32.to_nat(K)),
   +hr: N.Le(6n+regs, U32.to_nat(W)),
-  +hs: N.Le(1n+List.length(&2, U32, C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)),
+  +hs: N.Le(1n+List.length(&2, Word(8n), C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)),
     C.Cir.run(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))])), U32.to_nat(M))
 ) -> {C.Wasm.decode.module(C.Wasm.encode(C.Cir.module(prog, regs, cells))) == Some{C.Cir.module(prog, regs, cells)} : Maybe<&2, C.Wasm.Module>}:
   +k = C.Wasm.encode.len(C.Cir.Cell, cells)
@@ -827,10 +849,10 @@ def round.sized(+prog: C.Cir.Stmt, +regs: Nat, +cells: List<&2, C.Cir.Cell>, +K:
 def module.round(+prog: C.Cir.Stmt, +regs: Nat, +cells: List<&2, C.Cir.Cell>,
   hc: {Nat.is_lt(List.length(&2, C.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   +hr: {Nat.is_le(6n+regs, U32.to_nat(50000)) == True{} : Bool},
-  hs: {Nat.is_lt(List.length(&2, U32, C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)),
+  hs: {Nat.is_lt(List.length(&2, Word(8n), C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)),
     C.Cir.run(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))])), U32.to_nat(4294967295)) == True{} : Bool}
 ) -> {C.Wasm.decode.module(C.Wasm.encode(C.Cir.module(prog, regs, cells))) == Some{C.Cir.module(prog, regs, cells)} : Maybe<&2, C.Wasm.Module>}:
   round.sized(prog, regs, cells, 67108864, 4294967295, 50000, G.val_M2(), val_MAX(), {==},
     lt_le(List.length(&2, C.Cir.Cell, cells), U32.to_nat(67108864), hc),
     N.toLe(6n+regs, U32.to_nat(50000), hr),
-    lt_le(List.length(&2, U32, C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)), C.Cir.run(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))])), U32.to_nat(4294967295), hs))
+    lt_le(List.length(&2, Word(8n), C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)), C.Cir.run(prog, regs, C.Wasm.encode.len(C.Cir.Cell, cells))])), U32.to_nat(4294967295), hs))
