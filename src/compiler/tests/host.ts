@@ -1,5 +1,5 @@
-// The host of Wasm.run (impl.bend, Host) in bun's engine, JavaScriptCore: runs a compiled module on
-// the bytes of a file, and writes the bytes of its result to a file.
+// The host of Wasm.run (src/wasm/impl.bend, Host) in bun's engine, JavaScriptCore: runs a compiled
+// module on the bytes of a file, and writes the bytes of its result to a file.
 //
 //   bun host.ts <module.wasm> <input> <output>
 //
@@ -8,7 +8,7 @@
 // imports
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { getArgs } from "../shared.ts";
+import { getArgs } from "../../shared/shared.ts";
 
 // types
 

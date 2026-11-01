@@ -1,2 +1,4 @@
-# every file of the bootstrap has LF line endings, in the repo and on checkout
-* text=auto eol=lf
+# every file of src/, lean/ and tools/ has LF line endings, in the repo and on checkout
+src/** text=auto eol=lf
+lean/** text=auto eol=lf
+tools/** text=auto eol=lf

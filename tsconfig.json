@@ -26,5 +26,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  // the bend submodule is not our code
+  "exclude": ["bend", "node_modules"]
 }

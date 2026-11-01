@@ -12,7 +12,7 @@
 
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { getArgs, run } from "../shared.ts";
+import { getArgs, run } from "../../shared/shared.ts";
 
 // constants
 

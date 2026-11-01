@@ -1,5 +1,5 @@
 // run.ts WORK: tests of kind c of the compiler of AGENTS.md 3.7.4, which the laws of
-// bootstrap/bend/src/compiler/spec.bend (no_wrong_result, no_other_failure, enough_memory) replace
+// src/compiler/spec.bend (no_wrong_result, no_other_failure, enough_memory) replace
 // once they are proven. Each program of progs/ is compiled, and its module runs on each input in a
 // real engine, bun's JavaScriptCore, as the host of Wasm.run does. It must give the result that the
 // Lean interpreter gives (scripts/Run.lean, which gives what Eval gives), or no result when it
@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, delimiter, join, resolve } from "node:path";
-import { getArgs, run } from "../shared.ts";
+import { getArgs, run } from "../../shared/shared.ts";
 
 // types
 
@@ -84,7 +84,7 @@ const getBend = (file: string, out: string) => ({
 // `lake lean scripts/<script>.lean` in the Lean project, with these variables
 const getLake = (script: string, vars: Record<string, string>) => ({
   cmd: ["lake", "lean", `scripts/${script}.lean`],
-  cwd: join(REPO, "bootstrap/lean"),
+  cwd: join(REPO, "lean"),
   env: { ...LAKE_ENV, ...vars },
 });
 

@@ -10,7 +10,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { getArgs } from "../shared.ts";
+import { getArgs } from "../../shared/shared.ts";
 
 // types
 
