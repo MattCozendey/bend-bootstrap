@@ -1785,15 +1785,20 @@ def Wasm.decode.sections.if(ok: Bool, +rest: List<&2, Word(8n)>) -> Maybe<&2, Li
     case False{}:
       None{}
 
+# the 8 bytes that begin a module (spec 5.5.15): the magic \0asm, then version 1
+def Wasm.header() -> List<&2, Word(8n)>:
+  [Byte.from_u32(0), Byte.from_u32(97), Byte.from_u32(115), Byte.from_u32(109),
+    Byte.from_u32(1), Byte.from_u32(0), Byte.from_u32(0), Byte.from_u32(0)]
+
 def Wasm.decode.module.header(m: Maybe<&2, Wasm.Decoded<List<&2, Word(8n)>>>) -> Maybe<&2, Wasm.Module>:
   match m:
     case None{}:
       None{}
     case Some{Wasm.Decoded{h, +rest}}:
       Wasm.decode.module.sections(
-        Wasm.decode.sections.if(Name.is_eq(h, [Byte.from_u32(0), Byte.from_u32(97), Byte.from_u32(115), Byte.from_u32(109), Byte.from_u32(1), Byte.from_u32(0), Byte.from_u32(0), Byte.from_u32(0)]), rest))
+        Wasm.decode.sections.if(Name.is_eq(h, Wasm.header()), rest))
 
-# a module (spec 5.4): the magic \0asm, version 1, then its sections
+# a module (spec 5.4): the header, then its sections
 def Wasm.decode.module(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Module>:
   Wasm.decode.module.header(Wasm.decode.take(8n, bs))
 
@@ -3441,19 +3446,18 @@ def Wasm.encode.data(d: Maybe<&2, Wasm.Segment>) -> List<&2, Word(8n)>:
       Wasm.encode.section(11, Con{Byte.from_u32(1), Con{Byte.from_u32(0), Con{Byte.from_u32(65),
         List.append(&2, Word(8n), Wasm.encode.sleb(o), Con{Byte.from_u32(11), Wasm.encode.sized(bs)})}}}, [])
 
-# a module of the subset (spec 5.5.15): the magic \0asm, version 1, then its
-# sections in the order of their ids; function i has type i
+# a module of the subset (spec 5.5.15): its header, then its sections in the
+# order of their ids; function i has type i
 def Wasm.encode(m: Wasm.Module) -> List<&2, Word(8n)>:
   match m:
     case Wasm.Module{+fs, mem, +es, d}:
       +n = Wasm.encode.len(Wasm.Func, fs)
-      Con{Byte.from_u32(0), Con{Byte.from_u32(97), Con{Byte.from_u32(115), Con{Byte.from_u32(109),
-      Con{Byte.from_u32(1), Con{Byte.from_u32(0), Con{Byte.from_u32(0), Con{Byte.from_u32(0),
+      List.append(&2, Word(8n), Wasm.header(),
         Wasm.encode.section(1, Wasm.encode.vec(n, Wasm.encode.functypes(fs)),
           Wasm.encode.section(3, Wasm.encode.vec(n, Wasm.encode.indices(fs, 0)),
             Wasm.encode.memory(mem,
               Wasm.encode.section(7, Wasm.encode.vec(Wasm.encode.len(Wasm.Export, es), Wasm.encode.exports(es)),
-                Wasm.encode.section(10, Wasm.encode.vec(n, Wasm.encode.codes(fs)), Wasm.encode.data(d))))))}}}}}}}}
+                Wasm.encode.section(10, Wasm.encode.vec(n, Wasm.encode.codes(fs)), Wasm.encode.data(d)))))))
 
 # Cir
 # ---
