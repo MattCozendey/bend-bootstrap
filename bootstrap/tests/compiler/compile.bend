@@ -1,4 +1,4 @@
-# the compiler of step 1 as a program: the bytes of a book in, the bytes of its
+# the compiler of AGENTS.md 3.6.4 as a program: the bytes of a book in, the bytes of its
 # module out
 import Base
 import ../../bend/src/compiler/impl.bend as C

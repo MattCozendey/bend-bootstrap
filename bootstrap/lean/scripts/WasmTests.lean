@@ -7,7 +7,7 @@ import Bootstrap.Script
 --
 -- A test of kind b (bend2 skill): the Bend copy of WASM (the section Wasm of
 -- bootstrap/bend/src/compiler/impl.bend) against the official WebAssembly
--- tests of bootstrap/tests/wasm (W6), run by the Lean interpreter that the
+-- tests of bootstrap/tests/wasm (AGENTS.md 3.7.1.3), run by the Lean interpreter that the
 -- plan trusts (src/Bootstrap/Run.lean), not by the TypeScript compiler.
 --
 --   bend bootstrap/bend/src/compiler/impl.bend -o <file.bendtt>
@@ -16,12 +16,12 @@ import Bootstrap.Script
 --
 -- It runs each command of a binary script (spec interpreter README: Binary
 -- Scripts) as the spec's harness does, and counts each assertion as passed,
--- failed, unsupported (the module or the values leave the subset, W1, or an
+-- failed, unsupported (the module or the values leave the subset, or an
 -- earlier action left the instance in a state that the script does not
 -- expect: St.after) or not done (the model's fuel ran out). It reads x.pure
 -- next to each x.bin.wast (cut.ml). assert_invalid and assert_malformed pass
 -- only when the model refuses the module: it may never accept a module that
--- the spec rejects (W1).
+-- the spec rejects.
 
 open Quan Term
 

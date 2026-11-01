@@ -1,5 +1,5 @@
-# compiler: the proofs of the laws of step 1
-# =========================================
+# compiler: the proofs of the laws of AGENTS.md 3.6.4
+# ====================================================
 #
 # The laws of spec.bend follow from two layers, each a lemma below:
 #
@@ -9,7 +9,7 @@
 #     program halts at once gives no result.
 #   B (machine): from the image of a book, Mach.code never traps, and it
 #     gives what Eval gives, or runs out of memory; with the memory of
-#     INVARIANTS #4, it gives it.
+#     AGENTS.md 3.7.1.4, it gives it.
 #
 # A lemma whose body is ?TODO is still open: the laws hold once each is
 # proven. The proofs of the laws themselves, at the end, are complete.
@@ -106,7 +106,7 @@ def mach.complete(
   {C.Cir.result(n, C.Mach.code(), C.Mach.regs(), C.Img.cells(ds), i, m) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}):
   ?TODO
 
-# B: with the memory of INVARIANTS #4, the machine gives the list of bytes
+# B: with the memory of AGENTS.md 3.7.1.4, the machine gives the list of bytes
 def mach.memory(
   +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: Nat, +o: List<&2, Word(8n)>,
   rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},

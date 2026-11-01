@@ -1,5 +1,5 @@
-# compiler: the program that the interpreter runs (PLAN, STEPS #3)
-# ================================================================
+# compiler: the program that the interpreter runs (AGENTS.md 3.6.6)
+# =================================================================
 #
 # main is our own compiler: it takes the bytes of a book, as the Lean writer
 # writes them, and gives the bytes of its WASM module. The laws of spec.bend

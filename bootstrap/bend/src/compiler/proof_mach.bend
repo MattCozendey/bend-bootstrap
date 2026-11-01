@@ -2156,7 +2156,7 @@ def round.room(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>,
   D.NoOom(C.Cir.exec(f, D.B.body(), st)):
   ?TODO
 
-# B: with the memory of INVARIANTS #4, the machine gives the list of bytes
+# B: with the memory of AGENTS.md 3.7.1.4, the machine gives the list of bytes
 # (open: from round.peak and round.room as above)
 def mach.memory.proof(
   +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: Nat, +o: List<&2, Word(8n)>,

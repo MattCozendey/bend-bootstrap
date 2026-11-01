@@ -1,16 +1,15 @@
-# compiler: the laws of step 1
-# ============================
+# compiler: the laws of AGENTS.md 3.6.4
+# =====================================
 #
-# PLAN, STEPS #1, as C1 states them (approved). They hold for every program,
-# not only for the ones that the kernel accepts (INVARIANTS #1): Wasm.run is
-# the Bend copy of WASM's meaning (STEPS #5), Program.gives what a program
-# gives by the Bend copy of Eval (INVARIANTS #2 and #3), and Program.need the
-# memory that INVARIANTS #4 grants it.
+# They hold for every program, not only for the ones that the kernel accepts
+# (AGENTS.md 3.3.1): Wasm.run is the Bend copy of WASM's meaning (3.7.1.2),
+# Program.gives what a program gives by the Bend copy of Eval (3.3.2 and
+# 3.3.3), and Program.need the memory F that 3.7.1.4 grants it (3.3.4).
 
 import Base
 import ./impl.bend as C
 
-# LAW (INVARIANTS #1), no wrong result: a result that the compiled program
+# LAW (AGENTS.md 3.3.1), no wrong result: a result that the compiled program
 # gives is the one that Eval gives
 law no_wrong_result:
   for +f: Nat
@@ -22,7 +21,7 @@ law no_wrong_result:
   exs n: Nat
   {C.Program.gives(p, i, n) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}
 
-# LAW (INVARIANTS #1), no other failure: when Eval gives a result, the compiled
+# LAW (AGENTS.md 3.3.1), no other failure: when Eval gives a result, the compiled
 # program gives it, or runs out of memory
 law no_other_failure:
   for +p: List<&2, Word(8n)>
@@ -35,7 +34,7 @@ law no_other_failure:
   {C.Wasm.run(f, C.Compiler.compile(p), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome} |
     {C.Wasm.run(f, C.Compiler.compile(p), i, m) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}
 
-# LAW (INVARIANTS #1 and #4), enough memory: with the memory that
+# LAW (AGENTS.md 3.3.1 and 3.3.4), enough memory: with the memory that
 # Program.need asks, the compiled program gives the result that Eval gives
 law enough_memory:
   for +p: List<&2, Word(8n)>

@@ -7,7 +7,7 @@ import Bootstrap.Copy.Trusted
 -- =======
 --
 -- Program.need(p, i, n) and Program.memory(m) (impl.bend), on the bytes p
--- that the Lean writer writes for the book bk, give F of INVARIANTS #4 as Lean
+-- that the Lean writer writes for the book bk, give F of AGENTS.md 3.7.1.4 as Lean
 -- computes it (need, memory): 64 × (|p| + S) + 2^24, with S the most nodes of
 -- a term that the run from start i reaches within n steps, and the bytes of
 -- min(m, 2^16) pages of 2^16 bytes.
@@ -34,7 +34,7 @@ def largest (bk : Book) : Nat → Term → Nat
     | none => 0
     | some u => largest bk n u)
 
--- F of INVARIANTS #4 (C1, approved): 64 × (|p| + S) + 2^24 bytes, for the
+-- F of AGENTS.md 3.7.1.4: 64 × (|p| + S) + 2^24 bytes, for the
 -- book bk on the input i, within n steps
 def need (bk : Book) (i : List UInt8) (n : Nat) : Nat :=
   64 * ((write bk).length + largest bk n (start i)) + 2 ^ 24

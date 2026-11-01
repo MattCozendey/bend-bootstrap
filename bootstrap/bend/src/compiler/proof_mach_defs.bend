@@ -2835,7 +2835,7 @@ def InputDone(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n
 # Memory (mach.memory)
 # --------------------
 #
-# With the memory of INVARIANTS #4 the machine never runs out of memory, so
+# With the memory of AGENTS.md 3.7.1.4 the machine never runs out of memory, so
 # mach.complete's out-of-memory case cannot occur. What it needs:
 #
 #   1. a round takes a new cell (Cir alloc) only when the pend list is

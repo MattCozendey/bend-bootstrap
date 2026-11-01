@@ -3,7 +3,7 @@ import Base
 # Bytes
 # =====
 #
-# A byte is a Word(8n), its lowest bit first (PLAN, DEFINITION #3). Where the
+# A byte is a Word(8n), its lowest bit first (AGENTS.md 3.1.3). Where the
 # WASM spec reads a byte as a number, the copy of WASM takes its value
 # (Byte.to_u32); where it writes a number as a byte, its low byte
 # (Byte.from_u32), as load8_u and store8 do (spec 4.4.7).
@@ -46,7 +46,7 @@ def Byte.is_eq(a: Word(8n), b: Word(8n)) -> Bool:
 #
 # BendTT's book (bend/bend2/bendtt.lean) as Bend data, field for field, and
 # Book.read, which reads back the bytes that the Lean writer writes for a book
-# (INVARIANTS #5). A name is the list of its UTF-8 bytes.
+# (AGENTS.md 3.3.5). A name is the list of its UTF-8 bytes.
 
 # Types
 # -----
@@ -382,7 +382,7 @@ def Book.read(xs: List<&2, Word(8n)>) -> Maybe<List<&2, Def>>:
 # ====
 #
 # A copy of the kernel's Eval: Eval.steps(n, ds, t) gives the term that t
-# reaches after exactly n steps, in the book of the defs ds (INVARIANTS #2). It
+# reaches after exactly n steps, in the book of the defs ds (AGENTS.md 3.3.2). It
 # follows step of bootstrap/lean/src/Bootstrap/Interp.lean case for
 # case, and works out each part that a case may need before it picks one.
 
@@ -1003,8 +1003,8 @@ def Eval.steps(n: Nat, ds: List<&2, Def>, t: Term) -> Maybe<Term>:
 # Wasm
 # ====
 #
-# The part of WebAssembly that our compiler uses (PLAN, WHAT WE TRUST #6), as
-# the WebAssembly core spec defines it: W1 to W6, approved by the user.
+# The part of WebAssembly that our compiler uses (AGENTS.md 3.7.1.2), as the
+# WebAssembly core spec defines it.
 # Wasm.run(f, w, i, m) runs the module of the bytes w on the input bytes i,
 # in at most f steps, with at most m pages (of 64 KiB) of memory. A module
 # outside the subset gives unsupported and does not run. The subset is in
@@ -1015,7 +1015,7 @@ def Eval.steps(n: Nat, ds: List<&2, Def>, t: Term) -> Maybe<Term>:
 # Types
 # -----
 
-# how a run ends (W5)
+# how a run ends (see Host)
 type Wasm.Outcome is Data:
   Wasm.Outcome.result{bytes: List<&2, Word(8n)>}
   Wasm.Outcome.out_of_memory{}
@@ -1024,7 +1024,7 @@ type Wasm.Outcome is Data:
   Wasm.Outcome.trap{}
   Wasm.Outcome.not_done{}
 
-# the binary operators on i32 (W2); a comparison gives 1 or 0
+# the binary operators on i32; a comparison gives 1 or 0
 type Wasm.Op is Data:
   Wasm.Op.add{}
   Wasm.Op.sub{}
@@ -1039,7 +1039,7 @@ type Wasm.Op is Data:
   Wasm.Op.le_u{}
   Wasm.Op.ge_u{}
 
-# an instruction (W2); a block or a loop holds its body, and takes and gives
+# an instruction; a block or a loop holds its body, and takes and gives
 # no values
 type Wasm.Instr is Data:
   Wasm.Instr.const{n: U32}
@@ -1082,7 +1082,7 @@ type Wasm.Limits is Data:
 type Wasm.Segment is Data:
   Wasm.Segment{offset: U32, bytes: List<&2, Word(8n)>}
 
-# a module of the subset (W3)
+# a module of the subset
 type Wasm.Module is Data:
   Wasm.Module{
     funcs: List<&2, Wasm.Func>,
@@ -1095,7 +1095,7 @@ type Wasm.Module is Data:
 #
 # The binary format (spec, chapter 5). A decoder takes bytes and gives the
 # value that they start with and the bytes after it, or None when they are
-# malformed or leave the subset (W3).
+# malformed or leave the subset.
 
 # a decoded value and the bytes after it
 type Wasm.Decoded<-A: Data> is Data:
@@ -1321,7 +1321,7 @@ def Wasm.is_i32s(xs: List<&2, Word(8n)>) -> Bool:
     case Con{b, rest}:
       U32.is_eq(Byte.to_u32(b), 127) && Wasm.is_i32s(rest)
 
-# a result type (spec 5.2): a vector of value types, all i32 (W2); its length
+# a result type (spec 5.2): a vector of value types, all i32; its length
 def Wasm.decode.i32s(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Nat>>:
   Wasm.decode.bind(List<&2, Word(8n)>, Nat, Wasm.decode.bytes(bs), +xs => r =>
     Wasm.decode.keep(Nat, Wasm.is_i32s(xs), List.length(&2, Word(8n), xs), r))
@@ -1394,7 +1394,7 @@ def Wasm.decode.index(k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2,
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(bs), i => r => Wasm.decode.as(k(i), r))
 
 # the start of a block or a loop (spec 5.3): its block type, which must be
-# 0x40 (no values, W2)
+# 0x40 (no values)
 def Wasm.decode.block(loop: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.byte(64, bs), t => r =>
     Some{Wasm.Decoded{Wasm.Token.start{loop}, r}})
@@ -1657,7 +1657,7 @@ def Wasm.decode.sections(fuel: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, List<&2
     case 1n+f Con{b, rest}:
       Wasm.decode.sections.got(Wasm.decode.section(Con{b, rest}), r => Wasm.decode.sections(f, r))
 
-# the subset's sections (W3): 1 type, 3 function, 5 memory, 7 export, 10
+# the subset's sections: 1 type, 3 function, 5 memory, 7 export, 10
 # code and 11 data; the spec's order for them is this numeric order
 def Wasm.section.is_known(+id: U32) -> Bool:
   U32.is_eq(id, 1) || U32.is_eq(id, 3) || U32.is_eq(id, 5) || U32.is_eq(id, 7) || U32.is_eq(id, 10) || U32.is_eq(id, 11)
@@ -1890,7 +1890,7 @@ def Wasm.valid.table(+labels: List<&2, Nat>, ls: List<&2, U32>, a: Maybe<&2, Nat
 # the instructions xs from the height h: the height at their end, or None
 # when they are invalid; labels holds the labels' types, innermost first,
 # locals the number of locals, and mem says the module has a memory. The
-# subset takes no instruction after br or br_table in their block (W4).
+# subset takes no instruction after br or br_table in their block.
 def Wasm.valid.go(
   xs: List<&2, Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +locals: U32, +mem: Bool
 ) -> Maybe<&2, Wasm.Height>:
@@ -2786,7 +2786,7 @@ def Wasm.invoke(fuel: Nat, inst: Wasm.Instance, name: List<&2, Word(8n)>, args: 
 # Host
 # ----
 #
-# How a compiled program runs (W5). Its module exports its memory as
+# How a compiled program runs. Its module exports its memory as
 # "memory", alloc, of 1 parameter and 1 result, and run, of 2 parameters
 # and 1 result. The host calls alloc(n) for the n bytes of the input; -1
 # means out of memory. It writes the input from the address that alloc
@@ -2906,7 +2906,7 @@ def Wasm.run.sized(n: Maybe<&2, U32>, +f: Nat, inst: Wasm.Instance, i: List<&2, 
     case Some{+k}:
       Wasm.run.alloced(Wasm.invoke(f, inst, Wasm.name.alloc(), [k]), f, k, i)
 
-# the module exports what the host uses (W3)
+# the module exports what the host uses
 def Wasm.run.is_host(inst: Wasm.Instance) -> Bool:
   match inst:
     case Wasm.Instance{Wasm.Module{+fs, _, +es, _}, _}:
@@ -2932,7 +2932,7 @@ def Wasm.run.made(f: Nat, made: Wasm.Made, i: List<&2, Word(8n)>) -> Wasm.Outcom
     case Wasm.Made.trap{}:
       Wasm.Outcome.trap{}
 
-# a run (W5) of the module of the bytes w on the input bytes i, in at most f
+# a run of the module of the bytes w on the input bytes i, in at most f
 # steps of its functions, with at most m pages (64 KiB each) of memory
 def Wasm.run(f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, m: U32) -> Wasm.Outcome:
   Wasm.run.made(f, Wasm.instantiate(w, m), i)
@@ -2940,10 +2940,10 @@ def Wasm.run(f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, m: U32) -> Wa
 # Program
 # =======
 #
-# What a program gives on its input (INVARIANTS #3), and the memory that the
-# laws of step 1 (spec.bend) grant it (INVARIANTS #4). The terms mirror
+# What a program gives on its input (AGENTS.md 3.3.3), and the memory that the
+# laws of 3.6.4 (spec.bend) grant it (3.3.4, 3.7.1.4). The terms mirror
 # bootstrap/lean/src/Bootstrap/Bytes.lean, and Program.gives mirrors Gives in
-# Program.lean, so that step 3 can join them.
+# Program.lean, so that the proof of 3.6.6 can join them.
 
 # the names of the constructors of a list of bytes, as `bend -o` writes them
 def Program.name.unit() -> List<&2, Word(8n)>:
@@ -3108,7 +3108,7 @@ def Program.gives.of(r: Maybe<List<&2, Def>>, i: List<&2, Word(8n)>, n: Nat) -> 
     case Some{+ds}:
       Program.result(ds, Eval.steps(n, ds, Program.start(i)))
 
-# INVARIANTS #3: what the program of the book bytes p (INVARIANTS #5) gives on
+# AGENTS.md 3.3.3: what the program of the book bytes p (3.3.5) gives on
 # the input i after exactly n steps of Eval: the list of bytes of the value that
 # it reaches, or nothing
 def Program.gives(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Maybe<&2, List<&2, Word(8n)>>:
@@ -3179,12 +3179,12 @@ def Program.largest.of(r: Maybe<List<&2, Def>>, i: List<&2, Word(8n)>, n: Nat) -
     case Some{ds}:
       Program.largest.go(n, ds, Program.start(i))
 
-# S of INVARIANTS #4: the most nodes of a term that the run on the input i
+# The largest term of AGENTS.md 3.3.4: the most nodes of a term that the run on the input i
 # reaches within n steps; the input is in the first term
 def Program.largest(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Program.largest.of(Book.read(p), i, n)
 
-# F of INVARIANTS #4 (C1, approved): 64 × (|p| + S) + 2^24 bytes
+# F of AGENTS.md 3.7.1.4: 64 × (|p| + S) + 2^24 bytes
 def Program.need(+p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Nat.add(Nat.mul(64n, Nat.add(List.length(&2, Word(8n), p), Program.largest(p, i, n))), 16777216n)
 
@@ -3196,10 +3196,10 @@ def Program.memory(m: U32) -> Nat:
 # Compiler
 # ========
 #
-# The compiler of step 1 (C2 to C4, approved): a fixed machine (C3) with the
+# The compiler of AGENTS.md 3.6.4: a fixed machine (Machine, below) with the
 # program's book as the data of its memory. The machine is written in
-# Cir, a small language of memory cells (C5), which Cir.module translates to a
-# module of the subset of WASM that the Bend copy of WASM models (W2, W3).
+# Cir, a small language of memory cells, which Cir.module translates to a
+# module of the subset of WASM that the Bend copy of WASM models.
 
 # Encoding
 # --------
@@ -3462,7 +3462,7 @@ def Wasm.encode(m: Wasm.Module) -> List<&2, Word(8n)>:
 # Cir
 # ---
 #
-# The language of the machine (C5): statements over U32 registers, a memory of
+# The language of the machine: statements over U32 registers, a memory of
 # cells of five U32 fields, the input's bytes and the output's. Cell c is the
 # 20 bytes from byte 20 × c of the module's memory: cells 1 to `image` hold
 # the book, the input's bytes follow them, and the machine's own cells start
@@ -3860,10 +3860,10 @@ def Cir.exec(+fuel: Nat, s: Cir.Stmt, +st: Cir.State) -> Cir.Out:
 # -----------
 #
 # Cir.module: the module of a Cir program, with the book's cells as the data
-# of its memory, from byte 20. Its function run (W5) keeps, in its locals 2 to
+# of its memory, from byte 20. Its function run (see Host) keeps, in its locals 2 to
 # 7, the status it returns, the first cell never used, the output's length and
 # three scratch values; register r of the program is local 8 + r. Every
-# branch out of run is the last instruction of a block of its own (W4). Its
+# branch out of run is the last instruction of a block of its own, as the subset asks. Its
 # function alloc takes the input's bytes just after the book's cells.
 
 def Cir.l.status() -> U32:
@@ -3976,7 +3976,7 @@ def Cir.code.emit(v: Cir.Expr, +d: Nat, acc: List<&2, Wasm.Instr>) -> List<&2, W
               Con{Cir.i.set(Cir.l.outn()), acc}}}}})}))})}}})}
 
 # for a result, the output's first byte, 20 × next, at byte 0, and its length
-# at byte 4 (W5)
+# at byte 4 (see Host)
 def Cir.code.result(ok: Bool) -> List<&2, Wasm.Instr>:
   match ok:
     case True{}:
@@ -4019,7 +4019,7 @@ def Cir.code.stmt(s: Cir.Stmt, +d: Nat, acc: List<&2, Wasm.Instr>) -> List<&2, W
 def Cir.input.at(k: U32) -> U32:
   Cir.at(U32.inc(k))
 
-# alloc(n) (W5): the first byte of the input's n bytes, just after the book's
+# alloc(n) (see Host): the first byte of the input's n bytes, just after the book's
 # k cells, once the memory holds them; -1 when it cannot. The input ends below
 # byte 4294967280, so that the cells after it have numbers below 2^32 / 20
 def Cir.alloc(+k: U32) -> Wasm.Func:
@@ -4039,7 +4039,7 @@ def Cir.alloc(+k: U32) -> Wasm.Func:
       Cir.i.const(a), Cir.i.set(2)]},
     Cir.i.get(2)]}
 
-# run(a, n) (W5): the first cell after the input, then the program; the
+# run(a, n) (see Host): the first cell after the input, then the program; the
 # status that it ends with
 def Cir.run(prog: Cir.Stmt, regs: Nat, k: U32) -> Wasm.Func:
   Wasm.Func{2n, 1n, 6n+regs, [
@@ -4071,7 +4071,7 @@ def Cir.bytes(cs: List<&2, Cir.Cell>) -> List<&2, Word(8n)>:
       Cir.word.bytes(a, Cir.word.bytes(b, Cir.word.bytes(c, Cir.word.bytes(d, Cir.word.bytes(e, Cir.bytes(rest))))))
 
 # the module of the program prog with regs registers, whose memory holds the
-# cells from cell 1 (W3): memory, alloc and run
+# cells from cell 1: memory, alloc and run
 def Cir.module(prog: Cir.Stmt, regs: Nat, +cells: List<&2, Cir.Cell>) -> Wasm.Module:
   +k = Wasm.encode.len(Cir.Cell, cells)
   Wasm.Module{
@@ -4085,7 +4085,7 @@ def Cir.module(prog: Cir.Stmt, regs: Nat, +cells: List<&2, Cir.Cell>) -> Wasm.Mo
 # ----
 #
 # Cir.result: what Cir says that a run of the module of Cir.module gives, as
-# the host runs it (W5): the memory of the module's minimum, when the host
+# the host runs it (see Host): the memory of the module's minimum, when the host
 # allows that many pages; the input after the cells, when alloc can make
 # room for it; then the program, from the first cell after the input, until
 # it halts: with 0, its bytes; with 1, out of memory; with 2, no result.
@@ -4192,7 +4192,7 @@ def Cir.result(fuel: Nat, prog: Cir.Stmt, +regs: Nat, +cells: List<&2, Cir.Cell>
 # Machine
 # -------
 #
-# The machine of C3, as a Cir program: Mach.code. A term is a graph of cells;
+# The machine, as a Cir program: Mach.code. A term is a graph of cells;
 # a cell never changes after it is made, but for the flags that say what is
 # known of it. Field 0 holds its tag (bits 0 to 5: the kernel's order of
 # formers, Var 0 to Rwt 18; 32 and above for the machine's own cells), its
@@ -5507,7 +5507,7 @@ def M.input() -> Cir.Stmt:
       M.make(R.il(), M.c(M.h.data()), M.c(I.lab(N.con())), M.g(R.t2()), M.c(0))])),
     M.make(R.focus(), M.c(U32.or(T.app(), 64)), M.c(I.ref_main()), M.g(R.il()), M.c(0))])
 
-# the machine (C3): the start, then a move per round, until a halt
+# the machine: the start, then a move per round, until a halt
 def Mach.code() -> Cir.Stmt:
   M.do([
     M.input(),
@@ -5908,8 +5908,8 @@ def Compiler.compile.of(machine: List<&2, Cir.Cell> -> List<&2, Word(8n)>, small
     case True{} Some{+ds}:
       machine(Img.cells(ds))
 
-# the compiler of step 1: the bytes of the module of the program whose book has
-# the bytes p (INVARIANTS #5). A book of 2^26 bytes or more needs more memory
+# the compiler of AGENTS.md 3.6.4: the bytes of the module of the program whose
+# book has the bytes p (3.3.5). A book of 2^26 bytes or more needs more memory
 # than a module can have: its module runs out of memory at once. Bytes that
 # are no book give a module that gives no result
 def Compiler.compile(+p: List<&2, Word(8n)>) -> List<&2, Word(8n)>:

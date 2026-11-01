@@ -1,9 +1,9 @@
 #!/bin/bash
-# run.sh WORK: tests of kind c of the compiler of step 1, which the laws of
+# run.sh WORK: tests of kind c of the compiler of AGENTS.md 3.6.4, which the laws of
 # bootstrap/bend/src/compiler/spec.bend (no_wrong_result, no_other_failure,
 # enough_memory) replace once they are proven.
 # Each program of progs/ is compiled, and its module runs on each input in two
-# real engines (W5): bun's JavaScriptCore and node's V8. Each must give the
+# real engines, as the host of Wasm.run does: bun's JavaScriptCore and node's V8. Each must give the
 # result that the Lean interpreter gives (scripts/Run.lean, which gives what
 # Eval gives), or no result when it gives none. The compiler runs as the JS
 # that `bend -o` writes for compile.bend; with TRUSTED=1, the Lean interpreter

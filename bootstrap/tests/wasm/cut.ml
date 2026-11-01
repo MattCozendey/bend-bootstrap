@@ -22,7 +22,7 @@ let is_i32 (t : valtype) = t = NumT I32T
 
 let rec instrs_ok es = List.for_all instr_ok es
 
-(* the instructions of W2 *)
+(* the instructions of the subset *)
 and instr_ok (e : instr) =
   match e.it with
   | Block (ValBlockType None, es) | Loop (ValBlockType None, es) -> instrs_ok es

@@ -1,4 +1,4 @@
-// The host of W5 in a real engine: runs a compiled module on the bytes of a
+// The host of Wasm.run (impl.bend, Host) in a real engine: runs a compiled module on the bytes of a
 // file, and writes the bytes of its result to a file. It runs in bun
 // (JavaScriptCore) and in node (V8).
 //
