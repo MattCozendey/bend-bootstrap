@@ -9,6 +9,91 @@ open Quan Term
 
 namespace Machine
 
+-- a value goes into the pairs around it: the term stays, and what the state
+-- knows stays true
+theorem retTups_ok (hv : Value bk (close v vl)) (hvl : vl.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) :
+    (retTups v vl st).Ok bk ∧ (retTups v vl st).term = plugs st (close v vl) := by
+  induction st generalizing v vl with
+  | nil => exact ⟨⟨⟨hv, hvl⟩, hst⟩, rfl⟩
+  | cons f st ih =>
+    have hf := hst f List.mem_cons_self
+    have hs := fun g m => hst g (List.mem_cons_of_mem f m)
+    cases f <;> simp only [retTups] <;> simp only [Frame.Ok] at hf
+    case tupA q a al =>
+      have := ih (v := share (Tup q (close a al) (close v vl))) (vl := .nil)
+        (by rw [share_eq, close_nil]; exact .tup hf.1 hv) trivial hs
+      refine ⟨this.1, this.2.trans ?_⟩
+      simp only [share_eq, close_nil, plugs, List.foldl, Frame.plug]
+    case tupB q b l =>
+      split
+      next b' bl hb =>
+        have hb' := imm_ok hf.2 hb
+        have := ih (v := share (Tup q (close v vl) (close b' bl))) (vl := .nil)
+          (by rw [share_eq, close_nil]; exact .tup (fun _ => hv) hb'.2.1) trivial hs
+        refine ⟨this.1, this.2.trans ?_⟩
+        simp only [share_eq, close_nil, plugs, List.foldl, Frame.plug, hb'.1]
+      next => exact ⟨⟨hf.2, List.forall_mem_cons.2 ⟨⟨fun _ => hv, hvl⟩, hs⟩⟩, rfl⟩
+    all_goals exact ⟨⟨⟨hv, hvl⟩, hst⟩, rfl⟩
+
+-- a pair goes down to the first part that takes a step
+theorem evTup_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) :
+    (evTup bk q a b l st).Ok bk (plugs st (close (Tup q a b) l)) := by
+  induction b generalizing q a st with
+  | Tup q' a2 b2 _ ih =>
+    unfold evTup
+    split
+    next hra =>
+      have hq : q.live = true := by
+        split at hra
+        · assumption
+        · cases hra
+      exact ⟨⟨hl, List.forall_mem_cons.2 ⟨⟨hq, hl⟩, hst⟩⟩, by
+        simp only [State.term, Focus.term, close_tup, plugs, List.foldl, Frame.plug]⟩
+    next a' al hra =>
+      have ha' := imm_part hl hra
+      split
+      next b' bl hb =>
+        simp only [immTup] at hb
+        split at hb
+        next hc =>
+          cases hb
+          simp only [Bool.and_eq_true] at hc
+          have := retTups_ok (st := st) (v := share (Tup q (close a' al) (close (Tup q' a2 b2) .nil)))
+            (vl := .nil) (by rw [share_eq, close_nil, close_nil]; exact .tup ha'.2.1 (value_iff.1 hc.2))
+            trivial hst
+          refine ⟨this.1, this.2.trans ?_⟩
+          simp only [share_eq, close_nil, close_tup (q := q), ha'.1, noVars_close hc.1]
+        next => cases hb
+      next hb =>
+        have := ih (q := q') (a := a2) (st := .tupA q a' al :: st)
+          (List.forall_mem_cons.2 ⟨⟨ha'.2.1, ha'.2.2⟩, hst⟩)
+        simp only [plugs, List.foldl, Frame.plug] at this
+        simp only [close_tup (q := q), ← ha'.1]
+        exact this
+  | _ =>
+    unfold evTup
+    split
+    next hra =>
+      have hq : q.live = true := by
+        split at hra
+        · assumption
+        · cases hra
+      exact ⟨⟨hl, List.forall_mem_cons.2 ⟨⟨hq, hl⟩, hst⟩⟩, by
+        simp only [State.term, Focus.term, close_tup, plugs, List.foldl, Frame.plug]⟩
+    next a' al hra =>
+      have ha' := imm_part hl hra
+      split
+      next b' bl hb =>
+        simp only [immTup] at hb
+        have hb' := imm_ok hl hb
+        have := retTups_ok (st := st) (v := share (Tup q (close a' al) (close b' bl))) (vl := .nil)
+          (by rw [share_eq, close_nil]; exact .tup ha'.2.1 hb'.2.1) trivial hst
+        refine ⟨this.1, this.2.trans ?_⟩
+        simp only [share_eq, close_nil, close_tup, ha'.1, hb'.1]
+      next =>
+        exact ⟨⟨hl, List.forall_mem_cons.2 ⟨⟨ha'.2.1, ha'.2.2⟩, hst⟩⟩, by
+          simp only [State.term, Focus.term, close_tup, plugs, List.foldl, Frame.plug, ha'.1]⟩
+
 theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok bk s.term := by
   obtain ⟨fc, st⟩ := s
   obtain ⟨hf, hst⟩ := hs
@@ -78,13 +163,7 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
         simp only [Bool.and_eq_true] at hv
         refine ⟨⟨⟨value_iff.1 hv.2, trivial⟩, hst⟩, ?_⟩
         simp only [State.term, Focus.term, noVars_close hv.1]
-      split
-      · rename_i hq
-        exact ⟨⟨hf, List.forall_mem_cons.2 ⟨⟨hq, hf⟩, hst⟩⟩, by
-          simp only [State.term, Focus.term, close_tup, plugs, List.foldl, Frame.plug]⟩
-      · rename_i hq
-        exact ⟨⟨hf, List.forall_mem_cons.2 ⟨⟨fun h => absurd h hq, hf⟩, hst⟩⟩, by
-          simp only [State.term, Focus.term, close_tup, plugs, List.foldl, Frame.plug]⟩
+      · exact evTup_ok hf hst
     all_goals simp only [move]
     all_goals first
       | exact ⟨⟨hf, List.forall_mem_cons.2 ⟨hf, hst⟩⟩, by
@@ -127,8 +206,12 @@ theorem move_ok (htb : tb = Ops.prepare bk) (hs : s.Ok bk) : (move bk tb s).Ok b
           subst e
           simpa [dataAt_eq] using hq
         · rfl
-      case tupB q b l => exact ⟨⟨hg.2, List.forall_mem_cons.2 ⟨⟨fun _ => hf.1, hf.2⟩, hs⟩⟩, rfl⟩
-      case tupA q a al => simp only [share_eq]; exact ⟨⟨⟨Value.tup hg.1 hf.1, trivial⟩, hs⟩, rfl⟩
+      case tupB q b l =>
+        have := retTups_ok hf.1 hf.2 (st := .tupB q b l :: st) (List.forall_mem_cons.2 ⟨hg, hs⟩)
+        exact ⟨this.1, this.2⟩
+      case tupA q a al =>
+        have := retTups_ok hf.1 hf.2 (st := .tupA q a al :: st) (List.forall_mem_cons.2 ⟨hg, hs⟩)
+        exact ⟨this.1, this.2⟩
       case rwt P f l =>
         split
         · rename_i hv

@@ -280,22 +280,81 @@ def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (
         (fun _ => w.state k q f fl x xl st)
     | _ => .stop (w.state k q f fl x xl st)
 
+-- c when it is t, else t: t either way
+def pick (c t : Term) : Term := if c = t then c else t
+
+theorem pick_eq : pick c t = t := by
+  unfold pick; split <;> simp_all
+
+-- t, or its copy in byteTable when t is a byte (src/Shared/Bytes.lean): each
+-- pair that the machine builds is shared
+def share (t : Term) : Term :=
+  match unbits 8 t with
+  | some v => if h : v < 256 then pick (byteTable[v]'(by rw [byteTable_size]; exact h)) t else t
+  | none => t
+
+theorem share_eq : share t = t := by
+  unfold share
+  split
+  · split
+    · exact pick_eq
+    · rfl
+  · rfl
+
+-- the value of t under l, when it is one without a step and without a frame:
+-- a value that l knows, a label, a node of a case tree or a former
+@[inline] def imm (t : Term) (l : Locals) : Option (Term × Locals) :=
+  match t with
+  | Var i =>
+    match l.get? i with
+    | some (x, xl, true) => some (x, xl)
+    | _ => none
+  | Lab _ | Rfl | Efq | Enu _ => some (t, .nil)
+  | Lam .. | Prj _ | Mat .. | Typ _ | All .. | Sig .. | Eql .. => some (t, l)
+  | _ => none
+
+-- the value t under l, when it is one without a step and without a frame (imm),
+-- or a pair with no variable that is a value
+@[inline] def immTup (bk : Book) (t : Term) (l : Locals) : Option (Term × Locals) :=
+  match t with
+  | Tup .. => if noVars t && value bk t then some (t, .nil) else none
+  | t => imm t l
+
+-- the value v under vl in the frames st: each pair of the frames that it
+-- completes without a step is put together
+def retTups (v : Term) (vl : Locals) : List Frame → State
+  | .tupA q a al :: st => retTups (share (Tup q (close a al) (close v vl))) .nil st
+  | .tupB q b l :: st =>
+    match imm b l with
+    | some (b', bl) => retTups (share (Tup q (close v vl) (close b' bl))) .nil st
+    | none => ⟨.ev b l, .tupA q v vl :: st⟩
+  | st => ⟨.ret v vl, st⟩
+
+-- Tup q a b under l, in the frames st: its value, or the frames of its parts
+-- down to the first part that takes a step
+def evTup (bk : Book) (q : Quan) (a b : Term) (l : Locals) (st : List Frame) : Move :=
+  match (if q.live then imm a l else some (a, l)) with
+  | none => .admin ⟨.ev a l, .tupB q b l :: st⟩
+  | some (a', al) =>
+    match immTup bk b l with
+    | some (b', bl) => .admin (retTups (share (Tup q (close a' al) (close b' bl))) .nil st)
+    | none =>
+      match b with
+      | Tup q' a2 b2 => evTup bk q' a2 b2 l (.tupA q a' al :: st)
+      | b => .admin ⟨.ev b l, .tupA q a' al :: st⟩
+
 -- the frames of the arguments ys under l, the first innermost, around st
 def appArgs (l : Locals) : List Arg → List Frame → List Frame
   | [], st => st
   | (q, y) :: ys, st => .appArg q y l :: appArgs l ys st
 
--- the argument y at q under l, when it can go into a walk as it is: dead, or
--- a value
+-- the argument y at q under l, when it can go into a walk without a move: dead,
+-- or a value without a step
 def ready (q : Quan) (y : Term) (l : Locals) : Option MArg :=
   if q.live then
-    match y with
-    | Var i =>
-      match l.get? i with
-      | some (x, xl, true) => some (q, x, xl, true)
-      | _ => none
-    | Lab j => some (q, Lab j, .nil, true)
-    | y => if takes y then some (q, y, l, true) else none
+    match imm y l with
+    | some (x, xl) => some (q, x, xl, true)
+    | none => none
   else some (q, y, l, false)
 
 -- spine (Ref k) xs, with xs the last first (rxs), as a term under its locals
@@ -327,27 +386,6 @@ def go (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs :
     | some a => feed bk tb k t tl rxs a ys l st fun u ul => go bk tb k u ul (a :: rxs) l st ys
     | none => .admin ⟨.ev y l, .call k t tl rxs q ys l :: st⟩
 
--- c when it is t, else t: t either way
-def pick (c t : Term) : Term := if c = t then c else t
-
-theorem pick_eq : pick c t = t := by
-  unfold pick; split <;> simp_all
-
--- t, or its copy in byteTable when t is a byte (src/Shared/Bytes.lean): each
--- pair that the machine builds is shared
-def share (t : Term) : Term :=
-  match unbits 8 t with
-  | some v => if h : v < 256 then pick (byteTable[v]'(by rw [byteTable_size]; exact h)) t else t
-  | none => t
-
-theorem share_eq : share t = t := by
-  unfold share
-  split
-  · split
-    · exact pick_eq
-    · rfl
-  · rfl
-
 def move (bk : Book) (tb : Ops.Table) : State → Move
   | ⟨.ev t l, st⟩ =>
     match t with
@@ -370,8 +408,7 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
       else .step ⟨.ev f (.cons v l false l), st⟩
     | Tup q a b =>
       if noVars (Tup q a b) && value bk (Tup q a b) then .admin ⟨.ret (Tup q a b) .nil, st⟩
-      else if q.live then .admin ⟨.ev a l, .tupB q b l :: st⟩
-      else .admin ⟨.ev b l, .tupA q a l :: st⟩
+      else evTup bk q a b l st
     | Rwt e P f => .admin ⟨.ev e l, .rwt P f l :: st⟩
     | Term.Min a b => .admin ⟨.ev a l, .minB b l :: st⟩
     | Lab k => .admin ⟨.ret (Lab k) .nil, st⟩
@@ -391,8 +428,8 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
     | .letIn q f l =>
       if q != Q2 || dataAt v vl then .step ⟨.ev f (.cons v vl true l), st⟩
       else .stop ⟨.ret v vl, .letIn q f l :: st⟩
-    | .tupB q b l => .admin ⟨.ev b l, .tupA q v vl :: st⟩
-    | .tupA q a al => .admin ⟨.ret (share (Tup q (close a al) (close v vl))) .nil, st⟩
+    | .tupB q b l => .admin (retTups v vl (.tupB q b l :: st))
+    | .tupA q a al => .admin (retTups v vl (.tupA q a al :: st))
     | .rwt P f l =>
       if (resolve v vl).1 = Rfl then .step ⟨.ev f l, st⟩ else .stop ⟨.ret v vl, .rwt P f l :: st⟩
     | .minB b l =>

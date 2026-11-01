@@ -401,6 +401,35 @@ theorem papOf_ok (h : ∀ a ∈ rxs, argOk bk a ∧ a.2.2.2 = a.1.live) : (papOf
 theorem takes_value (h : takes t = true) : Value bk (close t l) := by
   cases t <;> simp [takes] at h <;> simp only [close_eq, sub] <;> constructor
 
+-- a value without a step: the term it stands for is the term
+theorem imm_ok (hl : l.Ok bk) (h : imm t l = some (v, vl)) :
+    close v vl = close t l ∧ Value bk (close v vl) ∧ vl.Ok bk := by
+  cases t with
+  | Var i =>
+    simp only [imm] at h
+    split at h
+    next x xl hx =>
+      cases h
+      have ho := get?_ok hl hx
+      exact ⟨by rw [close_var, get?_close hx], ho.1 rfl, ho.2⟩
+    next => cases h
+  | Lam | Prj | Mat => simp only [imm] at h; cases h; exact ⟨rfl, takes_value rfl, hl⟩
+  | Typ | All | Sig | Eql =>
+    simp only [imm] at h; cases h
+    exact ⟨rfl, by simp only [close_eq, sub]; constructor, hl⟩
+  | Lab | Rfl | Efq | Enu =>
+    simp only [imm] at h; cases h
+    refine ⟨by simp only [close_eq, sub], by simp only [close_eq, sub]; constructor, trivial⟩
+  | Ref | Ann | Let | Min | App | Rwt | Tup => simp [imm] at h
+
+-- the first part of a pair, when it needs no step: a dead one, or a value
+theorem imm_part {q : Quan} {a a' : Term} {l al : Locals} (hl : l.Ok bk)
+    (h : (if q.live then imm a l else some (a, l)) = some (a', al)) :
+    close a' al = close a l ∧ (q.live = true → Value bk (close a' al)) ∧ al.Ok bk := by
+  split at h
+  next hq => obtain ⟨e, v, o⟩ := imm_ok hl h; exact ⟨e, fun _ => v, o⟩
+  next hq => cases h; exact ⟨rfl, fun h => absurd h hq, hl⟩
+
 -- an argument that is ready: the term it stands for, and what it knows is true
 theorem ready_ok (hl : l.Ok bk) (h : ready q y l = some a) :
     argOf a = (q, close y l) ∧ argOk bk a ∧ a.2.2.2 = a.1.live := by
@@ -408,18 +437,11 @@ theorem ready_ok (hl : l.Ok bk) (h : ready q y l = some a) :
   split at h
   next hq =>
     split at h
-    next i =>
-      split at h
-      next x xl hx =>
-        cases h
-        have ho := get?_ok hl hx
-        exact ⟨by simp [argOf, close_var, get?_close hx], ⟨ho.2, ho.1⟩, hq.symm⟩
-      next => cases h
-    next j => cases h; exact ⟨by simp [argOf, close_lab], ⟨trivial, fun _ => .lab⟩, hq.symm⟩
-    next y _ _ =>
-      split at h
-      next ht => cases h; exact ⟨rfl, ⟨hl, fun _ => takes_value ht⟩, hq.symm⟩
-      next => cases h
+    next x xl hx =>
+      cases h
+      obtain ⟨e, v, o⟩ := imm_ok hl hx
+      exact ⟨by simp [argOf, e], ⟨o, fun _ => v⟩, hq.symm⟩
+    next => cases h
   next hq => cases h; exact ⟨rfl, ⟨hl, nofun⟩, by simpa using hq⟩
 
 -- an argument that is not ready is live
