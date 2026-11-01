@@ -28,77 +28,40 @@ theorem opsCall_sound (htb : tb = Ops.prepare bk) (h : opsCall tb k xs = some (r
   subst htb
   exact Ops.call_sound (e ▸ h)
 
--- a call that Ops knows: its steps, to its value
-theorem callMove_jump (htb : tb = Ops.prepare bk) (hst : ∀ f ∈ st, f.Ok bk)
-    (h : callMove bk tb k xs st v vl from_ = .jump n s' f) :
-    s'.Ok bk ∧ Steps bk n (plugs st (spine (Ref k) (xs.map argOf))) s'.term ∧ f = from_ () := by
-  unfold callMove at h
-  split at h
+-- a call of k on xs: its value when Ops knows it, else a step to the leaf of
+-- its walk, or v under vl, the call itself, when its case tree needs more
+theorem callMove_ok (htb : tb = Ops.prepare bk) (vs : Values bk (xs.map argOf))
+    (hx : ∀ a ∈ xs, argOk bk a) (hv : close v vl = spine (Ref k) (xs.map argOf)) (hvl : vl.Ok bk)
+    (hst : ∀ f ∈ st, f.Ok bk) (hf : (from_ ()).term = plugs st (spine (Ref k) (xs.map argOf))) :
+    (callMove bk tb k xs st v vl from_).Ok bk (plugs st (spine (Ref k) (xs.map argOf))) := by
+  unfold callMove
+  split
   next r m e =>
-    cases h
     obtain ⟨s, hr⟩ := opsCall_sound htb e
-    exact ⟨⟨⟨hr, trivial⟩, hst⟩, Steps.plugs hst s, rfl⟩
+    exact ⟨⟨⟨hr, trivial⟩, hst⟩, Steps.plugs hst s, hf⟩
   next =>
-    split at h
-    · cases h
-    · split at h <;> cases h
-
--- a call that stops gives the state that it came from
-theorem callMove_stop (h : callMove bk tb k xs st v vl from_ = .stop s') : s' = from_ () := by
-  unfold callMove at h
-  split at h
-  · cases h
-  · split at h
-    · cases h; rfl
-    · split at h <;> cases h; rfl
-
--- a call that waits for more arguments: v under vl is a value
-theorem callMove_admin (vs : Values bk (xs.map argOf))
-    (hv : close v vl = spine (Ref k) (xs.map argOf)) (hvl : vl.Ok bk) (hst : ∀ f ∈ st, f.Ok bk)
-    (h : callMove bk tb k xs st v vl from_ = .admin s') :
-    s'.Ok bk ∧ s'.term = plugs st (close v vl) := by
-  unfold callMove at h
-  split at h
-  · cases h
-  split at h
-  · cases h
-  next d hk =>
-    split at h
-    · cases h
-    next hw =>
-      cases h
+    split
+    · exact hf
+    next d hk =>
       have w := walkOpen_walk (bk := bk) (t := d.v) (l := .nil) (xs := xs)
-      rw [hw] at w
-      have w' := walk_iff.1 w.symm
-      refine ⟨⟨⟨?_, hvl⟩, hst⟩, rfl⟩
-      rw [hv]; exact .call hk vs w'
-    · cases h
-
--- a call that takes a step
-theorem callMove_step (vs : Values bk (xs.map argOf)) (hx : ∀ a ∈ xs, argOk bk a)
-    (hst : ∀ f ∈ st, f.Ok bk) (h : callMove bk tb k xs st v vl from_ = .step s') :
-    s'.Ok bk ∧ Eval bk (plugs st (spine (Ref k) (xs.map argOf))) s'.term := by
-  unfold callMove at h
-  split at h
-  · cases h
-  split at h
-  · cases h
-  next d hk =>
-    split at h
-    next t l ys hw =>
-      cases h
-      have w := walkOpen_walk (bk := bk) (t := d.v) (l := .nil) (xs := xs)
-      rw [hw] at w
-      have w' := walk_iff.1 w.symm
-      have ⟨hl, hys⟩ := walkOpen_ok (l := .nil) trivial hx hw
-      refine ⟨⟨hl, fun f m => ?_⟩, ?_⟩
-      · rcases List.mem_append.1 m with m | m
-        · exact argFrames_ok hys f m
-        · exact hst f m
-      · simp only [State.term, Focus.term, plugs_append, plugs_argFrames]
-        exact Eval.plugs hst (.call hk vs w')
-    · cases h
-    · cases h
+      have ho := walkOpen_ok (bk := bk) (t := d.v) (l := .nil) (xs := xs) trivial hx
+      split
+      next t l ys hw =>
+        rw [hw] at w ho
+        have w' := walk_iff.1 w.symm
+        refine ⟨⟨ho.1, fun f m => ?_⟩, ?_⟩
+        · rcases List.mem_append.1 m with m | m
+          · exact argFrames_ok ho.2 f m
+          · exact hst f m
+        · simp only [State.term, Focus.term, plugs_append, plugs_argFrames]
+          exact Eval.plugs hst (.call hk vs w')
+      next hw =>
+        rw [hw] at w
+        have w' := walk_iff.1 w.symm
+        refine ⟨⟨⟨?_, hvl⟩, hst⟩, ?_⟩
+        · rw [hv]; exact .call hk vs w'
+        · simp only [State.term, Focus.term, hv]
+      next => exact hf
 
 -- an App of a value whose spine is on a def is a spine of values on a def
 private theorem app_call (hf : Value bk f) (hx : q.live = true → Value bk x)
@@ -133,51 +96,26 @@ private theorem appMove_call (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
   exact values_mem vs m' ((ho a m).2 ▸ hk)
 
 -- App q f x, with f under fl a value, and x under xl a value when q is live
-theorem appMove_admin (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
-    (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st w k = .admin s') :
-    s'.Ok bk ∧ s'.term = plugs st (App q (close f fl) (close x xl)) := by
-  unfold appMove at h
-  split at h
-  · split at h <;> cases h
-  · split at h
-    · split at h <;> cases h
-    · cases h
-  · split at h
-    · split at h
-      · split at h <;> cases h
-      · cases h
-    · cases h
-  · split at h
-    next k kl ys e =>
-      have ⟨hv, vs, hys⟩ := appMove_call hf hfl hx hxl e
-      have := callMove_admin (vl := .cons x xl q.live fl) vs (by rw [close_shift]; exact hv)
-        ⟨hx, hxl, hfl⟩ hst h
-      rwa [close_shift] at this
-    · cases h
-
-theorem appMove_step (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
-    (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st w k = .step s') :
-    s'.Ok bk ∧ Eval bk (plugs st (App q (close f fl) (close x xl))) s'.term := by
-  unfold appMove at h
-  split at h
+theorem appMove_ok (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
+    (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk) (hst : ∀ g ∈ st, g.Ok bk)
+    (hw : (w.state k q f fl x xl st).term = plugs st (App q (close f fl) (close x xl))) :
+    (appMove bk tb q f fl x xl st w k).Ok bk (plugs st (App q (close f fl) (close x xl))) := by
+  unfold appMove
+  split
   next p b bl e =>
-    split at h
+    split
     next hb =>
-      cases h
       rw [bindsAtL_eq] at hb
       refine ⟨⟨⟨hx, hxl, resolve_ok' hfl e⟩, hst⟩, ?_⟩
       simp only [State.term, Focus.term, close_cons]
       rw [resolve_eq e, close_lam]
       exact Eval.plugs hst (.beta (bindsAt_iff.1 hb).1 hx (bindsAt_iff.1 hb).2)
-    · cases h
+    · exact hw
   next h' hl e =>
-    split at h
+    split
     next r a b al e2 =>
-      split at h
+      split
       next hq =>
-        cases h
         have hal := resolve_ok' hxl e2
         have ex : close x xl = Tup r (close a al) (close b al) := by rw [resolve_eq e2, close_tup]
         have ⟨va, vb⟩ := value_tup (ex ▸ hx hq)
@@ -190,23 +128,21 @@ theorem appMove_step (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
           · exact hst g m
         · rw [resolve_eq e, close_prj, ex]
           exact Eval.plugs hst (.split hq (ex ▸ hx hq))
-      · cases h
-    · cases h
+      · exact hw
+    · exact hw
   next j h' m hl e =>
-    split at h
+    split
     next i il e2 =>
       have ex : close x xl = Lab i := by rw [resolve_eq e2, close_lab]
-      split at h
+      split
       next hq =>
-        split at h
+        split
         next hij =>
-          cases h
           subst hij
           refine ⟨⟨resolve_ok' hfl e, hst⟩, ?_⟩
           rw [resolve_eq e, close_mat, ex]
           exact Eval.plugs hst (.hit hq)
         next hij =>
-          cases h
           refine ⟨⟨resolve_ok' hfl e, ?_⟩, ?_⟩
           · intro g m
             simp only [List.mem_cons] at m
@@ -215,57 +151,87 @@ theorem appMove_step (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
             · exact hst g m
           · rw [resolve_eq e, close_mat, ex]
             exact Eval.plugs hst (.miss hq hij)
-      · cases h
-    · cases h
-  · split at h
-    next k kl ys e =>
-      have ⟨hv, vs, hys⟩ := appMove_call hf hfl hx hxl e
+      · exact hw
+    · exact hw
+  · split
+    next c kl ys e =>
+      obtain ⟨hv, vs, hys⟩ := appMove_call hf hfl hx hxl e
       rw [hv]
-      exact callMove_step vs hys hst h
-    · cases h
+      exact callMove_ok htb vs hys (by rw [close_shift]; exact hv) ⟨hx, hxl, hfl⟩ hst
+        (by rw [← hv]; exact hw)
+    · exact hw
 
+-- the argument a goes into a call: its value when Ops knows it, else a step to
+-- the leaf of its walk, or what next gives when the walk waits
+theorem feed_ok (htb : tb = Ops.prepare bk) (hc : CallOk bk k t tl rxs)
+    (ha : argOk bk a ∧ a.2.2.2 = a.1.live) (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk)
+    (hnext : ∀ u ul, walkOpen bk t tl [a] = .need u ul →
+      (next u ul).Ok bk (plugs st (spine (spine (Ref k) ((a :: rxs).reverse.map argOf)) (ys.map (argAt l))))) :
+    (feed bk tb k t tl rxs a ys l st next).Ok bk
+      (plugs st (spine (spine (Ref k) ((a :: rxs).reverse.map argOf)) (ys.map (argAt l)))) := by
+  have hfrom : State.term ⟨.ret a.2.1 a.2.2.1, .call k t tl rxs a.1 ys l :: st⟩ =
+      plugs st (spine (spine (Ref k) ((a :: rxs).reverse.map argOf)) (ys.map (argAt l))) := by
+    simp only [State.term, Focus.term, plugs, List.foldl, Frame.plug, spine_fed]
+  unfold feed
+  have w := walkOpen_walk (bk := bk) (t := t) (l := tl) (xs := [a])
+  have ho := walkOpen_ok (bk := bk) (t := t) (l := tl) (xs := [a]) hc.2.1 (by simpa using ha.1)
+  split
+  next u ul hw => exact hnext u ul hw
+  next u ul zs hw =>
+    rw [hw] at w ho
+    obtain ⟨-, -, hrx, d, hd, hwk⟩ := hc
+    have wk : walk bk d.v [] ((a :: rxs).reverse.map argOf) =
+        some (some (spine (close u ul) (zs.map argOf))) := by
+      rw [List.reverse_cons, List.map_append, hwk]; exact w.symm
+    have vs : Values bk ((a :: rxs).reverse.map argOf) := values_fed fun a' m => by
+      rcases List.mem_cons.1 m with rfl | m
+      · exact ha
+      · exact hrx a' m
+    have e := Eval.call hd vs (walk_iff.1 wk)
+    split
+    next r n eo =>
+      obtain ⟨s, hr⟩ := opsCall_sound htb eo
+      refine ⟨⟨⟨hr, trivial⟩, appArgs_ok hl hst⟩, ?_, hfrom⟩
+      simp only [State.term, Focus.term, close_nil, plugs_appArgs]
+      exact Steps.plugs hst (Steps.spine_f s)
+    next =>
+      refine ⟨⟨ho.1, fun f m => ?_⟩, ?_⟩
+      · rcases List.mem_append.1 m with m | m
+        · exact argFrames_ok ho.2 f m
+        · exact appArgs_ok hl hst f m
+      · simp only [State.term, Focus.term, plugs_append, plugs_argFrames, plugs_appArgs]
+        exact Eval.plugs hst (Eval.spine_f e)
+  next => exact hfrom
 
--- App q f x, with f under fl a value, and x under xl a value when q is live:
--- a call that Ops knows
-theorem appMove_jump (htb : tb = Ops.prepare bk) (hf : Value bk (close f fl)) (hfl : fl.Ok bk)
-    (hx : q.live = true → Value bk (close x xl)) (hxl : xl.Ok bk)
-    (hst : ∀ g ∈ st, g.Ok bk) (h : appMove bk tb q f fl x xl st w k = .jump n s' f') :
-    s'.Ok bk ∧ Steps bk n (plugs st (App q (close f fl) (close x xl))) s'.term ∧
-      f' = w.state k q f fl x xl st := by
-  unfold appMove at h
-  split at h
-  · split at h <;> cases h
-  · split at h
-    · split at h <;> cases h
-    · cases h
-  · split at h
-    · split at h
-      · split at h <;> cases h
-      · cases h
-    · cases h
-  · split at h
-    next k kl ys e =>
-      obtain ⟨hv, -, -⟩ := appMove_call hf hfl hx hxl e
-      rw [hv]
-      exact callMove_jump htb hst h
-    · cases h
-
--- an application that stops gives the state that it came from
-theorem appMove_stop (h : appMove bk tb q f fl x xl st w k = .stop s') :
-    s' = w.state k q f fl x xl st := by
-  unfold appMove at h
-  split at h
-  · split at h <;> cases h; rfl
-  · split at h
-    · split at h <;> cases h; rfl
-    · cases h; rfl
-  · split at h
-    · split at h
-      · split at h <;> cases h
-      · cases h; rfl
-    · cases h; rfl
-  · split at h
-    · exact callMove_stop h
-    · cases h; rfl
+-- the arguments ys go into a call one after the other
+theorem go_ok (htb : tb = Ops.prepare bk) (hc : CallOk bk k t tl rxs) (hl : l.Ok bk)
+    (hst : ∀ f ∈ st, f.Ok bk) :
+    (go bk tb k t tl rxs l st ys).Ok bk
+      (plugs st (spine (spine (Ref k) (rxs.reverse.map argOf)) (ys.map (argAt l)))) := by
+  induction ys generalizing t tl rxs with
+  | nil =>
+    refine ⟨⟨⟨?_, papOf_ok hc.2.2.1⟩, hst⟩, ?_⟩
+    · rw [papOf_close]; exact hc.value
+    · simp only [State.term, Focus.term, papOf_close, List.map_nil, spine]
+  | cons y ys ih =>
+    obtain ⟨q, y⟩ := y
+    simp only [go]
+    split
+    next a ha =>
+      obtain ⟨hy, hok, hlive⟩ := ready_ok hl ha
+      have e : spine (spine (Ref k) (rxs.reverse.map argOf)) (((q, y) :: ys).map (argAt l)) =
+          spine (spine (Ref k) ((a :: rxs).reverse.map argOf)) (ys.map (argAt l)) := by
+        rw [spine_fed]
+        obtain ⟨q', x, xl, b⟩ := a
+        simp only [argOf, Prod.mk.injEq] at hy
+        obtain ⟨rfl, hy⟩ := hy
+        simp only [List.map_cons, argAt, spine, hy]
+      rw [e]
+      exact feed_ok htb hc ⟨hok, hlive⟩ hl hst fun u ul hw => ih (hc.feed ⟨hok, hlive⟩ hw)
+    next ha =>
+      refine ⟨⟨hl, fun f m => ?_⟩, rfl⟩
+      rcases List.mem_cons.1 m with rfl | m
+      · exact ⟨ready_live ha, hc, hl⟩
+      · exact hst f m
 
 end Machine

@@ -95,30 +95,46 @@ def noVars : Term → Bool
     noVars a && noVars b
   | Eql a b c | Rwt a b c => noVars a && noVars b && noVars c
 
--- walk (src/Shared/Interp.lean), with its leaf left open: the leaf, its locals,
--- and the arguments left
-def walkOpen (bk : Book) : Term → Locals → List MArg → Option (Option (Term × Locals × List MArg))
+-- where a walk of a case tree ends: at its leaf, under its locals, with the
+-- arguments left; at the node that needs more arguments, under its locals;
+-- or nowhere
+inductive Reach where
+  | leaf (t : Term) (l : Locals) (ys : List MArg)
+  | need (t : Term) (l : Locals)
+  | fail
+
+-- walk (src/Shared/Interp.lean), with its leaf left open; when it needs more
+-- arguments, it can go on from where it waits
+def walkOpen (bk : Book) : Term → Locals → List MArg → Reach
   | Lam p f, l, (q, x, xl, k) :: xs =>
-    if bindsAtL p q x xl then walkOpen bk f (.cons x xl k l) xs else none
+    if bindsAtL p q x xl then walkOpen bk f (.cons x xl k l) xs else .fail
   | Prj h, l, (q, x, xl, k) :: xs =>
     match resolve x xl with
     | (Tup r a b, al) =>
       if q.live then walkOpen bk h l ((Quan.fld r q, a, al, k && r.live) :: (q, b, al, k) :: xs)
-      else none
-    | _ => none
+      else .fail
+    | _ => .fail
   | Mat j h m, l, (q, x, xl, _) :: xs =>
     match resolve x xl with
     | (Lab i, _) =>
       if q.live then
         if i = j then walkOpen bk h l xs else walkOpen bk m l ((q, Lab i, .nil, true) :: xs)
-      else none
-    | _ => none
+      else .fail
+    | _ => .fail
   | App q f (Var v), l, xs =>
     if takes (unspine f []).1 then walkOpen bk f l ((q, localAt l v) :: xs)
-    else some (some (App q f (Var v), l, xs))
+    else .leaf (App q f (Var v)) l xs
   | t, l, xs =>
-    if takes t then if xs.isEmpty then some none else none
-    else some (some (t, l, xs))
+    if takes t then if xs.isEmpty then .need t l else .fail
+    else .leaf t l xs
+
+-- an argument of a walk, put together
+def argOf : MArg → Arg
+  | (q, x, l, _) => (q, close x l)
+
+-- an argument of a spine, under the locals l
+def argAt (l : Locals) : Arg → Arg
+  | (q, y) => (q, close y l)
 
 -- a term with a hole, around the focus
 inductive Frame where
@@ -138,6 +154,10 @@ inductive Frame where
   | rwt (P f : Term) (l : Locals)
   -- Min □ b, with b under l
   | minB (b : Term) (l : Locals)
+  -- App q (spine (Ref k) xs) □, then the arguments ys under l: a call of k,
+  -- with xs the last first (rxs), whose walk waits at t under tl
+  | call (k : String) (t : Term) (tl : Locals) (rxs : List MArg) (q : Quan) (ys : List Arg)
+    (l : Locals)
   -- Min a □, with a a value
   | minA (a : Term)
 
@@ -151,6 +171,7 @@ def Frame.plug : Frame → Term → Term
   | .tupA q a l, t => Tup q (close a l) t
   | .rwt P f l, t => Rwt t (sub (Subst.up (Subst.up (subst l))) P) (close f l)
   | .minB b l, t => Term.Min t (close b l)
+  | .call k _ _ rxs q ys l, t => spine (App q (spine (Ref k) (rxs.reverse.map argOf)) t) (ys.map (argAt l))
   | .minA a, t => Term.Min a t
 
 inductive Focus where
@@ -212,9 +233,9 @@ def opsCall (tb : Ops.Table) (k : String) (xs : List MArg) : Option (Term × Nat
     | none => .stop (from_ ())
     | some d =>
       match walkOpen bk d.v .nil xs with
-      | some (some (t, l, ys)) => .step ⟨.ev t l, argFrames ys ++ st⟩
-      | some none => .admin ⟨.ret v vl, st⟩
-      | none => .stop (from_ ())
+      | .leaf t l ys => .step ⟨.ev t l, argFrames ys ++ st⟩
+      | .need _ _ => .admin ⟨.ret v vl, st⟩
+      | .fail => .stop (from_ ())
 
 -- the frame that an application of a value came from: App q □ x (appArg),
 -- App q □ x with x known or not to be a value (appVal), or App q f □ (appFun)
@@ -259,6 +280,53 @@ def AppFrom.state (w : AppFrom) (k : Bool) (q : Quan) (f : Term) (fl : Locals) (
         (fun _ => w.state k q f fl x xl st)
     | _ => .stop (w.state k q f fl x xl st)
 
+-- the frames of the arguments ys under l, the first innermost, around st
+def appArgs (l : Locals) : List Arg → List Frame → List Frame
+  | [], st => st
+  | (q, y) :: ys, st => .appArg q y l :: appArgs l ys st
+
+-- the argument y at q under l, when it can go into a walk as it is: dead, or
+-- a value
+def ready (q : Quan) (y : Term) (l : Locals) : Option MArg :=
+  if q.live then
+    match y with
+    | Var i =>
+      match l.get? i with
+      | some (x, xl, true) => some (q, x, xl, true)
+      | _ => none
+    | Lab j => some (q, Lab j, .nil, true)
+    | y => if takes y then some (q, y, l, true) else none
+  else some (q, y, l, false)
+
+-- spine (Ref k) xs, with xs the last first (rxs), as a term under its locals
+def papOf (k : String) : List MArg → Term × Locals
+  | [] => (Ref k, .nil)
+  | (q, x, xl, b) :: rxs => (App q (Term.ren Nat.succ (papOf k rxs).1) (Var 0), .cons x xl b (papOf k rxs).2)
+
+-- the argument a goes into the call of k, whose walk waits at t under tl after
+-- rxs, with the arguments ys under l after it: the leaf of its case tree (or
+-- its value, when Ops knows it), or next u ul when the walk waits at u under ul
+@[inline] def feed (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs : List MArg)
+    (a : MArg) (ys : List Arg) (l : Locals) (st : List Frame) (next : Term → Locals → Move) : Move :=
+  match walkOpen bk t tl [a] with
+  | .need u ul => next u ul
+  | .leaf u ul zs =>
+    match opsCall tb k (a :: rxs).reverse with
+    | some (r, n) => .jump n ⟨.ret r .nil, appArgs l ys st⟩ ⟨.ret a.2.1 a.2.2.1, .call k t tl rxs a.1 ys l :: st⟩
+    | none => .step ⟨.ev u ul, argFrames zs ++ appArgs l ys st⟩
+  | .fail => .stop ⟨.ret a.2.1 a.2.2.1, .call k t tl rxs a.1 ys l :: st⟩
+
+-- the arguments ys under l go, one after the other, into the call of k, whose
+-- walk waits at t under tl after rxs; one that must take steps first gets a
+-- frame
+def go (bk : Book) (tb : Ops.Table) (k : String) (t : Term) (tl : Locals) (rxs : List MArg)
+    (l : Locals) (st : List Frame) : List Arg → Move
+  | [] => .admin ⟨.ret (papOf k rxs).1 (papOf k rxs).2, st⟩
+  | (q, y) :: ys =>
+    match ready q y l with
+    | some a => feed bk tb k t tl rxs a ys l st fun u ul => go bk tb k u ul (a :: rxs) l st ys
+    | none => .admin ⟨.ev y l, .call k t tl rxs q ys l :: st⟩
+
 -- c when it is t, else t: t either way
 def pick (c t : Term) : Term := if c = t then c else t
 
@@ -290,7 +358,13 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
       | none => .stop ⟨.ev (Var i) l, st⟩
     | Ref k => callMove bk tb k [] st (Ref k) .nil (fun _ => ⟨.ev (Ref k) l, st⟩)
     | Ann x _ => .step ⟨.ev x l, st⟩
-    | App q f x => .admin ⟨.ev f l, .appArg q x l :: st⟩
+    | App q f x =>
+      match unspine f [(q, x)] with
+      | (Ref k, ys) =>
+        match bk.get k with
+        | some d => if takes d.v then go bk tb k d.v .nil [] l st ys else .admin ⟨.ev f l, .appArg q x l :: st⟩
+        | none => .admin ⟨.ev f l, .appArg q x l :: st⟩
+      | _ => .admin ⟨.ev f l, .appArg q x l :: st⟩
     | Let q v f =>
       if q.live then .admin ⟨.ev v l, .letIn q f l :: st⟩
       else .step ⟨.ev f (.cons v l false l), st⟩
@@ -323,6 +397,8 @@ def move (bk : Book) (tb : Ops.Table) : State → Move
       if (resolve v vl).1 = Rfl then .step ⟨.ev f l, st⟩ else .stop ⟨.ret v vl, .rwt P f l :: st⟩
     | .minB b l =>
       .admin ⟨.ev b l, .minA (match resolve v vl with | (Lab i, _) => Lab i | _ => close v vl) :: st⟩
+    | .call k t tl rxs q ys l =>
+      feed bk tb k t tl rxs (q, v, vl, true) ys l st fun u ul => go bk tb k u ul ((q, v, vl, true) :: rxs) l st ys
     | .minA a =>
       match a, (resolve v vl).1 with
       | Lab i, Lab j =>

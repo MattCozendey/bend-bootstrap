@@ -15,10 +15,6 @@ def Locals.Ok (bk : Book) : Locals → Prop
   | .nil => True
   | .cons t l k rest => (k = true → Value bk (close t l)) ∧ l.Ok bk ∧ rest.Ok bk
 
--- an argument of a walk, put together
-def argOf : MArg → Arg
-  | (q, x, l, _) => (q, close x l)
-
 -- an argument put together, by its parts
 theorem argOf_eq : argOf a = (a.1, close a.2.1 a.2.2.1) := rfl
 
@@ -26,6 +22,14 @@ theorem argOf_eq : argOf a = (a.1, close a.2.1 a.2.2.1) := rfl
 -- says so
 def argOk (bk : Book) (a : MArg) : Prop :=
   a.2.2.1.Ok bk ∧ (a.2.2.2 = true → Value bk (close a.2.1 a.2.2.1))
+
+-- a call of k whose walk waits at t under tl after the arguments rxs, the last
+-- first: each argument is a value when it is live, and the walk of k's case tree
+-- on them goes on as the walk from t under tl
+def CallOk (bk : Book) (k : String) (t : Term) (tl : Locals) (rxs : List MArg) : Prop :=
+  takes t = true ∧ tl.Ok bk ∧ (∀ a ∈ rxs, argOk bk a ∧ a.2.2.2 = a.1.live) ∧
+    ∃ d, Book.get bk k = some d ∧
+      ∀ zs, walk bk d.v [] (rxs.reverse.map argOf ++ zs) = walk bk t tl.terms zs
 
 -- what a frame knows is true
 def Frame.Ok (bk : Book) : Frame → Prop
@@ -37,6 +41,7 @@ def Frame.Ok (bk : Book) : Frame → Prop
   | .tupA q a l => (q.live = true → Value bk (close a l)) ∧ l.Ok bk
   | .rwt _ _ l => l.Ok bk
   | .minB _ l => l.Ok bk
+  | .call k t tl rxs q _ l => q.live = true ∧ CallOk bk k t tl rxs ∧ l.Ok bk
   | .minA a => Value bk a
 
 def Focus.Ok (bk : Book) : Focus → Prop
@@ -265,6 +270,40 @@ theorem values_mem (vs : Values bk xs) (m : (q, x) ∈ xs) (l : q.live = true) :
       · cases e; exact hx l
       · exact ih vs m
 
+-- a list whose live terms are values
+theorem values_of (h : ∀ p ∈ xs, p.1.live = true → Value bk p.2) : Values bk xs := by
+  induction xs with
+  | nil => exact .nil
+  | cons p xs ih =>
+    exact .cons (h p List.mem_cons_self) (ih fun p' m => h p' (List.mem_cons_of_mem _ m))
+
+-- the arguments that went into a call are values where they are live
+theorem values_fed {rxs : List MArg} (h : ∀ a ∈ rxs, argOk bk a ∧ a.2.2.2 = a.1.live) :
+    Values bk (rxs.reverse.map argOf) := by
+  refine values_of fun p m hl => ?_
+  simp only [List.mem_map, List.mem_reverse] at m
+  obtain ⟨a, m, rfl⟩ := m
+  exact (h a m).1.2 ((h a m).2.trans hl)
+
+-- the call so far is a value: its case tree needs more arguments
+theorem CallOk.value (h : CallOk bk k t tl rxs) : Value bk (spine (Ref k) (rxs.reverse.map argOf)) := by
+  obtain ⟨ht, -, hrx, d, hd, hw⟩ := h
+  have w := hw []
+  rw [List.append_nil, walk_need ht] at w
+  exact .call hd (values_fed hrx) (walk_iff.1 w)
+
+-- the function of a spine steps
+theorem Eval.spine_f (h : Eval bk f f') : Eval bk (spine f ys) (spine f' ys) := by
+  induction ys generalizing f f' with
+  | nil => exact h
+  | cons y ys ih => exact ih (.app_f h)
+
+-- the function of a spine takes its steps
+theorem Steps.spine_f (h : Steps bk n f f') : Steps bk n (spine f ys) (spine f' ys) := by
+  induction h with
+  | refl => exact .refl
+  | step e _ ih => exact .step (Eval.spine_f e) ih
+
 -- a step in the hole is a step of the whole term
 theorem Eval.plugs (hs : ∀ f ∈ st, f.Ok bk) (h : Eval bk t u) : Eval bk (plugs st t) (plugs st u) :=
   by
@@ -282,6 +321,7 @@ theorem Eval.plugs (hs : ∀ f ∈ st, f.Ok bk) (h : Eval bk t u) : Eval bk (plu
     case tupA => exact .tup_b hf.1 h
     case rwt => exact .rwt h
     case minB => exact .min_a h
+    case call => exact Eval.spine_f (.app_x hf.2.1.value hf.1 h)
     case minA => exact .min_b hf h
 
 -- steps in the hole are steps of the whole term
@@ -298,5 +338,95 @@ theorem plugs_argFrames : plugs (argFrames ys) t = spine t (ys.map argOf) := by
   | cons y ys ih =>
     obtain ⟨q, x, l, k⟩ := y
     exact ih
+
+-- what a move from a state of term T gives: no step keeps T, a step is one
+-- step of Eval, a jump its steps, and the state of a stop or a jump has T
+def Move.Ok (bk : Book) (T : Term) : Move → Prop
+  | .admin s' => s'.Ok bk ∧ s'.term = T
+  | .step s' => s'.Ok bk ∧ Eval bk T s'.term
+  | .jump n s' f => s'.Ok bk ∧ Steps bk n T s'.term ∧ f.term = T
+  | .stop f => f.term = T
+
+-- a spine under locals
+theorem close_spine : close (spine t ys) l = spine (close t l) (ys.map (argAt l)) := by
+  induction ys generalizing t with
+  | nil => rfl
+  | cons y ys ih =>
+    obtain ⟨q, y⟩ := y
+    simp only [spine, List.map_cons, argAt]
+    rw [ih, close_app]
+
+-- the frames of a spine's arguments under l
+theorem plugs_appArgs : plugs (appArgs l ys st) t = plugs st (spine t (ys.map (argAt l))) := by
+  induction ys generalizing t with
+  | nil => rfl
+  | cons y ys ih =>
+    obtain ⟨q, y⟩ := y
+    exact ih
+
+theorem appArgs_ok (hl : l.Ok bk) (hst : ∀ f ∈ st, f.Ok bk) : ∀ f ∈ appArgs l ys st, f.Ok bk := by
+  induction ys with
+  | nil => exact hst
+  | cons y ys ih =>
+    obtain ⟨q, y⟩ := y
+    intro f m
+    rcases List.mem_cons.1 m with rfl | m
+    · exact hl
+    · exact ih f m
+
+-- the call so far, with one more argument
+theorem spine_fed : spine (Ref k) ((a :: rxs).reverse.map argOf) =
+    App a.1 (spine (Ref k) (rxs.reverse.map argOf)) (close a.2.1 a.2.2.1) := by
+  rw [List.reverse_cons, List.map_append]
+  exact spine_snoc
+
+-- the term of papOf
+theorem papOf_close : close (papOf k rxs).1 (papOf k rxs).2 = spine (Ref k) (rxs.reverse.map argOf) := by
+  induction rxs with
+  | nil => rfl
+  | cons a rxs ih =>
+    obtain ⟨q, x, xl, b⟩ := a
+    rw [spine_fed, ← ih]
+    exact close_shift
+
+theorem papOf_ok (h : ∀ a ∈ rxs, argOk bk a ∧ a.2.2.2 = a.1.live) : (papOf k rxs).2.Ok bk := by
+  induction rxs with
+  | nil => trivial
+  | cons a rxs ih =>
+    obtain ⟨q, x, xl, b⟩ := a
+    have ha := (h _ List.mem_cons_self).1
+    exact ⟨ha.2, ha.1, ih fun a' m => h a' (List.mem_cons_of_mem _ m)⟩
+
+-- a node of a case tree is a value, under any locals
+theorem takes_value (h : takes t = true) : Value bk (close t l) := by
+  cases t <;> simp [takes] at h <;> simp only [close_eq, sub] <;> constructor
+
+-- an argument that is ready: the term it stands for, and what it knows is true
+theorem ready_ok (hl : l.Ok bk) (h : ready q y l = some a) :
+    argOf a = (q, close y l) ∧ argOk bk a ∧ a.2.2.2 = a.1.live := by
+  unfold ready at h
+  split at h
+  next hq =>
+    split at h
+    next i =>
+      split at h
+      next x xl hx =>
+        cases h
+        have ho := get?_ok hl hx
+        exact ⟨by simp [argOf, close_var, get?_close hx], ⟨ho.2, ho.1⟩, hq.symm⟩
+      next => cases h
+    next j => cases h; exact ⟨by simp [argOf, close_lab], ⟨trivial, fun _ => .lab⟩, hq.symm⟩
+    next y _ _ =>
+      split at h
+      next ht => cases h; exact ⟨rfl, ⟨hl, fun _ => takes_value ht⟩, hq.symm⟩
+      next => cases h
+  next hq => cases h; exact ⟨rfl, ⟨hl, nofun⟩, by simpa using hq⟩
+
+-- an argument that is not ready is live
+theorem ready_live (h : ready q y l = none) : q.live = true := by
+  unfold ready at h
+  split at h
+  next hq => exact hq
+  next => cases h
 
 end Machine
