@@ -54,18 +54,11 @@ private theorem list_inj {xs ys : List Term} : list xs = list ys → xs = ys := 
 
 -- the form of a list of names says which names they are
 private theorem names_inj {ks ks' : List String} :
-    list (ks.map Form.name) = list (ks'.map Form.name) → ks = ks' := by
-  intro h
-  replace h := list_inj h
-  induction ks generalizing ks' with
-  | nil => cases ks' <;> simp_all
-  | cons k ks ih =>
-    cases ks' with
-    | nil => simp at h
-    | cons k' ks' => simp at h; rw [EvalCopy.name_inj h.1, ih h.2]
+    list (ks.map Form.name) = list (ks'.map Form.name) → ks = ks' :=
+  fun h => (List.map_inj_right fun _ _ => EvalCopy.name_inj).1 (list_inj h)
 
--- the form of a term says which term it is
-private theorem term_inj {a b : Term} : Form.term a = Form.term b → a = b := by
+-- the form of a term says which term it is (DEFINITION #4)
+theorem term_inj {a b : Term} : Form.term a = Form.term b → a = b := by
   induction a generalizing b <;> cases b <;> intro h <;> (try rfl) <;> simp only [Form.term] at h <;>
     have ⟨hk, hf⟩ := ctor_inj h <;> (try simp at hk) <;>
     revert hf <;> simp only [List.cons.injEq, and_true, and_imp] <;> intros <;>
@@ -81,6 +74,29 @@ private theorem term_inj {a b : Term} : Form.term a = Form.term b → a = b := b
       | exact names_inj ‹_›
       | exact EvalCopy.name_inj ‹_›
       | (apply_assumption; assumption)
+
+-- the form of a bool says which bool it is
+private theorem bool_inj {a b : Bool} : Form.bool a = Form.bool b → a = b := by
+  cases a <;> cases b <;> intro h <;> have := (ctor_inj h).1 <;> simp_all [Form.bool]
+
+-- the form of a def says which def it is (DEFINITION #4)
+theorem defn_inj {d d' : Def} : Form.defn d = Form.defn d' → d = d' := by
+  cases d; cases d'
+  intro h
+  simp only [Form.defn] at h
+  have := (ctor_inj h).2
+  simp only [List.cons.injEq, and_true] at this
+  obtain ⟨hk, hT, hv, ho⟩ := this
+  rw [EvalCopy.name_inj hk, term_inj hT, term_inj hv, bool_inj ho]
+
+-- the form of a book, the list of its defs, says which book it is (DEFINITION #4)
+theorem book_inj {a b : Book} : Form.defs a.defs = Form.defs b.defs → a = b := by
+  obtain ⟨ds, l, o⟩ := a
+  obtain ⟨ds', l', o'⟩ := b
+  intro h
+  have e : ds = ds' := (List.map_inj_right fun _ _ => defn_inj).1 (list_inj h)
+  subst e o o'
+  rfl
 
 -- a maybe of terms that is some term u was some u
 private theorem maybe_term_some {o : Option Term} :
