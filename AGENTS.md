@@ -297,6 +297,8 @@ The entries:
   only: it is a file that anyone can change, so it is not trusted (3.7). The run of 3.8.7 must run
   fresh (`FRESH=1`), and so must any run whose answer we use as proof.
 
-### 3.2 Milestones
+### 3.11 Milestones
 
-1 - **WE HAVE A BEND INTERPRETER, WRITTEN FULLY IN LEAN. PROVEN.**
+1. **WE HAVE A BEND INTERPRETER, WRITTEN FULLY IN LEAN. PROVEN.**
+2. **WE HAVE EVAL WRITTEN IN BEND (3.8.1). PROVEN: NO TWO TERMS OR BOOKS SHARE A DATA FORM
+   (3.6.2), AND IT GIVES WHAT THE KERNEL'S EVAL GIVES, STEP FOR STEP, BOTH WAYS (3.6.3).**
