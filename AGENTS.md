@@ -62,8 +62,6 @@ Follow the `bend2` skill. In this project:
   and the `bend version` that ran.
 - Do not change, update or rebuild Bend. Modify a fork only when I expressly allow it, and only for
   a bug that its Windows support caused.
-- Bend code must pass bend-lint (configured in `bend-lint.json`): `bun run lint` must add no
-  finding. `bunx bend-lint --fix-dangerously <file>` formats a file.
 
 ### TypeScript
 
