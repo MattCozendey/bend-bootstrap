@@ -3,7 +3,9 @@ HEADLINE(s):
 2 - This is the ultimate source of truth for the project and every change must consult it to ensure the code or other docs are fully this-file compliant, so ANY drift must immediately pause the work and I should be communicated in detail what the blocker is and how to objectively best proceed.
 
 DEFINITION(S):
-1 - Bend2: Bend2 exactly as defined by the kernel, nothing more and nothing less. NOT to be confused with its typescript version which extends its capabilities.
+1 - Kernel: `bend/bend2/bendtt.lean`: Unchanged and the source of truth.
+2 - Bend: the language that the kernel gives a meaning to. Its code is a Book, as the kernel's `Book.parse` gives it. Its meaning is the kernel's `Eval`. Nothing more, nothing less. `.bend` text is a way to write Bend, through `bend -o`.
+3 - Program: a Book with a def named `main` (no `main`: fail). `main` takes a list of bytes and gives a list of bytes. A byte is a `Word(8)`, and a list is a `List`.
 
 GOAL(S):
 1 - A Bend compiler written in Bend(this doesn't necessarily include creating bend's CHECKER in bend btw) THAT I CAN TRUST(NEVER DISAGREES WITH THE KERNEL ABOUT WHAT THE KERNEL PROVES OR DISPROVES). WE ACCEPT SLOWNESS OR A BEND INTERPRETER-OR-COMPILER WRITTEN IN LEAN ALONG THE WAY. GETTING THIS RIGHT FROM THE START IS AN ABSOLUTE MUST. BEND IS ONLY WHAT THE PROVEN KERNEL GIVES A MEANING TO: EACH DEF WITH A BODY. DEFS WITH NO BODY ARE OUT: F32, EFFECTS, HANDLES, ARRAY ATOMICS.  WHEN WE ADD TO OUR COMPILER (OPTIMIZATIONS, OR FEATURES BEYOND THE PROVEN BEND), THE LAW FOR THE PROVEN BEND (INVARIANTS #1 AND #4) STAYS EXACTLY AS IT IS AND MUST STILL PASS --verdict. SO OUR COMPILER ALWAYS STAYS A PROVEN BEND COMPILER
