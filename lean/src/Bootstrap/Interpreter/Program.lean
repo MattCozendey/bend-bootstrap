@@ -4,8 +4,8 @@ import Bootstrap.DataForm.Bytes
 -- Program
 -- =======
 --
--- What a program gives on a list of bytes (AGENTS.md 3.4.3), and the
--- interpreter of 3.7.5, which computes it.
+-- What a program gives on a list of bytes (AGENTS.md 3.3.3, 3.3.4), and the
+-- interpreter of 3.6.5, which computes it.
 
 open Quan Term
 
@@ -13,7 +13,7 @@ open Quan Term
 -- input's bytes
 def start (i : List UInt8) : Term := App Q1 (Ref "main") (bytes i)
 
--- AGENTS.md 3.4.3: the run from the start term (3.2.3) reaches, after exactly n steps, a
+-- AGENTS.md 3.3.4: the run from the start term (3.3.3) reaches, after exactly n steps, a
 -- value v that is the list of bytes r
 def Gives (bk : Book) (i r : List UInt8) (n : Nat) : Prop :=
   ∃ v, Steps bk n (start i) v ∧ Value bk v ∧ unbytes v = some r

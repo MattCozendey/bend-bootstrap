@@ -3,7 +3,7 @@
 #
 #   B (machine): from the image of a book, Mach.code never traps, and it
 #     gives what Eval gives, or runs out of memory; with the memory of
-#     AGENTS.md 3.8.1.4, it gives it.
+#     AGENTS.md 3.9.1.4, it gives it.
 #
 # A lemma whose body is ?TODO is still open: the laws hold once each is
 # proven.
@@ -45,7 +45,7 @@ def mach.complete(
   {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds), i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   ?TODO
 
-# B: with the memory of AGENTS.md 3.8.1.4, the machine gives the list of bytes
+# B: with the memory of AGENTS.md 3.9.1.4, the machine gives the list of bytes
 def mach.memory(
   +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: Nat, +o: List<&2, Word(8n)>,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},

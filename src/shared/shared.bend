@@ -3,7 +3,7 @@ import Base
 # Bytes
 # =====
 #
-# A byte is a Word(8n), its lowest bit first (AGENTS.md 3.2.1). Where the
+# A byte is a Word(8n), its lowest bit first (AGENTS.md 3.3.1). Where the
 # WASM spec reads a byte as a number, the version of WASM takes its value
 # (Byte.to_u32); where it writes a number as a byte, its low byte
 # (Byte.from_u32), as load8_u and store8 do (spec 4.4.7).

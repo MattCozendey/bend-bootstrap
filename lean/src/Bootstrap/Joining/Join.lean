@@ -4,7 +4,7 @@ import Bootstrap.Generated.Exists
 -- Join
 -- ====
 --
--- AGENTS.md 3.7.6: what the Bend laws that --verdict accepts say about
+-- AGENTS.md 3.6.6: what the Bend laws that --verdict accepts say about
 -- runs. --verdict is Book.check on the kernel's parse of the `bend -o` text.
 -- The kernel's adequate (bend/bend2/bendtt.lean) turns a checked proof of a == b
 -- into a conversion of a and b, and conv_runs turns that into a run.

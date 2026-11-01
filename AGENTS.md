@@ -136,9 +136,11 @@ TypeScript compiler or from `base.bend`.
 - **3.3.6** Bend version of X: a Bend function that does what X does, where X is written in another
   language (for example `Eval`, or a target's meaning). Each one comes with a Lean theorem that it
   agrees with X.
-- **3.3.7** Term size: the number of nodes of a term. Each constructor of the kernel's `Term` is one
-  node; a name is one node. Why: `Eval` never makes a name, it only copies names from the program,
-  and the program size (3.3.8) already counts each name's bytes.
+- **3.3.7** Term size: the number of distinct subterms of a term. Each constructor of the kernel's
+  `Term` is one node, and equal subterms count once; a name is part of its node. Why: a machine can
+  store an equal subterm once, so counting every copy overcounts. A list of bytes would count about
+  72 nodes per byte, where a machine needs one cell per byte. `Eval` never makes a name, it only
+  copies names from the program, and the program size (3.3.8) already counts each name's bytes.
 - **3.3.8** Program size: the term size of the program's data form. Why: the data form writes each
   name as its bytes and each `Var` index as a unary number, so long names and huge indices count. A
   plain node count misses both.

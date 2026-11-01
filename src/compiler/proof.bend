@@ -1,4 +1,4 @@
-# compiler: the proofs of the laws of AGENTS.md 3.7.4
+# compiler: the proofs of the laws of AGENTS.md 3.6.1
 # ====================================================
 #
 # The laws of spec.bend follow from two layers, each a set of lemmas in its
@@ -10,7 +10,7 @@
 #     program halts at once gives no result.
 #   B (machine): from the image of a book, Mach.code never traps, and it
 #     gives what Eval gives, or runs out of memory; with the memory of
-#     AGENTS.md 3.8.1.4, it gives it.
+#     AGENTS.md 3.9.1.4, it gives it.
 #
 # A lemma whose body is ?TODO is still open: the laws hold once each is
 # proven. The proofs of the laws themselves, at the end, are complete.

@@ -7,7 +7,7 @@ import Bootstrap.Generated.Trusted
 -- =======
 --
 -- Program.need(p, i, n) and Program.memory(m) (src/program/impl.bend), on the bytes p
--- that the Lean writer writes for the book bk, give F of AGENTS.md 3.8.1.4 as Lean
+-- that the Lean writer writes for the book bk, give F of AGENTS.md 3.9.1.4 as Lean
 -- computes it (need, memory): 64 × (P + S) + 2^24, with P the nodes of the
 -- data form of bk (Form.defs), S the most nodes of a term that the run from
 -- start i reaches within n steps, and the bytes of min(m, 2^16) pages of 2^16
@@ -35,7 +35,7 @@ def largest (bk : Book) : Nat → Term → Nat
     | none => 0
     | some u => largest bk n u)
 
--- F of AGENTS.md 3.8.1.4: 64 × (P + S) + 2^24 bytes, for the
+-- F of AGENTS.md 3.9.1.4: 64 × (P + S) + 2^24 bytes, for the
 -- book bk on the input i, within n steps
 def need (bk : Book) (i : List UInt8) (n : Nat) : Nat :=
   64 * ((Form.defs bk.defs).nodes + largest bk n (start i)) + 2 ^ 24

@@ -26,7 +26,7 @@ import ../cir/impl.bend as Cr
 # variables the copy does not reach is shared, not copied. A cell whose count
 # drops to 0 goes to a list of cells to reuse, and its parts lose a pointer
 # when the cell is reused. As cells form no cycle, every cell that can no
-# longer be reached is freed so (AGENTS.md 3.8.1.4); only the image and the
+# longer be reached is freed so (AGENTS.md 3.9.1.4); only the image and the
 # cache of the input's bytes are STATIC, never freed.
 
 # building Cir

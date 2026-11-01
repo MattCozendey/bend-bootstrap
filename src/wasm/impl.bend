@@ -4,7 +4,7 @@ import ../shared/shared.bend as Sd
 # Wasm
 # ====
 #
-# The part of WebAssembly that our compiler uses (AGENTS.md 3.8.1.2), as the
+# The part of WebAssembly that our compiler uses (AGENTS.md 3.9.1.2), as the
 # WebAssembly core spec defines it.
 # Wasm.run(f, w, i, m) runs the module of the bytes w on the input bytes i,
 # in at most f steps, with at most m pages (of 64 KiB) of memory. A module

@@ -5,7 +5,7 @@ import Base
 #
 # BendTT's book (bend/bend2/bendtt.lean) as Bend data, field for field, and
 # Book.read, which reads back the bytes that the Lean writer writes for a book
-# (AGENTS.md 3.4.5). A name is the list of its UTF-8 bytes.
+# (AGENTS.md 3.6.4). A name is the list of its UTF-8 bytes.
 
 # Types
 # -----

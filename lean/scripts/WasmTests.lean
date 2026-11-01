@@ -7,7 +7,7 @@ import Bootstrap.Shared.Script
 --
 -- A test of kind b (bend2 skill): the Bend version of WASM (the section Wasm of
 -- src/wasm/impl.bend) against the official WebAssembly
--- tests of src/wasm/tests (AGENTS.md 3.8.1.3), run by the Lean interpreter that the
+-- tests of src/wasm/tests (AGENTS.md 3.9.1.3), run by the Lean interpreter that the
 -- plan trusts (src/Bootstrap/Interpreter/Run.lean), not by the TypeScript compiler.
 --
 --   bend src/wasm/impl.bend -o <file.bendtt>

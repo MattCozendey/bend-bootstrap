@@ -7,10 +7,10 @@ import ../wasm/impl.bend as Wa
 # Program
 # =======
 #
-# What a program gives on its input (AGENTS.md 3.4.3), and the memory that the
-# laws of 3.7.4 (compiler/spec.bend) grant it (3.4.4, 3.8.1.4). The terms mirror
+# What a program gives on its input (AGENTS.md 3.3.3, 3.3.4), and the memory
+# that the laws of 3.6.1 (compiler/spec.bend) grant it (3.3.10, 3.9.1.4). The terms mirror
 # lean/src/Bootstrap/DataForm/Bytes.lean, and Program.gives mirrors Gives in
-# Interpreter/Program.lean, so that the proof of 3.7.6 can join them.
+# Interpreter/Program.lean, so that the theorem of 3.6.6 can join them.
 
 # the names of the constructors of a list of bytes, as `bend -o` writes them
 def Program.name.unit() -> List<&2, Word(8n)>:
@@ -75,7 +75,7 @@ def Program.bytes(i: List<&2, Word(8n)>) -> Bk.Term:
     case Con{b, rest}:
       Program.ctor(Program.name.con(), [Program.word(8n, b), Program.bytes(rest)])
 
-# the start term of a run (AGENTS.md 3.2.3): main, applied once at quantity 1 to the
+# the start term of a run (AGENTS.md 3.3.3): main, applied once at quantity 1 to the
 # input's bytes
 def Program.start(i: List<&2, Word(8n)>) -> Bk.Term:
   Bk.Term.App{Bk.Quan.Q1{}, Bk.Term.Ref{Program.name.main()}, Program.bytes(i)}
@@ -176,7 +176,7 @@ def Program.gives.of(r: Maybe<List<&2, Bk.Def>>, i: List<&2, Word(8n)>, n: Nat) 
     case Some{+ds}:
       Program.result(ds, El.Eval.steps(n, ds, Program.start(i)))
 
-# AGENTS.md 3.4.3: what the program of the book bytes p (3.4.5) gives on
+# AGENTS.md 3.3.4: what the program of the book bytes p (3.6.4) gives on
 # the input i after exactly n steps of Eval: the list of bytes of the value that
 # it reaches, or nothing
 def Program.gives(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Maybe<&2, List<&2, Word(8n)>>:
@@ -247,12 +247,12 @@ def Program.largest.of(r: Maybe<List<&2, Bk.Def>>, i: List<&2, Word(8n)>, n: Nat
     case Some{ds}:
       Program.largest.go(n, ds, Program.start(i))
 
-# The largest term of AGENTS.md 3.4.4: the most nodes (3.2.4) of a term that
+# The largest term of AGENTS.md 3.3.10: the most nodes (3.3.7) of a term that
 # the run on the input i reaches within n steps; the input is in the first term
 def Program.largest(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Program.largest.of(Bk.Book.read(p), i, n)
 
-# The nodes of a value's data form (AGENTS.md 3.2.2), as `bend -o` writes it: a
+# The nodes of a value's data form (AGENTS.md 3.3.5), as `bend -o` writes it: a
 # constructor k{f1, .., fn} is (.k, (f1, (.., (fn, ())))), 3 + n nodes with
 # the nodes s of its fields
 def Form.size.ctor(n: Nat, s: Nat) -> Nat:
@@ -332,12 +332,12 @@ def Program.size.of(r: Maybe<List<&2, Bk.Def>>) -> Nat:
     case Some{ds}:
       Form.size.defs(ds)
 
-# the program's size of AGENTS.md 3.2.5: the nodes of the data form of the book
+# the program's size of AGENTS.md 3.3.8: the nodes of the data form of the book
 # of the bytes p; 0 when they are no book
 def Program.size(p: List<&2, Word(8n)>) -> Nat:
   Program.size.of(Bk.Book.read(p))
 
-# F of AGENTS.md 3.8.1.4: 64 × (the program's size + the largest term) + 2^24
+# F of AGENTS.md 3.9.1.4: 64 × (the program's size + the largest term) + 2^24
 # bytes
 def Program.need(+p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Nat.add(Nat.mul(64n, Nat.add(Program.size(p), Program.largest(p, i, n))), 16777216n)
