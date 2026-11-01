@@ -8,9 +8,10 @@ import Bootstrap.Version.Trusted
 --
 -- Program.need(p, i, n) and Program.memory(m) (impl.bend), on the bytes p
 -- that the Lean writer writes for the book bk, give F of AGENTS.md 3.7.1.4 as Lean
--- computes it (need, memory): 64 × (|p| + S) + 2^24, with S the most nodes of
--- a term that the run from start i reaches within n steps, and the bytes of
--- min(m, 2^16) pages of 2^16 bytes.
+-- computes it (need, memory): 64 × (P + S) + 2^24, with P the nodes of the
+-- data form of bk (Form.defs), S the most nodes of a term that the run from
+-- start i reaches within n steps, and the bytes of min(m, 2^16) pages of 2^16
+-- bytes.
 
 open Quan Term
 open EvalVersion (wc cmpForm value_cmp word_cmp)
@@ -34,10 +35,10 @@ def largest (bk : Book) : Nat → Term → Nat
     | none => 0
     | some u => largest bk n u)
 
--- F of AGENTS.md 3.7.1.4: 64 × (|p| + S) + 2^24 bytes, for the
+-- F of AGENTS.md 3.7.1.4: 64 × (P + S) + 2^24 bytes, for the
 -- book bk on the input i, within n steps
 def need (bk : Book) (i : List UInt8) (n : Nat) : Nat :=
-  64 * ((write bk).length + largest bk n (start i)) + 2 ^ 24
+  64 * ((Form.defs bk.defs).nodes + largest bk n (start i)) + 2 ^ 24
 
 -- the bytes of m pages of 2^16 bytes, up to 2^16 pages
 def memory (m : UInt32) : Nat := 65536 * min m.toNat 65536
@@ -147,6 +148,177 @@ theorem size_run (h : NeedHolds B) : Runs B (App Q1 (Ref "Term.size") (Form.term
       | exact ctor1 ‹_›
       | exact ctor1 (add_run' h.holds ‹_› (add_run' h.holds ‹_› ‹_›))
 
+-- Program size
+-- ------------
+-- Form.size.defs (impl.bend), on the form of a list of defs, gives the nodes
+-- of that form.
+
+theorem nodes_ctor : (ctor k fs).nodes = fs.length + 3 + (fs.map Term.nodes).sum := by
+  induction fs with
+  | nil => simp [ctor, Term.nodes]
+  | cons f fs ih => simp [ctor, Term.nodes] at ih ⊢; omega
+
+theorem nodes_nat : (Form.nat n).nodes = 4 * n + 3 := by
+  induction n with
+  | zero => simp [Form.nat, nodes_ctor]
+  | succ n ih => simp [Form.nat, nodes_ctor, ih]; omega
+
+theorem nodes_bits : (bits n v).nodes = 8 * n + 3 := by
+  induction n generalizing v with
+  | zero => simp [bits, nodes_ctor]
+  | succ n ih => simp [bits, nodes_ctor, ih]; omega
+
+theorem nodes_bytes : (bytes p).nodes = 72 * p.length + 3 := by
+  induction p with
+  | nil => simp [bytes, list, nodes_ctor]
+  | cons b p ih => simp [bytes, byte, list, nodes_ctor, nodes_bits] at ih ⊢; omega
+
+theorem nodes_list_cons : (list (x :: xs)).nodes = x.nodes + (list xs).nodes + 5 := by
+  simp [list, nodes_ctor]; omega
+
+theorem nodes_quan : (Form.quan q).nodes = 3 := by cases q <;> simp [Form.quan, nodes_ctor]
+
+macro "swalks" d:term : tactic =>
+  `(tactic| simp [$d:term, walk, list, ctor, bindsAt, Quan.live, Quan.fld, takes, Term.sub, Env.sub,
+    Term.spine, Form.term, Form.defs, Form.defn, Form.bool, data, dbytes, dname, dterm, ddefs, dnat,
+    plain_nat.sub, plain_bytes.sub])
+
+-- the Succ of x, k times
+def succs : Nat → Term → Term
+  | 0, x => x
+  | k + 1, x => ctor "Succ" [succs k x]
+
+theorem succs_run (r : Runs B x (Form.nat a)) : Runs B (succs k x) (Form.nat (a + k)) := by
+  induction k with
+  | zero => exact r
+  | succ k ih => exact ctor1 ih
+
+theorem fctor_run (h : NeedHolds B) (rx : Runs B x (Form.nat a)) (ry : Runs B y (Form.nat b)) :
+    Runs B (App Q1 (App Q1 (Ref "Form.size.ctor") x) y) (Form.nat (a + 3 + b)) := by
+  have hk := h.get (d := «needVersion.Form.size.ctor»)
+  show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
+  refine Kit.runs_args hk (.r rfl rx (.r rfl ry .nil)) ?_ ?_
+  · intro m hm; simp at hm
+    rcases m with _ | _ | m <;> first | omega | swalks «needVersion.Form.size.ctor»
+  refine Kit.call hk (.cons (fun _ => value_nat) (.cons (fun _ => value_nat) .nil))
+    (u := App Q1 (App Q1 (Ref "Nat.add") (succs 3 (Form.nat a))) (Form.nat b))
+    (by swalks «needVersion.Form.size.ctor»; simp [succs, ctor]) ?_
+  exact add_run' h.holds (succs_run nat_run) nat_run
+
+theorem fnat_run (h : NeedHolds B) :
+    Runs B (App Q1 (Ref "Form.size.nat") (Form.nat i)) (Form.nat (Form.nat i).nodes) := by
+  have hk := h.get (d := «needVersion.Form.size.nat»)
+  refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_nat) .nil)
+    (u := App Q1 (App Q1 (Ref "Nat.add") (Form.nat 3)) (App Q2 (App Q1 (Ref "Nat.mul") (Form.nat 4)) (Form.nat i)))
+    (by swalks «needVersion.Form.size.nat») ?_
+  exact Kit.runs_eq (add_run' h.holds nat_run (mul_run' h nat_run nat_run))
+    (congrArg Form.nat (by rw [nodes_nat]; omega))
+
+theorem fname_run (h : NeedHolds B) :
+    Runs B (App Q1 (Ref "Form.size.name") (Form.name k)) (Form.nat (Form.name k).nodes) := by
+  have hk := h.get (d := «needVersion.Form.size.name»)
+  refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_bytes) .nil)
+    (u := App Q1 (App Q1 (Ref "Nat.add") (Form.nat 3)) (App Q2 (App Q1 (Ref "Nat.mul") (Form.nat 72))
+      (App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) word8) (Form.name k))))
+    (by simp [Form.name]; swalks «needVersion.Form.size.name»; rfl) ?_
+  exact Kit.runs_eq (add_run' h.holds nat_run (mul_run' h nat_run (length_run h)))
+    (congrArg Form.nat (by rw [Form.name, nodes_bytes]; omega))
+
+theorem fnames_run (h : NeedHolds B) {ks : List String} :
+    Runs B (App Q1 (Ref "Form.size.names") (list (ks.map Form.name)))
+      (Form.nat (list (ks.map Form.name)).nodes) := by
+  have hk := h.get (d := «needVersion.Form.size.names»)
+  induction ks with
+  | nil =>
+    exact Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_list (by simp)) .nil) (u := Form.nat 3)
+      (by swalks «needVersion.Form.size.names»; simp [Form.nat, ctor, walk, takes, Term.sub, Env.sub, Term.spine])
+      (Kit.runs_eq nat_run (by simp [list, nodes_ctor]))
+  | cons k ks ih =>
+    refine Kit.call (xs := [(Q1, _)]) hk
+      (.cons (fun _ => value_list fun x hx => by
+        simp only [List.map_cons, List.mem_cons, List.mem_map] at hx
+        rcases hx with rfl | ⟨_, -, rfl⟩ <;> exact value_bytes) .nil)
+      (u := succs 5 (App Q1 (App Q1 (Ref "Nat.add") (App Q1 (Ref "Form.size.name") (Form.name k)))
+        (App Q1 (Ref "Form.size.names") (list (ks.map Form.name)))))
+      (by swalks «needVersion.Form.size.names»; simp [succs, ctor]) ?_
+    exact Kit.runs_eq (succs_run (add_run' h.holds (fname_run h) ih))
+      (congrArg Form.nat (by simp only [List.map_cons, nodes_list_cons] <;> omega))
+
+-- Form.size.ctor(n, x), Nat.add(x, y) and Form.size.term(form of a), as
+-- Form.size.term's leaves call them
+def fctor (n : Nat) (x : Term) : Term := App Q1 (App Q1 (Ref "Form.size.ctor") (Form.nat n)) x
+def fadd (x y : Term) : Term := App Q1 (App Q1 (Ref "Nat.add") x) y
+def fterm (a : Term) : Term := App Q1 (Ref "Form.size.term") (Form.term a)
+
+-- the leaf that Form.size.term's case tree walks to on the form of t
+def fsizeLeaf : Term → Term
+  | Var i => fctor 1 (App Q1 (Ref "Form.size.nat") (Form.nat i))
+  | Ref k | Lab k => fctor 1 (App Q1 (Ref "Form.size.name") (Form.name k))
+  | Ann a b | Term.Min a b => fctor 2 (fadd (fterm a) (fterm b))
+  | Let _ a b | All _ a b | App _ a b | Sig _ a b | Tup _ a b => fctor 3 (succs 3 (fadd (fterm a) (fterm b)))
+  | Typ a | Prj a => fctor 1 (fterm a)
+  | Lam _ a => fctor 2 (succs 3 (fterm a))
+  | Enu ks => fctor 1 (App Q1 (Ref "Form.size.names") (list (ks.map Form.name)))
+  | Mat k a b => fctor 3 (fadd (App Q1 (Ref "Form.size.name") (Form.name k)) (fadd (fterm a) (fterm b)))
+  | Efq | Rfl => Form.nat 3
+  | Eql a b c | Rwt a b c => fctor 3 (fadd (fterm a) (fadd (fterm b) (fterm c)))
+
+-- a leaf Form.size.ctor(n, x) of Form.size.term, with r the run of x
+macro "fclose" h:term:max r:term : tactic =>
+  `(tactic| exact Kit.runs_eq (fctor_run $h nat_run $r)
+    (congrArg Form.nat (by simp [Form.term, nodes_ctor, nodes_quan] <;> omega)))
+
+theorem fterm_run (h : NeedHolds B) : Runs B (fterm t) (Form.nat (Form.term t).nodes) := by
+  have hk := h.get (d := «needVersion.Form.size.term»)
+  have key : ∀ t, walk B «needVersion.Form.size.term».v [] [(Q1, Form.term t)] = some (some (fsizeLeaf t)) := by
+    intro t; cases t <;> (simp only [fsizeLeaf, fctor, fadd, fterm, succs]; swalks «needVersion.Form.size.term») <;>
+      simp [Form.nat, ctor, walk, takes, Term.sub, Env.sub, Term.spine]
+  induction t <;>
+    refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_term) .nil) (key _) ?_ <;>
+    simp only [fsizeLeaf, fctor, fadd, fterm] at * <;>
+    first
+      | exact Kit.runs_eq nat_run (by simp [Form.term, nodes_ctor])
+      | fclose h (fnat_run h)
+      | fclose h (fname_run h)
+      | fclose h (fnames_run h)
+      | fclose h ‹_›
+      | fclose h (add_run' h.holds ‹_› ‹_›)
+      | fclose h (succs_run ‹_›)
+      | fclose h (succs_run (add_run' h.holds ‹_› ‹_›))
+      | fclose h (add_run' h.holds (fname_run h) (add_run' h.holds ‹_› ‹_›))
+      | fclose h (add_run' h.holds ‹_› (add_run' h.holds ‹_› ‹_›))
+
+theorem fdefs_run (h : NeedHolds B) :
+    Runs B (App Q1 (Ref "Form.size.defs") (Form.defs ds)) (Form.nat (Form.defs ds).nodes) := by
+  have hk := h.get (d := «needVersion.Form.size.defs»)
+  induction ds with
+  | nil =>
+    exact Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_defs) .nil) (u := Form.nat 3)
+      (by swalks «needVersion.Form.size.defs»; simp [Form.nat, ctor, walk, takes, Term.sub, Env.sub, Term.spine])
+      (Kit.runs_eq nat_run (by simp [Form.defs, list, nodes_ctor]))
+  | cons d ds ih =>
+    refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_defs) .nil)
+      (u := succs 5 (fadd (fctor 4 (succs 3 (fadd (App Q1 (Ref "Form.size.name") (Form.name d.k))
+        (fadd (fterm d.T) (fterm d.v))))) (App Q1 (Ref "Form.size.defs") (Form.defs ds))))
+      (by simp only [fctor, fadd, fterm]; swalks «needVersion.Form.size.defs»; simp [succs, ctor]) ?_
+    exact Kit.runs_eq (succs_run (add_run' h.holds (fctor_run h nat_run (succs_run (add_run' h.holds (fname_run h)
+      (add_run' h.holds (fterm_run h) (fterm_run h))))) ih))
+      (congrArg Form.nat (by
+        simp only [Form.defs, List.map_cons, nodes_list_cons, Form.defn, Form.bool, nodes_ctor] at *
+        simp; omega))
+
+theorem program_size_run (h : NeedHolds B) :
+    Runs B (App Q1 (Ref "Program.size") (bytes (write bk))) (Form.nat (Form.defs bk.defs).nodes) := by
+  have hk := h.get (d := «needVersion.Program.size»)
+  have ho := h.get (d := «needVersion.Program.size.of»)
+  refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_bytes) .nil)
+    (u := App Q1 (Ref "Program.size.of") (App Q1 (Ref "Book.read") (bytes (write bk))))
+    (by nwalks «needVersion.Program.size») ?_
+  refine Kit.run_x (Kit.part (xs := []) ho .nil (by nwalks «needVersion.Program.size.of»)) rfl
+    (read_write h.holds.reader) ?_
+  exact Kit.call (xs := [(Q1, _)]) ho (.cons (fun _ => value_ctor (by simp [value_defs])) .nil)
+    (u := App Q1 (Ref "Form.size.defs") (Form.defs bk.defs)) (by nwalks «needVersion.Program.size.of») (fdefs_run h)
+
 theorem plain_term : Plain (Form.term t) := by
   have pn : ∀ ks : List String, Plain (list (ks.map Form.name)) := fun ks =>
     plain_list (by simpa [Form.name] using fun _ _ => plain_bytes)
@@ -247,14 +419,14 @@ theorem need_run (h : NeedHolds B) :
   have hk := h.get (d := «needVersion.Program.need»)
   refine Kit.call hk (.cons (fun _ => value_bytes) (.cons (fun _ => value_bytes) (.cons (fun _ => value_nat) .nil)))
     (u := App Q1 (App Q1 (Ref "Nat.add") (App Q2 (App Q1 (Ref "Nat.mul") (Form.nat 64))
-      (App Q1 (App Q1 (Ref "Nat.add") (App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) word8)
+      (App Q1 (App Q1 (Ref "Nat.add") (App Q1 (Ref "Program.size")
         (bytes (write bk)))) (spine (Ref "Program.largest") [(Q1, bytes (write bk)), (Q1, bytes i),
           (Q1, Form.nat n)]))))
       (App Q1 (App Q1 (Ref "Nat.add") (App Q2 (App Q1 (Ref "Nat.mul") (Form.nat 4096)) (Form.nat 4096)))
         (ctor "Zero" [])))
     (by simp [«needVersion.Program.need», walk, bindsAt, Quan.live, Quan.fld, takes, Term.sub, Env.sub,
       Term.spine, ctor, data, dbytes, dnat, plain_nat.sub, word8]) ?_
-  have r := add_run' h.holds (mul_run' h (nat_run (n := 64)) (add_run' h.holds (length_run (p := write bk) h)
+  have r := add_run' h.holds (mul_run' h (nat_run (n := 64)) (add_run' h.holds (program_size_run (bk := bk) h)
     (largest_run (bk := bk) (i := i) (n := n) h)))
     (add_run' h.holds (mul_run' h (nat_run (n := 4096)) (nat_run (n := 4096))) (nat_run (n := 0)))
   exact Kit.runs_eq r (congrArg Form.nat (by unfold need; rfl))
