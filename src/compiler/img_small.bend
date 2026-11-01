@@ -11,191 +11,194 @@
 # in its stack are at most the tokens read so far.
 
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
+import ../book/impl.bend as Bk
+import ../program/impl.bend as Pg
+import ./cir/impl.bend as Cr
+import ./machine/impl.bend as Mc
+import ./need_big.bend as N
 
 # Counting nodes
 # --------------
 
 # the nodes of t, plus n
-def Nsz(t: C.Term, n: Nat) -> Nat:
+def Nsz(t: Bk.Term, n: Nat) -> Nat:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       1n+n
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       1n+n
-    case C.Term.Ann{x, T}:
+    case Bk.Term.Ann{x, T}:
       1n+Nsz(x, Nsz(T, n))
-    case C.Term.Let{_, v, f}:
+    case Bk.Term.Let{_, v, f}:
       1n+Nsz(v, Nsz(f, n))
-    case C.Term.Typ{q}:
+    case Bk.Term.Typ{q}:
       1n+Nsz(q, n)
-    case C.Term.Min{a0, b0}:
+    case Bk.Term.Min{a0, b0}:
       1n+Nsz(a0, Nsz(b0, n))
-    case C.Term.All{_, A, B}:
+    case Bk.Term.All{_, A, B}:
       1n+Nsz(A, Nsz(B, n))
-    case C.Term.Lam{_, f}:
+    case Bk.Term.Lam{_, f}:
       1n+Nsz(f, n)
-    case C.Term.App{_, f, x}:
+    case Bk.Term.App{_, f, x}:
       1n+Nsz(f, Nsz(x, n))
-    case C.Term.Sig{_, A, B}:
+    case Bk.Term.Sig{_, A, B}:
       1n+Nsz(A, Nsz(B, n))
-    case C.Term.Tup{_, a0, b0}:
+    case Bk.Term.Tup{_, a0, b0}:
       1n+Nsz(a0, Nsz(b0, n))
-    case C.Term.Prj{h}:
+    case Bk.Term.Prj{h}:
       1n+Nsz(h, n)
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       1n+n
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       1n+n
-    case C.Term.Mat{_, h, m}:
+    case Bk.Term.Mat{_, h, m}:
       1n+Nsz(h, Nsz(m, n))
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       1n+n
-    case C.Term.Eql{a0, b0, T}:
+    case Bk.Term.Eql{a0, b0, T}:
       1n+Nsz(a0, Nsz(b0, Nsz(T, n)))
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       1n+n
-    case C.Term.Rwt{e, P, f}:
+    case Bk.Term.Rwt{e, P, f}:
       1n+Nsz(e, Nsz(P, Nsz(f, n)))
 
 # Nsz moves an addend out
-def shift(t: C.Term, +a: Nat, +b: Nat) -> {Nsz(t, Nat.add(a, b)) == Nat.add(Nsz(t, a), b) : Nat}:
+def shift(t: Bk.Term, +a: Nat, +b: Nat) -> {Nsz(t, Nat.add(a, b)) == Nat.add(Nsz(t, a), b) : Nat}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       {==}
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Ann{+x, +T}:
+    case Bk.Term.Ann{+x, +T}:
       %shift(x, Nsz(T, a), b) : {1n+Nsz(x, Nsz(T, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(T, a, b) : {1n+Nsz(x, Nsz(T, Nat.add(a, b))) == 1n+Nsz(x, _) : Nat}
       {==}
-    case C.Term.Let{_, +v, +f}:
+    case Bk.Term.Let{_, +v, +f}:
       %shift(v, Nsz(f, a), b) : {1n+Nsz(v, Nsz(f, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(f, a, b) : {1n+Nsz(v, Nsz(f, Nat.add(a, b))) == 1n+Nsz(v, _) : Nat}
       {==}
-    case C.Term.Typ{+q}:
+    case Bk.Term.Typ{+q}:
       %shift(q, a, b) : {1n+Nsz(q, Nat.add(a, b)) == 1n+_ : Nat}
       {==}
-    case C.Term.Min{+a0, +b0}:
+    case Bk.Term.Min{+a0, +b0}:
       %shift(a0, Nsz(b0, a), b) : {1n+Nsz(a0, Nsz(b0, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(b0, a, b) : {1n+Nsz(a0, Nsz(b0, Nat.add(a, b))) == 1n+Nsz(a0, _) : Nat}
       {==}
-    case C.Term.All{_, +A, +B}:
+    case Bk.Term.All{_, +A, +B}:
       %shift(A, Nsz(B, a), b) : {1n+Nsz(A, Nsz(B, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(B, a, b) : {1n+Nsz(A, Nsz(B, Nat.add(a, b))) == 1n+Nsz(A, _) : Nat}
       {==}
-    case C.Term.Lam{_, +f}:
+    case Bk.Term.Lam{_, +f}:
       %shift(f, a, b) : {1n+Nsz(f, Nat.add(a, b)) == 1n+_ : Nat}
       {==}
-    case C.Term.App{_, +f, +x}:
+    case Bk.Term.App{_, +f, +x}:
       %shift(f, Nsz(x, a), b) : {1n+Nsz(f, Nsz(x, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(x, a, b) : {1n+Nsz(f, Nsz(x, Nat.add(a, b))) == 1n+Nsz(f, _) : Nat}
       {==}
-    case C.Term.Sig{_, +A, +B}:
+    case Bk.Term.Sig{_, +A, +B}:
       %shift(A, Nsz(B, a), b) : {1n+Nsz(A, Nsz(B, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(B, a, b) : {1n+Nsz(A, Nsz(B, Nat.add(a, b))) == 1n+Nsz(A, _) : Nat}
       {==}
-    case C.Term.Tup{_, +a0, +b0}:
+    case Bk.Term.Tup{_, +a0, +b0}:
       %shift(a0, Nsz(b0, a), b) : {1n+Nsz(a0, Nsz(b0, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(b0, a, b) : {1n+Nsz(a0, Nsz(b0, Nat.add(a, b))) == 1n+Nsz(a0, _) : Nat}
       {==}
-    case C.Term.Prj{+h}:
+    case Bk.Term.Prj{+h}:
       %shift(h, a, b) : {1n+Nsz(h, Nat.add(a, b)) == 1n+_ : Nat}
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Mat{_, +h, +m}:
+    case Bk.Term.Mat{_, +h, +m}:
       %shift(h, Nsz(m, a), b) : {1n+Nsz(h, Nsz(m, Nat.add(a, b))) == 1n+_ : Nat}
       %shift(m, a, b) : {1n+Nsz(h, Nsz(m, Nat.add(a, b))) == 1n+Nsz(h, _) : Nat}
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{+a0, +b0, +T}:
+    case Bk.Term.Eql{+a0, +b0, +T}:
       %shift(a0, Nsz(b0, Nsz(T, a)), b) : {1n+Nsz(a0, Nsz(b0, Nsz(T, Nat.add(a, b)))) == 1n+_ : Nat}
       %shift(b0, Nsz(T, a), b) : {1n+Nsz(a0, Nsz(b0, Nsz(T, Nat.add(a, b)))) == 1n+Nsz(a0, _) : Nat}
       %shift(T, a, b) : {1n+Nsz(a0, Nsz(b0, Nsz(T, Nat.add(a, b)))) == 1n+Nsz(a0, Nsz(b0, _)) : Nat}
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{+e, +P, +f}:
+    case Bk.Term.Rwt{+e, +P, +f}:
       %shift(e, Nsz(P, Nsz(f, a)), b) : {1n+Nsz(e, Nsz(P, Nsz(f, Nat.add(a, b)))) == 1n+_ : Nat}
       %shift(P, Nsz(f, a), b) : {1n+Nsz(e, Nsz(P, Nsz(f, Nat.add(a, b)))) == 1n+Nsz(e, _) : Nat}
       %shift(f, a, b) : {1n+Nsz(e, Nsz(P, Nsz(f, Nat.add(a, b)))) == 1n+Nsz(e, Nsz(P, _)) : Nat}
       {==}
 
 # the cells of a term: one per node
-def term_len(t: C.Term, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, C.Img.Def>, +at: U32, +acc: List<&2, C.Cir.Cell>) ->
-  {List.length(&2, C.Cir.Cell, C.Img.term(t, ks, es, at, acc)) == Nsz(t, List.length(&2, C.Cir.Cell, acc)) : Nat}:
+def term_len(t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Mc.Img.Def>, +at: U32, +acc: List<&2, Cr.Cir.Cell>) ->
+  {List.length(&2, Cr.Cir.Cell, Mc.Img.term(t, ks, es, at, acc)) == Nsz(t, List.length(&2, Cr.Cir.Cell, acc)) : Nat}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       {==}
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Ann{+x, +T}:
-      %term_len(T, ks, es, U32.add(U32.inc(at), C.Img.size(x)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Ann{x, T}, ks, es, at, acc)) == 1n+Nsz(x, _) : Nat}
-      %term_len(x, ks, es, U32.inc(at), C.Img.term(T, ks, es, U32.add(U32.inc(at), C.Img.size(x)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Ann{x, T}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Ann{+x, +T}:
+      %term_len(T, ks, es, U32.add(U32.inc(at), Mc.Img.size(x)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Ann{x, T}, ks, es, at, acc)) == 1n+Nsz(x, _) : Nat}
+      %term_len(x, ks, es, U32.inc(at), Mc.Img.term(T, ks, es, U32.add(U32.inc(at), Mc.Img.size(x)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Ann{x, T}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Let{+qq, +v, +f}:
-      %term_len(f, ks, es, U32.add(U32.inc(at), C.Img.size(v)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Let{qq, v, f}, ks, es, at, acc)) == 1n+Nsz(v, _) : Nat}
-      %term_len(v, ks, es, U32.inc(at), C.Img.term(f, ks, es, U32.add(U32.inc(at), C.Img.size(v)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Let{qq, v, f}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Let{+qq, +v, +f}:
+      %term_len(f, ks, es, U32.add(U32.inc(at), Mc.Img.size(v)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Let{qq, v, f}, ks, es, at, acc)) == 1n+Nsz(v, _) : Nat}
+      %term_len(v, ks, es, U32.inc(at), Mc.Img.term(f, ks, es, U32.add(U32.inc(at), Mc.Img.size(v)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Let{qq, v, f}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Typ{+q}:
-      %term_len(q, ks, es, U32.inc(at), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Typ{q}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Typ{+q}:
+      %term_len(q, ks, es, U32.inc(at), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Typ{q}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Min{+a0, +b0}:
-      %term_len(b0, ks, es, U32.add(U32.inc(at), C.Img.size(a0)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Min{a0, b0}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
-      %term_len(a0, ks, es, U32.inc(at), C.Img.term(b0, ks, es, U32.add(U32.inc(at), C.Img.size(a0)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Min{a0, b0}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Min{+a0, +b0}:
+      %term_len(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Min{a0, b0}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
+      %term_len(a0, ks, es, U32.inc(at), Mc.Img.term(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Min{a0, b0}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.All{+qq, +A, +B}:
-      %term_len(B, ks, es, U32.add(U32.inc(at), C.Img.size(A)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.All{qq, A, B}, ks, es, at, acc)) == 1n+Nsz(A, _) : Nat}
-      %term_len(A, ks, es, U32.inc(at), C.Img.term(B, ks, es, U32.add(U32.inc(at), C.Img.size(A)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.All{qq, A, B}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.All{+qq, +A, +B}:
+      %term_len(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.All{qq, A, B}, ks, es, at, acc)) == 1n+Nsz(A, _) : Nat}
+      %term_len(A, ks, es, U32.inc(at), Mc.Img.term(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.All{qq, A, B}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Lam{+qq, +f}:
-      %term_len(f, ks, es, U32.inc(at), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Lam{qq, f}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Lam{+qq, +f}:
+      %term_len(f, ks, es, U32.inc(at), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Lam{qq, f}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.App{+qq, +f, +x}:
-      %term_len(x, ks, es, U32.add(U32.inc(at), C.Img.size(f)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.App{qq, f, x}, ks, es, at, acc)) == 1n+Nsz(f, _) : Nat}
-      %term_len(f, ks, es, U32.inc(at), C.Img.term(x, ks, es, U32.add(U32.inc(at), C.Img.size(f)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.App{qq, f, x}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.App{+qq, +f, +x}:
+      %term_len(x, ks, es, U32.add(U32.inc(at), Mc.Img.size(f)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.App{qq, f, x}, ks, es, at, acc)) == 1n+Nsz(f, _) : Nat}
+      %term_len(f, ks, es, U32.inc(at), Mc.Img.term(x, ks, es, U32.add(U32.inc(at), Mc.Img.size(f)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.App{qq, f, x}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Sig{+qq, +A, +B}:
-      %term_len(B, ks, es, U32.add(U32.inc(at), C.Img.size(A)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Sig{qq, A, B}, ks, es, at, acc)) == 1n+Nsz(A, _) : Nat}
-      %term_len(A, ks, es, U32.inc(at), C.Img.term(B, ks, es, U32.add(U32.inc(at), C.Img.size(A)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Sig{qq, A, B}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Sig{+qq, +A, +B}:
+      %term_len(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Sig{qq, A, B}, ks, es, at, acc)) == 1n+Nsz(A, _) : Nat}
+      %term_len(A, ks, es, U32.inc(at), Mc.Img.term(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Sig{qq, A, B}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Tup{+qq, +a0, +b0}:
-      %term_len(b0, ks, es, U32.add(U32.inc(at), C.Img.size(a0)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Tup{qq, a0, b0}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
-      %term_len(a0, ks, es, U32.inc(at), C.Img.term(b0, ks, es, U32.add(U32.inc(at), C.Img.size(a0)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Tup{qq, a0, b0}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Tup{+qq, +a0, +b0}:
+      %term_len(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Tup{qq, a0, b0}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
+      %term_len(a0, ks, es, U32.inc(at), Mc.Img.term(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Tup{qq, a0, b0}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Prj{+h}:
-      %term_len(h, ks, es, U32.inc(at), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Prj{h}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Prj{+h}:
+      %term_len(h, ks, es, U32.inc(at), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Prj{h}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Mat{+qq, +h, +m}:
-      %term_len(m, ks, es, U32.add(U32.inc(at), C.Img.size(h)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Mat{qq, h, m}, ks, es, at, acc)) == 1n+Nsz(h, _) : Nat}
-      %term_len(h, ks, es, U32.inc(at), C.Img.term(m, ks, es, U32.add(U32.inc(at), C.Img.size(h)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Mat{qq, h, m}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Mat{+qq, +h, +m}:
+      %term_len(m, ks, es, U32.add(U32.inc(at), Mc.Img.size(h)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Mat{qq, h, m}, ks, es, at, acc)) == 1n+Nsz(h, _) : Nat}
+      %term_len(h, ks, es, U32.inc(at), Mc.Img.term(m, ks, es, U32.add(U32.inc(at), Mc.Img.size(h)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Mat{qq, h, m}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{+a0, +b0, +T}:
-      %term_len(T, ks, es, U32.add(U32.add(U32.inc(at), C.Img.size(a0)), C.Img.size(b0)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+Nsz(a0, Nsz(b0, _)) : Nat}
-      %term_len(b0, ks, es, U32.add(U32.inc(at), C.Img.size(a0)), C.Img.term(T, ks, es, U32.add(U32.add(U32.inc(at), C.Img.size(a0)), C.Img.size(b0)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
-      %term_len(a0, ks, es, U32.inc(at), C.Img.term(b0, ks, es, U32.add(U32.inc(at), C.Img.size(a0)), C.Img.term(T, ks, es, U32.add(U32.add(U32.inc(at), C.Img.size(a0)), C.Img.size(b0)), acc))) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Eql{+a0, +b0, +T}:
+      %term_len(T, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.size(b0)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+Nsz(a0, Nsz(b0, _)) : Nat}
+      %term_len(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.term(T, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.size(b0)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
+      %term_len(a0, ks, es, U32.inc(at), Mc.Img.term(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.term(T, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.size(b0)), acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{+e, +P, +f}:
-      %term_len(f, ks, es, U32.add(U32.add(U32.inc(at), C.Img.size(e)), C.Img.size(P)), acc) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+Nsz(e, Nsz(P, _)) : Nat}
-      %term_len(P, ks, es, U32.add(U32.inc(at), C.Img.size(e)), C.Img.term(f, ks, es, U32.add(U32.add(U32.inc(at), C.Img.size(e)), C.Img.size(P)), acc)) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+Nsz(e, _) : Nat}
-      %term_len(e, ks, es, U32.inc(at), C.Img.term(P, ks, es, U32.add(U32.inc(at), C.Img.size(e)), C.Img.term(f, ks, es, U32.add(U32.add(U32.inc(at), C.Img.size(e)), C.Img.size(P)), acc))) : {List.length(&2, C.Cir.Cell, C.Img.term(C.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Rwt{+e, +P, +f}:
+      %term_len(f, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.size(P)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+Nsz(e, Nsz(P, _)) : Nat}
+      %term_len(P, ks, es, U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.term(f, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.size(P)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+Nsz(e, _) : Nat}
+      %term_len(e, ks, es, U32.inc(at), Mc.Img.term(P, ks, es, U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.term(f, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.size(P)), acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+_ : Nat}
       {==}
 
 # Nsz with no addend, the addend added after
-def dec_r(t: C.Term, +b: Nat) -> {Nat.add(Nsz(t, 0n), b) == Nsz(t, b) : Nat}:
+def dec_r(t: Bk.Term, +b: Nat) -> {Nat.add(Nsz(t, 0n), b) == Nsz(t, b) : Nat}:
   Equal.sym(Nat, Nsz(t, b), Nat.add(Nsz(t, 0n), b), shift(t, 0n, b))
 
 # a + (b + c) = b + (a + c)
@@ -228,24 +231,24 @@ def add_self(+x: Nat) -> {Nat.add(x, x) == Nat.double(x) : Nat}:
       {==}
 
 # 1 + Nsz(t, n) = Nsz(t, 1 + n)
-def Nsz_succ(+t: C.Term, +n: Nat) -> {1n+Nsz(t, n) == Nsz(t, 1n+n) : Nat}:
+def Nsz_succ(+t: Bk.Term, +n: Nat) -> {1n+Nsz(t, n) == Nsz(t, 1n+n) : Nat}:
   %dec_r(t, n) : {1n+_ == Nsz(t, 1n+n) : Nat}
   %dec_r(t, 1n+n) : {1n+Nat.add(Nsz(t, 0n), n) == _ : Nat}
   Equal.sym(Nat, Nat.add(Nsz(t, 0n), 1n+n), 1n+Nat.add(Nsz(t, 0n), n), N.add_succ_r(Nsz(t, 0n), n))
 
 # Nsz is monotone in its addend
-def Nsz_mono(+t: C.Term, +a: Nat, +b: Nat, h: N.Le(a, b)) -> N.Le(Nsz(t, a), Nsz(t, b)):
+def Nsz_mono(+t: Bk.Term, +a: Nat, +b: Nat, h: N.Le(a, b)) -> N.Le(Nsz(t, a), Nsz(t, b)):
   %dec_r(t, a) : N.Le(_, Nsz(t, b))
   %dec_r(t, b) : N.Le(Nat.add(Nsz(t, 0n), a), _)
   N.add_mono(Nsz(t, 0n), Nsz(t, 0n), a, b, N.le_refl(Nsz(t, 0n)), h)
 
 # the addend is at most Nsz
-def Nsz_ge(+t: C.Term, +m: Nat) -> N.Le(m, Nsz(t, m)):
+def Nsz_ge(+t: Bk.Term, +m: Nat) -> N.Le(m, Nsz(t, m)):
   %dec_r(t, m) : N.Le(m, _)
   N.le_add_l(Nsz(t, 0n), m)
 
 # two Nsz commute
-def Nsz_swap(+v: C.Term, +w: C.Term, +m: Nat) -> {Nsz(w, Nsz(v, m)) == Nsz(v, Nsz(w, m)) : Nat}:
+def Nsz_swap(+v: Bk.Term, +w: Bk.Term, +m: Nat) -> {Nsz(w, Nsz(v, m)) == Nsz(v, Nsz(w, m)) : Nat}:
   %dec_r(v, m) : {Nsz(w, _) == Nsz(v, Nsz(w, m)) : Nat}
   %dec_r(w, Nat.add(Nsz(v, 0n), m)) : {_ == Nsz(v, Nsz(w, m)) : Nat}
   %dec_r(w, m) : {Nat.add(Nsz(w, 0n), Nat.add(Nsz(v, 0n), m)) == Nsz(v, _) : Nat}
@@ -256,13 +259,13 @@ def Nsz_swap(+v: C.Term, +w: C.Term, +m: Nat) -> {Nsz(w, Nsz(v, m)) == Nsz(v, Ns
 # ------------------
 
 # the nodes of a def, plus n
-def Wdef(d: C.Def, n: Nat) -> Nat:
+def Wdef(d: Bk.Def, n: Nat) -> Nat:
   match d:
-    case C.Def{_, T, v, _}:
+    case Bk.Def{_, T, v, _}:
       Nsz(T, Nsz(v, n))
 
 # the nodes of defs, plus n
-def Wd(ds: List<&2, C.Def>, n: Nat) -> Nat:
+def Wd(ds: List<&2, Bk.Def>, n: Nat) -> Nat:
   match ds:
     case Nil{}:
       n
@@ -270,19 +273,19 @@ def Wd(ds: List<&2, C.Def>, n: Nat) -> Nat:
       Wd(rest, Wdef(d, n))
 
 # the nodes of an item, plus n
-def Wi(it: C.Item, n: Nat) -> Nat:
+def Wi(it: Bk.Item, n: Nat) -> Nat:
   match it:
-    case C.Item.term{t}:
+    case Bk.Item.term{t}:
       Nsz(t, n)
-    case C.Item.def{d}:
+    case Bk.Item.def{d}:
       Wdef(d, n)
-    case C.Item.defs{ds}:
+    case Bk.Item.defs{ds}:
       Wd(ds, n)
     case _:
       n
 
 # the nodes of a stack, plus n
-def Ws(st: List<&2, C.Item>, n: Nat) -> Nat:
+def Ws(st: List<&2, Bk.Item>, n: Nat) -> Nat:
   match st:
     case Nil{}:
       n
@@ -290,20 +293,20 @@ def Ws(st: List<&2, C.Item>, n: Nat) -> Nat:
       Ws(rest, Wi(it, n))
 
 # the nodes of a reader's state
-def Wm(m: Maybe<List<&2, C.Item>>) -> Nat:
+def Wm(m: Maybe<List<&2, Bk.Item>>) -> Nat:
   match m:
     case None{}:
       0n
     case Some{s}:
       Ws(s, 0n)
 
-def Wdef_succ(d: C.Def, +n: Nat) -> {1n+Wdef(d, n) == Wdef(d, 1n+n) : Nat}:
+def Wdef_succ(d: Bk.Def, +n: Nat) -> {1n+Wdef(d, n) == Wdef(d, 1n+n) : Nat}:
   match d:
-    case C.Def{_, +T, +v, _}:
+    case Bk.Def{_, +T, +v, _}:
       %Nsz_succ(v, n) : {1n+Nsz(T, Nsz(v, n)) == Nsz(T, _) : Nat}
       Nsz_succ(T, Nsz(v, n))
 
-def Wd_succ(ds: List<&2, C.Def>, +n: Nat) -> {1n+Wd(ds, n) == Wd(ds, 1n+n) : Nat}:
+def Wd_succ(ds: List<&2, Bk.Def>, +n: Nat) -> {1n+Wd(ds, n) == Wd(ds, 1n+n) : Nat}:
   match ds:
     case Nil{}:
       {==}
@@ -311,26 +314,26 @@ def Wd_succ(ds: List<&2, C.Def>, +n: Nat) -> {1n+Wd(ds, n) == Wd(ds, 1n+n) : Nat
       %Wdef_succ(d, n) : {1n+Wd(rest, Wdef(d, n)) == Wd(rest, _) : Nat}
       Wd_succ(rest, Wdef(d, n))
 
-def Wi_succ(it: C.Item, +n: Nat) -> {1n+Wi(it, n) == Wi(it, 1n+n) : Nat}:
+def Wi_succ(it: Bk.Item, +n: Nat) -> {1n+Wi(it, n) == Wi(it, 1n+n) : Nat}:
   match it:
-    case C.Item.term{+t}:
+    case Bk.Item.term{+t}:
       Nsz_succ(t, n)
-    case C.Item.def{+d}:
+    case Bk.Item.def{+d}:
       Wdef_succ(d, n)
-    case C.Item.defs{+ds}:
+    case Bk.Item.defs{+ds}:
       Wd_succ(ds, n)
-    case C.Item.quan{_}:
+    case Bk.Item.quan{_}:
       {==}
-    case C.Item.nat{_}:
+    case Bk.Item.nat{_}:
       {==}
-    case C.Item.name{_}:
+    case Bk.Item.name{_}:
       {==}
-    case C.Item.names{_}:
+    case Bk.Item.names{_}:
       {==}
-    case C.Item.bool{_}:
+    case Bk.Item.bool{_}:
       {==}
 
-def Ws_succ(st: List<&2, C.Item>, +n: Nat) -> {Ws(st, 1n+n) == 1n+Ws(st, n) : Nat}:
+def Ws_succ(st: List<&2, Bk.Item>, +n: Nat) -> {Ws(st, 1n+n) == 1n+Ws(st, n) : Nat}:
   match st:
     case Nil{}:
       {==}
@@ -339,7 +342,7 @@ def Ws_succ(st: List<&2, C.Item>, +n: Nat) -> {Ws(st, 1n+n) == 1n+Ws(st, n) : Na
       Ws_succ(rest, Wi(it, n))
 
 # a node more on the stack
-def bump(+rest: List<&2, C.Item>, +x: Nat) -> N.Le(Ws(rest, 1n+x), 1n+Ws(rest, x)):
+def bump(+rest: List<&2, Bk.Item>, +x: Nat) -> N.Le(Ws(rest, 1n+x), 1n+Ws(rest, x)):
   %Ws_succ(rest, x) : N.Le(Ws(rest, 1n+x), _)
   N.le_refl(Ws(rest, 1n+x))
 
@@ -350,908 +353,908 @@ def le_up(+x: Nat) -> N.Le(x, 1n+x):
 # Each token adds at most one node
 # --------------------------------
 
-def succ.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.succ(s0)), 1n+Ws(s0, 0n)):
+def succ.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.succ(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, +rest}:
+    case Con{Bk.Item.nat{_}, +rest}:
       le_up(Ws(rest, 0n))
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def names.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.names(s0)), 1n+Ws(s0, 0n)):
+def names.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.names(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, +s1}:
+    case Con{Bk.Item.name{_}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, +rest}:
+        case Con{Bk.Item.names{_}, +rest}:
           le_up(Ws(rest, 0n))
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{_}, _}:
+        case Con{Bk.Item.term{_}, _}:
           Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def defs.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.defs(s0)), 1n+Ws(s0, 0n)):
+def defs.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.defs(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{+d}, +s1}:
+    case Con{Bk.Item.def{+d}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{_}, _}:
+        case Con{Bk.Item.term{_}, _}:
           Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{+ds}, +rest}:
+        case Con{Bk.Item.defs{+ds}, +rest}:
           le_up(Ws(rest, Wd(ds, Wdef(d, 0n))))
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def def.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.def(s0)), 1n+Ws(s0, 0n)):
+def def.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.def(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, +s1}:
+    case Con{Bk.Item.bool{_}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+v}, +s2}:
+        case Con{Bk.Item.term{+v}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, _}:
+            case Con{Bk.Item.quan{_}, _}:
               Unit{}
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{+T}, +s3}:
+            case Con{Bk.Item.term{+T}, +s3}:
               match s3:
                 case Nil{}:
                   Unit{}
-                case Con{C.Item.quan{_}, _}:
+                case Con{Bk.Item.quan{_}, _}:
                   Unit{}
-                case Con{C.Item.nat{_}, _}:
+                case Con{Bk.Item.nat{_}, _}:
                   Unit{}
-                case Con{C.Item.name{_}, +rest}:
+                case Con{Bk.Item.name{_}, +rest}:
                   le_up(Ws(rest, Nsz(T, Nsz(v, 0n))))
-                case Con{C.Item.names{_}, _}:
+                case Con{Bk.Item.names{_}, _}:
                   Unit{}
-                case Con{C.Item.bool{_}, _}:
+                case Con{Bk.Item.bool{_}, _}:
                   Unit{}
-                case Con{C.Item.term{_}, _}:
+                case Con{Bk.Item.term{_}, _}:
                   Unit{}
-                case Con{C.Item.def{_}, _}:
+                case Con{Bk.Item.def{_}, _}:
                   Unit{}
-                case Con{C.Item.defs{_}, _}:
+                case Con{Bk.Item.defs{_}, _}:
                   Unit{}
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def var.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.var(s0)), 1n+Ws(s0, 0n)):
+def var.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.var(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, +rest}:
+    case Con{Bk.Item.nat{_}, +rest}:
       bump(rest, 0n)
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def ref.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.ref(s0)), 1n+Ws(s0, 0n)):
+def ref.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.ref(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, +rest}:
+    case Con{Bk.Item.name{_}, +rest}:
       bump(rest, 0n)
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def ann.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.ann(s0)), 1n+Ws(s0, 0n)):
+def ann.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.ann(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+T}, +s1}:
+    case Con{Bk.Item.term{+T}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+x}, +rest}:
+        case Con{Bk.Item.term{+x}, +rest}:
           bump(rest, Nsz(x, Nsz(T, 0n)))
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def let.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.let(s0)), 1n+Ws(s0, 0n)):
+def let.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.let(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+f}, +s1}:
+    case Con{Bk.Item.term{+f}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+v}, +s2}:
+        case Con{Bk.Item.term{+v}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, +rest}:
+            case Con{Bk.Item.quan{_}, +rest}:
               bump(rest, Nsz(v, Nsz(f, 0n)))
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{_}, _}:
+            case Con{Bk.Item.term{_}, _}:
               Unit{}
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def typ.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.typ(s0)), 1n+Ws(s0, 0n)):
+def typ.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.typ(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+q}, +rest}:
+    case Con{Bk.Item.term{+q}, +rest}:
       bump(rest, Nsz(q, 0n))
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def min.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.min(s0)), 1n+Ws(s0, 0n)):
+def min.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.min(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+b}, +s1}:
+    case Con{Bk.Item.term{+b}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+a}, +rest}:
+        case Con{Bk.Item.term{+a}, +rest}:
           bump(rest, Nsz(a, Nsz(b, 0n)))
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def all.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.all(s0)), 1n+Ws(s0, 0n)):
+def all.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.all(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+B}, +s1}:
+    case Con{Bk.Item.term{+B}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+A}, +s2}:
+        case Con{Bk.Item.term{+A}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, +rest}:
+            case Con{Bk.Item.quan{_}, +rest}:
               bump(rest, Nsz(A, Nsz(B, 0n)))
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{_}, _}:
+            case Con{Bk.Item.term{_}, _}:
               Unit{}
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def lam.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.lam(s0)), 1n+Ws(s0, 0n)):
+def lam.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.lam(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+f}, +s1}:
+    case Con{Bk.Item.term{+f}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, +rest}:
+        case Con{Bk.Item.quan{_}, +rest}:
           bump(rest, Nsz(f, 0n))
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{_}, _}:
+        case Con{Bk.Item.term{_}, _}:
           Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def app.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.app(s0)), 1n+Ws(s0, 0n)):
+def app.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.app(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+x}, +s1}:
+    case Con{Bk.Item.term{+x}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+f}, +s2}:
+        case Con{Bk.Item.term{+f}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, +rest}:
+            case Con{Bk.Item.quan{_}, +rest}:
               bump(rest, Nsz(f, Nsz(x, 0n)))
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{_}, _}:
+            case Con{Bk.Item.term{_}, _}:
               Unit{}
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def sig.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.sig(s0)), 1n+Ws(s0, 0n)):
+def sig.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.sig(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+B}, +s1}:
+    case Con{Bk.Item.term{+B}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+A}, +s2}:
+        case Con{Bk.Item.term{+A}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, +rest}:
+            case Con{Bk.Item.quan{_}, +rest}:
               bump(rest, Nsz(A, Nsz(B, 0n)))
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{_}, _}:
+            case Con{Bk.Item.term{_}, _}:
               Unit{}
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def tup.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.tup(s0)), 1n+Ws(s0, 0n)):
+def tup.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.tup(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+b}, +s1}:
+    case Con{Bk.Item.term{+b}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+a}, +s2}:
+        case Con{Bk.Item.term{+a}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, +rest}:
+            case Con{Bk.Item.quan{_}, +rest}:
               bump(rest, Nsz(a, Nsz(b, 0n)))
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{_}, _}:
+            case Con{Bk.Item.term{_}, _}:
               Unit{}
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def prj.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.prj(s0)), 1n+Ws(s0, 0n)):
+def prj.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.prj(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+h}, +rest}:
+    case Con{Bk.Item.term{+h}, +rest}:
       bump(rest, Nsz(h, 0n))
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def enu.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.enu(s0)), 1n+Ws(s0, 0n)):
+def enu.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.enu(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, +rest}:
+    case Con{Bk.Item.names{_}, +rest}:
       bump(rest, 0n)
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def lab.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.lab(s0)), 1n+Ws(s0, 0n)):
+def lab.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.lab(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, +rest}:
+    case Con{Bk.Item.name{_}, +rest}:
       bump(rest, 0n)
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def mat.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.mat(s0)), 1n+Ws(s0, 0n)):
+def mat.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.mat(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+m}, +s1}:
+    case Con{Bk.Item.term{+m}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+h}, +s2}:
+        case Con{Bk.Item.term{+h}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, _}:
+            case Con{Bk.Item.quan{_}, _}:
               Unit{}
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, +rest}:
+            case Con{Bk.Item.name{_}, +rest}:
               bump(rest, Nsz(h, Nsz(m, 0n)))
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{_}, _}:
+            case Con{Bk.Item.term{_}, _}:
               Unit{}
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def eql.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.eql(s0)), 1n+Ws(s0, 0n)):
+def eql.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.eql(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+T}, +s1}:
+    case Con{Bk.Item.term{+T}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+b}, +s2}:
+        case Con{Bk.Item.term{+b}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, _}:
+            case Con{Bk.Item.quan{_}, _}:
               Unit{}
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{+a}, +rest}:
+            case Con{Bk.Item.term{+a}, +rest}:
               bump(rest, Nsz(a, Nsz(b, Nsz(T, 0n))))
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def rwt.le(s0: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.rwt(s0)), 1n+Ws(s0, 0n)):
+def rwt.le(s0: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.rwt(s0)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, _}:
+    case Con{Bk.Item.name{_}, _}:
       Unit{}
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{+f}, +s1}:
+    case Con{Bk.Item.term{+f}, +s1}:
       match s1:
         case Nil{}:
           Unit{}
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Unit{}
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Unit{}
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Unit{}
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Unit{}
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Unit{}
-        case Con{C.Item.term{+P}, +s2}:
+        case Con{Bk.Item.term{+P}, +s2}:
           match s2:
             case Nil{}:
               Unit{}
-            case Con{C.Item.quan{_}, _}:
+            case Con{Bk.Item.quan{_}, _}:
               Unit{}
-            case Con{C.Item.nat{_}, _}:
+            case Con{Bk.Item.nat{_}, _}:
               Unit{}
-            case Con{C.Item.name{_}, _}:
+            case Con{Bk.Item.name{_}, _}:
               Unit{}
-            case Con{C.Item.names{_}, _}:
+            case Con{Bk.Item.names{_}, _}:
               Unit{}
-            case Con{C.Item.bool{_}, _}:
+            case Con{Bk.Item.bool{_}, _}:
               Unit{}
-            case Con{C.Item.term{+e}, +rest}:
+            case Con{Bk.Item.term{+e}, +rest}:
               bump(rest, Nsz(e, Nsz(P, Nsz(f, 0n))))
-            case Con{C.Item.def{_}, _}:
+            case Con{Bk.Item.def{_}, _}:
               Unit{}
-            case Con{C.Item.defs{_}, _}:
+            case Con{Bk.Item.defs{_}, _}:
               Unit{}
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Unit{}
-        case Con{C.Item.defs{_}, _}:
+        case Con{Bk.Item.defs{_}, _}:
           Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def byte.le(s0: List<&2, C.Item>, b: Word(8n)) -> N.Le(Wm(C.Book.read.byte(s0, b)), 1n+Ws(s0, 0n)):
+def byte.le(s0: List<&2, Bk.Item>, b: Word(8n)) -> N.Le(Wm(Bk.Book.read.byte(s0, b)), 1n+Ws(s0, 0n)):
   match s0:
     case Nil{}:
       Unit{}
-    case Con{C.Item.quan{_}, _}:
+    case Con{Bk.Item.quan{_}, _}:
       Unit{}
-    case Con{C.Item.nat{_}, _}:
+    case Con{Bk.Item.nat{_}, _}:
       Unit{}
-    case Con{C.Item.name{_}, +rest}:
+    case Con{Bk.Item.name{_}, +rest}:
       le_up(Ws(rest, 0n))
-    case Con{C.Item.names{_}, _}:
+    case Con{Bk.Item.names{_}, _}:
       Unit{}
-    case Con{C.Item.bool{_}, _}:
+    case Con{Bk.Item.bool{_}, _}:
       Unit{}
-    case Con{C.Item.term{_}, _}:
+    case Con{Bk.Item.term{_}, _}:
       Unit{}
-    case Con{C.Item.def{_}, _}:
+    case Con{Bk.Item.def{_}, _}:
       Unit{}
-    case Con{C.Item.defs{_}, _}:
+    case Con{Bk.Item.defs{_}, _}:
       Unit{}
 
-def token32.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token32(n, st)), 1n+Ws(st, 0n)):
+def token32.le(n: Nat, +st: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.token32(n, st)), 1n+Ws(st, 0n)):
   match n:
     case 0n:
       rwt.le(st)
     case 1n+_:
       Unit{}
 
-def token24.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token24(n, st)), 1n+Ws(st, 0n)):
+def token24.le(n: Nat, +st: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.token24(n, st)), 1n+Ws(st, 0n)):
   match n:
     case 0n:
       tup.le(st)
@@ -1272,7 +1275,7 @@ def token24.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token24(n, 
     case 8n+p:
       token32.le(p, st)
 
-def token16.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token16(n, st)), 1n+Ws(st, 0n)):
+def token16.le(n: Nat, +st: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.token16(n, st)), 1n+Ws(st, 0n)):
   match n:
     case 0n:
       ann.le(st)
@@ -1293,7 +1296,7 @@ def token16.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token16(n, 
     case 8n+p:
       token24.le(p, st)
 
-def token8.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token8(n, st)), 1n+Ws(st, 0n)):
+def token8.le(n: Nat, +st: List<&2, Bk.Item>) -> N.Le(Wm(Bk.Book.read.token8(n, st)), 1n+Ws(st, 0n)):
   match n:
     case 0n:
       names.le(st)
@@ -1314,7 +1317,7 @@ def token8.le(n: Nat, +st: List<&2, C.Item>) -> N.Le(Wm(C.Book.read.token8(n, st
     case 8n+p:
       token16.le(p, st)
 
-def token.le(n: Nat, +st: List<&2, C.Item>, b: Word(8n)) -> N.Le(Wm(C.Book.read.token(n, st, b)), 1n+Ws(st, 0n)):
+def token.le(n: Nat, +st: List<&2, Bk.Item>, b: Word(8n)) -> N.Le(Wm(Bk.Book.read.token(n, st, b)), 1n+Ws(st, 0n)):
   match n:
     case 0n:
       le_up(Ws(st, 0n))
@@ -1335,7 +1338,7 @@ def token.le(n: Nat, +st: List<&2, C.Item>, b: Word(8n)) -> N.Le(Wm(C.Book.read.
     case 8n+p:
       token8.le(p, st)
 
-def step.le(st: Maybe<List<&2, C.Item>>, tag: Word(8n), b: Word(8n)) -> N.Le(Wm(C.Book.read.step(st, tag, b)), 1n+Wm(st)):
+def step.le(st: Maybe<List<&2, Bk.Item>>, tag: Word(8n), b: Word(8n)) -> N.Le(Wm(Bk.Book.read.step(st, tag, b)), 1n+Wm(st)):
   match st:
     case None{}:
       Unit{}
@@ -1347,19 +1350,19 @@ def step.le(st: Maybe<List<&2, C.Item>>, tag: Word(8n), b: Word(8n)) -> N.Le(Wm(
 # --------------
 
 # None is not Some
-def IsNone(m: Maybe<List<&2, C.Def>>) -> Type:
+def IsNone(m: Maybe<List<&2, Bk.Def>>) -> Type:
   match m:
     case None{}:
       Unit
     case Some{_}:
       Empty
 
-def none_ne_some(-ds: List<&2, C.Def>, e: {None{} == Some{ds} : Maybe<List<&2, C.Def>>}) -> Empty:
+def none_ne_some(-ds: List<&2, Bk.Def>, e: {None{} == Some{ds} : Maybe<List<&2, Bk.Def>>}) -> Empty:
   %e : IsNone(_)
   Unit{}
 
 # the nodes of a read book
-def Vd(m: Maybe<List<&2, C.Def>>) -> Nat:
+def Vd(m: Maybe<List<&2, Bk.Def>>) -> Nat:
   match m:
     case None{}:
       0n
@@ -1367,7 +1370,7 @@ def Vd(m: Maybe<List<&2, C.Def>>) -> Nat:
       Wd(ds, 0n)
 
 # the end of the reading: the book's nodes are the stack's
-def done.le(st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>, e: {C.Book.read.done(st) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
+def done.le(st: Maybe<List<&2, Bk.Item>>, +ds: List<&2, Bk.Def>, e: {Bk.Book.read.done(st) == Some{ds} : Maybe<List<&2, Bk.Def>>}) ->
   N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)):
   match st:
     case None{}:
@@ -1376,21 +1379,21 @@ def done.le(st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>, e: {C.Book.read.d
       match s:
         case Nil{}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.quan{_}, _}:
+        case Con{Bk.Item.quan{_}, _}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.nat{_}, _}:
+        case Con{Bk.Item.nat{_}, _}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.name{_}, _}:
+        case Con{Bk.Item.name{_}, _}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.names{_}, _}:
+        case Con{Bk.Item.names{_}, _}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.bool{_}, _}:
+        case Con{Bk.Item.bool{_}, _}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.term{_}, _}:
+        case Con{Bk.Item.term{_}, _}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.def{_}, _}:
+        case Con{Bk.Item.def{_}, _}:
           Empty.absurd(N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), 0n)), none_ne_some(ds, e))
-        case Con{C.Item.defs{+ds0}, t}:
+        case Con{Bk.Item.defs{+ds0}, t}:
           match t:
             case Nil{}:
               %e : N.Le(Nat.double(Vd(_)), Nat.add(Nat.double(Wd(ds0, 0n)), 0n))
@@ -1400,8 +1403,8 @@ def done.le(st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>, e: {C.Book.read.d
 
 # the reading: twice the book's nodes are at most twice the stack's plus the
 # bytes left
-def go.le(xs: List<&2, Word(8n)>, st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>,
-  e: {C.Book.read.go(xs, st) == Some{ds} : Maybe<List<&2, C.Def>>}
+def go.le(xs: List<&2, Word(8n)>, st: Maybe<List<&2, Bk.Item>>, +ds: List<&2, Bk.Def>,
+  e: {Bk.Book.read.go(xs, st) == Some{ds} : Maybe<List<&2, Bk.Def>>}
 ) -> N.Le(Nat.double(Wd(ds, 0n)), Nat.add(Nat.double(Wm(st)), List.length(&2, Word(8n), xs))):
   match xs:
     case Nil{}:
@@ -1415,17 +1418,17 @@ def go.le(xs: List<&2, Word(8n)>, st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.D
           +dw = Nat.double(Wd(ds, 0n))
           N.le_succ(dw, 1n+l, N.le_succ(dw, l, go.le(rest, None{}, ds, e)))
         case Some{+s}:
-          +w1 = Nat.double(Wm(C.Book.read.token(Word.to_nat(8n, tag), s, b)))
+          +w1 = Nat.double(Wm(Bk.Book.read.token(Word.to_nat(8n, tag), s, b)))
           +w0 = Nat.double(Ws(s, 0n))
           +l = List.length(&2, Word(8n), rest)
-          +ih = go.le(rest, C.Book.read.token(Word.to_nat(8n, tag), s, b), ds, e)
-          +hs = N.double_mono(Wm(C.Book.read.token(Word.to_nat(8n, tag), s, b)), 1n+Ws(s, 0n), token.le(Word.to_nat(8n, tag), s, b))
+          +ih = go.le(rest, Bk.Book.read.token(Word.to_nat(8n, tag), s, b), ds, e)
+          +hs = N.double_mono(Wm(Bk.Book.read.token(Word.to_nat(8n, tag), s, b)), 1n+Ws(s, 0n), token.le(Word.to_nat(8n, tag), s, b))
           +h = N.le_trans(Nat.double(Wd(ds, 0n)), Nat.add(w1, l), 2n+Nat.add(w0, l), ih,
             N.add_mono(w1, 2n+w0, l, l, hs, N.le_refl(l)))
           N.le_rw_r(Nat.double(Wd(ds, 0n)), 2n+Nat.add(w0, l), Nat.add(w0, 2n+l), add_two(w0, l), h)
 
 # a book read from p has at most |p| / 2 nodes
-def read.le(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
+def read.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}) ->
   N.Le(Nat.double(Wd(ds, 0n)), List.length(&2, Word(8n), p)):
   go.le(p, Some{Nil{}}, ds, rd)
 
@@ -1433,63 +1436,63 @@ def read.le(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) ==
 # ------------------
 
 # the 290 cells of the prefix
-def prefix_len(+main: U32, +acc: List<&2, C.Cir.Cell>) ->
-  {List.length(&2, C.Cir.Cell, C.Img.prefix(main, acc)) == Nat.add(290n, List.length(&2, C.Cir.Cell, acc)) : Nat}:
+def prefix_len(+main: U32, +acc: List<&2, Cr.Cir.Cell>) ->
+  {List.length(&2, Cr.Cir.Cell, Mc.Img.prefix(main, acc)) == Nat.add(290n, List.length(&2, Cr.Cir.Cell, acc)) : Nat}:
   {==}
 
 # the nodes of the bodies of ds, plus n
-def Bl(ds: List<&2, C.Def>, n: Nat) -> Nat:
+def Bl(ds: List<&2, Bk.Def>, n: Nat) -> Nat:
   match ds:
     case Nil{}:
       n
-    case Con{C.Def{_, _, v, _}, rest}:
+    case Con{Bk.Def{_, _, v, _}, rest}:
       Nsz(v, Bl(rest, n))
 
 # the cells of the bodies: one per node
-def bodies_len(ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, C.Img.Def>, +at: U32) ->
-  {List.length(&2, C.Cir.Cell, C.Img.bodies(ds, ks, es, at)) == Bl(ds, 0n) : Nat}:
+def bodies_len(ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Mc.Img.Def>, +at: U32) ->
+  {List.length(&2, Cr.Cir.Cell, Mc.Img.bodies(ds, ks, es, at)) == Bl(ds, 0n) : Nat}:
   match ds:
     case Nil{}:
       {==}
-    case Con{C.Def{+kk, +TT, +v, +oo}, +rest}:
-      %bodies_len(rest, ks, es, U32.add(at, C.Img.size(v))) : {List.length(&2, C.Cir.Cell, C.Img.bodies(Con{C.Def{kk, TT, v, oo}, rest}, ks, es, at)) == Nsz(v, _) : Nat}
-      term_len(v, ks, es, at, C.Img.bodies(rest, ks, es, U32.add(at, C.Img.size(v))))
+    case Con{Bk.Def{+kk, +TT, +v, +oo}, +rest}:
+      %bodies_len(rest, ks, es, U32.add(at, Mc.Img.size(v))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.bodies(Con{Bk.Def{kk, TT, v, oo}, rest}, ks, es, at)) == Nsz(v, _) : Nat}
+      term_len(v, ks, es, at, Mc.Img.bodies(rest, ks, es, U32.add(at, Mc.Img.size(v))))
 
 # the cells of the image: 290, then one per node of the bodies
-def cells_len(+ds: List<&2, C.Def>) -> {List.length(&2, C.Cir.Cell, C.Img.cells(ds)) == Nat.add(290n, Bl(ds, 0n)) : Nat}:
-  +ks = C.Img.known(C.Img.names.defs(ds))
-  +es = C.Img.defs(ds, C.I.book())
-  %bodies_len(ds, ks, es, C.I.book()) : {List.length(&2, C.Cir.Cell, C.Img.cells(ds)) == Nat.add(290n, _) : Nat}
-  prefix_len(C.Img.ref(es, C.Program.name.main()), C.Img.bodies(ds, ks, es, C.I.book()))
+def cells_len(+ds: List<&2, Bk.Def>) -> {List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)) == Nat.add(290n, Bl(ds, 0n)) : Nat}:
+  +ks = Mc.Img.known(Mc.Img.names.defs(ds))
+  +es = Mc.Img.defs(ds, Mc.I.book())
+  %bodies_len(ds, ks, es, Mc.I.book()) : {List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)) == Nat.add(290n, _) : Nat}
+  prefix_len(Mc.Img.ref(es, Pg.Program.name.main()), Mc.Img.bodies(ds, ks, es, Mc.I.book()))
 
 # a node of a body moves through the bodies
-def bl_swap(ds: List<&2, C.Def>, +v: C.Term, +a: Nat) -> {Bl(ds, Nsz(v, a)) == Nsz(v, Bl(ds, a)) : Nat}:
+def bl_swap(ds: List<&2, Bk.Def>, +v: Bk.Term, +a: Nat) -> {Bl(ds, Nsz(v, a)) == Nsz(v, Bl(ds, a)) : Nat}:
   match ds:
     case Nil{}:
       {==}
-    case Con{C.Def{_, _, +w, _}, +rest}:
+    case Con{Bk.Def{_, _, +w, _}, +rest}:
       %Nsz_swap(v, w, Bl(rest, a)) : {Nsz(w, Bl(rest, Nsz(v, a))) == _ : Nat}
       %bl_swap(rest, v, a) : {Nsz(w, Bl(rest, Nsz(v, a))) == Nsz(w, _) : Nat}
       {==}
 
 # the nodes of the bodies are at most the nodes of the defs
-def blwd(ds: List<&2, C.Def>, +a: Nat, +b: Nat, h: N.Le(a, b)) -> N.Le(Bl(ds, a), Wd(ds, b)):
+def blwd(ds: List<&2, Bk.Def>, +a: Nat, +b: Nat, h: N.Le(a, b)) -> N.Le(Bl(ds, a), Wd(ds, b)):
   match ds:
     case Nil{}:
       h
-    case Con{C.Def{_, +T, +v, _}, +rest}:
+    case Con{Bk.Def{_, +T, +v, _}, +rest}:
       %bl_swap(rest, v, a) : N.Le(_, Wd(rest, Nsz(T, Nsz(v, b))))
       blwd(rest, Nsz(v, a), Nsz(T, Nsz(v, b)),
         N.le_trans(Nsz(v, a), Nsz(v, b), Nsz(T, Nsz(v, b)), Nsz_mono(v, a, b, h), Nsz_ge(T, Nsz(v, b))))
 
 # the U32 count of a list is at most its length
-def enc_len_le(xs: List<&2, C.Cir.Cell>) -> N.Le(U32.to_nat(C.Wasm.encode.len(C.Cir.Cell, xs)), List.length(&2, C.Cir.Cell, xs)):
+def enc_len_le(xs: List<&2, Cr.Cir.Cell>) -> N.Le(U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, xs)), List.length(&2, Cr.Cir.Cell, xs)):
   match xs:
     case Nil{}:
       Unit{}
     case Con{_, +rest}:
-      N.le_trans(U32.to_nat(U32.inc(C.Wasm.encode.len(C.Cir.Cell, rest))), 1n+U32.to_nat(C.Wasm.encode.len(C.Cir.Cell, rest)),
-        1n+List.length(&2, C.Cir.Cell, rest), N.U32.inc_le(C.Wasm.encode.len(C.Cir.Cell, rest)), enc_len_le(rest))
+      N.le_trans(U32.to_nat(U32.inc(Cr.Wasm.encode.len(Cr.Cir.Cell, rest))), 1n+U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, rest)),
+        1n+List.length(&2, Cr.Cir.Cell, rest), N.U32.inc_le(Cr.Wasm.encode.len(Cr.Cir.Cell, rest)), enc_len_le(rest))
 
 # Halves and powers
 # -----------------
@@ -1591,9 +1594,9 @@ def lt_of_ne(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), ne: {Cmp.is_eq(c) == F
 def small.step2(
   b: Bool, +n: U32, +M: U32, +h: Word(8n), +rest: List<&2, Word(8n)>,
   eb: {U32.is_eq(n, M) == b : Bool},
-  e: {C.Img.small.if(b, u => C.Img.small(rest, U32.inc(n))) == True{} : Bool},
+  e: {Mc.Img.small.if(b, u => Mc.Img.small(rest, U32.inc(n))) == True{} : Bool},
   hn: N.Le(U32.to_nat(n), U32.to_nat(M)),
-  ih: {C.Img.small(rest, U32.inc(n)) == True{} : Bool} -> N.Le(U32.to_nat(U32.inc(n)), U32.to_nat(M)) ->
+  ih: {Mc.Img.small(rest, U32.inc(n)) == True{} : Bool} -> N.Le(U32.to_nat(U32.inc(n)), U32.to_nat(M)) ->
     N.Le(Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, Word(8n), rest)), U32.to_nat(M))
 ) -> N.Le(Nat.add(U32.to_nat(n), List.length(&2, Word(8n), Con{h, rest})), U32.to_nat(M)):
   match b:
@@ -1612,7 +1615,7 @@ def small.step2(
 
 # Img.small(xs, n) true, n <= M = 67108863: n + |xs| <= M
 def small.le(xs: List<&2, Word(8n)>, +n: U32, +M: U32, +eM: {M == 67108863 : U32}, hn: N.Le(U32.to_nat(n), U32.to_nat(M)),
-  e: {C.Img.small(xs, n) == True{} : Bool}
+  e: {Mc.Img.small(xs, n) == True{} : Bool}
 ) -> N.Le(Nat.add(U32.to_nat(n), List.length(&2, Word(8n), xs)), U32.to_nat(M)):
   match xs:
     case Nil{}:
@@ -1650,16 +1653,16 @@ def D_succ(+q: Nat, +x: Nat) -> {N.D(1n+q, x) == Nat.double(N.D(q, x)) : Nat}:
 
 # a book of at most m bytes, 1 + m = 2h, 290 <= h, has an image of fewer
 # than 2h cells (m and h stay variables: the checker never expands them)
-def core.len(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
-  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
+def core.len(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +m: Nat, +h25: Nat,
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   hl: N.Le(List.length(&2, Word(8n), p), m),
   vm: {1n+m == Nat.double(h25) : Nat},
   h290: N.Le(290n, h25)
-) -> N.Le(1n+List.length(&2, C.Cir.Cell, C.Img.cells(ds)), Nat.double(h25)):
+) -> N.Le(1n+List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)), Nat.double(h25)):
   +l = List.length(&2, Word(8n), p)
   +w = Wd(ds, 0n)
   +b = Bl(ds, 0n)
-  +cells = C.Img.cells(ds)
+  +cells = Mc.Img.cells(ds)
   +h2 = N.le_trans(Nat.double(w), l, m, read.le(p, ds, rd), hl)
   +h3 = N.le_rw_r(1n+Nat.double(w), 1n+m, Nat.double(h25), vm, h2)
   +h4 = half_lt(w, h25, h3)
@@ -1667,33 +1670,33 @@ def core.len(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
   +h6 = N.add_mono(290n, h25, 1n+b, h25, h290, h5)
   +h7 = N.le_rw_r(Nat.add(290n, 1n+b), Nat.add(h25, h25), Nat.double(h25), add_self(h25), h6)
   +h8 = N.le_rw_l(Nat.add(290n, 1n+b), 1n+Nat.add(290n, b), Nat.double(h25), N.add_succ_r(290n, b), h7)
-  lt_rw_l(Nat.add(290n, b), List.length(&2, C.Cir.Cell, cells), Nat.double(h25),
-    Equal.sym(Nat, List.length(&2, C.Cir.Cell, cells), Nat.add(290n, b), cells_len(ds)), h8)
+  lt_rw_l(Nat.add(290n, b), List.length(&2, Cr.Cir.Cell, cells), Nat.double(h25),
+    Equal.sym(Nat, List.length(&2, Cr.Cir.Cell, cells), Nat.add(290n, b), cells_len(ds)), h8)
 
 # the same, for the U32 count of the cells
-def core(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +m: Nat, +h25: Nat,
-  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
+def core(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +m: Nat, +h25: Nat,
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   hl: N.Le(List.length(&2, Word(8n), p), m),
   vm: {1n+m == Nat.double(h25) : Nat},
   h290: N.Le(290n, h25)
-) -> N.Le(1n+U32.to_nat(C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds))), Nat.double(h25)):
-  +cells = C.Img.cells(ds)
-  +len = C.Wasm.encode.len(C.Cir.Cell, cells)
-  N.le_trans(1n+U32.to_nat(len), 1n+List.length(&2, C.Cir.Cell, cells), Nat.double(h25), enc_len_le(cells),
+) -> N.Le(1n+U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, Mc.Img.cells(ds))), Nat.double(h25)):
+  +cells = Mc.Img.cells(ds)
+  +len = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
+  N.le_trans(1n+U32.to_nat(len), 1n+List.length(&2, Cr.Cir.Cell, cells), Nat.double(h25), enc_len_le(cells),
     core.len(p, ds, m, h25, rd, hl, vm, h290))
 
 # the image of a book of fewer than 2^26 bytes has fewer than 2^26 cells
 def img.small.proof(
-  +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>,
-  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
-  small: {C.Img.small(p, 0) == True{} : Bool}
-) -> {U32.is_lt(C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds)), 67108864) == True{} : Bool}:
+  +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>,
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  small: {Mc.Img.small(p, 0) == True{} : Bool}
+) -> {U32.is_lt(Cr.Wasm.encode.len(Cr.Cir.Cell, Mc.Img.cells(ds)), 67108864) == True{} : Bool}:
   +l = List.length(&2, Word(8n), p)
   +m = U32.to_nat(67108863)
   +d9 = N.D(9n, 1n)
   +h25 = N.D(25n, 1n)
   +h26 = N.D(26n, 1n)
-  +len = C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds))
+  +len = Cr.Wasm.encode.len(Cr.Cir.Cell, Mc.Img.cells(ds))
   +h0 = small.le(p, 0, 67108863, {==}, le_zero_u32(67108863), small)
   +h1 = N.le_rw_l(Nat.add(U32.to_nat(0), l), l, m, N.zero_add(l), h0)
   +vm = Equal.trans(Nat, 1n+m, h26, Nat.double(h25), N.val_M(), D_succ(25n, 1n))
@@ -1724,16 +1727,16 @@ def lt_nat(+a: Nat, +b: Nat, h: N.Le(1n+a, b)) -> {Nat.is_lt(a, b) == True{} : B
 # the image of a book of fewer than 2^26 bytes has fewer than 2^26 cells,
 # counted as a Nat
 def img.small.nat(
-  +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>,
-  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
-  small: {C.Img.small(p, 0) == True{} : Bool}
-) -> {Nat.is_lt(List.length(&2, C.Cir.Cell, C.Img.cells(ds)), U32.to_nat(67108864)) == True{} : Bool}:
+  +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>,
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  small: {Mc.Img.small(p, 0) == True{} : Bool}
+) -> {Nat.is_lt(List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)), U32.to_nat(67108864)) == True{} : Bool}:
   +l = List.length(&2, Word(8n), p)
   +m = U32.to_nat(67108863)
   +d9 = N.D(9n, 1n)
   +h25 = N.D(25n, 1n)
   +h26 = N.D(26n, 1n)
-  +n = List.length(&2, C.Cir.Cell, C.Img.cells(ds))
+  +n = List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds))
   +h0 = small.le(p, 0, 67108863, {==}, le_zero_u32(67108863), small)
   +h1 = N.le_rw_l(Nat.add(U32.to_nat(0), l), l, m, N.zero_add(l), h0)
   +vm = Equal.trans(Nat, 1n+m, h26, Nat.double(h25), N.val_M(), D_succ(25n, 1n))

@@ -1,16 +1,16 @@
 import Base
-import ./impl.bend as C
+import ../../book/impl.bend as Bk
 
-def isApp(t: C.Term) -> Bool:
+def isApp(t: Bk.Term) -> Bool:
   match t:
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       True{}
     case _:
       False{}
 
-def t.k(+t: C.Term) -> {isApp(t) == isApp(t) : Bool}:
+def t.k(+t: Bk.Term) -> {isApp(t) == isApp(t) : Bool}:
   match t:
-    case C.Term.Var{i}:
+    case Bk.Term.Var{i}:
       ?h
     case _:
       {==}

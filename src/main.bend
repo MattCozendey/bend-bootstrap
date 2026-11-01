@@ -7,8 +7,8 @@
 # --verdict accepts for this file holds them.
 
 import Base
-import ./impl.bend as C
-import ./proof.bend as P
+import ./compiler/impl.bend as C
+import ./compiler/proof.bend as P
 
 def main(+p: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   C.Compiler.compile(p)

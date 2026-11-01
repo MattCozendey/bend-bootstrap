@@ -22,92 +22,95 @@
 # no proof computes 2^32.
 
 import Base
-import ./impl.bend as C
-import ./proof_leb.bend as L
-import ./proof_need.bend as PN
+import ../../shared/shared.bend as Sd
+import ../../wasm/impl.bend as Wa
+import ./impl.bend as Cr
+import ../impl.bend as C
+import ./leb_round_trip.bend as L
+import ../need_big.bend as PN
 
 # The module
 # ----------
 
 # run's body before the halt's code: the start and the first loop
-def H.pre() -> List<&2, C.Wasm.Instr>:
-  [C.Cir.i.const(2), C.Cir.i.set(C.Cir.l.status()),
-    C.Cir.i.get(0), C.Cir.i.get(1), C.Cir.i.op(C.Wasm.Op.add{}), C.Cir.i.set(C.Cir.l.addr()),
-    C.Cir.i.const(U32.inc(0)), C.Cir.i.set(C.Cir.l.next()),
-    C.Wasm.Instr.block{[C.Wasm.Instr.loop{Con{C.Cir.i.get(C.Cir.l.next()), C.Cir.code.at(
-      [C.Cir.i.get(C.Cir.l.addr()), C.Cir.i.op(C.Wasm.Op.ge_u{}), C.Wasm.Instr.br_if{1},
-       C.Cir.i.get(C.Cir.l.next()), C.Cir.i.const(1), C.Cir.i.op(C.Wasm.Op.add{}), C.Cir.i.set(C.Cir.l.next()),
-       C.Wasm.Instr.br{0}])}}]}]
+def H.pre() -> List<&2, Wa.Wasm.Instr>:
+  [Cr.Cir.i.const(2), Cr.Cir.i.set(Cr.Cir.l.status()),
+    Cr.Cir.i.get(0), Cr.Cir.i.get(1), Cr.Cir.i.op(Wa.Wasm.Op.add{}), Cr.Cir.i.set(Cr.Cir.l.addr()),
+    Cr.Cir.i.const(U32.inc(0)), Cr.Cir.i.set(Cr.Cir.l.next()),
+    Wa.Wasm.Instr.block{[Wa.Wasm.Instr.loop{Con{Cr.Cir.i.get(Cr.Cir.l.next()), Cr.Cir.code.at(
+      [Cr.Cir.i.get(Cr.Cir.l.addr()), Cr.Cir.i.op(Wa.Wasm.Op.ge_u{}), Wa.Wasm.Instr.br_if{1},
+       Cr.Cir.i.get(Cr.Cir.l.next()), Cr.Cir.i.const(1), Cr.Cir.i.op(Wa.Wasm.Op.add{}), Cr.Cir.i.set(Cr.Cir.l.next()),
+       Wa.Wasm.Instr.br{0}])}}]}]
 
 # run's body, with the halt's result code chosen by z (U32.is_zero(s))
-def H.body(+s: U32, z: Bool) -> List<&2, C.Wasm.Instr>:
-  List.append(&2, C.Wasm.Instr, H.pre(), [
-    C.Wasm.Instr.block{[C.Wasm.Instr.block{Con{C.Cir.i.const(s), Con{C.Cir.i.set(C.Cir.l.status()),
-      List.append(&2, C.Wasm.Instr, C.Cir.code.result(z), [C.Wasm.Instr.br{U32.from_nat(1n)}])}}}]},
-    C.Cir.i.get(C.Cir.l.status())])
+def H.body(+s: U32, z: Bool) -> List<&2, Wa.Wasm.Instr>:
+  List.append(&2, Wa.Wasm.Instr, H.pre(), [
+    Wa.Wasm.Instr.block{[Wa.Wasm.Instr.block{Con{Cr.Cir.i.const(s), Con{Cr.Cir.i.set(Cr.Cir.l.status()),
+      List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(z), [Wa.Wasm.Instr.br{U32.from_nat(1n)}])}}}]},
+    Cr.Cir.i.get(Cr.Cir.l.status())])
 
-def H.mod(+s: U32, z: Bool) -> C.Wasm.Module:
-  C.Wasm.Module{
-    [C.Cir.alloc(0), C.Wasm.Func{2n, 1n, 6n, H.body(s, z)}],
-    Some{C.Wasm.Limits{C.Cir.pages(C.Cir.input.at(0)), None{}}},
-    [C.Wasm.Export.memory{C.Wasm.name.memory()}, C.Wasm.Export.func{C.Wasm.name.alloc(), 0},
-     C.Wasm.Export.func{C.Wasm.name.run(), 1}],
-    Some{C.Wasm.Segment{20, []}}}
+def H.mod(+s: U32, z: Bool) -> Wa.Wasm.Module:
+  Wa.Wasm.Module{
+    [Cr.Cir.alloc(0), Wa.Wasm.Func{2n, 1n, 6n, H.body(s, z)}],
+    Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(0)), None{}}},
+    [Wa.Wasm.Export.memory{Wa.Wasm.name.memory()}, Wa.Wasm.Export.func{Wa.Wasm.name.alloc(), 0},
+     Wa.Wasm.Export.func{Wa.Wasm.name.run(), 1}],
+    Some{Wa.Wasm.Segment{20, []}}}
 
 # the bytes of run's body after those of s
 def H.R() -> List<&2, Word(8n)>:
-  C.Wasm.encode.instrs([C.Cir.i.set(C.Cir.l.status()), C.Wasm.Instr.br{1}],
-    Con{C.Byte.from_u32(11), Con{C.Byte.from_u32(11), C.Wasm.encode.instrs([C.Cir.i.get(C.Cir.l.status())], [C.Byte.from_u32(11)])}})
+  Cr.Wasm.encode.instrs([Cr.Cir.i.set(Cr.Cir.l.status()), Wa.Wasm.Instr.br{1}],
+    Con{Sd.Byte.from_u32(11), Con{Sd.Byte.from_u32(11), Cr.Wasm.encode.instrs([Cr.Cir.i.get(Cr.Cir.l.status())], [Sd.Byte.from_u32(11)])}})
 
 # the bytes of run's body, with cs for the bytes of s
 def H.BB(cs: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
-  C.Wasm.encode.instrs(H.pre(), Con{C.Byte.from_u32(2), Con{C.Byte.from_u32(64), Con{C.Byte.from_u32(2), Con{C.Byte.from_u32(64), Con{C.Byte.from_u32(65), List.append(&2, Word(8n), cs, H.R())}}}}})
+  Cr.Wasm.encode.instrs(H.pre(), Con{Sd.Byte.from_u32(2), Con{Sd.Byte.from_u32(64), Con{Sd.Byte.from_u32(2), Con{Sd.Byte.from_u32(64), Con{Sd.Byte.from_u32(65), List.append(&2, Word(8n), cs, H.R())}}}}})
 
 # the bytes of run's code: its locals, then its body
 def H.RUNC(cs: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
-  List.append(&2, Word(8n), C.Wasm.encode.locals(6n), H.BB(cs))
+  List.append(&2, Word(8n), Cr.Wasm.encode.locals(6n), H.BB(cs))
 
 # the bytes of H.mod(s, False), with cs for the bytes of s
 def H.bytes(cs: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
-  +fs = {[C.Cir.alloc(0), C.Wasm.Func{2n, 1n, 6n, []}] : List<&2, C.Wasm.Func>}
-  +es = {[C.Wasm.Export.memory{C.Wasm.name.memory()}, C.Wasm.Export.func{C.Wasm.name.alloc(), 0},
-     C.Wasm.Export.func{C.Wasm.name.run(), 1}] : List<&2, C.Wasm.Export>}
-  Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(97), Con{C.Byte.from_u32(115), Con{C.Byte.from_u32(109), Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(0), Con{C.Byte.from_u32(0),
-    C.Wasm.encode.section(1, C.Wasm.encode.vec(2, C.Wasm.encode.functypes(fs)),
-      C.Wasm.encode.section(3, C.Wasm.encode.vec(2, C.Wasm.encode.indices(fs, 0)),
-        C.Wasm.encode.memory(Some{C.Wasm.Limits{C.Cir.pages(C.Cir.input.at(0)), None{}}},
-          C.Wasm.encode.section(7, C.Wasm.encode.vec(C.Wasm.encode.len(C.Wasm.Export, es), C.Wasm.encode.exports(es)),
-            C.Wasm.encode.section(10, C.Wasm.encode.vec(2, List.append(&2, Word(8n), C.Wasm.encode.code(C.Cir.alloc(0)),
-              List.append(&2, Word(8n), C.Wasm.encode.sized(H.RUNC(cs)), []))),
-              C.Wasm.encode.data(Some{C.Wasm.Segment{20, []}}))))))}}}}}}}}
+  +fs = {[Cr.Cir.alloc(0), Wa.Wasm.Func{2n, 1n, 6n, []}] : List<&2, Wa.Wasm.Func>}
+  +es = {[Wa.Wasm.Export.memory{Wa.Wasm.name.memory()}, Wa.Wasm.Export.func{Wa.Wasm.name.alloc(), 0},
+     Wa.Wasm.Export.func{Wa.Wasm.name.run(), 1}] : List<&2, Wa.Wasm.Export>}
+  Con{Sd.Byte.from_u32(0), Con{Sd.Byte.from_u32(97), Con{Sd.Byte.from_u32(115), Con{Sd.Byte.from_u32(109), Con{Sd.Byte.from_u32(1), Con{Sd.Byte.from_u32(0), Con{Sd.Byte.from_u32(0), Con{Sd.Byte.from_u32(0),
+    Cr.Wasm.encode.section(1, Cr.Wasm.encode.vec(2, Cr.Wasm.encode.functypes(fs)),
+      Cr.Wasm.encode.section(3, Cr.Wasm.encode.vec(2, Cr.Wasm.encode.indices(fs, 0)),
+        Cr.Wasm.encode.memory(Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(0)), None{}}},
+          Cr.Wasm.encode.section(7, Cr.Wasm.encode.vec(Cr.Wasm.encode.len(Wa.Wasm.Export, es), Cr.Wasm.encode.exports(es)),
+            Cr.Wasm.encode.section(10, Cr.Wasm.encode.vec(2, List.append(&2, Word(8n), Cr.Wasm.encode.code(Cr.Cir.alloc(0)),
+              List.append(&2, Word(8n), Cr.Wasm.encode.sized(H.RUNC(cs)), []))),
+              Cr.Wasm.encode.data(Some{Wa.Wasm.Segment{20, []}}))))))}}}}}}}}
 
 # Decoding
 # --------
 
-def H.code_of(f: C.Wasm.Func) -> C.Wasm.Code:
+def H.code_of(f: Wa.Wasm.Func) -> Wa.Wasm.Code:
   match f:
-    case C.Wasm.Func{_, _, n, b}:
-      C.Wasm.Code{n, b}
+    case Wa.Wasm.Func{_, _, n, b}:
+      Wa.Wasm.Code{n, b}
 
 # the module's parts, from the codes x
-def H.parts(x: Maybe<&2, List<&2, C.Wasm.Code>>) -> Maybe<&2, C.Wasm.Module>:
-  Maybe.bind(&2, List<&2, C.Wasm.Code>, C.Wasm.Module, x, cs =>
-    Maybe.bind(&2, List<&2, C.Wasm.Func>, C.Wasm.Module,
-      C.Wasm.funcs.of([C.Wasm.Type{1n, 1n}, C.Wasm.Type{2n, 1n}], [0, 1], cs), fs =>
-      Some{C.Wasm.Module{fs, Some{C.Wasm.Limits{1, None{}}},
-        [C.Wasm.Export.memory{C.Wasm.name.memory()}, C.Wasm.Export.func{C.Wasm.name.alloc(), 0},
-         C.Wasm.Export.func{C.Wasm.name.run(), 1}],
-        Some{C.Wasm.Segment{20, []}}}}))
+def H.parts(x: Maybe<&2, List<&2, Wa.Wasm.Code>>) -> Maybe<&2, Wa.Wasm.Module>:
+  Maybe.bind(&2, List<&2, Wa.Wasm.Code>, Wa.Wasm.Module, x, cs =>
+    Maybe.bind(&2, List<&2, Wa.Wasm.Func>, Wa.Wasm.Module,
+      Wa.Wasm.funcs.of([Wa.Wasm.Type{1n, 1n}, Wa.Wasm.Type{2n, 1n}], [0, 1], cs), fs =>
+      Some{Wa.Wasm.Module{fs, Some{Wa.Wasm.Limits{1, None{}}},
+        [Wa.Wasm.Export.memory{Wa.Wasm.name.memory()}, Wa.Wasm.Export.func{Wa.Wasm.name.alloc(), 0},
+         Wa.Wasm.Export.func{Wa.Wasm.name.run(), 1}],
+        Some{Wa.Wasm.Segment{20, []}}}}))
 
 # the module, from x, what run's code decodes to
-def H.Q(x: Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>) -> Maybe<&2, C.Wasm.Module>:
-  H.parts(C.Wasm.decode.done(List<&2, C.Wasm.Code>, C.Wasm.decode.cons(C.Wasm.Code, H.code_of(C.Cir.alloc(0)),
-    C.Wasm.decode.bind(C.Wasm.Code, List<&2, C.Wasm.Code>, C.Wasm.decode.whole(C.Wasm.Code, x, []), y => r =>
-      C.Wasm.decode.cons(C.Wasm.Code, y, C.Wasm.decode.items(~C.Wasm.Code, ~C.Wasm.decode.code, 0n, r))))))
+def H.Q(x: Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Code>>) -> Maybe<&2, Wa.Wasm.Module>:
+  H.parts(Wa.Wasm.decode.done(List<&2, Wa.Wasm.Code>, Wa.Wasm.decode.cons(Wa.Wasm.Code, H.code_of(Cr.Cir.alloc(0)),
+    Wa.Wasm.decode.bind(Wa.Wasm.Code, List<&2, Wa.Wasm.Code>, Wa.Wasm.decode.whole(Wa.Wasm.Code, x, []), y => r =>
+      Wa.Wasm.decode.cons(Wa.Wasm.Code, y, Wa.Wasm.decode.items(~Wa.Wasm.Code, ~Wa.Wasm.decode.code, 0n, r))))))
 
 # with at most 5 bytes for s, the module decodes up to run's code
 def H.E1(cs: List<&2, Word(8n)>, ok: {Nat.is_le(List.length(&2, Word(8n), cs), 5n) == True{} : Bool}) ->
-  {C.Wasm.decode.module(H.bytes(cs)) == H.Q(C.Wasm.decode.func(H.RUNC(cs))) : Maybe<&2, C.Wasm.Module>}:
+  {Wa.Wasm.decode.module(H.bytes(cs)) == H.Q(Wa.Wasm.decode.func(H.RUNC(cs))) : Maybe<&2, Wa.Wasm.Module>}:
   match cs:
     case Nil{}:
       {==}
@@ -122,71 +125,71 @@ def H.E1(cs: List<&2, Word(8n)>, ok: {Nat.is_le(List.length(&2, Word(8n), cs), 5
     case Con{+a, Con{+b, Con{+c, Con{+d, Con{+e, Nil{}}}}}}:
       {==}
     case Con{_, Con{_, Con{_, Con{_, Con{_, Con{_, _}}}}}}:
-      L.ft({C.Wasm.decode.module(H.bytes(cs)) == H.Q(C.Wasm.decode.func(H.RUNC(cs))) : Maybe<&2, C.Wasm.Module>}, ok)
+      L.ft({Wa.Wasm.decode.module(H.bytes(cs)) == H.Q(Wa.Wasm.decode.func(H.RUNC(cs))) : Maybe<&2, Wa.Wasm.Module>}, ok)
 
-def H.E3(+s: U32) -> {H.Q(Some{C.Wasm.Decoded{C.Wasm.Code{6n, H.body(s, False{})}, []}}) == Some{H.mod(s, False{})} : Maybe<&2, C.Wasm.Module>}:
+def H.E3(+s: U32) -> {H.Q(Some{Wa.Wasm.Decoded{Wa.Wasm.Code{6n, H.body(s, False{})}, []}}) == Some{H.mod(s, False{})} : Maybe<&2, Wa.Wasm.Module>}:
   {==}
 
 # the open blocks at the halt's i32.const
-def H.ST() -> List<&2, C.Wasm.Open>:
-  [C.Wasm.Open{False{}, []}, C.Wasm.Open{False{}, List.reverse(&2, C.Wasm.Instr, H.pre())}]
+def H.ST() -> List<&2, Wa.Wasm.Open>:
+  [Wa.Wasm.Open{False{}, []}, Wa.Wasm.Open{False{}, List.reverse(&2, Wa.Wasm.Instr, H.pre())}]
 
 def H.c3a(cs: List<&2, Word(8n)>) ->
-  {C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)) ==
-    C.Wasm.decode.instrs.go(24n+List.length(&2, Word(8n), List.append(&2, Word(8n), cs, H.R())),
-      Con{C.Byte.from_u32(65), List.append(&2, Word(8n), cs, H.R())}, [], H.ST()) : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}:
+  {Wa.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)) ==
+    Wa.Wasm.decode.instrs.go(24n+List.length(&2, Word(8n), List.append(&2, Word(8n), cs, H.R())),
+      Con{Sd.Byte.from_u32(65), List.append(&2, Word(8n), cs, H.R())}, [], H.ST()) : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}:
   {==}
 
 def H.c3c(+s: U32, -cs: List<&2, Word(8n)>) ->
-  {C.Wasm.decode.instrs.go(23n+List.length(&2, Word(8n), List.append(&2, Word(8n), cs, H.R())), H.R(), [C.Wasm.Instr.const{s}], H.ST()) ==
-    Some{C.Wasm.Decoded{H.body(s, False{}), []}} : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}:
+  {Wa.Wasm.decode.instrs.go(23n+List.length(&2, Word(8n), List.append(&2, Word(8n), cs, H.R())), H.R(), [Wa.Wasm.Instr.const{s}], H.ST()) ==
+    Some{Wa.Wasm.Decoded{H.body(s, False{}), []}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}:
   {==}
 
 # the head of an i32.const whose bytes decode to s
 def H.tok(+s: U32, +bs: List<&2, Word(8n)>, +R: List<&2, Word(8n)>,
-  h: {C.Wasm.decode.sleb(32n, bs) == Some{C.Wasm.Decoded{s, R}} : Maybe<&2, C.Wasm.Decoded<U32>>}) ->
-  {C.Wasm.decode.token(65n, bs) == Some{C.Wasm.Decoded{C.Wasm.Token.instr{C.Wasm.Instr.const{s}}, R}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Token>>}:
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<U32>>, C.Wasm.decode.sleb(32n, bs), Some{C.Wasm.Decoded{s, R}}, h) :
-    {C.Wasm.decode.bind(U32, C.Wasm.Token, _, m => r => C.Wasm.decode.as(C.Wasm.Instr.const{m}, r)) ==
-      Some{C.Wasm.Decoded{C.Wasm.Token.instr{C.Wasm.Instr.const{s}}, R}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Token>>}
+  h: {Wa.Wasm.decode.sleb(32n, bs) == Some{Wa.Wasm.Decoded{s, R}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}) ->
+  {Wa.Wasm.decode.token(65n, bs) == Some{Wa.Wasm.Decoded{Wa.Wasm.Token.instr{Wa.Wasm.Instr.const{s}}, R}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Token>>}:
+  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<U32>>, Wa.Wasm.decode.sleb(32n, bs), Some{Wa.Wasm.Decoded{s, R}}, h) :
+    {Wa.Wasm.decode.bind(U32, Wa.Wasm.Token, _, m => r => Wa.Wasm.decode.as(Wa.Wasm.Instr.const{m}, r)) ==
+      Some{Wa.Wasm.Decoded{Wa.Wasm.Token.instr{Wa.Wasm.Instr.const{s}}, R}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Token>>}
   {==}
 
 # the decoder reads such an i32.const in one step
-def H.go_const(+p: Nat, +s: U32, +bs: List<&2, Word(8n)>, +R: List<&2, Word(8n)>, +xs: List<&2, C.Wasm.Instr>, +st: List<&2, C.Wasm.Open>,
-  h: {C.Wasm.decode.sleb(32n, bs) == Some{C.Wasm.Decoded{s, R}} : Maybe<&2, C.Wasm.Decoded<U32>>}) ->
-  {C.Wasm.decode.instrs.go(1n+p, Con{C.Byte.from_u32(65), bs}, xs, st) == C.Wasm.decode.instrs.go(p, R, Con{C.Wasm.Instr.const{s}, xs}, st) : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}:
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<C.Wasm.Token>>, C.Wasm.decode.token(65n, bs),
-    Some{C.Wasm.Decoded{C.Wasm.Token.instr{C.Wasm.Instr.const{s}}, R}}, H.tok(s, bs, R, h)) :
-    {C.Wasm.decode.instrs.then(_, xs, st, r => ys => st2 => C.Wasm.decode.instrs.go(p, r, ys, st2)) ==
-      C.Wasm.decode.instrs.go(p, R, Con{C.Wasm.Instr.const{s}, xs}, st) : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}
+def H.go_const(+p: Nat, +s: U32, +bs: List<&2, Word(8n)>, +R: List<&2, Word(8n)>, +xs: List<&2, Wa.Wasm.Instr>, +st: List<&2, Wa.Wasm.Open>,
+  h: {Wa.Wasm.decode.sleb(32n, bs) == Some{Wa.Wasm.Decoded{s, R}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}) ->
+  {Wa.Wasm.decode.instrs.go(1n+p, Con{Sd.Byte.from_u32(65), bs}, xs, st) == Wa.Wasm.decode.instrs.go(p, R, Con{Wa.Wasm.Instr.const{s}, xs}, st) : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}:
+  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Token>>, Wa.Wasm.decode.token(65n, bs),
+    Some{Wa.Wasm.Decoded{Wa.Wasm.Token.instr{Wa.Wasm.Instr.const{s}}, R}}, H.tok(s, bs, R, h)) :
+    {Wa.Wasm.decode.instrs.then(_, xs, st, r => ys => st2 => Wa.Wasm.decode.instrs.go(p, r, ys, st2)) ==
+      Wa.Wasm.decode.instrs.go(p, R, Con{Wa.Wasm.Instr.const{s}, xs}, st) : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
   {==}
 
 # run's body decodes, when the bytes cs decode to s
 def H.c3(+s: U32, +cs: List<&2, Word(8n)>,
-  h: {C.Wasm.decode.sleb(32n, List.append(&2, Word(8n), cs, H.R())) == Some{C.Wasm.Decoded{s, H.R()}} : Maybe<&2, C.Wasm.Decoded<U32>>}) ->
-  {C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)) ==
-    Some{C.Wasm.Decoded{H.body(s, False{}), []}} : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}:
+  h: {Wa.Wasm.decode.sleb(32n, List.append(&2, Word(8n), cs, H.R())) == Some{Wa.Wasm.Decoded{s, H.R()}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}) ->
+  {Wa.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)) ==
+    Some{Wa.Wasm.Decoded{H.body(s, False{}), []}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}:
   +bs = List.append(&2, Word(8n), cs, H.R())
   +p = {23n+List.length(&2, Word(8n), bs) : Nat}
-  Equal.trans(Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>,
-    C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)),
-    C.Wasm.decode.instrs.go(p, H.R(), [C.Wasm.Instr.const{s}], H.ST()),
-    Some{C.Wasm.Decoded{H.body(s, False{}), []}},
-    Equal.trans(Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>,
-      C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)),
-      C.Wasm.decode.instrs.go(1n+p, Con{C.Byte.from_u32(65), bs}, [], H.ST()),
-      C.Wasm.decode.instrs.go(p, H.R(), [C.Wasm.Instr.const{s}], H.ST()),
+  Equal.trans(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>,
+    Wa.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)),
+    Wa.Wasm.decode.instrs.go(p, H.R(), [Wa.Wasm.Instr.const{s}], H.ST()),
+    Some{Wa.Wasm.Decoded{H.body(s, False{}), []}},
+    Equal.trans(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>,
+      Wa.Wasm.decode.instrs(1n+List.length(&2, Word(8n), H.BB(cs)), H.BB(cs)),
+      Wa.Wasm.decode.instrs.go(1n+p, Con{Sd.Byte.from_u32(65), bs}, [], H.ST()),
+      Wa.Wasm.decode.instrs.go(p, H.R(), [Wa.Wasm.Instr.const{s}], H.ST()),
       H.c3a(cs), H.go_const(p, s, bs, H.R(), [], H.ST(), h)),
     H.c3c(s, cs))
 
 # a function's code of 6 locals, whose body decodes to b
-def H.f1(+bs: List<&2, Word(8n)>, -b: List<&2, C.Wasm.Instr>,
-  h: {C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), bs), bs) == Some{C.Wasm.Decoded{b, []}} : Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>}) ->
-  {C.Wasm.decode.func(Con{C.Byte.from_u32(1), Con{C.Byte.from_u32(6), Con{C.Byte.from_u32(127), bs}}}) == Some{C.Wasm.Decoded{C.Wasm.Code{6n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}:
-  %Equal.sym(Maybe<&2, C.Wasm.Decoded<List<&2, C.Wasm.Instr>>>, C.Wasm.decode.instrs(1n+List.length(&2, Word(8n), bs), bs),
-    Some{C.Wasm.Decoded{b, []}}, h) :
-    {C.Wasm.decode.bind(List<&2, C.Wasm.Instr>, C.Wasm.Code, _, x => r => Some{C.Wasm.Decoded{C.Wasm.Code{U32.to_nat(6), x}, r}}) ==
-      Some{C.Wasm.Decoded{C.Wasm.Code{6n, b}, []}} : Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>}
+def H.f1(+bs: List<&2, Word(8n)>, -b: List<&2, Wa.Wasm.Instr>,
+  h: {Wa.Wasm.decode.instrs(1n+List.length(&2, Word(8n), bs), bs) == Some{Wa.Wasm.Decoded{b, []}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}) ->
+  {Wa.Wasm.decode.func(Con{Sd.Byte.from_u32(1), Con{Sd.Byte.from_u32(6), Con{Sd.Byte.from_u32(127), bs}}}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Code{6n, b}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Code>>}:
+  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>, Wa.Wasm.decode.instrs(1n+List.length(&2, Word(8n), bs), bs),
+    Some{Wa.Wasm.Decoded{b, []}}, h) :
+    {Wa.Wasm.decode.bind(List<&2, Wa.Wasm.Instr>, Wa.Wasm.Code, _, x => r => Some{Wa.Wasm.Decoded{Wa.Wasm.Code{U32.to_nat(6), x}, r}}) ==
+      Some{Wa.Wasm.Decoded{Wa.Wasm.Code{6n, b}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Code>>}
   {==}
 
 def H.le0(p: Nat) -> {Nat.is_le(0n, p) == True{} : Bool}:
@@ -197,8 +200,8 @@ def H.le0(p: Nat) -> {Nat.is_le(0n, p) == True{} : Bool}:
       {==}
 
 def H.len_if(c: Bool, +b: U32, +p: Nat, +r: U32,
-  ih: {Nat.is_le(List.length(&2, Word(8n), C.Wasm.encode.sleb.go(p, r)), p) == True{} : Bool}) ->
-  {Nat.is_le(List.length(&2, Word(8n), C.Wasm.encode.leb.if(c, b, u => C.Wasm.encode.sleb.go(p, r))), 1n+p) == True{} : Bool}:
+  ih: {Nat.is_le(List.length(&2, Word(8n), Cr.Wasm.encode.sleb.go(p, r)), p) == True{} : Bool}) ->
+  {Nat.is_le(List.length(&2, Word(8n), Cr.Wasm.encode.leb.if(c, b, u => Cr.Wasm.encode.sleb.go(p, r))), 1n+p) == True{} : Bool}:
   match c:
     case True{}:
       H.le0(p)
@@ -206,7 +209,7 @@ def H.len_if(c: Bool, +b: U32, +p: Nat, +r: U32,
       ih
 
 # the signed LEB128 bytes of k rounds are at most k
-def H.len_go(+k: Nat, +v: U32) -> {Nat.is_le(List.length(&2, Word(8n), C.Wasm.encode.sleb.go(k, v)), k) == True{} : Bool}:
+def H.len_go(+k: Nat, +v: U32) -> {Nat.is_le(List.length(&2, Word(8n), Cr.Wasm.encode.sleb.go(k, v)), k) == True{} : Bool}:
   match k:
     case 0n:
       {==}
@@ -218,80 +221,80 @@ def H.len_go(+k: Nat, +v: U32) -> {Nat.is_le(List.length(&2, Word(8n), C.Wasm.en
 
 # the module that halts with s decodes, when s is not 0
 def H.decoded(+s: U32, ez: {U32.is_zero(s) == False{} : Bool}) ->
-  {C.Wasm.decode.module(C.Compiler.halt(s)) == Some{H.mod(s, False{})} : Maybe<&2, C.Wasm.Module>}:
+  {Wa.Wasm.decode.module(C.Compiler.halt(s)) == Some{H.mod(s, False{})} : Maybe<&2, Wa.Wasm.Module>}:
   %Equal.sym(Bool, U32.is_zero(s), False{}, ez) :
-    {C.Wasm.decode.module(C.Wasm.encode(H.mod(s, _))) == Some{H.mod(s, False{})} : Maybe<&2, C.Wasm.Module>}
-  +cs = C.Wasm.encode.sleb(s)
+    {Wa.Wasm.decode.module(Cr.Wasm.encode(H.mod(s, _))) == Some{H.mod(s, False{})} : Maybe<&2, Wa.Wasm.Module>}
+  +cs = Cr.Wasm.encode.sleb(s)
   +f1 = H.f1(H.BB(cs), H.body(s, False{}), H.c3(s, cs, L.sleb.round(s, H.R())))
-  Equal.trans(Maybe<&2, C.Wasm.Module>, C.Wasm.decode.module(H.bytes(cs)),
-    H.Q(Some{C.Wasm.Decoded{C.Wasm.Code{6n, H.body(s, False{})}, []}}),
+  Equal.trans(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(H.bytes(cs)),
+    H.Q(Some{Wa.Wasm.Decoded{Wa.Wasm.Code{6n, H.body(s, False{})}, []}}),
     Some{H.mod(s, False{})},
-    Equal.trans(Maybe<&2, C.Wasm.Module>, C.Wasm.decode.module(H.bytes(cs)),
-      H.Q(C.Wasm.decode.func(H.RUNC(cs))),
-      H.Q(Some{C.Wasm.Decoded{C.Wasm.Code{6n, H.body(s, False{})}, []}}),
+    Equal.trans(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(H.bytes(cs)),
+      H.Q(Wa.Wasm.decode.func(H.RUNC(cs))),
+      H.Q(Some{Wa.Wasm.Decoded{Wa.Wasm.Code{6n, H.body(s, False{})}, []}}),
       H.E1(cs, H.len_go(5n, s)),
-      Equal.cong(Maybe<&2, C.Wasm.Decoded<C.Wasm.Code>>, Maybe<&2, C.Wasm.Module>, x => H.Q(x),
-        C.Wasm.decode.func(H.RUNC(cs)), Some{C.Wasm.Decoded{C.Wasm.Code{6n, H.body(s, False{})}, []}}, f1)),
+      Equal.cong(Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Code>>, Maybe<&2, Wa.Wasm.Module>, x => H.Q(x),
+        Wa.Wasm.decode.func(H.RUNC(cs)), Some{Wa.Wasm.Decoded{Wa.Wasm.Code{6n, H.body(s, False{})}, []}}, f1)),
     H.E3(s))
 
 # Running
 # -------
 
 # a call that gives the results [s], traps or runs out of fuel
-def H.Good(s: U32, c: C.Wasm.Call) -> Type:
+def H.Good(s: U32, c: Wa.Wasm.Call) -> Type:
   match c:
-    case C.Wasm.Call.done{rs, _, _}:
+    case Wa.Wasm.Call.done{rs, _, _}:
       {rs == [s] : List<&2, U32>}
-    case C.Wasm.Call.trap{_}:
+    case Wa.Wasm.Call.trap{_}:
       Unit
-    case C.Wasm.Call.not_done{}:
+    case Wa.Wasm.Call.not_done{}:
       Unit
 
-def H.Good.plus(-s: U32, c: C.Wasm.Call, g: H.Good(s, c)) -> H.Good(s, C.Wasm.call.plus(c)):
+def H.Good.plus(-s: U32, c: Wa.Wasm.Call, g: H.Good(s, c)) -> H.Good(s, Wa.Wasm.call.plus(c)):
   match c:
-    case C.Wasm.Call.done{rs, m, n}:
+    case Wa.Wasm.Call.done{rs, m, n}:
       g
-    case C.Wasm.Call.trap{m}:
+    case Wa.Wasm.Call.trap{m}:
       g
-    case C.Wasm.Call.not_done{}:
+    case Wa.Wasm.Call.not_done{}:
       g
 
 # the result of n more steps, until the function ends or traps
-def H.steps(n: Nat, st: C.Wasm.Step) -> C.Wasm.Step:
+def H.steps(n: Nat, st: Wa.Wasm.Step) -> Wa.Wasm.Step:
   match n:
     case 0n:
       st
     case 1n+p:
       match st:
-        case C.Wasm.Step.next{fr, m}:
-          H.steps(p, C.Wasm.step(fr, m))
-        case C.Wasm.Step.done{rs, m}:
-          C.Wasm.Step.done{rs, m}
-        case C.Wasm.Step.trap{m}:
-          C.Wasm.Step.trap{m}
+        case Wa.Wasm.Step.next{fr, m}:
+          H.steps(p, Wa.Wasm.step(fr, m))
+        case Wa.Wasm.Step.done{rs, m}:
+          Wa.Wasm.Step.done{rs, m}
+        case Wa.Wasm.Step.trap{m}:
+          Wa.Wasm.Step.trap{m}
 
 # what Good asks of the run that goes on from st with the fuel F
-def H.G(s: U32, F: Nat, st: C.Wasm.Step) -> Type:
+def H.G(s: U32, F: Nat, st: Wa.Wasm.Step) -> Type:
   match st:
-    case C.Wasm.Step.next{fr, m}:
-      H.Good(s, C.Wasm.call.go(F, fr, m))
-    case C.Wasm.Step.done{rs, _}:
+    case Wa.Wasm.Step.next{fr, m}:
+      H.Good(s, Wa.Wasm.call.go(F, fr, m))
+    case Wa.Wasm.Step.done{rs, _}:
       {rs == [s] : List<&2, U32>}
-    case C.Wasm.Step.trap{_}:
+    case Wa.Wasm.Step.trap{_}:
       Unit
 
-def H.G.stepped(-s: U32, F: Nat, st: C.Wasm.Step, h: H.G(s, F, st)) ->
-  H.Good(s, C.Wasm.call.stepped(st, g => m => C.Wasm.call.go(F, g, m))):
+def H.G.stepped(-s: U32, F: Nat, st: Wa.Wasm.Step, h: H.G(s, F, st)) ->
+  H.Good(s, Wa.Wasm.call.stepped(st, g => m => Wa.Wasm.call.go(F, g, m))):
   match st:
-    case C.Wasm.Step.next{fr, m}:
-      H.Good.plus(s, C.Wasm.call.go(F, fr, m), h)
-    case C.Wasm.Step.done{rs, m}:
+    case Wa.Wasm.Step.next{fr, m}:
+      H.Good.plus(s, Wa.Wasm.call.go(F, fr, m), h)
+    case Wa.Wasm.Step.done{rs, m}:
       h
-    case C.Wasm.Step.trap{m}:
+    case Wa.Wasm.Step.trap{m}:
       h
 
 # a run is good when it is good after n steps, with the fuel left
-def H.ext(n: Nat, +st: C.Wasm.Step, +F: Nat, -s: U32, g: H.G(s, Nat.sub(F, n), H.steps(n, st))) -> H.G(s, F, st):
+def H.ext(n: Nat, +st: Wa.Wasm.Step, +F: Nat, -s: U32, g: H.G(s, Nat.sub(F, n), H.steps(n, st))) -> H.G(s, F, st):
   match n:
     case 0n:
       match F:
@@ -301,63 +304,63 @@ def H.ext(n: Nat, +st: C.Wasm.Step, +F: Nat, -s: U32, g: H.G(s, Nat.sub(F, n), H
           g
     case 1n+p:
       match st:
-        case C.Wasm.Step.next{fr, m}:
+        case Wa.Wasm.Step.next{fr, m}:
           match F:
             case 0n:
               Unit{}
             case 1n+F1:
-              H.G.stepped(s, F1, C.Wasm.step(fr, m), H.ext(p, C.Wasm.step(fr, m), F1, s, g))
-        case C.Wasm.Step.done{rs, m}:
+              H.G.stepped(s, F1, Wa.Wasm.step(fr, m), H.ext(p, Wa.Wasm.step(fr, m), F1, s, g))
+        case Wa.Wasm.Step.done{rs, m}:
           g
-        case C.Wasm.Step.trap{m}:
+        case Wa.Wasm.Step.trap{m}:
           g
 
 # The function run
 # ----------------
 
 # the first loop's body
-def H.LB() -> List<&2, C.Wasm.Instr>:
-  Con{C.Cir.i.get(C.Cir.l.next()), C.Cir.code.at(
-    [C.Cir.i.get(C.Cir.l.addr()), C.Cir.i.op(C.Wasm.Op.ge_u{}), C.Wasm.Instr.br_if{1},
-     C.Cir.i.get(C.Cir.l.next()), C.Cir.i.const(1), C.Cir.i.op(C.Wasm.Op.add{}), C.Cir.i.set(C.Cir.l.next()),
-     C.Wasm.Instr.br{0}])}
+def H.LB() -> List<&2, Wa.Wasm.Instr>:
+  Con{Cr.Cir.i.get(Cr.Cir.l.next()), Cr.Cir.code.at(
+    [Cr.Cir.i.get(Cr.Cir.l.addr()), Cr.Cir.i.op(Wa.Wasm.Op.ge_u{}), Wa.Wasm.Instr.br_if{1},
+     Cr.Cir.i.get(Cr.Cir.l.next()), Cr.Cir.i.const(1), Cr.Cir.i.op(Wa.Wasm.Op.add{}), Cr.Cir.i.set(Cr.Cir.l.next()),
+     Wa.Wasm.Instr.br{0}])}
 
 # run's body after the first loop
-def H.AFTER(+s: U32) -> List<&2, C.Wasm.Instr>:
-  [C.Wasm.Instr.block{[C.Wasm.Instr.block{[C.Wasm.Instr.const{s}, C.Wasm.Instr.local_set{2}, C.Wasm.Instr.br{1}]}]},
-   C.Wasm.Instr.local_get{2}]
+def H.AFTER(+s: U32) -> List<&2, Wa.Wasm.Instr>:
+  [Wa.Wasm.Instr.block{[Wa.Wasm.Instr.block{[Wa.Wasm.Instr.const{s}, Wa.Wasm.Instr.local_set{2}, Wa.Wasm.Instr.br{1}]}]},
+   Wa.Wasm.Instr.local_get{2}]
 
 # the labels inside the first loop
-def H.LL(+s: U32) -> List<&2, C.Wasm.Label>:
-  [C.Wasm.Label{Some{H.LB()}, [], 0n}, C.Wasm.Label{None{}, H.AFTER(s), 0n}]
+def H.LL(+s: U32) -> List<&2, Wa.Wasm.Label>:
+  [Wa.Wasm.Label{Some{H.LB()}, [], 0n}, Wa.Wasm.Label{None{}, H.AFTER(s), 0n}]
 
 def H.locals(+a: U32, +k: U32, +nx: U32, +tmp: U32) -> List<&2, U32>:
   [a, k, 2, nx, 0, tmp, 0, U32.add(a, k)]
 
 # the first loop, at the start of a round
-def H.loopfr(+s: U32, +a: U32, +k: U32, +nx: U32, +tmp: U32) -> C.Wasm.Frame:
-  C.Wasm.Frame{H.LB(), H.LL(s), 1n, [], H.locals(a, k, nx, tmp)}
+def H.loopfr(+s: U32, +a: U32, +k: U32, +nx: U32, +tmp: U32) -> Wa.Wasm.Frame:
+  Wa.Wasm.Frame{H.LB(), H.LL(s), 1n, [], H.locals(a, k, nx, tmp)}
 
 # the loop's condition: 20 × next >= a + n
 def H.C(+a: U32, +k: U32, +nx: U32) -> Bool:
   U32.is_ge(U32.add(U32.shln(nx, U32.to_nat(U32.and(4, 31))), U32.shln(nx, U32.to_nat(U32.and(2, 31)))), U32.add(a, k))
 
 # the first loop, at its br_if, with the condition c
-def H.brfr(+s: U32, +a: U32, +k: U32, +nx: U32, c: Bool) -> C.Wasm.Frame:
-  C.Wasm.Frame{[C.Wasm.Instr.br_if{1}, C.Wasm.Instr.local_get{3}, C.Wasm.Instr.const{1}, C.Wasm.Instr.op{C.Wasm.Op.add{}},
-    C.Wasm.Instr.local_set{3}, C.Wasm.Instr.br{0}], H.LL(s), 1n, [Bool.to_u32(c)], H.locals(a, k, nx, nx)}
+def H.brfr(+s: U32, +a: U32, +k: U32, +nx: U32, c: Bool) -> Wa.Wasm.Frame:
+  Wa.Wasm.Frame{[Wa.Wasm.Instr.br_if{1}, Wa.Wasm.Instr.local_get{3}, Wa.Wasm.Instr.const{1}, Wa.Wasm.Instr.op{Wa.Wasm.Op.add{}},
+    Wa.Wasm.Instr.local_set{3}, Wa.Wasm.Instr.br{0}], H.LL(s), 1n, [Bool.to_u32(c)], H.locals(a, k, nx, nx)}
 
 # after the first loop
-def H.exfr(+s: U32, +a: U32, +k: U32, +nx: U32) -> C.Wasm.Frame:
-  C.Wasm.Frame{H.AFTER(s), [], 1n, [], H.locals(a, k, nx, nx)}
+def H.exfr(+s: U32, +a: U32, +k: U32, +nx: U32) -> Wa.Wasm.Frame:
+  Wa.Wasm.Frame{H.AFTER(s), [], 1n, [], H.locals(a, k, nx, nx)}
 
-def H.exit(+F: Nat, +s: U32, +a: U32, +k: U32, +nx: U32, +mem: C.Wasm.Memory) ->
-  H.Good(s, C.Wasm.call.go(F, H.exfr(s, a, k, nx), mem)):
-  H.ext(7n, C.Wasm.Step.next{H.exfr(s, a, k, nx), mem}, F, s, {==})
+def H.exit(+F: Nat, +s: U32, +a: U32, +k: U32, +nx: U32, +mem: Wa.Wasm.Memory) ->
+  H.Good(s, Wa.Wasm.call.go(F, H.exfr(s, a, k, nx), mem)):
+  H.ext(7n, Wa.Wasm.Step.next{H.exfr(s, a, k, nx), mem}, F, s, {==})
 
-def H.brfix(+F: Nat, +s: U32, +a: U32, +k: U32, +nx: U32, +mem: C.Wasm.Memory, -c: Bool, -B: Bool, e: {c == B : Bool},
-  g: H.Good(s, C.Wasm.call.go(F, H.brfr(s, a, k, nx, B), mem))) -> H.Good(s, C.Wasm.call.go(F, H.brfr(s, a, k, nx, c), mem)):
-  %Equal.sym(Bool, c, B, e) : H.Good(s, C.Wasm.call.go(F, H.brfr(s, a, k, nx, _), mem))
+def H.brfix(+F: Nat, +s: U32, +a: U32, +k: U32, +nx: U32, +mem: Wa.Wasm.Memory, -c: Bool, -B: Bool, e: {c == B : Bool},
+  g: H.Good(s, Wa.Wasm.call.go(F, H.brfr(s, a, k, nx, B), mem))) -> H.Good(s, Wa.Wasm.call.go(F, H.brfr(s, a, k, nx, c), mem)):
+  %Equal.sym(Bool, c, B, e) : H.Good(s, Wa.Wasm.call.go(F, H.brfr(s, a, k, nx, _), mem))
   g
 
 # Order of Nat
@@ -398,56 +401,56 @@ def H.le_refl(a: Nat) -> {Nat.is_le(a, a) == True{} : Bool}:
       H.le_refl(p)
 
 # the first loop gives [s], traps or runs out of fuel, for any fuel F <= r
-def H.loop(+r: Nat, +F: Nat, +s: U32, +a: U32, +k: U32, +nx: U32, +tmp: U32, +mem: C.Wasm.Memory, B: Bool,
+def H.loop(+r: Nat, +F: Nat, +s: U32, +a: U32, +k: U32, +nx: U32, +tmp: U32, +mem: Wa.Wasm.Memory, B: Bool,
   eB: {H.C(a, k, nx) == B : Bool}, hr: {Nat.is_le(F, r) == True{} : Bool}) ->
-  H.Good(s, C.Wasm.call.go(F, H.loopfr(s, a, k, nx, tmp), mem)):
+  H.Good(s, Wa.Wasm.call.go(F, H.loopfr(s, a, k, nx, tmp), mem)):
   match r:
     case 0n:
       match F:
         case 0n:
           Unit{}
         case 1n+q:
-          L.ft(H.Good(s, C.Wasm.call.go(1n+q, H.loopfr(s, a, k, nx, tmp), mem)), hr)
+          L.ft(H.Good(s, Wa.Wasm.call.go(1n+q, H.loopfr(s, a, k, nx, tmp), mem)), hr)
     case 1n+r1:
       match B:
         case True{}:
           +F10 = Nat.sub(F, 10n)
-          H.ext(10n, C.Wasm.Step.next{H.loopfr(s, a, k, nx, tmp), mem}, F, s,
+          H.ext(10n, Wa.Wasm.Step.next{H.loopfr(s, a, k, nx, tmp), mem}, F, s,
             H.brfix(F10, s, a, k, nx, mem, H.C(a, k, nx), True{}, eB,
-              H.ext(1n, C.Wasm.Step.next{H.brfr(s, a, k, nx, True{}), mem}, F10, s,
+              H.ext(1n, Wa.Wasm.Step.next{H.brfr(s, a, k, nx, True{}), mem}, F10, s,
                 H.exit(Nat.sub(F10, 1n), s, a, k, nx, mem))))
         case False{}:
           +F10 = Nat.sub(F, 10n)
           +n1 = U32.add(nx, 1)
-          H.ext(10n, C.Wasm.Step.next{H.loopfr(s, a, k, nx, tmp), mem}, F, s,
+          H.ext(10n, Wa.Wasm.Step.next{H.loopfr(s, a, k, nx, tmp), mem}, F, s,
             H.brfix(F10, s, a, k, nx, mem, H.C(a, k, nx), False{}, eB,
-              H.ext(6n, C.Wasm.Step.next{H.brfr(s, a, k, nx, False{}), mem}, F10, s,
+              H.ext(6n, Wa.Wasm.Step.next{H.brfr(s, a, k, nx, False{}), mem}, F10, s,
                 H.loop(r1, Nat.sub(F10, 6n), s, a, k, n1, nx, mem, H.C(a, k, n1), {==},
                   H.le_sub(F10, r1, 6n, H.le_sub1(F, r1, 9n, hr))))))
 
 # run(a, k) gives [s], traps or runs out of fuel
-def H.run_good(+F: Nat, +s: U32, +a: U32, +k: U32, +mem: C.Wasm.Memory) ->
-  H.Good(s, C.Wasm.call(F, C.Wasm.Func{2n, 1n, 6n, H.body(s, False{})}, [a, k], mem)):
+def H.run_good(+F: Nat, +s: U32, +a: U32, +k: U32, +mem: Wa.Wasm.Memory) ->
+  H.Good(s, Wa.Wasm.call(F, Wa.Wasm.Func{2n, 1n, 6n, H.body(s, False{})}, [a, k], mem)):
   +F10 = Nat.sub(F, 10n)
-  H.ext(10n, C.Wasm.Step.next{C.Wasm.Frame{H.body(s, False{}), [], 1n, [], [a, k, 0, 0, 0, 0, 0, 0]}, mem}, F, s,
+  H.ext(10n, Wa.Wasm.Step.next{Wa.Wasm.Frame{H.body(s, False{}), [], 1n, [], [a, k, 0, 0, 0, 0, 0, 0]}, mem}, F, s,
     H.loop(F10, F10, s, a, k, 1, 0, mem, H.C(a, k, 1), {==}, H.le_refl(F10)))
 
 # The host
 # --------
 
 # not a result
-def H.NR(x: C.Wasm.Outcome) -> Type:
+def H.NR(x: Wa.Wasm.Outcome) -> Type:
   match x:
-    case C.Wasm.Outcome.result{_}:
+    case Wa.Wasm.Outcome.result{_}:
       Empty
     case _:
       Unit
 
-def H.nr.use(-x: C.Wasm.Outcome, -o: List<&2, Word(8n)>, n: H.NR(x), e: {x == C.Wasm.Outcome.result{o} : C.Wasm.Outcome}) -> Empty:
+def H.nr.use(-x: Wa.Wasm.Outcome, -o: List<&2, Word(8n)>, n: H.NR(x), e: {x == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) -> Empty:
   %e : H.NR(_)
   n
 
-def H.nr.status(b1: Bool, b2: Bool, mem: C.Wasm.Memory) -> H.NR(C.Wasm.run.status(False{}, b1, b2, mem)):
+def H.nr.status(b1: Bool, b2: Bool, mem: Wa.Wasm.Memory) -> H.NR(Wa.Wasm.run.status(False{}, b1, b2, mem)):
   match b1 b2:
     case True{} _:
       Unit{}
@@ -457,76 +460,76 @@ def H.nr.status(b1: Bool, b2: Bool, mem: C.Wasm.Memory) -> H.NR(C.Wasm.run.statu
       Unit{}
 
 # what run gave, when it is good
-def H.nr.ran(+s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, c: C.Wasm.Call, g: H.Good(s, c)) ->
-  H.NR(C.Wasm.run.ran(C.Wasm.invoked(c, H.mod(s, False{})))):
+def H.nr.ran(+s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, c: Wa.Wasm.Call, g: H.Good(s, c)) ->
+  H.NR(Wa.Wasm.run.ran(Wa.Wasm.invoked(c, H.mod(s, False{})))):
   match c:
-    case C.Wasm.Call.done{vs, mem, n}:
-      %Equal.sym(List<&2, U32>, vs, [s], g) : H.NR(C.Wasm.run.ran(C.Wasm.invoked(C.Wasm.Call.done{_, mem, n}, H.mod(s, False{}))))
-      %Equal.sym(Bool, U32.is_eq(s, 0), False{}, ns) : H.NR(C.Wasm.run.status(_, U32.is_eq(s, 1), U32.is_eq(s, 2), mem))
+    case Wa.Wasm.Call.done{vs, mem, n}:
+      %Equal.sym(List<&2, U32>, vs, [s], g) : H.NR(Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.Call.done{_, mem, n}, H.mod(s, False{}))))
+      %Equal.sym(Bool, U32.is_eq(s, 0), False{}, ns) : H.NR(Wa.Wasm.run.status(_, U32.is_eq(s, 1), U32.is_eq(s, 2), mem))
       H.nr.status(U32.is_eq(s, 1), U32.is_eq(s, 2), mem)
-    case C.Wasm.Call.trap{mem}:
+    case Wa.Wasm.Call.trap{mem}:
       Unit{}
-    case C.Wasm.Call.not_done{}:
+    case Wa.Wasm.Call.not_done{}:
       Unit{}
 
 def H.nr.written(b: Bool, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +a: U32, +k: U32,
-  +p: U32, +lim: U32, +bytes: C.Wasm.Bytes, +i: List<&2, Word(8n)>) ->
-  H.NR(C.Wasm.run.written(b, f, C.Wasm.Instance{H.mod(s, False{}), C.Wasm.Memory{p, lim, C.Wasm.write.bytes(i, a, bytes)}}, a, k)):
+  +p: U32, +lim: U32, +bytes: Wa.Wasm.Bytes, +i: List<&2, Word(8n)>) ->
+  H.NR(Wa.Wasm.run.written(b, f, Wa.Wasm.Instance{H.mod(s, False{}), Wa.Wasm.Memory{p, lim, Wa.Wasm.write.bytes(i, a, bytes)}}, a, k)):
   match b:
     case True{}:
-      +mem = {C.Wasm.Memory{p, lim, C.Wasm.write.bytes(i, a, bytes)} : C.Wasm.Memory}
-      H.nr.ran(s, ns, C.Wasm.call(f, C.Wasm.Func{2n, 1n, 6n, H.body(s, False{})}, [a, k], mem), H.run_good(f, s, a, k, mem))
+      +mem = {Wa.Wasm.Memory{p, lim, Wa.Wasm.write.bytes(i, a, bytes)} : Wa.Wasm.Memory}
+      H.nr.ran(s, ns, Wa.Wasm.call(f, Wa.Wasm.Func{2n, 1n, 6n, H.body(s, False{})}, [a, k], mem), H.run_good(f, s, a, k, mem))
     case False{}:
       Unit{}
 
 def H.nr.full(b: Bool, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +a: U32, +k: U32,
-  mem: C.Wasm.Memory, +i: List<&2, Word(8n)>) ->
-  H.NR(C.Wasm.run.alloced.if(b, f, C.Wasm.Instance{H.mod(s, False{}), mem}, a, k, i)):
+  mem: Wa.Wasm.Memory, +i: List<&2, Word(8n)>) ->
+  H.NR(Wa.Wasm.run.alloced.if(b, f, Wa.Wasm.Instance{H.mod(s, False{}), mem}, a, k, i)):
   match b:
     case True{}:
       Unit{}
     case False{}:
       match mem:
-        case C.Wasm.Memory{+p, +lim, +bytes}:
-          H.nr.written(C.Wasm.fits(p, a, k), f, s, ns, a, k, p, lim, bytes, i)
+        case Wa.Wasm.Memory{+p, +lim, +bytes}:
+          H.nr.written(Wa.Wasm.fits(p, a, k), f, s, ns, a, k, p, lim, bytes, i)
 
 # what alloc gave
-def H.nr.alloced(c: C.Wasm.Call, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +k: U32, +i: List<&2, Word(8n)>) ->
-  H.NR(C.Wasm.run.alloced(C.Wasm.invoked(c, H.mod(s, False{})), f, k, i)):
+def H.nr.alloced(c: Wa.Wasm.Call, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +k: U32, +i: List<&2, Word(8n)>) ->
+  H.NR(Wa.Wasm.run.alloced(Wa.Wasm.invoked(c, H.mod(s, False{})), f, k, i)):
   match c:
-    case C.Wasm.Call.done{vs, mem, used}:
+    case Wa.Wasm.Call.done{vs, mem, used}:
       match vs:
         case Nil{}:
           Unit{}
         case Con{+a, rest}:
           H.nr.full(U32.is_eq(a, 4294967295), Nat.sub(f, used), s, ns, a, k, mem, i)
-    case C.Wasm.Call.trap{mem}:
+    case Wa.Wasm.Call.trap{mem}:
       Unit{}
-    case C.Wasm.Call.not_done{}:
+    case Wa.Wasm.Call.not_done{}:
       Unit{}
 
-def H.nr.sized(n: Maybe<&2, U32>, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +mem: C.Wasm.Memory, +i: List<&2, Word(8n)>) ->
-  H.NR(C.Wasm.run.sized(n, f, C.Wasm.Instance{H.mod(s, False{}), mem}, i)):
+def H.nr.sized(n: Maybe<&2, U32>, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +mem: Wa.Wasm.Memory, +i: List<&2, Word(8n)>) ->
+  H.NR(Wa.Wasm.run.sized(n, f, Wa.Wasm.Instance{H.mod(s, False{}), mem}, i)):
   match n:
     case None{}:
       Unit{}
     case Some{+k}:
-      H.nr.alloced(C.Wasm.call(f, C.Cir.alloc(0), [k], mem), f, s, ns, k, i)
+      H.nr.alloced(Wa.Wasm.call(f, Cr.Cir.alloc(0), [k], mem), f, s, ns, k, i)
 
 def H.nr.mem(b: Bool, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +m: U32, +i: List<&2, Word(8n)>) ->
-  H.NR(C.Wasm.run.made(f, C.Wasm.instantiate.sized(C.Wasm.memory.of.if(b, C.Wasm.Memory{1, C.Wasm.limit(None{}, m), C.Wasm.Bytes.zero{}}),
-    Some{C.Wasm.Segment{20, []}}, H.mod(s, False{})), i)):
+  H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}),
+    Some{Wa.Wasm.Segment{20, []}}, H.mod(s, False{})), i)):
   match b:
     case True{}:
-      H.nr.sized(C.Wasm.length32(i), f, s, ns, C.Wasm.Memory{1, C.Wasm.limit(None{}, m), C.Wasm.Bytes.zero{}}, i)
+      H.nr.sized(Wa.Wasm.length32(i), f, s, ns, Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}, i)
     case False{}:
       Unit{}
 
 # the module that halts at once with s, not 0, gives no result
 def H.nr.run(+f: Nat, +s: U32, +i: List<&2, Word(8n)>, +m: U32, +ns: {U32.is_eq(s, 0) == False{} : Bool}) ->
-  H.NR(C.Wasm.run(f, C.Compiler.halt(s), i, m)):
-  %Equal.sym(Maybe<&2, C.Wasm.Module>, C.Wasm.decode.module(C.Compiler.halt(s)), Some{H.mod(s, False{})}, H.decoded(s, ns)) :
-    H.NR(C.Wasm.run.made(f, C.Wasm.instantiate.decoded(_, m), i))
+  H.NR(Wa.Wasm.run(f, C.Compiler.halt(s), i, m)):
+  %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(s)), Some{H.mod(s, False{})}, H.decoded(s, ns)) :
+    H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m), i))
   H.nr.mem(U32.is_le(1, m), f, s, ns, m, i)
 
 # The lemmas
@@ -536,9 +539,9 @@ def H.nr.run(+f: Nat, +s: U32, +i: List<&2, Word(8n)>, +m: U32, +ns: {U32.is_eq(
 def halt.no_result.proof(
   +f: Nat, +s: U32, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
   ns: {U32.is_eq(s, 0) == False{} : Bool},
-  e: {C.Wasm.run(f, C.Compiler.halt(s), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome}
+  e: {Wa.Wasm.run(f, C.Compiler.halt(s), i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
 ) -> Empty:
-  H.nr.use(C.Wasm.run(f, C.Compiler.halt(s), i, m), o, H.nr.run(f, s, i, m, ns), e)
+  H.nr.use(Wa.Wasm.run(f, C.Compiler.halt(s), i, m), o, H.nr.run(f, s, i, m, ns), e)
 
 # Arithmetic of words
 # -------------------
@@ -1107,45 +1110,45 @@ def H.rel_lt(c: Cmp, +x: Nat, +y: Nat, h: PN.Rel(c, x, y), l: PN.Le(1n+x, y)) ->
 # ------------------------
 
 # a call that gives the results [1]
-def H.GoodO(c: C.Wasm.Call) -> Type:
+def H.GoodO(c: Wa.Wasm.Call) -> Type:
   match c:
-    case C.Wasm.Call.done{rs, _, _}:
+    case Wa.Wasm.Call.done{rs, _, _}:
       {rs == [1] : List<&2, U32>}
-    case C.Wasm.Call.trap{_}:
+    case Wa.Wasm.Call.trap{_}:
       Empty
-    case C.Wasm.Call.not_done{}:
+    case Wa.Wasm.Call.not_done{}:
       Empty
 
-def H.GoodO.plus(c: C.Wasm.Call, g: H.GoodO(c)) -> H.GoodO(C.Wasm.call.plus(c)):
+def H.GoodO.plus(c: Wa.Wasm.Call, g: H.GoodO(c)) -> H.GoodO(Wa.Wasm.call.plus(c)):
   match c:
-    case C.Wasm.Call.done{rs, m, n}:
+    case Wa.Wasm.Call.done{rs, m, n}:
       g
-    case C.Wasm.Call.trap{m}:
+    case Wa.Wasm.Call.trap{m}:
       g
-    case C.Wasm.Call.not_done{}:
+    case Wa.Wasm.Call.not_done{}:
       g
 
-def H.GO(F: Nat, st: C.Wasm.Step) -> Type:
+def H.GO(F: Nat, st: Wa.Wasm.Step) -> Type:
   match st:
-    case C.Wasm.Step.next{fr, m}:
-      H.GoodO(C.Wasm.call.go(F, fr, m))
-    case C.Wasm.Step.done{rs, _}:
+    case Wa.Wasm.Step.next{fr, m}:
+      H.GoodO(Wa.Wasm.call.go(F, fr, m))
+    case Wa.Wasm.Step.done{rs, _}:
       {rs == [1] : List<&2, U32>}
-    case C.Wasm.Step.trap{_}:
+    case Wa.Wasm.Step.trap{_}:
       Empty
 
-def H.GO.stepped(F: Nat, st: C.Wasm.Step, h: H.GO(F, st)) ->
-  H.GoodO(C.Wasm.call.stepped(st, g => m => C.Wasm.call.go(F, g, m))):
+def H.GO.stepped(F: Nat, st: Wa.Wasm.Step, h: H.GO(F, st)) ->
+  H.GoodO(Wa.Wasm.call.stepped(st, g => m => Wa.Wasm.call.go(F, g, m))):
   match st:
-    case C.Wasm.Step.next{fr, m}:
-      H.GoodO.plus(C.Wasm.call.go(F, fr, m), h)
-    case C.Wasm.Step.done{rs, m}:
+    case Wa.Wasm.Step.next{fr, m}:
+      H.GoodO.plus(Wa.Wasm.call.go(F, fr, m), h)
+    case Wa.Wasm.Step.done{rs, m}:
       h
-    case C.Wasm.Step.trap{m}:
+    case Wa.Wasm.Step.trap{m}:
       h
 
 # a run gives [1] when it does after n steps, with the fuel left
-def H.extO(n: Nat, +st: C.Wasm.Step, +F: Nat, hF: PN.Le(n, F), g: H.GO(Nat.sub(F, n), H.steps(n, st))) -> H.GO(F, st):
+def H.extO(n: Nat, +st: Wa.Wasm.Step, +F: Nat, hF: PN.Le(n, F), g: H.GO(Nat.sub(F, n), H.steps(n, st))) -> H.GO(F, st):
   match n:
     case 0n:
       match F:
@@ -1155,25 +1158,25 @@ def H.extO(n: Nat, +st: C.Wasm.Step, +F: Nat, hF: PN.Le(n, F), g: H.GO(Nat.sub(F
           g
     case 1n+p:
       match st:
-        case C.Wasm.Step.next{fr, m}:
+        case Wa.Wasm.Step.next{fr, m}:
           match F:
             case 0n:
-              Empty.absurd(H.GO(0n, C.Wasm.Step.next{fr, m}), hF)
+              Empty.absurd(H.GO(0n, Wa.Wasm.Step.next{fr, m}), hF)
             case 1n+F1:
-              H.GO.stepped(F1, C.Wasm.step(fr, m), H.extO(p, C.Wasm.step(fr, m), F1, hF, g))
-        case C.Wasm.Step.done{rs, m}:
+              H.GO.stepped(F1, Wa.Wasm.step(fr, m), H.extO(p, Wa.Wasm.step(fr, m), F1, hF, g))
+        case Wa.Wasm.Step.done{rs, m}:
           g
-        case C.Wasm.Step.trap{m}:
+        case Wa.Wasm.Step.trap{m}:
           g
 
-def H.brfixO(+F: Nat, +a: U32, +k: U32, +nx: U32, +mem: C.Wasm.Memory, -c: Bool, -B: Bool, e: {c == B : Bool},
-  g: H.GoodO(C.Wasm.call.go(F, H.brfr(1, a, k, nx, B), mem))) -> H.GoodO(C.Wasm.call.go(F, H.brfr(1, a, k, nx, c), mem)):
-  %Equal.sym(Bool, c, B, e) : H.GoodO(C.Wasm.call.go(F, H.brfr(1, a, k, nx, _), mem))
+def H.brfixO(+F: Nat, +a: U32, +k: U32, +nx: U32, +mem: Wa.Wasm.Memory, -c: Bool, -B: Bool, e: {c == B : Bool},
+  g: H.GoodO(Wa.Wasm.call.go(F, H.brfr(1, a, k, nx, B), mem))) -> H.GoodO(Wa.Wasm.call.go(F, H.brfr(1, a, k, nx, c), mem)):
+  %Equal.sym(Bool, c, B, e) : H.GoodO(Wa.Wasm.call.go(F, H.brfr(1, a, k, nx, _), mem))
   g
 
-def H.exitO(+F: Nat, hF: PN.Le(7n, F), +a: U32, +k: U32, +nx: U32, +mem: C.Wasm.Memory) ->
-  H.GoodO(C.Wasm.call.go(F, H.exfr(1, a, k, nx), mem)):
-  H.extO(7n, C.Wasm.Step.next{H.exfr(1, a, k, nx), mem}, F, hF, {==})
+def H.exitO(+F: Nat, hF: PN.Le(7n, F), +a: U32, +k: U32, +nx: U32, +mem: Wa.Wasm.Memory) ->
+  H.GoodO(Wa.Wasm.call.go(F, H.exfr(1, a, k, nx), mem)):
+  H.extO(7n, Wa.Wasm.Step.next{H.exfr(1, a, k, nx), mem}, F, hF, {==})
 
 # the fuel of b rounds of the first loop that go on
 def H.Rf(b: Nat) -> Nat:
@@ -1190,13 +1193,13 @@ def H.small(+n: Nat, +X: Nat, +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(n
     PN.le_rw_r(1n+H.t20(P), Nat.add(H.W(4n), H.t20(P)), H.W(n), hP, PN.le_add_l(15n, H.t20(P))))
 
 # the loop's exit, for any number of rounds left
-def H.loopO.exit(+F: Nat, +k: U32, +x: U32, +tmp: U32, +mem: C.Wasm.Memory, e: {H.C(20, k, x) == True{} : Bool},
-  +h18: PN.Le(18n, F)) -> H.GoodO(C.Wasm.call.go(F, H.loopfr(1, 20, k, x, tmp), mem)):
+def H.loopO.exit(+F: Nat, +k: U32, +x: U32, +tmp: U32, +mem: Wa.Wasm.Memory, e: {H.C(20, k, x) == True{} : Bool},
+  +h18: PN.Le(18n, F)) -> H.GoodO(Wa.Wasm.call.go(F, H.loopfr(1, 20, k, x, tmp), mem)):
   +F10 = Nat.sub(F, 10n)
   +h8 = H.le_sub_add(10n, 8n, F, h18)
-  H.extO(10n, C.Wasm.Step.next{H.loopfr(1, 20, k, x, tmp), mem}, F, H.le_add_part(10n, 8n, F, h18),
+  H.extO(10n, Wa.Wasm.Step.next{H.loopfr(1, 20, k, x, tmp), mem}, F, H.le_add_part(10n, 8n, F, h18),
     H.brfixO(F10, 20, k, x, mem, H.C(20, k, x), True{}, e,
-      H.extO(1n, C.Wasm.Step.next{H.brfr(1, 20, k, x, True{}), mem}, F10, H.le_add_part(1n, 7n, F10, h8),
+      H.extO(1n, Wa.Wasm.Step.next{H.brfr(1, 20, k, x, True{}), mem}, F10, H.le_add_part(1n, 7n, F10, h8),
         H.exitO(Nat.sub(F10, 1n), H.le_sub_add(1n, 7n, F10, h8), 20, k, x, mem))))
 
 # a round that goes on: 20 × next < a + n
@@ -1211,12 +1214,12 @@ def H.loopO.lt(+k: U32, +w: Word(32n), +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P))
 
 # the first loop gives [1], with b rounds of fuel at least: a round that
 # goes on has 20 × next < a + n <= 20P, so next < P, and next + 1 is exact
-def H.loopO(+b: Nat, +F: Nat, +k: U32, +x: U32, +tmp: U32, +mem: C.Wasm.Memory, B: Bool,
+def H.loopO(+b: Nat, +F: Nat, +k: U32, +x: U32, +tmp: U32, +mem: Wa.Wasm.Memory, B: Bool,
   +eB: {H.C(20, k, x) == B : Bool}, +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(32n) : Nat},
   +hE: PN.Le(U32.to_nat(U32.add(20, k)), H.t20(P)), +hx: PN.Le(U32.to_nat(x), P),
   +hb: PN.Le(1n+U32.to_nat(U32.add(20, k)), H.t20(Nat.add(U32.to_nat(x), b))),
   +hF: PN.Le(Nat.add(H.Rf(b), 18n), F)) ->
-  H.GoodO(C.Wasm.call.go(F, H.loopfr(1, 20, k, x, tmp), mem)):
+  H.GoodO(Wa.Wasm.call.go(F, H.loopfr(1, 20, k, x, tmp), mem)):
   match b:
     case 0n:
       match x:
@@ -1229,7 +1232,7 @@ def H.loopO(+b: Nat, +F: Nat, +k: U32, +x: U32, +tmp: U32, +mem: C.Wasm.Memory, 
               +E = U32.to_nat(U32.add(20, k))
               +lt = H.loopO.lt(k, w, P, hP, hx, eB)
               +hb0 = PN.le_rw_r(1n+E, H.t20(Nat.add(X, 0n)), H.t20(X), Equal.cong(Nat, Nat, z => H.t20(z), Nat.add(X, 0n), X, PN.add_zero(X)), hb)
-              Empty.absurd(H.GoodO(C.Wasm.call.go(F, H.loopfr(1, 20, k, U32{w}, tmp), mem)),
+              Empty.absurd(H.GoodO(Wa.Wasm.call.go(F, H.loopfr(1, 20, k, U32{w}, tmp), mem)),
                 PN.not_succ_le(H.t20(X), PN.weaken(1n+H.t20(X), H.t20(X), PN.le_trans(2n+H.t20(X), 1n+E, H.t20(X), lt, hb0))))
     case 1n+q:
       match x:
@@ -1253,9 +1256,9 @@ def H.loopO(+b: Nat, +F: Nat, +k: U32, +x: U32, +tmp: U32, +mem: C.Wasm.Memory, 
               +F10 = Nat.sub(F, 10n)
               +rest = Nat.add(H.Rf(q), 18n)
               +h10 = H.le_sub_add(10n, Nat.add(6n, rest), F, hF)
-              H.extO(10n, C.Wasm.Step.next{H.loopfr(1, 20, k, U32{w}, tmp), mem}, F, H.le_add_part(10n, Nat.add(6n, rest), F, hF),
+              H.extO(10n, Wa.Wasm.Step.next{H.loopfr(1, 20, k, U32{w}, tmp), mem}, F, H.le_add_part(10n, Nat.add(6n, rest), F, hF),
                 H.brfixO(F10, 20, k, U32{w}, mem, H.C(20, k, U32{w}), False{}, eB,
-                  H.extO(6n, C.Wasm.Step.next{H.brfr(1, 20, k, U32{w}, False{}), mem}, F10, H.le_add_part(6n, rest, F10, h10),
+                  H.extO(6n, Wa.Wasm.Step.next{H.brfr(1, 20, k, U32{w}, False{}), mem}, F10, H.le_add_part(6n, rest, F10, h10),
                     H.loopO(q, Nat.sub(F10, 6n), k, x1, U32{w}, mem, H.C(20, k, x1), {==}, P, hP, hE, hx1, hb1,
                       H.le_sub_add(6n, rest, F10, h10)))))
 
@@ -1353,21 +1356,21 @@ def H.sub_add1(+n: Nat, +x: Word(n)) -> {Word.sub(n, Word.add(n, x, H.one(n)), H
 # The host, for the status 1
 # --------------------------
 
-def H.M1() -> C.Wasm.Module:
+def H.M1() -> Wa.Wasm.Module:
   H.mod(1, False{})
 
 # run gave [1]: out of memory
-def H.ranO(c: C.Wasm.Call, g: H.GoodO(c)) ->
-  {C.Wasm.run.ran(C.Wasm.invoked(c, H.M1())) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}:
+def H.ranO(c: Wa.Wasm.Call, g: H.GoodO(c)) ->
+  {Wa.Wasm.run.ran(Wa.Wasm.invoked(c, H.M1())) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   match c:
-    case C.Wasm.Call.done{vs, mem, n}:
+    case Wa.Wasm.Call.done{vs, mem, n}:
       %Equal.sym(List<&2, U32>, vs, [1], g) :
-        {C.Wasm.run.ran(C.Wasm.invoked(C.Wasm.Call.done{_, mem, n}, H.M1())) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}
+        {Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.Call.done{_, mem, n}, H.M1())) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
       {==}
-    case C.Wasm.Call.trap{mem}:
-      Empty.absurd({C.Wasm.run.ran(C.Wasm.invoked(C.Wasm.Call.trap{mem}, H.M1())) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}, g)
-    case C.Wasm.Call.not_done{}:
-      Empty.absurd({C.Wasm.run.ran(C.Wasm.invoked(C.Wasm.Call.not_done{}, H.M1())) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}, g)
+    case Wa.Wasm.Call.trap{mem}:
+      Empty.absurd({Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.Call.trap{mem}, H.M1())) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}, g)
+    case Wa.Wasm.Call.not_done{}:
+      Empty.absurd({Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.Call.not_done{}, H.M1())) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}, g)
 
 # the fuel that run needs, for an input of K bytes
 def H.runfuel(K: Nat) -> Nat:
@@ -1389,14 +1392,14 @@ def H.hb0(+kw: Word(32n)) ->
     PN.le_trans(21n+K, 21n+H.t20(K), 40n+H.t20(K), H.le_t20(K), PN.le_add_l(19n, H.t20(K))))
 
 # run(20, k) gives [1], with enough fuel
-def H.runO(+F: Nat, +k: U32, +mem: C.Wasm.Memory, +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(32n) : Nat},
+def H.runO(+F: Nat, +k: U32, +mem: Wa.Wasm.Memory, +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(32n) : Nat},
   +hE: PN.Le(U32.to_nat(U32.add(20, k)), H.t20(P)), +h1: PN.Le(U32.to_nat(1), P),
   +hF: PN.Le(H.runfuel(U32.to_nat(k)), F)) ->
-  H.GoodO(C.Wasm.call(F, C.Wasm.Func{2n, 1n, 6n, H.body(1, False{})}, [20, k], mem)):
+  H.GoodO(Wa.Wasm.call(F, Wa.Wasm.Func{2n, 1n, 6n, H.body(1, False{})}, [20, k], mem)):
   match k:
     case U32{+kw}:
       +rest = Nat.add(H.Rf(1n+U32.to_nat(U32{kw})), 18n)
-      H.extO(10n, C.Wasm.Step.next{C.Wasm.Frame{H.body(1, False{}), [], 1n, [], [20, U32{kw}, 0, 0, 0, 0, 0, 0]}, mem}, F,
+      H.extO(10n, Wa.Wasm.Step.next{Wa.Wasm.Frame{H.body(1, False{}), [], 1n, [], [20, U32{kw}, 0, 0, 0, 0, 0, 0]}, mem}, F,
         H.le_add_part(10n, rest, F, hF),
         H.loopO(1n+U32.to_nat(U32{kw}), Nat.sub(F, 10n), U32{kw}, 1, 0, mem, H.C(20, U32{kw}, 1), {==}, P, hP, hE, h1,
           H.hb0(kw), H.le_sub_add(10n, rest, F, hF)))
@@ -1414,10 +1417,10 @@ def H.or_r(a: Bool, -b: Bool, h: {b == True{} : Bool}) -> {Bool.or(a, b) == True
 # the input's k bytes from 20 fit in p pages, when 20 + k does not wrap and
 # its last byte's page is below p
 def H.fits(+k: U32, +p: U32, c1: {U32.is_lt(U32.add(20, k), 20) == False{} : Bool},
-  hX: {U32.is_lt(U32.shrn(U32.sub(U32.add(20, k), 1), 16n), p) == True{} : Bool}) -> {C.Wasm.fits(p, 20, k) == True{} : Bool}:
+  hX: {U32.is_lt(U32.shrn(U32.sub(U32.add(20, k), 1), 16n), p) == True{} : Bool}) -> {Wa.Wasm.fits(p, 20, k) == True{} : Bool}:
   +E = U32.add(20, k)
   %Equal.sym(Bool, U32.is_lt(E, 20), False{}, c1) :
-    {C.Wasm.fits.end(_, p, E) == True{} : Bool}
+    {Wa.Wasm.fits.end(_, p, E) == True{} : Bool}
   H.or_r(U32.is_zero(E), U32.is_lt(U32.shrn(U32.sub(E, 1), 16n), p), hX)
 
 # x + 1 <= 1 gives x < 1, for x = z >> 1
@@ -1571,30 +1574,30 @@ def H.h1() -> PN.Le(U32.to_nat(1), H.pat(7n)):
 # The function alloc
 # ------------------
 
-def H.plusN(n: Nat, c: C.Wasm.Call) -> C.Wasm.Call:
+def H.plusN(n: Nat, c: Wa.Wasm.Call) -> Wa.Wasm.Call:
   match n:
     case 0n:
       c
     case 1n+p:
-      C.Wasm.call.plus(H.plusN(p, c))
+      Wa.Wasm.call.plus(H.plusN(p, c))
 
-def H.A.B2() -> List<&2, C.Wasm.Instr>:
-  [C.Wasm.Instr.local_get{3}, C.Wasm.Instr.memory_size{}, C.Wasm.Instr.op{C.Wasm.Op.le_u{}}, C.Wasm.Instr.br_if{0},
-   C.Wasm.Instr.local_get{3}, C.Wasm.Instr.memory_size{}, C.Wasm.Instr.op{C.Wasm.Op.sub{}}, C.Wasm.Instr.memory_grow{},
-   C.Wasm.Instr.const{4294967295}, C.Wasm.Instr.op{C.Wasm.Op.eq{}}, C.Wasm.Instr.br_if{1}]
+def H.A.B2() -> List<&2, Wa.Wasm.Instr>:
+  [Wa.Wasm.Instr.local_get{3}, Wa.Wasm.Instr.memory_size{}, Wa.Wasm.Instr.op{Wa.Wasm.Op.le_u{}}, Wa.Wasm.Instr.br_if{0},
+   Wa.Wasm.Instr.local_get{3}, Wa.Wasm.Instr.memory_size{}, Wa.Wasm.Instr.op{Wa.Wasm.Op.sub{}}, Wa.Wasm.Instr.memory_grow{},
+   Wa.Wasm.Instr.const{4294967295}, Wa.Wasm.Instr.op{Wa.Wasm.Op.eq{}}, Wa.Wasm.Instr.br_if{1}]
 
-def H.A.B1() -> List<&2, C.Wasm.Instr>:
-  [C.Wasm.Instr.local_get{1}, C.Wasm.Instr.const{20}, C.Wasm.Instr.op{C.Wasm.Op.lt_u{}}, C.Wasm.Instr.br_if{0},
-   C.Wasm.Instr.local_get{1}, C.Wasm.Instr.const{4294967280}, C.Wasm.Instr.op{C.Wasm.Op.gt_u{}}, C.Wasm.Instr.br_if{0},
-   C.Wasm.Instr.local_get{1}, C.Wasm.Instr.const{1}, C.Wasm.Instr.op{C.Wasm.Op.sub{}}, C.Wasm.Instr.const{16},
-   C.Wasm.Instr.op{C.Wasm.Op.shr_u{}}, C.Wasm.Instr.const{1}, C.Wasm.Instr.op{C.Wasm.Op.add{}}, C.Wasm.Instr.local_set{3},
-   C.Wasm.Instr.block{H.A.B2()}, C.Wasm.Instr.const{20}, C.Wasm.Instr.local_set{2}]
+def H.A.B1() -> List<&2, Wa.Wasm.Instr>:
+  [Wa.Wasm.Instr.local_get{1}, Wa.Wasm.Instr.const{20}, Wa.Wasm.Instr.op{Wa.Wasm.Op.lt_u{}}, Wa.Wasm.Instr.br_if{0},
+   Wa.Wasm.Instr.local_get{1}, Wa.Wasm.Instr.const{4294967280}, Wa.Wasm.Instr.op{Wa.Wasm.Op.gt_u{}}, Wa.Wasm.Instr.br_if{0},
+   Wa.Wasm.Instr.local_get{1}, Wa.Wasm.Instr.const{1}, Wa.Wasm.Instr.op{Wa.Wasm.Op.sub{}}, Wa.Wasm.Instr.const{16},
+   Wa.Wasm.Instr.op{Wa.Wasm.Op.shr_u{}}, Wa.Wasm.Instr.const{1}, Wa.Wasm.Instr.op{Wa.Wasm.Op.add{}}, Wa.Wasm.Instr.local_set{3},
+   Wa.Wasm.Instr.block{H.A.B2()}, Wa.Wasm.Instr.const{20}, Wa.Wasm.Instr.local_set{2}]
 
-def H.A.LA1() -> List<&2, C.Wasm.Label>:
-  [C.Wasm.Label{None{}, [C.Wasm.Instr.local_get{2}], 0n}]
+def H.A.LA1() -> List<&2, Wa.Wasm.Label>:
+  [Wa.Wasm.Label{None{}, [Wa.Wasm.Instr.local_get{2}], 0n}]
 
-def H.A.LA2() -> List<&2, C.Wasm.Label>:
-  Con{C.Wasm.Label{None{}, [C.Wasm.Instr.const{20}, C.Wasm.Instr.local_set{2}], 0n}, H.A.LA1()}
+def H.A.LA2() -> List<&2, Wa.Wasm.Label>:
+  Con{Wa.Wasm.Label{None{}, [Wa.Wasm.Instr.const{20}, Wa.Wasm.Instr.local_set{2}], 0n}, H.A.LA1()}
 
 def H.A.E(+k: U32) -> U32:
   U32.add(20, k)
@@ -1611,62 +1614,62 @@ def H.A.L0(+k: U32) -> List<&2, U32>:
 def H.A.L3(+k: U32) -> List<&2, U32>:
   [k, H.A.E(k), 4294967295, H.A.need(k)]
 
-def H.A.BP1(+k: U32, c: Bool) -> C.Wasm.Frame:
-  C.Wasm.Frame{List.drop(&2, C.Wasm.Instr, H.A.B1(), 3n), H.A.LA1(), 1n, [Bool.to_u32(c)], H.A.L0(k)}
+def H.A.BP1(+k: U32, c: Bool) -> Wa.Wasm.Frame:
+  Wa.Wasm.Frame{List.drop(&2, Wa.Wasm.Instr, H.A.B1(), 3n), H.A.LA1(), 1n, [Bool.to_u32(c)], H.A.L0(k)}
 
-def H.A.BP2(+k: U32, c: Bool) -> C.Wasm.Frame:
-  C.Wasm.Frame{List.drop(&2, C.Wasm.Instr, H.A.B1(), 7n), H.A.LA1(), 1n, [Bool.to_u32(c)], H.A.L0(k)}
+def H.A.BP2(+k: U32, c: Bool) -> Wa.Wasm.Frame:
+  Wa.Wasm.Frame{List.drop(&2, Wa.Wasm.Instr, H.A.B1(), 7n), H.A.LA1(), 1n, [Bool.to_u32(c)], H.A.L0(k)}
 
-def H.A.BP3(+k: U32, c: Bool) -> C.Wasm.Frame:
-  C.Wasm.Frame{List.drop(&2, C.Wasm.Instr, H.A.B2(), 3n), H.A.LA2(), 1n, [Bool.to_u32(c)], H.A.L3(k)}
+def H.A.BP3(+k: U32, c: Bool) -> Wa.Wasm.Frame:
+  Wa.Wasm.Frame{List.drop(&2, Wa.Wasm.Instr, H.A.B2(), 3n), H.A.LA2(), 1n, [Bool.to_u32(c)], H.A.L3(k)}
 
-def H.A.mem(+m: U32) -> C.Wasm.Memory:
-  C.Wasm.Memory{1, C.Wasm.limit(None{}, m), C.Wasm.Bytes.zero{}}
+def H.A.mem(+m: U32) -> Wa.Wasm.Memory:
+  Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}
 
 # the pages after a memory.grow that succeeds
 def H.A.np(+k: U32) -> U32:
   U32.add(1, U32.sub(H.A.need(k), 1))
 
 def H.A.c4(+k: U32, +m: U32) -> Bool:
-  U32.is_ge(H.A.np(k), 1) && U32.is_le(H.A.np(k), C.Wasm.limit(None{}, m))
+  U32.is_ge(H.A.np(k), 1) && U32.is_le(H.A.np(k), Wa.Wasm.limit(None{}, m))
 
-def H.A.GP(+k: U32, +m: U32, c: Bool) -> C.Wasm.Step:
-  C.Wasm.step.grown(c, 1, H.A.np(k), C.Wasm.limit(None{}, m), C.Wasm.Bytes.zero{},
-    [C.Wasm.Instr.const{4294967295}, C.Wasm.Instr.op{C.Wasm.Op.eq{}}, C.Wasm.Instr.br_if{1}], H.A.LA2(), 1n, [], H.A.L3(k))
+def H.A.GP(+k: U32, +m: U32, c: Bool) -> Wa.Wasm.Step:
+  Wa.Wasm.step.grown(c, 1, H.A.np(k), Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{},
+    [Wa.Wasm.Instr.const{4294967295}, Wa.Wasm.Instr.op{Wa.Wasm.Op.eq{}}, Wa.Wasm.Instr.br_if{1}], H.A.LA2(), 1n, [], H.A.L3(k))
 
 def H.A.Y(+k: U32) -> Nat:
   H.runfuel(U32.to_nat(k))
 
 # what the host does with alloc's call c
-def H.AO(+f: Nat, +k: U32, +i: List<&2, Word(8n)>, c: C.Wasm.Call) -> Type:
-  {C.Wasm.run.alloced(C.Wasm.invoked(c, H.M1()), f, k, i) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}
+def H.AO(+f: Nat, +k: U32, +i: List<&2, Word(8n)>, c: Wa.Wasm.Call) -> Type:
+  {Wa.Wasm.run.alloced(Wa.Wasm.invoked(c, H.M1()), f, k, i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
 
 # the input's pages after a memory.grow that succeeds
 def H.A.al4(B: Bool, +kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, e4: {H.A.c4(U32{kw}, m) == B : Bool},
   +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(32n) : Nat},
   +hE: PN.Le(U32.to_nat(U32.add(20, U32{kw})), H.t20(P)), +h1: PN.Le(U32.to_nat(1), P),
   +e1: {U32.is_lt(H.A.E(U32{kw}), 20) == False{} : Bool}) ->
-  H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i, H.plusN(31n, C.Wasm.call.stepped(H.A.GP(U32{kw}, m, H.A.c4(U32{kw}, m)),
-    g => mm => C.Wasm.call.go(Nat.add(32n, H.A.Y(U32{kw})), g, mm)))):
+  H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i, H.plusN(31n, Wa.Wasm.call.stepped(H.A.GP(U32{kw}, m, H.A.c4(U32{kw}, m)),
+    g => mm => Wa.Wasm.call.go(Nat.add(32n, H.A.Y(U32{kw})), g, mm)))):
   match B:
     case True{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       +f = Nat.add(64n, Y)
       %Equal.sym(Bool, H.A.c4(k, m), True{}, e4) :
-        H.AO(f, k, i, H.plusN(31n, C.Wasm.call.stepped(H.A.GP(k, m, _), g => mm => C.Wasm.call.go(Nat.add(32n, Y), g, mm))))
-      +memw = {C.Wasm.Memory{H.A.np(k), C.Wasm.limit(None{}, m), C.Wasm.write.bytes(i, 20, C.Wasm.Bytes.zero{})} : C.Wasm.Memory}
-      %Equal.sym(Bool, C.Wasm.fits(H.A.np(k), 20, k), True{},
+        H.AO(f, k, i, H.plusN(31n, Wa.Wasm.call.stepped(H.A.GP(k, m, _), g => mm => Wa.Wasm.call.go(Nat.add(32n, Y), g, mm))))
+      +memw = {Wa.Wasm.Memory{H.A.np(k), Wa.Wasm.limit(None{}, m), Wa.Wasm.write.bytes(i, 20, Wa.Wasm.Bytes.zero{})} : Wa.Wasm.Memory}
+      %Equal.sym(Bool, Wa.Wasm.fits(H.A.np(k), 20, k), True{},
         H.fits(k, H.A.np(k), e1, H.hX2(U32.shrn(U32.sub(H.A.E(k), 1), 15n)))) :
-        {C.Wasm.run.written(_, Nat.sub(f, 41n), C.Wasm.Instance{H.M1(), memw}, 20, k) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}
-      H.ranO(C.Wasm.call(Nat.sub(f, 41n), C.Wasm.Func{2n, 1n, 6n, H.body(1, False{})}, [20, k], memw),
+        {Wa.Wasm.run.written(_, Nat.sub(f, 41n), Wa.Wasm.Instance{H.M1(), memw}, 20, k) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
+      H.ranO(Wa.Wasm.call(Nat.sub(f, 41n), Wa.Wasm.Func{2n, 1n, 6n, H.body(1, False{})}, [20, k], memw),
         H.runO(Nat.sub(f, 41n), k, memw, P, hP, hE, h1, PN.le_add_l(23n, Y)))
     case False{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       +f = Nat.add(64n, Y)
       %Equal.sym(Bool, H.A.c4(k, m), False{}, e4) :
-        H.AO(f, k, i, H.plusN(31n, C.Wasm.call.stepped(H.A.GP(k, m, _), g => mm => C.Wasm.call.go(Nat.add(32n, Y), g, mm))))
+        H.AO(f, k, i, H.plusN(31n, Wa.Wasm.call.stepped(H.A.GP(k, m, _), g => mm => Wa.Wasm.call.go(Nat.add(32n, Y), g, mm))))
       {==}
 
 # the memory holds the input already, or must grow
@@ -1675,26 +1678,26 @@ def H.A.al3(B: Bool, +kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, +e3: {U32.
   +hE: PN.Le(U32.to_nat(U32.add(20, U32{kw})), H.t20(P)), +h1: PN.Le(U32.to_nat(1), P),
   +e1: {U32.is_lt(H.A.E(U32{kw}), 20) == False{} : Bool}) ->
   H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i,
-    H.plusN(27n, C.Wasm.call.go(Nat.add(37n, H.A.Y(U32{kw})), H.A.BP3(U32{kw}, U32.is_le(H.A.need(U32{kw}), 1)), H.A.mem(m)))):
+    H.plusN(27n, Wa.Wasm.call.go(Nat.add(37n, H.A.Y(U32{kw})), H.A.BP3(U32{kw}, U32.is_le(H.A.need(U32{kw}), 1)), H.A.mem(m)))):
   match B:
     case True{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       +f = Nat.add(64n, Y)
       %Equal.sym(Bool, U32.is_le(H.A.need(k), 1), True{}, e3) :
-        H.AO(f, k, i, H.plusN(27n, C.Wasm.call.go(Nat.add(37n, Y), H.A.BP3(k, _), H.A.mem(m))))
-      +memw = {C.Wasm.Memory{1, C.Wasm.limit(None{}, m), C.Wasm.write.bytes(i, 20, C.Wasm.Bytes.zero{})} : C.Wasm.Memory}
-      %Equal.sym(Bool, C.Wasm.fits(1, 20, k), True{},
+        H.AO(f, k, i, H.plusN(27n, Wa.Wasm.call.go(Nat.add(37n, Y), H.A.BP3(k, _), H.A.mem(m))))
+      +memw = {Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.write.bytes(i, 20, Wa.Wasm.Bytes.zero{})} : Wa.Wasm.Memory}
+      %Equal.sym(Bool, Wa.Wasm.fits(1, 20, k), True{},
         H.fits(k, 1, e1, H.hX1(U32.shrn(U32.sub(H.A.E(k), 1), 15n), e3))) :
-        {C.Wasm.run.written(_, Nat.sub(f, 33n), C.Wasm.Instance{H.M1(), memw}, 20, k) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}
-      H.ranO(C.Wasm.call(Nat.sub(f, 33n), C.Wasm.Func{2n, 1n, 6n, H.body(1, False{})}, [20, k], memw),
+        {Wa.Wasm.run.written(_, Nat.sub(f, 33n), Wa.Wasm.Instance{H.M1(), memw}, 20, k) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
+      H.ranO(Wa.Wasm.call(Nat.sub(f, 33n), Wa.Wasm.Func{2n, 1n, 6n, H.body(1, False{})}, [20, k], memw),
         H.runO(Nat.sub(f, 33n), k, memw, P, hP, hE, h1, PN.le_add_l(31n, Y)))
     case False{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       +f = Nat.add(64n, Y)
       %Equal.sym(Bool, U32.is_le(H.A.need(k), 1), False{}, e3) :
-        H.AO(f, k, i, H.plusN(27n, C.Wasm.call.go(Nat.add(37n, Y), H.A.BP3(k, _), H.A.mem(m))))
+        H.AO(f, k, i, H.plusN(27n, Wa.Wasm.call.go(Nat.add(37n, Y), H.A.BP3(k, _), H.A.mem(m))))
       H.A.al4(H.A.c4(k, m), kw, i, m, {==}, P, hP, hE, h1, e1)
 
 # the input ends at 2^32 - 16 or below
@@ -1702,48 +1705,48 @@ def H.A.al2(B: Bool, +kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, +e2: {U32.
   +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(32n) : Nat}, +h1: PN.Le(U32.to_nat(1), P),
   +e1: {U32.is_lt(H.A.E(U32{kw}), 20) == False{} : Bool}) ->
   H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i,
-    H.plusN(14n, C.Wasm.call.go(Nat.add(50n, H.A.Y(U32{kw})), H.A.BP2(U32{kw}, U32.is_gt(H.A.E(U32{kw}), 4294967280)), H.A.mem(m)))):
+    H.plusN(14n, Wa.Wasm.call.go(Nat.add(50n, H.A.Y(U32{kw})), H.A.BP2(U32{kw}, U32.is_gt(H.A.E(U32{kw}), 4294967280)), H.A.mem(m)))):
   match B:
     case True{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       %Equal.sym(Bool, U32.is_gt(H.A.E(k), 4294967280), True{}, e2) :
-        H.AO(Nat.add(64n, Y), k, i, H.plusN(14n, C.Wasm.call.go(Nat.add(50n, Y), H.A.BP2(k, _), H.A.mem(m))))
+        H.AO(Nat.add(64n, Y), k, i, H.plusN(14n, Wa.Wasm.call.go(Nat.add(50n, Y), H.A.BP2(k, _), H.A.mem(m))))
       {==}
     case False{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       %Equal.sym(Bool, U32.is_gt(H.A.E(k), 4294967280), False{}, e2) :
-        H.AO(Nat.add(64n, Y), k, i, H.plusN(14n, C.Wasm.call.go(Nat.add(50n, Y), H.A.BP2(k, _), H.A.mem(m))))
+        H.AO(Nat.add(64n, Y), k, i, H.plusN(14n, Wa.Wasm.call.go(Nat.add(50n, Y), H.A.BP2(k, _), H.A.mem(m))))
       H.A.al3(U32.is_le(H.A.need(k), 1), kw, i, m, {==}, P, hP, H.hE(kw, P, hP, e2), h1, e1)
 
 # 20 + n does not wrap
 def H.A.al1(B: Bool, +kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, +e1: {U32.is_lt(H.A.E(U32{kw}), 20) == B : Bool},
   +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(32n) : Nat}, +h1: PN.Le(U32.to_nat(1), P)) ->
   H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i,
-    H.plusN(10n, C.Wasm.call.go(Nat.add(54n, H.A.Y(U32{kw})), H.A.BP1(U32{kw}, U32.is_lt(H.A.E(U32{kw}), 20)), H.A.mem(m)))):
+    H.plusN(10n, Wa.Wasm.call.go(Nat.add(54n, H.A.Y(U32{kw})), H.A.BP1(U32{kw}, U32.is_lt(H.A.E(U32{kw}), 20)), H.A.mem(m)))):
   match B:
     case True{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       %Equal.sym(Bool, U32.is_lt(H.A.E(k), 20), True{}, e1) :
-        H.AO(Nat.add(64n, Y), k, i, H.plusN(10n, C.Wasm.call.go(Nat.add(54n, Y), H.A.BP1(k, _), H.A.mem(m))))
+        H.AO(Nat.add(64n, Y), k, i, H.plusN(10n, Wa.Wasm.call.go(Nat.add(54n, Y), H.A.BP1(k, _), H.A.mem(m))))
       {==}
     case False{}:
       +k = {U32{kw} : U32}
       +Y = H.A.Y(k)
       %Equal.sym(Bool, U32.is_lt(H.A.E(k), 20), False{}, e1) :
-        H.AO(Nat.add(64n, Y), k, i, H.plusN(10n, C.Wasm.call.go(Nat.add(54n, Y), H.A.BP1(k, _), H.A.mem(m))))
+        H.AO(Nat.add(64n, Y), k, i, H.plusN(10n, Wa.Wasm.call.go(Nat.add(54n, Y), H.A.BP1(k, _), H.A.mem(m))))
       H.A.al2(U32.is_gt(H.A.E(k), 4294967280), kw, i, m, {==}, P, hP, h1, e1)
 
 # alloc, then run: out of memory, for an input of k bytes
 def H.A.top(+kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, +P: Nat, +hP: {Nat.add(H.W(4n), H.t20(P)) == H.W(32n) : Nat},
   +h1: PN.Le(U32.to_nat(1), P)) ->
-  H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i, C.Wasm.call(Nat.add(64n, H.A.Y(U32{kw})), C.Cir.alloc(0), [U32{kw}], H.A.mem(m))):
+  H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i, Wa.Wasm.call(Nat.add(64n, H.A.Y(U32{kw})), Cr.Cir.alloc(0), [U32{kw}], H.A.mem(m))):
   H.A.al1(U32.is_lt(H.A.E(U32{kw}), 20), kw, i, m, {==}, P, hP, h1)
 
 def H.oom.len(n: Maybe<&2, U32>, +i: List<&2, Word(8n)>, +m: U32) ->
-  &f:Nat -> {C.Wasm.run.sized(n, f, C.Wasm.Instance{H.M1(), H.A.mem(m)}, i) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}:
+  &f:Nat -> {Wa.Wasm.run.sized(n, f, Wa.Wasm.Instance{H.M1(), H.A.mem(m)}, i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   match n:
     case None{}:
       (0n, {==})
@@ -1753,16 +1756,16 @@ def H.oom.len(n: Maybe<&2, U32>, +i: List<&2, Word(8n)>, +m: U32) ->
           (Nat.add(64n, H.A.Y(U32{kw})), H.A.top(kw, i, m, H.pat(7n), H.hP(), H.h1()))
 
 def H.oom.mem(b: Bool, +i: List<&2, Word(8n)>, +m: U32) ->
-  &f:Nat -> {C.Wasm.run.made(f, C.Wasm.instantiate.sized(C.Wasm.memory.of.if(b, C.Wasm.Memory{1, C.Wasm.limit(None{}, m), C.Wasm.Bytes.zero{}}),
-    Some{C.Wasm.Segment{20, []}}, H.M1()), i) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}:
+  &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}),
+    Some{Wa.Wasm.Segment{20, []}}, H.M1()), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   match b:
     case False{}:
       (0n, {==})
     case True{}:
-      H.oom.len(C.Wasm.length32(i), i, m)
+      H.oom.len(Wa.Wasm.length32(i), i, m)
 
 # a module that halts at once with the status 1 runs out of memory
-def halt.oom.proof(+i: List<&2, Word(8n)>, +m: U32) -> &f:Nat -> {C.Wasm.run(f, C.Compiler.halt(1), i, m) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}:
-  %Equal.sym(Maybe<&2, C.Wasm.Module>, C.Wasm.decode.module(C.Compiler.halt(1)), Some{H.mod(1, False{})}, H.decoded(1, {==})) :
-    &f:Nat -> {C.Wasm.run.made(f, C.Wasm.instantiate.decoded(_, m), i) == C.Wasm.Outcome.out_of_memory{} : C.Wasm.Outcome}
+def halt.oom.proof(+i: List<&2, Word(8n)>, +m: U32) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(1)), Some{H.mod(1, False{})}, H.decoded(1, {==})) :
+    &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
   H.oom.mem(U32.is_le(1, m), i, m)

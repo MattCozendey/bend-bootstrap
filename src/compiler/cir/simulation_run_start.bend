@@ -9,67 +9,68 @@
 # it enters the block of the program's code, with the label RL (pr.go).
 
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
-import ./proof_halt.bend as PH
-import ./proof_module.bend as M
-import ./proof_sim_step.bend as S
-import ./proof_sim_nat.bend as Z
-import ./proof_sim_inv.bend as Q
-import ./proof_sim_frame.bend as F
-import ./proof_sim_alloc.bend as A
-import ./proof_sim_div.bend as DV
-import ./proof_sim_stmt.bend as T
+import ../../wasm/impl.bend as Wa
+import ./impl.bend as Cr
+import ../need_big.bend as N
+import ./halt.bend as PH
+import ./module_round_trip.bend as M
+import ./simulation_steps.bend as S
+import ./simulation_numbers.bend as Z
+import ./simulation_relation.bend as Q
+import ./simulation_write_frame.bend as F
+import ./simulation_alloc_emit.bend as A
+import ./simulation_first_cell_division.bend as DV
+import ./simulation_stmt.bend as T
 
 # The loop
 # --------
 
-def pr.R1() -> List<&2, C.Wasm.Instr>:
-  [C.Cir.i.get(C.Cir.l.next()), C.Cir.i.const(1), C.Cir.i.op(C.Wasm.Op.add{}), C.Cir.i.set(C.Cir.l.next()), C.Wasm.Instr.br{0}]
+def pr.R1() -> List<&2, Wa.Wasm.Instr>:
+  [Cr.Cir.i.get(Cr.Cir.l.next()), Cr.Cir.i.const(1), Cr.Cir.i.op(Wa.Wasm.Op.add{}), Cr.Cir.i.set(Cr.Cir.l.next()), Wa.Wasm.Instr.br{0}]
 
-def pr.LP() -> List<&2, C.Wasm.Instr>:
-  Con{C.Cir.i.get(C.Cir.l.next()), C.Cir.code.at(
-    [C.Cir.i.get(C.Cir.l.addr()), C.Cir.i.op(C.Wasm.Op.ge_u{}), C.Wasm.Instr.br_if{1},
-     C.Cir.i.get(C.Cir.l.next()), C.Cir.i.const(1), C.Cir.i.op(C.Wasm.Op.add{}), C.Cir.i.set(C.Cir.l.next()),
-     C.Wasm.Instr.br{0}])}
+def pr.LP() -> List<&2, Wa.Wasm.Instr>:
+  Con{Cr.Cir.i.get(Cr.Cir.l.next()), Cr.Cir.code.at(
+    [Cr.Cir.i.get(Cr.Cir.l.addr()), Cr.Cir.i.op(Wa.Wasm.Op.ge_u{}), Wa.Wasm.Instr.br_if{1},
+     Cr.Cir.i.get(Cr.Cir.l.next()), Cr.Cir.i.const(1), Cr.Cir.i.op(Wa.Wasm.Op.add{}), Cr.Cir.i.set(Cr.Cir.l.next()),
+     Wa.Wasm.Instr.br{0}])}
 
-def pr.LLp() -> C.Wasm.Label:
-  C.Wasm.Label{Some{pr.LP()}, [], 0n}
+def pr.LLp() -> Wa.Wasm.Label:
+  Wa.Wasm.Label{Some{pr.LP()}, [], 0n}
 
-def pr.LBk(+X: List<&2, C.Wasm.Instr>) -> C.Wasm.Label:
-  C.Wasm.Label{None{}, [C.Wasm.Instr.block{X}, C.Cir.i.get(C.Cir.l.status())], 0n}
+def pr.LBk(+X: List<&2, Wa.Wasm.Instr>) -> Wa.Wasm.Label:
+  Wa.Wasm.Label{None{}, [Wa.Wasm.Instr.block{X}, Cr.Cir.i.get(Cr.Cir.l.status())], 0n}
 
 # the loop's start, with next = nx and tmp = t
-def pr.LC(+X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory) -> C.Wasm.Step:
+def pr.LC(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory) -> Wa.Wasm.Step:
   Q.Cfg(pr.LP(), [pr.LLp(), pr.LBk(X)], [], Q.Loc(a, n, 2, nx, 0, t, 0, ad, rg), mm)
 
 # the loop's test
-def pr.TC(+X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory) -> C.Wasm.Step:
-  Q.Cfg(Con{C.Wasm.Instr.br_if{1}, pr.R1()}, [pr.LLp(), pr.LBk(X)], [Bool.to_u32(U32.is_ge(C.Cir.at(nx), ad))],
+def pr.TC(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory) -> Wa.Wasm.Step:
+  Q.Cfg(Con{Wa.Wasm.Instr.br_if{1}, pr.R1()}, [pr.LLp(), pr.LBk(X)], [Bool.to_u32(U32.is_ge(Cr.Cir.at(nx), ad))],
     Q.Loc(a, n, 2, nx, 0, nx, 0, ad, rg), mm)
 
 # after the loop
-def pr.XC(+X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory, +x: U32) -> C.Wasm.Step:
-  Q.Cfg([C.Wasm.Instr.block{X}, C.Cir.i.get(C.Cir.l.status())], [], [], Q.Loc(a, n, 2, x, 0, x, 0, ad, rg), mm)
+def pr.XC(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory, +x: U32) -> Wa.Wasm.Step:
+  Q.Cfg([Wa.Wasm.Instr.block{X}, Cr.Cir.i.get(Cr.Cir.l.status())], [], [], Q.Loc(a, n, 2, x, 0, x, 0, ad, rg), mm)
 
-def pr.test(+X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory) ->
-  {PH.H.steps(10n, pr.LC(X, a, n, nx, t, ad, rg, mm)) == pr.TC(X, a, n, nx, ad, rg, mm) : C.Wasm.Step}:
+def pr.test(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory) ->
+  {PH.H.steps(10n, pr.LC(X, a, n, nx, t, ad, rg, mm)) == pr.TC(X, a, n, nx, ad, rg, mm) : Wa.Wasm.Step}:
   {==}
 
-def pr.exit(+X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory,
-  e: {U32.is_ge(C.Cir.at(nx), ad) == True{} : Bool}) ->
-  {PH.H.steps(1n, pr.TC(X, a, n, nx, ad, rg, mm)) == pr.XC(X, a, n, ad, rg, mm, nx) : C.Wasm.Step}:
-  %Equal.sym(Bool, U32.is_ge(C.Cir.at(nx), ad), True{}, e) :
-    {PH.H.steps(1n, Q.Cfg(Con{C.Wasm.Instr.br_if{1}, pr.R1()}, [pr.LLp(), pr.LBk(X)], [Bool.to_u32(_)],
-      Q.Loc(a, n, 2, nx, 0, nx, 0, ad, rg), mm)) == pr.XC(X, a, n, ad, rg, mm, nx) : C.Wasm.Step}
+def pr.exit(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory,
+  e: {U32.is_ge(Cr.Cir.at(nx), ad) == True{} : Bool}) ->
+  {PH.H.steps(1n, pr.TC(X, a, n, nx, ad, rg, mm)) == pr.XC(X, a, n, ad, rg, mm, nx) : Wa.Wasm.Step}:
+  %Equal.sym(Bool, U32.is_ge(Cr.Cir.at(nx), ad), True{}, e) :
+    {PH.H.steps(1n, Q.Cfg(Con{Wa.Wasm.Instr.br_if{1}, pr.R1()}, [pr.LLp(), pr.LBk(X)], [Bool.to_u32(_)],
+      Q.Loc(a, n, 2, nx, 0, nx, 0, ad, rg), mm)) == pr.XC(X, a, n, ad, rg, mm, nx) : Wa.Wasm.Step}
   {==}
 
-def pr.more(+X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory,
-  e: {U32.is_ge(C.Cir.at(nx), ad) == False{} : Bool}) ->
-  {PH.H.steps(6n, pr.TC(X, a, n, nx, ad, rg, mm)) == pr.LC(X, a, n, U32.add(nx, 1), nx, ad, rg, mm) : C.Wasm.Step}:
-  %Equal.sym(Bool, U32.is_ge(C.Cir.at(nx), ad), False{}, e) :
-    {PH.H.steps(6n, Q.Cfg(Con{C.Wasm.Instr.br_if{1}, pr.R1()}, [pr.LLp(), pr.LBk(X)], [Bool.to_u32(_)],
-      Q.Loc(a, n, 2, nx, 0, nx, 0, ad, rg), mm)) == pr.LC(X, a, n, U32.add(nx, 1), nx, ad, rg, mm) : C.Wasm.Step}
+def pr.more(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory,
+  e: {U32.is_ge(Cr.Cir.at(nx), ad) == False{} : Bool}) ->
+  {PH.H.steps(6n, pr.TC(X, a, n, nx, ad, rg, mm)) == pr.LC(X, a, n, U32.add(nx, 1), nx, ad, rg, mm) : Wa.Wasm.Step}:
+  %Equal.sym(Bool, U32.is_ge(Cr.Cir.at(nx), ad), False{}, e) :
+    {PH.H.steps(6n, Q.Cfg(Con{Wa.Wasm.Instr.br_if{1}, pr.R1()}, [pr.LLp(), pr.LBk(X)], [Bool.to_u32(_)],
+      Q.Loc(a, n, 2, nx, 0, nx, 0, ad, rg), mm)) == pr.LC(X, a, n, U32.add(nx, 1), nx, ad, rg, mm) : Wa.Wasm.Step}
   {==}
 
 # 16 d
@@ -119,20 +120,20 @@ def pr.ll(p: Nat, +Xn: Nat, +E: Nat, hl: LL(1n+p, Xn, E)) -> LL(p, 1n+Xn, E):
         Equal.cong(Nat, Nat, z => 1n+PH.H.t20(z), Nat.add(Xn, 1n+q), Nat.add(1n+Xn, q), N.add_succ_r(Xn, q)), hl)
 
 # the loop's d rounds and its exit, from next = nx
-def pr.loop(d: Nat, +X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory,
+def pr.loop(d: Nat, +X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory,
   +Xn: Nat, +eX: {U32.to_nat(nx) == Xn : Nat}, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hx: N.Le(Nat.add(Xn, d), P), +hl: LL(d, Xn, U32.to_nat(ad)), +hf: N.Le(U32.to_nat(ad), PH.H.t20(Nat.add(Xn, d)))) ->
-  {PH.H.steps(Nat.add(s16(d), 11n), pr.LC(X, a, n, nx, t, ad, rg, mm)) == pr.XC(X, a, n, ad, rg, mm, addn(d, nx)) : C.Wasm.Step}:
+  {PH.H.steps(Nat.add(s16(d), 11n), pr.LC(X, a, n, nx, t, ad, rg, mm)) == pr.XC(X, a, n, ad, rg, mm, addn(d, nx)) : Wa.Wasm.Step}:
   match d:
     case 0n:
       +AD = U32.to_nat(ad)
       +hX = N.le_rw_l(Nat.add(Xn, 0n), U32.to_nat(nx), P, Equal.trans(Nat, Nat.add(Xn, 0n), Xn, U32.to_nat(nx), N.add_zero(Xn), Equal.sym(Nat, U32.to_nat(nx), Xn, eX)), hx)
-      +eA = Equal.trans(Nat, U32.to_nat(C.Cir.at(nx)), PH.H.t20(U32.to_nat(nx)), PH.H.t20(Nat.add(Xn, 0n)), F.at.nat(nx, P, hP, hX),
+      +eA = Equal.trans(Nat, U32.to_nat(Cr.Cir.at(nx)), PH.H.t20(U32.to_nat(nx)), PH.H.t20(Nat.add(Xn, 0n)), F.at.nat(nx, P, hP, hX),
         Equal.cong(Nat, Nat, z => PH.H.t20(z), U32.to_nat(nx), Nat.add(Xn, 0n), Equal.trans(Nat, U32.to_nat(nx), Xn, Nat.add(Xn, 0n), eX,
           Equal.sym(Nat, Nat.add(Xn, 0n), Xn, N.add_zero(Xn)))))
-      +ge = A.ge.of(C.Cir.at(nx), ad, N.le_rw_r(AD, PH.H.t20(Nat.add(Xn, 0n)), U32.to_nat(C.Cir.at(nx)),
-        Equal.sym(Nat, U32.to_nat(C.Cir.at(nx)), PH.H.t20(Nat.add(Xn, 0n)), eA), hf))
+      +ge = A.ge.of(Cr.Cir.at(nx), ad, N.le_rw_r(AD, PH.H.t20(Nat.add(Xn, 0n)), U32.to_nat(Cr.Cir.at(nx)),
+        Equal.sym(Nat, U32.to_nat(Cr.Cir.at(nx)), PH.H.t20(Nat.add(Xn, 0n)), eA), hf))
       S.steps.then(10n, 1n, pr.LC(X, a, n, nx, t, ad, rg, mm), pr.TC(X, a, n, nx, ad, rg, mm), pr.XC(X, a, n, ad, rg, mm, nx),
         pr.test(X, a, n, nx, t, ad, rg, mm), pr.exit(X, a, n, nx, ad, rg, mm, ge))
     case 1n+(+p):
@@ -143,11 +144,11 @@ def pr.loop(d: Nat, +X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: 
       +hXP = N.le_trans(1n+Xn, Nat.add(1n+Xn, p), P, N.le_add_r(1n+Xn, p), hX1)
       +hX = N.le_trans(U32.to_nat(nx), 1n+U32.to_nat(nx), P, N.le_succ(U32.to_nat(nx), U32.to_nat(nx), N.le_refl(U32.to_nat(nx))),
         N.le_rw_l(1n+Xn, 1n+U32.to_nat(nx), P, Equal.cong(Nat, Nat, z => 1n+z, Xn, U32.to_nat(nx), Equal.sym(Nat, U32.to_nat(nx), Xn, eX)), hXP))
-      +eA = Equal.trans(Nat, U32.to_nat(C.Cir.at(nx)), PH.H.t20(U32.to_nat(nx)), PH.H.t20(Xn), F.at.nat(nx, P, hP, hX),
+      +eA = Equal.trans(Nat, U32.to_nat(Cr.Cir.at(nx)), PH.H.t20(U32.to_nat(nx)), PH.H.t20(Xn), F.at.nat(nx, P, hP, hX),
         Equal.cong(Nat, Nat, z => PH.H.t20(z), U32.to_nat(nx), Xn, eX))
       +hlt = N.le_trans(1n+PH.H.t20(Xn), 1n+PH.H.t20(Nat.add(Xn, p)), AD, PH.H.t20_mono(Xn, Nat.add(Xn, p), N.le_add_r(Xn, p)), hl)
-      +nge = nge.of(C.Cir.at(nx), ad, N.le_rw_l(1n+PH.H.t20(Xn), 1n+U32.to_nat(C.Cir.at(nx)), AD,
-        Equal.cong(Nat, Nat, z => 1n+z, PH.H.t20(Xn), U32.to_nat(C.Cir.at(nx)), Equal.sym(Nat, U32.to_nat(C.Cir.at(nx)), PH.H.t20(Xn), eA)), hlt))
+      +nge = nge.of(Cr.Cir.at(nx), ad, N.le_rw_l(1n+PH.H.t20(Xn), 1n+U32.to_nat(Cr.Cir.at(nx)), AD,
+        Equal.cong(Nat, Nat, z => 1n+z, PH.H.t20(Xn), U32.to_nat(Cr.Cir.at(nx)), Equal.sym(Nat, U32.to_nat(Cr.Cir.at(nx)), PH.H.t20(Xn), eA)), hlt))
       # the next round, from nx + 1
       +eX1 = Equal.trans(Nat, U32.to_nat(U32.add(nx, 1)), U32.to_nat(U32.inc(nx)), 1n+Xn,
         Equal.cong(U32, Nat, z => U32.to_nat(z), U32.add(nx, 1), U32.inc(nx), F.inc.add1(nx)),
@@ -218,67 +219,67 @@ def nge.to(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_ge(c) == Fals
 # ----------------
 
 # run's frame as a call makes it, with the input's address a and length n
-def pr.fr(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32) -> C.Wasm.Frame:
-  C.Wasm.Frame{M.body(C.Cir.run(prog, regs, k)), [], 1n, [], List.append(&2, U32, [a, n], List.replicate(U32, 6n+regs, 0))}
+def pr.fr(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32) -> Wa.Wasm.Frame:
+  Wa.Wasm.Frame{M.body(Cr.Cir.run(prog, regs, k)), [], 1n, [], List.append(&2, U32, [a, n], List.replicate(U32, 6n+regs, 0))}
 
-def pr.code(+prog: C.Cir.Stmt) -> List<&2, C.Wasm.Instr>:
-  C.Cir.code.stmt(prog, 0n, [])
+def pr.code(+prog: Cr.Cir.Stmt) -> List<&2, Wa.Wasm.Instr>:
+  Cr.Cir.code.stmt(prog, 0n, [])
 
 def pr.rg(+regs: Nat) -> List<&2, U32>:
   List.replicate(U32, regs, 0)
 
-def pr.pre(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory) ->
-  {PH.H.steps(10n, C.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) ==
-    pr.LC(pr.code(prog), a, n, U32.inc(k), 0, U32.add(a, n), pr.rg(regs), mm) : C.Wasm.Step}:
+def pr.pre(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory) ->
+  {PH.H.steps(10n, Wa.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) ==
+    pr.LC(pr.code(prog), a, n, U32.inc(k), 0, U32.add(a, n), pr.rg(regs), mm) : Wa.Wasm.Step}:
   {==}
 
-def pr.post(+X: List<&2, C.Wasm.Instr>, +a: U32, +n: U32, +ad: U32, +rg: List<&2, U32>, +mm: C.Wasm.Memory, +x: U32) ->
-  {PH.H.steps(1n, pr.XC(X, a, n, ad, rg, mm, x)) == Q.Cfg(X, [T.RL()], [], Q.Loc(a, n, 2, x, 0, x, 0, ad, rg), mm) : C.Wasm.Step}:
+def pr.post(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory, +x: U32) ->
+  {PH.H.steps(1n, pr.XC(X, a, n, ad, rg, mm, x)) == Q.Cfg(X, [T.RL()], [], Q.Loc(a, n, 2, x, 0, x, 0, ad, rg), mm) : Wa.Wasm.Step}:
   {==}
 
 # the program's configuration, with next = first
-def pr.PC(+prog: C.Cir.Stmt, +regs: Nat, +a: U32, +n: U32, +mm: C.Wasm.Memory, +x: U32) -> C.Wasm.Step:
+def pr.PC(+prog: Cr.Cir.Stmt, +regs: Nat, +a: U32, +n: U32, +mm: Wa.Wasm.Memory, +x: U32) -> Wa.Wasm.Step:
   Q.Cfg(pr.code(prog), [T.RL()], [], Q.Loc(a, n, 2, x, 0, x, 0, U32.add(a, n), pr.rg(regs)), mm)
 
 # run's start, its loop of d rounds, and the program's block
-def pr.all(+d: Nat, +prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory,
+def pr.all(+d: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hx: N.Le(Nat.add(U32.to_nat(U32.inc(k)), d), P), +hl: LL(d, U32.to_nat(U32.inc(k)), U32.to_nat(U32.add(a, n))),
   +hf: N.Le(U32.to_nat(U32.add(a, n)), PH.H.t20(Nat.add(U32.to_nat(U32.inc(k)), d)))) ->
-  {PH.H.steps(Nat.add(10n, Nat.add(Nat.add(s16(d), 11n), 1n)), C.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) ==
-    pr.PC(prog, regs, a, n, mm, addn(d, U32.inc(k))) : C.Wasm.Step}:
+  {PH.H.steps(Nat.add(10n, Nat.add(Nat.add(s16(d), 11n), 1n)), Wa.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) ==
+    pr.PC(prog, regs, a, n, mm, addn(d, U32.inc(k))) : Wa.Wasm.Step}:
   +X = pr.code(prog)
   +ad = U32.add(a, n)
   +L0 = pr.LC(X, a, n, U32.inc(k), 0, ad, pr.rg(regs), mm)
   +XF = pr.XC(X, a, n, ad, pr.rg(regs), mm, addn(d, U32.inc(k)))
-  S.steps.then(10n, Nat.add(Nat.add(s16(d), 11n), 1n), C.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}, L0,
+  S.steps.then(10n, Nat.add(Nat.add(s16(d), 11n), 1n), Wa.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}, L0,
     pr.PC(prog, regs, a, n, mm, addn(d, U32.inc(k))), pr.pre(prog, regs, k, a, n, mm),
     S.steps.then(Nat.add(s16(d), 11n), 1n, L0, XF, pr.PC(prog, regs, a, n, mm, addn(d, U32.inc(k))),
       pr.loop(d, X, a, n, U32.inc(k), 0, ad, pr.rg(regs), mm, U32.to_nat(U32.inc(k)), {==}, P, hP, W, hW, hx, hl, hf),
       pr.post(X, a, n, ad, pr.rg(regs), mm, addn(d, U32.inc(k)))))
 
 # a run of run's start that reaches the program's block with next = x
-def PRE(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory, +x: U32, +P: Nat) -> Data:
-  S.P2(S.EX(N2 => {PH.H.steps(N2, C.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) == pr.PC(prog, regs, a, n, mm, x) : C.Wasm.Step}),
+def PRE(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory, +x: U32, +P: Nat) -> Data:
+  S.P2(S.EX(N2 => {PH.H.steps(N2, Wa.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) == pr.PC(prog, regs, a, n, mm, x) : Wa.Wasm.Step}),
     S.P2(N.Le(U32.to_nat(U32.add(a, n)), PH.H.t20(U32.to_nat(x))), N.Le(U32.to_nat(x), P)))
 
 # 20 (k + 1) is at or past the end: no round
-def pr.at(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory,
+def pr.at(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  +hX0: N.Le(U32.to_nat(U32.inc(k)), P), e: {U32.is_ge(C.Cir.at(U32.inc(k)), U32.add(a, n)) == True{} : Bool}) ->
+  +hX0: N.Le(U32.to_nat(U32.inc(k)), P), e: {U32.is_ge(Cr.Cir.at(U32.inc(k)), U32.add(a, n)) == True{} : Bool}) ->
   PRE(prog, regs, k, a, n, mm, U32.inc(k), P):
   +X0 = U32.to_nat(U32.inc(k))
   +E = U32.to_nat(U32.add(a, n))
   +hx = N.le_rw_l(X0, Nat.add(X0, 0n), P, Equal.sym(Nat, Nat.add(X0, 0n), X0, N.add_zero(X0)), hX0)
-  +hge = DV.ge.le(U32.cmp(C.Cir.at(U32.inc(k)), U32.add(a, n)), U32.to_nat(C.Cir.at(U32.inc(k))), E, N.U32.rel(C.Cir.at(U32.inc(k)), U32.add(a, n)), e)
-  +eA = Equal.trans(Nat, U32.to_nat(C.Cir.at(U32.inc(k))), PH.H.t20(X0), PH.H.t20(Nat.add(X0, 0n)), F.at.nat(U32.inc(k), P, hP, hX0),
+  +hge = DV.ge.le(U32.cmp(Cr.Cir.at(U32.inc(k)), U32.add(a, n)), U32.to_nat(Cr.Cir.at(U32.inc(k))), E, N.U32.rel(Cr.Cir.at(U32.inc(k)), U32.add(a, n)), e)
+  +eA = Equal.trans(Nat, U32.to_nat(Cr.Cir.at(U32.inc(k))), PH.H.t20(X0), PH.H.t20(Nat.add(X0, 0n)), F.at.nat(U32.inc(k), P, hP, hX0),
     Equal.cong(Nat, Nat, z => PH.H.t20(z), X0, Nat.add(X0, 0n), Equal.sym(Nat, Nat.add(X0, 0n), X0, N.add_zero(X0))))
-  +hf = N.le_rw_r(E, U32.to_nat(C.Cir.at(U32.inc(k))), PH.H.t20(Nat.add(X0, 0n)), eA, hge)
-  +hf0 = N.le_rw_r(E, U32.to_nat(C.Cir.at(U32.inc(k))), PH.H.t20(X0), F.at.nat(U32.inc(k), P, hP, hX0), hge)
+  +hf = N.le_rw_r(E, U32.to_nat(Cr.Cir.at(U32.inc(k))), PH.H.t20(Nat.add(X0, 0n)), eA, hge)
+  +hf0 = N.le_rw_r(E, U32.to_nat(Cr.Cir.at(U32.inc(k))), PH.H.t20(X0), F.at.nat(U32.inc(k), P, hP, hX0), hge)
   ((Nat.add(10n, Nat.add(Nat.add(s16(0n), 11n), 1n)), pr.all(0n, prog, regs, k, a, n, mm, P, hP, W, hW, hx, Unit{}, hf)), (hf0, hX0))
 
 # 20 (k + 1) is before the end E, and E - 1 = 20 Qn + Rn: the rounds up to Qn + 1
-def pr.q(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory,
+def pr.q(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hX0: N.Le(U32.to_nat(U32.inc(k)), P), +hE: N.Le(U32.to_nat(U32.add(a, n)), PH.H.t20(P)),
   +hlt0: N.Le(1n+PH.H.t20(U32.to_nat(U32.inc(k))), U32.to_nat(U32.add(a, n))),
@@ -327,10 +328,10 @@ def pr.q(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.M
   +ex = Equal.trans(Nat, U32.to_nat(x), U32.to_nat(F1), 1n+Qn, Equal.cong(U32, Nat, z => U32.to_nat(z), x, F1, Equal.sym(U32, F1, x, eF)), eN)
   +hEx = N.le_rw_r(E, 20n+TQ, PH.H.t20(U32.to_nat(x)), Equal.cong(Nat, Nat, z => PH.H.t20(z), 1n+Qn, U32.to_nat(x), Equal.sym(Nat, U32.to_nat(x), 1n+Qn, ex)), hEQ)
   +hxP = N.le_rw_l(1n+Qn, U32.to_nat(x), P, Equal.sym(Nat, U32.to_nat(x), 1n+Qn, ex), hQP)
-  ((N2, (%eF : {PH.H.steps(N2, C.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) == pr.PC(prog, regs, a, n, mm, _) : C.Wasm.Step};
+  ((N2, (%eF : {PH.H.steps(N2, Wa.Wasm.Step.next{pr.fr(prog, regs, k, a, n), mm}) == pr.PC(prog, regs, a, n, mm, _) : Wa.Wasm.Step};
     pr.all(1n+d1, prog, regs, k, a, n, mm, P, hP, W, hW, hx, hl, hf))), (hEx, hxP))
 
-def pr.qr(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory,
+def pr.qr(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hX0: N.Le(U32.to_nat(U32.inc(k)), P), +hE: N.Le(U32.to_nat(U32.add(a, n)), PH.H.t20(P)),
   +hlt0: N.Le(1n+PH.H.t20(U32.to_nat(U32.inc(k))), U32.to_nat(U32.add(a, n))),
@@ -343,10 +344,10 @@ def pr.qr(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.
   pr.q(prog, regs, k, a, n, mm, P, hP, W, hW, hX0, hE, hlt0, Qn, Rn, eQ, hR)
 
 # by the test of 20 (k + 1) against the end
-def pr.cs(b: Bool, +prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory,
+def pr.cs(b: Bool, +prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hX0: N.Le(U32.to_nat(U32.inc(k)), P), +hE: N.Le(U32.to_nat(U32.add(a, n)), PH.H.t20(P)),
-  e: {U32.is_ge(C.Cir.at(U32.inc(k)), U32.add(a, n)) == b : Bool}) ->
+  e: {U32.is_ge(Cr.Cir.at(U32.inc(k)), U32.add(a, n)) == b : Bool}) ->
   PRE(prog, regs, k, a, n, mm, Bool.pick(U32, b, U32.inc(k), U32.inc(U32.div(U32.sub(U32.add(a, n), 1), 20))), P):
   match b:
     case True{}:
@@ -355,14 +356,14 @@ def pr.cs(b: Bool, +prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm
       +ad = U32.add(a, n)
       +E = U32.to_nat(ad)
       +X0 = U32.to_nat(U32.inc(k))
-      +hlt0 = N.le_rw_l(1n+U32.to_nat(C.Cir.at(U32.inc(k))), 1n+PH.H.t20(X0), E,
-        Equal.cong(Nat, Nat, z => 1n+z, U32.to_nat(C.Cir.at(U32.inc(k))), PH.H.t20(X0), F.at.nat(U32.inc(k), P, hP, hX0)),
-        nge.to(U32.cmp(C.Cir.at(U32.inc(k)), ad), U32.to_nat(C.Cir.at(U32.inc(k))), E, N.U32.rel(C.Cir.at(U32.inc(k)), ad), e))
+      +hlt0 = N.le_rw_l(1n+U32.to_nat(Cr.Cir.at(U32.inc(k))), 1n+PH.H.t20(X0), E,
+        Equal.cong(Nat, Nat, z => 1n+z, U32.to_nat(Cr.Cir.at(U32.inc(k))), PH.H.t20(X0), F.at.nat(U32.inc(k), P, hP, hX0)),
+        nge.to(U32.cmp(Cr.Cir.at(U32.inc(k)), ad), U32.to_nat(Cr.Cir.at(U32.inc(k))), E, N.U32.rel(Cr.Cir.at(U32.inc(k)), ad), e))
       pr.qr(prog, regs, k, a, n, mm, P, hP, W, hW, hX0, hE, hlt0, div.ex(U32.sub(ad, 1)))
 
 # run's start reaches the program's block with next = Cir.first(k, a + n)
-def pr.go(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: C.Wasm.Memory,
+def pr.go(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Wasm.Memory,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hX0: N.Le(U32.to_nat(U32.inc(k)), P), +hE: N.Le(U32.to_nat(U32.add(a, n)), PH.H.t20(P))) ->
-  PRE(prog, regs, k, a, n, mm, C.Cir.first(k, U32.add(a, n)), P):
-  pr.cs(U32.is_ge(C.Cir.at(U32.inc(k)), U32.add(a, n)), prog, regs, k, a, n, mm, P, hP, W, hW, hX0, hE, {==})
+  PRE(prog, regs, k, a, n, mm, Cr.Cir.first(k, U32.add(a, n)), P):
+  pr.cs(U32.is_ge(Cr.Cir.at(U32.inc(k)), U32.add(a, n)), prog, regs, k, a, n, mm, P, hP, W, hW, hX0, hE, {==})

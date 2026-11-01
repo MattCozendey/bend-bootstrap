@@ -7,12 +7,12 @@
 # say how their numbers compare (le.of, lt.of, nz.of).
 
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
-import ./proof_halt.bend as PH
-import ./proof_valid.bend as V
-import ./proof_sim_mem.bend as Y
-import ./proof_instrs.bend as I
+import ../../wasm/impl.bend as Wa
+import ../need_big.bend as N
+import ./halt.bend as PH
+import ./module_valid.bend as V
+import ./simulation_memory_bytes.bend as Y
+import ./instrs_round_trip.bend as I
 
 # From Nat to words
 # -----------------
@@ -325,7 +325,7 @@ def dec.nat(+x: U32, h: N.Le(1n, U32.to_nat(x))) -> {1n+U32.to_nat(U32.sub(x, 1)
 def inside.ok(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hw: N.Le(1n, U32.to_nat(w)),
   +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
-  hb: N.Le(1n+N.D(16n, U32.to_nat(p)), W)) -> {C.Wasm.inside(p, x, o, w) == True{} : Bool}:
+  hb: N.Le(1n+N.D(16n, U32.to_nat(p)), W)) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
   +X = U32.to_nat(x)
   +O = U32.to_nat(o)
   +Wn = U32.to_nat(w)
@@ -352,7 +352,7 @@ def inside.ok(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n
   +h4 = N.le_trans(1n+N.D(16n, U32.to_nat(sh)), 1n+U32.to_nat(d), PBn, V.shrn.le(16n, d),
     N.le_rw_l(Sm, 1n+U32.to_nat(d), PBn, Equal.sym(Nat, 1n+U32.to_nat(d), Sm, ed), h))
   +c3 = lt.to(sh, p, V.dlt(16n, U32.to_nat(sh), U32.to_nat(p), h4))
-  %Equal.sym(Bool, U32.is_lt(ea, x), False{}, c1) : {Bool.and(Bool.not(_), C.Wasm.fits(p, ea, w)) == True{} : Bool}
-  %Equal.sym(Bool, U32.is_lt(E, ea), False{}, c2) : {C.Wasm.fits.end(_, p, E) == True{} : Bool}
+  %Equal.sym(Bool, U32.is_lt(ea, x), False{}, c1) : {Bool.and(Bool.not(_), Wa.Wasm.fits(p, ea, w)) == True{} : Bool}
+  %Equal.sym(Bool, U32.is_lt(E, ea), False{}, c2) : {Wa.Wasm.fits.end(_, p, E) == True{} : Bool}
   %Equal.sym(Bool, U32.is_lt(sh, p), True{}, c3) : {Bool.or(U32.is_zero(E), _) == True{} : Bool}
   or.true(U32.is_zero(E))

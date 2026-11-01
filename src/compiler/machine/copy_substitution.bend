@@ -23,9 +23,12 @@
 # not wrap.
 
 import Base
-import ./impl.bend as C
-import ./proof_term.bend as T
-import ./proof_need.bend as N
+import ../../book/impl.bend as Bk
+import ../../eval/impl.bend as El
+import ../cir/impl.bend as Cr
+import ./impl.bend as Mc
+import ./cell_terms.bend as T
+import ../need_big.bend as N
 
 # Kit
 # ---
@@ -46,8 +49,8 @@ def Nat.of(b: Bool) -> Nat:
       0n
 
 # field k of the cell c
-def Fd(+k: Nat, +m: C.Cir.Cells, +c: U32) -> U32:
-  C.Cir.Cell.get(k, C.Cir.Cells.get(m, c))
+def Fd(+k: Nat, +m: Cr.Cir.Cells, +c: U32) -> U32:
+  Cr.Cir.Cell.get(k, Cr.Cir.Cells.get(m, c))
 
 # x is one of xs
 def Has(xs: List<&2, U32>, +x: U32) -> Bool:
@@ -77,91 +80,91 @@ def Nodup(xs: List<&2, U32>) -> Bool:
 # -----
 
 # 1 + the highest free variable of t, 0 when it has none (Img.fv, unbounded)
-def Fv(t: C.Term) -> Nat:
+def Fv(t: Bk.Term) -> Nat:
   match t:
-    case C.Term.Var{i}:
+    case Bk.Term.Var{i}:
       1n+i
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       0n
-    case C.Term.Ann{x, T}:
+    case Bk.Term.Ann{x, T}:
       Nat.max(Fv(x), Fv(T))
-    case C.Term.Let{_, v, f}:
+    case Bk.Term.Let{_, v, f}:
       Nat.max(Fv(v), Nat.sub(Fv(f), 1n))
-    case C.Term.Typ{q}:
+    case Bk.Term.Typ{q}:
       Fv(q)
-    case C.Term.Min{a, b}:
+    case Bk.Term.Min{a, b}:
       Nat.max(Fv(a), Fv(b))
-    case C.Term.All{_, A, B}:
+    case Bk.Term.All{_, A, B}:
       Nat.max(Fv(A), Nat.sub(Fv(B), 1n))
-    case C.Term.Lam{_, f}:
+    case Bk.Term.Lam{_, f}:
       Nat.sub(Fv(f), 1n)
-    case C.Term.App{_, f, x}:
+    case Bk.Term.App{_, f, x}:
       Nat.max(Fv(f), Fv(x))
-    case C.Term.Sig{_, A, B}:
+    case Bk.Term.Sig{_, A, B}:
       Nat.max(Fv(A), Nat.sub(Fv(B), 1n))
-    case C.Term.Tup{_, a, b}:
+    case Bk.Term.Tup{_, a, b}:
       Nat.max(Fv(a), Fv(b))
-    case C.Term.Prj{h}:
+    case Bk.Term.Prj{h}:
       Fv(h)
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       0n
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       0n
-    case C.Term.Mat{_, h, m}:
+    case Bk.Term.Mat{_, h, m}:
       Nat.max(Fv(h), Fv(m))
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       0n
-    case C.Term.Eql{a, b, T}:
+    case Bk.Term.Eql{a, b, T}:
       Nat.max(Fv(a), Nat.max(Fv(b), Fv(T)))
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       0n
-    case C.Term.Rwt{e, P, f}:
+    case Bk.Term.Rwt{e, P, f}:
       Nat.max(Fv(e), Nat.max(Nat.sub(Fv(P), 2n), Fv(f)))
 
 # the nodes of t
-def Sz(t: C.Term) -> Nat:
+def Sz(t: Bk.Term) -> Nat:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       1n
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       1n
-    case C.Term.Ann{x, T}:
+    case Bk.Term.Ann{x, T}:
       1n+Nat.add(Sz(x), Sz(T))
-    case C.Term.Let{_, v, f}:
+    case Bk.Term.Let{_, v, f}:
       1n+Nat.add(Sz(v), Sz(f))
-    case C.Term.Typ{q}:
+    case Bk.Term.Typ{q}:
       1n+Sz(q)
-    case C.Term.Min{a, b}:
+    case Bk.Term.Min{a, b}:
       1n+Nat.add(Sz(a), Sz(b))
-    case C.Term.All{_, A, B}:
+    case Bk.Term.All{_, A, B}:
       1n+Nat.add(Sz(A), Sz(B))
-    case C.Term.Lam{_, f}:
+    case Bk.Term.Lam{_, f}:
       1n+Sz(f)
-    case C.Term.App{_, f, x}:
+    case Bk.Term.App{_, f, x}:
       1n+Nat.add(Sz(f), Sz(x))
-    case C.Term.Sig{_, A, B}:
+    case Bk.Term.Sig{_, A, B}:
       1n+Nat.add(Sz(A), Sz(B))
-    case C.Term.Tup{_, a, b}:
+    case Bk.Term.Tup{_, a, b}:
       1n+Nat.add(Sz(a), Sz(b))
-    case C.Term.Prj{h}:
+    case Bk.Term.Prj{h}:
       1n+Sz(h)
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       1n
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       1n
-    case C.Term.Mat{_, h, m}:
+    case Bk.Term.Mat{_, h, m}:
       1n+Nat.add(Sz(h), Sz(m))
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       1n
-    case C.Term.Eql{a, b, T}:
+    case Bk.Term.Eql{a, b, T}:
       1n+Nat.add(Sz(a), Nat.add(Sz(b), Sz(T)))
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       1n
-    case C.Term.Rwt{e, P, f}:
+    case Bk.Term.Rwt{e, P, f}:
       1n+Nat.add(Sz(e), Nat.add(Sz(P), Sz(f)))
 
 # the most nodes of the terms es
-def Sz.max(es: List<&2, C.Term>) -> Nat:
+def Sz.max(es: List<&2, Bk.Term>) -> Nat:
   match es:
     case Nil{}:
       0n
@@ -169,49 +172,49 @@ def Sz.max(es: List<&2, C.Term>) -> Nat:
       Nat.max(Sz(e), Sz.max(rest))
 
 # each variable i of t: i + a does not wrap as a U32
-def Fit(t: C.Term, +a: U32) -> Bool:
+def Fit(t: Bk.Term, +a: U32) -> Bool:
   match t:
-    case C.Term.Var{+i}:
+    case Bk.Term.Var{+i}:
       U32.is_ge(U32.add(U32.from_nat(i), a), U32.from_nat(i))
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       True{}
-    case C.Term.Ann{x, T}:
+    case Bk.Term.Ann{x, T}:
       Bool.and(Fit(x, a), Fit(T, a))
-    case C.Term.Let{_, v, f}:
+    case Bk.Term.Let{_, v, f}:
       Bool.and(Fit(v, a), Fit(f, a))
-    case C.Term.Typ{q}:
+    case Bk.Term.Typ{q}:
       Fit(q, a)
-    case C.Term.Min{x, y}:
+    case Bk.Term.Min{x, y}:
       Bool.and(Fit(x, a), Fit(y, a))
-    case C.Term.All{_, A, B}:
+    case Bk.Term.All{_, A, B}:
       Bool.and(Fit(A, a), Fit(B, a))
-    case C.Term.Lam{_, f}:
+    case Bk.Term.Lam{_, f}:
       Fit(f, a)
-    case C.Term.App{_, f, x}:
+    case Bk.Term.App{_, f, x}:
       Bool.and(Fit(f, a), Fit(x, a))
-    case C.Term.Sig{_, A, B}:
+    case Bk.Term.Sig{_, A, B}:
       Bool.and(Fit(A, a), Fit(B, a))
-    case C.Term.Tup{_, x, y}:
+    case Bk.Term.Tup{_, x, y}:
       Bool.and(Fit(x, a), Fit(y, a))
-    case C.Term.Prj{h}:
+    case Bk.Term.Prj{h}:
       Fit(h, a)
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       True{}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       True{}
-    case C.Term.Mat{_, h, m}:
+    case Bk.Term.Mat{_, h, m}:
       Bool.and(Fit(h, a), Fit(m, a))
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       True{}
-    case C.Term.Eql{x, y, T}:
+    case Bk.Term.Eql{x, y, T}:
       Bool.and(Fit(x, a), Bool.and(Fit(y, a), Fit(T, a)))
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       True{}
-    case C.Term.Rwt{e, P, f}:
+    case Bk.Term.Rwt{e, P, f}:
       Bool.and(Fit(e, a), Bool.and(Fit(P, a), Fit(f, a)))
 
 # each of es fits the shift by a
-def Fits(es: List<&2, C.Term>, +a: U32) -> Bool:
+def Fits(es: List<&2, Bk.Term>, +a: U32) -> Bool:
   match es:
     case Nil{}:
       True{}
@@ -221,14 +224,14 @@ def Fits(es: List<&2, C.Term>, +a: U32) -> Bool:
 # what a walk computes, under d binders: a shift by a, or a substitution of e
 type Mo is Data:
   Mo.shift{a: Nat}
-  Mo.subst{e: List<&2, C.Term>}
+  Mo.subst{e: List<&2, Bk.Term>}
 
-def Mo.F(+mo: Mo, t: C.Term, +d: Nat) -> C.Term:
+def Mo.F(+mo: Mo, t: Bk.Term, +d: Nat) -> Bk.Term:
   match mo:
     case Mo.shift{a}:
-      C.Term.shift(t, a, d)
+      El.Term.shift(t, a, d)
     case Mo.subst{e}:
-      C.Term.subst(t, e, d)
+      El.Term.subst(t, e, d)
 
 # Checked terms
 # -------------
@@ -240,12 +243,12 @@ def Tbc(+x: U32) -> Bool:
 # the run may read the cell x: one of the state's (image K, first F, next N),
 # not one of X, nor one of the table's
 def Al(+K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +x: U32) -> Bool:
-  Bool.and(C.Cir.is_cell(x, K, F, N), Bool.and(Bool.not(Has(X, x)), Bool.not(Tbc(x))))
+  Bool.and(Cr.Cir.is_cell(x, K, F, N), Bool.and(Bool.not(Has(X, x)), Bool.not(Tbc(x))))
 
 # the fv fvf of a cell of the tag tag says what the copy needs of its term t:
 # a Ref or an Enu has 0, which shares it; another bounds t's free variables,
 # unless it is fv_max
-def FvOK(tag: Nat, +fvf: U32, t: C.Term) -> Bool:
+def FvOK(tag: Nat, +fvf: U32, t: Bk.Term) -> Bool:
   match tag:
     case 1n:
       U32.is_zero(fvf)
@@ -254,21 +257,21 @@ def FvOK(tag: Nat, +fvf: U32, t: C.Term) -> Bool:
     case _:
       Bool.or(U32.is_eq(fvf, 524287), Nat.is_le(Fv(t), U32.to_nat(fvf)))
 
-def Tm.ok(b: Bool, t: C.Term) -> Maybe<&2, C.Term>:
+def Tm.ok(b: Bool, t: Bk.Term) -> Maybe<&2, Bk.Term>:
   match b:
     case True{}:
       Some{t}
     case False{}:
       None{}
 
-def Tm.chk(+tag: Nat, +fvf: U32, r: Maybe<&2, C.Term>) -> Maybe<&2, C.Term>:
+def Tm.chk(+tag: Nat, +fvf: U32, r: Maybe<&2, Bk.Term>) -> Maybe<&2, Bk.Term>:
   match r:
     case None{}:
       None{}
     case Some{+t}:
       Tm.ok(FvOK(tag, fvf, t), t)
 
-def Tm.if(ok: Bool, r: Unit -> Maybe<&2, C.Term>) -> Maybe<&2, C.Term>:
+def Tm.if(ok: Bool, r: Unit -> Maybe<&2, Bk.Term>) -> Maybe<&2, Bk.Term>:
   match ok:
     case True{}:
       r(Unit{})
@@ -277,20 +280,20 @@ def Tm.if(ok: Bool, r: Unit -> Maybe<&2, C.Term>) -> Maybe<&2, C.Term>:
 
 # the checked term of the cell c: T.tm.of's, when every cell that it reads may
 # be read (Al) and has a right fv (FvOK)
-def Tm(fuel: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
-  +X: List<&2, U32>, +N: U32, +c: U32) -> Maybe<&2, C.Term>:
+def Tm(fuel: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +c: U32) -> Maybe<&2, Bk.Term>:
   match fuel:
     case 0n:
       None{}
     case 1n+(+f):
-      +cell = C.Cir.Cells.get(m, c)
-      +f0 = C.Cir.Cell.get(0n, cell)
+      +cell = Cr.Cir.Cells.get(m, c)
+      +f0 = Cr.Cir.Cell.get(0n, cell)
       +tag = U32.to_nat(U32.and(f0, 63))
       Tm.if(Al(K, F, X, N, c), u => Tm.chk(tag, U32.shrn(f0, 13n),
-        T.tm.cell(tag, T.tm.quan(U32.and(U32.shrn(f0, 6n), 3)), c, C.Cir.Cell.get(2n, cell), ks, img,
-          u => Tm(f, m, ks, img, K, F, X, N, C.Cir.Cell.get(2n, cell)),
-          u => Tm(f, m, ks, img, K, F, X, N, C.Cir.Cell.get(3n, cell)),
-          u => Tm(f, m, ks, img, K, F, X, N, C.Cir.Cell.get(4n, cell)))))
+        T.tm.cell(tag, T.tm.quan(U32.and(U32.shrn(f0, 6n), 3)), c, Cr.Cir.Cell.get(2n, cell), ks, img,
+          u => Tm(f, m, ks, img, K, F, X, N, Cr.Cir.Cell.get(2n, cell)),
+          u => Tm(f, m, ks, img, K, F, X, N, Cr.Cir.Cell.get(3n, cell)),
+          u => Tm(f, m, ks, img, K, F, X, N, Cr.Cir.Cell.get(4n, cell)))))
 
 # the cells that may be read grow from (X, N) to (X2, N2): N2 is at least N,
 # and each of X2 is one of X or from N on
@@ -306,67 +309,67 @@ def Incl(+X: List<&2, U32>, +N: U32, X2: List<&2, U32>, +N2: U32) -> Bool:
 
 # a term that the run keeps: its fuel, cell and term
 type Rt is Data:
-  Rt{f: Nat, c: U32, t: C.Term}
+  Rt{f: Nat, c: U32, t: Bk.Term}
 
 # the roots rs keep their checked terms
-def Rts(+m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Rts(+m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
   +X: List<&2, U32>, +N: U32, rs: List<&2, Rt>) -> Data:
   match rs:
     case Nil{}:
       Unit
     case Con{Rt{+f, +c, +t}, rest}:
-      P2({Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, C.Term>}, Rts(m, ks, img, K, F, X, N, rest))
+      P2({Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, Bk.Term>}, Rts(m, ks, img, K, F, X, N, rest))
 
 # a cell that the run keeps, field for field: the cell x holds cl
 type Kc is Data:
-  Kc{x: U32, cl: C.Cir.Cell}
+  Kc{x: U32, cl: Cr.Cir.Cell}
 
 # a kept cell: one that may be read and is no term's (a tag of the machine's
 # own cells, 19 or more), so the copy never counts it; or one of the cells E
 # that the run may not read, a machine cell before N
-def Kc.ok(+K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, +x: U32, +cl: C.Cir.Cell) -> Bool:
-  Bool.or(Bool.and(Al(K, F, X, N, x), Nat.is_le(19n, U32.to_nat(U32.and(C.Cir.Cell.get(0n, cl), 63)))),
+def Kc.ok(+K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, +x: U32, +cl: Cr.Cir.Cell) -> Bool:
+  Bool.or(Bool.and(Al(K, F, X, N, x), Nat.is_le(19n, U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, cl), 63)))),
     Bool.and(Has(E, x), Bool.and(U32.is_le(F, x), U32.is_lt(x, N))))
 
 # each cell of kc holds its cell, and is kept
-def Kcs(+m: C.Cir.Cells, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, kc: List<&2, Kc>) -> Data:
+def Kcs(+m: Cr.Cir.Cells, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, kc: List<&2, Kc>) -> Data:
   match kc:
     case Nil{}:
       Unit
     case Con{Kc{+x, +cl}, rest}:
-      P2({C.Cir.Cells.get(m, x) == cl : C.Cir.Cell},
+      P2({Cr.Cir.Cells.get(m, x) == cl : Cr.Cir.Cell},
       P2({Kc.ok(K, F, X, N, E, x, cl) == True{} : Bool},
         Kcs(m, K, F, X, N, E, rest)))
 
 # the table by tag (Img.table) is at cell 272
-def Tb.go(+m: C.Cir.Cells, +i: U32, cs: List<&2, C.Cir.Cell>) -> Data:
+def Tb.go(+m: Cr.Cir.Cells, +i: U32, cs: List<&2, Cr.Cir.Cell>) -> Data:
   match cs:
     case Nil{}:
       Unit
     case Con{+c, rest}:
-      P2({C.Cir.Cells.get(m, i) == c : C.Cir.Cell}, Tb.go(m, U32.inc(i), rest))
+      P2({Cr.Cir.Cells.get(m, i) == c : Cr.Cir.Cell}, Tb.go(m, U32.inc(i), rest))
 
-def Tb(+m: C.Cir.Cells) -> Data:
-  Tb.go(m, 272, C.Img.table([]))
+def Tb(+m: Cr.Cir.Cells) -> Data:
+  Tb.go(m, 272, Mc.Img.table([]))
 
 # The allocation
 # --------------
 
 # the mask of the parts of the cell o that its reuse drops, as M.alloc reads
 # it: its table entry's field 2, for a tag below 32
-def Am(+m: C.Cir.Cells, +o: U32) -> U32:
+def Am(+m: Cr.Cir.Cells, +o: U32) -> U32:
   +t = U32.and(Fd(0n, m, o), 63)
   Bool.pick(U32, U32.is_lt(t, 32), Fd(2n, m, U32.add(272, t)), 0)
 
 # the pointers of the cell o to c
-def Ow(+m: C.Cir.Cells, +o: U32, +c: U32) -> Nat:
+def Ow(+m: Cr.Cir.Cells, +o: U32, +c: U32) -> Nat:
   +a = Am(m, o)
   Nat.add(Nat.of(Bool.and(U32.is_ne(U32.and(a, 1), 0), U32.is_eq(Fd(2n, m, o), c))),
     Nat.add(Nat.of(Bool.and(U32.is_ne(U32.and(a, 2), 0), U32.is_eq(Fd(3n, m, o), c))),
       Nat.of(Bool.and(U32.is_ne(U32.and(a, 4), 0), U32.is_eq(Fd(4n, m, o), c)))))
 
 # the pointers of the cells P to c
-def Pp(P: List<&2, U32>, +m: C.Cir.Cells, +c: U32) -> Nat:
+def Pp(P: List<&2, U32>, +m: Cr.Cir.Cells, +c: U32) -> Nat:
   match P:
     case Nil{}:
       0n
@@ -374,11 +377,11 @@ def Pp(P: List<&2, U32>, +m: C.Cir.Cells, +c: U32) -> Nat:
       Nat.add(Ow(m, o, c), Pp(rest, m, c))
 
 # the cell c is STATIC
-def Stc(+m: C.Cir.Cells, +c: U32) -> Bool:
+def Stc(+m: Cr.Cir.Cells, +c: U32) -> Bool:
   U32.is_ne(U32.and(Fd(0n, m, c), 1024), 0)
 
 # the pend list from p: the cells Q, linked by field 1, then 0
-def Chain(Q: List<&2, U32>, +m: C.Cir.Cells, +p: U32) -> Bool:
+def Chain(Q: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32) -> Bool:
   match Q:
     case Nil{}:
       U32.is_zero(p)
@@ -388,9 +391,9 @@ def Chain(Q: List<&2, U32>, +m: C.Cir.Cells, +p: U32) -> Bool:
 # the part p of a garbage cell, in its mask am at bit: none, a cell that is
 # STATIC or garbage, or a live one, which counts more than the garbage's
 # pointers to it and less than Bu
-def AL.part(+m: C.Cir.Cells, +P: List<&2, U32>, +am: U32, +bit: U32, +p: U32, +K: U32, +F: U32, +N: U32,
+def AL.part(+m: Cr.Cir.Cells, +P: List<&2, U32>, +am: U32, +bit: U32, +p: U32, +K: U32, +F: U32, +N: U32,
   +Bu: U32) -> Bool:
-  Bool.or(U32.is_zero(U32.and(am, bit)), Bool.or(U32.is_zero(p), Bool.and(C.Cir.is_cell(p, K, F, N),
+  Bool.or(U32.is_zero(U32.and(am, bit)), Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, N),
     Bool.or(Stc(m, p), Bool.or(Has(P, p),
       Bool.and(Nat.is_lt(Pp(P, m, p), U32.to_nat(Fd(1n, m, p))), U32.is_lt(Fd(1n, m, p), Bu)))))))
 
@@ -398,7 +401,7 @@ def AL.part(+m: C.Cir.Cells, +P: List<&2, U32>, +am: U32, +bit: U32, +p: U32, +K
 # tag or of one of the machine's own (so its mask is the table's), its parts
 # as above; one of the pend list has no pointer of the garbage, another
 # counts at least them
-def AL.cells(os: List<&2, U32>, +m: C.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +K: U32, +F: U32,
+def AL.cells(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +K: U32, +F: U32,
   +N: U32, +Bu: U32) -> Bool:
   match os:
     case Nil{}:
@@ -414,7 +417,7 @@ def AL.cells(os: List<&2, U32>, +m: C.Cir.Cells, +P: List<&2, U32>, +Q: List<&2,
         AL.cells(rest, m, P, Q, K, F, N, Bu))))
 
 # the allocation's invariant, with the pend list from pend
-def AL(+m: C.Cir.Cells, +pend: U32, +P: List<&2, U32>, +Q: List<&2, U32>, +K: U32, +F: U32, +N: U32,
+def AL(+m: Cr.Cir.Cells, +pend: U32, +P: List<&2, U32>, +Q: List<&2, U32>, +K: U32, +F: U32, +N: U32,
   +Bu: U32) -> Bool:
   Bool.and(Bool.and(Chain(Q, m, pend), Nodup(Q)), Bool.and(Bool.and(Sub(Q, P), Nodup(P)),
     AL.cells(P, m, P, Q, K, F, N, Bu)))
@@ -474,31 +477,31 @@ def Cp.scratch(+r: Nat) -> List<&2, Nat>:
 
 # a state of the run: the image K, the first cell F, the limit L and the input
 # I stay; there is no output
-def S(regs: List<&2, U32>, m: C.Cir.Cells, next: U32, F: U32, K: U32, pg: U32, L: U32, I: List<&2, Word(8n)>) ->
-  C.Cir.State:
-  C.Cir.State{regs, m, next, F, K, pg, L, I, Nil{}, 0}
+def S(regs: List<&2, U32>, m: Cr.Cir.Cells, next: U32, F: U32, K: U32, pg: U32, L: U32, I: List<&2, Word(8n)>) ->
+  Cr.Cir.State:
+  Cr.Cir.State{regs, m, next, F, K, pg, L, I, Nil{}, 0}
 
 # st is such a state, and Q holds of its registers, cells, next and pages
-def At(st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
-  Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type) -> Type:
+def At(st: Cr.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
+  Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type) -> Type:
   match st:
-    case C.Cir.State{+rg, +ms, +nx, fi, im, +pg, li, inp, out, outn}:
-      Sigma<&1, &1, {S(rg, ms, nx, F, K, pg, L, I) == C.Cir.State{rg, ms, nx, fi, im, pg, li, inp, out, outn} : C.Cir.State},
+    case Cr.Cir.State{+rg, +ms, +nx, fi, im, +pg, li, inp, out, outn}:
+      Sigma<&1, &1, {S(rg, ms, nx, F, K, pg, L, I) == Cr.Cir.State{rg, ms, nx, fi, im, pg, li, inp, out, outn} : Cr.Cir.State},
         _ => Q(rg, ms, nx, pg)>
 
 # the outcome o: next, with a state of which Q holds, or out of memory
-def Ok(o: C.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
-  Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type) -> Type:
+def Ok(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
+  Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type) -> Type:
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       At(st, F, K, L, I, Q)
-    case C.Cir.Out.halt{_, _}:
+    case Cr.Cir.Out.halt{_, _}:
       Empty
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Empty
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Empty
 
 # The claims
@@ -513,15 +516,15 @@ def Ok(o: C.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
 type Wt is Data:
   Wt{ups: List<&2, Up>, r: U32, g: Nat, Pn: List<&2, U32>, Qn: List<&2, U32>}
 
-def Post(+mo: Mo, +t: C.Term, +regs: List<&2, U32>, +scr: List<&2, Nat>, +rr: Nat, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +K: U32, +F: U32, +P: List<&2, U32>, +E: List<&2, U32>, +N: U32, +Bu: U32, +Wu: U32,
-  +rs: List<&2, Rt>, +kc: List<&2, Kc>, w: Wt, +rg: List<&2, U32>, +ms: C.Cir.Cells, +nx: U32) -> Data:
+def Post(+mo: Mo, +t: Bk.Term, +regs: List<&2, U32>, +scr: List<&2, Nat>, +rr: Nat, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +K: U32, +F: U32, +P: List<&2, U32>, +E: List<&2, U32>, +N: U32, +Bu: U32, +Wu: U32,
+  +rs: List<&2, Rt>, +kc: List<&2, Kc>, w: Wt, +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx: U32) -> Data:
   match w:
     case Wt{+ups, +r, +g, +Pn, +Qn}:
       P2({rg == Ups(ups, Rg.ex(63n, regs, 0n)) : List<&2, U32>},
       P2({Ups.in(ups, scr) == True{} : Bool},
       P2({T.tm.reg(rg, rr) == r : U32},
-      P2({Tm(g, ms, ks, img, K, F, List.append(&2, U32, Pn, E), nx, r) == Some{Mo.F(mo, t, 0n)} : Maybe<&2, C.Term>},
+      P2({Tm(g, ms, ks, img, K, F, List.append(&2, U32, Pn, E), nx, r) == Some{Mo.F(mo, t, 0n)} : Maybe<&2, Bk.Term>},
       P2({AL(ms, T.tm.reg(rg, 3n), Pn, Qn, K, F, nx, U32.add(Bu, Wu)) == True{} : Bool},
       P2({Incl(P, N, Pn, nx) == True{} : Bool},
       P2(Tb(ms),
@@ -539,8 +542,8 @@ def Ex.ok(xs: List<&2, U32>, +P: List<&2, U32>, +F: U32, +nx: U32) -> Bool:
 # what the state of a run should be at the start: the image's cells, the
 # table, the pend list, the bound, the cells E that it may not read, and the
 # cells and terms that stay
-def Pre(+regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +P: List<&2, U32>, +Q: List<&2, U32>, +E: List<&2, U32>, +Bu: U32, +Wu: U32,
+def Pre(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +P: List<&2, U32>, +Q: List<&2, U32>, +E: List<&2, U32>, +Bu: U32, +Wu: U32,
   +rs: List<&2, Rt>, +kc: List<&2, Kc>) -> Data:
   P2({List.length(&2, U32, regs) == 63n : Nat},
   P2({U32.is_le(290, K) == True{} : Bool},
@@ -560,7 +563,7 @@ def Pre(+regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +ks: 
 # memory. E is [] for the machine; M.copy passes its frames' cells
 law Sh.ok:
   for +regs: List<&2, U32>
-  for +m: C.Cir.Cells
+  for +m: Cr.Cir.Cells
   for +nx: U32
   for +F: U32
   for +K: U32
@@ -568,7 +571,7 @@ law Sh.ok:
   for +L: U32
   for +I: List<&2, Word(8n)>
   for +ks: List<&2, List<&2, Word(8n)>>
-  for +img: List<&2, C.Term>
+  for +img: List<&2, Bk.Term>
   for +P: List<&2, U32>
   for +Q: List<&2, U32>
   for +Bu: U32
@@ -576,36 +579,36 @@ law Sh.ok:
   for +E: List<&2, U32>
   for +rs: List<&2, Rt>
   for +kc: List<&2, Kc>
-  for +t: C.Term
+  for +t: Bk.Term
   for +g: Nat
   for +a: U32
   for pre: Pre(regs, m, nx, F, K, ks, img, P, Q, E, Bu, Wu, rs, kc)
-  for ht: {Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, 62n)) == Some{t} : Maybe<&2, C.Term>}
+  for ht: {Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, 62n)) == Some{t} : Maybe<&2, Bk.Term>}
   for ha: {T.tm.reg(regs, 60n) == a : U32}
   for hf: {Fit(t, a) == True{} : Bool}
   for hw: {Nat.is_le(2n+Nat.double(Sz(t)), U32.to_nat(Wu)) == True{} : Bool}
   exs n: Nat
-  Ok(C.Cir.exec(n, C.M.shift(C.R.sres(), C.R.t2()), S(regs, m, nx, F, K, pg, L, I)), F, K, L, I,
-    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(Mo.shift{U32.to_nat(a)}, t, regs, Sh.scratch(), C.R.sres(), ks, img, K, F,
+  Ok(Cr.Cir.exec(n, Mc.M.shift(Mc.R.sres(), Mc.R.t2()), S(regs, m, nx, F, K, pg, L, I)), F, K, L, I,
+    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(Mo.shift{U32.to_nat(a)}, t, regs, Sh.scratch(), Mc.R.sres(), ks, img, K, F,
       P, E, nx, Bu, Wu, rs, kc, w, rg, ms, nx2)))
 
 # the list of locals from the cell l: a cell of each of es, which may be read,
 # no term's (tag 19 or more), its field 2 a cell of its term (by Tm, with any
 # fuel), its field 1 the next
-def Env(+m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
-  +X: List<&2, U32>, +N: U32, +l: U32, es: List<&2, C.Term>) -> Data:
+def Env(+m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +l: U32, es: List<&2, Bk.Term>) -> Data:
   match es:
     case Nil{}:
       Unit
     case Con{+e, rest}:
       P2({Al(K, F, X, N, l) == True{} : Bool},
       P2({Nat.is_le(19n, U32.to_nat(U32.and(Fd(0n, m, l), 63))) == True{} : Bool},
-      P2(Ex(Nat, g => {Tm(g, m, ks, img, K, F, X, N, Fd(2n, m, l)) == Some{e} : Maybe<&2, C.Term>}),
+      P2(Ex(Nat, g => {Tm(g, m, ks, img, K, F, X, N, Fd(2n, m, l)) == Some{e} : Maybe<&2, Bk.Term>}),
         Env(m, ks, img, K, F, X, N, Fd(1n, m, l), rest))))
 
 # the most counts that a copy of t with the locals es adds: a round of its
 # walk adds at most one, and shifts a local at most once
-def Cp.W(t: C.Term, es: List<&2, C.Term>) -> Nat:
+def Cp.W(t: Bk.Term, es: List<&2, Bk.Term>) -> Nat:
   Nat.mul(1n+Nat.double(Sz(t)), 2n+Nat.double(Sz.max(es)))
 
 # the register of the source of M.copy: wt (a call's leaf) or z (a λ's or a
@@ -613,9 +616,9 @@ def Cp.W(t: C.Term, es: List<&2, C.Term>) -> Nat:
 def Cp.src(wt: Bool) -> Nat:
   match wt:
     case True{}:
-      C.R.wt()
+      Mc.R.wt()
     case False{}:
-      C.R.z()
+      Mc.R.z()
 
 # LAW: M.copy(n, src), src wt or z (Cp.src): from a state whose register src
 # holds a cell of the term t (by Tm, reading neither the garbage P nor the
@@ -627,7 +630,7 @@ def Cp.src(wt: Bool) -> Nat:
 law Cp.ok:
   for +wt: Bool
   for +regs: List<&2, U32>
-  for +m: C.Cir.Cells
+  for +m: Cr.Cir.Cells
   for +nx: U32
   for +F: U32
   for +K: U32
@@ -635,7 +638,7 @@ law Cp.ok:
   for +L: U32
   for +I: List<&2, Word(8n)>
   for +ks: List<&2, List<&2, Word(8n)>>
-  for +img: List<&2, C.Term>
+  for +img: List<&2, Bk.Term>
   for +P: List<&2, U32>
   for +Q: List<&2, U32>
   for +Bu: U32
@@ -643,16 +646,16 @@ law Cp.ok:
   for +E: List<&2, U32>
   for +rs: List<&2, Rt>
   for +kc: List<&2, Kc>
-  for +t: C.Term
+  for +t: Bk.Term
   for +g: Nat
-  for +es: List<&2, C.Term>
+  for +es: List<&2, Bk.Term>
   for pre: Pre(regs, m, nx, F, K, ks, img, P, Q, E, Bu, Wu, rs, kc)
-  for ht: {Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, Cp.src(wt))) == Some{t} : Maybe<&2, C.Term>}
+  for ht: {Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, Cp.src(wt))) == Some{t} : Maybe<&2, Bk.Term>}
   for he: Env(m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, 36n), es)
-  for hl: {U32.to_nat(T.tm.reg(regs, 37n)) == List.length(&2, C.Term, es) : Nat}
+  for hl: {U32.to_nat(T.tm.reg(regs, 37n)) == List.length(&2, Bk.Term, es) : Nat}
   for hf: {Fits(es, U32.from_nat(Nat.double(Sz(t)))) == True{} : Bool}
   for hw: {Nat.is_le(Cp.W(t, es), U32.to_nat(Wu)) == True{} : Bool}
   exs n: Nat
-  Ok(C.Cir.exec(n, C.M.copy(C.R.n(), Cp.src(wt)), S(regs, m, nx, F, K, pg, L, I)), F, K, L, I,
-    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(Mo.subst{es}, t, regs, Cp.scratch(C.R.n()), C.R.n(), ks, img, K, F,
+  Ok(Cr.Cir.exec(n, Mc.M.copy(Mc.R.n(), Cp.src(wt)), S(regs, m, nx, F, K, pg, L, I)), F, K, L, I,
+    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(Mo.subst{es}, t, regs, Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, K, F,
       P, E, nx, Bu, Wu, rs, kc, w, rg, ms, nx2)))

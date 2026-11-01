@@ -7,21 +7,21 @@
 # the new cell, of the same tag, quantity and name, holds Mo.F(T0, d)
 # (Tg.cg). Mo.F commutes with each former by its definition (F.*).
 import Base
-import ./impl.bend as C
-import ./proof_term.bend as T
-import ./proof_need.bend as N
-import ./proof_copy.bend as D
-import ./proof_copy_kit.bend as K
-import ./proof_copy_walk.bend as W
+import ../../book/impl.bend as Bk
+import ./cell_terms.bend as T
+import ../need_big.bend as N
+import ./copy_substitution.bend as D
+import ./copy_kit.bend as K
+import ./copy_walk.bend as W
 
-def Tg.some(-a: C.Term, -b: C.Term, e: {Some{a} == Some{b}: Maybe<&2, C.Term>}) -> {a == b: C.Term}:
-  Equal.cong(Maybe<&2, C.Term>, C.Term, x => Maybe.default(&2, C.Term, x, a), Some{a}, Some{b}, e)
+def Tg.some(-a: Bk.Term, -b: Bk.Term, e: {Some{a} == Some{b}: Maybe<&2, Bk.Term>}) -> {a == b: Bk.Term}:
+  Equal.cong(Maybe<&2, Bk.Term>, Bk.Term, x => Maybe.default(&2, Bk.Term, x, a), Some{a}, Some{b}, e)
 
-def Tg.ns(-b: C.Term, -G: Type, e: {None{} == Some{b}: Maybe<&2, C.Term>}) -> G:
+def Tg.ns(-b: Bk.Term, -G: Type, e: {None{} == Some{b}: Maybe<&2, Bk.Term>}) -> G:
   Empty.absurd(
     G,
     N.true_ne_false(
-      Equal.cong(Maybe<&2, C.Term>, Bool, x => Maybe.is_none(&2, C.Term, x), None{}, Some{b}, e)
+      Equal.cong(Maybe<&2, Bk.Term>, Bool, x => Maybe.is_none(&2, Bk.Term, x), None{}, Some{b}, e)
     )
   )
 
@@ -44,11 +44,11 @@ def Tg.add2(d: Nat) -> {Nat.add(d, 2n) == 2n+d: Nat}:
 # Mo.F of each former
 def F.Ann(
   mo: D.Mo,
-  +a2: C.Term,
-  +a3: C.Term,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
   +d: Nat
 ) -> {
-  D.Mo.F(mo, C.Term.Ann{a2, a3}, d) == C.Term.Ann{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: C.Term
+  D.Mo.F(mo, Bk.Term.Ann{a2, a3}, d) == Bk.Term.Ann{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -58,17 +58,17 @@ def F.Ann(
 
 def F.Let(
   mo: D.Mo,
-  +q: C.Quan,
-  +a2: C.Term,
-  +a3: C.Term,
+  +q: Bk.Quan,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.Let{q, a2, a3},
+    Bk.Term.Let{q, a2, a3},
     d
   )
-    == C.Term.Let{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 1n+d)}: C.Term
+    == Bk.Term.Let{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 1n+d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -78,9 +78,9 @@ def F.Let(
 
 def F.Typ(
   mo: D.Mo,
-  +a2: C.Term,
+  +a2: Bk.Term,
   +d: Nat
-) -> {D.Mo.F(mo, C.Term.Typ{a2}, d) == C.Term.Typ{D.Mo.F(mo, a2, d)}: C.Term}:
+) -> {D.Mo.F(mo, Bk.Term.Typ{a2}, d) == Bk.Term.Typ{D.Mo.F(mo, a2, d)}: Bk.Term}:
   match mo:
     case D.Mo.shift{_}:
       {==}
@@ -89,11 +89,11 @@ def F.Typ(
 
 def F.Min(
   mo: D.Mo,
-  +a2: C.Term,
-  +a3: C.Term,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
   +d: Nat
 ) -> {
-  D.Mo.F(mo, C.Term.Min{a2, a3}, d) == C.Term.Min{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: C.Term
+  D.Mo.F(mo, Bk.Term.Min{a2, a3}, d) == Bk.Term.Min{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -103,17 +103,17 @@ def F.Min(
 
 def F.All(
   mo: D.Mo,
-  +q: C.Quan,
-  +a2: C.Term,
-  +a3: C.Term,
+  +q: Bk.Quan,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.All{q, a2, a3},
+    Bk.Term.All{q, a2, a3},
     d
   )
-    == C.Term.All{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 1n+d)}: C.Term
+    == Bk.Term.All{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 1n+d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -123,10 +123,10 @@ def F.All(
 
 def F.Lam(
   mo: D.Mo,
-  +q: C.Quan,
-  +a2: C.Term,
+  +q: Bk.Quan,
+  +a2: Bk.Term,
   +d: Nat
-) -> {D.Mo.F(mo, C.Term.Lam{q, a2}, d) == C.Term.Lam{q, D.Mo.F(mo, a2, 1n+d)}: C.Term}:
+) -> {D.Mo.F(mo, Bk.Term.Lam{q, a2}, d) == Bk.Term.Lam{q, D.Mo.F(mo, a2, 1n+d)}: Bk.Term}:
   match mo:
     case D.Mo.shift{_}:
       {==}
@@ -135,17 +135,17 @@ def F.Lam(
 
 def F.App(
   mo: D.Mo,
-  +q: C.Quan,
-  +a2: C.Term,
-  +a3: C.Term,
+  +q: Bk.Quan,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.App{q, a2, a3},
+    Bk.Term.App{q, a2, a3},
     d
   )
-    == C.Term.App{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: C.Term
+    == Bk.Term.App{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -155,17 +155,17 @@ def F.App(
 
 def F.Sig(
   mo: D.Mo,
-  +q: C.Quan,
-  +a2: C.Term,
-  +a3: C.Term,
+  +q: Bk.Quan,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.Sig{q, a2, a3},
+    Bk.Term.Sig{q, a2, a3},
     d
   )
-    == C.Term.Sig{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 1n+d)}: C.Term
+    == Bk.Term.Sig{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 1n+d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -175,17 +175,17 @@ def F.Sig(
 
 def F.Tup(
   mo: D.Mo,
-  +q: C.Quan,
-  +a2: C.Term,
-  +a3: C.Term,
+  +q: Bk.Quan,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.Tup{q, a2, a3},
+    Bk.Term.Tup{q, a2, a3},
     d
   )
-    == C.Term.Tup{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: C.Term
+    == Bk.Term.Tup{q, D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -195,9 +195,9 @@ def F.Tup(
 
 def F.Prj(
   mo: D.Mo,
-  +a2: C.Term,
+  +a2: Bk.Term,
   +d: Nat
-) -> {D.Mo.F(mo, C.Term.Prj{a2}, d) == C.Term.Prj{D.Mo.F(mo, a2, d)}: C.Term}:
+) -> {D.Mo.F(mo, Bk.Term.Prj{a2}, d) == Bk.Term.Prj{D.Mo.F(mo, a2, d)}: Bk.Term}:
   match mo:
     case D.Mo.shift{_}:
       {==}
@@ -206,17 +206,17 @@ def F.Prj(
 
 def F.Eql(
   mo: D.Mo,
-  +a2: C.Term,
-  +a3: C.Term,
-  +a4: C.Term,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
+  +a4: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.Eql{a2, a3, a4},
+    Bk.Term.Eql{a2, a3, a4},
     d
   )
-    == C.Term.Eql{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d), D.Mo.F(mo, a4, d)}: C.Term
+    == Bk.Term.Eql{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, d), D.Mo.F(mo, a4, d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -226,17 +226,17 @@ def F.Eql(
 
 def F.Rwt(
   mo: D.Mo,
-  +a2: C.Term,
-  +a3: C.Term,
-  +a4: C.Term,
+  +a2: Bk.Term,
+  +a3: Bk.Term,
+  +a4: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.Rwt{a2, a3, a4},
+    Bk.Term.Rwt{a2, a3, a4},
     d
   )
-    == C.Term.Rwt{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 2n+d), D.Mo.F(mo, a4, d)}: C.Term
+    == Bk.Term.Rwt{D.Mo.F(mo, a2, d), D.Mo.F(mo, a3, 2n+d), D.Mo.F(mo, a4, d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -247,16 +247,16 @@ def F.Rwt(
 def F.mat(
   mo: D.Mo,
   +k: List<&2, Word(8n)>,
-  +a3: C.Term,
-  +a4: C.Term,
+  +a3: Bk.Term,
+  +a4: Bk.Term,
   +d: Nat
 ) -> {
   D.Mo.F(
     mo,
-    C.Term.Mat{k, a3, a4},
+    Bk.Term.Mat{k, a3, a4},
     d
   )
-    == C.Term.Mat{k, D.Mo.F(mo, a3, d), D.Mo.F(mo, a4, d)}: C.Term
+    == Bk.Term.Mat{k, D.Mo.F(mo, a3, d), D.Mo.F(mo, a4, d)}: Bk.Term
 }:
   match mo:
     case D.Mo.shift{_}:
@@ -268,21 +268,21 @@ def F.lab(
   mo: D.Mo,
   +k: List<&2, Word(8n)>,
   +d: Nat
-) -> {D.Mo.F(mo, C.Term.Lab{k}, d) == C.Term.Lab{k}: C.Term}:
+) -> {D.Mo.F(mo, Bk.Term.Lab{k}, d) == Bk.Term.Lab{k}: Bk.Term}:
   match mo:
     case D.Mo.shift{_}:
       {==}
     case D.Mo.subst{_}:
       {==}
 
-def F.efq(mo: D.Mo, +d: Nat) -> {D.Mo.F(mo, C.Term.Efq{}, d) == C.Term.Efq{}: C.Term}:
+def F.efq(mo: D.Mo, +d: Nat) -> {D.Mo.F(mo, Bk.Term.Efq{}, d) == Bk.Term.Efq{}: Bk.Term}:
   match mo:
     case D.Mo.shift{_}:
       {==}
     case D.Mo.subst{_}:
       {==}
 
-def F.rfl(mo: D.Mo, +d: Nat) -> {D.Mo.F(mo, C.Term.Rfl{}, d) == C.Term.Rfl{}: C.Term}:
+def F.rfl(mo: D.Mo, +d: Nat) -> {D.Mo.F(mo, Bk.Term.Rfl{}, d) == Bk.Term.Rfl{}: Bk.Term}:
   match mo:
     case D.Mo.shift{_}:
       {==}
@@ -292,33 +292,33 @@ def F.rfl(mo: D.Mo, +d: Nat) -> {D.Mo.F(mo, C.Term.Rfl{}, d) == C.Term.Rfl{}: C.
 # the frames by tag
 def Tg.c2(
   +mo: D.Mo,
-  +t2: C.Term,
-  +t3: C.Term,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Ann{t2, t3} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Ann{t2, t3} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Ann{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+    Bk.Term.Ann{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Ann{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Ann{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Ann{t2, t3}, d),
-    C.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Ann{t2, t3}, d),
+    Bk.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
     F.Ann(mo, t2, t3, d)
   ): {
     Some{
-      C.Term.Ann{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Ann{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -327,9 +327,9 @@ def Tg.c2(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Ann{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Ann{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{C.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -338,42 +338,42 @@ def Tg.c2(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
+      Bk.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
     }
-      == Some{C.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Ann{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c3(
   +mo: D.Mo,
-  +q: C.Quan,
-  +t2: C.Term,
-  +t3: C.Term,
+  +q: Bk.Quan,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Let{q, t2, t3} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Let{q, t2, t3} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Let{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+    Bk.Term.Let{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Let{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.Let{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Let{q, t2, t3}, d),
-    C.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Let{q, t2, t3}, d),
+    Bk.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)},
     F.Let(mo, q, t2, t3, d)
   ): {
     Some{
-      C.Term.Let{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.Let{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -382,9 +382,9 @@ def Tg.c3(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Let{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.Let{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{C.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -393,67 +393,67 @@ def Tg.c3(
     Tg.add1(d)
   ): {
     Some{
-      C.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
+      Bk.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
     }
-      == Some{C.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Let{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c4(
   +mo: D.Mo,
-  +t2: C.Term,
+  +t2: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Typ{t2} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Typ{t2} == T0: Bk.Term}
 ) -> {
-  Some{C.Term.Typ{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+  Some{Bk.Term.Typ{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
-    Some{C.Term.Typ{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+    Some{Bk.Term.Typ{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Typ{t2}, d),
-    C.Term.Typ{D.Mo.F(mo, t2, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Typ{t2}, d),
+    Bk.Term.Typ{D.Mo.F(mo, t2, d)},
     F.Typ(mo, t2, d)
-  ): {Some{C.Term.Typ{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{_}: Maybe<&2, C.Term>}
+  ): {Some{Bk.Term.Typ{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{_}: Maybe<&2, Bk.Term>}
   %Equal.sym(
     Nat,
     Nat.add(d, 0n),
     d,
     N.add_zero(d)
-  ): {Some{C.Term.Typ{D.Mo.F(mo, t2, _)}} == Some{C.Term.Typ{D.Mo.F(mo, t2, d)}}: Maybe<&2, C.Term>}
+  ): {Some{Bk.Term.Typ{D.Mo.F(mo, t2, _)}} == Some{Bk.Term.Typ{D.Mo.F(mo, t2, d)}}: Maybe<&2, Bk.Term>}
   {==}
 
 def Tg.c5(
   +mo: D.Mo,
-  +t2: C.Term,
-  +t3: C.Term,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Min{t2, t3} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Min{t2, t3} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Min{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+    Bk.Term.Min{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Min{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Min{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Min{t2, t3}, d),
-    C.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Min{t2, t3}, d),
+    Bk.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
     F.Min(mo, t2, t3, d)
   ): {
     Some{
-      C.Term.Min{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Min{D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -462,9 +462,9 @@ def Tg.c5(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Min{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Min{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{C.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -473,42 +473,42 @@ def Tg.c5(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
+      Bk.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
     }
-      == Some{C.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Min{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c6(
   +mo: D.Mo,
-  +q: C.Quan,
-  +t2: C.Term,
-  +t3: C.Term,
+  +q: Bk.Quan,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.All{q, t2, t3} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.All{q, t2, t3} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.All{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+    Bk.Term.All{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.All{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.All{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.All{q, t2, t3}, d),
-    C.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.All{q, t2, t3}, d),
+    Bk.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)},
     F.All(mo, q, t2, t3, d)
   ): {
     Some{
-      C.Term.All{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.All{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -517,9 +517,9 @@ def Tg.c6(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.All{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.All{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{C.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -528,31 +528,31 @@ def Tg.c6(
     Tg.add1(d)
   ): {
     Some{
-      C.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
+      Bk.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
     }
-      == Some{C.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.All{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c7(
   +mo: D.Mo,
-  +q: C.Quan,
-  +t2: C.Term,
+  +q: Bk.Quan,
+  +t2: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Lam{q, t2} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Lam{q, t2} == T0: Bk.Term}
 ) -> {
-  Some{C.Term.Lam{q, D.Mo.F(mo, t2, Nat.add(d, 1n))}} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+  Some{Bk.Term.Lam{q, D.Mo.F(mo, t2, Nat.add(d, 1n))}} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
-    Some{C.Term.Lam{q, D.Mo.F(mo, t2, Nat.add(d, 1n))}} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+    Some{Bk.Term.Lam{q, D.Mo.F(mo, t2, Nat.add(d, 1n))}} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Lam{q, t2}, d),
-    C.Term.Lam{q, D.Mo.F(mo, t2, 1n+d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Lam{q, t2}, d),
+    Bk.Term.Lam{q, D.Mo.F(mo, t2, 1n+d)},
     F.Lam(mo, q, t2, d)
-  ): {Some{C.Term.Lam{q, D.Mo.F(mo, t2, Nat.add(d, 1n))}} == Some{_}: Maybe<&2, C.Term>}
+  ): {Some{Bk.Term.Lam{q, D.Mo.F(mo, t2, Nat.add(d, 1n))}} == Some{_}: Maybe<&2, Bk.Term>}
   %Equal.sym(
     Nat,
     Nat.add(d, 1n),
@@ -560,42 +560,42 @@ def Tg.c7(
     Tg.add1(d)
   ): {
     Some{
-      C.Term.Lam{q, D.Mo.F(mo, t2, _)}
+      Bk.Term.Lam{q, D.Mo.F(mo, t2, _)}
     }
-      == Some{C.Term.Lam{q, D.Mo.F(mo, t2, 1n+d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Lam{q, D.Mo.F(mo, t2, 1n+d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c8(
   +mo: D.Mo,
-  +q: C.Quan,
-  +t2: C.Term,
-  +t3: C.Term,
+  +q: Bk.Quan,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.App{q, t2, t3} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.App{q, t2, t3} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.App{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+    Bk.Term.App{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.App{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.App{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.App{q, t2, t3}, d),
-    C.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.App{q, t2, t3}, d),
+    Bk.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
     F.App(mo, q, t2, t3, d)
   ): {
     Some{
-      C.Term.App{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.App{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -604,9 +604,9 @@ def Tg.c8(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.App{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.App{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{C.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -615,42 +615,42 @@ def Tg.c8(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
+      Bk.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
     }
-      == Some{C.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.App{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c9(
   +mo: D.Mo,
-  +q: C.Quan,
-  +t2: C.Term,
-  +t3: C.Term,
+  +q: Bk.Quan,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Sig{q, t2, t3} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Sig{q, t2, t3} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Sig{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+    Bk.Term.Sig{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Sig{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.Sig{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Sig{q, t2, t3}, d),
-    C.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Sig{q, t2, t3}, d),
+    Bk.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)},
     F.Sig(mo, q, t2, t3, d)
   ): {
     Some{
-      C.Term.Sig{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.Sig{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -659,9 +659,9 @@ def Tg.c9(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Sig{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 1n))}
+      Bk.Term.Sig{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 1n))}
     }
-      == Some{C.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -670,42 +670,42 @@ def Tg.c9(
     Tg.add1(d)
   ): {
     Some{
-      C.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
+      Bk.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
     }
-      == Some{C.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Sig{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 1n+d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c10(
   +mo: D.Mo,
-  +q: C.Quan,
-  +t2: C.Term,
-  +t3: C.Term,
+  +q: Bk.Quan,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Tup{q, t2, t3} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Tup{q, t2, t3} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Tup{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+    Bk.Term.Tup{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Tup{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Tup{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Tup{q, t2, t3}, d),
-    C.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Tup{q, t2, t3}, d),
+    Bk.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)},
     F.Tup(mo, q, t2, t3, d)
   ): {
     Some{
-      C.Term.Tup{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Tup{q, D.Mo.F(mo, t2, Nat.add(d, 0n)), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -714,9 +714,9 @@ def Tg.c10(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Tup{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
+      Bk.Term.Tup{q, D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n))}
     }
-      == Some{C.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -725,80 +725,80 @@ def Tg.c10(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
+      Bk.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _)}
     }
-      == Some{C.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Tup{q, D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c11(
   +mo: D.Mo,
-  +t2: C.Term,
+  +t2: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Prj{t2} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Prj{t2} == T0: Bk.Term}
 ) -> {
-  Some{C.Term.Prj{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+  Some{Bk.Term.Prj{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
-    Some{C.Term.Prj{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+    Some{Bk.Term.Prj{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Prj{t2}, d),
-    C.Term.Prj{D.Mo.F(mo, t2, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Prj{t2}, d),
+    Bk.Term.Prj{D.Mo.F(mo, t2, d)},
     F.Prj(mo, t2, d)
-  ): {Some{C.Term.Prj{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{_}: Maybe<&2, C.Term>}
+  ): {Some{Bk.Term.Prj{D.Mo.F(mo, t2, Nat.add(d, 0n))}} == Some{_}: Maybe<&2, Bk.Term>}
   %Equal.sym(
     Nat,
     Nat.add(d, 0n),
     d,
     N.add_zero(d)
-  ): {Some{C.Term.Prj{D.Mo.F(mo, t2, _)}} == Some{C.Term.Prj{D.Mo.F(mo, t2, d)}}: Maybe<&2, C.Term>}
+  ): {Some{Bk.Term.Prj{D.Mo.F(mo, t2, _)}} == Some{Bk.Term.Prj{D.Mo.F(mo, t2, d)}}: Maybe<&2, Bk.Term>}
   {==}
 
 def Tg.c16(
   +mo: D.Mo,
-  +t2: C.Term,
-  +t3: C.Term,
-  +t4: C.Term,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
+  +t4: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Eql{t2, t3, t4} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Eql{t2, t3, t4} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Eql{
+    Bk.Term.Eql{
       D.Mo.F(mo, t2, Nat.add(d, 0n)),
       D.Mo.F(mo, t3, Nat.add(d, 0n)),
       D.Mo.F(mo, t4, Nat.add(d, 0n))
     }
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Eql{
+      Bk.Term.Eql{
         D.Mo.F(mo, t2, Nat.add(d, 0n)),
         D.Mo.F(mo, t3, Nat.add(d, 0n)),
         D.Mo.F(mo, t4, Nat.add(d, 0n))
       }
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Eql{t2, t3, t4}, d),
-    C.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Eql{t2, t3, t4}, d),
+    Bk.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)},
     F.Eql(mo, t2, t3, t4, d)
   ): {
     Some{
-      C.Term.Eql{
+      Bk.Term.Eql{
         D.Mo.F(mo, t2, Nat.add(d, 0n)),
         D.Mo.F(mo, t3, Nat.add(d, 0n)),
         D.Mo.F(mo, t4, Nat.add(d, 0n))
       }
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -807,11 +807,11 @@ def Tg.c16(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Eql{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
+      Bk.Term.Eql{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
     }
       == Some{
-        C.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}
-      }: Maybe<&2, C.Term>
+        Bk.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}
+      }: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -820,11 +820,11 @@ def Tg.c16(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _), D.Mo.F(mo, t4, Nat.add(d, 0n))}
+      Bk.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _), D.Mo.F(mo, t4, Nat.add(d, 0n))}
     }
       == Some{
-        C.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}
-      }: Maybe<&2, C.Term>
+        Bk.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}
+      }: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -833,56 +833,56 @@ def Tg.c16(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, _)}
+      Bk.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, _)}
     }
       == Some{
-        C.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}
-      }: Maybe<&2, C.Term>
+        Bk.Term.Eql{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}
+      }: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c18(
   +mo: D.Mo,
-  +t2: C.Term,
-  +t3: C.Term,
-  +t4: C.Term,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
+  +t4: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Rwt{t2, t3, t4} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Rwt{t2, t3, t4} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Rwt{
+    Bk.Term.Rwt{
       D.Mo.F(mo, t2, Nat.add(d, 0n)),
       D.Mo.F(mo, t3, Nat.add(d, 2n)),
       D.Mo.F(mo, t4, Nat.add(d, 0n))
     }
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Rwt{
+      Bk.Term.Rwt{
         D.Mo.F(mo, t2, Nat.add(d, 0n)),
         D.Mo.F(mo, t3, Nat.add(d, 2n)),
         D.Mo.F(mo, t4, Nat.add(d, 0n))
       }
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Rwt{t2, t3, t4}, d),
-    C.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Rwt{t2, t3, t4}, d),
+    Bk.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)},
     F.Rwt(mo, t2, t3, t4, d)
   ): {
     Some{
-      C.Term.Rwt{
+      Bk.Term.Rwt{
         D.Mo.F(mo, t2, Nat.add(d, 0n)),
         D.Mo.F(mo, t3, Nat.add(d, 2n)),
         D.Mo.F(mo, t4, Nat.add(d, 0n))
       }
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -891,11 +891,11 @@ def Tg.c18(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Rwt{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 2n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
+      Bk.Term.Rwt{D.Mo.F(mo, t2, _), D.Mo.F(mo, t3, Nat.add(d, 2n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
     }
       == Some{
-        C.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)}
-      }: Maybe<&2, C.Term>
+        Bk.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)}
+      }: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -904,11 +904,11 @@ def Tg.c18(
     Tg.add2(d)
   ): {
     Some{
-      C.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _), D.Mo.F(mo, t4, Nat.add(d, 0n))}
+      Bk.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, _), D.Mo.F(mo, t4, Nat.add(d, 0n))}
     }
       == Some{
-        C.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)}
-      }: Maybe<&2, C.Term>
+        Bk.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)}
+      }: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -917,56 +917,56 @@ def Tg.c18(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, _)}
+      Bk.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, _)}
     }
       == Some{
-        C.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)}
-      }: Maybe<&2, C.Term>
+        Bk.Term.Rwt{D.Mo.F(mo, t2, d), D.Mo.F(mo, t3, 2n+d), D.Mo.F(mo, t4, d)}
+      }: Maybe<&2, Bk.Term>
   }
   {==}
 
 def Tg.c0(
   +mo: D.Mo,
   +d: Nat,
-  -T0: C.Term,
-  +a: C.Term,
-  ea: {D.Mo.F(mo, a, d) == a: C.Term},
-  e: {a == T0: C.Term}
-) -> {Some{a} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>}:
-  %e: {Some{a} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>}
-  %Equal.sym(C.Term, D.Mo.F(mo, a, d), a, ea): {Some{a} == Some{_}: Maybe<&2, C.Term>}
+  -T0: Bk.Term,
+  +a: Bk.Term,
+  ea: {D.Mo.F(mo, a, d) == a: Bk.Term},
+  e: {a == T0: Bk.Term}
+) -> {Some{a} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>}:
+  %e: {Some{a} == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>}
+  %Equal.sym(Bk.Term, D.Mo.F(mo, a, d), a, ea): {Some{a} == Some{_}: Maybe<&2, Bk.Term>}
   {==}
 
 def Tg.c14(
   +mo: D.Mo,
   +k: List<&2, Word(8n)>,
-  +t3: C.Term,
-  +t4: C.Term,
+  +t3: Bk.Term,
+  +t4: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  e: {C.Term.Mat{k, t3, t4} == T0: C.Term}
+  -T0: Bk.Term,
+  e: {Bk.Term.Mat{k, t3, t4} == T0: Bk.Term}
 ) -> {
   Some{
-    C.Term.Mat{k, D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
+    Bk.Term.Mat{k, D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
   }
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   %e: {
     Some{
-      C.Term.Mat{k, D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
+      Bk.Term.Mat{k, D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
     }
-      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, C.Term>
+      == Some{D.Mo.F(mo, _, d)}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
-    C.Term,
-    D.Mo.F(mo, C.Term.Mat{k, t3, t4}, d),
-    C.Term.Mat{k, D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)},
+    Bk.Term,
+    D.Mo.F(mo, Bk.Term.Mat{k, t3, t4}, d),
+    Bk.Term.Mat{k, D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)},
     F.mat(mo, k, t3, t4, d)
   ): {
     Some{
-      C.Term.Mat{k, D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
+      Bk.Term.Mat{k, D.Mo.F(mo, t3, Nat.add(d, 0n)), D.Mo.F(mo, t4, Nat.add(d, 0n))}
     }
-      == Some{_}: Maybe<&2, C.Term>
+      == Some{_}: Maybe<&2, Bk.Term>
   }
   %Equal.sym(
     Nat,
@@ -975,9 +975,9 @@ def Tg.c14(
     N.add_zero(d)
   ): {
     Some{
-      C.Term.Mat{k, D.Mo.F(mo, t3, _), D.Mo.F(mo, t4, _)}
+      Bk.Term.Mat{k, D.Mo.F(mo, t3, _), D.Mo.F(mo, t4, _)}
     }
-      == Some{C.Term.Mat{k, D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}}: Maybe<&2, C.Term>
+      == Some{Bk.Term.Mat{k, D.Mo.F(mo, t3, d), D.Mo.F(mo, t4, d)}}: Maybe<&2, Bk.Term>
   }
   {==}
 
@@ -986,37 +986,37 @@ def Tg.lab(
   nm: Maybe<&2, List<&2, Word(8n)>>,
   +mo: D.Mo,
   +d: Nat,
-  -T0: C.Term,
-  h: {T.tm.named(nm, k => C.Term.Lab{k}) == Some{T0}: Maybe<&2, C.Term>}
-) -> {T.tm.named(nm, k => C.Term.Lab{k}) == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>}:
+  -T0: Bk.Term,
+  h: {T.tm.named(nm, k => Bk.Term.Lab{k}) == Some{T0}: Maybe<&2, Bk.Term>}
+) -> {T.tm.named(nm, k => Bk.Term.Lab{k}) == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>}:
   match nm:
     case None{}:
-      Tg.ns(T0, {None{} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>}, h)
+      Tg.ns(T0, {None{} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>}, h)
     case Some{+k}:
-      Tg.c0(mo, d, T0, C.Term.Lab{k}, F.lab(mo, k, d), Tg.some(C.Term.Lab{k}, T0, h))
+      Tg.c0(mo, d, T0, Bk.Term.Lab{k}, F.lab(mo, k, d), Tg.some(Bk.Term.Lab{k}, T0, h))
 
 # a λ-match of labels: its name, from field 2, and its parts in fields 3, 4
 def Tg.mat(
   nm: Maybe<&2, List<&2, Word(8n)>>,
   +mo: D.Mo,
-  +t3: C.Term,
-  +t4: C.Term,
+  +t3: Bk.Term,
+  +t4: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
-  h: {T.tm.mat(nm, Some{t3}, Some{t4}) == Some{T0}: Maybe<&2, C.Term>}
+  -T0: Bk.Term,
+  h: {T.tm.mat(nm, Some{t3}, Some{t4}) == Some{T0}: Maybe<&2, Bk.Term>}
 ) -> {
   T.tm.mat(
     nm,
     Some{D.Mo.F(mo, t3, Nat.add(d, 0n))},
     Some{D.Mo.F(mo, t4, Nat.add(d, 0n))}
   )
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   match nm:
     case None{}:
-      Tg.ns(T0, {None{} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>}, h)
+      Tg.ns(T0, {None{} == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>}, h)
     case Some{+k}:
-      Tg.c14(mo, k, t3, t4, d, T0, Tg.some(C.Term.Mat{k, t3, t4}, T0, h))
+      Tg.c14(mo, k, t3, t4, d, T0, Tg.some(Bk.Term.Mat{k, t3, t4}, T0, h))
 
 # The claim
 # ---------
@@ -1027,18 +1027,18 @@ def Tg.mat(
 def Tg.cg(
   +mo: D.Mo,
   tg: Nat,
-  +q: C.Quan,
+  +q: Bk.Quan,
   +n: U32,
   +n2: U32,
   +x2: U32,
   +z2: U32,
   +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>,
-  +t2: C.Term,
-  +t3: C.Term,
-  +t4: C.Term,
+  +img: List<&2, Bk.Term>,
+  +t2: Bk.Term,
+  +t3: Bk.Term,
+  +t4: Bk.Term,
   +d: Nat,
-  -T0: C.Term,
+  -T0: Bk.Term,
   ho: {W.Tg.ok(tg) == True{}: Bool},
   hz: {
     Bool.or(Bool.and(Nat.is_ne(tg, 13n), Nat.is_ne(tg, 14n)), U32.is_eq(z2, x2)) == True{}: Bool
@@ -1055,7 +1055,7 @@ def Tg.cg(
       u => Some{t3},
       u => Some{t4}
     )
-      == Some{T0}: Maybe<&2, C.Term>
+      == Some{T0}: Maybe<&2, Bk.Term>
   }
 ) -> {
   T.tm.cell(
@@ -1069,7 +1069,7 @@ def Tg.cg(
     u => Some{D.Mo.F(mo, t3, Nat.add(d, W.Tg.b(tg, 3n)))},
     u => Some{D.Mo.F(mo, t4, Nat.add(d, W.Tg.b(tg, 4n)))}
   )
-    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+    == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
 }:
   match tg:
     case 0n:
@@ -1086,7 +1086,7 @@ def Tg.cg(
             u => Some{D.Mo.F(mo, t3, Nat.add(d, W.Tg.b(0n, 3n)))},
             u => Some{D.Mo.F(mo, t4, Nat.add(d, W.Tg.b(0n, 4n)))}
           )
-            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
         },
         ho
       )
@@ -1104,30 +1104,30 @@ def Tg.cg(
             u => Some{D.Mo.F(mo, t3, Nat.add(d, W.Tg.b(1n, 3n)))},
             u => Some{D.Mo.F(mo, t4, Nat.add(d, W.Tg.b(1n, 4n)))}
           )
-            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
         },
         ho
       )
     case 2n:
-      Tg.c2(mo, t2, t3, d, T0, Tg.some(C.Term.Ann{t2, t3}, T0, h))
+      Tg.c2(mo, t2, t3, d, T0, Tg.some(Bk.Term.Ann{t2, t3}, T0, h))
     case 3n:
-      Tg.c3(mo, q, t2, t3, d, T0, Tg.some(C.Term.Let{q, t2, t3}, T0, h))
+      Tg.c3(mo, q, t2, t3, d, T0, Tg.some(Bk.Term.Let{q, t2, t3}, T0, h))
     case 4n:
-      Tg.c4(mo, t2, d, T0, Tg.some(C.Term.Typ{t2}, T0, h))
+      Tg.c4(mo, t2, d, T0, Tg.some(Bk.Term.Typ{t2}, T0, h))
     case 5n:
-      Tg.c5(mo, t2, t3, d, T0, Tg.some(C.Term.Min{t2, t3}, T0, h))
+      Tg.c5(mo, t2, t3, d, T0, Tg.some(Bk.Term.Min{t2, t3}, T0, h))
     case 6n:
-      Tg.c6(mo, q, t2, t3, d, T0, Tg.some(C.Term.All{q, t2, t3}, T0, h))
+      Tg.c6(mo, q, t2, t3, d, T0, Tg.some(Bk.Term.All{q, t2, t3}, T0, h))
     case 7n:
-      Tg.c7(mo, q, t2, d, T0, Tg.some(C.Term.Lam{q, t2}, T0, h))
+      Tg.c7(mo, q, t2, d, T0, Tg.some(Bk.Term.Lam{q, t2}, T0, h))
     case 8n:
-      Tg.c8(mo, q, t2, t3, d, T0, Tg.some(C.Term.App{q, t2, t3}, T0, h))
+      Tg.c8(mo, q, t2, t3, d, T0, Tg.some(Bk.Term.App{q, t2, t3}, T0, h))
     case 9n:
-      Tg.c9(mo, q, t2, t3, d, T0, Tg.some(C.Term.Sig{q, t2, t3}, T0, h))
+      Tg.c9(mo, q, t2, t3, d, T0, Tg.some(Bk.Term.Sig{q, t2, t3}, T0, h))
     case 10n:
-      Tg.c10(mo, q, t2, t3, d, T0, Tg.some(C.Term.Tup{q, t2, t3}, T0, h))
+      Tg.c10(mo, q, t2, t3, d, T0, Tg.some(Bk.Term.Tup{q, t2, t3}, T0, h))
     case 11n:
-      Tg.c11(mo, t2, d, T0, Tg.some(C.Term.Prj{t2}, T0, h))
+      Tg.c11(mo, t2, d, T0, Tg.some(Bk.Term.Prj{t2}, T0, h))
     case 12n:
       K.Bo.tf(
         {
@@ -1142,7 +1142,7 @@ def Tg.cg(
             u => Some{D.Mo.F(mo, t3, Nat.add(d, W.Tg.b(12n, 3n)))},
             u => Some{D.Mo.F(mo, t4, Nat.add(d, W.Tg.b(12n, 4n)))}
           )
-            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
         },
         ho
       )
@@ -1155,9 +1155,9 @@ def Tg.cg(
       ): {
         T.tm.named(
           T.tm.name(ks, _),
-          k => C.Term.Lab{k}
+          k => Bk.Term.Lab{k}
         )
-          == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+          == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
       }
       Tg.lab(T.tm.name(ks, x2), mo, d, T0, h)
     case 14n:
@@ -1172,17 +1172,17 @@ def Tg.cg(
           Some{D.Mo.F(mo, t3, Nat.add(d, 0n))},
           Some{D.Mo.F(mo, t4, Nat.add(d, 0n))}
         )
-          == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+          == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
       }
       Tg.mat(T.tm.name(ks, x2), mo, t3, t4, d, T0, h)
     case 15n:
-      Tg.c0(mo, d, T0, C.Term.Efq{}, F.efq(mo, d), Tg.some(C.Term.Efq{}, T0, h))
+      Tg.c0(mo, d, T0, Bk.Term.Efq{}, F.efq(mo, d), Tg.some(Bk.Term.Efq{}, T0, h))
     case 16n:
-      Tg.c16(mo, t2, t3, t4, d, T0, Tg.some(C.Term.Eql{t2, t3, t4}, T0, h))
+      Tg.c16(mo, t2, t3, t4, d, T0, Tg.some(Bk.Term.Eql{t2, t3, t4}, T0, h))
     case 17n:
-      Tg.c0(mo, d, T0, C.Term.Rfl{}, F.rfl(mo, d), Tg.some(C.Term.Rfl{}, T0, h))
+      Tg.c0(mo, d, T0, Bk.Term.Rfl{}, F.rfl(mo, d), Tg.some(Bk.Term.Rfl{}, T0, h))
     case 18n:
-      Tg.c18(mo, t2, t3, t4, d, T0, Tg.some(C.Term.Rwt{t2, t3, t4}, T0, h))
+      Tg.c18(mo, t2, t3, t4, d, T0, Tg.some(Bk.Term.Rwt{t2, t3, t4}, T0, h))
     case 19n+r:
       K.Bo.tf(
         {
@@ -1197,7 +1197,7 @@ def Tg.cg(
             u => Some{D.Mo.F(mo, t3, Nat.add(d, W.Tg.b(19n+r, 3n)))},
             u => Some{D.Mo.F(mo, t4, Nat.add(d, W.Tg.b(19n+r, 4n)))}
           )
-            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, C.Term>
+            == Some{D.Mo.F(mo, T0, d)}: Maybe<&2, Bk.Term>
         },
         ho
       )

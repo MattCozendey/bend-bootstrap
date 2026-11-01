@@ -11,23 +11,24 @@
 # run's status gives what Cir.ended says.
 
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
-import ./proof_halt.bend as PH
-import ./proof_module.bend as M
-import ./proof_valid.bend as V
-import ./proof_img.bend as G
-import ./proof_sim_step.bend as S
-import ./proof_sim_mem.bend as Y
-import ./proof_sim_nat.bend as Z
-import ./proof_sim_inv.bend as Q
-import ./proof_sim_frame.bend as F
-import ./proof_sim_alloc.bend as A
-import ./proof_sim_div.bend as DV
-import ./proof_sim_stmt.bend as T
-import ./proof_sim_af.bend as AF
-import ./proof_sim_pro.bend as PR
-import ./proof_sim_init.bend as IN
+import ../../wasm/impl.bend as Wa
+import ./impl.bend as Cr
+import ../need_big.bend as N
+import ./halt.bend as PH
+import ./module_round_trip.bend as M
+import ./module_valid.bend as V
+import ../img_small.bend as G
+import ./simulation_steps.bend as S
+import ./simulation_memory_bytes.bend as Y
+import ./simulation_numbers.bend as Z
+import ./simulation_relation.bend as Q
+import ./simulation_write_frame.bend as F
+import ./simulation_alloc_emit.bend as A
+import ./simulation_first_cell_division.bend as DV
+import ./simulation_stmt.bend as T
+import ./simulation_alloc_run.bend as AF
+import ./simulation_run_start.bend as PR
+import ./simulation_start_memory.bend as IN
 
 # Numbers
 # -------
@@ -134,12 +135,12 @@ def nowrap(+x: U32, +y: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, e: {U32.is_
 # The lengths
 # -----------
 
-def enc.from(-X: Data, xs: List<&2, X>) -> {C.Wasm.encode.len(X, xs) == U32.from_nat(List.length(&2, X, xs)) : U32}:
+def enc.from(-X: Data, xs: List<&2, X>) -> {Cr.Wasm.encode.len(X, xs) == U32.from_nat(List.length(&2, X, xs)) : U32}:
   match xs:
     case Nil{}:
       {==}
     case Con{_, rest}:
-      Equal.cong(U32, U32, z => U32.inc(z), C.Wasm.encode.len(X, rest), U32.from_nat(List.length(&2, X, rest)), enc.from(X, rest))
+      Equal.cong(U32, U32, z => U32.inc(z), Cr.Wasm.encode.len(X, rest), U32.from_nat(List.length(&2, X, rest)), enc.from(X, rest))
 
 def L32.T(xs: List<&2, Word(8n)>, +n: U32, +v: U32) -> Data:
   S.P2({v == Z.incn(List.length(&2, Word(8n), xs), n) : U32}, {U32.to_nat(v) == Nat.add(List.length(&2, Word(8n), xs), U32.to_nat(n)) : Nat})
@@ -155,8 +156,8 @@ def L32.fin(+x: Word(8n), +rest: List<&2, Word(8n)>, +n: U32, +v: U32, +W: Nat, 
 
 def L32.if(b: Bool, +x: Word(8n), +n: U32, +rest: List<&2, Word(8n)>, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   eb: {U32.is_eq(n, 4294967295) == b : Bool},
-  e: {C.Wasm.length32.if(b, u => C.Wasm.length32.go(rest, U32.inc(n))) == Some{v} : Maybe<&2, U32>},
-  ih: {C.Wasm.length32.go(rest, U32.inc(n)) == Some{v} : Maybe<&2, U32>} -> L32.T(rest, U32.inc(n), v)) -> L32.T(Con{x, rest}, n, v):
+  e: {Wa.Wasm.length32.if(b, u => Wa.Wasm.length32.go(rest, U32.inc(n))) == Some{v} : Maybe<&2, U32>},
+  ih: {Wa.Wasm.length32.go(rest, U32.inc(n)) == Some{v} : Maybe<&2, U32>} -> L32.T(rest, U32.inc(n), v)) -> L32.T(Con{x, rest}, n, v):
   match b:
     case True{}:
       Empty.absurd(L32.T(Con{x, rest}, n, v), Q.none.some(v, e))
@@ -165,7 +166,7 @@ def L32.if(b: Bool, +x: Word(8n), +n: U32, +rest: List<&2, Word(8n)>, +v: U32, +
 
 # the length that length32 counts from n
 def L32.go(xs: List<&2, Word(8n)>, +n: U32, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  e: {C.Wasm.length32.go(xs, n) == Some{v} : Maybe<&2, U32>}) -> L32.T(xs, n, v):
+  e: {Wa.Wasm.length32.go(xs, n) == Some{v} : Maybe<&2, U32>}) -> L32.T(xs, n, v):
   match xs:
     case Nil{}:
       +ev = Equal.sym(U32, n, v, Q.some.inj(n, v, e))

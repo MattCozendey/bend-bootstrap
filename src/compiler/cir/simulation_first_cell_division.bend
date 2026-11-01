@@ -7,14 +7,13 @@
 # q b <= a < q b + b (div.of), which gives Cir.first.
 
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
-import ./proof_halt.bend as PH
-import ./proof_sim_mem.bend as Y
-import ./proof_sim_nat.bend as Z
-import ./proof_valid.bend as V
-import ./proof_sim_alloc.bend as A
-import ./proof_sim_step.bend as S
+import ../need_big.bend as N
+import ./halt.bend as PH
+import ./simulation_memory_bytes.bend as Y
+import ./simulation_numbers.bend as Z
+import ./module_valid.bend as V
+import ./simulation_alloc_emit.bend as A
+import ./simulation_steps.bend as S
 
 def dq(-p: Nat, x: Word(p) & U32) -> Word(p):
   (q, r) = x

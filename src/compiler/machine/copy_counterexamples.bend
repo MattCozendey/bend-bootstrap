@@ -50,7 +50,10 @@
 #    as inc.post's hn (at most 64), makes the counts fit: 3 x 214748364 + 65
 #    is far below 2^32.
 import Base
-import ./impl.bend as C
+import ../../book/impl.bend as Bk
+import ../../eval/impl.bend as El
+import ../cir/impl.bend as Cr
+import ./impl.bend as Mc
 
 def Cx.z(n: Nat) -> List<&2, U32>:
   match n:
@@ -60,37 +63,37 @@ def Cx.z(n: Nat) -> List<&2, U32>:
       Con{0, Cx.z(p)}
 
 # the table's rows that the runs read: Var 0, Typ 4, Prj 11, Rfl 17
-def Cx.tbl() -> C.Cir.Cells:
-  C.Cir.Cells.set(
-    C.Cir.Cells.set(
-      C.Cir.Cells.set(C.Cir.Cells.none{}, 276, C.Cir.Cell{0, 0, 1, 0, 1}),
+def Cx.tbl() -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(
+    Cr.Cir.Cells.set(
+      Cr.Cir.Cells.set(Cr.Cir.Cells.none{}, 276, Cr.Cir.Cell{0, 0, 1, 0, 1}),
       283,
-      C.Cir.Cell{0, 0, 1, 0, 1}
+      Cr.Cir.Cell{0, 0, 1, 0, 1}
     ),
     289,
-    C.Cir.Cell{0, 0, 0, 0, 1}
+    Cr.Cir.Cell{0, 0, 0, 0, 1}
   )
 
-def Cx.st(regs: List<&2, U32>, m: C.Cir.Cells, nx: U32) -> C.Cir.State:
-  C.Cir.State{regs, m, nx, 400, 290, 1, 1, Nil{}, Nil{}, 0}
+def Cx.st(regs: List<&2, U32>, m: Cr.Cir.Cells, nx: U32) -> Cr.Cir.State:
+  Cr.Cir.State{regs, m, nx, 400, 290, 1, 1, Nil{}, Nil{}, 0}
 
-def Cx.reg(o: C.Cir.Out, r: Nat) -> Maybe<&2, U32>:
+def Cx.reg(o: Cr.Cir.Out, r: Nat) -> Maybe<&2, U32>:
   match o:
-    case C.Cir.Out.next{C.Cir.State{regs, _, _, _, _, _, _, _, _, _}}:
+    case Cr.Cir.Out.next{Cr.Cir.State{regs, _, _, _, _, _, _, _, _, _}}:
       List.get(&2, U32, regs, r)
     case _:
       None{}
 
-def Cx.fd(o: C.Cir.Out, k: Nat, c: U32) -> U32:
+def Cx.fd(o: Cr.Cir.Out, k: Nat, c: U32) -> U32:
   match o:
-    case C.Cir.Out.next{C.Cir.State{_, m, _, _, _, _, _, _, _, _}}:
-      C.Cir.Cell.get(k, C.Cir.Cells.get(m, c))
+    case Cr.Cir.Out.next{Cr.Cir.State{_, m, _, _, _, _, _, _, _, _}}:
+      Cr.Cir.Cell.get(k, Cr.Cir.Cells.get(m, c))
     case _:
       77777
 
-def Cx.trap(o: C.Cir.Out) -> Bool:
+def Cx.trap(o: Cr.Cir.Out) -> Bool:
   match o:
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       True{}
     case _:
       False{}
@@ -100,19 +103,19 @@ def Cx.trap(o: C.Cir.Out) -> Bool:
 
 # p = 400: Typ (4), in the pend list (link 0), its part c; c = 401: Rfl
 # (17), fv 0, count 1
-def A.m() -> C.Cir.Cells:
-  C.Cir.Cells.set(
-    C.Cir.Cells.set(Cx.tbl(), 400, C.Cir.Cell{4, 0, 401, 0, 0}),
+def A.m() -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(
+    Cr.Cir.Cells.set(Cx.tbl(), 400, Cr.Cir.Cell{4, 0, 401, 0, 0}),
     401,
-    C.Cir.Cell{17, 1, 0, 0, 0}
+    Cr.Cir.Cell{17, 1, 0, 0, 0}
   )
 
 # src = 13 holds c, pend = p, cenv = 0, clen = 0
 def A.regs() -> List<&2, U32>:
   List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 13n, 401), 3n, 400)
 
-def A.copy() -> C.Cir.Out:
-  C.Cir.exec(4n, C.M.copy(15n, 13n), Cx.st(A.regs(), A.m(), 402))
+def A.copy() -> Cr.Cir.Out:
+  Cr.Cir.exec(4n, Mc.M.copy(15n, 13n), Cx.st(A.regs(), A.m(), 402))
 
 # the result is c; pend is the root p, then c, then cell 1
 def A.r15() -> {Cx.reg(A.copy(), 15n) == Some{401}: Maybe<&2, U32>}:
@@ -128,8 +131,8 @@ def A.link_c() -> {Cx.fd(A.copy(), 1n, 401) == 1: U32}:
   {==}
 
 # M.alloc alone: c is pended (pend = c, its link 0), p is taken
-def A.alloc() -> C.Cir.Out:
-  C.Cir.exec(1n, C.M.alloc(15n), Cx.st(A.regs(), A.m(), 402))
+def A.alloc() -> Cr.Cir.Out:
+  Cr.Cir.exec(1n, Mc.M.alloc(15n), Cx.st(A.regs(), A.m(), 402))
 
 def A.alloc_r3() -> {Cx.reg(A.alloc(), 3n) == Some{401}: Maybe<&2, U32>}:
   {==}
@@ -146,19 +149,19 @@ def A.alloc_cnt() -> {Cx.fd(A.alloc(), 1n, 401) == 0: U32}:
 # p = 400: Typ in the pend list, part x; x = 401: Rfl, count 1; a = 402: a
 # K.arg (41), not OWNED, quantity 0, term x, last; c = 403: Var 0, fv 1,
 # count 1 (register 0 owns it)
-def B.m() -> C.Cir.Cells:
-  C.Cir.Cells.set(
-    C.Cir.Cells.set(
-      C.Cir.Cells.set(
-        C.Cir.Cells.set(Cx.tbl(), 400, C.Cir.Cell{4, 0, 401, 0, 0}),
+def B.m() -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(
+    Cr.Cir.Cells.set(
+      Cr.Cir.Cells.set(
+        Cr.Cir.Cells.set(Cx.tbl(), 400, Cr.Cir.Cell{4, 0, 401, 0, 0}),
         401,
-        C.Cir.Cell{17, 1, 0, 0, 0}
+        Cr.Cir.Cell{17, 1, 0, 0, 0}
       ),
       402,
-      C.Cir.Cell{41, 0, 401, 0, 0}
+      Cr.Cir.Cell{41, 0, 401, 0, 0}
     ),
     403,
-    C.Cir.Cell{8192, 1, 0, 0, 0}
+    Cr.Cir.Cell{8192, 1, 0, 0, 0}
   )
 
 def B.regs() -> List<&2, U32>:
@@ -182,8 +185,8 @@ def B.regs() -> List<&2, U32>:
     1
   )
 
-def B.copy() -> C.Cir.Out:
-  C.Cir.exec(4n, C.M.copy(15n, 13n), Cx.st(B.regs(), B.m(), 404))
+def B.copy() -> Cr.Cir.Out:
+  Cr.Cir.exec(4n, Mc.M.copy(15n, 13n), Cx.st(B.regs(), B.m(), 404))
 
 def B.r15() -> {Cx.reg(B.copy(), 15n) == Some{401}: Maybe<&2, U32>}:
   {==}
@@ -201,14 +204,14 @@ def B.link_x() -> {Cx.fd(B.copy(), 1n, 401) == 1: U32}:
 # -
 
 # c = 400: Rfl, count 1, owned by register 0; pend empty; a new root 401
-def C2.m() -> C.Cir.Cells:
-  C.Cir.Cells.set(Cx.tbl(), 400, C.Cir.Cell{17, 1, 0, 0, 0})
+def C2.m() -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(Cx.tbl(), 400, Cr.Cir.Cell{17, 1, 0, 0, 0})
 
 def C2.regs(+src: Nat) -> List<&2, U32>:
   List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 0n, 400), src, 400)
 
-def C2.copy(r: Nat, +src: Nat) -> C.Cir.Out:
-  C.Cir.exec(4n, C.M.copy(r, src), Cx.st(C2.regs(src), C2.m(), 401))
+def C2.copy(r: Nat, +src: Nat) -> Cr.Cir.Out:
+  Cr.Cir.exec(4n, Mc.M.copy(r, src), Cx.st(C2.regs(src), C2.m(), 401))
 
 # r = 39: the result is c, whose field 0 is now K.root
 def C2.r39_reg() -> {Cx.reg(C2.copy(39n, 13n), 39n) == Some{400}: Maybe<&2, U32>}:
@@ -239,25 +242,25 @@ def C2.s39_tag() -> {Cx.fd(C2.copy(15n, 39n), 0n, 401) == 45: U32}:
 # -
 
 # the table's row of Lam (7) too
-def D.tbl() -> C.Cir.Cells:
-  C.Cir.Cells.set(Cx.tbl(), 279, C.Cir.Cell{0, 0, 1, 1, 1})
+def D.tbl() -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(Cx.tbl(), 279, Cr.Cir.Cell{0, 0, 1, 1, 1})
 
 # c = 400: Lam (7), fv 1, count 1, part 401; 401: Var 1, fv 2, count 1;
 # a = 402: K.arg (41), OWNED, last, term 403; 403: Var 4294967295, fv fv_max
 # (524287 << 13 = 4294959104), count 1
-def D.m() -> C.Cir.Cells:
-  C.Cir.Cells.set(
-    C.Cir.Cells.set(
-      C.Cir.Cells.set(
-        C.Cir.Cells.set(D.tbl(), 400, C.Cir.Cell{8199, 1, 401, 0, 0}),
+def D.m() -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(
+    Cr.Cir.Cells.set(
+      Cr.Cir.Cells.set(
+        Cr.Cir.Cells.set(D.tbl(), 400, Cr.Cir.Cell{8199, 1, 401, 0, 0}),
         401,
-        C.Cir.Cell{16384, 1, 1, 0, 0}
+        Cr.Cir.Cell{16384, 1, 1, 0, 0}
       ),
       402,
-      C.Cir.Cell{4137, 0, 403, 0, 0}
+      Cr.Cir.Cell{4137, 0, 403, 0, 0}
     ),
     403,
-    C.Cir.Cell{4294959104, 1, 4294967295, 0, 0}
+    Cr.Cir.Cell{4294959104, 1, 4294967295, 0, 0}
   )
 
 # focus 0 and src 13 hold c, pend 0, cenv 402, clen 1
@@ -276,8 +279,8 @@ def D.regs() -> List<&2, U32>:
     1
   )
 
-def D.copy() -> C.Cir.Out:
-  C.Cir.exec(8n, C.M.copy(15n, 13n), Cx.st(D.regs(), D.m(), 404))
+def D.copy() -> Cr.Cir.Out:
+  Cr.Cir.exec(8n, Mc.M.copy(15n, 13n), Cx.st(D.regs(), D.m(), 404))
 
 # the run ends with a state: register 15 holds 405
 def D.r15() -> {Cx.reg(D.copy(), 15n) == Some{405}: Maybe<&2, U32>}:
@@ -299,22 +302,22 @@ def D.var_f2() -> {Cx.fd(D.copy(), 2n, 407) == 0: U32}:
 
 # what Term.subst gives, for the local Var i = 1 + p: Lam{Q0, Var i + 1}; for
 # i = 4294967295, Var 4294967296, of which no cell stands
-def D.subst(+p: Nat) -> {C.Term.subst(C.Term.Lam{C.Quan.Q0{}, C.Term.Var{1n}}, [C.Term.Var{1n+p}], 0n) ==
-  C.Term.Lam{C.Quan.Q0{}, C.Term.Var{Nat.add(1n+p, 1n)}} : C.Term}:
+def D.subst(+p: Nat) -> {El.Term.subst(Bk.Term.Lam{Bk.Quan.Q0{}, Bk.Term.Var{1n}}, [Bk.Term.Var{1n+p}], 0n) ==
+  Bk.Term.Lam{Bk.Quan.Q0{}, Bk.Term.Var{Nat.add(1n+p, 1n)}} : Bk.Term}:
   {==}
 
 # E
 # -
 
 # c = 400: Rfl (17), fv 0, count 4294967295
-def E.m() -> C.Cir.Cells:
-  C.Cir.Cells.set(Cx.tbl(), 400, C.Cir.Cell{17, 4294967295, 0, 0, 0})
+def E.m() -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(Cx.tbl(), 400, Cr.Cir.Cell{17, 4294967295, 0, 0, 0})
 
 def E.regs() -> List<&2, U32>:
   List.set(&2, U32, List.set(&2, U32, Cx.z(63n), 0n, 400), 13n, 400)
 
-def E.copy() -> C.Cir.Out:
-  C.Cir.exec(4n, C.M.copy(15n, 13n), Cx.st(E.regs(), E.m(), 401))
+def E.copy() -> Cr.Cir.Out:
+  Cr.Cir.exec(4n, Mc.M.copy(15n, 13n), Cx.st(E.regs(), E.m(), 401))
 
 # the result is c, whose count wrapped to 0
 def E.r15() -> {Cx.reg(E.copy(), 15n) == Some{400}: Maybe<&2, U32>}:

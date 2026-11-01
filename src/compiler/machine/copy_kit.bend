@@ -5,10 +5,10 @@
 # of proof_copy.bend's claims use.
 
 import Base
-import ./impl.bend as C
-import ./proof_term.bend as T
-import ./proof_need.bend as N
-import ./proof_copy.bend as D
+import ../cir/impl.bend as Cr
+import ./cell_terms.bend as T
+import ../need_big.bend as N
+import ./copy_substitution.bend as D
 
 # Bools
 # -----
@@ -185,8 +185,8 @@ def U.rel(a: U32, b: U32) -> N.Rel(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b)):
 # -----
 
 # a cell set at w is there
-def Cl.get_set.at(n: Nat, +w: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell) ->
-  {C.Cir.Cells.get.at(n, w, C.Cir.Cells.set.at(n, w, m, c)) == c : C.Cir.Cell}:
+def Cl.get_set.at(n: Nat, +w: Word(n), +m: Cr.Cir.Cells, +c: Cr.Cir.Cell) ->
+  {Cr.Cir.Cells.get.at(n, w, Cr.Cir.Cells.set.at(n, w, m, c)) == c : Cr.Cir.Cell}:
   match n:
     case 0n:
       {==}
@@ -194,28 +194,28 @@ def Cl.get_set.at(n: Nat, +w: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell) ->
       match w:
         case WCon{False{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               Cl.get_set.at(p, t, lo, c)
-            case C.Cir.Cells.none{}:
-              Cl.get_set.at(p, t, C.Cir.Cells.none{}, c)
-            case C.Cir.Cells.one{+d}:
-              Cl.get_set.at(p, t, C.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.none{}:
+              Cl.get_set.at(p, t, Cr.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.one{+d}:
+              Cl.get_set.at(p, t, Cr.Cir.Cells.none{}, c)
         case WCon{True{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               Cl.get_set.at(p, t, hi, c)
-            case C.Cir.Cells.none{}:
-              Cl.get_set.at(p, t, C.Cir.Cells.none{}, c)
-            case C.Cir.Cells.one{+d}:
-              Cl.get_set.at(p, t, C.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.none{}:
+              Cl.get_set.at(p, t, Cr.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.one{+d}:
+              Cl.get_set.at(p, t, Cr.Cir.Cells.none{}, c)
 
-def Cl.get_set(+m: C.Cir.Cells, +i: U32, +c: C.Cir.Cell) -> {C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), i) == c : C.Cir.Cell}:
+def Cl.get_set(+m: Cr.Cir.Cells, +i: U32, +c: Cr.Cir.Cell) -> {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), i) == c : Cr.Cir.Cell}:
   match i:
     case U32{+w}:
       Cl.get_set.at(32n, w, m, c)
 
 # no cell is all zeros
-def Cl.get_none(n: Nat, +v: Word(n)) -> {C.Cir.Cell.zero() == C.Cir.Cells.get.at(n, v, C.Cir.Cells.none{}) : C.Cir.Cell}:
+def Cl.get_none(n: Nat, +v: Word(n)) -> {Cr.Cir.Cell.zero() == Cr.Cir.Cells.get.at(n, v, Cr.Cir.Cells.none{}) : Cr.Cir.Cell}:
   match n:
     case 0n:
       {==}
@@ -227,198 +227,198 @@ def Cl.get_none(n: Nat, +v: Word(n)) -> {C.Cir.Cell.zero() == C.Cir.Cells.get.at
           {==}
 
 # a set at w keeps the cell at another address v
-def Cl.get_other.at(n: Nat, +v: Word(n), +w: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell, ne: {v == w : Word(n)} -> Empty) ->
-  {C.Cir.Cells.get.at(n, v, m) == C.Cir.Cells.get.at(n, v, C.Cir.Cells.set.at(n, w, m, c)) : C.Cir.Cell}:
+def Cl.get_other.at(n: Nat, +v: Word(n), +w: Word(n), +m: Cr.Cir.Cells, +c: Cr.Cir.Cell, ne: {v == w : Word(n)} -> Empty) ->
+  {Cr.Cir.Cells.get.at(n, v, m) == Cr.Cir.Cells.get.at(n, v, Cr.Cir.Cells.set.at(n, w, m, c)) : Cr.Cir.Cell}:
   match n:
     case 0n:
       match v w:
         case WNil{} WNil{}:
-          Empty.absurd({C.Cir.Cells.get.at(0n, WNil{}, m) == C.Cir.Cells.get.at(0n, WNil{}, C.Cir.Cells.set.at(0n, WNil{}, m, c)) : C.Cir.Cell}, ne({==}))
+          Empty.absurd({Cr.Cir.Cells.get.at(0n, WNil{}, m) == Cr.Cir.Cells.get.at(0n, WNil{}, Cr.Cir.Cells.set.at(0n, WNil{}, m, c)) : Cr.Cir.Cell}, ne({==}))
     case 1n+(+p):
       match v w:
         case WCon{False{}, +s} WCon{False{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               Cl.get_other.at(p, s, t, lo, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{False{}, x}, s, t, e)))
-            case C.Cir.Cells.none{}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cell.zero(), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                Cl.get_none(p, s), Cl.get_other.at(p, s, t, C.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{False{}, x}, s, t, e))))
-            case C.Cir.Cells.one{+d}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cell.zero(), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                Cl.get_none(p, s), Cl.get_other.at(p, s, t, C.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{False{}, x}, s, t, e))))
+            case Cr.Cir.Cells.none{}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cell.zero(), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cl.get_none(p, s), Cl.get_other.at(p, s, t, Cr.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{False{}, x}, s, t, e))))
+            case Cr.Cir.Cells.one{+d}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cell.zero(), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cl.get_none(p, s), Cl.get_other.at(p, s, t, Cr.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{False{}, x}, s, t, e))))
         case WCon{True{}, +s} WCon{True{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               Cl.get_other.at(p, s, t, hi, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{True{}, x}, s, t, e)))
-            case C.Cir.Cells.none{}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cell.zero(), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                Cl.get_none(p, s), Cl.get_other.at(p, s, t, C.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{True{}, x}, s, t, e))))
-            case C.Cir.Cells.one{+d}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cell.zero(), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                Cl.get_none(p, s), Cl.get_other.at(p, s, t, C.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{True{}, x}, s, t, e))))
+            case Cr.Cir.Cells.none{}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cell.zero(), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cl.get_none(p, s), Cl.get_other.at(p, s, t, Cr.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{True{}, x}, s, t, e))))
+            case Cr.Cir.Cells.one{+d}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cell.zero(), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cl.get_none(p, s), Cl.get_other.at(p, s, t, Cr.Cir.Cells.none{}, c, e => ne(Equal.cong(Word(p), Word(1n+p), x => WCon{True{}, x}, s, t, e))))
         case WCon{False{}, +s} WCon{True{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               {==}
-            case C.Cir.Cells.none{}:
+            case Cr.Cir.Cells.none{}:
               Cl.get_none(p, s)
-            case C.Cir.Cells.one{+d}:
+            case Cr.Cir.Cells.one{+d}:
               Cl.get_none(p, s)
         case WCon{True{}, +s} WCon{False{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               {==}
-            case C.Cir.Cells.none{}:
+            case Cr.Cir.Cells.none{}:
               Cl.get_none(p, s)
-            case C.Cir.Cells.one{+d}:
+            case Cr.Cir.Cells.one{+d}:
               Cl.get_none(p, s)
 
-def Cl.get_other(+m: C.Cir.Cells, +j: U32, +i: U32, +c: C.Cir.Cell, ne: {j == i : U32} -> Empty) ->
-  {C.Cir.Cells.get(m, j) == C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), j) : C.Cir.Cell}:
+def Cl.get_other(+m: Cr.Cir.Cells, +j: U32, +i: U32, +c: Cr.Cir.Cell, ne: {j == i : U32} -> Empty) ->
+  {Cr.Cir.Cells.get(m, j) == Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), j) : Cr.Cir.Cell}:
   match j i:
     case U32{+v} U32{+w}:
       Cl.get_other.at(32n, v, w, m, c, e => ne(Equal.cong(Word(32n), U32, x => U32{x}, v, w, e)))
 
 # a set at i keeps the cell j, when U32.is_eq says they differ
-def Cl.get_ne(+m: C.Cir.Cells, +j: U32, +i: U32, +c: C.Cir.Cell, h: {U32.is_eq(j, i) == False{} : Bool}) ->
-  {C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), j) == C.Cir.Cells.get(m, j) : C.Cir.Cell}:
-  Equal.sym(C.Cir.Cell, C.Cir.Cells.get(m, j), C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), j), Cl.get_other(m, j, i, c, e => U.ne(j, i, h, e)))
+def Cl.get_ne(+m: Cr.Cir.Cells, +j: U32, +i: U32, +c: Cr.Cir.Cell, h: {U32.is_eq(j, i) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), j) == Cr.Cir.Cells.get(m, j) : Cr.Cir.Cell}:
+  Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, j), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), j), Cl.get_other(m, j, i, c, e => U.ne(j, i, h, e)))
 
 # Runs
 # ----
 
 # a write of r with the value v of e
-def X.set(+f: Nat, +r: Nat, +e: C.Cir.Expr, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32,
-  +L: U32, +I: List<&2, Word(8n)>, +v: U32, ev: {Some{v} == C.Cir.eval(e, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
+def X.set(+f: Nat, +r: Nat, +e: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32,
+  +L: U32, +I: List<&2, Word(8n)>, +v: U32, ev: {Some{v} == Cr.Cir.eval(e, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
   hl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}) ->
-  {C.Cir.exec(1n+f, C.Cir.Stmt.set{r, e}, D.S(regs, m, nx, F, K, pg, L, I)) ==
-    C.Cir.Out.next{D.S(List.set(&2, U32, regs, r, v), m, nx, F, K, pg, L, I)} : C.Cir.Out}:
-  %ev : {C.Cir.exec.set(r, _, D.S(regs, m, nx, F, K, pg, L, I)) == C.Cir.Out.next{D.S(List.set(&2, U32, regs, r, v), m, nx, F, K, pg, L, I)} : C.Cir.Out}
-  %hl : {C.Cir.exec.set.of(C.Cir.regs.set.if(_, regs, r, v), D.S(regs, m, nx, F, K, pg, L, I)) ==
-    C.Cir.Out.next{D.S(List.set(&2, U32, regs, r, v), m, nx, F, K, pg, L, I)} : C.Cir.Out}
+  {Cr.Cir.exec(1n+f, Cr.Cir.Stmt.set{r, e}, D.S(regs, m, nx, F, K, pg, L, I)) ==
+    Cr.Cir.Out.next{D.S(List.set(&2, U32, regs, r, v), m, nx, F, K, pg, L, I)} : Cr.Cir.Out}:
+  %ev : {Cr.Cir.exec.set(r, _, D.S(regs, m, nx, F, K, pg, L, I)) == Cr.Cir.Out.next{D.S(List.set(&2, U32, regs, r, v), m, nx, F, K, pg, L, I)} : Cr.Cir.Out}
+  %hl : {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), D.S(regs, m, nx, F, K, pg, L, I)) ==
+    Cr.Cir.Out.next{D.S(List.set(&2, U32, regs, r, v), m, nx, F, K, pg, L, I)} : Cr.Cir.Out}
   {==}
 
 # a store of the value x of v in field k of the cell i, the value of c
-def X.st(+f: Nat, +k: Nat, +c: C.Cir.Expr, +v: C.Cir.Expr, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32,
+def X.st(+f: Nat, +k: Nat, +c: Cr.Cir.Expr, +v: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32,
   +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +i: U32, +x: U32,
-  ec: {Some{i} == C.Cir.eval(c, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
-  ev: {Some{x} == C.Cir.eval(v, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
-  hc: {True{} == C.Cir.is_cell(i, K, F, nx) : Bool}) ->
-  {C.Cir.exec(1n+f, C.Cir.Stmt.store{k, c, v}, D.S(regs, m, nx, F, K, pg, L, I)) ==
-    C.Cir.Out.next{D.S(regs, C.Cir.Cells.set(m, i, C.Cir.Cell.set(k, C.Cir.Cells.get(m, i), x)), nx, F, K, pg, L, I)} : C.Cir.Out}:
+  ec: {Some{i} == Cr.Cir.eval(c, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
+  ev: {Some{x} == Cr.Cir.eval(v, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
+  hc: {True{} == Cr.Cir.is_cell(i, K, F, nx) : Bool}) ->
+  {Cr.Cir.exec(1n+f, Cr.Cir.Stmt.store{k, c, v}, D.S(regs, m, nx, F, K, pg, L, I)) ==
+    Cr.Cir.Out.next{D.S(regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(m, i), x)), nx, F, K, pg, L, I)} : Cr.Cir.Out}:
   +st = D.S(regs, m, nx, F, K, pg, L, I)
-  +out = {C.Cir.Out.next{D.S(regs, C.Cir.Cells.set(m, i, C.Cir.Cell.set(k, C.Cir.Cells.get(m, i), x)), nx, F, K, pg, L, I)} : C.Cir.Out}
-  %ec : {C.Cir.exec.store(k, _, C.Cir.eval(v, st), st) == out : C.Cir.Out}
-  %ev : {C.Cir.exec.store(k, Some{i}, _, st) == out : C.Cir.Out}
-  %hc : {C.Cir.exec.store.if(_, k, i, x, st) == out : C.Cir.Out}
+  +out = {Cr.Cir.Out.next{D.S(regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(m, i), x)), nx, F, K, pg, L, I)} : Cr.Cir.Out}
+  %ec : {Cr.Cir.exec.store(k, _, Cr.Cir.eval(v, st), st) == out : Cr.Cir.Out}
+  %ev : {Cr.Cir.exec.store(k, Some{i}, _, st) == out : Cr.Cir.Out}
+  %hc : {Cr.Cir.exec.store.if(_, k, i, x, st) == out : Cr.Cir.Out}
   {==}
 
 # an if whose condition is x, not 0: its then
-def X.if1(+f: Nat, +c: C.Cir.Expr, +t: C.Cir.Stmt, +e: C.Cir.Stmt, +st: C.Cir.State, +x: U32,
-  ev: {Some{x} == C.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool}) ->
-  {C.Cir.exec(1n+f, C.Cir.Stmt.if{c, t, e}, st) == C.Cir.exec(1n+f, t, st) : C.Cir.Out}:
-  %ev : {C.Cir.exec.if(_, u => C.Cir.exec(1n+f, t, st), u => C.Cir.exec(1n+f, e, st)) == C.Cir.exec(1n+f, t, st) : C.Cir.Out}
-  %nz : {C.Cir.exec.if.of(_, u => C.Cir.exec(1n+f, t, st), u => C.Cir.exec(1n+f, e, st)) == C.Cir.exec(1n+f, t, st) : C.Cir.Out}
+def X.if1(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: U32,
+  ev: {Some{x} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool}) ->
+  {Cr.Cir.exec(1n+f, Cr.Cir.Stmt.if{c, t, e}, st) == Cr.Cir.exec(1n+f, t, st) : Cr.Cir.Out}:
+  %ev : {Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)) == Cr.Cir.exec(1n+f, t, st) : Cr.Cir.Out}
+  %nz : {Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)) == Cr.Cir.exec(1n+f, t, st) : Cr.Cir.Out}
   {==}
 
 # an if whose condition is 0: its else
-def X.if0(+f: Nat, +c: C.Cir.Expr, +t: C.Cir.Stmt, +e: C.Cir.Stmt, +st: C.Cir.State,
-  ev: {Some{0} == C.Cir.eval(c, st) : Maybe<&2, U32>}) ->
-  {C.Cir.exec(1n+f, C.Cir.Stmt.if{c, t, e}, st) == C.Cir.exec(1n+f, e, st) : C.Cir.Out}:
-  %ev : {C.Cir.exec.if(_, u => C.Cir.exec(1n+f, t, st), u => C.Cir.exec(1n+f, e, st)) == C.Cir.exec(1n+f, e, st) : C.Cir.Out}
+def X.if0(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State,
+  ev: {Some{0} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}) ->
+  {Cr.Cir.exec(1n+f, Cr.Cir.Stmt.if{c, t, e}, st) == Cr.Cir.exec(1n+f, e, st) : Cr.Cir.Out}:
+  %ev : {Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)) == Cr.Cir.exec(1n+f, e, st) : Cr.Cir.Out}
   {==}
 
 # a then b, once a ends in st1
-def X.seq(+f: Nat, a: C.Cir.Stmt, +b: C.Cir.Stmt, +st: C.Cir.State, +st1: C.Cir.State,
-  h: {C.Cir.Out.next{st1} == C.Cir.exec(1n+f, a, st) : C.Cir.Out}) ->
-  {C.Cir.exec(1n+f, C.Cir.Stmt.seq{a, b}, st) == C.Cir.exec(1n+f, b, st1) : C.Cir.Out}:
-  %h : {C.Cir.exec.then(_, t => C.Cir.exec(1n+f, b, t)) == C.Cir.exec(1n+f, b, st1) : C.Cir.Out}
+def X.seq(+f: Nat, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, +st1: Cr.Cir.State,
+  h: {Cr.Cir.Out.next{st1} == Cr.Cir.exec(1n+f, a, st) : Cr.Cir.Out}) ->
+  {Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st) == Cr.Cir.exec(1n+f, b, st1) : Cr.Cir.Out}:
+  %h : {Cr.Cir.exec.then(_, t => Cr.Cir.exec(1n+f, b, t)) == Cr.Cir.exec(1n+f, b, st1) : Cr.Cir.Out}
   {==}
 
 # a round of a while whose condition is x, not 0
-def X.wh1(+f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +st: C.Cir.State, +x: U32,
-  ev: {Some{x} == C.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool}) ->
-  {C.Cir.exec(1n+f, C.Cir.Stmt.while{c, body}, st) ==
-    C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)) : C.Cir.Out}:
-  +rhs = {C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)) : C.Cir.Out}
-  %ev : {C.Cir.exec.if(_, u => rhs, u => C.Cir.Out.next{st}) == rhs : C.Cir.Out}
-  %nz : {C.Cir.exec.if.of(_, u => rhs, u => C.Cir.Out.next{st}) == rhs : C.Cir.Out}
+def X.wh1(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: U32,
+  ev: {Some{x} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool}) ->
+  {Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st) ==
+    Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)) : Cr.Cir.Out}:
+  +rhs = {Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)) : Cr.Cir.Out}
+  %ev : {Cr.Cir.exec.if(_, u => rhs, u => Cr.Cir.Out.next{st}) == rhs : Cr.Cir.Out}
+  %nz : {Cr.Cir.exec.if.of(_, u => rhs, u => Cr.Cir.Out.next{st}) == rhs : Cr.Cir.Out}
   {==}
 
 # the end of a while whose condition is 0
-def X.wh0(+f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +st: C.Cir.State,
-  ev: {Some{0} == C.Cir.eval(c, st) : Maybe<&2, U32>}) ->
-  {C.Cir.exec(1n+f, C.Cir.Stmt.while{c, body}, st) == C.Cir.Out.next{st} : C.Cir.Out}:
-  +rhs = {C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)) : C.Cir.Out}
-  %ev : {C.Cir.exec.if(_, u => rhs, u => C.Cir.Out.next{st}) == C.Cir.Out.next{st} : C.Cir.Out}
+def X.wh0(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State,
+  ev: {Some{0} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}) ->
+  {Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st) == Cr.Cir.Out.next{st} : Cr.Cir.Out}:
+  +rhs = {Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)) : Cr.Cir.Out}
+  %ev : {Cr.Cir.exec.if(_, u => rhs, u => Cr.Cir.Out.next{st}) == Cr.Cir.Out.next{st} : Cr.Cir.Out}
   {==}
 
 # Outcomes
 # --------
 
 # an outcome equal to one of which Ok holds
-def Ok.eq(-o1: C.Cir.Out, -o2: C.Cir.Out, -F: U32, -K: U32, -L: U32, -I: List<&2, Word(8n)>,
-  -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, e: {o2 == o1 : C.Cir.Out}, h: D.Ok(o2, F, K, L, I, Q)) ->
+def Ok.eq(-o1: Cr.Cir.Out, -o2: Cr.Cir.Out, -F: U32, -K: U32, -L: U32, -I: List<&2, Word(8n)>,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, e: {o2 == o1 : Cr.Cir.Out}, h: D.Ok(o2, F, K, L, I, Q)) ->
   D.Ok(o1, F, K, L, I, Q):
   %e : D.Ok(_, F, K, L, I, Q)
   h
 
 # a state of which Q holds
-def Ok.next(+rg: List<&2, U32>, +ms: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>,
-  -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, q: Q(rg, ms, nx, pg)) ->
-  D.Ok(C.Cir.Out.next{D.S(rg, ms, nx, F, K, pg, L, I)}, F, K, L, I, Q):
+def Ok.next(+rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, q: Q(rg, ms, nx, pg)) ->
+  D.Ok(Cr.Cir.Out.next{D.S(rg, ms, nx, F, K, pg, L, I)}, F, K, L, I, Q):
   ({==}, q)
 
 # a state of which At holds, by its parts
-def Ok.at(st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
-  -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -k: C.Cir.State -> C.Cir.Out, h: D.At(st, F, K, L, I, Q),
-  g: @rg: List<&2, U32> -> @ms: C.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
+def Ok.at(st: Cr.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
+  -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -k: Cr.Cir.State -> Cr.Cir.Out, h: D.At(st, F, K, L, I, Q),
+  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
   D.Ok(k(st), F, K, L, I, R):
   match st:
-    case C.Cir.State{+rg, +ms, +nx, fi, im, +pg, li, inp, out, outn}:
+    case Cr.Cir.State{+rg, +ms, +nx, fi, im, +pg, li, inp, out, outn}:
       (eq, q) = h
       %eq : D.Ok(k(_), F, K, L, I, R)
       g(rg, ms, nx, pg, q)
 
 # a statement, then more
-def Ok.then(o: C.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -k: C.Cir.State -> C.Cir.Out,
-  -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
+def Ok.then(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -k: Cr.Cir.State -> Cr.Cir.Out,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
   h: D.Ok(o, F, K, L, I, Q),
-  g: @rg: List<&2, U32> -> @ms: C.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
-  D.Ok(C.Cir.exec.then(o, k), F, K, L, I, R):
+  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
+  D.Ok(Cr.Cir.exec.then(o, k), F, K, L, I, R):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       Ok.at(st, F, K, L, I, Q, R, k, h, g)
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       match h:
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       match h:
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       match h:
 
 # a then b
-def Ok.seq(+f: Nat, a: C.Cir.Stmt, +b: C.Cir.Stmt, st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
-  -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
-  h: D.Ok(C.Cir.exec(1n+f, a, st), F, K, L, I, Q),
-  g: @rg: List<&2, U32> -> @ms: C.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) ->
-    D.Ok(C.Cir.exec(1n+f, b, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
-  D.Ok(C.Cir.exec(1n+f, C.Cir.Stmt.seq{a, b}, st), F, K, L, I, R):
-  Ok.then(C.Cir.exec(1n+f, a, st), F, K, L, I, t => C.Cir.exec(1n+f, b, t), Q, R, h, g)
+def Ok.seq(+f: Nat, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, st: Cr.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
+  h: D.Ok(Cr.Cir.exec(1n+f, a, st), F, K, L, I, Q),
+  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) ->
+    D.Ok(Cr.Cir.exec(1n+f, b, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
+  D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), F, K, L, I, R):
+  Ok.then(Cr.Cir.exec(1n+f, a, st), F, K, L, I, t => Cr.Cir.exec(1n+f, b, t), Q, R, h, g)
 
 # a round of a while, then the while again
-def Ok.loop(+f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +st: C.Cir.State, +x: U32, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
-  -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
-  ev: {Some{x} == C.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool},
-  h: D.Ok(C.Cir.exec(1n+f, body, st), F, K, L, I, Q),
-  g: @rg: List<&2, U32> -> @ms: C.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) ->
-    D.Ok(C.Cir.exec(1n+f, C.Cir.Stmt.while{c, body}, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
-  D.Ok(C.Cir.exec(2n+f, C.Cir.Stmt.while{c, body}, st), F, K, L, I, R):
-  Ok.eq(C.Cir.exec(2n+f, C.Cir.Stmt.while{c, body}, st), C.Cir.exec.then(C.Cir.exec(1n+f, body, st), t => C.Cir.exec(1n+f, C.Cir.Stmt.while{c, body}, t)),
-    F, K, L, I, R, Equal.sym(C.Cir.Out, C.Cir.exec(2n+f, C.Cir.Stmt.while{c, body}, st),
-      C.Cir.exec.then(C.Cir.exec(1n+f, body, st), t => C.Cir.exec(1n+f, C.Cir.Stmt.while{c, body}, t)), X.wh1(1n+f, c, body, st, x, ev, nz)),
-    Ok.then(C.Cir.exec(1n+f, body, st), F, K, L, I, t => C.Cir.exec(1n+f, C.Cir.Stmt.while{c, body}, t), Q, R, h, g))
+def Ok.loop(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: U32, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
+  ev: {Some{x} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool},
+  h: D.Ok(Cr.Cir.exec(1n+f, body, st), F, K, L, I, Q),
+  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) ->
+    D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
+  D.Ok(Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st), F, K, L, I, R):
+  Ok.eq(Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st), Cr.Cir.exec.then(Cr.Cir.exec(1n+f, body, st), t => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, t)),
+    F, K, L, I, R, Equal.sym(Cr.Cir.Out, Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st),
+      Cr.Cir.exec.then(Cr.Cir.exec(1n+f, body, st), t => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, t)), X.wh1(1n+f, c, body, st, x, ev, nz)),
+    Ok.then(Cr.Cir.exec(1n+f, body, st), F, K, L, I, t => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, t), Q, R, h, g))
 
 # Order
 # -----

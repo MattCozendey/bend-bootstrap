@@ -9,10 +9,11 @@
 # words and bytes after write8 and write32.
 
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
-import ./proof_instrs.bend as I
-import ./proof_halt.bend as PH
+import ../../shared/shared.bend as Sd
+import ../../wasm/impl.bend as Wa
+import ../need_big.bend as N
+import ./instrs_round_trip.bend as I
+import ./halt.bend as PH
 
 # a pair of two Data types, itself Data
 def P2(-A: Data, -B: Data) -> Data:
@@ -22,70 +23,70 @@ def P2(-A: Data, -B: Data) -> Data:
 # --------
 
 # the byte at the address of the n bits w
-def B.get(n: Nat, w: Word(n), m: C.Wasm.Bytes) -> Word(8n):
+def B.get(n: Nat, w: Word(n), m: Wa.Wasm.Bytes) -> Word(8n):
   match n:
     case 0n:
       match m:
-        case C.Wasm.Bytes.byte{b}:
+        case Wa.Wasm.Bytes.byte{b}:
           b
-        case C.Wasm.Bytes.zero{}:
+        case Wa.Wasm.Bytes.zero{}:
           Word.zero(8n)
-        case C.Wasm.Bytes.node{_, _}:
+        case Wa.Wasm.Bytes.node{_, _}:
           Word.zero(8n)
     case 1n+p:
       match w:
         case WCon{False{}, t}:
           match m:
-            case C.Wasm.Bytes.node{lo, _}:
+            case Wa.Wasm.Bytes.node{lo, _}:
               B.get(p, t, lo)
-            case C.Wasm.Bytes.zero{}:
+            case Wa.Wasm.Bytes.zero{}:
               Word.zero(8n)
-            case C.Wasm.Bytes.byte{_}:
+            case Wa.Wasm.Bytes.byte{_}:
               Word.zero(8n)
         case WCon{True{}, t}:
           match m:
-            case C.Wasm.Bytes.node{_, hi}:
+            case Wa.Wasm.Bytes.node{_, hi}:
               B.get(p, t, hi)
-            case C.Wasm.Bytes.zero{}:
+            case Wa.Wasm.Bytes.zero{}:
               Word.zero(8n)
-            case C.Wasm.Bytes.byte{_}:
+            case Wa.Wasm.Bytes.byte{_}:
               Word.zero(8n)
 
 # a peek gives the byte, and the bytes as they were
-def peek.eq(+n: Nat, +w: Word(n), +m: C.Wasm.Bytes) ->
-  {C.Wasm.Bytes.peek(n, w, m) == C.Wasm.Peek{B.get(n, w, m), m} : C.Wasm.Peek<Word(8n)>}:
+def peek.eq(+n: Nat, +w: Word(n), +m: Wa.Wasm.Bytes) ->
+  {Wa.Wasm.Bytes.peek(n, w, m) == Wa.Wasm.Peek{B.get(n, w, m), m} : Wa.Wasm.Peek<Word(8n)>}:
   match n:
     case 0n:
       match m:
-        case C.Wasm.Bytes.byte{+b}:
+        case Wa.Wasm.Bytes.byte{+b}:
           {==}
-        case C.Wasm.Bytes.zero{}:
+        case Wa.Wasm.Bytes.zero{}:
           {==}
-        case C.Wasm.Bytes.node{+lo, +hi}:
+        case Wa.Wasm.Bytes.node{+lo, +hi}:
           {==}
     case 1n+p:
       match w:
         case WCon{False{}, +t}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
-              Equal.cong(C.Wasm.Peek<Word(8n)>, C.Wasm.Peek<Word(8n)>, r => C.Wasm.Bytes.peek.lo(r, hi), C.Wasm.Bytes.peek(p, t, lo),
-                C.Wasm.Peek{B.get(p, t, lo), lo}, peek.eq(p, t, lo))
-            case C.Wasm.Bytes.zero{}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
+              Equal.cong(Wa.Wasm.Peek<Word(8n)>, Wa.Wasm.Peek<Word(8n)>, r => Wa.Wasm.Bytes.peek.lo(r, hi), Wa.Wasm.Bytes.peek(p, t, lo),
+                Wa.Wasm.Peek{B.get(p, t, lo), lo}, peek.eq(p, t, lo))
+            case Wa.Wasm.Bytes.zero{}:
               {==}
-            case C.Wasm.Bytes.byte{+b}:
+            case Wa.Wasm.Bytes.byte{+b}:
               {==}
         case WCon{True{}, +t}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
-              Equal.cong(C.Wasm.Peek<Word(8n)>, C.Wasm.Peek<Word(8n)>, r => C.Wasm.Bytes.peek.hi(lo, r), C.Wasm.Bytes.peek(p, t, hi),
-                C.Wasm.Peek{B.get(p, t, hi), hi}, peek.eq(p, t, hi))
-            case C.Wasm.Bytes.zero{}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
+              Equal.cong(Wa.Wasm.Peek<Word(8n)>, Wa.Wasm.Peek<Word(8n)>, r => Wa.Wasm.Bytes.peek.hi(lo, r), Wa.Wasm.Bytes.peek(p, t, hi),
+                Wa.Wasm.Peek{B.get(p, t, hi), hi}, peek.eq(p, t, hi))
+            case Wa.Wasm.Bytes.zero{}:
               {==}
-            case C.Wasm.Bytes.byte{+b}:
+            case Wa.Wasm.Bytes.byte{+b}:
               {==}
 
 # the bytes that are all 0
-def get.zero(+n: Nat, +w: Word(n)) -> {B.get(n, w, C.Wasm.Bytes.zero{}) == Word.zero(8n) : Word(8n)}:
+def get.zero(+n: Nat, +w: Word(n)) -> {B.get(n, w, Wa.Wasm.Bytes.zero{}) == Word.zero(8n) : Word(8n)}:
   match n:
     case 0n:
       {==}
@@ -97,8 +98,8 @@ def get.zero(+n: Nat, +w: Word(n)) -> {B.get(n, w, C.Wasm.Bytes.zero{}) == Word.
           {==}
 
 # a write sets its address
-def get.set.same(+n: Nat, +w: Word(n), +m: C.Wasm.Bytes, +b: Word(8n)) ->
-  {B.get(n, w, C.Wasm.Bytes.set(n, w, m, b)) == b : Word(8n)}:
+def get.set.same(+n: Nat, +w: Word(n), +m: Wa.Wasm.Bytes, +b: Word(8n)) ->
+  {B.get(n, w, Wa.Wasm.Bytes.set(n, w, m, b)) == b : Word(8n)}:
   match n:
     case 0n:
       {==}
@@ -106,20 +107,20 @@ def get.set.same(+n: Nat, +w: Word(n), +m: C.Wasm.Bytes, +b: Word(8n)) ->
       match w:
         case WCon{False{}, +t}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
               get.set.same(p, t, lo, b)
-            case C.Wasm.Bytes.zero{}:
-              get.set.same(p, t, C.Wasm.Bytes.zero{}, b)
-            case C.Wasm.Bytes.byte{+x}:
-              get.set.same(p, t, C.Wasm.Bytes.zero{}, b)
+            case Wa.Wasm.Bytes.zero{}:
+              get.set.same(p, t, Wa.Wasm.Bytes.zero{}, b)
+            case Wa.Wasm.Bytes.byte{+x}:
+              get.set.same(p, t, Wa.Wasm.Bytes.zero{}, b)
         case WCon{True{}, +t}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
               get.set.same(p, t, hi, b)
-            case C.Wasm.Bytes.zero{}:
-              get.set.same(p, t, C.Wasm.Bytes.zero{}, b)
-            case C.Wasm.Bytes.byte{+x}:
-              get.set.same(p, t, C.Wasm.Bytes.zero{}, b)
+            case Wa.Wasm.Bytes.zero{}:
+              get.set.same(p, t, Wa.Wasm.Bytes.zero{}, b)
+            case Wa.Wasm.Bytes.byte{+x}:
+              get.set.same(p, t, Wa.Wasm.Bytes.zero{}, b)
 
 # two equal bits leave the comparison of the rest
 def fin.tt(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(True{}, True{}, c)) == Cmp.is_eq(c) : Bool}:
@@ -150,51 +151,51 @@ def ne.tt(+c: Cmp, ne: {Cmp.is_eq(Word.cmp.fin(True{}, True{}, c)) == False{} : 
     Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, True{}, c)), Cmp.is_eq(c), fin.tt(c)), ne)
 
 # a write keeps every other address
-def get.set.other(+n: Nat, +w: Word(n), +w2: Word(n), +m: C.Wasm.Bytes, +b: Word(8n),
+def get.set.other(+n: Nat, +w: Word(n), +w2: Word(n), +m: Wa.Wasm.Bytes, +b: Word(8n),
   ne: {Cmp.is_eq(Word.cmp(n, w2, w)) == False{} : Bool}) ->
-  {B.get(n, w2, C.Wasm.Bytes.set(n, w, m, b)) == B.get(n, w2, m) : Word(8n)}:
+  {B.get(n, w2, Wa.Wasm.Bytes.set(n, w, m, b)) == B.get(n, w2, m) : Word(8n)}:
   match n:
     case 0n:
       match w w2:
         case WNil{} WNil{}:
-          Empty.absurd({B.get(0n, WNil{}, C.Wasm.Bytes.set(0n, WNil{}, m, b)) == B.get(0n, WNil{}, m) : Word(8n)}, N.true_ne_false(ne))
+          Empty.absurd({B.get(0n, WNil{}, Wa.Wasm.Bytes.set(0n, WNil{}, m, b)) == B.get(0n, WNil{}, m) : Word(8n)}, N.true_ne_false(ne))
     case 1n+p:
       match w w2:
         case WCon{False{}, +t} WCon{False{}, +t2}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
               get.set.other(p, t, t2, lo, b, ne.ff(Word.cmp(p, t2, t), ne))
-            case C.Wasm.Bytes.zero{}:
-              Equal.trans(Word(8n), B.get(p, t2, C.Wasm.Bytes.set(p, t, C.Wasm.Bytes.zero{}, b)), B.get(p, t2, C.Wasm.Bytes.zero{}), Word.zero(8n),
-                get.set.other(p, t, t2, C.Wasm.Bytes.zero{}, b, ne.ff(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
-            case C.Wasm.Bytes.byte{+x}:
-              Equal.trans(Word(8n), B.get(p, t2, C.Wasm.Bytes.set(p, t, C.Wasm.Bytes.zero{}, b)), B.get(p, t2, C.Wasm.Bytes.zero{}), Word.zero(8n),
-                get.set.other(p, t, t2, C.Wasm.Bytes.zero{}, b, ne.ff(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
+            case Wa.Wasm.Bytes.zero{}:
+              Equal.trans(Word(8n), B.get(p, t2, Wa.Wasm.Bytes.set(p, t, Wa.Wasm.Bytes.zero{}, b)), B.get(p, t2, Wa.Wasm.Bytes.zero{}), Word.zero(8n),
+                get.set.other(p, t, t2, Wa.Wasm.Bytes.zero{}, b, ne.ff(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
+            case Wa.Wasm.Bytes.byte{+x}:
+              Equal.trans(Word(8n), B.get(p, t2, Wa.Wasm.Bytes.set(p, t, Wa.Wasm.Bytes.zero{}, b)), B.get(p, t2, Wa.Wasm.Bytes.zero{}), Word.zero(8n),
+                get.set.other(p, t, t2, Wa.Wasm.Bytes.zero{}, b, ne.ff(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
         case WCon{True{}, +t} WCon{True{}, +t2}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
               get.set.other(p, t, t2, hi, b, ne.tt(Word.cmp(p, t2, t), ne))
-            case C.Wasm.Bytes.zero{}:
-              Equal.trans(Word(8n), B.get(p, t2, C.Wasm.Bytes.set(p, t, C.Wasm.Bytes.zero{}, b)), B.get(p, t2, C.Wasm.Bytes.zero{}), Word.zero(8n),
-                get.set.other(p, t, t2, C.Wasm.Bytes.zero{}, b, ne.tt(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
-            case C.Wasm.Bytes.byte{+x}:
-              Equal.trans(Word(8n), B.get(p, t2, C.Wasm.Bytes.set(p, t, C.Wasm.Bytes.zero{}, b)), B.get(p, t2, C.Wasm.Bytes.zero{}), Word.zero(8n),
-                get.set.other(p, t, t2, C.Wasm.Bytes.zero{}, b, ne.tt(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
+            case Wa.Wasm.Bytes.zero{}:
+              Equal.trans(Word(8n), B.get(p, t2, Wa.Wasm.Bytes.set(p, t, Wa.Wasm.Bytes.zero{}, b)), B.get(p, t2, Wa.Wasm.Bytes.zero{}), Word.zero(8n),
+                get.set.other(p, t, t2, Wa.Wasm.Bytes.zero{}, b, ne.tt(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
+            case Wa.Wasm.Bytes.byte{+x}:
+              Equal.trans(Word(8n), B.get(p, t2, Wa.Wasm.Bytes.set(p, t, Wa.Wasm.Bytes.zero{}, b)), B.get(p, t2, Wa.Wasm.Bytes.zero{}), Word.zero(8n),
+                get.set.other(p, t, t2, Wa.Wasm.Bytes.zero{}, b, ne.tt(Word.cmp(p, t2, t), ne)), get.zero(p, t2))
         case WCon{False{}, +t} WCon{True{}, +t2}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
               {==}
-            case C.Wasm.Bytes.zero{}:
+            case Wa.Wasm.Bytes.zero{}:
               get.zero(p, t2)
-            case C.Wasm.Bytes.byte{+x}:
+            case Wa.Wasm.Bytes.byte{+x}:
               get.zero(p, t2)
         case WCon{True{}, +t} WCon{False{}, +t2}:
           match m:
-            case C.Wasm.Bytes.node{+lo, +hi}:
+            case Wa.Wasm.Bytes.node{+lo, +hi}:
               {==}
-            case C.Wasm.Bytes.zero{}:
+            case Wa.Wasm.Bytes.zero{}:
               get.zero(p, t2)
-            case C.Wasm.Bytes.byte{+x}:
+            case Wa.Wasm.Bytes.byte{+x}:
               get.zero(p, t2)
 
 # Words and bytes
@@ -232,12 +233,12 @@ def g2.id(b: Bool) -> {g2(b) == b : Bool}:
 
 # the four bytes x0..x3, lowest first, put together as read32 does
 def V4(+x0: Word(8n), +x1: Word(8n), +x2: Word(8n), +x3: Word(8n)) -> U32:
-  U32.or(U32.or(U32.or(C.Byte.to_u32(x0), U32.shln(C.Byte.to_u32(x1), 8n)), U32.shln(C.Byte.to_u32(x2), 16n)),
-    U32.shln(C.Byte.to_u32(x3), 24n))
+  U32.or(U32.or(U32.or(Sd.Byte.to_u32(x0), U32.shln(Sd.Byte.to_u32(x1), 8n)), U32.shln(Sd.Byte.to_u32(x2), 16n)),
+    U32.shln(Sd.Byte.to_u32(x3), 24n))
 
 # the bytes of v, lowest first, as write32 writes them, put back together
 def recomp(+v: U32) -> U32:
-  V4(C.Byte.from_u32(v), C.Byte.from_u32(U32.shrn(v, 8n)), C.Byte.from_u32(U32.shrn(v, 16n)), C.Byte.from_u32(U32.shrn(v, 24n)))
+  V4(Sd.Byte.from_u32(v), Sd.Byte.from_u32(U32.shrn(v, 8n)), Sd.Byte.from_u32(U32.shrn(v, 16n)), Sd.Byte.from_u32(U32.shrn(v, 24n)))
 
 # two words whose bits agree
 def word32.cong(-x0: Bool, -y0: Bool, -x1: Bool, -y1: Bool, -x2: Bool, -y2: Bool, -x3: Bool, -y3: Bool, -x4: Bool, -y4: Bool, -x5: Bool, -y5: Bool, -x6: Bool, -y6: Bool, -x7: Bool, -y7: Bool, -x8: Bool, -y8: Bool, -x9: Bool, -y9: Bool, -x10: Bool, -y10: Bool, -x11: Bool, -y11: Bool, -x12: Bool, -y12: Bool, -x13: Bool, -y13: Bool, -x14: Bool, -y14: Bool, -x15: Bool, -y15: Bool, -x16: Bool, -y16: Bool, -x17: Bool, -y17: Bool, -x18: Bool, -y18: Bool, -x19: Bool, -y19: Bool, -x20: Bool, -y20: Bool, -x21: Bool, -y21: Bool, -x22: Bool, -y22: Bool, -x23: Bool, -y23: Bool, -x24: Bool, -y24: Bool, -x25: Bool, -y25: Bool, -x26: Bool, -y26: Bool, -x27: Bool, -y27: Bool, -x28: Bool, -y28: Bool, -x29: Bool, -y29: Bool, -x30: Bool, -y30: Bool, -x31: Bool, -y31: Bool,
@@ -435,44 +436,44 @@ def add.ne(+a: U32, +i: U32, +j: U32, d: {U32.is_eq(i, j) == False{} : Bool}) ->
 # Bytes at U32 addresses
 # ----------------------
 
-def R8(m: C.Wasm.Bytes, a: U32) -> Word(8n):
+def R8(m: Wa.Wasm.Bytes, a: U32) -> Word(8n):
   match a:
     case U32{w}:
       B.get(32n, w, m)
 
-def read8.eq(+m: C.Wasm.Bytes, +a: U32) -> {C.Wasm.read8(m, a) == C.Wasm.Peek{R8(m, a), m} : C.Wasm.Peek<Word(8n)>}:
+def read8.eq(+m: Wa.Wasm.Bytes, +a: U32) -> {Wa.Wasm.read8(m, a) == Wa.Wasm.Peek{R8(m, a), m} : Wa.Wasm.Peek<Word(8n)>}:
   match a:
     case U32{+w}:
       peek.eq(32n, w, m)
 
-def R8.same(+m: C.Wasm.Bytes, +a: U32, +b: Word(8n)) -> {R8(C.Wasm.write8(m, a, b), a) == b : Word(8n)}:
+def R8.same(+m: Wa.Wasm.Bytes, +a: U32, +b: Word(8n)) -> {R8(Wa.Wasm.write8(m, a, b), a) == b : Word(8n)}:
   match a:
     case U32{+w}:
       get.set.same(32n, w, m, b)
 
 # a write of a byte keeps the bytes at the other addresses
-def R8.other(+m: C.Wasm.Bytes, +a: U32, +x: U32, +b: Word(8n), ne: {U32.is_eq(x, a) == False{} : Bool}) ->
-  {R8(C.Wasm.write8(m, a, b), x) == R8(m, x) : Word(8n)}:
+def R8.other(+m: Wa.Wasm.Bytes, +a: U32, +x: U32, +b: Word(8n), ne: {U32.is_eq(x, a) == False{} : Bool}) ->
+  {R8(Wa.Wasm.write8(m, a, b), x) == R8(m, x) : Word(8n)}:
   match a x:
     case U32{+w} U32{+w2}:
       get.set.other(32n, w, w2, m, b, ne)
 
-def V32(+m: C.Wasm.Bytes, +a: U32) -> U32:
+def V32(+m: Wa.Wasm.Bytes, +a: U32) -> U32:
   V4(R8(m, a), R8(m, U32.add(a, 1)), R8(m, U32.add(a, 2)), R8(m, U32.add(a, 3)))
 
 # read32 gives V32 and the bytes as they were
-def read32.eq(+m: C.Wasm.Bytes, +a: U32) -> {C.Wasm.read32(m, a) == C.Wasm.Peek{V32(m, a), m} : C.Wasm.Peek<U32>}:
-  +r0 = C.Byte.to_u32(R8(m, a))
-  +v1 = U32.or(r0, U32.shln(C.Byte.to_u32(R8(m, U32.add(a, 1))), 8n))
-  +v2 = U32.or(v1, U32.shln(C.Byte.to_u32(R8(m, U32.add(a, 2))), 16n))
-  %Equal.sym(C.Wasm.Peek<Word(8n)>, C.Wasm.read8(m, a), C.Wasm.Peek{R8(m, a), m}, read8.eq(m, a)) :
-    {C.Wasm.read32.b0(_, a) == C.Wasm.Peek{V32(m, a), m} : C.Wasm.Peek<U32>}
-  %Equal.sym(C.Wasm.Peek<Word(8n)>, C.Wasm.read8(m, U32.add(a, 1)), C.Wasm.Peek{R8(m, U32.add(a, 1)), m}, read8.eq(m, U32.add(a, 1))) :
-    {C.Wasm.read32.b1(r0, _, a) == C.Wasm.Peek{V32(m, a), m} : C.Wasm.Peek<U32>}
-  %Equal.sym(C.Wasm.Peek<Word(8n)>, C.Wasm.read8(m, U32.add(a, 2)), C.Wasm.Peek{R8(m, U32.add(a, 2)), m}, read8.eq(m, U32.add(a, 2))) :
-    {C.Wasm.read32.b2(v1, _, a) == C.Wasm.Peek{V32(m, a), m} : C.Wasm.Peek<U32>}
-  %Equal.sym(C.Wasm.Peek<Word(8n)>, C.Wasm.read8(m, U32.add(a, 3)), C.Wasm.Peek{R8(m, U32.add(a, 3)), m}, read8.eq(m, U32.add(a, 3))) :
-    {C.Wasm.read32.b3(v2, _) == C.Wasm.Peek{V32(m, a), m} : C.Wasm.Peek<U32>}
+def read32.eq(+m: Wa.Wasm.Bytes, +a: U32) -> {Wa.Wasm.read32(m, a) == Wa.Wasm.Peek{V32(m, a), m} : Wa.Wasm.Peek<U32>}:
+  +r0 = Sd.Byte.to_u32(R8(m, a))
+  +v1 = U32.or(r0, U32.shln(Sd.Byte.to_u32(R8(m, U32.add(a, 1))), 8n))
+  +v2 = U32.or(v1, U32.shln(Sd.Byte.to_u32(R8(m, U32.add(a, 2))), 16n))
+  %Equal.sym(Wa.Wasm.Peek<Word(8n)>, Wa.Wasm.read8(m, a), Wa.Wasm.Peek{R8(m, a), m}, read8.eq(m, a)) :
+    {Wa.Wasm.read32.b0(_, a) == Wa.Wasm.Peek{V32(m, a), m} : Wa.Wasm.Peek<U32>}
+  %Equal.sym(Wa.Wasm.Peek<Word(8n)>, Wa.Wasm.read8(m, U32.add(a, 1)), Wa.Wasm.Peek{R8(m, U32.add(a, 1)), m}, read8.eq(m, U32.add(a, 1))) :
+    {Wa.Wasm.read32.b1(r0, _, a) == Wa.Wasm.Peek{V32(m, a), m} : Wa.Wasm.Peek<U32>}
+  %Equal.sym(Wa.Wasm.Peek<Word(8n)>, Wa.Wasm.read8(m, U32.add(a, 2)), Wa.Wasm.Peek{R8(m, U32.add(a, 2)), m}, read8.eq(m, U32.add(a, 2))) :
+    {Wa.Wasm.read32.b2(v1, _, a) == Wa.Wasm.Peek{V32(m, a), m} : Wa.Wasm.Peek<U32>}
+  %Equal.sym(Wa.Wasm.Peek<Word(8n)>, Wa.Wasm.read8(m, U32.add(a, 3)), Wa.Wasm.Peek{R8(m, U32.add(a, 3)), m}, read8.eq(m, U32.add(a, 3))) :
+    {Wa.Wasm.read32.b3(v2, _) == Wa.Wasm.Peek{V32(m, a), m} : Wa.Wasm.Peek<U32>}
   {==}
 
 def V4.cong(-x0: Word(8n), -x1: Word(8n), -x2: Word(8n), -x3: Word(8n), -y0: Word(8n), -y1: Word(8n), -y2: Word(8n), -y3: Word(8n),
@@ -501,18 +502,18 @@ def recomp.u32(+v: U32) -> {recomp(v) == v : U32}:
       recomp.id(w)
 
 # the word v, written at a, read back from a
-def V32.same(+m: C.Wasm.Bytes, +a: U32, +v: U32) -> {V32(C.Wasm.write32(m, a, v), a) == v : U32}:
+def V32.same(+m: Wa.Wasm.Bytes, +a: U32, +v: U32) -> {V32(Wa.Wasm.write32(m, a, v), a) == v : U32}:
   +A1 = U32.add(a, 1)
   +A2 = U32.add(a, 2)
   +A3 = U32.add(a, 3)
-  +B0 = C.Byte.from_u32(v)
-  +B1 = C.Byte.from_u32(U32.shrn(v, 8n))
-  +B2 = C.Byte.from_u32(U32.shrn(v, 16n))
-  +B3 = C.Byte.from_u32(U32.shrn(v, 24n))
-  +m1 = C.Wasm.write8(m, a, B0)
-  +m2 = C.Wasm.write8(m1, A1, B1)
-  +m3 = C.Wasm.write8(m2, A2, B2)
-  +m4 = C.Wasm.write8(m3, A3, B3)
+  +B0 = Sd.Byte.from_u32(v)
+  +B1 = Sd.Byte.from_u32(U32.shrn(v, 8n))
+  +B2 = Sd.Byte.from_u32(U32.shrn(v, 16n))
+  +B3 = Sd.Byte.from_u32(U32.shrn(v, 24n))
+  +m1 = Wa.Wasm.write8(m, a, B0)
+  +m2 = Wa.Wasm.write8(m1, A1, B1)
+  +m3 = Wa.Wasm.write8(m2, A2, B2)
+  +m4 = Wa.Wasm.write8(m3, A3, B3)
   +r0 = Equal.trans(Word(8n), R8(m4, a), R8(m3, a), B0, R8.other(m3, A3, a, B3, ne.self(a, 3, {==})),
     Equal.trans(Word(8n), R8(m3, a), R8(m2, a), B0, R8.other(m2, A2, a, B2, ne.self(a, 2, {==})),
       Equal.trans(Word(8n), R8(m2, a), R8(m1, a), B0, R8.other(m1, A1, a, B1, ne.self(a, 1, {==})), R8.same(m, a, B0))))
@@ -525,33 +526,33 @@ def V32.same(+m: C.Wasm.Bytes, +a: U32, +v: U32) -> {V32(C.Wasm.write32(m, a, v)
     recomp.u32(v))
 
 # a write of a word keeps the bytes outside it
-def R8.out32(+m: C.Wasm.Bytes, +a: U32, +v: U32, +x: U32, +o: Out4(x, a)) ->
-  {R8(C.Wasm.write32(m, a, v), x) == R8(m, x) : Word(8n)}:
+def R8.out32(+m: Wa.Wasm.Bytes, +a: U32, +v: U32, +x: U32, +o: Out4(x, a)) ->
+  {R8(Wa.Wasm.write32(m, a, v), x) == R8(m, x) : Word(8n)}:
   (+o01, +o23) = o
   (+n0, +n1) = o01
   (+n2, +n3) = o23
   +A1 = U32.add(a, 1)
   +A2 = U32.add(a, 2)
   +A3 = U32.add(a, 3)
-  +m1 = C.Wasm.write8(m, a, C.Byte.from_u32(v))
-  +m2 = C.Wasm.write8(m1, A1, C.Byte.from_u32(U32.shrn(v, 8n)))
-  +m3 = C.Wasm.write8(m2, A2, C.Byte.from_u32(U32.shrn(v, 16n)))
-  Equal.trans(Word(8n), R8(C.Wasm.write8(m3, A3, C.Byte.from_u32(U32.shrn(v, 24n))), x), R8(m3, x), R8(m, x), R8.other(m3, A3, x, C.Byte.from_u32(U32.shrn(v, 24n)), n3),
-    Equal.trans(Word(8n), R8(m3, x), R8(m2, x), R8(m, x), R8.other(m2, A2, x, C.Byte.from_u32(U32.shrn(v, 16n)), n2),
-      Equal.trans(Word(8n), R8(m2, x), R8(m1, x), R8(m, x), R8.other(m1, A1, x, C.Byte.from_u32(U32.shrn(v, 8n)), n1),
-        R8.other(m, a, x, C.Byte.from_u32(v), n0))))
+  +m1 = Wa.Wasm.write8(m, a, Sd.Byte.from_u32(v))
+  +m2 = Wa.Wasm.write8(m1, A1, Sd.Byte.from_u32(U32.shrn(v, 8n)))
+  +m3 = Wa.Wasm.write8(m2, A2, Sd.Byte.from_u32(U32.shrn(v, 16n)))
+  Equal.trans(Word(8n), R8(Wa.Wasm.write8(m3, A3, Sd.Byte.from_u32(U32.shrn(v, 24n))), x), R8(m3, x), R8(m, x), R8.other(m3, A3, x, Sd.Byte.from_u32(U32.shrn(v, 24n)), n3),
+    Equal.trans(Word(8n), R8(m3, x), R8(m2, x), R8(m, x), R8.other(m2, A2, x, Sd.Byte.from_u32(U32.shrn(v, 16n)), n2),
+      Equal.trans(Word(8n), R8(m2, x), R8(m1, x), R8(m, x), R8.other(m1, A1, x, Sd.Byte.from_u32(U32.shrn(v, 8n)), n1),
+        R8.other(m, a, x, Sd.Byte.from_u32(v), n0))))
 
 # the four bytes of b are outside the word at a
 def Disj4(+b: U32, +a: U32) -> Data:
   P2(P2(Out4(b, a), Out4(U32.add(b, 1), a)), P2(Out4(U32.add(b, 2), a), Out4(U32.add(b, 3), a)))
 
 # a write of a word keeps the words outside it
-def V32.out32(+m: C.Wasm.Bytes, +a: U32, +v: U32, +b: U32, +d: Disj4(b, a)) ->
-  {V32(C.Wasm.write32(m, a, v), b) == V32(m, b) : U32}:
+def V32.out32(+m: Wa.Wasm.Bytes, +a: U32, +v: U32, +b: U32, +d: Disj4(b, a)) ->
+  {V32(Wa.Wasm.write32(m, a, v), b) == V32(m, b) : U32}:
   (+d01, +d23) = d
   (+o0, +o1) = d01
   (+o2, +o3) = d23
-  +m4 = C.Wasm.write32(m, a, v)
+  +m4 = Wa.Wasm.write32(m, a, v)
   V4.cong(R8(m4, b), R8(m4, U32.add(b, 1)), R8(m4, U32.add(b, 2)), R8(m4, U32.add(b, 3)),
     R8(m, b), R8(m, U32.add(b, 1)), R8(m, U32.add(b, 2)), R8(m, U32.add(b, 3)),
     R8.out32(m, a, v, b, o0), R8.out32(m, a, v, U32.add(b, 1), o1), R8.out32(m, a, v, U32.add(b, 2), o2), R8.out32(m, a, v, U32.add(b, 3), o3))
@@ -562,12 +563,12 @@ def In4(+b: U32, +x: U32) -> Data:
      P2({U32.is_eq(U32.add(b, 2), x) == False{} : Bool}, {U32.is_eq(U32.add(b, 3), x) == False{} : Bool}))
 
 # a write of a byte keeps the words that do not hold it
-def V32.out8(+m: C.Wasm.Bytes, +x: U32, +y: Word(8n), +b: U32, +d: In4(b, x)) ->
-  {V32(C.Wasm.write8(m, x, y), b) == V32(m, b) : U32}:
+def V32.out8(+m: Wa.Wasm.Bytes, +x: U32, +y: Word(8n), +b: U32, +d: In4(b, x)) ->
+  {V32(Wa.Wasm.write8(m, x, y), b) == V32(m, b) : U32}:
   (+d01, +d23) = d
   (+n0, +n1) = d01
   (+n2, +n3) = d23
-  +m1 = C.Wasm.write8(m, x, y)
+  +m1 = Wa.Wasm.write8(m, x, y)
   V4.cong(R8(m1, b), R8(m1, U32.add(b, 1)), R8(m1, U32.add(b, 2)), R8(m1, U32.add(b, 3)),
     R8(m, b), R8(m, U32.add(b, 1)), R8(m, U32.add(b, 2)), R8(m, U32.add(b, 3)),
     R8.other(m, x, b, y, n0), R8.other(m, x, U32.add(b, 1), y, n1), R8.other(m, x, U32.add(b, 2), y, n2), R8.other(m, x, U32.add(b, 3), y, n3))

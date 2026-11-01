@@ -13,8 +13,7 @@
 # proof_leb.bend, sel, blend), which compute once the variables are split
 # into their bits (the .f lemmas).
 import Base
-import ./impl.bend as C
-import ./proof_leb.bend as L
+import ../cir/leb_round_trip.bend as L
 
 # The forms
 # ---------

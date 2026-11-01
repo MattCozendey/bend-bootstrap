@@ -9,21 +9,23 @@
 # that a set puts (cells.same) and keep every other (cells.other).
 
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
-import ./proof_instrs.bend as I
-import ./proof_halt.bend as PH
-import ./proof_valid.bend as V
-import ./proof_sim_step.bend as S
-import ./proof_sim_mem.bend as Y
-import ./proof_sim_nat.bend as Z
-import ./proof_sim_inv.bend as Q
+import ../../shared/shared.bend as Sd
+import ../../wasm/impl.bend as Wa
+import ./impl.bend as Cr
+import ../need_big.bend as N
+import ./instrs_round_trip.bend as I
+import ./halt.bend as PH
+import ./module_valid.bend as V
+import ./simulation_steps.bend as S
+import ./simulation_memory_bytes.bend as Y
+import ./simulation_numbers.bend as Z
+import ./simulation_relation.bend as Q
 
 # The cells of Cir
 # ----------------
 
 # the cells that are all zeros
-def cz(+n: Nat, +w: Word(n)) -> {C.Cir.Cells.get.at(n, w, C.Cir.Cells.none{}) == C.Cir.Cell.zero() : C.Cir.Cell}:
+def cz(+n: Nat, +w: Word(n)) -> {Cr.Cir.Cells.get.at(n, w, Cr.Cir.Cells.none{}) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}:
   match n:
     case 0n:
       {==}
@@ -35,8 +37,8 @@ def cz(+n: Nat, +w: Word(n)) -> {C.Cir.Cells.get.at(n, w, C.Cir.Cells.none{}) ==
           {==}
 
 # a set puts its cell
-def cs.at(+n: Nat, +w: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell) ->
-  {C.Cir.Cells.get.at(n, w, C.Cir.Cells.set.at(n, w, m, c)) == c : C.Cir.Cell}:
+def cs.at(+n: Nat, +w: Word(n), +m: Cr.Cir.Cells, +c: Cr.Cir.Cell) ->
+  {Cr.Cir.Cells.get.at(n, w, Cr.Cir.Cells.set.at(n, w, m, c)) == c : Cr.Cir.Cell}:
   match n:
     case 0n:
       {==}
@@ -44,83 +46,83 @@ def cs.at(+n: Nat, +w: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell) ->
       match w:
         case WCon{False{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               cs.at(p, t, lo, c)
-            case C.Cir.Cells.none{}:
-              cs.at(p, t, C.Cir.Cells.none{}, c)
-            case C.Cir.Cells.one{+x}:
-              cs.at(p, t, C.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.none{}:
+              cs.at(p, t, Cr.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.one{+x}:
+              cs.at(p, t, Cr.Cir.Cells.none{}, c)
         case WCon{True{}, +t}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               cs.at(p, t, hi, c)
-            case C.Cir.Cells.none{}:
-              cs.at(p, t, C.Cir.Cells.none{}, c)
-            case C.Cir.Cells.one{+x}:
-              cs.at(p, t, C.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.none{}:
+              cs.at(p, t, Cr.Cir.Cells.none{}, c)
+            case Cr.Cir.Cells.one{+x}:
+              cs.at(p, t, Cr.Cir.Cells.none{}, c)
 
 # a set keeps every other cell
-def co.at(+n: Nat, +w: Word(n), +w2: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell,
+def co.at(+n: Nat, +w: Word(n), +w2: Word(n), +m: Cr.Cir.Cells, +c: Cr.Cir.Cell,
   ne: {Cmp.is_eq(Word.cmp(n, w2, w)) == False{} : Bool}) ->
-  {C.Cir.Cells.get.at(n, w2, C.Cir.Cells.set.at(n, w, m, c)) == C.Cir.Cells.get.at(n, w2, m) : C.Cir.Cell}:
+  {Cr.Cir.Cells.get.at(n, w2, Cr.Cir.Cells.set.at(n, w, m, c)) == Cr.Cir.Cells.get.at(n, w2, m) : Cr.Cir.Cell}:
   match n:
     case 0n:
       match w w2:
         case WNil{} WNil{}:
-          Empty.absurd({C.Cir.Cells.get.at(0n, WNil{}, C.Cir.Cells.set.at(0n, WNil{}, m, c)) == C.Cir.Cells.get.at(0n, WNil{}, m) : C.Cir.Cell},
+          Empty.absurd({Cr.Cir.Cells.get.at(0n, WNil{}, Cr.Cir.Cells.set.at(0n, WNil{}, m, c)) == Cr.Cir.Cells.get.at(0n, WNil{}, m) : Cr.Cir.Cell},
             N.true_ne_false(ne))
     case 1n+p:
       match w w2:
         case WCon{False{}, +t} WCon{False{}, +t2}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               co.at(p, t, t2, lo, c, Y.ne.ff(Word.cmp(p, t2, t), ne))
-            case C.Cir.Cells.none{}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, t2, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                C.Cir.Cells.get.at(p, t2, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-                co.at(p, t, t2, C.Cir.Cells.none{}, c, Y.ne.ff(Word.cmp(p, t2, t), ne)), cz(p, t2))
-            case C.Cir.Cells.one{+x}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, t2, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                C.Cir.Cells.get.at(p, t2, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-                co.at(p, t, t2, C.Cir.Cells.none{}, c, Y.ne.ff(Word.cmp(p, t2, t), ne)), cz(p, t2))
+            case Cr.Cir.Cells.none{}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+                co.at(p, t, t2, Cr.Cir.Cells.none{}, c, Y.ne.ff(Word.cmp(p, t2, t), ne)), cz(p, t2))
+            case Cr.Cir.Cells.one{+x}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+                co.at(p, t, t2, Cr.Cir.Cells.none{}, c, Y.ne.ff(Word.cmp(p, t2, t), ne)), cz(p, t2))
         case WCon{True{}, +t} WCon{True{}, +t2}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               co.at(p, t, t2, hi, c, Y.ne.tt(Word.cmp(p, t2, t), ne))
-            case C.Cir.Cells.none{}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, t2, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                C.Cir.Cells.get.at(p, t2, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-                co.at(p, t, t2, C.Cir.Cells.none{}, c, Y.ne.tt(Word.cmp(p, t2, t), ne)), cz(p, t2))
-            case C.Cir.Cells.one{+x}:
-              Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, t2, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)),
-                C.Cir.Cells.get.at(p, t2, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-                co.at(p, t, t2, C.Cir.Cells.none{}, c, Y.ne.tt(Word.cmp(p, t2, t), ne)), cz(p, t2))
+            case Cr.Cir.Cells.none{}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+                co.at(p, t, t2, Cr.Cir.Cells.none{}, c, Y.ne.tt(Word.cmp(p, t2, t), ne)), cz(p, t2))
+            case Cr.Cir.Cells.one{+x}:
+              Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)),
+                Cr.Cir.Cells.get.at(p, t2, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+                co.at(p, t, t2, Cr.Cir.Cells.none{}, c, Y.ne.tt(Word.cmp(p, t2, t), ne)), cz(p, t2))
         case WCon{False{}, +t} WCon{True{}, +t2}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               {==}
-            case C.Cir.Cells.none{}:
+            case Cr.Cir.Cells.none{}:
               cz(p, t2)
-            case C.Cir.Cells.one{+x}:
+            case Cr.Cir.Cells.one{+x}:
               cz(p, t2)
         case WCon{True{}, +t} WCon{False{}, +t2}:
           match m:
-            case C.Cir.Cells.node{+lo, +hi}:
+            case Cr.Cir.Cells.node{+lo, +hi}:
               {==}
-            case C.Cir.Cells.none{}:
+            case Cr.Cir.Cells.none{}:
               cz(p, t2)
-            case C.Cir.Cells.one{+x}:
+            case Cr.Cir.Cells.one{+x}:
               cz(p, t2)
 
 # the cell i, once set
-def cells.same(+m: C.Cir.Cells, +i: U32, +c: C.Cir.Cell) -> {C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), i) == c : C.Cir.Cell}:
+def cells.same(+m: Cr.Cir.Cells, +i: U32, +c: Cr.Cir.Cell) -> {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), i) == c : Cr.Cir.Cell}:
   match i:
     case U32{+w}:
       cs.at(32n, w, m, c)
 
 # another cell j, once i is set
-def cells.other(+m: C.Cir.Cells, +i: U32, +j: U32, +c: C.Cir.Cell, ne: {U32.is_eq(j, i) == False{} : Bool}) ->
-  {C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), j) == C.Cir.Cells.get(m, j) : C.Cir.Cell}:
+def cells.other(+m: Cr.Cir.Cells, +i: U32, +j: U32, +c: Cr.Cir.Cell, ne: {U32.is_eq(j, i) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), j) == Cr.Cir.Cells.get(m, j) : Cr.Cir.Cell}:
   match i j:
     case U32{+w} U32{+w2}:
       co.at(32n, w, w2, m, c, ne)
@@ -279,7 +281,7 @@ def in4(+b: U32, +x: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hB: N.Le(4n+U
 
 # 20 × c, the first byte of the cell c, for c <= P
 def at.nat(+c: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, hc: N.Le(U32.to_nat(c), P)) ->
-  {U32.to_nat(C.Cir.at(c)) == PH.H.t20(U32.to_nat(c)) : Nat}:
+  {U32.to_nat(Cr.Cir.at(c)) == PH.H.t20(U32.to_nat(c)) : Nat}:
   match c:
     case U32{+w}:
       PH.H.tex_w(32n, w, P, hP, hc)
@@ -304,11 +306,11 @@ def fld.nat(+c: U32, +j: Nat, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) ==
   +ea = at.nat(c, P, hP, N.weaken(U32.to_nat(c), P, hc))
   +room = cell.room(U32.to_nat(c), P, hP, W, hW, hc)
   +h1 = lit.le(1n+O(j), 36n, X, W, N.le_trans(1n+O(j), 4n+O(j), 36n, Z.le.add_r(1n, 4n, O(j), Unit{}), N.le_trans(4n+O(j), 20n, 36n, hj, Unit{})), room)
-  +h2 = N.le_rw_l(1n+Nat.add(O(j), X), 1n+Nat.add(O(j), U32.to_nat(C.Cir.at(c))), W,
-    Equal.cong(Nat, Nat, z => 1n+Nat.add(O(j), z), X, U32.to_nat(C.Cir.at(c)), Equal.sym(Nat, U32.to_nat(C.Cir.at(c)), X, ea)), h1)
-  Equal.trans(Nat, U32.to_nat(Q.at.f(c, j)), Nat.add(O(j), U32.to_nat(C.Cir.at(c))), Nat.add(O(j), X),
-    add.nat(C.Cir.at(c), U32.shln(U32.from_nat(j), 2n), W, hW, h2),
-    Equal.cong(Nat, Nat, z => Nat.add(O(j), z), U32.to_nat(C.Cir.at(c)), X, ea))
+  +h2 = N.le_rw_l(1n+Nat.add(O(j), X), 1n+Nat.add(O(j), U32.to_nat(Cr.Cir.at(c))), W,
+    Equal.cong(Nat, Nat, z => 1n+Nat.add(O(j), z), X, U32.to_nat(Cr.Cir.at(c)), Equal.sym(Nat, U32.to_nat(Cr.Cir.at(c)), X, ea)), h1)
+  Equal.trans(Nat, U32.to_nat(Q.at.f(c, j)), Nat.add(O(j), U32.to_nat(Cr.Cir.at(c))), Nat.add(O(j), X),
+    add.nat(Cr.Cir.at(c), U32.shln(U32.from_nat(j), 2n), W, hW, h2),
+    Equal.cong(Nat, Nat, z => Nat.add(O(j), z), U32.to_nat(Cr.Cir.at(c)), X, ea))
 
 # field j of a cell, and a word after it, are below W
 def fld.room(+c: U32, +j: Nat, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
@@ -355,29 +357,29 @@ def fpair(+X: Nat, +Oj: Nat, +Ok: Nat, +Tj: Nat, +Tk: Nat, ej: {Tj == Nat.add(Oj
 
 def cell.cong5(-x0: U32, -x1: U32, -x2: U32, -x3: U32, -x4: U32, -y0: U32, -y1: U32, -y2: U32, -y3: U32, -y4: U32,
   e0: {x0 == y0 : U32}, e1: {x1 == y1 : U32}, e2: {x2 == y2 : U32}, e3: {x3 == y3 : U32}, e4: {x4 == y4 : U32}) ->
-  {C.Cir.Cell{x0, x1, x2, x3, x4} == C.Cir.Cell{y0, y1, y2, y3, y4} : C.Cir.Cell}:
-  %e0 : {C.Cir.Cell{x0, x1, x2, x3, x4} == C.Cir.Cell{_, y1, y2, y3, y4} : C.Cir.Cell}
-  %e1 : {C.Cir.Cell{x0, x1, x2, x3, x4} == C.Cir.Cell{x0, _, y2, y3, y4} : C.Cir.Cell}
-  %e2 : {C.Cir.Cell{x0, x1, x2, x3, x4} == C.Cir.Cell{x0, x1, _, y3, y4} : C.Cir.Cell}
-  %e3 : {C.Cir.Cell{x0, x1, x2, x3, x4} == C.Cir.Cell{x0, x1, x2, _, y4} : C.Cir.Cell}
-  %e4 : {C.Cir.Cell{x0, x1, x2, x3, x4} == C.Cir.Cell{x0, x1, x2, x3, _} : C.Cir.Cell}
+  {Cr.Cir.Cell{x0, x1, x2, x3, x4} == Cr.Cir.Cell{y0, y1, y2, y3, y4} : Cr.Cir.Cell}:
+  %e0 : {Cr.Cir.Cell{x0, x1, x2, x3, x4} == Cr.Cir.Cell{_, y1, y2, y3, y4} : Cr.Cir.Cell}
+  %e1 : {Cr.Cir.Cell{x0, x1, x2, x3, x4} == Cr.Cir.Cell{x0, _, y2, y3, y4} : Cr.Cir.Cell}
+  %e2 : {Cr.Cir.Cell{x0, x1, x2, x3, x4} == Cr.Cir.Cell{x0, x1, _, y3, y4} : Cr.Cir.Cell}
+  %e3 : {Cr.Cir.Cell{x0, x1, x2, x3, x4} == Cr.Cir.Cell{x0, x1, x2, _, y4} : Cr.Cir.Cell}
+  %e4 : {Cr.Cir.Cell{x0, x1, x2, x3, x4} == Cr.Cir.Cell{x0, x1, x2, x3, _} : Cr.Cir.Cell}
   {==}
 
 # field j of the cell c, after a write of a word outside the cell
-def fld.w32(+m: C.Wasm.Bytes, +a: U32, +v: U32, +c: U32, +j: Nat, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
+def fld.w32(+m: Wa.Wasm.Bytes, +a: U32, +v: U32, +c: U32, +j: Nat, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hc: N.Le(1n+U32.to_nat(c), P), +hA: N.Le(4n+U32.to_nat(a), W), +hj: N.Le(4n+O(j), 20n),
   s: Either<&2, &2, N.Le(20n+PH.H.t20(U32.to_nat(c)), U32.to_nat(a)), N.Le(4n+U32.to_nat(a), PH.H.t20(U32.to_nat(c)))>) ->
-  {Y.V32(C.Wasm.write32(m, a, v), Q.at.f(c, j)) == Y.V32(m, Q.at.f(c, j)) : U32}:
+  {Y.V32(Wa.Wasm.write32(m, a, v), Q.at.f(c, j)) == Y.V32(m, Q.at.f(c, j)) : U32}:
   +f = Q.at.f(c, j)
   Y.V32.out32(m, a, v, f, disj4(f, a, W, hW, fld.room(c, j, P, hP, W, hW, hc, hj), hA,
     fsep(PH.H.t20(U32.to_nat(c)), O(j), U32.to_nat(f), fld.nat(c, j, P, hP, W, hW, hc, hj), hj, U32.to_nat(a), s)))
 
 # a write of a word outside a cell keeps it
-def rcell.w32(+m: C.Wasm.Bytes, +a: U32, +v: U32, +c: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
+def rcell.w32(+m: Wa.Wasm.Bytes, +a: U32, +v: U32, +c: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hc: N.Le(1n+U32.to_nat(c), P), +hA: N.Le(4n+U32.to_nat(a), W),
   +s: Either<&2, &2, N.Le(20n+PH.H.t20(U32.to_nat(c)), U32.to_nat(a)), N.Le(4n+U32.to_nat(a), PH.H.t20(U32.to_nat(c)))>) ->
-  {Q.RCell(C.Wasm.write32(m, a, v), c) == Q.RCell(m, c) : C.Cir.Cell}:
-  +m2 = C.Wasm.write32(m, a, v)
+  {Q.RCell(Wa.Wasm.write32(m, a, v), c) == Q.RCell(m, c) : Cr.Cir.Cell}:
+  +m2 = Wa.Wasm.write32(m, a, v)
   cell.cong5(Y.V32(m2, Q.at.f(c, 0n)), Y.V32(m2, Q.at.f(c, 1n)), Y.V32(m2, Q.at.f(c, 2n)), Y.V32(m2, Q.at.f(c, 3n)), Y.V32(m2, Q.at.f(c, 4n)),
     Y.V32(m, Q.at.f(c, 0n)), Y.V32(m, Q.at.f(c, 1n)), Y.V32(m, Q.at.f(c, 2n)), Y.V32(m, Q.at.f(c, 3n)), Y.V32(m, Q.at.f(c, 4n)),
     fld.w32(m, a, v, c, 0n, P, hP, W, hW, hc, hA, Unit{}, s), fld.w32(m, a, v, c, 1n, P, hP, W, hW, hc, hA, Unit{}, s),
@@ -385,20 +387,20 @@ def rcell.w32(+m: C.Wasm.Bytes, +a: U32, +v: U32, +c: U32, +P: Nat, +hP: {Nat.ad
     fld.w32(m, a, v, c, 4n, P, hP, W, hW, hc, hA, Unit{}, s))
 
 # field j of the cell c, after a write of a byte outside the cell
-def fld.w8(+m: C.Wasm.Bytes, +x: U32, +y: Word(8n), +c: U32, +j: Nat, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
+def fld.w8(+m: Wa.Wasm.Bytes, +x: U32, +y: Word(8n), +c: U32, +j: Nat, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hc: N.Le(1n+U32.to_nat(c), P), +hj: N.Le(4n+O(j), 20n),
   s: Either<&2, &2, N.Le(20n+PH.H.t20(U32.to_nat(c)), U32.to_nat(x)), N.Le(1n+U32.to_nat(x), PH.H.t20(U32.to_nat(c)))>) ->
-  {Y.V32(C.Wasm.write8(m, x, y), Q.at.f(c, j)) == Y.V32(m, Q.at.f(c, j)) : U32}:
+  {Y.V32(Wa.Wasm.write8(m, x, y), Q.at.f(c, j)) == Y.V32(m, Q.at.f(c, j)) : U32}:
   +f = Q.at.f(c, j)
   Y.V32.out8(m, x, y, f, in4(f, x, W, hW, fld.room(c, j, P, hP, W, hW, hc, hj),
     fout(PH.H.t20(U32.to_nat(c)), O(j), U32.to_nat(f), fld.nat(c, j, P, hP, W, hW, hc, hj), hj, U32.to_nat(x), s)))
 
 # a write of a byte outside a cell keeps it
-def rcell.w8(+m: C.Wasm.Bytes, +x: U32, +y: Word(8n), +c: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
+def rcell.w8(+m: Wa.Wasm.Bytes, +x: U32, +y: Word(8n), +c: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hc: N.Le(1n+U32.to_nat(c), P),
   +s: Either<&2, &2, N.Le(20n+PH.H.t20(U32.to_nat(c)), U32.to_nat(x)), N.Le(1n+U32.to_nat(x), PH.H.t20(U32.to_nat(c)))>) ->
-  {Q.RCell(C.Wasm.write8(m, x, y), c) == Q.RCell(m, c) : C.Cir.Cell}:
-  +m2 = C.Wasm.write8(m, x, y)
+  {Q.RCell(Wa.Wasm.write8(m, x, y), c) == Q.RCell(m, c) : Cr.Cir.Cell}:
+  +m2 = Wa.Wasm.write8(m, x, y)
   cell.cong5(Y.V32(m2, Q.at.f(c, 0n)), Y.V32(m2, Q.at.f(c, 1n)), Y.V32(m2, Q.at.f(c, 2n)), Y.V32(m2, Q.at.f(c, 3n)), Y.V32(m2, Q.at.f(c, 4n)),
     Y.V32(m, Q.at.f(c, 0n)), Y.V32(m, Q.at.f(c, 1n)), Y.V32(m, Q.at.f(c, 2n)), Y.V32(m, Q.at.f(c, 3n)), Y.V32(m, Q.at.f(c, 4n)),
     fld.w8(m, x, y, c, 0n, P, hP, W, hW, hc, Unit{}, s), fld.w8(m, x, y, c, 1n, P, hP, W, hW, hc, Unit{}, s),
@@ -406,57 +408,57 @@ def rcell.w8(+m: C.Wasm.Bytes, +x: U32, +y: Word(8n), +c: U32, +P: Nat, +hP: {Na
     fld.w8(m, x, y, c, 4n, P, hP, W, hW, hc, Unit{}, s))
 
 # field j of the cell i, after a write of field k of it
-def fld.other(+m: C.Wasm.Bytes, +i: U32, +j: Nat, +k: Nat, +x: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
+def fld.other(+m: Wa.Wasm.Bytes, +i: U32, +j: Nat, +k: Nat, +x: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hc: N.Le(1n+U32.to_nat(i), P), +hj: N.Le(4n+O(j), 20n), +hk: N.Le(4n+O(k), 20n),
   d: Sep(O(j), O(k))) ->
-  {Y.V32(C.Wasm.write32(m, Q.at.f(i, k), x), Q.at.f(i, j)) == Y.V32(m, Q.at.f(i, j)) : U32}:
+  {Y.V32(Wa.Wasm.write32(m, Q.at.f(i, k), x), Q.at.f(i, j)) == Y.V32(m, Q.at.f(i, j)) : U32}:
   +fj = Q.at.f(i, j)
   +fk = Q.at.f(i, k)
   Y.V32.out32(m, fk, x, fj, disj4(fj, fk, W, hW, fld.room(i, j, P, hP, W, hW, hc, hj), fld.room(i, k, P, hP, W, hW, hc, hk),
     fpair(PH.H.t20(U32.to_nat(i)), O(j), O(k), U32.to_nat(fj), U32.to_nat(fk), fld.nat(i, j, P, hP, W, hW, hc, hj), fld.nat(i, k, P, hP, W, hW, hc, hk), d)))
 
 # a write of field k of the cell i sets that field of it
-def rcell.set(+m: C.Wasm.Bytes, +i: U32, k: Nat, +x: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
+def rcell.set(+m: Wa.Wasm.Bytes, +i: U32, k: Nat, +x: U32, +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hc: N.Le(1n+U32.to_nat(i), P), hk: {Nat.is_le(k, 4n) == True{} : Bool}) ->
-  {Q.RCell(C.Wasm.write32(m, Q.at.f(i, k), x), i) == C.Cir.Cell.set(k, Q.RCell(m, i), x) : C.Cir.Cell}:
+  {Q.RCell(Wa.Wasm.write32(m, Q.at.f(i, k), x), i) == Cr.Cir.Cell.set(k, Q.RCell(m, i), x) : Cr.Cir.Cell}:
   match k:
     case 0n:
-      +m2 = C.Wasm.write32(m, Q.at.f(i, 0n), x)
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, 0n), x)
       cell.cong5(Y.V32(m2, Q.at.f(i, 0n)), Y.V32(m2, Q.at.f(i, 1n)), Y.V32(m2, Q.at.f(i, 2n)), Y.V32(m2, Q.at.f(i, 3n)), Y.V32(m2, Q.at.f(i, 4n)),
         x, Y.V32(m, Q.at.f(i, 1n)), Y.V32(m, Q.at.f(i, 2n)), Y.V32(m, Q.at.f(i, 3n)), Y.V32(m, Q.at.f(i, 4n)),
         Y.V32.same(m, Q.at.f(i, 0n), x), fld.other(m, i, 1n, 0n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}),
         fld.other(m, i, 2n, 0n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}), fld.other(m, i, 3n, 0n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}),
         fld.other(m, i, 4n, 0n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}))
     case 1n:
-      +m2 = C.Wasm.write32(m, Q.at.f(i, 1n), x)
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, 1n), x)
       cell.cong5(Y.V32(m2, Q.at.f(i, 0n)), Y.V32(m2, Q.at.f(i, 1n)), Y.V32(m2, Q.at.f(i, 2n)), Y.V32(m2, Q.at.f(i, 3n)), Y.V32(m2, Q.at.f(i, 4n)),
         Y.V32(m, Q.at.f(i, 0n)), x, Y.V32(m, Q.at.f(i, 2n)), Y.V32(m, Q.at.f(i, 3n)), Y.V32(m, Q.at.f(i, 4n)),
         fld.other(m, i, 0n, 1n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}), Y.V32.same(m, Q.at.f(i, 1n), x),
         fld.other(m, i, 2n, 1n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}), fld.other(m, i, 3n, 1n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}),
         fld.other(m, i, 4n, 1n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}))
     case 2n:
-      +m2 = C.Wasm.write32(m, Q.at.f(i, 2n), x)
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, 2n), x)
       cell.cong5(Y.V32(m2, Q.at.f(i, 0n)), Y.V32(m2, Q.at.f(i, 1n)), Y.V32(m2, Q.at.f(i, 2n)), Y.V32(m2, Q.at.f(i, 3n)), Y.V32(m2, Q.at.f(i, 4n)),
         Y.V32(m, Q.at.f(i, 0n)), Y.V32(m, Q.at.f(i, 1n)), x, Y.V32(m, Q.at.f(i, 3n)), Y.V32(m, Q.at.f(i, 4n)),
         fld.other(m, i, 0n, 2n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}), fld.other(m, i, 1n, 2n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}),
         Y.V32.same(m, Q.at.f(i, 2n), x), fld.other(m, i, 3n, 2n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}),
         fld.other(m, i, 4n, 2n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}))
     case 3n:
-      +m2 = C.Wasm.write32(m, Q.at.f(i, 3n), x)
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, 3n), x)
       cell.cong5(Y.V32(m2, Q.at.f(i, 0n)), Y.V32(m2, Q.at.f(i, 1n)), Y.V32(m2, Q.at.f(i, 2n)), Y.V32(m2, Q.at.f(i, 3n)), Y.V32(m2, Q.at.f(i, 4n)),
         Y.V32(m, Q.at.f(i, 0n)), Y.V32(m, Q.at.f(i, 1n)), Y.V32(m, Q.at.f(i, 2n)), x, Y.V32(m, Q.at.f(i, 4n)),
         fld.other(m, i, 0n, 3n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}), fld.other(m, i, 1n, 3n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}),
         fld.other(m, i, 2n, 3n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}), Y.V32.same(m, Q.at.f(i, 3n), x),
         fld.other(m, i, 4n, 3n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inr{Unit{}}))
     case 4n:
-      +m2 = C.Wasm.write32(m, Q.at.f(i, 4n), x)
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, 4n), x)
       cell.cong5(Y.V32(m2, Q.at.f(i, 0n)), Y.V32(m2, Q.at.f(i, 1n)), Y.V32(m2, Q.at.f(i, 2n)), Y.V32(m2, Q.at.f(i, 3n)), Y.V32(m2, Q.at.f(i, 4n)),
         Y.V32(m, Q.at.f(i, 0n)), Y.V32(m, Q.at.f(i, 1n)), Y.V32(m, Q.at.f(i, 2n)), Y.V32(m, Q.at.f(i, 3n)), x,
         fld.other(m, i, 0n, 4n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}), fld.other(m, i, 1n, 4n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}),
         fld.other(m, i, 2n, 4n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}), fld.other(m, i, 3n, 4n, x, P, hP, W, hW, hc, Unit{}, Unit{}, Inl{Unit{}}),
         Y.V32.same(m, Q.at.f(i, 4n), x))
     case 5n+k5:
-      Empty.absurd({Q.RCell(C.Wasm.write32(m, Q.at.f(i, 5n+k5), x), i) == C.Cir.Cell.set(5n+k5, Q.RCell(m, i), x) : C.Cir.Cell}, N.false_ne_true(hk))
+      Empty.absurd({Q.RCell(Wa.Wasm.write32(m, Q.at.f(i, 5n+k5), x), i) == Cr.Cir.Cell.set(5n+k5, Q.RCell(m, i), x) : Cr.Cir.Cell}, N.false_ne_true(hk))
 
 # Views
 # -----
@@ -496,15 +498,15 @@ def inc.eq(+x: U32, +Xn: Nat, +ex: {U32.to_nat(x) == Xn : Nat}, +W: Nat, +hW: {W
     Equal.cong(Nat, Nat, z => 1n+z, U32.to_nat(x), Xn, ex))
 
 # a write of a word outside the q bytes from x keeps them
-def RB.w32(q: Nat, +m: C.Wasm.Bytes, +a: U32, +v: U32, +x: U32, +Xn: Nat, +ex: {U32.to_nat(x) == Xn : Nat},
+def RB.w32(q: Nat, +m: Wa.Wasm.Bytes, +a: U32, +v: U32, +x: U32, +Xn: Nat, +ex: {U32.to_nat(x) == Xn : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hA: N.Le(4n+U32.to_nat(a), W), +hx: N.Le(1n+Nat.add(q, Xn), W),
   +s: Either<&2, &2, N.Le(Nat.add(q, Xn), U32.to_nat(a)), N.Le(4n+U32.to_nat(a), Xn)>) ->
-  {Q.RB(q, C.Wasm.write32(m, a, v), x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
+  {Q.RB(q, Wa.Wasm.write32(m, a, v), x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
   match q:
     case 0n:
       {==}
     case 1n+(+p):
-      +m2 = C.Wasm.write32(m, a, v)
+      +m2 = Wa.Wasm.write32(m, a, v)
       +A = U32.to_nat(a)
       +h2 = N.le_trans(2n+Xn, 2n+Nat.add(p, Xn), W, N.le_add_l(p, Xn), hx)
       +ex2 = inc.eq(x, Xn, ex, W, hW, h2)
@@ -515,15 +517,15 @@ def RB.w32(q: Nat, +m: C.Wasm.Bytes, +a: U32, +v: U32, +x: U32, +Xn: Nat, +ex: {
         RB.w32(p, m, a, v, U32.inc(x), 1n+Xn, ex2, W, hW, hA, hx2, rb.next(p, Xn, A, 4n, s)))
 
 # a write of a byte outside the q bytes from x keeps them
-def RB.w8(q: Nat, +m: C.Wasm.Bytes, +a: U32, +b: Word(8n), +x: U32, +Xn: Nat, +ex: {U32.to_nat(x) == Xn : Nat},
+def RB.w8(q: Nat, +m: Wa.Wasm.Bytes, +a: U32, +b: Word(8n), +x: U32, +Xn: Nat, +ex: {U32.to_nat(x) == Xn : Nat},
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hx: N.Le(1n+Nat.add(q, Xn), W),
   +s: Either<&2, &2, N.Le(Nat.add(q, Xn), U32.to_nat(a)), N.Le(1n+U32.to_nat(a), Xn)>) ->
-  {Q.RB(q, C.Wasm.write8(m, a, b), x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
+  {Q.RB(q, Wa.Wasm.write8(m, a, b), x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
   match q:
     case 0n:
       {==}
     case 1n+(+p):
-      +m2 = C.Wasm.write8(m, a, b)
+      +m2 = Wa.Wasm.write8(m, a, b)
       +A = U32.to_nat(a)
       +h2 = N.le_trans(2n+Xn, 2n+Nat.add(p, Xn), W, N.le_add_l(p, Xn), hx)
       +ex2 = inc.eq(x, Xn, ex, W, hW, h2)
@@ -570,35 +572,35 @@ def rc.hcq(+p: Nat, +Cn: Nat, +P: Nat, hcq: N.Le(1n+Nat.add(p, Cn), P)) -> N.Le(
   N.le_rw_l(1n+Nat.add(p, Cn), Nat.add(p, 1n+Cn), P, Equal.sym(Nat, Nat.add(p, 1n+Cn), 1n+Nat.add(p, Cn), N.add_succ_r(p, Cn)), hcq)
 
 # a write of a word outside the q cells from c keeps them
-def RC.w32(q: Nat, +m: C.Wasm.Bytes, +a: U32, +v: U32, +c: U32, +Cn: Nat, +ec: {U32.to_nat(c) == Cn : Nat},
+def RC.w32(q: Nat, +m: Wa.Wasm.Bytes, +a: U32, +v: U32, +c: U32, +Cn: Nat, +ec: {U32.to_nat(c) == Cn : Nat},
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hA: N.Le(4n+U32.to_nat(a), W), +hcq: N.Le(Nat.add(q, Cn), P),
   +s: Either<&2, &2, N.Le(PH.H.t20(Nat.add(q, Cn)), U32.to_nat(a)), N.Le(4n+U32.to_nat(a), PH.H.t20(Cn))>) ->
-  {Q.RC(q, C.Wasm.write32(m, a, v), c) == Q.RC(q, m, c) : List<&2, C.Cir.Cell>}:
+  {Q.RC(q, Wa.Wasm.write32(m, a, v), c) == Q.RC(q, m, c) : List<&2, Cr.Cir.Cell>}:
   match q:
     case 0n:
       {==}
     case 1n+(+p):
-      +m2 = C.Wasm.write32(m, a, v)
+      +m2 = Wa.Wasm.write32(m, a, v)
       +A = U32.to_nat(a)
-      cons.cong(C.Cir.Cell, Q.RCell(m2, c), Q.RCell(m, c), Q.RC(p, m2, U32.inc(c)), Q.RC(p, m, U32.inc(c)),
+      cons.cong(Cr.Cir.Cell, Q.RCell(m2, c), Q.RCell(m, c), Q.RC(p, m2, U32.inc(c)), Q.RC(p, m, U32.inc(c)),
         rcell.w32(m, a, v, c, P, hP, W, hW, rc.hc(c, Cn, ec, p, P, hcq), hA, rc.out(p, U32.to_nat(c), Cn, ec, A, 4n, s)),
         RC.w32(p, m, a, v, U32.inc(c), 1n+Cn, rc.inc(c, Cn, ec, p, P, hP, W, hW, hcq), P, hP, W, hW, hA, rc.hcq(p, Cn, P, hcq),
           rc.next(p, Cn, A, 4n, s)))
 
 # a write of a byte outside the q cells from c keeps them
-def RC.w8(q: Nat, +m: C.Wasm.Bytes, +x: U32, +b: Word(8n), +c: U32, +Cn: Nat, +ec: {U32.to_nat(c) == Cn : Nat},
+def RC.w8(q: Nat, +m: Wa.Wasm.Bytes, +x: U32, +b: Word(8n), +c: U32, +Cn: Nat, +ec: {U32.to_nat(c) == Cn : Nat},
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hcq: N.Le(Nat.add(q, Cn), P),
   +s: Either<&2, &2, N.Le(PH.H.t20(Nat.add(q, Cn)), U32.to_nat(x)), N.Le(1n+U32.to_nat(x), PH.H.t20(Cn))>) ->
-  {Q.RC(q, C.Wasm.write8(m, x, b), c) == Q.RC(q, m, c) : List<&2, C.Cir.Cell>}:
+  {Q.RC(q, Wa.Wasm.write8(m, x, b), c) == Q.RC(q, m, c) : List<&2, Cr.Cir.Cell>}:
   match q:
     case 0n:
       {==}
     case 1n+(+p):
-      +m2 = C.Wasm.write8(m, x, b)
+      +m2 = Wa.Wasm.write8(m, x, b)
       +X = U32.to_nat(x)
-      cons.cong(C.Cir.Cell, Q.RCell(m2, c), Q.RCell(m, c), Q.RC(p, m2, U32.inc(c)), Q.RC(p, m, U32.inc(c)),
+      cons.cong(Cr.Cir.Cell, Q.RCell(m2, c), Q.RCell(m, c), Q.RC(p, m2, U32.inc(c)), Q.RC(p, m, U32.inc(c)),
         rcell.w8(m, x, b, c, P, hP, W, hW, rc.hc(c, Cn, ec, p, P, hcq), rc.out(p, U32.to_nat(c), Cn, ec, X, 1n, s)),
         RC.w8(p, m, x, b, U32.inc(c), 1n+Cn, rc.inc(c, Cn, ec, p, P, hP, W, hW, hcq), P, hP, W, hW, rc.hcq(p, Cn, P, hcq),
           rc.next(p, Cn, X, 1n, s)))
@@ -607,23 +609,23 @@ def RC.w8(q: Nat, +m: C.Wasm.Bytes, +x: U32, +b: Word(8n), +c: U32, +Cn: Nat, +e
 # ---------------
 
 # a store of a word inside the memory
-def store.step(+o: U32, +x: U32, +v: U32, +k: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +stk: List<&2, U32>,
-  +loc: List<&2, U32>, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, hin: {C.Wasm.inside(pg, x, o, 4) == True{} : Bool}) ->
-  {PH.H.steps(1n, Q.Cfg(Con{C.Wasm.Instr.store{o}, k}, ls, Con{v, Con{x, stk}}, loc, C.Wasm.Memory{pg, lm, m})) ==
-    Q.Cfg(k, ls, stk, loc, C.Wasm.Memory{pg, lm, C.Wasm.write32(m, U32.add(x, o), v)}) : C.Wasm.Step}:
-  %Equal.sym(Bool, C.Wasm.inside(pg, x, o, 4), True{}, hin) :
-    {C.Wasm.step.stored(_, U32.is_eq(4, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, C.Wasm.Memory{pg, lm, m}) ==
-      Q.Cfg(k, ls, stk, loc, C.Wasm.Memory{pg, lm, C.Wasm.write32(m, U32.add(x, o), v)}) : C.Wasm.Step}
+def store.step(+o: U32, +x: U32, +v: U32, +k: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +stk: List<&2, U32>,
+  +loc: List<&2, U32>, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes, hin: {Wa.Wasm.inside(pg, x, o, 4) == True{} : Bool}) ->
+  {PH.H.steps(1n, Q.Cfg(Con{Wa.Wasm.Instr.store{o}, k}, ls, Con{v, Con{x, stk}}, loc, Wa.Wasm.Memory{pg, lm, m})) ==
+    Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write32(m, U32.add(x, o), v)}) : Wa.Wasm.Step}:
+  %Equal.sym(Bool, Wa.Wasm.inside(pg, x, o, 4), True{}, hin) :
+    {Wa.Wasm.step.stored(_, U32.is_eq(4, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, Wa.Wasm.Memory{pg, lm, m}) ==
+      Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write32(m, U32.add(x, o), v)}) : Wa.Wasm.Step}
   {==}
 
 # a store of a byte inside the memory
-def store8.step(+o: U32, +x: U32, +v: U32, +k: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +stk: List<&2, U32>,
-  +loc: List<&2, U32>, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, hin: {C.Wasm.inside(pg, x, o, 1) == True{} : Bool}) ->
-  {PH.H.steps(1n, Q.Cfg(Con{C.Wasm.Instr.store8{o}, k}, ls, Con{v, Con{x, stk}}, loc, C.Wasm.Memory{pg, lm, m})) ==
-    Q.Cfg(k, ls, stk, loc, C.Wasm.Memory{pg, lm, C.Wasm.write8(m, U32.add(x, o), C.Byte.from_u32(v))}) : C.Wasm.Step}:
-  %Equal.sym(Bool, C.Wasm.inside(pg, x, o, 1), True{}, hin) :
-    {C.Wasm.step.stored(_, U32.is_eq(1, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, C.Wasm.Memory{pg, lm, m}) ==
-      Q.Cfg(k, ls, stk, loc, C.Wasm.Memory{pg, lm, C.Wasm.write8(m, U32.add(x, o), C.Byte.from_u32(v))}) : C.Wasm.Step}
+def store8.step(+o: U32, +x: U32, +v: U32, +k: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +stk: List<&2, U32>,
+  +loc: List<&2, U32>, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes, hin: {Wa.Wasm.inside(pg, x, o, 1) == True{} : Bool}) ->
+  {PH.H.steps(1n, Q.Cfg(Con{Wa.Wasm.Instr.store8{o}, k}, ls, Con{v, Con{x, stk}}, loc, Wa.Wasm.Memory{pg, lm, m})) ==
+    Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write8(m, U32.add(x, o), Sd.Byte.from_u32(v))}) : Wa.Wasm.Step}:
+  %Equal.sym(Bool, Wa.Wasm.inside(pg, x, o, 1), True{}, hin) :
+    {Wa.Wasm.step.stored(_, U32.is_eq(1, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, Wa.Wasm.Memory{pg, lm, m}) ==
+      Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write8(m, U32.add(x, o), Sd.Byte.from_u32(v))}) : Wa.Wasm.Step}
   {==}
 
 # Bytes that fit
@@ -648,32 +650,32 @@ def nle.lt(a: Nat, b: Nat, e: {Nat.is_le(a, b) == False{} : Bool}) -> N.Le(1n+b,
 
 # w >= 1 bytes from x fit in the memory of p pages, when they end within it
 def fits.ok(+p: U32, +x: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hw: N.Le(1n, U32.to_nat(w)),
-  +h: N.Le(Nat.add(U32.to_nat(x), U32.to_nat(w)), Q.PB(p)), +hb: N.Le(1n+Q.PB(p), W)) -> {C.Wasm.fits(p, x, w) == True{} : Bool}:
+  +h: N.Le(Nat.add(U32.to_nat(x), U32.to_nat(w)), Q.PB(p)), +hb: N.Le(1n+Q.PB(p), W)) -> {Wa.Wasm.fits(p, x, w) == True{} : Bool}:
   +X = U32.to_nat(x)
   +h1 = N.le_rw_l(Nat.add(X, U32.to_nat(w)), Nat.add(Nat.add(X, U32.to_nat(0)), U32.to_nat(w)), Q.PB(p),
     Equal.cong(Nat, Nat, z => Nat.add(z, U32.to_nat(w)), X, Nat.add(X, U32.to_nat(0)), Equal.sym(Nat, Nat.add(X, 0n), X, N.add_zero(X))), h)
   +e1 = Z.inside.ok(p, x, 0, w, W, hW, hw, h1, hb)
   +t1 = {(%Equal.sym(Bool, U32.is_lt(x, x), False{}, Z.nlt.of(x, x, N.le_refl(X))) :
-      {Bool.and(Bool.not(_), C.Wasm.fits(p, x, w)) == C.Wasm.fits(p, x, w) : Bool}; {==}) :
-    {Bool.and(Bool.not(U32.is_lt(x, x)), C.Wasm.fits(p, x, w)) == C.Wasm.fits(p, x, w) : Bool}}
-  +t2 = Equal.cong(U32, Bool, z => Bool.and(Bool.not(U32.is_lt(z, x)), C.Wasm.fits(p, z, w)), U32.add(x, 0), x, Y.U32.add_zero(x))
-  Equal.trans(Bool, C.Wasm.fits(p, x, w), Bool.and(Bool.not(U32.is_lt(x, x)), C.Wasm.fits(p, x, w)), True{},
-    Equal.sym(Bool, Bool.and(Bool.not(U32.is_lt(x, x)), C.Wasm.fits(p, x, w)), C.Wasm.fits(p, x, w), t1),
-    Equal.trans(Bool, Bool.and(Bool.not(U32.is_lt(x, x)), C.Wasm.fits(p, x, w)),
-      Bool.and(Bool.not(U32.is_lt(U32.add(x, 0), x)), C.Wasm.fits(p, U32.add(x, 0), w)), True{},
-      Equal.sym(Bool, Bool.and(Bool.not(U32.is_lt(U32.add(x, 0), x)), C.Wasm.fits(p, U32.add(x, 0), w)),
-        Bool.and(Bool.not(U32.is_lt(x, x)), C.Wasm.fits(p, x, w)), t2), e1))
+      {Bool.and(Bool.not(_), Wa.Wasm.fits(p, x, w)) == Wa.Wasm.fits(p, x, w) : Bool}; {==}) :
+    {Bool.and(Bool.not(U32.is_lt(x, x)), Wa.Wasm.fits(p, x, w)) == Wa.Wasm.fits(p, x, w) : Bool}}
+  +t2 = Equal.cong(U32, Bool, z => Bool.and(Bool.not(U32.is_lt(z, x)), Wa.Wasm.fits(p, z, w)), U32.add(x, 0), x, Y.U32.add_zero(x))
+  Equal.trans(Bool, Wa.Wasm.fits(p, x, w), Bool.and(Bool.not(U32.is_lt(x, x)), Wa.Wasm.fits(p, x, w)), True{},
+    Equal.sym(Bool, Bool.and(Bool.not(U32.is_lt(x, x)), Wa.Wasm.fits(p, x, w)), Wa.Wasm.fits(p, x, w), t1),
+    Equal.trans(Bool, Bool.and(Bool.not(U32.is_lt(x, x)), Wa.Wasm.fits(p, x, w)),
+      Bool.and(Bool.not(U32.is_lt(U32.add(x, 0), x)), Wa.Wasm.fits(p, U32.add(x, 0), w)), True{},
+      Equal.sym(Bool, Bool.and(Bool.not(U32.is_lt(U32.add(x, 0), x)), Wa.Wasm.fits(p, U32.add(x, 0), w)),
+        Bool.and(Bool.not(U32.is_lt(x, x)), Wa.Wasm.fits(p, x, w)), t2), e1))
 
 def fits0.go(+p: U32, +x: U32, c1: {U32.is_lt(x, x) == False{} : Bool}, c2: {U32.is_zero(x) == False{} : Bool},
-  c3: {U32.is_lt(U32.shrn(U32.sub(x, 1), 16n), p) == True{} : Bool}) -> {C.Wasm.fits.end(U32.is_lt(x, x), p, x) == True{} : Bool}:
-  %Equal.sym(Bool, U32.is_lt(x, x), False{}, c1) : {C.Wasm.fits.end(_, p, x) == True{} : Bool}
+  c3: {U32.is_lt(U32.shrn(U32.sub(x, 1), 16n), p) == True{} : Bool}) -> {Wa.Wasm.fits.end(U32.is_lt(x, x), p, x) == True{} : Bool}:
+  %Equal.sym(Bool, U32.is_lt(x, x), False{}, c1) : {Wa.Wasm.fits.end(_, p, x) == True{} : Bool}
   %Equal.sym(Bool, U32.is_zero(x), False{}, c2) : {Bool.or(_, U32.is_lt(U32.shrn(U32.sub(x, 1), 16n), p)) == True{} : Bool}
   %Equal.sym(Bool, U32.is_lt(U32.shrn(U32.sub(x, 1), 16n), p), True{}, c3) : {Bool.or(False{}, _) == True{} : Bool}
   {==}
 
 # no bytes from x fit in the memory of p pages, when x is not 0 and is
 # within it
-def fits0(+p: U32, +x: U32, +h1: N.Le(1n, U32.to_nat(x)), +h: N.Le(U32.to_nat(x), Q.PB(p))) -> {C.Wasm.fits(p, x, 0) == True{} : Bool}:
+def fits0(+p: U32, +x: U32, +h1: N.Le(1n, U32.to_nat(x)), +h: N.Le(U32.to_nat(x), Q.PB(p))) -> {Wa.Wasm.fits(p, x, 0) == True{} : Bool}:
   +X = U32.to_nat(x)
   +d = U32.sub(x, 1)
   +sh = U32.shrn(d, 16n)
@@ -681,38 +683,38 @@ def fits0(+p: U32, +x: U32, +h1: N.Le(1n, U32.to_nat(x)), +h: N.Le(U32.to_nat(x)
   +h4 = N.le_trans(1n+N.D(16n, U32.to_nat(sh)), 1n+U32.to_nat(d), Q.PB(p), V.shrn.le(16n, d),
     N.le_rw_l(X, 1n+U32.to_nat(d), Q.PB(p), Equal.sym(Nat, 1n+U32.to_nat(d), X, ed), h))
   +c3 = Z.lt.to(sh, p, V.dlt(16n, U32.to_nat(sh), U32.to_nat(p), h4))
-  +t2 = Equal.cong(U32, Bool, z => C.Wasm.fits.end(U32.is_lt(z, x), p, z), U32.add(x, 0), x, Y.U32.add_zero(x))
-  Equal.trans(Bool, C.Wasm.fits(p, x, 0), C.Wasm.fits.end(U32.is_lt(x, x), p, x), True{},
+  +t2 = Equal.cong(U32, Bool, z => Wa.Wasm.fits.end(U32.is_lt(z, x), p, z), U32.add(x, 0), x, Y.U32.add_zero(x))
+  Equal.trans(Bool, Wa.Wasm.fits(p, x, 0), Wa.Wasm.fits.end(U32.is_lt(x, x), p, x), True{},
     t2, fits0.go(p, x, Z.nlt.of(x, x, N.le_refl(X)), Z.nz.to(x, h1), c3))
 
 # Reading the output
 # ------------------
 
 # the host's read of q bytes is the view RB
-def rb.read(q: Nat, +m: C.Wasm.Bytes, +x: U32) -> {C.Wasm.read.bytes(q, m, x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
+def rb.read(q: Nat, +m: Wa.Wasm.Bytes, +x: U32) -> {Wa.Wasm.read.bytes(q, m, x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
   match q:
     case 0n:
       {==}
     case 1n+p:
-      %Equal.sym(C.Wasm.Peek<Word(8n)>, C.Wasm.read8(m, x), C.Wasm.Peek{Y.R8(m, x), m}, Y.read8.eq(m, x)) :
-        {C.Wasm.read.bytes.of(_, m2 => C.Wasm.read.bytes(p, m2, U32.inc(x))) == Q.RB(1n+p, m, x) : List<&2, Word(8n)>}
-      cons.cong(Word(8n), Y.R8(m, x), Y.R8(m, x), C.Wasm.read.bytes(p, m, U32.inc(x)), Q.RB(p, m, U32.inc(x)), {==}, rb.read(p, m, U32.inc(x)))
+      %Equal.sym(Wa.Wasm.Peek<Word(8n)>, Wa.Wasm.read8(m, x), Wa.Wasm.Peek{Y.R8(m, x), m}, Y.read8.eq(m, x)) :
+        {Wa.Wasm.read.bytes.of(_, m2 => Wa.Wasm.read.bytes(p, m2, U32.inc(x))) == Q.RB(1n+p, m, x) : List<&2, Word(8n)>}
+      cons.cong(Word(8n), Y.R8(m, x), Y.R8(m, x), Wa.Wasm.read.bytes(p, m, U32.inc(x)), Q.RB(p, m, U32.inc(x)), {==}, rb.read(p, m, U32.inc(x)))
 
 # the host reads the output from the address at byte 0 and the length at
 # byte 4
-def out.ok(+pg: U32, +lm: U32, +m2: C.Wasm.Bytes, +A0: U32, +on: U32,
-  f8: {C.Wasm.fits(pg, 0, 8) == True{} : Bool}, v0: {Y.V32(m2, 0) == A0 : U32}, v4: {Y.V32(m2, 4) == on : U32},
-  fo: {C.Wasm.fits(pg, A0, on) == True{} : Bool}) ->
-  {C.Wasm.run.output(C.Wasm.Memory{pg, lm, m2}) == C.Wasm.Outcome.result{C.Wasm.read.bytes(U32.to_nat(on), m2, A0)} : C.Wasm.Outcome}:
-  +R = {C.Wasm.Outcome.result{C.Wasm.read.bytes(U32.to_nat(on), m2, A0)} : C.Wasm.Outcome}
-  %Equal.sym(Bool, C.Wasm.fits(pg, 0, 8), True{}, f8) : {C.Wasm.run.output.at(_, pg, m2) == R : C.Wasm.Outcome}
-  %Equal.sym(C.Wasm.Peek<U32>, C.Wasm.read32(m2, 0), C.Wasm.Peek{Y.V32(m2, 0), m2}, Y.read32.eq(m2, 0)) :
-    {C.Wasm.run.output.a(pg, _) == R : C.Wasm.Outcome}
-  %Equal.sym(U32, Y.V32(m2, 0), A0, v0) : {C.Wasm.run.output.n(pg, _, C.Wasm.read32(m2, 4)) == R : C.Wasm.Outcome}
-  %Equal.sym(C.Wasm.Peek<U32>, C.Wasm.read32(m2, 4), C.Wasm.Peek{Y.V32(m2, 4), m2}, Y.read32.eq(m2, 4)) :
-    {C.Wasm.run.output.n(pg, A0, _) == R : C.Wasm.Outcome}
-  %Equal.sym(U32, Y.V32(m2, 4), on, v4) : {C.Wasm.run.output.if(C.Wasm.fits(pg, A0, _), m2, A0, _) == R : C.Wasm.Outcome}
-  %Equal.sym(Bool, C.Wasm.fits(pg, A0, on), True{}, fo) : {C.Wasm.run.output.if(_, m2, A0, on) == R : C.Wasm.Outcome}
+def out.ok(+pg: U32, +lm: U32, +m2: Wa.Wasm.Bytes, +A0: U32, +on: U32,
+  f8: {Wa.Wasm.fits(pg, 0, 8) == True{} : Bool}, v0: {Y.V32(m2, 0) == A0 : U32}, v4: {Y.V32(m2, 4) == on : U32},
+  fo: {Wa.Wasm.fits(pg, A0, on) == True{} : Bool}) ->
+  {Wa.Wasm.run.output(Wa.Wasm.Memory{pg, lm, m2}) == Wa.Wasm.Outcome.result{Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0)} : Wa.Wasm.Outcome}:
+  +R = {Wa.Wasm.Outcome.result{Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0)} : Wa.Wasm.Outcome}
+  %Equal.sym(Bool, Wa.Wasm.fits(pg, 0, 8), True{}, f8) : {Wa.Wasm.run.output.at(_, pg, m2) == R : Wa.Wasm.Outcome}
+  %Equal.sym(Wa.Wasm.Peek<U32>, Wa.Wasm.read32(m2, 0), Wa.Wasm.Peek{Y.V32(m2, 0), m2}, Y.read32.eq(m2, 0)) :
+    {Wa.Wasm.run.output.a(pg, _) == R : Wa.Wasm.Outcome}
+  %Equal.sym(U32, Y.V32(m2, 0), A0, v0) : {Wa.Wasm.run.output.n(pg, _, Wa.Wasm.read32(m2, 4)) == R : Wa.Wasm.Outcome}
+  %Equal.sym(Wa.Wasm.Peek<U32>, Wa.Wasm.read32(m2, 4), Wa.Wasm.Peek{Y.V32(m2, 4), m2}, Y.read32.eq(m2, 4)) :
+    {Wa.Wasm.run.output.n(pg, A0, _) == R : Wa.Wasm.Outcome}
+  %Equal.sym(U32, Y.V32(m2, 4), on, v4) : {Wa.Wasm.run.output.if(Wa.Wasm.fits(pg, A0, _), m2, A0, _) == R : Wa.Wasm.Outcome}
+  %Equal.sym(Bool, Wa.Wasm.fits(pg, A0, on), True{}, fo) : {Wa.Wasm.run.output.if(_, m2, A0, on) == R : Wa.Wasm.Outcome}
   {==}
 
 def is.con(l: List<&2, Word(8n)>) -> Data:
@@ -756,8 +758,8 @@ def b.pb20(-P: Nat, -G: Nat, +a: U32, -nx: U32, -fi: U32, +im: U32, +pg: U32, -l
       Q.b.epb(P, G, a, nx, fi, im, pg, lm, inp, on, hB)))
 
 # the cells end at byte 20 or later
-def inv.x20(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+def inv.x20(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: Wa.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
   N.Le(20n, PH.H.t20(U32.to_nat(nx))):
   +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
   +A = U32.to_nat(a)
@@ -821,56 +823,56 @@ def rw.sep(+C: Nat, +T: Nat, +T2: Nat, e: {T == T2 : Nat},
       Inr{N.le_rw_l(4n+T2, 4n+T, PH.H.t20(C), Equal.cong(Nat, Nat, z => 4n+z, T2, T, Equal.sym(Nat, T, T2, e)), r)}
 
 # the cell c of a view, after a store into field k of the cell i
-def rc.st.head(b: Bool, +m: C.Wasm.Bytes, +cl: C.Cir.Cells, +c: U32, +i: U32, +k: Nat, +x: U32,
+def rc.st.head(b: Bool, +m: Wa.Wasm.Bytes, +cl: Cr.Cir.Cells, +c: U32, +i: U32, +k: Nat, +x: U32,
   +hk: {Nat.is_le(k, 4n) == True{} : Bool}, +hk4: N.Le(4n+O(k), 20n),
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hc: N.Le(1n+U32.to_nat(c), P), +hi: N.Le(1n+U32.to_nat(i), P), +eb: {U32.is_eq(c, i) == b : Bool},
-  +oldh: {Q.RCell(m, c) == C.Cir.Cells.get(cl, c) : C.Cir.Cell}) ->
-  {Q.RCell(C.Wasm.write32(m, Q.at.f(i, k), x), c) == C.Cir.Cells.get(C.Cir.Cells.set(cl, i, C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x)), c) : C.Cir.Cell}:
+  +oldh: {Q.RCell(m, c) == Cr.Cir.Cells.get(cl, c) : Cr.Cir.Cell}) ->
+  {Q.RCell(Wa.Wasm.write32(m, Q.at.f(i, k), x), c) == Cr.Cir.Cells.get(Cr.Cir.Cells.set(cl, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x)), c) : Cr.Cir.Cell}:
   match b:
     case True{}:
-      +m2 = C.Wasm.write32(m, Q.at.f(i, k), x)
-      +cv = C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x)
-      +cl2 = C.Cir.Cells.set(cl, i, cv)
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, k), x)
+      +cv = Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x)
+      +cl2 = Cr.Cir.Cells.set(cl, i, cv)
       +eci = Y.U32.eq(c, i, eb)
-      +oldi = {(%eci : {Q.RCell(m, _) == C.Cir.Cells.get(cl, _) : C.Cir.Cell}; oldh) : {Q.RCell(m, i) == C.Cir.Cells.get(cl, i) : C.Cir.Cell}}
-      %Equal.sym(U32, c, i, eci) : {Q.RCell(m2, _) == C.Cir.Cells.get(cl2, _) : C.Cir.Cell}
-      Equal.trans(C.Cir.Cell, Q.RCell(m2, i), C.Cir.Cell.set(k, Q.RCell(m, i), x), C.Cir.Cells.get(cl2, i),
+      +oldi = {(%eci : {Q.RCell(m, _) == Cr.Cir.Cells.get(cl, _) : Cr.Cir.Cell}; oldh) : {Q.RCell(m, i) == Cr.Cir.Cells.get(cl, i) : Cr.Cir.Cell}}
+      %Equal.sym(U32, c, i, eci) : {Q.RCell(m2, _) == Cr.Cir.Cells.get(cl2, _) : Cr.Cir.Cell}
+      Equal.trans(Cr.Cir.Cell, Q.RCell(m2, i), Cr.Cir.Cell.set(k, Q.RCell(m, i), x), Cr.Cir.Cells.get(cl2, i),
         rcell.set(m, i, k, x, P, hP, W, hW, hi, hk),
-        Equal.trans(C.Cir.Cell, C.Cir.Cell.set(k, Q.RCell(m, i), x), cv, C.Cir.Cells.get(cl2, i),
-          Equal.cong(C.Cir.Cell, C.Cir.Cell, z => C.Cir.Cell.set(k, z, x), Q.RCell(m, i), C.Cir.Cells.get(cl, i), oldi),
-          Equal.sym(C.Cir.Cell, C.Cir.Cells.get(cl2, i), cv, cells.same(cl, i, cv))))
+        Equal.trans(Cr.Cir.Cell, Cr.Cir.Cell.set(k, Q.RCell(m, i), x), cv, Cr.Cir.Cells.get(cl2, i),
+          Equal.cong(Cr.Cir.Cell, Cr.Cir.Cell, z => Cr.Cir.Cell.set(k, z, x), Q.RCell(m, i), Cr.Cir.Cells.get(cl, i), oldi),
+          Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(cl2, i), cv, cells.same(cl, i, cv))))
     case False{}:
-      +m2 = C.Wasm.write32(m, Q.at.f(i, k), x)
-      +cv = C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x)
-      +cl2 = C.Cir.Cells.set(cl, i, cv)
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, k), x)
+      +cv = Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x)
+      +cl2 = Cr.Cir.Cells.set(cl, i, cv)
       +I = U32.to_nat(i)
       +Aw = Q.at.f(i, k)
       +ea = fld.nat(i, k, P, hP, W, hW, hi, hk4)
       +s0 = cell.sep(U32.to_nat(c), I, O(k), hk4, ne.of(c, i, eb))
       +s = rw.sep(U32.to_nat(c), U32.to_nat(Aw), Nat.add(O(k), PH.H.t20(I)), ea, s0)
-      Equal.trans(C.Cir.Cell, Q.RCell(m2, c), Q.RCell(m, c), C.Cir.Cells.get(cl2, c),
+      Equal.trans(Cr.Cir.Cell, Q.RCell(m2, c), Q.RCell(m, c), Cr.Cir.Cells.get(cl2, c),
         rcell.w32(m, Aw, x, c, P, hP, W, hW, hc, fld.room(i, k, P, hP, W, hW, hi, hk4), s),
-        Equal.trans(C.Cir.Cell, Q.RCell(m, c), C.Cir.Cells.get(cl, c), C.Cir.Cells.get(cl2, c), oldh,
-          Equal.sym(C.Cir.Cell, C.Cir.Cells.get(cl2, c), C.Cir.Cells.get(cl, c), cells.other(cl, i, c, cv, eb))))
+        Equal.trans(Cr.Cir.Cell, Q.RCell(m, c), Cr.Cir.Cells.get(cl, c), Cr.Cir.Cells.get(cl2, c), oldh,
+          Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(cl2, c), Cr.Cir.Cells.get(cl, c), cells.other(cl, i, c, cv, eb))))
 
 # a store into field k of the cell i: the q cells from c read as Cir's cells
 # after its set
-def RC.st(q: Nat, +m: C.Wasm.Bytes, +cl: C.Cir.Cells, +c: U32, +Cn: Nat, +ec: {U32.to_nat(c) == Cn : Nat},
+def RC.st(q: Nat, +m: Wa.Wasm.Bytes, +cl: Cr.Cir.Cells, +c: U32, +Cn: Nat, +ec: {U32.to_nat(c) == Cn : Nat},
   +i: U32, +k: Nat, +x: U32, +hk: {Nat.is_le(k, 4n) == True{} : Bool}, +hk4: N.Le(4n+O(k), 20n),
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hcq: N.Le(Nat.add(q, Cn), P), +hi: N.Le(1n+U32.to_nat(i), P),
-  +old: {Q.RC(q, m, c) == Q.GC(q, cl, c) : List<&2, C.Cir.Cell>}) ->
-  {Q.RC(q, C.Wasm.write32(m, Q.at.f(i, k), x), c) == Q.GC(q, C.Cir.Cells.set(cl, i, C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x)), c) : List<&2, C.Cir.Cell>}:
+  +old: {Q.RC(q, m, c) == Q.GC(q, cl, c) : List<&2, Cr.Cir.Cell>}) ->
+  {Q.RC(q, Wa.Wasm.write32(m, Q.at.f(i, k), x), c) == Q.GC(q, Cr.Cir.Cells.set(cl, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x)), c) : List<&2, Cr.Cir.Cell>}:
   match q:
     case 0n:
       {==}
     case 1n+(+p):
-      +m2 = C.Wasm.write32(m, Q.at.f(i, k), x)
-      +cl2 = C.Cir.Cells.set(cl, i, C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x))
-      +oldh = Equal.cong(List<&2, C.Cir.Cell>, C.Cir.Cell, l => Q.hd.cell(l), Q.RC(1n+p, m, c), Q.GC(1n+p, cl, c), old)
-      +oldt = Equal.cong(List<&2, C.Cir.Cell>, List<&2, C.Cir.Cell>, l => Q.tl.cell(l), Q.RC(1n+p, m, c), Q.GC(1n+p, cl, c), old)
-      cons.cong(C.Cir.Cell, Q.RCell(m2, c), C.Cir.Cells.get(cl2, c), Q.RC(p, m2, U32.inc(c)), Q.GC(p, cl2, U32.inc(c)),
+      +m2 = Wa.Wasm.write32(m, Q.at.f(i, k), x)
+      +cl2 = Cr.Cir.Cells.set(cl, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x))
+      +oldh = Equal.cong(List<&2, Cr.Cir.Cell>, Cr.Cir.Cell, l => Q.hd.cell(l), Q.RC(1n+p, m, c), Q.GC(1n+p, cl, c), old)
+      +oldt = Equal.cong(List<&2, Cr.Cir.Cell>, List<&2, Cr.Cir.Cell>, l => Q.tl.cell(l), Q.RC(1n+p, m, c), Q.GC(1n+p, cl, c), old)
+      cons.cong(Cr.Cir.Cell, Q.RCell(m2, c), Cr.Cir.Cells.get(cl2, c), Q.RC(p, m2, U32.inc(c)), Q.GC(p, cl2, U32.inc(c)),
         rc.st.head(U32.is_eq(c, i), m, cl, c, i, k, x, hk, hk4, P, hP, W, hW, rc.hc(c, Cn, ec, p, P, hcq), hi, {==}, oldh),
         RC.st(p, m, cl, U32.inc(c), 1n+Cn, rc.inc(c, Cn, ec, p, P, hP, W, hW, hcq), i, k, x, hk, hk4, P, hP, W, hW,
           rc.hcq(p, Cn, P, hcq), hi, oldt))
@@ -926,14 +928,14 @@ def fend(+I: Nat, +Ok: Nat, hk4: N.Le(4n+Ok, 20n)) -> N.Le(4n+Nat.add(Ok, PH.H.t
   Z.le.add_r(4n+Ok, 20n, PH.H.t20(I), hk4)
 
 # the relation, from its parts that a store changes
-def inv.store.go(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+def inv.store.go(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: Wa.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +i: U32, +k: Nat, +x: U32, +hk: {Nat.is_le(k, 4n) == True{} : Bool}, +hi: N.Le(1n+U32.to_nat(i), P),
   +s_in: Either<&2, &2, N.Le(Nat.add(List.length(&2, Word(8n), inp), U32.to_nat(a)), U32.to_nat(Q.at.f(i, k))), N.Le(4n+U32.to_nat(Q.at.f(i, k)), U32.to_nat(a))>,
   +s_out: N.Le(4n+U32.to_nat(Q.at.f(i, k)), PH.H.t20(U32.to_nat(nx)))) ->
-  Q.Inv(P, G, a, n, C.Cir.Cells.set(cl, i, C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x)), nx, fi, im, pg, lm, inp, ou, on,
-    C.Wasm.write32(m, Q.at.f(i, k), x)):
+  Q.Inv(P, G, a, n, Cr.Cir.Cells.set(cl, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x)), nx, fi, im, pg, lm, inp, ou, on,
+    Wa.Wasm.write32(m, Q.at.f(i, k), x)):
   +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
   +hk4 = ok4(k, hk)
   +Aw = Q.at.f(i, k)
@@ -948,27 +950,27 @@ def inv.store.go(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32,
     Q.b.nx(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
   +book = RC.st(K, m, cl, 1, 1n, {==}, i, k, x, hk, hk4, P, hP, W, hW, hcb, hi, Q.inv.book(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI))
   +mach = RC.st(Nat.sub(NX, FI), m, cl, fi, FI, {==}, i, k, x, hk, hk4, P, hP, W, hW, hcm, hi, Q.inv.mach(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI))
-  +m2 = C.Wasm.write32(m, Aw, x)
+  +m2 = Wa.Wasm.write32(m, Aw, x)
   +inp2 = Equal.trans(List<&2, Word(8n)>, Q.RB(L, m2, a), Q.RB(L, m, a), inp,
     RB.w32(L, m, Aw, x, a, U32.to_nat(a), {==}, W, hW, hA, b.inw(P, G, a, nx, fi, im, pg, lm, inp, on, hP, W, hW, hB), s_in),
     Q.inv.inp(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI))
   +X = PH.H.t20(NX)
   +ex = at.nat(nx, P, hP, Q.b.nx(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
-  +out2 = Equal.trans(List<&2, Word(8n)>, Q.RB(U32.to_nat(on), m2, C.Cir.at(nx)), Q.RB(U32.to_nat(on), m, C.Cir.at(nx)), List.reverse(&2, Word(8n), ou),
-    RB.w32(U32.to_nat(on), m, Aw, x, C.Cir.at(nx), X, ex, W, hW, hA, b.outw(P, G, a, nx, fi, im, pg, lm, inp, on, hP, W, hW, hG, hB), Inr{s_out}),
+  +out2 = Equal.trans(List<&2, Word(8n)>, Q.RB(U32.to_nat(on), m2, Cr.Cir.at(nx)), Q.RB(U32.to_nat(on), m, Cr.Cir.at(nx)), List.reverse(&2, Word(8n), ou),
+    RB.w32(U32.to_nat(on), m, Aw, x, Cr.Cir.at(nx), X, ex, W, hW, hA, b.outw(P, G, a, nx, fi, im, pg, lm, inp, on, hP, W, hW, hG, hB), Inr{s_out}),
     Q.inv.out(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI))
   (((Q.inv.ea(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI), Q.q.size(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)), (book, inp2)),
    ((fle, mach), (out2, hB)))
 
 # a store into a cell of the book's, or of the machine's own: the relation holds
-def inv.store.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+def inv.store.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: Wa.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +i: U32, +k: Nat, +x: U32, +hk: {Nat.is_le(k, 4n) == True{} : Bool},
   +e1: {Bool.and(Bool.not(U32.is_zero(i)), U32.is_le(i, im)) == b1 : Bool},
   +hc: {Bool.or(b1, Bool.and(U32.is_le(fi, i), U32.is_lt(i, nx))) == True{} : Bool}) ->
-  Q.Inv(P, G, a, n, C.Cir.Cells.set(cl, i, C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x)), nx, fi, im, pg, lm, inp, ou, on,
-    C.Wasm.write32(m, Q.at.f(i, k), x)):
+  Q.Inv(P, G, a, n, Cr.Cir.Cells.set(cl, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x)), nx, fi, im, pg, lm, inp, ou, on,
+    Wa.Wasm.write32(m, Q.at.f(i, k), x)):
   match b1:
     case True{}:
       +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
@@ -1013,11 +1015,11 @@ def inv.store.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells,
       inv.store.go(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI, W, hW, hP, hG, i, k, x, hk, hi, Inl{s_in}, s_out)
 
 # a store into a cell that the machine may use: the relation holds
-def inv.store(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+def inv.store(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: Wa.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
-  +i: U32, +k: Nat, +x: U32, +hk: {Nat.is_le(k, 4n) == True{} : Bool}, +hc: {C.Cir.is_cell(i, im, fi, nx) == True{} : Bool}) ->
-  Q.Inv(P, G, a, n, C.Cir.Cells.set(cl, i, C.Cir.Cell.set(k, C.Cir.Cells.get(cl, i), x)), nx, fi, im, pg, lm, inp, ou, on,
-    C.Wasm.write32(m, Q.at.f(i, k), x)):
+  +i: U32, +k: Nat, +x: U32, +hk: {Nat.is_le(k, 4n) == True{} : Bool}, +hc: {Cr.Cir.is_cell(i, im, fi, nx) == True{} : Bool}) ->
+  Q.Inv(P, G, a, n, Cr.Cir.Cells.set(cl, i, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(cl, i), x)), nx, fi, im, pg, lm, inp, ou, on,
+    Wa.Wasm.write32(m, Q.at.f(i, k), x)):
   inv.store.if(Bool.and(Bool.not(U32.is_zero(i)), U32.is_le(i, im)), P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI,
     W, hW, hP, hG, i, k, x, hk, {==}, hc)

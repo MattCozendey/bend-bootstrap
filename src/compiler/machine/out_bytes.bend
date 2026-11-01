@@ -29,16 +29,21 @@
 #     is split by CasesK, and the continuation kk gets what the reader read.
 
 import Base
-import ./impl.bend as C
-import ./proof_term.bend as T
-import ./proof_need.bend as PN
+import ../../shared/shared.bend as Sd
+import ../../book/impl.bend as Bk
+import ../../wasm/impl.bend as Wa
+import ../../program/impl.bend as Pg
+import ../cir/impl.bend as Cr
+import ./impl.bend as Mc
+import ./cell_terms.bend as T
+import ../need_big.bend as PN
 
 # Kit
 # ---
 
-def isQ1(q: C.Quan) -> Bool:
+def isQ1(q: Bk.Quan) -> Bool:
   match q:
-    case C.Quan.Q1{}:
+    case Bk.Quan.Q1{}:
       True{}
     case _:
       False{}
@@ -252,18 +257,18 @@ def zeros(n: Nat) -> Word(n):
 # V1 views a pair at quantity 1, VL a label.
 
 type TP is Data:
-  TP{a: C.Term, b: C.Term}
+  TP{a: Bk.Term, b: Bk.Term}
 
-def V1(t: C.Term) -> Maybe<&2, TP>:
+def V1(t: Bk.Term) -> Maybe<&2, TP>:
   match t:
-    case C.Term.Tup{C.Quan.Q1{}, a, b}:
+    case Bk.Term.Tup{Bk.Quan.Q1{}, a, b}:
       Some{TP{a, b}}
     case _:
       None{}
 
-def VL(t: C.Term) -> Maybe<&2, List<&2, Word(8n)>>:
+def VL(t: Bk.Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match t:
-    case C.Term.Lab{k}:
+    case Bk.Term.Lab{k}:
       Some{k}
     case _:
       None{}
@@ -275,28 +280,28 @@ def U.c5(v: Word(8n), mr: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, List<&2, W
     case None{}:
       None{}
 
-def U.c4(mw: Maybe<&2, Word(8n)>, rest: C.Term) -> Maybe<&2, List<&2, Word(8n)>>:
+def U.c4(mw: Maybe<&2, Word(8n)>, rest: Bk.Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match mw:
     case Some{x}:
-      U.c5(x, C.Program.unbytes(rest))
+      U.c5(x, Pg.Program.unbytes(rest))
     case None{}:
       None{}
 
-def U.c3(ok: Bool, x: C.Term, rest: C.Term) -> Maybe<&2, List<&2, Word(8n)>>:
+def U.c3(ok: Bool, x: Bk.Term, rest: Bk.Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match ok:
     case True{}:
-      U.c4(C.Program.unword(8n, x), rest)
+      U.c4(Pg.Program.unword(8n, x), rest)
     case False{}:
       None{}
 
-def U.c2(x: C.Term, rest: C.Term, m: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, List<&2, Word(8n)>>:
+def U.c2(x: Bk.Term, rest: Bk.Term, m: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, List<&2, Word(8n)>>:
   match m:
     case Some{u2}:
-      U.c3(C.Name.is_eq(u2, C.Program.name.unit()), x, rest)
+      U.c3(Sd.Name.is_eq(u2, Pg.Program.name.unit()), x, rest)
     case None{}:
       None{}
 
-def U.c1(x: C.Term, m: Maybe<&2, TP>) -> Maybe<&2, List<&2, Word(8n)>>:
+def U.c1(x: Bk.Term, m: Maybe<&2, TP>) -> Maybe<&2, List<&2, Word(8n)>>:
   match m:
     case Some{TP{rest, z}}:
       U.c2(x, rest, VL(z))
@@ -313,28 +318,28 @@ def U.con(m: Maybe<&2, TP>) -> Maybe<&2, List<&2, Word(8n)>>:
 def U.nil(m: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, List<&2, Word(8n)>>:
   match m:
     case Some{u}:
-      C.Program.unbytes.nil(C.Name.is_eq(u, C.Program.name.unit()))
+      Pg.Program.unbytes.nil(Sd.Name.is_eq(u, Pg.Program.name.unit()))
     case None{}:
       None{}
 
-def U.k2(iscon: Bool, b: C.Term) -> Maybe<&2, List<&2, Word(8n)>>:
+def U.k2(iscon: Bool, b: Bk.Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match iscon:
     case True{}:
       U.con(V1(b))
     case False{}:
       None{}
 
-def U.k(isnil: Bool, iscon: Bool, b: C.Term) -> Maybe<&2, List<&2, Word(8n)>>:
+def U.k(isnil: Bool, iscon: Bool, b: Bk.Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match isnil:
     case True{}:
       U.nil(VL(b))
     case False{}:
       U.k2(iscon, b)
 
-def U.a(m: Maybe<&2, List<&2, Word(8n)>>, b: C.Term) -> Maybe<&2, List<&2, Word(8n)>>:
+def U.a(m: Maybe<&2, List<&2, Word(8n)>>, b: Bk.Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match m:
     case Some{+k}:
-      U.k(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b)
+      U.k(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b)
     case None{}:
       None{}
 
@@ -346,28 +351,28 @@ def U.r(m: Maybe<&2, TP>) -> Maybe<&2, List<&2, Word(8n)>>:
       None{}
 
 # the bytes of t, read in the machine's order
-def U(t: C.Term) -> Maybe<&2, List<&2, Word(8n)>>:
+def U(t: Bk.Term) -> Maybe<&2, List<&2, Word(8n)>>:
   U.r(V1(t))
 
 # a bit, read in the machine's order
 def Ub.x(m: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, Bool>:
   match m:
     case Some{b}:
-      C.Program.unbit(b)
+      Pg.Program.unbit(b)
     case None{}:
       None{}
 
-def Ub.u(ok: Bool, x: C.Term) -> Maybe<&2, Bool>:
+def Ub.u(ok: Bool, x: Bk.Term) -> Maybe<&2, Bool>:
   match ok:
     case True{}:
       Ub.x(VL(x))
     case False{}:
       None{}
 
-def Ub.y(m: Maybe<&2, List<&2, Word(8n)>>, x: C.Term) -> Maybe<&2, Bool>:
+def Ub.y(m: Maybe<&2, List<&2, Word(8n)>>, x: Bk.Term) -> Maybe<&2, Bool>:
   match m:
     case Some{u}:
-      Ub.u(C.Name.is_eq(u, C.Program.name.unit()), x)
+      Ub.u(Sd.Name.is_eq(u, Pg.Program.name.unit()), x)
     case None{}:
       None{}
 
@@ -378,28 +383,28 @@ def Ub.r(m: Maybe<&2, TP>) -> Maybe<&2, Bool>:
     case None{}:
       None{}
 
-def Ub(t: C.Term) -> Maybe<&2, Bool>:
+def Ub(t: Bk.Term) -> Maybe<&2, Bool>:
   Ub.r(V1(t))
 
 # a word, read in the machine's order
 def W0.z(m: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, Word(0n)>:
   match m:
     case Some{u}:
-      C.Program.unword.nil(C.Name.is_eq(u, C.Program.name.unit()))
+      Pg.Program.unword.nil(Sd.Name.is_eq(u, Pg.Program.name.unit()))
     case None{}:
       None{}
 
-def W0.k(ok: Bool, z: C.Term) -> Maybe<&2, Word(0n)>:
+def W0.k(ok: Bool, z: Bk.Term) -> Maybe<&2, Word(0n)>:
   match ok:
     case True{}:
       W0.z(VL(z))
     case False{}:
       None{}
 
-def W0.a(m: Maybe<&2, List<&2, Word(8n)>>, z: C.Term) -> Maybe<&2, Word(0n)>:
+def W0.a(m: Maybe<&2, List<&2, Word(8n)>>, z: Bk.Term) -> Maybe<&2, Word(0n)>:
   match m:
     case Some{k}:
-      W0.k(C.Name.is_eq(k, C.Program.name.wnil()), z)
+      W0.k(Sd.Name.is_eq(k, Pg.Program.name.wnil()), z)
     case None{}:
       None{}
 
@@ -417,17 +422,17 @@ def W1.w(-p: Nat, b: Bool, m: Maybe<&2, Word(p)>) -> Maybe<&2, Word(1n+p)>:
     case None{}:
       None{}
 
-def W1.u(p: Nat, b: Bool, ok: Bool, w: C.Term) -> Maybe<&2, Word(1n+p)>:
+def W1.u(p: Nat, b: Bool, ok: Bool, w: Bk.Term) -> Maybe<&2, Word(1n+p)>:
   match ok:
     case True{}:
-      W1.w(p, b, C.Program.unword(p, w))
+      W1.w(p, b, Pg.Program.unword(p, w))
     case False{}:
       None{}
 
-def W1.z(p: Nat, b: Bool, w: C.Term, m: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, Word(1n+p)>:
+def W1.z(p: Nat, b: Bool, w: Bk.Term, m: Maybe<&2, List<&2, Word(8n)>>) -> Maybe<&2, Word(1n+p)>:
   match m:
     case Some{u2}:
-      W1.u(p, b, C.Name.is_eq(u2, C.Program.name.unit()), w)
+      W1.u(p, b, Sd.Name.is_eq(u2, Pg.Program.name.unit()), w)
     case None{}:
       None{}
 
@@ -438,7 +443,7 @@ def W1.r2(p: Nat, b: Bool, m: Maybe<&2, TP>) -> Maybe<&2, Word(1n+p)>:
     case None{}:
       None{}
 
-def W1.b(p: Nat, mb: Maybe<&2, Bool>, r: C.Term) -> Maybe<&2, Word(1n+p)>:
+def W1.b(p: Nat, mb: Maybe<&2, Bool>, r: Bk.Term) -> Maybe<&2, Word(1n+p)>:
   match mb:
     case Some{b}:
       W1.r2(p, b, V1(r))
@@ -452,17 +457,17 @@ def W1.f(p: Nat, m: Maybe<&2, TP>) -> Maybe<&2, Word(1n+p)>:
     case None{}:
       None{}
 
-def W1.k(p: Nat, ok: Bool, f: C.Term) -> Maybe<&2, Word(1n+p)>:
+def W1.k(p: Nat, ok: Bool, f: Bk.Term) -> Maybe<&2, Word(1n+p)>:
   match ok:
     case True{}:
       W1.f(p, V1(f))
     case False{}:
       None{}
 
-def W1.a(p: Nat, m: Maybe<&2, List<&2, Word(8n)>>, f: C.Term) -> Maybe<&2, Word(1n+p)>:
+def W1.a(p: Nat, m: Maybe<&2, List<&2, Word(8n)>>, f: Bk.Term) -> Maybe<&2, Word(1n+p)>:
   match m:
     case Some{k}:
-      W1.k(p, C.Name.is_eq(k, C.Program.name.wcon()), f)
+      W1.k(p, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f)
     case None{}:
       None{}
 
@@ -474,7 +479,7 @@ def W1.r(p: Nat, m: Maybe<&2, TP>) -> Maybe<&2, Word(1n+p)>:
       None{}
 
 # the word of n bits of t, read in the machine's order
-def Wd(n: Nat, t: C.Term) -> Maybe<&2, Word(n)>:
+def Wd(n: Nat, t: Bk.Term) -> Maybe<&2, Word(n)>:
   match n:
     case 0n:
       W0.r(V1(t))
@@ -508,30 +513,30 @@ def ne_78_67(+e: {78n == 67n : Nat}) -> Empty:
   Unit{}
 
 # a byte equal to n has the number of n
-def beq_nat(+x: Word(8n), +n: Word(8n), +e: {C.Byte.is_eq(x, n) == True{} : Bool}) -> {Word.to_nat(8n, x) == Word.to_nat(8n, n) : Nat}:
-  PN.rel_eq(Word.cmp(8n, x, n), Word.to_nat(8n, x), Word.to_nat(8n, n), PN.Word.rel(8n, x, n), PN.toT(C.Byte.is_eq(x, n), e))
+def beq_nat(+x: Word(8n), +n: Word(8n), +e: {Sd.Byte.is_eq(x, n) == True{} : Bool}) -> {Word.to_nat(8n, x) == Word.to_nat(8n, n) : Nat}:
+  PN.rel_eq(Word.cmp(8n, x, n), Word.to_nat(8n, x), Word.to_nat(8n, n), PN.Word.rel(8n, x, n), PN.toT(Sd.Byte.is_eq(x, n), e))
 
 def nilcon.c(b: Bool, +x: Word(8n), +xs: List<&2, Word(8n)>, +e78: {Word.to_nat(8n, x) == 78n : Nat},
-  +eb: {C.Byte.is_eq(x, C.Byte.from_u32(67)) == b : Bool}) ->
-  {False{} == Bool.and(b, C.Name.is_eq(xs, [C.Byte.from_u32(111), C.Byte.from_u32(110)])) : Bool}:
+  +eb: {Sd.Byte.is_eq(x, Sd.Byte.from_u32(67)) == b : Bool}) ->
+  {False{} == Bool.and(b, Sd.Name.is_eq(xs, [Sd.Byte.from_u32(111), Sd.Byte.from_u32(110)])) : Bool}:
   match b:
     case False{}:
       {==}
     case True{}:
-      Empty.absurd({False{} == Bool.and(True{}, C.Name.is_eq(xs, [C.Byte.from_u32(111), C.Byte.from_u32(110)])) : Bool},
-        ne_78_67(Equal.trans(Nat, 78n, Word.to_nat(8n, x), 67n, Equal.sym(Nat, Word.to_nat(8n, x), 78n, e78), beq_nat(x, C.Byte.from_u32(67), eb))))
+      Empty.absurd({False{} == Bool.and(True{}, Sd.Name.is_eq(xs, [Sd.Byte.from_u32(111), Sd.Byte.from_u32(110)])) : Bool},
+        ne_78_67(Equal.trans(Nat, 78n, Word.to_nat(8n, x), 67n, Equal.sym(Nat, Word.to_nat(8n, x), 78n, e78), beq_nat(x, Sd.Byte.from_u32(67), eb))))
 
 # a name that is Nil is not Con
-def nilcon(k: List<&2, Word(8n)>, +e: {C.Name.is_eq(k, C.Program.name.nil()) == True{} : Bool}) ->
-  {False{} == C.Name.is_eq(k, C.Program.name.con()) : Bool}:
+def nilcon(k: List<&2, Word(8n)>, +e: {Sd.Name.is_eq(k, Pg.Program.name.nil()) == True{} : Bool}) ->
+  {False{} == Sd.Name.is_eq(k, Pg.Program.name.con()) : Bool}:
   match k:
     case Nil{}:
-      Empty.absurd({False{} == C.Name.is_eq(Nil{}, C.Program.name.con()) : Bool}, PN.false_ne_true(e))
+      Empty.absurd({False{} == Sd.Name.is_eq(Nil{}, Pg.Program.name.con()) : Bool}, PN.false_ne_true(e))
     case Con{+x, +xs}:
-      nilcon.c(C.Byte.is_eq(x, C.Byte.from_u32(67)), x, xs,
-        beq_nat(x, C.Byte.from_u32(78), and_l(C.Byte.is_eq(x, C.Byte.from_u32(78)), C.Name.is_eq(xs, [C.Byte.from_u32(105), C.Byte.from_u32(108)]), e)), {==})
+      nilcon.c(Sd.Byte.is_eq(x, Sd.Byte.from_u32(67)), x, xs,
+        beq_nat(x, Sd.Byte.from_u32(78), and_l(Sd.Byte.is_eq(x, Sd.Byte.from_u32(78)), Sd.Name.is_eq(xs, [Sd.Byte.from_u32(105), Sd.Byte.from_u32(108)]), e)), {==})
 
-def Uk_none(isnil: Bool, iscon: Bool, -b: C.Term, +h1: {None{} == U.nil(VL(b)) : Maybe<&2, List<&2, Word(8n)>>},
+def Uk_none(isnil: Bool, iscon: Bool, -b: Bk.Term, +h1: {None{} == U.nil(VL(b)) : Maybe<&2, List<&2, Word(8n)>>},
   +h2: {None{} == U.con(V1(b)) : Maybe<&2, List<&2, Word(8n)>>}) -> {None{} == U.k(isnil, iscon, b) : Maybe<&2, List<&2, Word(8n)>>}:
   match isnil:
     case True{}:
@@ -544,7 +549,7 @@ def Uk_none(isnil: Bool, iscon: Bool, -b: C.Term, +h1: {None{} == U.nil(VL(b)) :
           {==}
 
 def LN(isnil: Bool, iscon: Bool, +u: List<&2, Word(8n)>) ->
-  {C.Program.unbytes.nil(Bool.and(isnil, C.Name.is_eq(u, C.Program.name.unit()))) == U.k(isnil, iscon, C.Term.Lab{u}) : Maybe<&2, List<&2, Word(8n)>>}:
+  {Pg.Program.unbytes.nil(Bool.and(isnil, Sd.Name.is_eq(u, Pg.Program.name.unit()))) == U.k(isnil, iscon, Bk.Term.Lab{u}) : Maybe<&2, List<&2, Word(8n)>>}:
   match isnil:
     case True{}:
       {==}
@@ -556,80 +561,80 @@ def LN(isnil: Bool, iscon: Bool, +u: List<&2, Word(8n)>) ->
           {==}
 
 def LF.r(+x: Word(8n), mr: Maybe<&2, List<&2, Word(8n)>>) ->
-  {C.Program.unbytes.con(True{}, Some{x}, mr) == U.c5(x, mr) : Maybe<&2, List<&2, Word(8n)>>}:
+  {Pg.Program.unbytes.con(True{}, Some{x}, mr) == U.c5(x, mr) : Maybe<&2, List<&2, Word(8n)>>}:
   match mr:
     case None{}:
       {==}
     case Some{+bs}:
       {==}
 
-def LF.w(mw: Maybe<&2, Word(8n)>, +rest: C.Term) ->
-  {C.Program.unbytes.con(True{}, mw, C.Program.unbytes(rest)) == U.c4(mw, rest) : Maybe<&2, List<&2, Word(8n)>>}:
+def LF.w(mw: Maybe<&2, Word(8n)>, +rest: Bk.Term) ->
+  {Pg.Program.unbytes.con(True{}, mw, Pg.Program.unbytes(rest)) == U.c4(mw, rest) : Maybe<&2, List<&2, Word(8n)>>}:
   match mw:
     case None{}:
       {==}
     case Some{+x}:
-      LF.r(x, C.Program.unbytes(rest))
+      LF.r(x, Pg.Program.unbytes(rest))
 
-def LF.o(o: Bool, +w: C.Term, +rest: C.Term) ->
-  {C.Program.unbytes.con(o, C.Program.unword(8n, w), C.Program.unbytes(rest)) == U.c3(o, w, rest) : Maybe<&2, List<&2, Word(8n)>>}:
+def LF.o(o: Bool, +w: Bk.Term, +rest: Bk.Term) ->
+  {Pg.Program.unbytes.con(o, Pg.Program.unword(8n, w), Pg.Program.unbytes(rest)) == U.c3(o, w, rest) : Maybe<&2, List<&2, Word(8n)>>}:
   match o:
     case False{}:
       {==}
     case True{}:
-      LF.w(C.Program.unword(8n, w), rest)
+      LF.w(Pg.Program.unword(8n, w), rest)
 
-def LF.k2(iscon: Bool, +w: C.Term, +rest: C.Term, +u: List<&2, Word(8n)>) ->
-  {C.Program.unbytes.con(Bool.and(iscon, C.Name.is_eq(u, C.Program.name.unit())), C.Program.unword(8n, w), C.Program.unbytes(rest)) ==
-   U.k2(iscon, C.Term.Tup{C.Quan.Q1{}, w, C.Term.Tup{C.Quan.Q1{}, rest, C.Term.Lab{u}}}) : Maybe<&2, List<&2, Word(8n)>>}:
+def LF.k2(iscon: Bool, +w: Bk.Term, +rest: Bk.Term, +u: List<&2, Word(8n)>) ->
+  {Pg.Program.unbytes.con(Bool.and(iscon, Sd.Name.is_eq(u, Pg.Program.name.unit())), Pg.Program.unword(8n, w), Pg.Program.unbytes(rest)) ==
+   U.k2(iscon, Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Tup{Bk.Quan.Q1{}, rest, Bk.Term.Lab{u}}}) : Maybe<&2, List<&2, Word(8n)>>}:
   match iscon:
     case False{}:
       {==}
     case True{}:
-      LF.o(C.Name.is_eq(u, C.Program.name.unit()), w, rest)
+      LF.o(Sd.Name.is_eq(u, Pg.Program.name.unit()), w, rest)
 
-def LF.n(isnil: Bool, +k: List<&2, Word(8n)>, +w: C.Term, +rest: C.Term, +u: List<&2, Word(8n)>,
-  +e: {C.Name.is_eq(k, C.Program.name.nil()) == isnil : Bool}) ->
-  {C.Program.unbytes.con(Bool.and(C.Name.is_eq(k, C.Program.name.con()), C.Name.is_eq(u, C.Program.name.unit())), C.Program.unword(8n, w), C.Program.unbytes(rest)) ==
-   U.k(isnil, C.Name.is_eq(k, C.Program.name.con()), C.Term.Tup{C.Quan.Q1{}, w, C.Term.Tup{C.Quan.Q1{}, rest, C.Term.Lab{u}}}) : Maybe<&2, List<&2, Word(8n)>>}:
+def LF.n(isnil: Bool, +k: List<&2, Word(8n)>, +w: Bk.Term, +rest: Bk.Term, +u: List<&2, Word(8n)>,
+  +e: {Sd.Name.is_eq(k, Pg.Program.name.nil()) == isnil : Bool}) ->
+  {Pg.Program.unbytes.con(Bool.and(Sd.Name.is_eq(k, Pg.Program.name.con()), Sd.Name.is_eq(u, Pg.Program.name.unit())), Pg.Program.unword(8n, w), Pg.Program.unbytes(rest)) ==
+   U.k(isnil, Sd.Name.is_eq(k, Pg.Program.name.con()), Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Tup{Bk.Quan.Q1{}, rest, Bk.Term.Lab{u}}}) : Maybe<&2, List<&2, Word(8n)>>}:
   match isnil:
     case True{}:
-      %nilcon(k, e) : {C.Program.unbytes.con(Bool.and(_, C.Name.is_eq(u, C.Program.name.unit())), C.Program.unword(8n, w), C.Program.unbytes(rest)) ==
-        U.k(True{}, C.Name.is_eq(k, C.Program.name.con()), C.Term.Tup{C.Quan.Q1{}, w, C.Term.Tup{C.Quan.Q1{}, rest, C.Term.Lab{u}}}) : Maybe<&2, List<&2, Word(8n)>>}
+      %nilcon(k, e) : {Pg.Program.unbytes.con(Bool.and(_, Sd.Name.is_eq(u, Pg.Program.name.unit())), Pg.Program.unword(8n, w), Pg.Program.unbytes(rest)) ==
+        U.k(True{}, Sd.Name.is_eq(k, Pg.Program.name.con()), Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Tup{Bk.Quan.Q1{}, rest, Bk.Term.Lab{u}}}) : Maybe<&2, List<&2, Word(8n)>>}
       {==}
     case False{}:
-      LF.k2(C.Name.is_eq(k, C.Program.name.con()), w, rest, u)
+      LF.k2(Sd.Name.is_eq(k, Pg.Program.name.con()), w, rest, u)
 
-def LF(+k: List<&2, Word(8n)>, +w: C.Term, +rest: C.Term, +u: List<&2, Word(8n)>) ->
-  {C.Program.unbytes(C.Term.Tup{C.Quan.Q1{}, C.Term.Lab{k}, C.Term.Tup{C.Quan.Q1{}, w, C.Term.Tup{C.Quan.Q1{}, rest, C.Term.Lab{u}}}}) ==
-   U(C.Term.Tup{C.Quan.Q1{}, C.Term.Lab{k}, C.Term.Tup{C.Quan.Q1{}, w, C.Term.Tup{C.Quan.Q1{}, rest, C.Term.Lab{u}}}}) : Maybe<&2, List<&2, Word(8n)>>}:
-  LF.n(C.Name.is_eq(k, C.Program.name.nil()), k, w, rest, u, {==})
+def LF(+k: List<&2, Word(8n)>, +w: Bk.Term, +rest: Bk.Term, +u: List<&2, Word(8n)>) ->
+  {Pg.Program.unbytes(Bk.Term.Tup{Bk.Quan.Q1{}, Bk.Term.Lab{k}, Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Tup{Bk.Quan.Q1{}, rest, Bk.Term.Lab{u}}}}) ==
+   U(Bk.Term.Tup{Bk.Quan.Q1{}, Bk.Term.Lab{k}, Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Tup{Bk.Quan.Q1{}, rest, Bk.Term.Lab{u}}}}) : Maybe<&2, List<&2, Word(8n)>>}:
+  LF.n(Sd.Name.is_eq(k, Pg.Program.name.nil()), k, w, rest, u, {==})
 
 # Cells
 # -----
 
 # field k of the cell c
-def Fd(k: Nat, +m: C.Cir.Cells, +c: U32) -> U32:
-  C.Cir.Cell.get(k, C.Cir.Cells.get(m, c))
+def Fd(k: Nat, +m: Cr.Cir.Cells, +c: U32) -> U32:
+  Cr.Cir.Cell.get(k, Cr.Cir.Cells.get(m, c))
 
 # the tag of the cell c (bits 0 to 5 of field 0)
-def Tg(+m: C.Cir.Cells, +c: U32) -> U32:
+def Tg(+m: Cr.Cir.Cells, +c: U32) -> U32:
   U32.and(Fd(0n, m, c), 63)
 
 # M.pair holds of the cell c: a pair at quantity 1
-def Pm(+m: C.Cir.Cells, +c: U32) -> Bool:
+def Pm(+m: Cr.Cir.Cells, +c: U32) -> Bool:
   FP.l(Fd(0n, m, c))
 
 # the cell c is a label
-def Lm(+m: C.Cir.Cells, +c: U32) -> Bool:
+def Lm(+m: Cr.Cir.Cells, +c: U32) -> Bool:
   U32.is_eq(Tg(m, c), 13)
 
 # M.last holds of the cell c: its field 3 is the label of the name 0, ()
-def LAST(+m: C.Cir.Cells, +c: U32) -> Bool:
+def LAST(+m: Cr.Cir.Cells, +c: U32) -> Bool:
   Bool.and(Lm(m, Fd(3n, m, c)), U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0))
 
 # M.is_lab holds of field 2 of the cell c and the name n
-def ISLAB(+m: C.Cir.Cells, +c: U32, +n: U32) -> Bool:
+def ISLAB(+m: Cr.Cir.Cells, +c: U32, +n: U32) -> Bool:
   Bool.and(Lm(m, Fd(2n, m, c)), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), n))
 
 def iff(a: Bool, b: Bool) -> Bool:
@@ -657,13 +662,13 @@ def iff_eq(a: Bool, b: Bool, +e: {iff(a, b) == True{} : Bool}) -> {a == b : Bool
 # the name b of the number j compares with the machine's names 0 to 6 as j
 # compares with their numbers
 def known.ok(+j: U32, +b: List<&2, Word(8n)>) -> Bool:
-  iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)) &&
-  iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1)) &&
-  iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2)) &&
-  iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3)) &&
-  iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4)) &&
-  iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5)) &&
-  iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6))
+  iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)) &&
+  iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1)) &&
+  iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2)) &&
+  iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3)) &&
+  iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4)) &&
+  iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5)) &&
+  iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6))
 
 def labok.of(n: Maybe<&2, List<&2, Word(8n)>>, +j: U32) -> Bool:
   match n:
@@ -676,21 +681,21 @@ def labok.of(n: Maybe<&2, List<&2, Word(8n)>>, +j: U32) -> Bool:
 def labok(+ks: List<&2, List<&2, Word(8n)>>, +j: U32) -> Bool:
   labok.of(T.tm.name(ks, j), j)
 
-def noT1(r: Maybe<&2, C.Term>) -> Bool:
+def noT1(r: Maybe<&2, Bk.Term>) -> Bool:
   match r:
     case None{}:
       True{}
     case Some{v}:
       Maybe.is_none(&2, TP, V1(v))
 
-def noL(r: Maybe<&2, C.Term>) -> Bool:
+def noL(r: Maybe<&2, Bk.Term>) -> Bool:
   match r:
     case None{}:
       True{}
     case Some{v}:
       Maybe.is_none(&2, List<&2, Word(8n)>, VL(v))
 
-def ok.img(+t: U32, +r: Maybe<&2, C.Term>) -> Bool:
+def ok.img(+t: U32, +r: Maybe<&2, Bk.Term>) -> Bool:
   Bool.or(Bool.not(Bool.or(U32.is_eq(t, 1), U32.is_eq(t, 12))), Bool.and(noT1(r), noL(r)))
 
 def ok.lab(+t: U32, +ks: List<&2, List<&2, Word(8n)>>, +j: U32) -> Bool:
@@ -700,14 +705,14 @@ def ok.lab(+t: U32, +ks: List<&2, List<&2, Word(8n)>>, +j: U32) -> Bool:
 # a cell of the state (Cir.is_cell), a Ref or an Enu has an image's term
 # that is no pair nor label, a label's number names it (labok), and the
 # parts of a pair (tag 10) are such cells too, a level less deep
-def ok(+fuel: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32,
+def ok(+fuel: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32,
   +fs: U32, +nx: U32) -> Bool:
   match fuel:
     case 0n:
       False{}
     case 1n+f:
       +t = Tg(m, c)
-      Bool.and(Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
+      Bool.and(Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
         Bool.or(Bool.not(U32.is_eq(t, 10)),
           Bool.and(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx))))
 
@@ -718,44 +723,44 @@ def or_not(x: Bool, y: Bool, +e1: {Bool.or(Bool.not(x), y) == True{} : Bool}, +e
     case False{}:
       Empty.absurd({y == True{} : Bool}, PN.false_ne_true(e2))
 
-def ok.cell(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
-  +h: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> {C.Cir.is_cell(c, im, fs, nx) == True{} : Bool}:
+def ok.cell(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+  +h: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> {Cr.Cir.is_cell(c, im, fs, nx) == True{} : Bool}:
   +t = Tg(m, c)
-  +h1 = and_l(Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
+  +h1 = and_l(Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
         Bool.or(Bool.not(U32.is_eq(t, 10)),
           Bool.and(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx))), h)
-  +h2 = and_l(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c)), h1)
-  and_l(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c)), h2)
+  +h2 = and_l(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c)), h1)
+  and_l(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c)), h2)
 
-def ok.im(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def ok.im(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +h: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
   +e: {Bool.or(U32.is_eq(Tg(m, c), 1), U32.is_eq(Tg(m, c), 12)) == True{} : Bool}) ->
   {Bool.and(noT1(T.tm.image(img, c)), noL(T.tm.image(img, c))) == True{} : Bool}:
   +t = Tg(m, c)
-  +h1 = and_l(Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
+  +h1 = and_l(Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
         Bool.or(Bool.not(U32.is_eq(t, 10)),
           Bool.and(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx))), h)
-  +h2 = and_l(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c)), h1)
+  +h2 = and_l(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c)), h1)
   or_not(Bool.or(U32.is_eq(t, 1), U32.is_eq(t, 12)), Bool.and(noT1(T.tm.image(img, c)), noL(T.tm.image(img, c))),
-    and_r(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c)), h2), e)
+    and_r(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c)), h2), e)
 
-def ok.lb(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def ok.lb(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +h: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
   +e: {U32.is_eq(Tg(m, c), 13) == True{} : Bool}) -> {labok(ks, Fd(2n, m, c)) == True{} : Bool}:
   +t = Tg(m, c)
-  +h1 = and_l(Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
+  +h1 = and_l(Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
         Bool.or(Bool.not(U32.is_eq(t, 10)),
           Bool.and(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx))), h)
   or_not(U32.is_eq(t, 13), labok(ks, Fd(2n, m, c)),
-    and_r(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c)), h1), e)
+    and_r(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c)), h1), e)
 
-def ok.kids(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def ok.kids(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +h: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
   +e: {U32.is_eq(Tg(m, c), 10) == True{} : Bool}) ->
   {Bool.and(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx)) == True{} : Bool}:
   +t = Tg(m, c)
   or_not(U32.is_eq(t, 10), Bool.and(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx)),
-    and_r(Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
+    and_r(Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), ok.lab(t, ks, Fd(2n, m, c))),
         Bool.or(Bool.not(U32.is_eq(t, 10)),
           Bool.and(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx))), h), e)
 
@@ -775,28 +780,28 @@ def nat_eq(+x: U32, +n: U32, +e: {U32.to_nat(x) == U32.to_nat(n) : Nat}) -> {U32
   ion(U32.cmp(x, n), U32.to_nat(x), U32.to_nat(n), PN.U32.rel(x, n), e)
 
 # the term of a Maybe, when there is one, has the property K
-def SpecM(r: Maybe<&2, C.Term>, K: C.Term -> Type) -> Type:
+def SpecM(r: Maybe<&2, Bk.Term>, K: Bk.Term -> Type) -> Type:
   match r:
     case None{}:
       Unit
     case Some{v}:
       K(v)
 
-def SpecM.all(r: Maybe<&2, C.Term>, -K: C.Term -> Type, h: @v: C.Term -> K(v)) -> SpecM(r, K):
+def SpecM.all(r: Maybe<&2, Bk.Term>, -K: Bk.Term -> Type, h: @v: Bk.Term -> K(v)) -> SpecM(r, K):
   match r:
     case None{}:
       Unit{}
     case Some{v}:
       h(v)
 
-def SpecM.map(r: Maybe<&2, C.Term>, -K1: C.Term -> Type, -K2: C.Term -> Type, h1: SpecM(r, K1), h: @v: C.Term -> K1(v) -> K2(v)) -> SpecM(r, K2):
+def SpecM.map(r: Maybe<&2, Bk.Term>, -K1: Bk.Term -> Type, -K2: Bk.Term -> Type, h1: SpecM(r, K1), h: @v: Bk.Term -> K1(v) -> K2(v)) -> SpecM(r, K2):
   match r:
     case None{}:
       Unit{}
     case Some{v}:
       h(v, h1)
 
-def SpecM.swap(r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -K: C.Term -> C.Term -> Type,
+def SpecM.swap(r: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, -K: Bk.Term -> Bk.Term -> Type,
   h: SpecM(s, b => SpecM(r, a => K(a, b)))) -> SpecM(r, a => SpecM(s, b => K(a, b))):
   match r s:
     case None{} _:
@@ -806,15 +811,15 @@ def SpecM.swap(r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -K: C.Term -> C.Term 
     case Some{a} Some{b}:
       h
 
-def sp.one(k: C.Term -> C.Term, r: Maybe<&2, C.Term>, -K: C.Term -> Type, h: @a: C.Term -> K(k(a))) -> SpecM(T.tm.one(k, r), K):
+def sp.one(k: Bk.Term -> Bk.Term, r: Maybe<&2, Bk.Term>, -K: Bk.Term -> Type, h: @a: Bk.Term -> K(k(a))) -> SpecM(T.tm.one(k, r), K):
   match r:
     case None{}:
       Unit{}
     case Some{a}:
       h(a)
 
-def sp.two(k: C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -K: C.Term -> Type,
-  h: @a: C.Term -> @b: C.Term -> K(k(a, b))) -> SpecM(T.tm.two(k, r, s), K):
+def sp.two(k: Bk.Term -> Bk.Term -> Bk.Term, r: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, -K: Bk.Term -> Type,
+  h: @a: Bk.Term -> @b: Bk.Term -> K(k(a, b))) -> SpecM(T.tm.two(k, r, s), K):
   match r s:
     case Some{a} Some{b}:
       h(a, b)
@@ -823,8 +828,8 @@ def sp.two(k: C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: Maybe<&2, C.T
     case None{} _:
       Unit{}
 
-def sp.three(k: C.Term -> C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, t: Maybe<&2, C.Term>,
-  -K: C.Term -> Type, h: @a: C.Term -> @b: C.Term -> @c: C.Term -> K(k(a, b, c))) -> SpecM(T.tm.three(k, r, s, t), K):
+def sp.three(k: Bk.Term -> Bk.Term -> Bk.Term -> Bk.Term, r: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, t: Maybe<&2, Bk.Term>,
+  -K: Bk.Term -> Type, h: @a: Bk.Term -> @b: Bk.Term -> @c: Bk.Term -> K(k(a, b, c))) -> SpecM(T.tm.three(k, r, s, t), K):
   match r s t:
     case Some{a} Some{b} Some{c}:
       h(a, b, c)
@@ -835,7 +840,7 @@ def sp.three(k: C.Term -> C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: M
     case None{} _ _:
       Unit{}
 
-def sp.named(n: Maybe<&2, List<&2, Word(8n)>>, k: List<&2, Word(8n)> -> C.Term, -K: C.Term -> Type, h: @x: List<&2, Word(8n)> -> K(k(x))) ->
+def sp.named(n: Maybe<&2, List<&2, Word(8n)>>, k: List<&2, Word(8n)> -> Bk.Term, -K: Bk.Term -> Type, h: @x: List<&2, Word(8n)> -> K(k(x))) ->
   SpecM(T.tm.named(n, k), K):
   match n:
     case None{}:
@@ -843,8 +848,8 @@ def sp.named(n: Maybe<&2, List<&2, Word(8n)>>, k: List<&2, Word(8n)> -> C.Term, 
     case Some{x}:
       h(x)
 
-def sp.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -K: C.Term -> Type,
-  h: @x: List<&2, Word(8n)> -> @a: C.Term -> @b: C.Term -> K(C.Term.Mat{x, a, b})) -> SpecM(T.tm.mat(n, r, s), K):
+def sp.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, -K: Bk.Term -> Type,
+  h: @x: List<&2, Word(8n)> -> @a: Bk.Term -> @b: Bk.Term -> K(Bk.Term.Mat{x, a, b})) -> SpecM(T.tm.mat(n, r, s), K):
   match n r s:
     case Some{x} Some{a} Some{b}:
       h(x, a, b)
@@ -870,16 +875,16 @@ def isnoneL(m: Maybe<&2, List<&2, Word(8n)>>, +e: {Maybe.is_none(&2, List<&2, Wo
       Empty.absurd({Some{x} == None{} : Maybe<&2, List<&2, Word(8n)>>}, PN.false_ne_true(e))
 
 # an image's term that is no pair at quantity 1
-def sp.imgT(r: Maybe<&2, C.Term>, -K: C.Term -> Type, +e: {Bool.and(noT1(r), noL(r)) == True{} : Bool},
-  h: @v: C.Term -> {V1(v) == None{} : Maybe<&2, TP>} -> K(v)) -> SpecM(r, K):
+def sp.imgT(r: Maybe<&2, Bk.Term>, -K: Bk.Term -> Type, +e: {Bool.and(noT1(r), noL(r)) == True{} : Bool},
+  h: @v: Bk.Term -> {V1(v) == None{} : Maybe<&2, TP>} -> K(v)) -> SpecM(r, K):
   match r:
     case None{}:
       Unit{}
     case Some{+v}:
       h(v, isnone(V1(v), and_l(Maybe.is_none(&2, TP, V1(v)), Maybe.is_none(&2, List<&2, Word(8n)>, VL(v)), e)))
 
-def sp.imgL(r: Maybe<&2, C.Term>, -K: C.Term -> Type, +e: {Bool.and(noT1(r), noL(r)) == True{} : Bool},
-  h: @v: C.Term -> {VL(v) == None{} : Maybe<&2, List<&2, Word(8n)>>} -> K(v)) -> SpecM(r, K):
+def sp.imgL(r: Maybe<&2, Bk.Term>, -K: Bk.Term -> Type, +e: {Bool.and(noT1(r), noL(r)) == True{} : Bool},
+  h: @v: Bk.Term -> {VL(v) == None{} : Maybe<&2, List<&2, Word(8n)>>} -> K(v)) -> SpecM(r, K):
   match r:
     case None{}:
       Unit{}
@@ -894,8 +899,8 @@ def or_true_r(a: Bool) -> {Bool.or(a, True{}) == True{} : Bool}:
       {==}
 
 # the goal of a cell's term, by its tag and quantity
-def CG(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32,
-  K: C.Term -> Type) -> Type:
+def CG(tag: Nat, +q: Bk.Quan, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32,
+  K: Bk.Term -> Type) -> Type:
   SpecM(T.tm.cell(tag, q, c, Fd(2n, m, c), ks, img, u => T.tm.of(f, m, ks, img, Fd(2n, m, c)),
     u => T.tm.of(f, m, ks, img, Fd(3n, m, c)), u => T.tm.of(f, m, ks, img, Fd(4n, m, c))), K)
 
@@ -913,7 +918,7 @@ def or_r_true(a: Bool, b: Bool, +e: {b == True{} : Bool}) -> {Bool.or(a, b) == T
     case False{}:
       e
 
-def sp.two2(k: C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -K: C.Term -> Type,
+def sp.two2(k: Bk.Term -> Bk.Term -> Bk.Term, r: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, -K: Bk.Term -> Type,
   h: SpecM(r, a => SpecM(s, b => K(k(a, b))))) -> SpecM(T.tm.two(k, r, s), K):
   match r s:
     case Some{a} Some{b}:
@@ -923,32 +928,32 @@ def sp.two2(k: C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: Maybe<&2, C.
     case None{} _:
       Unit{}
 
-def sp.namedE(n: Maybe<&2, List<&2, Word(8n)>>, -K: C.Term -> Type, h: @k: List<&2, Word(8n)> -> {n == Some{k} : Maybe<&2, List<&2, Word(8n)>>} -> K(C.Term.Lab{k})) ->
-  SpecM(T.tm.named(n, k => C.Term.Lab{k}), K):
+def sp.namedE(n: Maybe<&2, List<&2, Word(8n)>>, -K: Bk.Term -> Type, h: @k: List<&2, Word(8n)> -> {n == Some{k} : Maybe<&2, List<&2, Word(8n)>>} -> K(Bk.Term.Lab{k})) ->
+  SpecM(T.tm.named(n, k => Bk.Term.Lab{k}), K):
   match n:
     case None{}:
       Unit{}
     case Some{+k}:
       h(k, {==})
 
-def cellT1.go(tag: Nat, q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32,
-  -K: C.Term -> Type, +et: {10n == tag : Nat}, +eq: {isQ1(q) == True{} : Bool},
-  h: SpecM(T.tm.of(f, m, ks, img, Fd(2n, m, c)), a => SpecM(T.tm.of(f, m, ks, img, Fd(3n, m, c)), b => K(C.Term.Tup{C.Quan.Q1{}, a, b})))) ->
+def cellT1.go(tag: Nat, q: Bk.Quan, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32,
+  -K: Bk.Term -> Type, +et: {10n == tag : Nat}, +eq: {isQ1(q) == True{} : Bool},
+  h: SpecM(T.tm.of(f, m, ks, img, Fd(2n, m, c)), a => SpecM(T.tm.of(f, m, ks, img, Fd(3n, m, c)), b => K(Bk.Term.Tup{Bk.Quan.Q1{}, a, b})))) ->
   CG(tag, q, f, m, ks, img, c, K):
   match q:
-    case C.Quan.Q1{}:
-      %et : CG(_, C.Quan.Q1{}, f, m, ks, img, c, K)
-      sp.two2(a => b => C.Term.Tup{C.Quan.Q1{}, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, h)
-    case C.Quan.Q0{}:
-      Empty.absurd(CG(tag, C.Quan.Q0{}, f, m, ks, img, c, K), PN.false_ne_true(eq))
-    case C.Quan.Q2{}:
-      Empty.absurd(CG(tag, C.Quan.Q2{}, f, m, ks, img, c, K), PN.false_ne_true(eq))
+    case Bk.Quan.Q1{}:
+      %et : CG(_, Bk.Quan.Q1{}, f, m, ks, img, c, K)
+      sp.two2(a => b => Bk.Term.Tup{Bk.Quan.Q1{}, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, h)
+    case Bk.Quan.Q0{}:
+      Empty.absurd(CG(tag, Bk.Quan.Q0{}, f, m, ks, img, c, K), PN.false_ne_true(eq))
+    case Bk.Quan.Q2{}:
+      Empty.absurd(CG(tag, Bk.Quan.Q2{}, f, m, ks, img, c, K), PN.false_ne_true(eq))
 
 # the term of a cell that M.pair accepts is a pair at quantity 1 of the terms
 # of its fields 2 and 3
-def cellT1(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, -K: C.Term -> Type,
+def cellT1(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, -K: Bk.Term -> Type,
   +eP: {Pm(m, c) == True{} : Bool},
-  h: SpecM(T.tm.of(f, m, ks, img, Fd(2n, m, c)), a => SpecM(T.tm.of(f, m, ks, img, Fd(3n, m, c)), b => K(C.Term.Tup{C.Quan.Q1{}, a, b})))) ->
+  h: SpecM(T.tm.of(f, m, ks, img, Fd(2n, m, c)), a => SpecM(T.tm.of(f, m, ks, img, Fd(3n, m, c)), b => K(Bk.Term.Tup{Bk.Quan.Q1{}, a, b})))) ->
   SpecM(T.tm.of(1n+f, m, ks, img, c), K):
   +f0 = Fd(0n, m, c)
   +q = T.tm.quan(U32.and(U32.shrn(f0, 6n), 3))
@@ -958,28 +963,28 @@ def cellT1(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: Li
     Equal.sym(Nat, U32.to_nat(U32.and(f0, 63)), 10n, eq_nat(U32.and(f0, 63), 10, e10)),
     and_l(isQ1(q), U32.is_eq(U32.and(f0, 63), 10), fr), h)
 
-def cellLab.go(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32,
-  -K: C.Term -> Type, +et: {13n == tag : Nat},
-  h: @k: List<&2, Word(8n)> -> {T.tm.name(ks, Fd(2n, m, c)) == Some{k} : Maybe<&2, List<&2, Word(8n)>>} -> K(C.Term.Lab{k})) ->
+def cellLab.go(tag: Nat, +q: Bk.Quan, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32,
+  -K: Bk.Term -> Type, +et: {13n == tag : Nat},
+  h: @k: List<&2, Word(8n)> -> {T.tm.name(ks, Fd(2n, m, c)) == Some{k} : Maybe<&2, List<&2, Word(8n)>>} -> K(Bk.Term.Lab{k})) ->
   CG(tag, q, f, m, ks, img, c, K):
   %et : CG(_, q, f, m, ks, img, c, K)
   sp.namedE(T.tm.name(ks, Fd(2n, m, c)), K, h)
 
 # the term of a label cell is the label of the name of its number
-def cellLab(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, -K: C.Term -> Type,
+def cellLab(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, -K: Bk.Term -> Type,
   +eL: {Lm(m, c) == True{} : Bool},
-  h: @k: List<&2, Word(8n)> -> {T.tm.name(ks, Fd(2n, m, c)) == Some{k} : Maybe<&2, List<&2, Word(8n)>>} -> K(C.Term.Lab{k})) ->
+  h: @k: List<&2, Word(8n)> -> {T.tm.name(ks, Fd(2n, m, c)) == Some{k} : Maybe<&2, List<&2, Word(8n)>>} -> K(Bk.Term.Lab{k})) ->
   SpecM(T.tm.of(1n+f, m, ks, img, c), K):
   +f0 = Fd(0n, m, c)
   cellLab.go(U32.to_nat(U32.and(f0, 63)), T.tm.quan(U32.and(U32.shrn(f0, 6n), 3)), f, m, ks, img, c, K,
     Equal.sym(Nat, U32.to_nat(U32.and(f0, 63)), 13n, eq_nat(U32.and(f0, 63), 13, eL)), h)
 
-def cellNotT1.go(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, -K: C.Term -> Type, +et: {U32.to_nat(Tg(m, c)) == tag : Nat},
+def cellNotT1.go(tag: Nat, +q: Bk.Quan, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, -K: Bk.Term -> Type, +et: {U32.to_nat(Tg(m, c)) == tag : Nat},
   +eF: {Bool.and(isQ1(q), U32.is_eq(Tg(m, c), 10)) == False{} : Bool}, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
-  h: @v: C.Term -> {V1(v) == None{} : Maybe<&2, TP>} -> K(v)) -> CG(tag, q, f, m, ks, img, c, K):
+  h: @v: Bk.Term -> {V1(v) == None{} : Maybe<&2, TP>} -> K(v)) -> CG(tag, q, f, m, ks, img, c, K):
   match tag:
     case 0n:
-      h(C.Term.Var{U32.to_nat(Fd(2n, m, c))}, {==})
+      h(Bk.Term.Var{U32.to_nat(Fd(2n, m, c))}, {==})
     case 1n+t1:
       match t1:
         case 0n:
@@ -987,49 +992,49 @@ def cellNotT1.go(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, L
         case 1n+t2:
           match t2:
             case 0n:
-              sp.two(a => b => C.Term.Ann{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Ann{a, b}, {==}))
+              sp.two(a => b => Bk.Term.Ann{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Ann{a, b}, {==}))
             case 1n+t3:
               match t3:
                 case 0n:
-                  sp.two(a => b => C.Term.Let{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Let{q, a, b}, {==}))
+                  sp.two(a => b => Bk.Term.Let{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Let{q, a, b}, {==}))
                 case 1n+t4:
                   match t4:
                     case 0n:
-                      sp.one(a => C.Term.Typ{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(C.Term.Typ{a}, {==}))
+                      sp.one(a => Bk.Term.Typ{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(Bk.Term.Typ{a}, {==}))
                     case 1n+t5:
                       match t5:
                         case 0n:
-                          sp.two(a => b => C.Term.Min{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Min{a, b}, {==}))
+                          sp.two(a => b => Bk.Term.Min{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Min{a, b}, {==}))
                         case 1n+t6:
                           match t6:
                             case 0n:
-                              sp.two(a => b => C.Term.All{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.All{q, a, b}, {==}))
+                              sp.two(a => b => Bk.Term.All{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.All{q, a, b}, {==}))
                             case 1n+t7:
                               match t7:
                                 case 0n:
-                                  sp.one(a => C.Term.Lam{q, a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(C.Term.Lam{q, a}, {==}))
+                                  sp.one(a => Bk.Term.Lam{q, a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(Bk.Term.Lam{q, a}, {==}))
                                 case 1n+t8:
                                   match t8:
                                     case 0n:
-                                      sp.two(a => b => C.Term.App{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.App{q, a, b}, {==}))
+                                      sp.two(a => b => Bk.Term.App{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.App{q, a, b}, {==}))
                                     case 1n+t9:
                                       match t9:
                                         case 0n:
-                                          sp.two(a => b => C.Term.Sig{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Sig{q, a, b}, {==}))
+                                          sp.two(a => b => Bk.Term.Sig{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Sig{q, a, b}, {==}))
                                         case 1n+t10:
                                           match t10:
                                             case 0n:
                                               match q:
-                                                case C.Quan.Q0{}:
-                                                  sp.two(a => b => C.Term.Tup{C.Quan.Q0{}, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Tup{C.Quan.Q0{}, a, b}, {==}))
-                                                case C.Quan.Q2{}:
-                                                  sp.two(a => b => C.Term.Tup{C.Quan.Q2{}, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Tup{C.Quan.Q2{}, a, b}, {==}))
-                                                case C.Quan.Q1{}:
-                                                  Empty.absurd(CG(10n, C.Quan.Q1{}, f, m, ks, img, c, K), PN.true_ne_false(Equal.trans(Bool, True{}, U32.is_eq(Tg(m, c), 10), False{}, Equal.sym(Bool, U32.is_eq(Tg(m, c), 10), True{}, nat_eq(Tg(m, c), 10, et)), eF)))
+                                                case Bk.Quan.Q0{}:
+                                                  sp.two(a => b => Bk.Term.Tup{Bk.Quan.Q0{}, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Tup{Bk.Quan.Q0{}, a, b}, {==}))
+                                                case Bk.Quan.Q2{}:
+                                                  sp.two(a => b => Bk.Term.Tup{Bk.Quan.Q2{}, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Tup{Bk.Quan.Q2{}, a, b}, {==}))
+                                                case Bk.Quan.Q1{}:
+                                                  Empty.absurd(CG(10n, Bk.Quan.Q1{}, f, m, ks, img, c, K), PN.true_ne_false(Equal.trans(Bool, True{}, U32.is_eq(Tg(m, c), 10), False{}, Equal.sym(Bool, U32.is_eq(Tg(m, c), 10), True{}, nat_eq(Tg(m, c), 10, et)), eF)))
                                             case 1n+t11:
                                               match t11:
                                                 case 0n:
-                                                  sp.one(a => C.Term.Prj{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(C.Term.Prj{a}, {==}))
+                                                  sp.one(a => Bk.Term.Prj{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(Bk.Term.Prj{a}, {==}))
                                                 case 1n+t12:
                                                   match t12:
                                                     case 0n:
@@ -1037,36 +1042,36 @@ def cellNotT1.go(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, L
                                                     case 1n+t13:
                                                       match t13:
                                                         case 0n:
-                                                          sp.named(T.tm.name(ks, Fd(2n, m, c)), k => C.Term.Lab{k}, K, x => h(C.Term.Lab{x}, {==}))
+                                                          sp.named(T.tm.name(ks, Fd(2n, m, c)), k => Bk.Term.Lab{k}, K, x => h(Bk.Term.Lab{x}, {==}))
                                                         case 1n+t14:
                                                           match t14:
                                                             case 0n:
-                                                              sp.mat(T.tm.name(ks, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, x => a => b => h(C.Term.Mat{x, a, b}, {==}))
+                                                              sp.mat(T.tm.name(ks, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, x => a => b => h(Bk.Term.Mat{x, a, b}, {==}))
                                                             case 1n+t15:
                                                               match t15:
                                                                 case 0n:
-                                                                  h(C.Term.Efq{}, {==})
+                                                                  h(Bk.Term.Efq{}, {==})
                                                                 case 1n+t16:
                                                                   match t16:
                                                                     case 0n:
-                                                                      sp.three(a => b => d => C.Term.Eql{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(C.Term.Eql{a, b, d}, {==}))
+                                                                      sp.three(a => b => d => Bk.Term.Eql{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(Bk.Term.Eql{a, b, d}, {==}))
                                                                     case 1n+t17:
                                                                       match t17:
                                                                         case 0n:
-                                                                          h(C.Term.Rfl{}, {==})
+                                                                          h(Bk.Term.Rfl{}, {==})
                                                                         case 1n+t18:
                                                                           match t18:
                                                                             case 0n:
-                                                                              sp.three(a => b => d => C.Term.Rwt{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(C.Term.Rwt{a, b, d}, {==}))
+                                                                              sp.three(a => b => d => Bk.Term.Rwt{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(Bk.Term.Rwt{a, b, d}, {==}))
                                                                             case 1n+t19:
                                                                               Unit{}
 
-def cellNotL.go(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, -K: C.Term -> Type, +et: {U32.to_nat(Tg(m, c)) == tag : Nat},
+def cellNotL.go(tag: Nat, +q: Bk.Quan, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, -K: Bk.Term -> Type, +et: {U32.to_nat(Tg(m, c)) == tag : Nat},
   +eF: {U32.is_eq(Tg(m, c), 13) == False{} : Bool}, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
-  h: @v: C.Term -> {VL(v) == None{} : Maybe<&2, List<&2, Word(8n)>>} -> K(v)) -> CG(tag, q, f, m, ks, img, c, K):
+  h: @v: Bk.Term -> {VL(v) == None{} : Maybe<&2, List<&2, Word(8n)>>} -> K(v)) -> CG(tag, q, f, m, ks, img, c, K):
   match tag:
     case 0n:
-      h(C.Term.Var{U32.to_nat(Fd(2n, m, c))}, {==})
+      h(Bk.Term.Var{U32.to_nat(Fd(2n, m, c))}, {==})
     case 1n+t1:
       match t1:
         case 0n:
@@ -1074,43 +1079,43 @@ def cellNotL.go(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, Li
         case 1n+t2:
           match t2:
             case 0n:
-              sp.two(a => b => C.Term.Ann{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Ann{a, b}, {==}))
+              sp.two(a => b => Bk.Term.Ann{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Ann{a, b}, {==}))
             case 1n+t3:
               match t3:
                 case 0n:
-                  sp.two(a => b => C.Term.Let{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Let{q, a, b}, {==}))
+                  sp.two(a => b => Bk.Term.Let{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Let{q, a, b}, {==}))
                 case 1n+t4:
                   match t4:
                     case 0n:
-                      sp.one(a => C.Term.Typ{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(C.Term.Typ{a}, {==}))
+                      sp.one(a => Bk.Term.Typ{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(Bk.Term.Typ{a}, {==}))
                     case 1n+t5:
                       match t5:
                         case 0n:
-                          sp.two(a => b => C.Term.Min{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Min{a, b}, {==}))
+                          sp.two(a => b => Bk.Term.Min{a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Min{a, b}, {==}))
                         case 1n+t6:
                           match t6:
                             case 0n:
-                              sp.two(a => b => C.Term.All{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.All{q, a, b}, {==}))
+                              sp.two(a => b => Bk.Term.All{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.All{q, a, b}, {==}))
                             case 1n+t7:
                               match t7:
                                 case 0n:
-                                  sp.one(a => C.Term.Lam{q, a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(C.Term.Lam{q, a}, {==}))
+                                  sp.one(a => Bk.Term.Lam{q, a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(Bk.Term.Lam{q, a}, {==}))
                                 case 1n+t8:
                                   match t8:
                                     case 0n:
-                                      sp.two(a => b => C.Term.App{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.App{q, a, b}, {==}))
+                                      sp.two(a => b => Bk.Term.App{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.App{q, a, b}, {==}))
                                     case 1n+t9:
                                       match t9:
                                         case 0n:
-                                          sp.two(a => b => C.Term.Sig{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Sig{q, a, b}, {==}))
+                                          sp.two(a => b => Bk.Term.Sig{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Sig{q, a, b}, {==}))
                                         case 1n+t10:
                                           match t10:
                                             case 0n:
-                                              sp.two(a => b => C.Term.Tup{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(C.Term.Tup{q, a, b}, {==}))
+                                              sp.two(a => b => Bk.Term.Tup{q, a, b}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), K, a => b => h(Bk.Term.Tup{q, a, b}, {==}))
                                             case 1n+t11:
                                               match t11:
                                                 case 0n:
-                                                  sp.one(a => C.Term.Prj{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(C.Term.Prj{a}, {==}))
+                                                  sp.one(a => Bk.Term.Prj{a}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), K, a => h(Bk.Term.Prj{a}, {==}))
                                                 case 1n+t12:
                                                   match t12:
                                                     case 0n:
@@ -1122,37 +1127,37 @@ def cellNotL.go(tag: Nat, +q: C.Quan, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, Li
                                                         case 1n+t14:
                                                           match t14:
                                                             case 0n:
-                                                              sp.mat(T.tm.name(ks, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, x => a => b => h(C.Term.Mat{x, a, b}, {==}))
+                                                              sp.mat(T.tm.name(ks, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, x => a => b => h(Bk.Term.Mat{x, a, b}, {==}))
                                                             case 1n+t15:
                                                               match t15:
                                                                 case 0n:
-                                                                  h(C.Term.Efq{}, {==})
+                                                                  h(Bk.Term.Efq{}, {==})
                                                                 case 1n+t16:
                                                                   match t16:
                                                                     case 0n:
-                                                                      sp.three(a => b => d => C.Term.Eql{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(C.Term.Eql{a, b, d}, {==}))
+                                                                      sp.three(a => b => d => Bk.Term.Eql{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(Bk.Term.Eql{a, b, d}, {==}))
                                                                     case 1n+t17:
                                                                       match t17:
                                                                         case 0n:
-                                                                          h(C.Term.Rfl{}, {==})
+                                                                          h(Bk.Term.Rfl{}, {==})
                                                                         case 1n+t18:
                                                                           match t18:
                                                                             case 0n:
-                                                                              sp.three(a => b => d => C.Term.Rwt{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(C.Term.Rwt{a, b, d}, {==}))
+                                                                              sp.three(a => b => d => Bk.Term.Rwt{a, b, d}, T.tm.of(f, m, ks, img, Fd(2n, m, c)), T.tm.of(f, m, ks, img, Fd(3n, m, c)), T.tm.of(f, m, ks, img, Fd(4n, m, c)), K, a => b => d => h(Bk.Term.Rwt{a, b, d}, {==}))
                                                                             case 1n+t19:
                                                                               Unit{}
 # the term of a cell that M.pair rejects is no pair at quantity 1
-def cellNotT1(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
-  -K: C.Term -> Type, +eP: {Pm(m, c) == False{} : Bool}, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
-  h: @v: C.Term -> {V1(v) == None{} : Maybe<&2, TP>} -> K(v)) -> SpecM(T.tm.of(1n+f, m, ks, img, c), K):
+def cellNotT1(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+  -K: Bk.Term -> Type, +eP: {Pm(m, c) == False{} : Bool}, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
+  h: @v: Bk.Term -> {V1(v) == None{} : Maybe<&2, TP>} -> K(v)) -> SpecM(T.tm.of(1n+f, m, ks, img, c), K):
   +f0 = Fd(0n, m, c)
   cellNotT1.go(U32.to_nat(U32.and(f0, 63)), T.tm.quan(U32.and(U32.shrn(f0, 6n), 3)), f, m, ks, img, c, im, fs, nx, K, {==},
     Equal.trans(Bool, FP.r(f0), FP.l(f0), False{}, Equal.sym(Bool, FP.l(f0), FP.r(f0), fp(f0)), eP), hok, h)
 
 # the term of a cell whose tag is not 13 is no label
-def cellNotL(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
-  -K: C.Term -> Type, +eL: {Lm(m, c) == False{} : Bool}, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
-  h: @v: C.Term -> {VL(v) == None{} : Maybe<&2, List<&2, Word(8n)>>} -> K(v)) -> SpecM(T.tm.of(1n+f, m, ks, img, c), K):
+def cellNotL(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+  -K: Bk.Term -> Type, +eL: {Lm(m, c) == False{} : Bool}, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool},
+  h: @v: Bk.Term -> {VL(v) == None{} : Maybe<&2, List<&2, Word(8n)>>} -> K(v)) -> SpecM(T.tm.of(1n+f, m, ks, img, c), K):
   +f0 = Fd(0n, m, c)
   cellNotL.go(U32.to_nat(U32.and(f0, 63)), T.tm.quan(U32.and(U32.shrn(f0, 6n), 3)), f, m, ks, img, c, im, fs, nx, K, {==}, eL, hok, h)
 
@@ -1178,21 +1183,21 @@ def CB.x(b: Bool, +t2: U32) -> Maybe<&2, Bool>:
     case False{}:
       None{}
 
-def CB.l(b: Bool, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
+def CB.l(b: Bool, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
   match b:
     case True{}:
       CB.x(Lm(m, Fd(2n, m, c)), Fd(2n, m, Fd(2n, m, c)))
     case False{}:
       None{}
 
-def CB.p(b: Bool, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
+def CB.p(b: Bool, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
   match b:
     case True{}:
       CB.l(LAST(m, c), m, c)
     case False{}:
       None{}
 
-def CB(+m: C.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
+def CB(+m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
   CB.p(Pm(m, c), m, c)
 
 # a word of n bits
@@ -1203,14 +1208,14 @@ def CW0.z(b: Bool) -> Maybe<&2, Word(0n)>:
     case False{}:
       None{}
 
-def CW0.l(b: Bool, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Word(0n)>:
+def CW0.l(b: Bool, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Word(0n)>:
   match b:
     case True{}:
       CW0.z(LAST(m, c))
     case False{}:
       None{}
 
-def CW0.p(b: Bool, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Word(0n)>:
+def CW0.p(b: Bool, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Word(0n)>:
   match b:
     case True{}:
       CW0.l(ISLAB(m, c, 3), m, c)
@@ -1226,42 +1231,42 @@ def GB.z(x: Bool, b: Bool) -> Maybe<&2, Bool>:
     case False{}:
       None{}
 
-def GB.r(x: Bool, b: Bool, +m: C.Cir.Cells, +rc: U32) -> Maybe<&2, Bool>:
+def GB.r(x: Bool, b: Bool, +m: Cr.Cir.Cells, +rc: U32) -> Maybe<&2, Bool>:
   match b:
     case True{}:
       GB.z(x, LAST(m, rc))
     case False{}:
       None{}
 
-def GB.b(mb: Maybe<&2, Bool>, +m: C.Cir.Cells, +rc: U32) -> Maybe<&2, Bool>:
+def GB.b(mb: Maybe<&2, Bool>, +m: Cr.Cir.Cells, +rc: U32) -> Maybe<&2, Bool>:
   match mb:
     case Some{x}:
       GB.r(x, Pm(m, rc), m, rc)
     case None{}:
       None{}
 
-def GB.f(b: Bool, +m: C.Cir.Cells, +fc: U32) -> Maybe<&2, Bool>:
+def GB.f(b: Bool, +m: Cr.Cir.Cells, +fc: U32) -> Maybe<&2, Bool>:
   match b:
     case True{}:
       GB.b(CB(m, Fd(2n, m, fc)), m, Fd(3n, m, fc))
     case False{}:
       None{}
 
-def GB.l(b: Bool, +m: C.Cir.Cells, +fc: U32) -> Maybe<&2, Bool>:
+def GB.l(b: Bool, +m: Cr.Cir.Cells, +fc: U32) -> Maybe<&2, Bool>:
   match b:
     case True{}:
       GB.f(Pm(m, fc), m, fc)
     case False{}:
       None{}
 
-def GB.p(b: Bool, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
+def GB.p(b: Bool, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
   match b:
     case True{}:
       GB.l(ISLAB(m, c, 4), m, Fd(3n, m, c))
     case False{}:
       None{}
 
-def GB(+m: C.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
+def GB(+m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Bool>:
   GB.p(Pm(m, c), m, c)
 
 # the bit g, below the word rec
@@ -1273,10 +1278,10 @@ def W1.g(-q: Nat, g: Maybe<&2, Bool>, rec: Maybe<&2, Word(q)>) -> Maybe<&2, Word
       None{}
 
 # the cell of the word after the word of the cell c
-def CW.next(+m: C.Cir.Cells, +c: U32) -> U32:
+def CW.next(+m: Cr.Cir.Cells, +c: U32) -> U32:
   Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))
 
-def CW(p: Nat, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Word(p)>:
+def CW(p: Nat, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Word(p)>:
   match p:
     case 0n:
       CW0.p(Pm(m, c), m, c)
@@ -1284,7 +1289,7 @@ def CW(p: Nat, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Word(p)>:
       W1.g(q, GB(m, c), CW(q, m, CW.next(m, c)))
 
 # the p bits of the word of the cell c, with no WNil after them
-def CWb(p: Nat, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Word(p)>:
+def CWb(p: Nat, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, Word(p)>:
   match p:
     case 0n:
       Some{WNil{}}
@@ -1292,7 +1297,7 @@ def CWb(p: Nat, +m: C.Cir.Cells, +c: U32) -> Maybe<&2, Word(p)>:
       W1.g(q, GB(m, c), CWb(q, m, CW.next(m, c)))
 
 # the cell after p bits of the word of the cell c
-def Nx(p: Nat, +m: C.Cir.Cells, +c: U32) -> U32:
+def Nx(p: Nat, +m: Cr.Cir.Cells, +c: U32) -> U32:
   match p:
     case 0n:
       c
@@ -1320,28 +1325,28 @@ def S.c3(mw: Maybe<&2, Word(8n)>, +restc: U32) -> SR:
     case None{}:
       SR.done{None{}}
 
-def S.c2(b: Bool, +m: C.Cir.Cells, +xc: U32, +restc: U32) -> SR:
+def S.c2(b: Bool, +m: Cr.Cir.Cells, +xc: U32, +restc: U32) -> SR:
   match b:
     case True{}:
       S.c3(CW(8n, m, xc), restc)
     case False{}:
       SR.done{None{}}
 
-def S.c1(b: Bool, +m: C.Cir.Cells, +xc: U32, +yc: U32) -> SR:
+def S.c1(b: Bool, +m: Cr.Cir.Cells, +xc: U32, +yc: U32) -> SR:
   match b:
     case True{}:
       S.c2(LAST(m, yc), m, xc, Fd(2n, m, yc))
     case False{}:
       SR.done{None{}}
 
-def S.c0(b: Bool, +m: C.Cir.Cells, +bc: U32) -> SR:
+def S.c0(b: Bool, +m: Cr.Cir.Cells, +bc: U32) -> SR:
   match b:
     case True{}:
       S.c1(Pm(m, Fd(3n, m, bc)), m, Fd(2n, m, bc), Fd(3n, m, bc))
     case False{}:
       SR.done{None{}}
 
-def S.k2(iscon: Bool, +m: C.Cir.Cells, +bc: U32) -> SR:
+def S.k2(iscon: Bool, +m: Cr.Cir.Cells, +bc: U32) -> SR:
   match iscon:
     case True{}:
       S.c0(Pm(m, bc), m, bc)
@@ -1355,28 +1360,28 @@ def S.nil(b: Bool) -> SR:
     case False{}:
       SR.done{None{}}
 
-def S.w(isnil: Bool, iscon: Bool, +m: C.Cir.Cells, +c: U32) -> SR:
+def S.w(isnil: Bool, iscon: Bool, +m: Cr.Cir.Cells, +c: U32) -> SR:
   match isnil:
     case True{}:
       S.nil(LAST(m, c))
     case False{}:
       S.k2(iscon, m, Fd(3n, m, c))
 
-def S.l(b: Bool, +m: C.Cir.Cells, +c: U32) -> SR:
+def S.l(b: Bool, +m: Cr.Cir.Cells, +c: U32) -> SR:
   match b:
     case True{}:
       S.w(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 2), m, c)
     case False{}:
       SR.done{None{}}
 
-def S.p(b: Bool, +m: C.Cir.Cells, +c: U32) -> SR:
+def S.p(b: Bool, +m: Cr.Cir.Cells, +c: U32) -> SR:
   match b:
     case True{}:
       S.l(Lm(m, Fd(2n, m, c)), m, c)
     case False{}:
       SR.done{None{}}
 
-def Step(+m: C.Cir.Cells, +c: U32) -> SR:
+def Step(+m: Cr.Cir.Cells, +c: U32) -> SR:
   S.p(Pm(m, c), m, c)
 
 # the list from a step, with fuel levels as T.tm.of reads them: its rest is
@@ -1388,7 +1393,7 @@ def CU.d(s: SR) -> Maybe<&2, List<&2, Word(8n)>>:
     case SR.more{v, rest}:
       None{}
 
-def CU(n: Nat, +m: C.Cir.Cells, s: SR) -> Maybe<&2, List<&2, Word(8n)>>:
+def CU(n: Nat, +m: Cr.Cir.Cells, s: SR) -> Maybe<&2, List<&2, Word(8n)>>:
   match n:
     case 0n:
       None{}
@@ -1409,32 +1414,32 @@ def CU(n: Nat, +m: C.Cir.Cells, s: SR) -> Maybe<&2, List<&2, Word(8n)>>:
 
 # the names of the machine's numbers 0 to 6 compare as their numbers
 def kn0(+j: U32, +b: List<&2, Word(8n)>, +h: {known.ok(j, b) == True{} : Bool}) ->
-  {C.Name.is_eq(b, C.Program.name.unit()) == U32.is_eq(j, 0) : Bool}:
-  iff_eq(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0), and_l(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1)), and_l(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2)), and_l(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5))), iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6)), h)))))))
+  {Sd.Name.is_eq(b, Pg.Program.name.unit()) == U32.is_eq(j, 0) : Bool}:
+  iff_eq(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0), and_l(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1)), and_l(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2)), and_l(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5))), iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6)), h)))))))
 
 def kn1(+j: U32, +b: List<&2, Word(8n)>, +h: {known.ok(j, b) == True{} : Bool}) ->
-  {C.Name.is_eq(b, C.Program.name.nil()) == U32.is_eq(j, 1) : Bool}:
-  iff_eq(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1), and_r(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1)), and_l(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2)), and_l(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5))), iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6)), h)))))))
+  {Sd.Name.is_eq(b, Pg.Program.name.nil()) == U32.is_eq(j, 1) : Bool}:
+  iff_eq(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1), and_r(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1)), and_l(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2)), and_l(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5))), iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6)), h)))))))
 
 def kn2(+j: U32, +b: List<&2, Word(8n)>, +h: {known.ok(j, b) == True{} : Bool}) ->
-  {C.Name.is_eq(b, C.Program.name.con()) == U32.is_eq(j, 2) : Bool}:
-  iff_eq(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2), and_r(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2)), and_l(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5))), iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6)), h))))))
+  {Sd.Name.is_eq(b, Pg.Program.name.con()) == U32.is_eq(j, 2) : Bool}:
+  iff_eq(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2), and_r(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2)), and_l(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5))), iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6)), h))))))
 
 def kn3(+j: U32, +b: List<&2, Word(8n)>, +h: {known.ok(j, b) == True{} : Bool}) ->
-  {C.Name.is_eq(b, C.Program.name.wnil()) == U32.is_eq(j, 3) : Bool}:
-  iff_eq(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3), and_r(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5))), iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6)), h)))))
+  {Sd.Name.is_eq(b, Pg.Program.name.wnil()) == U32.is_eq(j, 3) : Bool}:
+  iff_eq(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3), and_r(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3)), and_l(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5))), iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6)), h)))))
 
 def kn4(+j: U32, +b: List<&2, Word(8n)>, +h: {known.ok(j, b) == True{} : Bool}) ->
-  {C.Name.is_eq(b, C.Program.name.wcon()) == U32.is_eq(j, 4) : Bool}:
-  iff_eq(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4), and_r(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5))), iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6)), h))))
+  {Sd.Name.is_eq(b, Pg.Program.name.wcon()) == U32.is_eq(j, 4) : Bool}:
+  iff_eq(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4), and_r(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5))), iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6)), h))))
 
 def kn5(+j: U32, +b: List<&2, Word(8n)>, +h: {known.ok(j, b) == True{} : Bool}) ->
-  {C.Name.is_eq(b, C.Program.name.true()) == U32.is_eq(j, 5) : Bool}:
-  iff_eq(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5), and_r(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5))), iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6)), h)))
+  {Sd.Name.is_eq(b, Pg.Program.name.true()) == U32.is_eq(j, 5) : Bool}:
+  iff_eq(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5), and_r(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5)), and_l(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5))), iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6)), h)))
 
 def kn6(+j: U32, +b: List<&2, Word(8n)>, +h: {known.ok(j, b) == True{} : Bool}) ->
-  {C.Name.is_eq(b, C.Program.name.false()) == U32.is_eq(j, 6) : Bool}:
-  iff_eq(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6), and_r(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(C.Name.is_eq(b, C.Program.name.unit()), U32.is_eq(j, 0)), iff(C.Name.is_eq(b, C.Program.name.nil()), U32.is_eq(j, 1))), iff(C.Name.is_eq(b, C.Program.name.con()), U32.is_eq(j, 2))), iff(C.Name.is_eq(b, C.Program.name.wnil()), U32.is_eq(j, 3))), iff(C.Name.is_eq(b, C.Program.name.wcon()), U32.is_eq(j, 4))), iff(C.Name.is_eq(b, C.Program.name.true()), U32.is_eq(j, 5))), iff(C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 6)), h))
+  {Sd.Name.is_eq(b, Pg.Program.name.false()) == U32.is_eq(j, 6) : Bool}:
+  iff_eq(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6), and_r(Bool.and(Bool.and(Bool.and(Bool.and(Bool.and(iff(Sd.Name.is_eq(b, Pg.Program.name.unit()), U32.is_eq(j, 0)), iff(Sd.Name.is_eq(b, Pg.Program.name.nil()), U32.is_eq(j, 1))), iff(Sd.Name.is_eq(b, Pg.Program.name.con()), U32.is_eq(j, 2))), iff(Sd.Name.is_eq(b, Pg.Program.name.wnil()), U32.is_eq(j, 3))), iff(Sd.Name.is_eq(b, Pg.Program.name.wcon()), U32.is_eq(j, 4))), iff(Sd.Name.is_eq(b, Pg.Program.name.true()), U32.is_eq(j, 5))), iff(Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 6)), h))
 
 def lk(n: Maybe<&2, List<&2, Word(8n)>>, +j: U32, -k: List<&2, Word(8n)>, +e: {n == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
   +h: {labok.of(n, j) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
@@ -1442,37 +1447,37 @@ def lk(n: Maybe<&2, List<&2, Word(8n)>>, +j: U32, -k: List<&2, Word(8n)>, +e: {n
   h
 
 # the name of a label cell compares as known.ok says
-def LK(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def LK(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eL: {Lm(m, c) == True{} : Bool},
   -k: List<&2, Word(8n)>, +e: {T.tm.name(ks, Fd(2n, m, c)) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) ->
   {known.ok(Fd(2n, m, c), k) == True{} : Bool}:
   lk(T.tm.name(ks, Fd(2n, m, c)), Fd(2n, m, c), k, e, ok.lb(f, m, ks, img, c, im, fs, nx, hok, eL))
 
 # a pair cell has the tag 10
-def P_tag(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}) -> {U32.is_eq(Tg(m, c), 10) == True{} : Bool}:
+def P_tag(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}) -> {U32.is_eq(Tg(m, c), 10) == True{} : Bool}:
   +f0 = Fd(0n, m, c)
   +q = T.tm.quan(U32.and(U32.shrn(f0, 6n), 3))
   and_r(isQ1(q), U32.is_eq(U32.and(f0, 63), 10), Equal.trans(Bool, FP.r(f0), FP.l(f0), True{}, Equal.sym(Bool, FP.l(f0), FP.r(f0), fp(f0)), eP))
 
 # the parts of a pair cell are cells that ok accepts, a level less deep
-def ok.l(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def ok.l(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eP: {Pm(m, c) == True{} : Bool}) ->
   {ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}:
   and_l(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx), ok.kids(f, m, ks, img, c, im, fs, nx, hok, P_tag(m, c, eP)))
 
-def ok.r(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def ok.r(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eP: {Pm(m, c) == True{} : Bool}) ->
   {ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}:
   and_r(ok(f, m, ks, img, Fd(2n, m, c), im, fs, nx), ok(f, m, ks, img, Fd(3n, m, c), im, fs, nx), ok.kids(f, m, ks, img, c, im, fs, nx, hok, P_tag(m, c, eP)))
 
 # ok fails with no fuel
-def ok.zero(-m: C.Cir.Cells, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -c: U32, -im: U32, -fs: U32, -nx: U32,
+def ok.zero(-m: Cr.Cir.Cells, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -c: U32, -im: U32, -fs: U32, -nx: U32,
   +h: {ok(0n, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> Empty:
   PN.false_ne_true(h)
 # A bit's term is what CB reads
 # ------------------------------
 
-def unbit_eq(x6: Bool, x7: Bool) -> {C.Program.unbit.if(x6, x7) == CB.t(Bool.or(x6, x7), x6) : Maybe<&2, Bool>}:
+def unbit_eq(x6: Bool, x7: Bool) -> {Pg.Program.unbit.if(x6, x7) == CB.t(Bool.or(x6, x7), x6) : Maybe<&2, Bool>}:
   match x6 x7:
     case True{} True{}:
       {==}
@@ -1483,14 +1488,14 @@ def unbit_eq(x6: Bool, x7: Bool) -> {C.Program.unbit.if(x6, x7) == CB.t(Bool.or(
     case False{} False{}:
       {==}
 
-def BB.b(+k: List<&2, Word(8n)>, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +eL: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
+def BB.b(+k: List<&2, Word(8n)>, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +eL: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +ek: {T.tm.name(ks, Fd(2n, m, Fd(2n, m, c))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) -> {Ub.x(Some{k}) == CB.x(True{}, Fd(2n, m, Fd(2n, m, c))) : Maybe<&2, Bool>}:
   +h = LK(g, m, ks, img, Fd(2n, m, c), im, fs, nx, hok2, eL, k, ek)
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.true()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5), kn5(Fd(2n, m, Fd(2n, m, c)), k, h)) : {C.Program.unbit.if(_, C.Name.is_eq(k, C.Program.name.false())) == CB.x(True{}, Fd(2n, m, Fd(2n, m, c))) : Maybe<&2, Bool>}
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.false()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 6), kn6(Fd(2n, m, Fd(2n, m, c)), k, h)) : {C.Program.unbit.if(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5), _) == CB.x(True{}, Fd(2n, m, Fd(2n, m, c))) : Maybe<&2, Bool>}
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.true()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5), kn5(Fd(2n, m, Fd(2n, m, c)), k, h)) : {Pg.Program.unbit.if(_, Sd.Name.is_eq(k, Pg.Program.name.false())) == CB.x(True{}, Fd(2n, m, Fd(2n, m, c))) : Maybe<&2, Bool>}
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.false()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 6), kn6(Fd(2n, m, Fd(2n, m, c)), k, h)) : {Pg.Program.unbit.if(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5), _) == CB.x(True{}, Fd(2n, m, Fd(2n, m, c))) : Maybe<&2, Bool>}
   unbit_eq(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 6))
 
-def BB.x(bx: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(2n, m, c)) == bx : Bool}) ->
+def BB.x(bx: Bool, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(2n, m, c)) == bx : Bool}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), x => {Ub.x(VL(x)) == CB.x(bx, Fd(2n, m, Fd(2n, m, c))) : Maybe<&2, Bool>}):
   match bx:
     case False{}:
@@ -1500,7 +1505,7 @@ def BB.x(bx: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, 
       cellLab(g, m, ks, img, Fd(2n, m, c), x => {Ub.x(VL(x)) == CB.x(True{}, Fd(2n, m, Fd(2n, m, c))) : Maybe<&2, Bool>}, e,
         k => ek => BB.b(k, g, m, ks, img, c, im, fs, nx, hok2, e, ek))
 
-def BB.u(o: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}) ->
+def BB.u(o: Bool, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), x => {Ub.u(o, x) == CB.l(o, m, c) : Maybe<&2, Bool>}):
   match o:
     case False{}:
@@ -1508,14 +1513,14 @@ def BB.u(o: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +
     case True{}:
       BB.x(Lm(m, Fd(2n, m, c)), g, m, ks, img, c, im, fs, nx, hok2, {==})
 
-def BB.k(+k: List<&2, Word(8n)>, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool},
+def BB.k(+k: List<&2, Word(8n)>, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool},
   +eL: {Lm(m, Fd(3n, m, c)) == True{} : Bool}, +ek: {T.tm.name(ks, Fd(2n, m, Fd(3n, m, c))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), x => {Ub.y(Some{k}, x) == CB.l(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)), m, c) : Maybe<&2, Bool>}):
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), kn0(Fd(2n, m, Fd(3n, m, c)), k, LK(g, m, ks, img, Fd(3n, m, c), im, fs, nx, hok3, eL, k, ek))) :
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), kn0(Fd(2n, m, Fd(3n, m, c)), k, LK(g, m, ks, img, Fd(3n, m, c), im, fs, nx, hok3, eL, k, ek))) :
     SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), x => {Ub.u(_, x) == CB.l(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), m, c) : Maybe<&2, Bool>})
   BB.u(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), g, m, ks, img, c, im, fs, nx, hok2)
 
-def BB.y(by: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(3n, m, c)) == by : Bool}) ->
+def BB.y(by: Bool, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(3n, m, c)) == by : Bool}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), y => SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), x => {Ub.y(VL(y), x) == CB.l(Bool.and(by, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)), m, c) : Maybe<&2, Bool>})):
   match by:
     case False{}:
@@ -1526,7 +1531,7 @@ def BB.y(by: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, 
       cellLab(g, m, ks, img, Fd(3n, m, c), y => SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), x => {Ub.y(VL(y), x) == CB.l(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)), m, c) : Maybe<&2, Bool>}), e,
         k => ek => BB.k(k, g, m, ks, img, c, im, fs, nx, hok3, hok2, e, ek))
 
-def BB.p(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eb: {Pm(m, c) == b : Bool}) ->
+def BB.p(b: Bool, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eb: {Pm(m, c) == b : Bool}) ->
   SpecM(T.tm.of(1n+f, m, ks, img, c), t => {Ub(t) == CB.p(b, m, c) : Maybe<&2, Bool>}):
   match b:
     case False{}:
@@ -1538,11 +1543,11 @@ def BB.p(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +
           cellT1(0n, m, ks, img, c, t => {Ub(t) == CB.p(True{}, m, c) : Maybe<&2, Bool>}, eb, Unit{})
         case 1n+g:
           cellT1(1n+g, m, ks, img, c, t => {Ub(t) == CB.p(True{}, m, c) : Maybe<&2, Bool>}, eb,
-            SpecM.swap(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), x => y => {Ub(C.Term.Tup{C.Quan.Q1{}, x, y}) == CB.p(True{}, m, c) : Maybe<&2, Bool>},
+            SpecM.swap(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), x => y => {Ub(Bk.Term.Tup{Bk.Quan.Q1{}, x, y}) == CB.p(True{}, m, c) : Maybe<&2, Bool>},
               BB.y(Lm(m, Fd(3n, m, c)), g, m, ks, img, c, im, fs, nx, ok.r(1n+g, m, ks, img, c, im, fs, nx, hok, eb), ok.l(1n+g, m, ks, img, c, im, fs, nx, hok, eb), {==})))
 
 # the term of a cell is a bit as CB reads it
-def BB(+fb: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(fb, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> SpecM(T.tm.of(fb, m, ks, img, c), t => {Ub(t) == CB(m, c) : Maybe<&2, Bool>}):
+def BB(+fb: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(fb, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> SpecM(T.tm.of(fb, m, ks, img, c), t => {Ub(t) == CB(m, c) : Maybe<&2, Bool>}):
   match fb:
     case 0n:
       Empty.absurd(SpecM(T.tm.of(0n, m, ks, img, c), t => {Ub(t) == CB(m, c) : Maybe<&2, Bool>}), ok.zero(m, ks, img, c, im, fs, nx, hok))
@@ -1559,87 +1564,87 @@ def BB(+fb: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
 # their first 63 made explicit, and those that M.out sets (oc, ow, ov, oi,
 # t1, t2) put in, so that reading and setting a register computes.
 
-def Wp(o: C.Cir.Out, K: C.Cir.State -> Type, H: U32 -> C.Cir.State -> Type) -> Type:
+def Wp(o: Cr.Cir.Out, K: Cr.Cir.State -> Type, H: U32 -> Cr.Cir.State -> Type) -> Type:
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       K(st)
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       H(s, st)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Empty
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Empty
 
-def Wp.then(o: C.Cir.Out, -k: C.Cir.State -> C.Cir.Out, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  h: Wp(o, t => Wp(k(t), K, H), H)) -> Wp(C.Cir.exec.then(o, k), K, H):
+def Wp.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  h: Wp(o, t => Wp(k(t), K, H), H)) -> Wp(Cr.Cir.exec.then(o, k), K, H):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       h
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       h
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       match h:
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       match h:
 
 # a then b
-def Wp.seq(+f: Nat, +a: C.Cir.Stmt, +b: C.Cir.Stmt, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  h: Wp(C.Cir.exec(1n+f, a, st), t => Wp(C.Cir.exec(1n+f, b, t), K, H), H)) -> Wp(C.Cir.exec(1n+f, C.Cir.Stmt.seq{a, b}, st), K, H):
-  Wp.then(C.Cir.exec(1n+f, a, st), t => C.Cir.exec(1n+f, b, t), K, H, h)
+def Wp.seq(+f: Nat, +a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  h: Wp(Cr.Cir.exec(1n+f, a, st), t => Wp(Cr.Cir.exec(1n+f, b, t), K, H), H)) -> Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), K, H):
+  Wp.then(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), K, H, h)
 
 # the parts of a state
-def St.rg(st: C.Cir.State) -> List<&2, U32>:
+def St.rg(st: Cr.Cir.State) -> List<&2, U32>:
   match st:
-    case C.Cir.State{x, _, _, _, _, _, _, _, _, _}:
+    case Cr.Cir.State{x, _, _, _, _, _, _, _, _, _}:
       x
 
-def St.cl(st: C.Cir.State) -> C.Cir.Cells:
+def St.cl(st: Cr.Cir.State) -> Cr.Cir.Cells:
   match st:
-    case C.Cir.State{_, x, _, _, _, _, _, _, _, _}:
+    case Cr.Cir.State{_, x, _, _, _, _, _, _, _, _}:
       x
 
-def St.nx(st: C.Cir.State) -> U32:
+def St.nx(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, x, _, _, _, _, _, _, _}:
+    case Cr.Cir.State{_, _, x, _, _, _, _, _, _, _}:
       x
 
-def St.fs(st: C.Cir.State) -> U32:
+def St.fs(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, _, x, _, _, _, _, _, _}:
+    case Cr.Cir.State{_, _, _, x, _, _, _, _, _, _}:
       x
 
-def St.im(st: C.Cir.State) -> U32:
+def St.im(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, _, _, x, _, _, _, _, _}:
+    case Cr.Cir.State{_, _, _, _, x, _, _, _, _, _}:
       x
 
-def St.lim(st: C.Cir.State) -> U32:
+def St.lim(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, _, _, _, _, x, _, _, _}:
+    case Cr.Cir.State{_, _, _, _, _, _, x, _, _, _}:
       x
 
-def St.inp(st: C.Cir.State) -> List<&2, Word(8n)>:
+def St.inp(st: Cr.Cir.State) -> List<&2, Word(8n)>:
   match st:
-    case C.Cir.State{_, _, _, _, _, _, _, x, _, _}:
+    case Cr.Cir.State{_, _, _, _, _, _, _, x, _, _}:
       x
 
-def St.out(st: C.Cir.State) -> List<&2, Word(8n)>:
+def St.out(st: Cr.Cir.State) -> List<&2, Word(8n)>:
   match st:
-    case C.Cir.State{_, _, _, _, _, _, _, _, x, _}:
+    case Cr.Cir.State{_, _, _, _, _, _, _, _, x, _}:
       x
 
-def St.outn(st: C.Cir.State) -> U32:
+def St.outn(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, _, _, _, _, _, _, _, x}:
+    case Cr.Cir.State{_, _, _, _, _, _, _, _, _, x}:
       x
 
 # the cell i is one that the state lets the machine read
-def St.ok(+i: U32, +st: C.Cir.State) -> Bool:
-  C.Cir.is_cell(i, St.im(st), St.fs(st), St.nx(st))
+def St.ok(+i: U32, +st: Cr.Cir.State) -> Bool:
+  Cr.Cir.is_cell(i, St.im(st), St.fs(st), St.nx(st))
 
 # the registers
 def Rg.hd(xs: List<&2, U32>) -> U32:
@@ -1692,23 +1697,23 @@ def RG(+xs: List<&2, U32>, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2
     Rg.sp(xs), 45n, oc), 46n, ow), 47n, ov), 48n, oi), 61n, t1), 62n, t2)
 
 # the state b with the registers of M.out, the pages and the output
-def ST(+b: C.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32) ->
-  C.Cir.State:
-  C.Cir.State{RG(St.rg(b), oc, ow, ov, oi, t1, t2), St.cl(b), St.nx(b), St.fs(b), St.im(b), pg, St.lim(b), St.inp(b), out, outn}
+def ST(+b: Cr.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32) ->
+  Cr.Cir.State:
+  Cr.Cir.State{RG(St.rg(b), oc, ow, ov, oi, t1, t2), St.cl(b), St.nx(b), St.fs(b), St.im(b), pg, St.lim(b), St.inp(b), out, outn}
 
 # the state after the byte v goes out, with p pages
-def St.emit(st: C.Cir.State, +p: U32, +v: U32) -> C.Cir.State:
+def St.emit(st: Cr.Cir.State, +p: U32, +v: U32) -> Cr.Cir.State:
   match st:
-    case C.Cir.State{rg, cl, nx, fs, im, _, lim, inp, out, outn}:
-      C.Cir.State{rg, cl, nx, fs, im, p, lim, inp, Con{C.Byte.from_u32(v), out}, U32.inc(outn)}
+    case Cr.Cir.State{rg, cl, nx, fs, im, _, lim, inp, out, outn}:
+      Cr.Cir.State{rg, cl, nx, fs, im, p, lim, inp, Con{Sd.Byte.from_u32(v), out}, U32.inc(outn)}
 
 # the field k of the cell that e gives
-def ev.f(+k: Nat, +e: C.Cir.Expr, +st: C.Cir.State, +i: U32, +ei: {Some{i} == C.Cir.eval(e, st) : Maybe<&2, U32>},
-  +ec: {True{} == St.ok(i, st) : Bool}) -> {Some{Fd(k, St.cl(st), i)} == C.Cir.eval(C.Cir.Expr.field{k, e}, st) : Maybe<&2, U32>}:
+def ev.f(+k: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, +i: U32, +ei: {Some{i} == Cr.Cir.eval(e, st) : Maybe<&2, U32>},
+  +ec: {True{} == St.ok(i, st) : Bool}) -> {Some{Fd(k, St.cl(st), i)} == Cr.Cir.eval(Cr.Cir.Expr.field{k, e}, st) : Maybe<&2, U32>}:
   match st:
-    case C.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
-      %ei : {Some{Fd(k, cl, i)} == C.Cir.eval.field(k, _, C.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}) : Maybe<&2, U32>}
-      %ec : {Some{Fd(k, cl, i)} == C.Cir.eval.field.if(_, k, cl, i) : Maybe<&2, U32>}
+    case Cr.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
+      %ei : {Some{Fd(k, cl, i)} == Cr.Cir.eval.field(k, _, Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}) : Maybe<&2, U32>}
+      %ec : {Some{Fd(k, cl, i)} == Cr.Cir.eval.field.if(_, k, cl, i) : Maybe<&2, U32>}
       {==}
 
 def and_u32(a: Bool, b: Bool) -> {Bool.to_u32(Bool.and(a, b)) == U32.and(Bool.to_u32(a), Bool.to_u32(b)) : U32}:
@@ -1734,49 +1739,49 @@ def or_u32(a: Bool, b: Bool) -> {Bool.to_u32(Bool.or(a, b)) == U32.or(Bool.to_u3
       {==}
 
 # M.pair on the cell of register r
-def ev.pair(+r: Nat, +st: C.Cir.State, +i: U32, +er: {Some{i} == C.Cir.eval(C.M.g(r), st) : Maybe<&2, U32>},
-  +ec: {True{} == St.ok(i, st) : Bool}) -> {Some{Bool.to_u32(Pm(St.cl(st), i))} == C.Cir.eval(C.M.pair(r), st) : Maybe<&2, U32>}:
-  %ev.f(0n, C.M.g(r), st, i, er, ec) :
-    {Some{Bool.to_u32(Pm(St.cl(st), i))} == C.Cir.eval.op(C.Wasm.Op.eq{}, C.Cir.eval.op(C.Wasm.Op.and{}, _, Some{255}), Some{74}) : Maybe<&2, U32>}
+def ev.pair(+r: Nat, +st: Cr.Cir.State, +i: U32, +er: {Some{i} == Cr.Cir.eval(Mc.M.g(r), st) : Maybe<&2, U32>},
+  +ec: {True{} == St.ok(i, st) : Bool}) -> {Some{Bool.to_u32(Pm(St.cl(st), i))} == Cr.Cir.eval(Mc.M.pair(r), st) : Maybe<&2, U32>}:
+  %ev.f(0n, Mc.M.g(r), st, i, er, ec) :
+    {Some{Bool.to_u32(Pm(St.cl(st), i))} == Cr.Cir.eval.op(Wa.Wasm.Op.eq{}, Cr.Cir.eval.op(Wa.Wasm.Op.and{}, _, Some{255}), Some{74}) : Maybe<&2, U32>}
   {==}
 
 # M.is_lab on field k of the cell of register r
-def ev.islab(+k: Nat, +r: Nat, +n: U32, +st: C.Cir.State, +i: U32, +er: {Some{i} == C.Cir.eval(C.M.g(r), st) : Maybe<&2, U32>},
+def ev.islab(+k: Nat, +r: Nat, +n: U32, +st: Cr.Cir.State, +i: U32, +er: {Some{i} == Cr.Cir.eval(Mc.M.g(r), st) : Maybe<&2, U32>},
   +ec: {True{} == St.ok(i, st) : Bool}, +eck: {True{} == St.ok(Fd(k, St.cl(st), i), st) : Bool}) ->
-  {Some{Bool.to_u32(Bool.and(Lm(St.cl(st), Fd(k, St.cl(st), i)), U32.is_eq(Fd(2n, St.cl(st), Fd(k, St.cl(st), i)), n)))} == C.Cir.eval(C.M.is_lab(C.M.f(k, C.M.g(r)), n), st) : Maybe<&2, U32>}:
+  {Some{Bool.to_u32(Bool.and(Lm(St.cl(st), Fd(k, St.cl(st), i)), U32.is_eq(Fd(2n, St.cl(st), Fd(k, St.cl(st), i)), n)))} == Cr.Cir.eval(Mc.M.is_lab(Mc.M.f(k, Mc.M.g(r)), n), st) : Maybe<&2, U32>}:
   +m = St.cl(st)
   +j = Fd(k, m, i)
-  +ej = ev.f(k, C.M.g(r), st, i, er, ec)
-  %ev.f(0n, C.M.f(k, C.M.g(r)), st, j, ej, eck) :
-    {Some{Bool.to_u32(Bool.and(Lm(m, j), U32.is_eq(Fd(2n, m, j), n)))} == C.Cir.eval.op(C.Wasm.Op.and{}, C.Cir.eval.op(C.Wasm.Op.eq{}, C.Cir.eval.op(C.Wasm.Op.and{}, _, Some{63}), Some{13}),
-      C.Cir.eval.op(C.Wasm.Op.eq{}, C.Cir.eval(C.M.f(2n, C.M.f(k, C.M.g(r))), st), Some{n})) : Maybe<&2, U32>}
-  %ev.f(2n, C.M.f(k, C.M.g(r)), st, j, ej, eck) :
-    {Some{Bool.to_u32(Bool.and(Lm(m, j), U32.is_eq(Fd(2n, m, j), n)))} == C.Cir.eval.op(C.Wasm.Op.and{}, Some{Bool.to_u32(Lm(m, j))},
-      C.Cir.eval.op(C.Wasm.Op.eq{}, _, Some{n})) : Maybe<&2, U32>}
+  +ej = ev.f(k, Mc.M.g(r), st, i, er, ec)
+  %ev.f(0n, Mc.M.f(k, Mc.M.g(r)), st, j, ej, eck) :
+    {Some{Bool.to_u32(Bool.and(Lm(m, j), U32.is_eq(Fd(2n, m, j), n)))} == Cr.Cir.eval.op(Wa.Wasm.Op.and{}, Cr.Cir.eval.op(Wa.Wasm.Op.eq{}, Cr.Cir.eval.op(Wa.Wasm.Op.and{}, _, Some{63}), Some{13}),
+      Cr.Cir.eval.op(Wa.Wasm.Op.eq{}, Cr.Cir.eval(Mc.M.f(2n, Mc.M.f(k, Mc.M.g(r))), st), Some{n})) : Maybe<&2, U32>}
+  %ev.f(2n, Mc.M.f(k, Mc.M.g(r)), st, j, ej, eck) :
+    {Some{Bool.to_u32(Bool.and(Lm(m, j), U32.is_eq(Fd(2n, m, j), n)))} == Cr.Cir.eval.op(Wa.Wasm.Op.and{}, Some{Bool.to_u32(Lm(m, j))},
+      Cr.Cir.eval.op(Wa.Wasm.Op.eq{}, _, Some{n})) : Maybe<&2, U32>}
   %and_u32(Lm(m, j), U32.is_eq(Fd(2n, m, j), n)) : {Some{Bool.to_u32(Bool.and(Lm(m, j), U32.is_eq(Fd(2n, m, j), n)))} == Some{_} : Maybe<&2, U32>}
   {==}
 
 # M.eq(M.tag(field k), lab) on the cell of register r
-def ev.tag(+k: Nat, +r: Nat, +st: C.Cir.State, +i: U32, +er: {Some{i} == C.Cir.eval(C.M.g(r), st) : Maybe<&2, U32>},
+def ev.tag(+k: Nat, +r: Nat, +st: Cr.Cir.State, +i: U32, +er: {Some{i} == Cr.Cir.eval(Mc.M.g(r), st) : Maybe<&2, U32>},
   +ec: {True{} == St.ok(i, st) : Bool}, +eck: {True{} == St.ok(Fd(k, St.cl(st), i), st) : Bool}) ->
-  {Some{Bool.to_u32(Lm(St.cl(st), Fd(k, St.cl(st), i)))} == C.Cir.eval(C.M.eq(C.M.tag(C.M.f(k, C.M.g(r))), C.M.c(13)), st) : Maybe<&2, U32>}:
+  {Some{Bool.to_u32(Lm(St.cl(st), Fd(k, St.cl(st), i)))} == Cr.Cir.eval(Mc.M.eq(Mc.M.tag(Mc.M.f(k, Mc.M.g(r))), Mc.M.c(13)), st) : Maybe<&2, U32>}:
   +m = St.cl(st)
   +j = Fd(k, m, i)
-  %ev.f(0n, C.M.f(k, C.M.g(r)), st, j, ev.f(k, C.M.g(r), st, i, er, ec), eck) :
-    {Some{Bool.to_u32(Lm(m, j))} == C.Cir.eval.op(C.Wasm.Op.eq{}, C.Cir.eval.op(C.Wasm.Op.and{}, _, Some{63}), Some{13}) : Maybe<&2, U32>}
+  %ev.f(0n, Mc.M.f(k, Mc.M.g(r)), st, j, ev.f(k, Mc.M.g(r), st, i, er, ec), eck) :
+    {Some{Bool.to_u32(Lm(m, j))} == Cr.Cir.eval.op(Wa.Wasm.Op.eq{}, Cr.Cir.eval.op(Wa.Wasm.Op.and{}, _, Some{63}), Some{13}) : Maybe<&2, U32>}
   {==}
 
 # field k2 of field k1 of the cell of register r
-def ev.ff(+k1: Nat, +k2: Nat, +r: Nat, +st: C.Cir.State, +i: U32, +er: {Some{i} == C.Cir.eval(C.M.g(r), st) : Maybe<&2, U32>},
+def ev.ff(+k1: Nat, +k2: Nat, +r: Nat, +st: Cr.Cir.State, +i: U32, +er: {Some{i} == Cr.Cir.eval(Mc.M.g(r), st) : Maybe<&2, U32>},
   +ec: {True{} == St.ok(i, st) : Bool}, +eck: {True{} == St.ok(Fd(k1, St.cl(st), i), st) : Bool}) ->
-  {Some{Fd(k2, St.cl(st), Fd(k1, St.cl(st), i))} == C.Cir.eval(C.M.f(k2, C.M.f(k1, C.M.g(r))), st) : Maybe<&2, U32>}:
-  ev.f(k2, C.M.f(k1, C.M.g(r)), st, Fd(k1, St.cl(st), i), ev.f(k1, C.M.g(r), st, i, er, ec), eck)
+  {Some{Fd(k2, St.cl(st), Fd(k1, St.cl(st), i))} == Cr.Cir.eval(Mc.M.f(k2, Mc.M.f(k1, Mc.M.g(r))), st) : Maybe<&2, U32>}:
+  ev.f(k2, Mc.M.f(k1, Mc.M.g(r)), st, Fd(k1, St.cl(st), i), ev.f(k1, Mc.M.g(r), st, i, er, ec), eck)
 
 # Statements
-def Wp.set(+f: Nat, +r: Nat, +e: C.Cir.Expr, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type, +v: U32,
-  +ev: {Some{v} == C.Cir.eval(e, st) : Maybe<&2, U32>}, h: Wp(C.Cir.exec.set(r, Some{v}, st), K, H)) ->
-  Wp(C.Cir.exec(1n+f, C.Cir.Stmt.set{r, e}, st), K, H):
-  %ev : Wp(C.Cir.exec.set(r, _, st), K, H)
+def Wp.set(+f: Nat, +r: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +v: U32,
+  +ev: {Some{v} == Cr.Cir.eval(e, st) : Maybe<&2, U32>}, h: Wp(Cr.Cir.exec.set(r, Some{v}, st), K, H)) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.set{r, e}, st), K, H):
+  %ev : Wp(Cr.Cir.exec.set(r, _, st), K, H)
   h
 
 # X when b holds, else Y
@@ -1796,52 +1801,52 @@ def CasesK(b: Bool, -A: Type, a: A, -X: Type, -Y: Type, t: A -> {b == True{} : B
     case False{}:
       e(a, {==})
 
-def Wp.if(+f: Nat, +c: C.Cir.Expr, +t: C.Cir.Stmt, +e: C.Cir.Stmt, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  b: Bool, +ev: {Some{Bool.to_u32(b)} == C.Cir.eval(c, st) : Maybe<&2, U32>},
-  g: IFT(b, Wp(C.Cir.exec(1n+f, t, st), K, H), Wp(C.Cir.exec(1n+f, e, st), K, H))) ->
-  Wp(C.Cir.exec(1n+f, C.Cir.Stmt.if{c, t, e}, st), K, H):
+def Wp.if(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  b: Bool, +ev: {Some{Bool.to_u32(b)} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
+  g: IFT(b, Wp(Cr.Cir.exec(1n+f, t, st), K, H), Wp(Cr.Cir.exec(1n+f, e, st), K, H))) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.if{c, t, e}, st), K, H):
   match b:
     case True{}:
-      %ev : Wp(C.Cir.exec.if(_, u => C.Cir.exec(1n+f, t, st), u => C.Cir.exec(1n+f, e, st)), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), K, H)
       g
     case False{}:
-      %ev : Wp(C.Cir.exec.if(_, u => C.Cir.exec(1n+f, t, st), u => C.Cir.exec(1n+f, e, st)), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), K, H)
       g
 
-def Wp.need(+f: Nat, +c: C.Cir.Expr, +t: C.Cir.Stmt, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  b: Bool, +ev: {Some{Bool.to_u32(b)} == C.Cir.eval(c, st) : Maybe<&2, U32>},
-  g: IFT(b, Wp(C.Cir.exec(1n+f, t, st), K, H), H(2, st))) ->
-  Wp(C.Cir.exec(1n+f, C.M.need(c, t), st), K, H):
-  Wp.if(f, c, t, C.M.halt(2), st, K, H, b, ev, g)
+def Wp.need(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  b: Bool, +ev: {Some{Bool.to_u32(b)} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
+  g: IFT(b, Wp(Cr.Cir.exec(1n+f, t, st), K, H), H(2, st))) ->
+  Wp(Cr.Cir.exec(1n+f, Mc.M.need(c, t), st), K, H):
+  Wp.if(f, c, t, Mc.M.halt(2), st, K, H, b, ev, g)
 
-def Wp.emit.of(pages: Maybe<&2, U32>, +v: U32, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(C.Cir.exec.emit.of(pages, v, st), K, H):
+def Wp.emit.of(pages: Maybe<&2, U32>, +v: U32, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(Cr.Cir.exec.emit.of(pages, v, st), K, H):
   match pages:
     case None{}:
       Unit{}
     case Some{+p}:
       match st:
-        case C.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
+        case Cr.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
           h(p)
 
-def Wp.emit.if(ok: Bool, +bb: U32, +v: U32, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(C.Cir.exec.emit.if(ok, bb, v, st), K, H):
+def Wp.emit.if(ok: Bool, +bb: U32, +v: U32, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(Cr.Cir.exec.emit.if(ok, bb, v, st), K, H):
   match ok:
     case False{}:
       Unit{}
     case True{}:
       match st:
-        case C.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
-          Wp.emit.of(C.Cir.room(bb, pg, lim), v, C.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, h)
+        case Cr.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
+          Wp.emit.of(Cr.Cir.room(bb, pg, lim), v, Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, h)
 
-def Wp.emit(+f: Nat, +e: C.Cir.Expr, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type, +v: U32,
-  +ev: {Some{v} == C.Cir.eval(e, st) : Maybe<&2, U32>}, h: @p: U32 -> K(St.emit(st, p, v))) ->
-  Wp(C.Cir.exec(1n+f, C.Cir.Stmt.emit{e}, st), K, H):
+def Wp.emit(+f: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +v: U32,
+  +ev: {Some{v} == Cr.Cir.eval(e, st) : Maybe<&2, U32>}, h: @p: U32 -> K(St.emit(st, p, v))) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.emit{e}, st), K, H):
   match st:
-    case C.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
-      %ev : Wp(C.Cir.exec.emit(_, C.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}), K, H)
-      Wp.emit.if(Bool.and(U32.is_lt(nx, 214748365), U32.is_ge(U32.add(C.Cir.at(nx), outn), outn)), U32.add(C.Cir.at(nx), outn), v,
-        C.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, h)
+    case Cr.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
+      %ev : Wp(Cr.Cir.exec.emit(_, Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}), K, H)
+      Wp.emit.if(Bool.and(U32.is_lt(nx, 214748365), U32.is_ge(U32.add(Cr.Cir.at(nx), outn), outn)), U32.add(Cr.Cir.at(nx), outn), v,
+        Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, h)
 
 # ok, read with any fuel
 def Pr(n: Nat) -> Nat:
@@ -1851,15 +1856,15 @@ def Pr(n: Nat) -> Nat:
     case 1n+p:
       p
 
-def ok.isc(+n: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
-  +h: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> {True{} == C.Cir.is_cell(c, im, fs, nx) : Bool}:
+def ok.isc(+n: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+  +h: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> {True{} == Cr.Cir.is_cell(c, im, fs, nx) : Bool}:
   match n:
     case 0n:
-      Empty.absurd({True{} == C.Cir.is_cell(c, im, fs, nx) : Bool}, ok.zero(m, ks, img, c, im, fs, nx, h))
+      Empty.absurd({True{} == Cr.Cir.is_cell(c, im, fs, nx) : Bool}, ok.zero(m, ks, img, c, im, fs, nx, h))
     case 1n+f:
-      Equal.sym(Bool, C.Cir.is_cell(c, im, fs, nx), True{}, ok.cell(f, m, ks, img, c, im, fs, nx, h))
+      Equal.sym(Bool, Cr.Cir.is_cell(c, im, fs, nx), True{}, ok.cell(f, m, ks, img, c, im, fs, nx, h))
 
-def ok.L(+n: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def ok.L(+n: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +h: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eP: {Pm(m, c) == True{} : Bool}) ->
   {ok(Pr(n), m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}:
   match n:
@@ -1868,7 +1873,7 @@ def ok.L(+n: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List
     case 1n+f:
       ok.l(f, m, ks, img, c, im, fs, nx, h, eP)
 
-def ok.R(+n: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def ok.R(+n: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +h: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eP: {Pm(m, c) == True{} : Bool}) ->
   {ok(Pr(n), m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}:
   match n:
@@ -1884,28 +1889,28 @@ def ok.R(+n: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List
 def OV(x: Bool, +ov: U32, +oi: U32) -> U32:
   match x:
     case True{}:
-      U32.or(ov, C.Wasm.op(C.Wasm.Op.shl{}, 1, oi))
+      U32.or(ov, Wa.Wasm.op(Wa.Wasm.Op.shl{}, 1, oi))
     case False{}:
       ov
 
-def MB.o() -> C.Cir.Stmt:
-  C.M.set(C.R.ov(), C.M.or(C.M.g(C.R.ov()), C.M.shl(C.M.c(1), C.M.g(C.R.oi()))))
+def MB.o() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.ov(), Mc.M.or(Mc.M.g(Mc.R.ov()), Mc.M.shl(Mc.M.c(1), Mc.M.g(Mc.R.oi()))))
 
-def MB.b() -> C.Cir.Stmt:
-  C.M.need(C.M.or(C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.true())), C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.false()))),
-    C.M.when(C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.true())), MB.o()))
+def MB.b() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.or(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.false()))),
+    Mc.M.when(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o()))
 
-def MB.a() -> C.Cir.Stmt:
-  C.M.set(C.R.t2(), C.M.f(2n, C.M.f(2n, C.M.g(C.R.t1()))))
+def MB.a() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.t2(), Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.t1()))))
 
-def MB.s2() -> C.Cir.Stmt:
-  C.M.need(C.M.eq(C.M.tag(C.M.f(2n, C.M.g(C.R.t1()))), C.M.c(C.T.lab())), C.M.do([MB.a(), MB.b()]))
+def MB.s2() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.t1()))), Mc.M.c(Mc.T.lab())), Mc.M.do([MB.a(), MB.b()]))
 
-def MB.s1() -> C.Cir.Stmt:
-  C.M.need(C.M.last(C.R.t1()), MB.s2())
+def MB.s1() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.last(Mc.R.t1()), MB.s2())
 
 # CB's value, once its tests pass
-def CB.ok(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == True{} : Bool},
+def CB.ok(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +eO: {Bool.or(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 6)) == True{} : Bool}) ->
   {CB(m, c) == Some{U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5)} : Maybe<&2, Bool>}:
@@ -1916,20 +1921,20 @@ def CB.ok(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST
   %Equal.sym(Bool, Bool.or(U32.is_eq(x2, 5), U32.is_eq(x2, 6)), True{}, eO) : {CB.t(_, U32.is_eq(x2, 5)) == Some{U32.is_eq(x2, 5)} : Maybe<&2, Bool>}
   {==}
 
-def CB.n1(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == False{} : Bool}) -> {CB(m, c) == None{} : Maybe<&2, Bool>}:
+def CB.n1(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == False{} : Bool}) -> {CB(m, c) == None{} : Maybe<&2, Bool>}:
   Equal.cong(Bool, Maybe<&2, Bool>, x => CB.p(x, m, c), Pm(m, c), False{}, eP)
 
-def CB.n2(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == False{} : Bool}) -> {CB(m, c) == None{} : Maybe<&2, Bool>}:
+def CB.n2(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == False{} : Bool}) -> {CB(m, c) == None{} : Maybe<&2, Bool>}:
   %Equal.sym(Bool, Pm(m, c), True{}, eP) : {CB.p(_, m, c) == None{} : Maybe<&2, Bool>}
   Equal.cong(Bool, Maybe<&2, Bool>, x => CB.l(x, m, c), LAST(m, c), False{}, eL)
 
-def CB.n3(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == True{} : Bool},
+def CB.n3(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == False{} : Bool}) -> {CB(m, c) == None{} : Maybe<&2, Bool>}:
   %Equal.sym(Bool, Pm(m, c), True{}, eP) : {CB.p(_, m, c) == None{} : Maybe<&2, Bool>}
   %Equal.sym(Bool, LAST(m, c), True{}, eL) : {CB.l(_, m, c) == None{} : Maybe<&2, Bool>}
   Equal.cong(Bool, Maybe<&2, Bool>, x => CB.x(x, Fd(2n, m, Fd(2n, m, c))), Lm(m, Fd(2n, m, c)), False{}, eM)
 
-def CB.n4(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == True{} : Bool},
+def CB.n4(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eL: {LAST(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +eO: {Bool.or(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 5), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 6)) == False{} : Bool}) ->
   {CB(m, c) == None{} : Maybe<&2, Bool>}:
@@ -1958,54 +1963,54 @@ def CasesM(r: Maybe<&2, Bool>, -A: Type, a: A, -X: Bool -> Type, -Y: Type, s: A 
 
 # what the run of a bit goes on with, by what CB reads: its value in ov, or
 # no result
-def MB.Kc(+b: C.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +c: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type) -> Type:
+def MB.Kc(+b: Cr.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +c: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type) -> Type:
   @r: Maybe<&2, Bool> -> {CB(St.cl(b), c) == r : Maybe<&2, Bool>} ->
-    MC(r, x => K(ST(b, oc, ow, OV(x, ov, oi), oi, c, Fd(2n, St.cl(b), Fd(2n, St.cl(b), c)), pg, out, outn)), @st: C.Cir.State -> H(2, st))
+    MC(r, x => K(ST(b, oc, ow, OV(x, ov, oi), oi, c, Fd(2n, St.cl(b), Fd(2n, St.cl(b), c)), pg, out, outn)), @st: Cr.Cir.State -> H(2, st))
 
 # M.out.bit on the cell c in t1: the bit that CB reads goes into ov, or the
 # run ends with no result
-def MB(+f: Nat, +b: C.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +c: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nb: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MB(+f: Nat, +b: Cr.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +c: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +nb: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +hok: {ok(nb, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MB.Kc(b, oc, ow, ov, oi, c, pg, out, outn, K, H)) ->
-  Wp(C.Cir.exec(1n+f, C.M.out.bit(), ST(b, oc, ow, ov, oi, c, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.out.bit(), ST(b, oc, ow, ov, oi, c, t2, pg, out, outn)), K, H):
   +m = St.cl(b)
   +s0 = ST(b, oc, ow, ov, oi, c, t2, pg, out, outn)
   +x2 = Fd(2n, m, Fd(2n, m, c))
   +s1 = ST(b, oc, ow, ov, oi, c, x2, pg, out, outn)
   +hc = ok.isc(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok)
   -A = MB.Kc(b, oc, ow, ov, oi, c, pg, out, outn, K, H)
-  Wp.need(f, C.M.pair(C.R.t1()), MB.s1(), s0, K, H, Pm(m, c), ev.pair(61n, s0, c, {==}, hc),
-   CasesK(Pm(m, c), A, kk, Wp(C.Cir.exec(1n+f, MB.s1(), s0), K, H), H(2, s0),
+  Wp.need(f, Mc.M.pair(Mc.R.t1()), MB.s1(), s0, K, H, Pm(m, c), ev.pair(61n, s0, c, {==}, hc),
+   CasesK(Pm(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MB.s1(), s0), K, H), H(2, s0),
     kk => +eP =>
-      Wp.need(f, C.M.last(C.R.t1()), MB.s2(), s0, K, H, LAST(m, c),
+      Wp.need(f, Mc.M.last(Mc.R.t1()), MB.s2(), s0, K, H, LAST(m, c),
         ev.islab(3n, 61n, 0, s0, c, {==}, hc, ok.isc(Pr(nb), m, ks, img, Fd(3n, m, c), St.im(b), St.fs(b), St.nx(b), ok.R(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-       CasesK(LAST(m, c), A, kk, Wp(C.Cir.exec(1n+f, MB.s2(), s0), K, H), H(2, s0),
+       CasesK(LAST(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MB.s2(), s0), K, H), H(2, s0),
         kk => +eL =>
-          Wp.need(f, C.M.eq(C.M.tag(C.M.f(2n, C.M.g(C.R.t1()))), C.M.c(C.T.lab())), C.M.do([MB.a(), MB.b()]), s0, K, H, Lm(m, Fd(2n, m, c)),
+          Wp.need(f, Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.t1()))), Mc.M.c(Mc.T.lab())), Mc.M.do([MB.a(), MB.b()]), s0, K, H, Lm(m, Fd(2n, m, c)),
             ev.tag(2n, 61n, s0, c, {==}, hc, ok.isc(Pr(nb), m, ks, img, Fd(2n, m, c), St.im(b), St.fs(b), St.nx(b), ok.L(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-           CasesK(Lm(m, Fd(2n, m, c)), A, kk, Wp(C.Cir.exec(1n+f, C.M.do([MB.a(), MB.b()]), s0), K, H), H(2, s0),
+           CasesK(Lm(m, Fd(2n, m, c)), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MB.a(), MB.b()]), s0), K, H), H(2, s0),
             kk => +eM =>
-              Wp.seq(f, MB.a(), C.M.do([MB.b()]), s0, K, H,
-                Wp.set(f, 62n, C.M.f(2n, C.M.f(2n, C.M.g(C.R.t1()))), s0, t => Wp(C.Cir.exec(1n+f, C.M.do([MB.b()]), t), K, H), H, x2,
+              Wp.seq(f, MB.a(), Mc.M.do([MB.b()]), s0, K, H,
+                Wp.set(f, 62n, Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.t1()))), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MB.b()]), t), K, H), H, x2,
                   ev.ff(2n, 2n, 61n, s0, c, {==}, hc, ok.isc(Pr(nb), m, ks, img, Fd(2n, m, c), St.im(b), St.fs(b), St.nx(b), ok.L(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-                  Wp.seq(f, MB.b(), C.Cir.Stmt.nop{}, s1, K, H,
-                    Wp.need(f, C.M.or(C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.true())), C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.false()))),
-                      C.M.when(C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.true())), MB.o()), s1, t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H,
+                  Wp.seq(f, MB.b(), Cr.Cir.Stmt.nop{}, s1, K, H,
+                    Wp.need(f, Mc.M.or(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.false()))),
+                      Mc.M.when(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o()), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H,
                       Bool.or(U32.is_eq(x2, 5), U32.is_eq(x2, 6)),
                       Equal.cong(U32, Maybe<&2, U32>, x => Some{x}, Bool.to_u32(Bool.or(U32.is_eq(x2, 5), U32.is_eq(x2, 6))),
                         U32.or(Bool.to_u32(U32.is_eq(x2, 5)), Bool.to_u32(U32.is_eq(x2, 6))), or_u32(U32.is_eq(x2, 5), U32.is_eq(x2, 6))),
                      CasesK(Bool.or(U32.is_eq(x2, 5), U32.is_eq(x2, 6)), A, kk,
-                      Wp(C.Cir.exec(1n+f, C.M.when(C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.true())), MB.o()), s1), t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H), H(2, s1),
+                      Wp(Cr.Cir.exec(1n+f, Mc.M.when(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o()), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H), H(2, s1),
                       kk => +eO =>
-                        Wp.if(f, C.M.eq(C.M.g(C.R.t2()), C.M.c(C.N.true())), MB.o(), C.Cir.Stmt.nop{}, s1, t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H,
+                        Wp.if(f, Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o(), Cr.Cir.Stmt.nop{}, s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H,
                           U32.is_eq(x2, 5), {==},
                          CasesK(U32.is_eq(x2, 5), A, kk,
-                          Wp(C.Cir.exec(1n+f, MB.o(), s1), t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H),
-                          Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, s1), t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H),
+                          Wp(Cr.Cir.exec(1n+f, MB.o(), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H),
+                          Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H),
                           kk => +eT =>
-                            Wp.set(f, 47n, C.M.or(C.M.g(C.R.ov()), C.M.shl(C.M.c(1), C.M.g(C.R.oi()))), s1, t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H,
+                            Wp.set(f, 47n, Mc.M.or(Mc.M.g(Mc.R.ov()), Mc.M.shl(Mc.M.c(1), Mc.M.g(Mc.R.oi()))), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H,
                               OV(True{}, ov, oi), {==},
                               kk(Some{True{}}, Equal.trans(Maybe<&2, Bool>, CB(m, c), Some{U32.is_eq(x2, 5)}, Some{True{}}, CB.ok(m, c, eP, eL, eM, eO),
                                 Equal.cong(Bool, Maybe<&2, Bool>, x => Some{x}, U32.is_eq(x2, 5), True{}, eT)))),
@@ -2054,7 +2059,7 @@ def CWt.g(-q: Nat, g: Maybe<&2, Bool>, rb: Maybe<&2, Word(q)>, t: Maybe<&2, Word
     case Some{x}:
       CWt.w(q, x, rb, t)
 
-def CW.split(+p: Nat, +m: C.Cir.Cells, +c: U32) -> {CW(p, m, c) == CWt(p, CWb(p, m, c), CW(0n, m, Nx(p, m, c))) : Maybe<&2, Word(p)>}:
+def CW.split(+p: Nat, +m: Cr.Cir.Cells, +c: U32) -> {CW(p, m, c) == CWt(p, CWb(p, m, c), CW(0n, m, Nx(p, m, c))) : Maybe<&2, Word(p)>}:
   match p:
     case 0n:
       CWt.nil(CW(0n, m, c))
@@ -2064,7 +2069,7 @@ def CW.split(+p: Nat, +m: C.Cir.Cells, +c: U32) -> {CW(p, m, c) == CWt(p, CWb(p,
       CWt.g(q, GB(m, c), CWb(q, m, CW.next(m, c)), CW(0n, m, Nx(q, m, CW.next(m, c))))
 
 # GB's value, once its tests pass, or none when one fails
-def GB.ok(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
+def GB.ok(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
   +eF: {Pm(m, Fd(3n, m, c)) == True{} : Bool}, +x: Bool, +eB: {CB(m, Fd(2n, m, Fd(3n, m, c))) == Some{x} : Maybe<&2, Bool>},
   +eR: {Pm(m, Fd(3n, m, Fd(3n, m, c))) == True{} : Bool}, +eZ: {LAST(m, Fd(3n, m, Fd(3n, m, c))) == True{} : Bool}) ->
   {GB(m, c) == Some{x} : Maybe<&2, Bool>}:
@@ -2078,22 +2083,22 @@ def GB.ok(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLA
   %Equal.sym(Bool, LAST(m, rc), True{}, eZ) : {GB.z(x, _) == Some{x} : Maybe<&2, Bool>}
   {==}
 
-def GB.n1(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == False{} : Bool}) -> {GB(m, c) == None{} : Maybe<&2, Bool>}:
+def GB.n1(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == False{} : Bool}) -> {GB(m, c) == None{} : Maybe<&2, Bool>}:
   Equal.cong(Bool, Maybe<&2, Bool>, y => GB.p(y, m, c), Pm(m, c), False{}, eP)
 
-def GB.n2(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == False{} : Bool}) ->
+def GB.n2(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == False{} : Bool}) ->
   {GB(m, c) == None{} : Maybe<&2, Bool>}:
   %Equal.sym(Bool, Pm(m, c), True{}, eP) : {GB.p(_, m, c) == None{} : Maybe<&2, Bool>}
   Equal.cong(Bool, Maybe<&2, Bool>, y => GB.l(y, m, Fd(3n, m, c)), ISLAB(m, c, 4), False{}, eI)
 
-def GB.n3(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
+def GB.n3(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
   +eF: {Pm(m, Fd(3n, m, c)) == False{} : Bool}) -> {GB(m, c) == None{} : Maybe<&2, Bool>}:
   +fc = Fd(3n, m, c)
   %Equal.sym(Bool, Pm(m, c), True{}, eP) : {GB.p(_, m, c) == None{} : Maybe<&2, Bool>}
   %Equal.sym(Bool, ISLAB(m, c, 4), True{}, eI) : {GB.l(_, m, fc) == None{} : Maybe<&2, Bool>}
   Equal.cong(Bool, Maybe<&2, Bool>, y => GB.f(y, m, fc), Pm(m, fc), False{}, eF)
 
-def GB.n4(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
+def GB.n4(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
   +eF: {Pm(m, Fd(3n, m, c)) == True{} : Bool}, +eB: {CB(m, Fd(2n, m, Fd(3n, m, c))) == None{} : Maybe<&2, Bool>}) ->
   {GB(m, c) == None{} : Maybe<&2, Bool>}:
   +fc = Fd(3n, m, c)
@@ -2102,7 +2107,7 @@ def GB.n4(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLA
   %Equal.sym(Bool, Pm(m, fc), True{}, eF) : {GB.f(_, m, fc) == None{} : Maybe<&2, Bool>}
   Equal.cong(Maybe<&2, Bool>, Maybe<&2, Bool>, y => GB.b(y, m, Fd(3n, m, fc)), CB(m, Fd(2n, m, fc)), None{}, eB)
 
-def GB.n5(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
+def GB.n5(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
   +eF: {Pm(m, Fd(3n, m, c)) == True{} : Bool}, +x: Bool, +eB: {CB(m, Fd(2n, m, Fd(3n, m, c))) == Some{x} : Maybe<&2, Bool>},
   +eR: {Pm(m, Fd(3n, m, Fd(3n, m, c))) == False{} : Bool}) -> {GB(m, c) == None{} : Maybe<&2, Bool>}:
   +fc = Fd(3n, m, c)
@@ -2113,7 +2118,7 @@ def GB.n5(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLA
   %Equal.sym(Maybe<&2, Bool>, CB(m, Fd(2n, m, fc)), Some{x}, eB) : {GB.b(_, m, rc) == None{} : Maybe<&2, Bool>}
   Equal.cong(Bool, Maybe<&2, Bool>, y => GB.r(x, y, m, rc), Pm(m, rc), False{}, eR)
 
-def GB.n6(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
+def GB.n6(+m: Cr.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLAB(m, c, 4) == True{} : Bool},
   +eF: {Pm(m, Fd(3n, m, c)) == True{} : Bool}, +x: Bool, +eB: {CB(m, Fd(2n, m, Fd(3n, m, c))) == Some{x} : Maybe<&2, Bool>},
   +eR: {Pm(m, Fd(3n, m, Fd(3n, m, c))) == True{} : Bool}, +eZ: {LAST(m, Fd(3n, m, Fd(3n, m, c))) == False{} : Bool}) ->
   {GB(m, c) == None{} : Maybe<&2, Bool>}:
@@ -2127,72 +2132,72 @@ def GB.n6(+m: C.Cir.Cells, +c: U32, +eP: {Pm(m, c) == True{} : Bool}, +eI: {ISLA
   Equal.cong(Bool, Maybe<&2, Bool>, y => GB.z(x, y), LAST(m, rc), False{}, eZ)
 
 # the loop of M.out.byte, and its parts
-def MW.a1() -> C.Cir.Stmt:
-  C.M.set(C.R.ow(), C.M.f(3n, C.M.g(C.R.ow())))
+def MW.a1() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.ow(), Mc.M.f(3n, Mc.M.g(Mc.R.ow())))
 
-def MW.a2() -> C.Cir.Stmt:
-  C.M.set(C.R.t1(), C.M.f(2n, C.M.g(C.R.ow())))
+def MW.a2() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.t1(), Mc.M.f(2n, Mc.M.g(Mc.R.ow())))
 
-def MW.a3() -> C.Cir.Stmt:
-  C.M.set(C.R.ow(), C.M.f(3n, C.M.g(C.R.ow())))
+def MW.a3() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.ow(), Mc.M.f(3n, Mc.M.g(Mc.R.ow())))
 
-def MW.a4() -> C.Cir.Stmt:
-  C.M.set(C.R.ow(), C.M.f(2n, C.M.g(C.R.ow())))
+def MW.a4() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.ow(), Mc.M.f(2n, Mc.M.g(Mc.R.ow())))
 
-def MW.a5() -> C.Cir.Stmt:
-  C.M.set(C.R.oi(), C.M.add(C.M.g(C.R.oi()), C.M.c(1)))
+def MW.a5() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.oi(), Mc.M.add(Mc.M.g(Mc.R.oi()), Mc.M.c(1)))
 
-def MW.s4() -> C.Cir.Stmt:
-  C.M.need(C.M.last(C.R.ow()), C.M.do([MW.a4(), MW.a5()]))
+def MW.s4() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.last(Mc.R.ow()), Mc.M.do([MW.a4(), MW.a5()]))
 
-def MW.s3() -> C.Cir.Stmt:
-  C.M.need(C.M.pair(C.R.ow()), MW.s4())
+def MW.s3() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.pair(Mc.R.ow()), MW.s4())
 
-def MW.r3() -> C.Cir.Stmt:
-  C.M.do([MW.a3(), MW.s3()])
+def MW.r3() -> Cr.Cir.Stmt:
+  Mc.M.do([MW.a3(), MW.s3()])
 
-def MW.r2() -> C.Cir.Stmt:
-  C.M.do([C.M.out.bit(), MW.a3(), MW.s3()])
+def MW.r2() -> Cr.Cir.Stmt:
+  Mc.M.do([Mc.M.out.bit(), MW.a3(), MW.s3()])
 
-def MW.r1() -> C.Cir.Stmt:
-  C.M.do([MW.a2(), C.M.out.bit(), MW.a3(), MW.s3()])
+def MW.r1() -> Cr.Cir.Stmt:
+  Mc.M.do([MW.a2(), Mc.M.out.bit(), MW.a3(), MW.s3()])
 
-def MW.s2() -> C.Cir.Stmt:
-  C.M.need(C.M.pair(C.R.ow()), MW.r1())
+def MW.s2() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.pair(Mc.R.ow()), MW.r1())
 
-def MW.s1() -> C.Cir.Stmt:
-  C.M.need(C.M.is_lab(C.M.f(2n, C.M.g(C.R.ow())), C.N.wcon()), C.M.do([MW.a1(), MW.s2()]))
+def MW.s1() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wcon()), Mc.M.do([MW.a1(), MW.s2()]))
 
-def MW.body() -> C.Cir.Stmt:
-  C.M.need(C.M.pair(C.R.ow()), MW.s1())
+def MW.body() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.pair(Mc.R.ow()), MW.s1())
 
-def MW.loop() -> C.Cir.Stmt:
-  C.M.while(C.M.lt(C.M.g(C.R.oi()), C.M.c(8)), MW.body())
+def MW.loop() -> Cr.Cir.Stmt:
+  Mc.M.while(Mc.M.lt(Mc.M.g(Mc.R.oi()), Mc.M.c(8)), MW.body())
 
-def MW.end() -> C.Cir.Stmt:
-  C.M.need(C.M.pair(C.R.ow()), C.M.need(C.M.is_lab(C.M.f(2n, C.M.g(C.R.ow())), C.N.wnil()), C.M.need(C.M.last(C.R.ow()), C.Cir.Stmt.nop{})))
+def MW.end() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.pair(Mc.R.ow()), Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{})))
 
 # what a round of the loop goes on with, by what GB reads: the bit in ov and
 # the next cell in ow, or no result
-def MI.Kc(+b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type) -> Type:
+def MI.Kc(+b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type) -> Type:
   @g: Maybe<&2, Bool> -> {GB(St.cl(b), c) == g : Maybe<&2, Bool>} ->
     MC(g, x => {ok(Pr(Pr(Pr(nw))), St.cl(b), ks, img, CW.next(St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
       K(ST(b, oc, CW.next(St.cl(b), c), OV(x, ov, oi), U32.add(oi, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
         Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)),
-      @st: C.Cir.State -> H(2, st))
+      @st: Cr.Cir.State -> H(2, st))
 
 # the round, once its bit is read: the rest of its tests
-def MI.end(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MI.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +eP: {Pm(St.cl(b), c) == True{} : Bool}, +eI: {ISLAB(St.cl(b), c, 4) == True{} : Bool},
   +eF: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool}, +x: Bool,
   +eB: {CB(St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c))) == Some{x} : Maybe<&2, Bool>},
   kk: MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)) ->
-  Wp(C.Cir.exec(1n+f, MW.r3(), ST(b, oc, Fd(3n, St.cl(b), c), OV(x, ov, oi), oi, Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
+  Wp(Cr.Cir.exec(1n+f, MW.r3(), ST(b, oc, Fd(3n, St.cl(b), c), OV(x, ov, oi), oi, Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
       Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)),
-    t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H):
+    t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -2210,25 +2215,25 @@ def MI.end(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg:
   +s3 = ST(b, oc, fc, v, oi, bc, x2, pg, out, outn)
   +s4 = ST(b, oc, rc, v, oi, bc, x2, pg, out, outn)
   +s5 = ST(b, oc, nc, v, oi, bc, x2, pg, out, outn)
-  -K1 = {t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H) : C.Cir.State -> Type}
-  -K2 = {t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K1, H) : C.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
+  -K2 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K1, H) : Cr.Cir.State -> Type}
   -A = MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)
-  Wp.seq(f, MW.a3(), C.M.do([MW.s3()]), s3, K1, H,
-    Wp.set(f, 46n, C.M.f(3n, C.M.g(C.R.ow())), s3, t => Wp(C.Cir.exec(1n+f, C.M.do([MW.s3()]), t), K1, H), H, rc,
-      ev.f(3n, C.M.g(C.R.ow()), s3, fc, {==}, hcf),
-      Wp.seq(f, MW.s3(), C.Cir.Stmt.nop{}, s4, K1, H,
-        Wp.need(f, C.M.pair(C.R.ow()), MW.s4(), s4, K2, H, Pm(m, rc), ev.pair(46n, s4, rc, {==}, hcr),
-         CasesK(Pm(m, rc), A, kk, Wp(C.Cir.exec(1n+f, MW.s4(), s4), K2, H), H(2, s4),
+  Wp.seq(f, MW.a3(), Mc.M.do([MW.s3()]), s3, K1, H,
+    Wp.set(f, 46n, Mc.M.f(3n, Mc.M.g(Mc.R.ow())), s3, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.s3()]), t), K1, H), H, rc,
+      ev.f(3n, Mc.M.g(Mc.R.ow()), s3, fc, {==}, hcf),
+      Wp.seq(f, MW.s3(), Cr.Cir.Stmt.nop{}, s4, K1, H,
+        Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.s4(), s4, K2, H, Pm(m, rc), ev.pair(46n, s4, rc, {==}, hcr),
+         CasesK(Pm(m, rc), A, kk, Wp(Cr.Cir.exec(1n+f, MW.s4(), s4), K2, H), H(2, s4),
           kk => +eR =>
-            Wp.need(f, C.M.last(C.R.ow()), C.M.do([MW.a4(), MW.a5()]), s4, K2, H, LAST(m, rc),
+            Wp.need(f, Mc.M.last(Mc.R.ow()), Mc.M.do([MW.a4(), MW.a5()]), s4, K2, H, LAST(m, rc),
               ev.islab(3n, 46n, 0, s4, rc, {==}, hcr, ok.isc(Pr(Pr(Pr(nw))), m, ks, img, Fd(3n, m, rc), im, fs, nx, ok.R(Pr(Pr(nw)), m, ks, img, rc, im, fs, nx, hokr, eR))),
-             CasesK(LAST(m, rc), A, kk, Wp(C.Cir.exec(1n+f, C.M.do([MW.a4(), MW.a5()]), s4), K2, H), H(2, s4),
+             CasesK(LAST(m, rc), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a4(), MW.a5()]), s4), K2, H), H(2, s4),
               kk => +eZ =>
-                Wp.seq(f, MW.a4(), C.M.do([MW.a5()]), s4, K2, H,
-                  Wp.set(f, 46n, C.M.f(2n, C.M.g(C.R.ow())), s4, t => Wp(C.Cir.exec(1n+f, C.M.do([MW.a5()]), t), K2, H), H, nc,
-                    ev.f(2n, C.M.g(C.R.ow()), s4, rc, {==}, hcr),
-                    Wp.seq(f, MW.a5(), C.Cir.Stmt.nop{}, s5, K2, H,
-                      Wp.set(f, 48n, C.M.add(C.M.g(C.R.oi()), C.M.c(1)), s5, t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K2, H), H, U32.add(oi, 1), {==},
+                Wp.seq(f, MW.a4(), Mc.M.do([MW.a5()]), s4, K2, H,
+                  Wp.set(f, 46n, Mc.M.f(2n, Mc.M.g(Mc.R.ow())), s4, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a5()]), t), K2, H), H, nc,
+                    ev.f(2n, Mc.M.g(Mc.R.ow()), s4, rc, {==}, hcr),
+                    Wp.seq(f, MW.a5(), Cr.Cir.Stmt.nop{}, s5, K2, H,
+                      Wp.set(f, 48n, Mc.M.add(Mc.M.g(Mc.R.oi()), Mc.M.c(1)), s5, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K2, H), H, U32.add(oi, 1), {==},
                         kk(Some{x}, GB.ok(m, c, eP, eI, eF, x, eB, eR, eZ), ok.L(Pr(Pr(nw)), m, ks, img, rc, im, fs, nx, hokr, eR)))))),
               kk => +eZ =>
                 kk(None{}, GB.n6(m, c, eP, eI, eF, x, eB, eR, eZ), s4))),
@@ -2236,14 +2241,14 @@ def MI.end(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg:
             kk(None{}, GB.n5(m, c, eP, eI, eF, x, eB, eR), s4))))))
 
 # the round, once its first tests pass: the bit, then the rest of its tests
-def MI.bit(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MI.bit(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +eP: {Pm(St.cl(b), c) == True{} : Bool}, +eI: {ISLAB(St.cl(b), c, 4) == True{} : Bool},
   +eF: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool},
   kk: MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)) ->
-  Wp(C.Cir.exec(1n+f, MW.r1(), ST(b, oc, Fd(3n, St.cl(b), c), ov, oi, t1, t2, pg, out, outn)),
-    t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H):
+  Wp(Cr.Cir.exec(1n+f, MW.r1(), ST(b, oc, Fd(3n, St.cl(b), c), ov, oi, t1, t2, pg, out, outn)),
+    t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -2258,16 +2263,16 @@ def MI.bit(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1:
   +hokr = ok.R(Pr(nw), m, ks, img, fc, im, fs, nx, hokf, eF)
   +hcr = ok.isc(Pr(Pr(nw)), m, ks, img, rc, im, fs, nx, hokr)
   +s1 = ST(b, oc, fc, ov, oi, t1, t2, pg, out, outn)
-  -K1 = {t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H) : C.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
   -A = MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)
   Wp.seq(f, MW.a2(), MW.r2(), s1, K1, H,
-    Wp.set(f, 61n, C.M.f(2n, C.M.g(C.R.ow())), s1, t => Wp(C.Cir.exec(1n+f, MW.r2(), t), K1, H), H, bc,
-      ev.f(2n, C.M.g(C.R.ow()), s1, fc, {==}, hcf),
-      Wp.seq(f, C.M.out.bit(), MW.r3(), ST(b, oc, fc, ov, oi, bc, t2, pg, out, outn), K1, H,
-        MB(f, b, oc, fc, ov, oi, bc, t2, pg, out, outn, Pr(Pr(nw)), ks, img, t => Wp(C.Cir.exec(1n+f, MW.r3(), t), K1, H), H,
+    Wp.set(f, 61n, Mc.M.f(2n, Mc.M.g(Mc.R.ow())), s1, t => Wp(Cr.Cir.exec(1n+f, MW.r2(), t), K1, H), H, bc,
+      ev.f(2n, Mc.M.g(Mc.R.ow()), s1, fc, {==}, hcf),
+      Wp.seq(f, Mc.M.out.bit(), MW.r3(), ST(b, oc, fc, ov, oi, bc, t2, pg, out, outn), K1, H,
+        MB(f, b, oc, fc, ov, oi, bc, t2, pg, out, outn, Pr(Pr(nw)), ks, img, t => Wp(Cr.Cir.exec(1n+f, MW.r3(), t), K1, H), H,
           ok.L(Pr(nw), m, ks, img, fc, im, fs, nx, hokf, eF),
-          rB => +eB => CasesM(rB, A, kk, x => Wp(C.Cir.exec(1n+f, MW.r3(), ST(b, oc, fc, OV(x, ov, oi), oi, bc, x2, pg, out, outn)), K1, H),
-            @st: C.Cir.State -> H(2, st),
+          rB => +eB => CasesM(rB, A, kk, x => Wp(Cr.Cir.exec(1n+f, MW.r3(), ST(b, oc, fc, OV(x, ov, oi), oi, bc, x2, pg, out, outn)), K1, H),
+            @st: Cr.Cir.State -> H(2, st),
             kk => +x => +ex =>
               MI.end(f, b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H, hok, eP, eI, eF, x,
                 Equal.trans(Maybe<&2, Bool>, CB(m, bc), rB, Some{x}, eB, ex), kk),
@@ -2277,11 +2282,11 @@ def MI.bit(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1:
 # a round of the loop of M.out.byte, on the cell c in ow: the bit that GB
 # reads goes into ov, and ow gets the cell after it; or the run ends with no
 # result
-def MI(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MI(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)) ->
-  Wp(C.Cir.exec(1n+f, MW.body(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, MW.body(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -2296,20 +2301,20 @@ def MI(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32
   +s2 = ST(b, oc, fc, ov, oi, bc, t2, pg, out, outn)
   +hc = ok.isc(nw, m, ks, img, c, im, fs, nx, hok)
   -A = MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)
-  Wp.need(f, C.M.pair(C.R.ow()), MW.s1(), s0, K, H, Pm(m, c), ev.pair(46n, s0, c, {==}, hc),
-   CasesK(Pm(m, c), A, kk, Wp(C.Cir.exec(1n+f, MW.s1(), s0), K, H), H(2, s0),
+  Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.s1(), s0, K, H, Pm(m, c), ev.pair(46n, s0, c, {==}, hc),
+   CasesK(Pm(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MW.s1(), s0), K, H), H(2, s0),
     kk => +eP =>
-      Wp.need(f, C.M.is_lab(C.M.f(2n, C.M.g(C.R.ow())), C.N.wcon()), C.M.do([MW.a1(), MW.s2()]), s0, K, H, ISLAB(m, c, 4),
+      Wp.need(f, Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wcon()), Mc.M.do([MW.a1(), MW.s2()]), s0, K, H, ISLAB(m, c, 4),
         ev.islab(2n, 46n, 4, s0, c, {==}, hc, ok.isc(Pr(nw), m, ks, img, Fd(2n, m, c), im, fs, nx, ok.L(nw, m, ks, img, c, im, fs, nx, hok, eP))),
-       CasesK(ISLAB(m, c, 4), A, kk, Wp(C.Cir.exec(1n+f, C.M.do([MW.a1(), MW.s2()]), s0), K, H), H(2, s0),
+       CasesK(ISLAB(m, c, 4), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a1(), MW.s2()]), s0), K, H), H(2, s0),
         kk => +eI =>
-          Wp.seq(f, MW.a1(), C.M.do([MW.s2()]), s0, K, H,
-            Wp.set(f, 46n, C.M.f(3n, C.M.g(C.R.ow())), s0, t => Wp(C.Cir.exec(1n+f, C.M.do([MW.s2()]), t), K, H), H, fc,
-              ev.f(3n, C.M.g(C.R.ow()), s0, c, {==}, hc),
-              Wp.seq(f, MW.s2(), C.Cir.Stmt.nop{}, s1, K, H,
-                Wp.need(f, C.M.pair(C.R.ow()), MW.r1(), s1, t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H, Pm(m, fc),
+          Wp.seq(f, MW.a1(), Mc.M.do([MW.s2()]), s0, K, H,
+            Wp.set(f, 46n, Mc.M.f(3n, Mc.M.g(Mc.R.ow())), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.s2()]), t), K, H), H, fc,
+              ev.f(3n, Mc.M.g(Mc.R.ow()), s0, c, {==}, hc),
+              Wp.seq(f, MW.s2(), Cr.Cir.Stmt.nop{}, s1, K, H,
+                Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.r1(), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H, Pm(m, fc),
                   ev.pair(46n, s1, fc, {==}, ok.isc(Pr(nw), m, ks, img, fc, im, fs, nx, ok.R(nw, m, ks, img, c, im, fs, nx, hok, eP))),
-                 CasesK(Pm(m, fc), A, kk, Wp(C.Cir.exec(1n+f, MW.r1(), s1), t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H), H), H(2, s1),
+                 CasesK(Pm(m, fc), A, kk, Wp(Cr.Cir.exec(1n+f, MW.r1(), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H), H(2, s1),
                   kk => +eF =>
                     MI.bit(f, b, oc, c, ov, oi, t1, t2, pg, out, outn, nw, ks, img, K, H, hok, eP, eI, eF, kk),
                   kk => +eF =>
@@ -2328,7 +2333,7 @@ def MI(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32
 # which is Byte.to_u32(Kz(WCon{True, zeros})) (Good), sets the next bit (HKT).
 
 def SH(+idx: U32) -> U32:
-  C.Wasm.op(C.Wasm.Op.shl{}, 1, idx)
+  Wa.Wasm.op(Wa.Wasm.Op.shl{}, 1, idx)
 
 # h, moved along the equation e
 def Tr(-A: Type, -P: A -> Type, -a: A, -b: A, +e: {a == b : A}, h: P(a)) -> P(b):
@@ -2352,7 +2357,7 @@ def Good(r: Nat, +idx: U32, Kz: Word(r) -> Word(8n)) -> Data:
     case 0n:
       {U32.is_lt(idx, 8) == False{} : Bool}
     case 1n+q:
-      PD({U32.is_lt(idx, 8) == True{} : Bool}, PD({C.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))))
+      PD({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))))
 
 # the value with a bit set is the value with it clear, or-ed with the bit
 # alone, for each choice of the bits not yet read: a tree, by those bits
@@ -2361,11 +2366,11 @@ def HKT(r: Nat, K: Word(r) -> Word(8n), Kz: Word(r) -> Word(8n)) -> Data:
     case 0n:
       Unit
     case 1n+q:
-      PD({C.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(C.Byte.to_u32(K(WCon{False{}, zeros(q)})), C.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
+      PD({Sd.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(Sd.Byte.to_u32(K(WCon{False{}, zeros(q)})), Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
         PD(HKT(q, y => K(WCon{True{}, y}), y => Kz(WCon{False{}, y})), HKT(q, y => K(WCon{False{}, y}), y => Kz(WCon{False{}, y}))))
 
 # the low n bits of w, then m bits 0, are w
-def low_pad(+n: Nat, +m: Nat, w: Word(n)) -> {C.Word.low(n, m, C.Word.pad(n, m, w)) == w : Word(n)}:
+def low_pad(+n: Nat, +m: Nat, w: Word(n)) -> {Sd.Word.low(n, m, Sd.Word.pad(n, m, w)) == w : Word(n)}:
   match n:
     case 0n:
       match w:
@@ -2374,18 +2379,18 @@ def low_pad(+n: Nat, +m: Nat, w: Word(n)) -> {C.Word.low(n, m, C.Word.pad(n, m, 
     case 1n+p:
       match w:
         case WCon{+x, +t}:
-          Equal.cong(Word(p), Word(1n+p), y => WCon{x, y}, C.Word.low(p, m, C.Word.pad(p, m, t)), t, low_pad(p, m, t))
+          Equal.cong(Word(p), Word(1n+p), y => WCon{x, y}, Sd.Word.low(p, m, Sd.Word.pad(p, m, t)), t, low_pad(p, m, t))
 
 # the value of ov after the bit x
 def acc_step(x: Bool, +q: Nat, -K: Word(1n+q) -> Word(8n), -Kz: Word(1n+q) -> Word(8n), +idx: U32, +HK: HKT(1n+q, K, Kz),
-  +esh: {C.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}) ->
-  {C.Byte.to_u32(K(WCon{x, zeros(q)})) == OV(x, C.Byte.to_u32(K(zeros(1n+q))), idx) : U32}:
+  +esh: {Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}) ->
+  {Sd.Byte.to_u32(K(WCon{x, zeros(q)})) == OV(x, Sd.Byte.to_u32(K(zeros(1n+q))), idx) : U32}:
   match x:
     case False{}:
       {==}
     case True{}:
-      %esh : {C.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(C.Byte.to_u32(K(zeros(1n+q))), _) : U32}
-      D1({C.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(C.Byte.to_u32(K(WCon{False{}, zeros(q)})), C.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
+      %esh : {Sd.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(Sd.Byte.to_u32(K(zeros(1n+q))), _) : U32}
+      D1({Sd.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(Sd.Byte.to_u32(K(WCon{False{}, zeros(q)})), Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
         PD(HKT(q, y => K(WCon{True{}, y}), y => Kz(WCon{False{}, y})), HKT(q, y => K(WCon{False{}, y}), y => Kz(WCon{False{}, y}))), HK)
 
 # HKT holds after the bit x
@@ -2394,11 +2399,11 @@ def HK.step(+q: Nat, +x: Bool, -K: Word(1n+q) -> Word(8n), -Kz: Word(1n+q) -> Wo
   match x:
     case True{}:
       D1(HKT(q, y => K(WCon{True{}, y}), y => Kz(WCon{False{}, y})), HKT(q, y => K(WCon{False{}, y}), y => Kz(WCon{False{}, y})),
-        D2({C.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(C.Byte.to_u32(K(WCon{False{}, zeros(q)})), C.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
+        D2({Sd.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(Sd.Byte.to_u32(K(WCon{False{}, zeros(q)})), Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
           PD(HKT(q, y => K(WCon{True{}, y}), y => Kz(WCon{False{}, y})), HKT(q, y => K(WCon{False{}, y}), y => Kz(WCon{False{}, y}))), HK))
     case False{}:
       D2(HKT(q, y => K(WCon{True{}, y}), y => Kz(WCon{False{}, y})), HKT(q, y => K(WCon{False{}, y}), y => Kz(WCon{False{}, y})),
-        D2({C.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(C.Byte.to_u32(K(WCon{False{}, zeros(q)})), C.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
+        D2({Sd.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(Sd.Byte.to_u32(K(WCon{False{}, zeros(q)})), Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
           PD(HKT(q, y => K(WCon{True{}, y}), y => Kz(WCon{False{}, y})), HKT(q, y => K(WCon{False{}, y}), y => Kz(WCon{False{}, y}))), HK))
 
 # HKT for the 8 bits of a byte, from 0
@@ -2421,39 +2426,39 @@ def CasesW(-p: Nat, rr: Maybe<&2, Word(p)>, -A: Type, a: A, -X: Word(p) -> Type,
     case None{}:
       n(a, {==})
 
-def CWb.some(+q: Nat, +m: C.Cir.Cells, +c: U32, +x: Bool, +w: Word(q), +e1: {GB(m, c) == Some{x} : Maybe<&2, Bool>},
+def CWb.some(+q: Nat, +m: Cr.Cir.Cells, +c: U32, +x: Bool, +w: Word(q), +e1: {GB(m, c) == Some{x} : Maybe<&2, Bool>},
   +e2: {CWb(q, m, CW.next(m, c)) == Some{w} : Maybe<&2, Word(q)>}) -> {CWb(1n+q, m, c) == Some{WCon{x, w}} : Maybe<&2, Word(1n+q)>}:
   %Equal.sym(Maybe<&2, Bool>, GB(m, c), Some{x}, e1) : {W1.g(q, _, CWb(q, m, CW.next(m, c))) == Some{WCon{x, w}} : Maybe<&2, Word(1n+q)>}
   %Equal.sym(Maybe<&2, Word(q)>, CWb(q, m, CW.next(m, c)), Some{w}, e2) : {W1.w(q, x, _) == Some{WCon{x, w}} : Maybe<&2, Word(1n+q)>}
   {==}
 
-def CWb.none2(+q: Nat, +m: C.Cir.Cells, +c: U32, +x: Bool, +e1: {GB(m, c) == Some{x} : Maybe<&2, Bool>},
+def CWb.none2(+q: Nat, +m: Cr.Cir.Cells, +c: U32, +x: Bool, +e1: {GB(m, c) == Some{x} : Maybe<&2, Bool>},
   +e2: {CWb(q, m, CW.next(m, c)) == None{} : Maybe<&2, Word(q)>}) -> {CWb(1n+q, m, c) == None{} : Maybe<&2, Word(1n+q)>}:
   %Equal.sym(Maybe<&2, Bool>, GB(m, c), Some{x}, e1) : {W1.g(q, _, CWb(q, m, CW.next(m, c))) == None{} : Maybe<&2, Word(1n+q)>}
   %Equal.sym(Maybe<&2, Word(q)>, CWb(q, m, CW.next(m, c)), None{}, e2) : {W1.w(q, x, _) == None{} : Maybe<&2, Word(1n+q)>}
   {==}
 
-def CWb.none1(+q: Nat, +m: C.Cir.Cells, +c: U32, +e1: {GB(m, c) == None{} : Maybe<&2, Bool>}) ->
+def CWb.none1(+q: Nat, +m: Cr.Cir.Cells, +c: U32, +e1: {GB(m, c) == None{} : Maybe<&2, Bool>}) ->
   {CWb(1n+q, m, c) == None{} : Maybe<&2, Word(1n+q)>}:
   Equal.cong(Maybe<&2, Bool>, Maybe<&2, Word(1n+q)>, g => W1.g(q, g, CWb(q, m, CW.next(m, c))), GB(m, c), None{}, e1)
 
 # M.lt on register r
-def ev.lt(+r: Nat, +n: U32, +st: C.Cir.State, +i: U32, +er: {Some{i} == C.Cir.eval(C.M.g(r), st) : Maybe<&2, U32>}, -b: Bool,
-  +eb: {U32.is_lt(i, n) == b : Bool}) -> {Some{Bool.to_u32(b)} == C.Cir.eval(C.M.lt(C.M.g(r), C.M.c(n)), st) : Maybe<&2, U32>}:
-  %er : {Some{Bool.to_u32(b)} == C.Cir.eval.op(C.Wasm.Op.lt_u{}, _, Some{n}) : Maybe<&2, U32>}
+def ev.lt(+r: Nat, +n: U32, +st: Cr.Cir.State, +i: U32, +er: {Some{i} == Cr.Cir.eval(Mc.M.g(r), st) : Maybe<&2, U32>}, -b: Bool,
+  +eb: {U32.is_lt(i, n) == b : Bool}) -> {Some{Bool.to_u32(b)} == Cr.Cir.eval(Mc.M.lt(Mc.M.g(r), Mc.M.c(n)), st) : Maybe<&2, U32>}:
+  %er : {Some{Bool.to_u32(b)} == Cr.Cir.eval.op(Wa.Wasm.Op.lt_u{}, _, Some{n}) : Maybe<&2, U32>}
   %eb : {Some{Bool.to_u32(_)} == Some{Bool.to_u32(U32.is_lt(i, n))} : Maybe<&2, U32>}
   {==}
 
-def Wp.while(+f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +st: C.Cir.State, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  b: Bool, +ev: {Some{Bool.to_u32(b)} == C.Cir.eval(c, st) : Maybe<&2, U32>},
-  g: IFT(b, Wp(C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)), K, H), K(st))) ->
-  Wp(C.Cir.exec(1n+f, C.Cir.Stmt.while{c, body}, st), K, H):
+def Wp.while(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  b: Bool, +ev: {Some{Bool.to_u32(b)} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
+  g: IFT(b, Wp(Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), K, H), K(st))) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st), K, H):
   match b:
     case True{}:
-      %ev : Wp(C.Cir.exec.if(_, u => C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)), u => C.Cir.Out.next{st}), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), K, H)
       g
     case False{}:
-      %ev : Wp(C.Cir.exec.if(_, u => C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)), u => C.Cir.Out.next{st}), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), K, H)
       g
 
 # the fuel of ok left after r bits of a word
@@ -2466,68 +2471,68 @@ def Pn(r: Nat, +n: Nat) -> Nat:
 
 # what the loop goes on with, by what CWb reads: its r bits below K in ov,
 # with ow at the cell after them, or no result
-def ML.Kc(r: Nat, +b: C.Cir.State, +oc: U32, +c: U32, -K: Word(r) -> Word(8n), +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, -KK: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type) -> Type:
+def ML.Kc(r: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, -K: Word(r) -> Word(8n), +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type) -> Type:
   @rr: Maybe<&2, Word(r)> -> {CWb(r, St.cl(b), c) == rr : Maybe<&2, Word(r)>} ->
     MCW(r, rr, w => {ok(Pn(r, nw), St.cl(b), ks, img, Nx(r, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
-      @oi: U32 -> @t1: U32 -> @t2: U32 -> KK(ST(b, oc, Nx(r, St.cl(b), c), C.Byte.to_u32(K(w)), oi, t1, t2, pg, out, outn)),
-      @st: C.Cir.State -> H(2, st))
+      @oi: U32 -> @t1: U32 -> @t2: U32 -> KK(ST(b, oc, Nx(r, St.cl(b), c), Sd.Byte.to_u32(K(w)), oi, t1, t2, pg, out, outn)),
+      @st: Cr.Cir.State -> H(2, st))
 
 # the loop goes on after a round that read the bit x
-def ML.next(+q: Nat, +g: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +pg: U32,
-  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
+def ML.next(+q: Nat, +g: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +pg: U32,
+  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -K: Word(1n+q) -> Word(8n), -Kz: Word(1n+q) -> Word(8n), +HK: HKT(1n+q, K, Kz), +G: Good(1n+q, idx, Kz),
-  -KK: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type, +eov: {C.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +x: Bool,
+  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eov: {Sd.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +x: Bool,
   +ex: {GB(St.cl(b), c) == Some{x} : Maybe<&2, Bool>},
   +hokn: {ok(Pr(Pr(Pr(nw))), St.cl(b), ks, img, CW.next(St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H),
   ih: @nc: U32 -> @x: Bool -> {ok(Pr(Pr(Pr(nw))), St.cl(b), ks, img, nc, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
-    @ov2: U32 -> {C.Byte.to_u32(K(WCon{x, zeros(q)})) == ov2 : U32} ->
+    @ov2: U32 -> {Sd.Byte.to_u32(K(WCon{x, zeros(q)})) == ov2 : U32} ->
     ML.Kc(q, b, oc, nc, y => K(WCon{x, y}), pg, out, outn, Pr(Pr(Pr(nw))), ks, img, KK, H) ->
-    Wp(C.Cir.exec(1n+g, MW.loop(), ST(b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
+    Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
       Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H)) ->
-  Wp(C.Cir.exec(1n+g, MW.loop(), ST(b, oc, CW.next(St.cl(b), c), OV(x, ov, idx), U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
+  Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, CW.next(St.cl(b), c), OV(x, ov, idx), U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
     Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H):
   +m = St.cl(b)
   +nc = CW.next(m, c)
   -A = ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H)
   ih(nc, x, hokn, OV(x, ov, idx),
-    Equal.trans(U32, C.Byte.to_u32(K(WCon{x, zeros(q)})), OV(x, C.Byte.to_u32(K(zeros(1n+q))), idx), OV(x, ov, idx),
-      acc_step(x, q, K, Kz, idx, HK, D1({C.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y})), D2({U32.is_lt(idx, 8) == True{} : Bool}, PD({C.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G))),
-      Equal.cong(U32, U32, v => OV(x, v, idx), C.Byte.to_u32(K(zeros(1n+q))), ov, eov)),
+    Equal.trans(U32, Sd.Byte.to_u32(K(WCon{x, zeros(q)})), OV(x, Sd.Byte.to_u32(K(zeros(1n+q))), idx), OV(x, ov, idx),
+      acc_step(x, q, K, Kz, idx, HK, D1({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y})), D2({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G))),
+      Equal.cong(U32, U32, v => OV(x, v, idx), Sd.Byte.to_u32(K(zeros(1n+q))), ov, eov)),
     rr => +err => CasesW(q, rr, A, kk,
       w => {ok(Pn(q, Pr(Pr(Pr(nw)))), m, ks, img, Nx(q, m, nc), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
-        @oi: U32 -> @t1: U32 -> @t2: U32 -> KK(ST(b, oc, Nx(q, m, nc), C.Byte.to_u32(K(WCon{x, w})), oi, t1, t2, pg, out, outn)),
-      @st: C.Cir.State -> H(2, st),
+        @oi: U32 -> @t1: U32 -> @t2: U32 -> KK(ST(b, oc, Nx(q, m, nc), Sd.Byte.to_u32(K(WCon{x, w})), oi, t1, t2, pg, out, outn)),
+      @st: Cr.Cir.State -> H(2, st),
       kk => +w => +ew => kk(Some{WCon{x, w}}, CWb.some(q, m, c, x, w, ex, Equal.trans(Maybe<&2, Word(q)>, CWb(q, m, nc), rr, Some{w}, err, ew))),
       kk => +ew => kk(None{}, CWb.none2(q, m, c, x, ex, Equal.trans(Maybe<&2, Word(q)>, CWb(q, m, nc), rr, None{}, err, ew)))))
 
 # a round of the loop, then the rest of it
-def ML.go(+q: Nat, +g: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +pg: U32,
-  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
+def ML.go(+q: Nat, +g: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +pg: U32,
+  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -K: Word(1n+q) -> Word(8n), -Kz: Word(1n+q) -> Word(8n), +HK: HKT(1n+q, K, Kz), +G: Good(1n+q, idx, Kz),
-  -KK: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type, +eov: {C.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +t1: U32, +t2: U32, +hF: PN.Le(1n+q, 1n+g),
+  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eov: {Sd.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +t1: U32, +t2: U32, +hF: PN.Le(1n+q, 1n+g),
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H),
   ih: @nc: U32 -> @x: Bool -> {ok(Pr(Pr(Pr(nw))), St.cl(b), ks, img, nc, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
-    @ov2: U32 -> {C.Byte.to_u32(K(WCon{x, zeros(q)})) == ov2 : U32} ->
+    @ov2: U32 -> {Sd.Byte.to_u32(K(WCon{x, zeros(q)})) == ov2 : U32} ->
     ML.Kc(q, b, oc, nc, y => K(WCon{x, y}), pg, out, outn, Pr(Pr(Pr(nw))), ks, img, KK, H) ->
-    Wp(C.Cir.exec(1n+g, MW.loop(), ST(b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
+    Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
       Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H)) ->
-  Wp(C.Cir.exec(1n+1n+g, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H):
+  Wp(Cr.Cir.exec(1n+1n+g, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H):
   +m = St.cl(b)
   +s0 = ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)
   +bc = Fd(2n, m, Fd(3n, m, c))
   +x2 = Fd(2n, m, Fd(2n, m, bc))
   -A = ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H)
-  Wp.while(1n+g, C.M.lt(C.M.g(C.R.oi()), C.M.c(8)), MW.body(), s0, KK, H, True{},
-    ev.lt(48n, 8, s0, idx, {==}, True{}, D1({U32.is_lt(idx, 8) == True{} : Bool}, PD({C.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G)),
-    Wp.then(C.Cir.exec(1n+g, MW.body(), s0), t => C.Cir.exec(1n+g, MW.loop(), t), KK, H,
-      MI(g, b, oc, c, ov, idx, t1, t2, pg, out, outn, nw, ks, img, t => Wp(C.Cir.exec(1n+g, MW.loop(), t), KK, H), H, hok,
+  Wp.while(1n+g, Mc.M.lt(Mc.M.g(Mc.R.oi()), Mc.M.c(8)), MW.body(), s0, KK, H, True{},
+    ev.lt(48n, 8, s0, idx, {==}, True{}, D1({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G)),
+    Wp.then(Cr.Cir.exec(1n+g, MW.body(), s0), t => Cr.Cir.exec(1n+g, MW.loop(), t), KK, H,
+      MI(g, b, oc, c, ov, idx, t1, t2, pg, out, outn, nw, ks, img, t => Wp(Cr.Cir.exec(1n+g, MW.loop(), t), KK, H), H, hok,
         gb => +egb => CasesM(gb, A, kk,
           x => {ok(Pr(Pr(Pr(nw))), m, ks, img, CW.next(m, c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
-            Wp(C.Cir.exec(1n+g, MW.loop(), ST(b, oc, CW.next(m, c), OV(x, ov, idx), U32.add(idx, 1), bc, x2, pg, out, outn)), KK, H),
-          @st: C.Cir.State -> H(2, st),
+            Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, CW.next(m, c), OV(x, ov, idx), U32.add(idx, 1), bc, x2, pg, out, outn)), KK, H),
+          @st: Cr.Cir.State -> H(2, st),
           kk => +x => +ex => +hokn =>
             ML.next(q, g, b, oc, c, ov, idx, pg, out, outn, nw, ks, img, K, Kz, HK, G, KK, H, eov, x,
               Equal.trans(Maybe<&2, Bool>, GB(m, c), gb, Some{x}, egb, ex), hokn, kk, ih),
@@ -2535,80 +2540,80 @@ def ML.go(+q: Nat, +g: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: 
             st => kk(None{}, CWb.none1(q, m, c, Equal.trans(Maybe<&2, Bool>, GB(m, c), gb, None{}, egb, ex)), st)))))
 
 # the loop of M.out.byte, with r bits left, from the cell c in ow
-def ML(+r: Nat, +F: Nat, +hF: PN.Le(1n+r, F), +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +t1: U32, +t2: U32, +pg: U32,
-  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
+def ML(+r: Nat, +F: Nat, +hF: PN.Le(1n+r, F), +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +t1: U32, +t2: U32, +pg: U32,
+  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -K: Word(r) -> Word(8n), -Kz: Word(r) -> Word(8n), +HK: HKT(r, K, Kz), +G: Good(r, idx, Kz),
-  -KK: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type, +eov: {C.Byte.to_u32(K(zeros(r))) == ov : U32},
+  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eov: {Sd.Byte.to_u32(K(zeros(r))) == ov : U32},
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: ML.Kc(r, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H)) ->
-  Wp(C.Cir.exec(F, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H):
+  Wp(Cr.Cir.exec(F, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H):
   match r:
     case 0n:
       match F:
         case 0n:
-          Empty.absurd(Wp(C.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
+          Empty.absurd(Wp(Cr.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
         case 1n+f:
-          Wp.while(f, C.M.lt(C.M.g(C.R.oi()), C.M.c(8)), MW.body(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn), KK, H, False{},
+          Wp.while(f, Mc.M.lt(Mc.M.g(Mc.R.oi()), Mc.M.c(8)), MW.body(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn), KK, H, False{},
             ev.lt(48n, 8, ST(b, oc, c, ov, idx, t1, t2, pg, out, outn), idx, {==}, False{}, G),
-            Tr(U32, v => KK(ST(b, oc, c, v, idx, t1, t2, pg, out, outn)), C.Byte.to_u32(K(zeros(0n))), ov, eov, kk(Some{WNil{}}, {==}, hok, idx, t1, t2)))
+            Tr(U32, v => KK(ST(b, oc, c, v, idx, t1, t2, pg, out, outn)), Sd.Byte.to_u32(K(zeros(0n))), ov, eov, kk(Some{WNil{}}, {==}, hok, idx, t1, t2)))
     case 1n+q:
       match F:
         case 0n:
-          Empty.absurd(Wp(C.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
+          Empty.absurd(Wp(Cr.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
         case 1n+f:
           match f:
             case 0n:
-              Empty.absurd(Wp(C.Cir.exec(1n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
+              Empty.absurd(Wp(Cr.Cir.exec(1n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
             case 1n+g:
               ML.go(q, g, b, oc, c, ov, idx, pg, out, outn, nw, ks, img, K, Kz, HK, G, KK, H, eov, t1, t2, hF, hok, kk,
                 nc => +x => +hokn => +ov2 => +eov2 => kk2 =>
                   ML(q, 1n+g, hF, b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
                     Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn, Pr(Pr(Pr(nw))), ks, img,
                     y => K(WCon{x, y}), y => Kz(WCon{False{}, y}), HK.step(q, x, K, Kz, HK),
-                    D2({C.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y})),
-                      D2({U32.is_lt(idx, 8) == True{} : Bool}, PD({C.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G)),
+                    D2({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y})),
+                      D2({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G)),
                     KK, H, eov2, hokn, kk2))
 
 # The word
 # --------
 
-def CW0.ok(+m: C.Cir.Cells, +d: U32, +eP: {Pm(m, d) == True{} : Bool}, +eI: {ISLAB(m, d, 3) == True{} : Bool},
+def CW0.ok(+m: Cr.Cir.Cells, +d: U32, +eP: {Pm(m, d) == True{} : Bool}, +eI: {ISLAB(m, d, 3) == True{} : Bool},
   +eL: {LAST(m, d) == True{} : Bool}) -> {CW(0n, m, d) == Some{WNil{}} : Maybe<&2, Word(0n)>}:
   %Equal.sym(Bool, Pm(m, d), True{}, eP) : {CW0.p(_, m, d) == Some{WNil{}} : Maybe<&2, Word(0n)>}
   %Equal.sym(Bool, ISLAB(m, d, 3), True{}, eI) : {CW0.l(_, m, d) == Some{WNil{}} : Maybe<&2, Word(0n)>}
   %Equal.sym(Bool, LAST(m, d), True{}, eL) : {CW0.z(_) == Some{WNil{}} : Maybe<&2, Word(0n)>}
   {==}
 
-def CW0.n1(+m: C.Cir.Cells, +d: U32, +eP: {Pm(m, d) == False{} : Bool}) -> {CW(0n, m, d) == None{} : Maybe<&2, Word(0n)>}:
+def CW0.n1(+m: Cr.Cir.Cells, +d: U32, +eP: {Pm(m, d) == False{} : Bool}) -> {CW(0n, m, d) == None{} : Maybe<&2, Word(0n)>}:
   Equal.cong(Bool, Maybe<&2, Word(0n)>, y => CW0.p(y, m, d), Pm(m, d), False{}, eP)
 
-def CW0.n2(+m: C.Cir.Cells, +d: U32, +eP: {Pm(m, d) == True{} : Bool}, +eI: {ISLAB(m, d, 3) == False{} : Bool}) ->
+def CW0.n2(+m: Cr.Cir.Cells, +d: U32, +eP: {Pm(m, d) == True{} : Bool}, +eI: {ISLAB(m, d, 3) == False{} : Bool}) ->
   {CW(0n, m, d) == None{} : Maybe<&2, Word(0n)>}:
   %Equal.sym(Bool, Pm(m, d), True{}, eP) : {CW0.p(_, m, d) == None{} : Maybe<&2, Word(0n)>}
   Equal.cong(Bool, Maybe<&2, Word(0n)>, y => CW0.l(y, m, d), ISLAB(m, d, 3), False{}, eI)
 
-def CW0.n3(+m: C.Cir.Cells, +d: U32, +eP: {Pm(m, d) == True{} : Bool}, +eI: {ISLAB(m, d, 3) == True{} : Bool},
+def CW0.n3(+m: Cr.Cir.Cells, +d: U32, +eP: {Pm(m, d) == True{} : Bool}, +eI: {ISLAB(m, d, 3) == True{} : Bool},
   +eL: {LAST(m, d) == False{} : Bool}) -> {CW(0n, m, d) == None{} : Maybe<&2, Word(0n)>}:
   %Equal.sym(Bool, Pm(m, d), True{}, eP) : {CW0.p(_, m, d) == None{} : Maybe<&2, Word(0n)>}
   %Equal.sym(Bool, ISLAB(m, d, 3), True{}, eI) : {CW0.l(_, m, d) == None{} : Maybe<&2, Word(0n)>}
   Equal.cong(Bool, Maybe<&2, Word(0n)>, y => CW0.z(y), LAST(m, d), False{}, eL)
 
 # CW, from its bits and its WNil
-def CWs.some(+p: Nat, +m: C.Cir.Cells, +c: U32, +w: Word(p), +ew: {CWb(p, m, c) == Some{w} : Maybe<&2, Word(p)>},
+def CWs.some(+p: Nat, +m: Cr.Cir.Cells, +c: U32, +w: Word(p), +ew: {CWb(p, m, c) == Some{w} : Maybe<&2, Word(p)>},
   +et: {CW(0n, m, Nx(p, m, c)) == Some{WNil{}} : Maybe<&2, Word(0n)>}) -> {CW(p, m, c) == Some{w} : Maybe<&2, Word(p)>}:
   %Equal.sym(Maybe<&2, Word(p)>, CW(p, m, c), CWt(p, CWb(p, m, c), CW(0n, m, Nx(p, m, c))), CW.split(p, m, c)) : {_ == Some{w} : Maybe<&2, Word(p)>}
   %Equal.sym(Maybe<&2, Word(p)>, CWb(p, m, c), Some{w}, ew) : {CWt(p, _, CW(0n, m, Nx(p, m, c))) == Some{w} : Maybe<&2, Word(p)>}
   %Equal.sym(Maybe<&2, Word(0n)>, CW(0n, m, Nx(p, m, c)), Some{WNil{}}, et) : {CWt(p, Some{w}, _) == Some{w} : Maybe<&2, Word(p)>}
   {==}
 
-def CWs.none(+p: Nat, +m: C.Cir.Cells, +c: U32, +w: Word(p), +ew: {CWb(p, m, c) == Some{w} : Maybe<&2, Word(p)>},
+def CWs.none(+p: Nat, +m: Cr.Cir.Cells, +c: U32, +w: Word(p), +ew: {CWb(p, m, c) == Some{w} : Maybe<&2, Word(p)>},
   +et: {CW(0n, m, Nx(p, m, c)) == None{} : Maybe<&2, Word(0n)>}) -> {CW(p, m, c) == None{} : Maybe<&2, Word(p)>}:
   %Equal.sym(Maybe<&2, Word(p)>, CW(p, m, c), CWt(p, CWb(p, m, c), CW(0n, m, Nx(p, m, c))), CW.split(p, m, c)) : {_ == None{} : Maybe<&2, Word(p)>}
   %Equal.sym(Maybe<&2, Word(p)>, CWb(p, m, c), Some{w}, ew) : {CWt(p, _, CW(0n, m, Nx(p, m, c))) == None{} : Maybe<&2, Word(p)>}
   %Equal.sym(Maybe<&2, Word(0n)>, CW(0n, m, Nx(p, m, c)), None{}, et) : {CWt(p, Some{w}, _) == None{} : Maybe<&2, Word(p)>}
   {==}
 
-def CWs.none0(+p: Nat, +m: C.Cir.Cells, +c: U32, +ew: {CWb(p, m, c) == None{} : Maybe<&2, Word(p)>}) -> {CW(p, m, c) == None{} : Maybe<&2, Word(p)>}:
+def CWs.none0(+p: Nat, +m: Cr.Cir.Cells, +c: U32, +ew: {CWb(p, m, c) == None{} : Maybe<&2, Word(p)>}) -> {CW(p, m, c) == None{} : Maybe<&2, Word(p)>}:
   %Equal.sym(Maybe<&2, Word(p)>, CW(p, m, c), CWt(p, CWb(p, m, c), CW(0n, m, Nx(p, m, c))), CW.split(p, m, c)) : {_ == None{} : Maybe<&2, Word(p)>}
   %Equal.sym(Maybe<&2, Word(p)>, CWb(p, m, c), None{}, ew) : {CWt(p, _, CW(0n, m, Nx(p, m, c))) == None{} : Maybe<&2, Word(p)>}
   {==}
@@ -2619,37 +2624,37 @@ def Good8() -> Good(8n, 0, y => y):
 
 # what the run of a byte goes on with, by what CW reads: its value in ov,
 # or no result
-def MWd.Kc(+b: C.Cir.State, +oc: U32, +c: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type) -> Type:
+def MWd.Kc(+b: Cr.Cir.State, +oc: U32, +c: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type) -> Type:
   @rr: Maybe<&2, Word(8n)> -> {CW(8n, St.cl(b), c) == rr : Maybe<&2, Word(8n)>} ->
-    MCW(8n, rr, w => @ow: U32 -> @oi: U32 -> @t1: U32 -> @t2: U32 -> K(ST(b, oc, ow, C.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
-      @st: C.Cir.State -> H(2, st))
+    MCW(8n, rr, w => @ow: U32 -> @oi: U32 -> @t1: U32 -> @t2: U32 -> K(ST(b, oc, ow, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
+      @st: Cr.Cir.State -> H(2, st))
 
 # the end of a byte: its WNil
-def MWd.end(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +w: Word(8n), +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MWd.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +w: Word(8n), +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +ew: {CWb(8n, St.cl(b), c) == Some{w} : Maybe<&2, Word(8n)>},
   +hok: {ok(Pn(8n, nw), St.cl(b), ks, img, Nx(8n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MWd.Kc(b, oc, c, pg, out, outn, K, H)) ->
-  Wp(C.Cir.exec(1n+f, C.M.do([MW.end()]), ST(b, oc, Nx(8n, St.cl(b), c), C.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.end()]), ST(b, oc, Nx(8n, St.cl(b), c), Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H):
   +m = St.cl(b)
   +d = Nx(8n, m, c)
-  +s0 = ST(b, oc, d, C.Byte.to_u32(w), oi, t1, t2, pg, out, outn)
+  +s0 = ST(b, oc, d, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)
   +hc = ok.isc(Pn(8n, nw), m, ks, img, d, St.im(b), St.fs(b), St.nx(b), hok)
-  -K1 = {t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H) : C.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
   -A = MWd.Kc(b, oc, c, pg, out, outn, K, H)
-  Wp.seq(f, MW.end(), C.Cir.Stmt.nop{}, s0, K, H,
-    Wp.need(f, C.M.pair(C.R.ow()), C.M.need(C.M.is_lab(C.M.f(2n, C.M.g(C.R.ow())), C.N.wnil()), C.M.need(C.M.last(C.R.ow()), C.Cir.Stmt.nop{})), s0, K1, H,
+  Wp.seq(f, MW.end(), Cr.Cir.Stmt.nop{}, s0, K, H,
+    Wp.need(f, Mc.M.pair(Mc.R.ow()), Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{})), s0, K1, H,
       Pm(m, d), ev.pair(46n, s0, d, {==}, hc),
-     CasesK(Pm(m, d), A, kk, Wp(C.Cir.exec(1n+f, C.M.need(C.M.is_lab(C.M.f(2n, C.M.g(C.R.ow())), C.N.wnil()), C.M.need(C.M.last(C.R.ow()), C.Cir.Stmt.nop{})), s0), K1, H), H(2, s0),
+     CasesK(Pm(m, d), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{})), s0), K1, H), H(2, s0),
       kk => +eP =>
-        Wp.need(f, C.M.is_lab(C.M.f(2n, C.M.g(C.R.ow())), C.N.wnil()), C.M.need(C.M.last(C.R.ow()), C.Cir.Stmt.nop{}), s0, K1, H, ISLAB(m, d, 3),
+        Wp.need(f, Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}), s0, K1, H, ISLAB(m, d, 3),
           ev.islab(2n, 46n, 3, s0, d, {==}, hc, ok.isc(Pr(Pn(8n, nw)), m, ks, img, Fd(2n, m, d), St.im(b), St.fs(b), St.nx(b), ok.L(Pn(8n, nw), m, ks, img, d, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-         CasesK(ISLAB(m, d, 3), A, kk, Wp(C.Cir.exec(1n+f, C.M.need(C.M.last(C.R.ow()), C.Cir.Stmt.nop{}), s0), K1, H), H(2, s0),
+         CasesK(ISLAB(m, d, 3), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}), s0), K1, H), H(2, s0),
           kk => +eI =>
-            Wp.need(f, C.M.last(C.R.ow()), C.Cir.Stmt.nop{}, s0, K1, H, LAST(m, d),
+            Wp.need(f, Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}, s0, K1, H, LAST(m, d),
               ev.islab(3n, 46n, 0, s0, d, {==}, hc, ok.isc(Pr(Pn(8n, nw)), m, ks, img, Fd(3n, m, d), St.im(b), St.fs(b), St.nx(b), ok.R(Pn(8n, nw), m, ks, img, d, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-             CasesK(LAST(m, d), A, kk, Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, s0), K1, H), H(2, s0),
+             CasesK(LAST(m, d), A, kk, Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, s0), K1, H), H(2, s0),
               kk => +eL =>
                 kk(Some{w}, CWs.some(8n, m, c, w, ew, CW0.ok(m, d, eP, eI, eL)), d, oi, t1, t2),
               kk => +eL =>
@@ -2661,27 +2666,27 @@ def MWd.end(+f: Nat, +b: C.Cir.State, +oc: U32, +c: U32, +w: Word(8n), +oi: U32,
 
 # M.out.byte on the cell c in ow: the value of the byte that CW reads goes
 # into ov, or the run ends with no result
-def MWd(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
-  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
-  -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MWd(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
+  +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MWd.Kc(b, oc, c, pg, out, outn, K, H)) ->
-  Wp(C.Cir.exec(1n+f, C.M.out.byte(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.out.byte(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H):
   +m = St.cl(b)
   +s1 = ST(b, oc, c, 0, oi, t1, t2, pg, out, outn)
   +s2 = ST(b, oc, c, 0, 0, t1, t2, pg, out, outn)
-  -K1 = {t => Wp(C.Cir.exec(1n+f, C.M.do([MW.end()]), t), K, H) : C.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.end()]), t), K, H) : Cr.Cir.State -> Type}
   -A = MWd.Kc(b, oc, c, pg, out, outn, K, H)
-  Wp.seq(f, C.M.set(C.R.ov(), C.M.c(0)), C.M.do([C.M.set(C.R.oi(), C.M.c(0)), MW.loop(), MW.end()]), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), K, H,
-    Wp.set(f, 47n, C.M.c(0), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), t => Wp(C.Cir.exec(1n+f, C.M.do([C.M.set(C.R.oi(), C.M.c(0)), MW.loop(), MW.end()]), t), K, H), H, 0, {==},
-      Wp.seq(f, C.M.set(C.R.oi(), C.M.c(0)), C.M.do([MW.loop(), MW.end()]), s1, K, H,
-        Wp.set(f, 48n, C.M.c(0), s1, t => Wp(C.Cir.exec(1n+f, C.M.do([MW.loop(), MW.end()]), t), K, H), H, 0, {==},
-          Wp.seq(f, MW.loop(), C.M.do([MW.end()]), s2, K, H,
+  Wp.seq(f, Mc.M.set(Mc.R.ov(), Mc.M.c(0)), Mc.M.do([Mc.M.set(Mc.R.oi(), Mc.M.c(0)), MW.loop(), MW.end()]), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), K, H,
+    Wp.set(f, 47n, Mc.M.c(0), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.set(Mc.R.oi(), Mc.M.c(0)), MW.loop(), MW.end()]), t), K, H), H, 0, {==},
+      Wp.seq(f, Mc.M.set(Mc.R.oi(), Mc.M.c(0)), Mc.M.do([MW.loop(), MW.end()]), s1, K, H,
+        Wp.set(f, 48n, Mc.M.c(0), s1, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.loop(), MW.end()]), t), K, H), H, 0, {==},
+          Wp.seq(f, MW.loop(), Mc.M.do([MW.end()]), s2, K, H,
             ML(8n, 1n+f, PN.le_trans(9n, 33n, 1n+f, PN.le_add_r(9n, 24n), hF), b, oc, c, 0, 0, t1, t2, pg, out, outn, nw, ks, img, y => y, y => y, HK8(), Good8(), K1, H, {==}, hok,
               rr => +err => CasesW(8n, rr, A, kk,
                 w => {ok(Pn(8n, nw), m, ks, img, Nx(8n, m, c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
-                  @oi: U32 -> @t1: U32 -> @t2: U32 -> K1(ST(b, oc, Nx(8n, m, c), C.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
-                @st: C.Cir.State -> H(2, st),
+                  @oi: U32 -> @t1: U32 -> @t2: U32 -> K1(ST(b, oc, Nx(8n, m, c), Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
+                @st: Cr.Cir.State -> H(2, st),
                 kk => +w => +ew => +hokd => +oi2 => +t12 => +t22 =>
                   MWd.end(f, b, oc, c, w, oi2, t12, t22, pg, out, outn, nw, ks, img, K, H,
                     Equal.trans(Maybe<&2, Word(8n)>, CWb(8n, m, c), rr, Some{w}, err, ew), hokd, kk),
@@ -2689,7 +2694,7 @@ def MWd(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +oc: U32, +c: U32, +ov:
                   st => kk(None{}, CWs.none0(8n, m, c, Equal.trans(Maybe<&2, Word(8n)>, CWb(8n, m, c), rr, None{}, err, ew)), st))))))))
 
 # the steps of S.c0: its value once its tests pass, or none when one fails
-def Sc.ok(+m: C.Cir.Cells, +bc: U32, +w: Word(8n),
+def Sc.ok(+m: Cr.Cir.Cells, +bc: U32, +w: Word(8n),
   +ePb: {Pm(m, bc) == True{} : Bool},
   +ePy: {Pm(m, Fd(3n, m, bc)) == True{} : Bool},
   +eLy: {LAST(m, Fd(3n, m, bc)) == True{} : Bool},
@@ -2704,12 +2709,12 @@ def Sc.ok(+m: C.Cir.Cells, +bc: U32, +w: Word(8n),
   %Equal.sym(Maybe<&2, Word(8n)>, CW(8n, m, xc), Some{w}, eW) : {S.c3(_, rc) == SR.more{w, rc} : SR}
   {==}
 
-def Sc.n1(+m: C.Cir.Cells, +bc: U32,
+def Sc.n1(+m: Cr.Cir.Cells, +bc: U32,
   +ePb: {Pm(m, bc) == False{} : Bool}) ->
   {S.c0(Pm(m, bc), m, bc) == SR.done{None{}} : SR}:
   Equal.cong(Bool, SR, yy => S.c0(yy, m, bc), Pm(m, bc), False{}, ePb)
 
-def Sc.n2(+m: C.Cir.Cells, +bc: U32,
+def Sc.n2(+m: Cr.Cir.Cells, +bc: U32,
   +ePb: {Pm(m, bc) == True{} : Bool},
   +ePy: {Pm(m, Fd(3n, m, bc)) == False{} : Bool}) ->
   {S.c0(Pm(m, bc), m, bc) == SR.done{None{}} : SR}:
@@ -2718,7 +2723,7 @@ def Sc.n2(+m: C.Cir.Cells, +bc: U32,
   %Equal.sym(Bool, Pm(m, bc), True{}, ePb) : {S.c0(_, m, bc) == SR.done{None{}} : SR}
   Equal.cong(Bool, SR, yy => S.c1(yy, m, xc, yc), Pm(m, yc), False{}, ePy)
 
-def Sc.n3(+m: C.Cir.Cells, +bc: U32,
+def Sc.n3(+m: Cr.Cir.Cells, +bc: U32,
   +ePb: {Pm(m, bc) == True{} : Bool},
   +ePy: {Pm(m, Fd(3n, m, bc)) == True{} : Bool},
   +eLy: {LAST(m, Fd(3n, m, bc)) == False{} : Bool}) ->
@@ -2730,7 +2735,7 @@ def Sc.n3(+m: C.Cir.Cells, +bc: U32,
   %Equal.sym(Bool, Pm(m, yc), True{}, ePy) : {S.c1(_, m, xc, yc) == SR.done{None{}} : SR}
   Equal.cong(Bool, SR, yy => S.c2(yy, m, xc, rc), LAST(m, yc), False{}, eLy)
 
-def Sc.n4(+m: C.Cir.Cells, +bc: U32,
+def Sc.n4(+m: Cr.Cir.Cells, +bc: U32,
   +ePb: {Pm(m, bc) == True{} : Bool},
   +ePy: {Pm(m, Fd(3n, m, bc)) == True{} : Bool},
   +eLy: {LAST(m, Fd(3n, m, bc)) == True{} : Bool},
@@ -2748,29 +2753,29 @@ def Sc.n4(+m: C.Cir.Cells, +bc: U32,
 # --------
 
 # the statements of M.out.con
-def OC.A1() -> C.Cir.Stmt:
-  C.M.set(C.R.oc(), C.M.f(3n, C.M.g(C.R.oc())))
+def OC.A1() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.oc(), Mc.M.f(3n, Mc.M.g(Mc.R.oc())))
 
-def OC.B1() -> C.Cir.Stmt:
-  C.M.set(C.R.ow(), C.M.f(2n, C.M.g(C.R.oc())))
+def OC.B1() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.ow(), Mc.M.f(2n, Mc.M.g(Mc.R.oc())))
 
-def OC.B2() -> C.Cir.Stmt:
-  C.M.set(C.R.oc(), C.M.f(3n, C.M.g(C.R.oc())))
+def OC.B2() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.oc(), Mc.M.f(3n, Mc.M.g(Mc.R.oc())))
 
-def OC.C1() -> C.Cir.Stmt:
-  C.M.set(C.R.oc(), C.M.f(2n, C.M.g(C.R.oc())))
+def OC.C1() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.oc(), Mc.M.f(2n, Mc.M.g(Mc.R.oc())))
 
-def OC.E() -> C.Cir.Stmt:
-  C.Cir.Stmt.emit{C.M.g(C.R.ov())}
+def OC.E() -> Cr.Cir.Stmt:
+  Cr.Cir.Stmt.emit{Mc.M.g(Mc.R.ov())}
 
-def OC.C() -> C.Cir.Stmt:
-  C.M.do([OC.C1(), C.M.out.byte(), OC.E()])
+def OC.C() -> Cr.Cir.Stmt:
+  Mc.M.do([OC.C1(), Mc.M.out.byte(), OC.E()])
 
-def OC.B3() -> C.Cir.Stmt:
-  C.M.need(C.M.pair(C.R.oc()), C.M.need(C.M.last(C.R.oc()), OC.C()))
+def OC.B3() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.pair(Mc.R.oc()), Mc.M.need(Mc.M.last(Mc.R.oc()), OC.C()))
 
-def OC.B() -> C.Cir.Stmt:
-  C.M.do([OC.B1(), OC.B2(), OC.B3()])
+def OC.B() -> Cr.Cir.Stmt:
+  Mc.M.do([OC.B1(), OC.B2(), OC.B3()])
 
 # Y for a list's end, X(v, rest) for a byte v and the cell of the rest
 def MSR(s: SR, X: Word(8n) -> U32 -> Type, Y: Maybe<&2, List<&2, Word(8n)>> -> Type) -> Type:
@@ -2791,47 +2796,47 @@ def CasesS(s: SR, -A: Type, a: A, -X: Word(8n) -> U32 -> Type, -Y: Maybe<&2, Lis
 
 # what the run of M.out.con goes on with, by what S.c0 reads at the fields
 # of the cell c: its byte out, with oc at the rest of the list, or no result
-def MC.Kc(+b: C.Cir.State, +c: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type) -> Type:
+def MC.Kc(+b: Cr.Cir.State, +c: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type) -> Type:
   @s: SR -> {S.c0(Pm(St.cl(b), Fd(3n, St.cl(b), c)), St.cl(b), Fd(3n, St.cl(b), c)) == s : SR} ->
     MSR(s, v => rest => {ok(Pr(Pr(n1)), St.cl(b), ks, img, rest, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
       @pg2: U32 -> @ow: U32 -> @ov: U32 -> @oi: U32 -> @t1: U32 -> @t2: U32 -> K(ST(b, rest, ow, ov, oi, t1, t2, pg2, Con{v, out}, U32.inc(outn))),
-      r => {r == None{} : Maybe<&2, List<&2, Word(8n)>>} -> @st: C.Cir.State -> H(2, st))
+      r => {r == None{} : Maybe<&2, List<&2, Word(8n)>>} -> @st: Cr.Cir.State -> H(2, st))
 
 # the byte goes out: the low byte of its value, which is the byte
-def MC.emit(+f: Nat, +b: C.Cir.State, +c: U32, +ow: U32, +w: Word(8n), +oi: U32, +t1: U32, +t2: U32, +pg: U32,
-  +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
-  -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MC.emit(+f: Nat, +b: Cr.Cir.State, +c: U32, +ow: U32, +w: Word(8n), +oi: U32, +t1: U32, +t2: U32, +pg: U32,
+  +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +hok1: {ok(n1, St.cl(b), ks, img, Fd(3n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +ePb: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool},
   +ePy: {Pm(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
   +eLy: {LAST(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
   +eW: {CW(8n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c))) == Some{w} : Maybe<&2, Word(8n)>},
   kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
-  Wp(C.Cir.exec(1n+f, C.M.do([OC.E()]), ST(b, Fd(2n, St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))), ow, C.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.E()]), ST(b, Fd(2n, St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))), ow, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H):
   +m = St.cl(b)
   +bc = Fd(3n, m, c)
   +yc = Fd(3n, m, bc)
   +rc = Fd(2n, m, yc)
-  +v = C.Byte.to_u32(w)
+  +v = Sd.Byte.to_u32(w)
   +s = ST(b, rc, ow, v, oi, t1, t2, pg, out, outn)
-  -K1 = {t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H) : C.Cir.State -> Type}
-  Wp.seq(f, OC.E(), C.Cir.Stmt.nop{}, s, K, H,
-    Wp.emit(f, C.M.g(C.R.ov()), s, K1, H, v, {==},
-      p => Tr(Word(8n), y => K(ST(b, rc, ow, v, oi, t1, t2, p, Con{y, out}, U32.inc(outn))), w, C.Byte.from_u32(v),
-        Equal.sym(Word(8n), C.Byte.from_u32(v), w, low_pad(8n, 24n, w)),
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
+  Wp.seq(f, OC.E(), Cr.Cir.Stmt.nop{}, s, K, H,
+    Wp.emit(f, Mc.M.g(Mc.R.ov()), s, K1, H, v, {==},
+      p => Tr(Word(8n), y => K(ST(b, rc, ow, v, oi, t1, t2, p, Con{y, out}, U32.inc(outn))), w, Sd.Byte.from_u32(v),
+        Equal.sym(Word(8n), Sd.Byte.from_u32(v), w, low_pad(8n, 24n, w)),
         kk(SR.more{w, rc}, Sc.ok(m, bc, w, ePb, ePy, eLy, eW), ok.L(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb), ePy), p, ow, v, oi, t1, t2))))
 
 # the rest of the list goes into oc, and the byte into ov
-def MC.C(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
-  +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
-  -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
+def MC.C(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
+  +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
   +hok1: {ok(n1, St.cl(b), ks, img, Fd(3n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +ePb: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool},
   +ePy: {Pm(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
   +eLy: {LAST(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
   kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
-  Wp(C.Cir.exec(1n+f, OC.C(), ST(b, Fd(3n, St.cl(b), Fd(3n, St.cl(b), c)), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)), ov, oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, OC.C(), ST(b, Fd(3n, St.cl(b), Fd(3n, St.cl(b), c)), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)), ov, oi, t1, t2, pg, out, outn)), K, H):
   +m = St.cl(b)
   +bc = Fd(3n, m, c)
   +xc = Fd(2n, m, bc)
@@ -2840,16 +2845,16 @@ def MC.C(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +c: U32, +ov: U32, +oi
   -A = MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)
   +s3 = ST(b, yc, xc, ov, oi, t1, t2, pg, out, outn)
   +s4 = ST(b, rc, xc, ov, oi, t1, t2, pg, out, outn)
-  -KE = {t => Wp(C.Cir.exec(1n+f, C.M.do([OC.E()]), t), K, H) : C.Cir.State -> Type}
-  Wp.seq(f, OC.C1(), C.M.do([C.M.out.byte(), OC.E()]), s3, K, H,
-    Wp.set(f, 45n, C.M.f(2n, C.M.g(C.R.oc())), s3, t => Wp(C.Cir.exec(1n+f, C.M.do([C.M.out.byte(), OC.E()]), t), K, H), H, rc,
-      ev.f(2n, C.M.g(C.R.oc()), s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb))),
-      Wp.seq(f, C.M.out.byte(), C.M.do([OC.E()]), s4, K, H,
+  -KE = {t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.E()]), t), K, H) : Cr.Cir.State -> Type}
+  Wp.seq(f, OC.C1(), Mc.M.do([Mc.M.out.byte(), OC.E()]), s3, K, H,
+    Wp.set(f, 45n, Mc.M.f(2n, Mc.M.g(Mc.R.oc())), s3, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.out.byte(), OC.E()]), t), K, H), H, rc,
+      ev.f(2n, Mc.M.g(Mc.R.oc()), s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb))),
+      Wp.seq(f, Mc.M.out.byte(), Mc.M.do([OC.E()]), s4, K, H,
         MWd(f, hF, b, rc, xc, ov, oi, t1, t2, pg, out, outn, Pr(n1), ks, img, KE, H,
           ok.L(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb),
           rr => +err => CasesW(8n, rr, A, kk,
-            w => @ow: U32 -> @oi: U32 -> @t1: U32 -> @t2: U32 -> KE(ST(b, rc, ow, C.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
-            @st: C.Cir.State -> H(2, st),
+            w => @ow: U32 -> @oi: U32 -> @t1: U32 -> @t2: U32 -> KE(ST(b, rc, ow, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
+            @st: Cr.Cir.State -> H(2, st),
             kk => +w => +ew => +ow2 => +oi2 => +t12 => +t22 =>
               MC.emit(f, b, c, ow2, w, oi2, t12, t22, pg, out, outn, n1, ks, img, K, H, hok1, ePb, ePy, eLy,
                 Equal.trans(Maybe<&2, Word(8n)>, CW(8n, m, xc), rr, Some{w}, err, ew), kk),
@@ -2858,13 +2863,13 @@ def MC.C(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +c: U32, +ov: U32, +oi
 
 # M.out.con on the cell c in oc, a list's Con: its byte goes out, and oc
 # gets the rest of the list; or the run ends with no result
-def MCon(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
-  +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
-  -K: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type,
-  +hc: {True{} == C.Cir.is_cell(c, St.im(b), St.fs(b), St.nx(b)) : Bool},
+def MCon(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
+  +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +hc: {True{} == Cr.Cir.is_cell(c, St.im(b), St.fs(b), St.nx(b)) : Bool},
   +hok1: {ok(n1, St.cl(b), ks, img, Fd(3n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
-  Wp(C.Cir.exec(1n+f, C.M.out.con(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.out.con(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), K, H):
   +m = St.cl(b)
   +bc = Fd(3n, m, c)
   +xc = Fd(2n, m, bc)
@@ -2876,27 +2881,27 @@ def MCon(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +c: U32, +ow: U32, +ov
   +s2 = ST(b, bc, xc, ov, oi, t1, t2, pg, out, outn)
   +s3 = ST(b, yc, xc, ov, oi, t1, t2, pg, out, outn)
   +hcb = ok.isc(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1)
-  -K1 = {t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K, H) : C.Cir.State -> Type}
-  -K2 = {t => Wp(C.Cir.exec(1n+f, C.Cir.Stmt.nop{}, t), K1, H) : C.Cir.State -> Type}
-  Wp.seq(f, OC.A1(), C.M.do([C.M.need(C.M.pair(C.R.oc()), OC.B())]), s0, K, H,
-    Wp.set(f, 45n, C.M.f(3n, C.M.g(C.R.oc())), s0, t => Wp(C.Cir.exec(1n+f, C.M.do([C.M.need(C.M.pair(C.R.oc()), OC.B())]), t), K, H), H, bc,
-      ev.f(3n, C.M.g(C.R.oc()), s0, c, {==}, hc),
-      Wp.seq(f, C.M.need(C.M.pair(C.R.oc()), OC.B()), C.Cir.Stmt.nop{}, s1, K, H,
-        Wp.need(f, C.M.pair(C.R.oc()), OC.B(), s1, K1, H, Pm(m, bc), ev.pair(45n, s1, bc, {==}, hcb),
-         CasesK(Pm(m, bc), A, kk, Wp(C.Cir.exec(1n+f, OC.B(), s1), K1, H), H(2, s1),
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
+  -K2 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K1, H) : Cr.Cir.State -> Type}
+  Wp.seq(f, OC.A1(), Mc.M.do([Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B())]), s0, K, H,
+    Wp.set(f, 45n, Mc.M.f(3n, Mc.M.g(Mc.R.oc())), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B())]), t), K, H), H, bc,
+      ev.f(3n, Mc.M.g(Mc.R.oc()), s0, c, {==}, hc),
+      Wp.seq(f, Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B()), Cr.Cir.Stmt.nop{}, s1, K, H,
+        Wp.need(f, Mc.M.pair(Mc.R.oc()), OC.B(), s1, K1, H, Pm(m, bc), ev.pair(45n, s1, bc, {==}, hcb),
+         CasesK(Pm(m, bc), A, kk, Wp(Cr.Cir.exec(1n+f, OC.B(), s1), K1, H), H(2, s1),
           kk => +ePb =>
-            Wp.seq(f, OC.B1(), C.M.do([OC.B2(), OC.B3()]), s1, K1, H,
-              Wp.set(f, 46n, C.M.f(2n, C.M.g(C.R.oc())), s1, t => Wp(C.Cir.exec(1n+f, C.M.do([OC.B2(), OC.B3()]), t), K1, H), H, xc,
-                ev.f(2n, C.M.g(C.R.oc()), s1, bc, {==}, hcb),
-                Wp.seq(f, OC.B2(), C.M.do([OC.B3()]), s2, K1, H,
-                  Wp.set(f, 45n, C.M.f(3n, C.M.g(C.R.oc())), s2, t => Wp(C.Cir.exec(1n+f, C.M.do([OC.B3()]), t), K1, H), H, yc,
-                    ev.f(3n, C.M.g(C.R.oc()), s2, bc, {==}, hcb),
-                    Wp.seq(f, OC.B3(), C.Cir.Stmt.nop{}, s3, K1, H,
-                      Wp.need(f, C.M.pair(C.R.oc()), C.M.need(C.M.last(C.R.oc()), OC.C()), s3, K2, H, Pm(m, yc), ev.pair(45n, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb))),
-                       CasesK(Pm(m, yc), A, kk, Wp(C.Cir.exec(1n+f, C.M.need(C.M.last(C.R.oc()), OC.C()), s3), K2, H), H(2, s3),
+            Wp.seq(f, OC.B1(), Mc.M.do([OC.B2(), OC.B3()]), s1, K1, H,
+              Wp.set(f, 46n, Mc.M.f(2n, Mc.M.g(Mc.R.oc())), s1, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.B2(), OC.B3()]), t), K1, H), H, xc,
+                ev.f(2n, Mc.M.g(Mc.R.oc()), s1, bc, {==}, hcb),
+                Wp.seq(f, OC.B2(), Mc.M.do([OC.B3()]), s2, K1, H,
+                  Wp.set(f, 45n, Mc.M.f(3n, Mc.M.g(Mc.R.oc())), s2, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.B3()]), t), K1, H), H, yc,
+                    ev.f(3n, Mc.M.g(Mc.R.oc()), s2, bc, {==}, hcb),
+                    Wp.seq(f, OC.B3(), Cr.Cir.Stmt.nop{}, s3, K1, H,
+                      Wp.need(f, Mc.M.pair(Mc.R.oc()), Mc.M.need(Mc.M.last(Mc.R.oc()), OC.C()), s3, K2, H, Pm(m, yc), ev.pair(45n, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb))),
+                       CasesK(Pm(m, yc), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.last(Mc.R.oc()), OC.C()), s3), K2, H), H(2, s3),
                         kk => +ePy =>
-                          Wp.need(f, C.M.last(C.R.oc()), OC.C(), s3, K2, H, LAST(m, yc), ev.islab(3n, 45n, 0, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb)), ok.isc(Pr(Pr(n1)), m, ks, img, Fd(3n, m, yc), St.im(b), St.fs(b), St.nx(b), ok.R(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb), ePy))),
-                           CasesK(LAST(m, yc), A, kk, Wp(C.Cir.exec(1n+f, OC.C(), s3), K2, H), H(2, s3),
+                          Wp.need(f, Mc.M.last(Mc.R.oc()), OC.C(), s3, K2, H, LAST(m, yc), ev.islab(3n, 45n, 0, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb)), ok.isc(Pr(Pr(n1)), m, ks, img, Fd(3n, m, yc), St.im(b), St.fs(b), St.nx(b), ok.R(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb), ePy))),
+                           CasesK(LAST(m, yc), A, kk, Wp(Cr.Cir.exec(1n+f, OC.C(), s3), K2, H), H(2, s3),
                             kk => +eLy =>
                               MC.C(f, hF, b, c, ov, oi, t1, t2, pg, out, outn, n1, ks, img, K2, H, hok1, ePb, ePy, eLy, kk),
                             kk => +eLy =>
@@ -2910,7 +2915,7 @@ def MCon(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: C.Cir.State, +c: U32, +ow: U32, +ov
 # --------
 
 # the steps of Step at a list cell: its end, its Con, or none when a test fails
-def StN.ok(+m: C.Cir.Cells, +c: U32,
+def StN.ok(+m: Cr.Cir.Cells, +c: U32,
   +eP: {Pm(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +eN: {U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1) == True{} : Bool},
@@ -2923,13 +2928,13 @@ def StN.ok(+m: C.Cir.Cells, +c: U32,
   %Equal.sym(Bool, LAST(m, c), True{}, eL) : {S.nil(_) == SR.done{Some{Nil{}}} : SR}
   {==}
 
-def StN.n1(+m: C.Cir.Cells, +c: U32,
+def StN.n1(+m: Cr.Cir.Cells, +c: U32,
   +eP: {Pm(m, c) == False{} : Bool}) ->
   {Step(m, c) == SR.done{None{}} : SR}:
   +x22 = Fd(2n, m, Fd(2n, m, c))
   Equal.cong(Bool, SR, yy => S.p(yy, m, c), Pm(m, c), False{}, eP)
 
-def StN.n2(+m: C.Cir.Cells, +c: U32,
+def StN.n2(+m: Cr.Cir.Cells, +c: U32,
   +eP: {Pm(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == False{} : Bool}) ->
   {Step(m, c) == SR.done{None{}} : SR}:
@@ -2937,7 +2942,7 @@ def StN.n2(+m: C.Cir.Cells, +c: U32,
   %Equal.sym(Bool, Pm(m, c), True{}, eP) : {S.p(_, m, c) == SR.done{None{}} : SR}
   Equal.cong(Bool, SR, yy => S.l(yy, m, c), Lm(m, Fd(2n, m, c)), False{}, eM)
 
-def StN.n4(+m: C.Cir.Cells, +c: U32,
+def StN.n4(+m: Cr.Cir.Cells, +c: U32,
   +eP: {Pm(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +eN: {U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1) == True{} : Bool},
@@ -2949,7 +2954,7 @@ def StN.n4(+m: C.Cir.Cells, +c: U32,
   %Equal.sym(Bool, U32.is_eq(x22, 1), True{}, eN) : {S.w(_, U32.is_eq(x22, 2), m, c) == SR.done{None{}} : SR}
   Equal.cong(Bool, SR, yy => S.nil(yy), LAST(m, c), False{}, eL)
 
-def StC.ok(+m: C.Cir.Cells, +c: U32,
+def StC.ok(+m: Cr.Cir.Cells, +c: U32,
   +eP: {Pm(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +eN: {U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1) == False{} : Bool},
@@ -2962,7 +2967,7 @@ def StC.ok(+m: C.Cir.Cells, +c: U32,
   %Equal.sym(Bool, U32.is_eq(x22, 2), True{}, eC) : {S.k2(_, m, Fd(3n, m, c)) == S.c0(Pm(m, Fd(3n, m, c)), m, Fd(3n, m, c)) : SR}
   {==}
 
-def StC.n4(+m: C.Cir.Cells, +c: U32,
+def StC.n4(+m: Cr.Cir.Cells, +c: U32,
   +eP: {Pm(m, c) == True{} : Bool},
   +eM: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +eN: {U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1) == False{} : Bool},
@@ -2985,14 +2990,14 @@ def Incs(bs: List<&2, Word(8n)>, x: U32) -> U32:
 # a halt of the run of M.out, with the status s and the state st, says what
 # r says: the bytes of r out (the last first, before out0) and their number
 # added to outn0, with the status 0; the status 2 when r is none
-def Fin(r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32, s: U32, st: C.Cir.State) -> Type:
+def Fin(r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32, s: U32, st: Cr.Cir.State) -> Type:
   match r:
     case Some{bs}:
       {s == 0 : U32} & ({St.out(st) == List.reverse.go(&2, Word(8n), bs, out0) : List<&2, Word(8n)>} & {St.outn(st) == Incs(bs, outn0) : U32})
     case None{}:
       {s == 2 : U32}
 
-def Fin.cons(r: Maybe<&2, List<&2, Word(8n)>>, +v: Word(8n), +out: List<&2, Word(8n)>, +outn: U32, +s: U32, +st: C.Cir.State,
+def Fin.cons(r: Maybe<&2, List<&2, Word(8n)>>, +v: Word(8n), +out: List<&2, Word(8n)>, +outn: U32, +s: U32, +st: Cr.Cir.State,
   h: Fin(r, Con{v, out}, U32.inc(outn), s, st)) -> Fin(U.c5(v, r), out, outn, s, st):
   match r:
     case Some{bs}:
@@ -3000,22 +3005,22 @@ def Fin.cons(r: Maybe<&2, List<&2, Word(8n)>>, +v: Word(8n), +out: List<&2, Word
     case None{}:
       h
 
-def Wp.mapH(o: C.Cir.Out, -K: C.Cir.State -> Type, -H1: U32 -> C.Cir.State -> Type, -H2: U32 -> C.Cir.State -> Type,
-  f: @s: U32 -> @st: C.Cir.State -> H1(s, st) -> H2(s, st), h: Wp(o, K, H1)) -> Wp(o, K, H2):
+def Wp.mapH(o: Cr.Cir.Out, -K: Cr.Cir.State -> Type, -H1: U32 -> Cr.Cir.State -> Type, -H2: U32 -> Cr.Cir.State -> Type,
+  f: @s: U32 -> @st: Cr.Cir.State -> H1(s, st) -> H2(s, st), h: Wp(o, K, H1)) -> Wp(o, K, H2):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       h
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       f(s, st, h)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       match h:
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       match h:
 
 # CU at the end of a list
-def CUd(+a: Nat, +m: C.Cir.Cells, +r: Maybe<&2, List<&2, Word(8n)>>) -> {CU(1n+a, m, SR.done{r}) == r : Maybe<&2, List<&2, Word(8n)>>}:
+def CUd(+a: Nat, +m: Cr.Cir.Cells, +r: Maybe<&2, List<&2, Word(8n)>>) -> {CU(1n+a, m, SR.done{r}) == r : Maybe<&2, List<&2, Word(8n)>>}:
   match a:
     case 0n:
       {==}
@@ -3027,7 +3032,7 @@ def CUd(+a: Nat, +m: C.Cir.Cells, +r: Maybe<&2, List<&2, Word(8n)>>) -> {CU(1n+a
           {==}
 
 # CU at a byte, with the fuel that ok grants the rest
-def CUm(+n1: Nat, +m: C.Cir.Cells, +v: Word(8n), +rc: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +im: U32, +fs: U32, +nx: U32,
+def CUm(+n1: Nat, +m: Cr.Cir.Cells, +v: Word(8n), +rc: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +im: U32, +fs: U32, +nx: U32,
   +h: {ok(Pr(Pr(n1)), m, ks, img, rc, im, fs, nx) == True{} : Bool}) ->
   {U.c5(v, CU(Pr(Pr(n1)), m, Step(m, rc))) == CU(1n+n1, m, SR.more{v, rc}) : Maybe<&2, List<&2, Word(8n)>>}:
   match n1:
@@ -3040,13 +3045,13 @@ def CUm(+n1: Nat, +m: C.Cir.Cells, +v: Word(8n), +rc: U32, +ks: List<&2, List<&2
         case 1n+d:
           {==}
 
-def Fin.none(+n1: Nat, +m: C.Cir.Cells, +c: U32, +out: List<&2, Word(8n)>, +outn: U32, +st: C.Cir.State,
+def Fin.none(+n1: Nat, +m: Cr.Cir.Cells, +c: U32, +out: List<&2, Word(8n)>, +outn: U32, +st: Cr.Cir.State,
   +e: {Step(m, c) == SR.done{None{}} : SR}) -> Fin(CU(1n+n1, m, Step(m, c)), out, outn, 2, st):
   %Equal.sym(SR, Step(m, c), SR.done{None{}}, e) : Fin(CU(1n+n1, m, _), out, outn, 2, st)
   %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, CU(1n+n1, m, SR.done{None{}}), None{}, CUd(n1, m, None{})) : Fin(_, out, outn, 2, st)
   {==}
 
-def Fin.nil(+n1: Nat, +b: C.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
+def Fin.nil(+n1: Nat, +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
   +e: {Step(St.cl(b), c) == SR.done{Some{Nil{}}} : SR}) ->
   Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, 0, ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)):
   %Equal.sym(SR, Step(St.cl(b), c), SR.done{Some{Nil{}}}, e) : Fin(CU(1n+n1, St.cl(b), _), out, outn, 0, ST(b, c, ow, ov, oi, t1, t2, pg, out, outn))
@@ -3054,9 +3059,9 @@ def Fin.nil(+n1: Nat, +b: C.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t
     Fin(_, out, outn, 0, ST(b, c, ow, ov, oi, t1, t2, pg, out, outn))
   ({==}, ({==}, {==}))
 
-def Fin.step(+n1: Nat, +m: C.Cir.Cells, +c: U32, +v: Word(8n), +rc: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +im: U32, +fs: U32, +nx: U32,
-  +e: {Step(m, c) == SR.more{v, rc} : SR}, +hokr: {ok(Pr(Pr(n1)), m, ks, img, rc, im, fs, nx) == True{} : Bool}, +s: U32, +st: C.Cir.State,
+def Fin.step(+n1: Nat, +m: Cr.Cir.Cells, +c: U32, +v: Word(8n), +rc: U32, +out: List<&2, Word(8n)>, +outn: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +im: U32, +fs: U32, +nx: U32,
+  +e: {Step(m, c) == SR.more{v, rc} : SR}, +hokr: {ok(Pr(Pr(n1)), m, ks, img, rc, im, fs, nx) == True{} : Bool}, +s: U32, +st: Cr.Cir.State,
   h: Fin(CU(Pr(Pr(n1)), m, Step(m, rc)), Con{v, out}, U32.inc(outn), s, st)) -> Fin(CU(1n+n1, m, Step(m, c)), out, outn, s, st):
   %Equal.sym(SR, Step(m, c), SR.more{v, rc}, e) : Fin(CU(1n+n1, m, _), out, outn, s, st)
   %CUm(n1, m, v, rc, ks, img, im, fs, nx, hokr) : Fin(_, out, outn, s, st)
@@ -3073,42 +3078,42 @@ def le_pr2(+n: Nat) -> PN.Le(Nat.add(Pr(Pr(n)), 34n), Nat.add(n, 34n)):
   PN.add_mono(Pr(Pr(n)), n, 34n, 34n, PN.le_trans(Pr(Pr(n)), Pr(n), n, le_pr(Pr(n)), le_pr(n)), PN.le_refl(34n))
 
 # the loop of M.out and its body
-def BO.a() -> C.Cir.Stmt:
-  C.M.set(C.R.ow(), C.M.f(2n, C.M.f(2n, C.M.g(C.R.oc()))))
+def BO.a() -> Cr.Cir.Stmt:
+  Mc.M.set(Mc.R.ow(), Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.oc()))))
 
-def BO.i() -> C.Cir.Stmt:
-  C.M.if(C.M.eq(C.M.g(C.R.ow()), C.M.c(C.N.nil())), C.M.need(C.M.last(C.R.oc()), C.M.halt(0)),
-    C.M.need(C.M.eq(C.M.g(C.R.ow()), C.M.c(C.N.con())), C.M.out.con()))
+def BO.i() -> Cr.Cir.Stmt:
+  Mc.M.if(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.nil())), Mc.M.need(Mc.M.last(Mc.R.oc()), Mc.M.halt(0)),
+    Mc.M.need(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con()))
 
-def BO.s1() -> C.Cir.Stmt:
-  C.M.need(C.M.eq(C.M.tag(C.M.f(2n, C.M.g(C.R.oc()))), C.M.c(C.T.lab())), C.M.do([BO.a(), BO.i()]))
+def BO.s1() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.oc()))), Mc.M.c(Mc.T.lab())), Mc.M.do([BO.a(), BO.i()]))
 
-def BO() -> C.Cir.Stmt:
-  C.M.need(C.M.pair(C.R.oc()), BO.s1())
+def BO() -> Cr.Cir.Stmt:
+  Mc.M.need(Mc.M.pair(Mc.R.oc()), BO.s1())
 
-def WO() -> C.Cir.Stmt:
-  C.M.while(C.M.c(1), BO())
+def WO() -> Cr.Cir.Stmt:
+  Mc.M.while(Mc.M.c(1), BO())
 
 # the claim of the loop of M.out for the rest of the list, at any cell rc
 # that ok grants, with the fuel f2
-def LO.IH(+n1: Nat, +b: C.Cir.State, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>) -> Type:
+def LO.IH(+n1: Nat, +b: Cr.Cir.State, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>) -> Type:
   @rc: U32 -> {ok(Pr(Pr(n1)), St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
     @f2: Nat -> PN.Le(Nat.add(Pr(Pr(n1)), 34n), f2) -> @pg2: U32 -> @ow2: U32 -> @ov2: U32 -> @oi2: U32 -> @t12: U32 -> @t22: U32 ->
     @out2: List<&2, Word(8n)> -> @outn2: U32 ->
-    Wp(C.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
+    Wp(Cr.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
       s => st => Fin(CU(Pr(Pr(n1)), St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st))
 
 # the round of a Con: its byte goes out (MCon), then the rest of the list
-def LO.con(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: C.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
+def LO.con(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +hok: {ok(1n+n1, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
-  +hc: {True{} == C.Cir.is_cell(c, St.im(b), St.fs(b), St.nx(b)) : Bool},
+  +hc: {True{} == Cr.Cir.is_cell(c, St.im(b), St.fs(b), St.nx(b)) : Bool},
   +eP: {Pm(St.cl(b), c) == True{} : Bool}, +eM: {Lm(St.cl(b), Fd(2n, St.cl(b), c)) == True{} : Bool},
   +eN: {U32.is_eq(Fd(2n, St.cl(b), Fd(2n, St.cl(b), c)), 1) == False{} : Bool},
   +eC: {U32.is_eq(Fd(2n, St.cl(b), Fd(2n, St.cl(b), c)), 2) == True{} : Bool},
   ih: LO.IH(n1, b, ks, img)) ->
-  Wp(C.Cir.exec(1n+g, C.M.out.con(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)),
-    t => Wp(C.Cir.exec(1n+g, C.Cir.Stmt.nop{}, t), u => Wp(C.Cir.exec(1n+g, WO(), u), st => Empty,
+  Wp(Cr.Cir.exec(1n+g, Mc.M.out.con(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)),
+    t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), u => Wp(Cr.Cir.exec(1n+g, WO(), u), st => Empty,
       s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)),
       s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)),
     s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
@@ -3118,19 +3123,19 @@ def LO.con(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: C.Cir.Stat
   +nx = St.nx(b)
   +bc = Fd(3n, m, c)
   +estep = StC.ok(m, c, eP, eM, eN, eC)
-  -K0 = {st => Empty : C.Cir.State -> Type}
-  -H0 = {s => st => Fin(CU(1n+n1, m, Step(m, c)), out, outn, s, st) : U32 -> C.Cir.State -> Type}
-  -KW = {t => Wp(C.Cir.exec(1n+g, WO(), t), K0, H0) : C.Cir.State -> Type}
-  -KB = {t => Wp(C.Cir.exec(1n+g, C.Cir.Stmt.nop{}, t), KW, H0) : C.Cir.State -> Type}
+  -K0 = {st => Empty : Cr.Cir.State -> Type}
+  -H0 = {s => st => Fin(CU(1n+n1, m, Step(m, c)), out, outn, s, st) : U32 -> Cr.Cir.State -> Type}
+  -KW = {t => Wp(Cr.Cir.exec(1n+g, WO(), t), K0, H0) : Cr.Cir.State -> Type}
+  -KB = {t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), KW, H0) : Cr.Cir.State -> Type}
   -IH = LO.IH(n1, b, ks, img)
   MCon(g, PN.weaken(33n, 1n+g, PN.le_trans(34n, Nat.add(n1, 34n), 1n+g, PN.le_add_l(n1, 34n), hF)),
     b, c, ow, ov, oi, t1, t2, pg, out, outn, n1, ks, img, KB, H0, hc, ok.R(1n+n1, m, ks, img, c, im, fs, nx, hok, eP),
     sr => +esr => CasesS(sr, IH, ih,
       v => rest => {ok(Pr(Pr(n1)), m, ks, img, rest, im, fs, nx) == True{} : Bool} ->
         @pg2: U32 -> @ow2: U32 -> @ov2: U32 -> @oi2: U32 -> @t12: U32 -> @t22: U32 -> KB(ST(b, rest, ow2, ov2, oi2, t12, t22, pg2, Con{v, out}, U32.inc(outn))),
-      r => {r == None{} : Maybe<&2, List<&2, Word(8n)>>} -> @st: C.Cir.State -> H0(2, st),
+      r => {r == None{} : Maybe<&2, List<&2, Word(8n)>>} -> @st: Cr.Cir.State -> H0(2, st),
       ih => +v => +rest => +emv => +hokr => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 =>
-        Wp.mapH(C.Cir.exec(1n+g, WO(), ST(b, rest, ow2, ov2, oi2, t12, t22, pg2, Con{v, out}, U32.inc(outn))), K0,
+        Wp.mapH(Cr.Cir.exec(1n+g, WO(), ST(b, rest, ow2, ov2, oi2, t12, t22, pg2, Con{v, out}, U32.inc(outn))), K0,
           s => st => Fin(CU(Pr(Pr(n1)), m, Step(m, rest)), Con{v, out}, U32.inc(outn), s, st), H0,
           s => st => hf => Fin.step(n1, m, c, v, rest, out, outn, ks, img, im, fs, nx,
             Equal.trans(SR, Step(m, c), sr, SR.more{v, rest}, Equal.trans(SR, Step(m, c), S.c0(Pm(m, bc), m, bc), sr, estep, esr), emv),
@@ -3143,11 +3148,11 @@ def LO.con(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: C.Cir.Stat
             Equal.trans(SR, sr, SR.done{r}, SR.done{None{}}, ed, Equal.cong(Maybe<&2, List<&2, Word(8n)>>, SR, x => SR.done{x}, r, None{}, er))))))
 
 # a round of the loop of M.out at the list cell c, then, by ih, the rest
-def LO.run(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: C.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
+def LO.run(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +hok: {ok(1n+n1, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   ih: LO.IH(n1, b, ks, img)) ->
-  Wp(C.Cir.exec(1n+1n+g, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty,
+  Wp(Cr.Cir.exec(1n+1n+g, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty,
     s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
   +m = St.cl(b)
   +im = St.im(b)
@@ -3157,39 +3162,39 @@ def LO.run(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: C.Cir.Stat
   +s0 = ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)
   +s1 = ST(b, c, x22, ov, oi, t1, t2, pg, out, outn)
   +hc = ok.isc(1n+n1, m, ks, img, c, im, fs, nx, hok)
-  -K0 = {st => Empty : C.Cir.State -> Type}
-  -H0 = {s => st => Fin(CU(1n+n1, m, Step(m, c)), out, outn, s, st) : U32 -> C.Cir.State -> Type}
-  -KW = {t => Wp(C.Cir.exec(1n+g, WO(), t), K0, H0) : C.Cir.State -> Type}
-  -KB = {t => Wp(C.Cir.exec(1n+g, C.Cir.Stmt.nop{}, t), KW, H0) : C.Cir.State -> Type}
+  -K0 = {st => Empty : Cr.Cir.State -> Type}
+  -H0 = {s => st => Fin(CU(1n+n1, m, Step(m, c)), out, outn, s, st) : U32 -> Cr.Cir.State -> Type}
+  -KW = {t => Wp(Cr.Cir.exec(1n+g, WO(), t), K0, H0) : Cr.Cir.State -> Type}
+  -KB = {t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), KW, H0) : Cr.Cir.State -> Type}
   -IH = LO.IH(n1, b, ks, img)
-  Wp.while(1n+g, C.M.c(1), BO(), s0, K0, H0, True{}, {==},
-    Wp.then(C.Cir.exec(1n+g, BO(), s0), t => C.Cir.exec(1n+g, WO(), t), K0, H0,
-      Wp.need(g, C.M.pair(C.R.oc()), BO.s1(), s0, KW, H0, Pm(m, c), ev.pair(45n, s0, c, {==}, hc),
-       CasesK(Pm(m, c), IH, ih, Wp(C.Cir.exec(1n+g, BO.s1(), s0), KW, H0), H0(2, s0),
+  Wp.while(1n+g, Mc.M.c(1), BO(), s0, K0, H0, True{}, {==},
+    Wp.then(Cr.Cir.exec(1n+g, BO(), s0), t => Cr.Cir.exec(1n+g, WO(), t), K0, H0,
+      Wp.need(g, Mc.M.pair(Mc.R.oc()), BO.s1(), s0, KW, H0, Pm(m, c), ev.pair(45n, s0, c, {==}, hc),
+       CasesK(Pm(m, c), IH, ih, Wp(Cr.Cir.exec(1n+g, BO.s1(), s0), KW, H0), H0(2, s0),
         ih => +eP =>
-          Wp.need(g, C.M.eq(C.M.tag(C.M.f(2n, C.M.g(C.R.oc()))), C.M.c(C.T.lab())), C.M.do([BO.a(), BO.i()]), s0, KW, H0, Lm(m, Fd(2n, m, c)),
+          Wp.need(g, Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.oc()))), Mc.M.c(Mc.T.lab())), Mc.M.do([BO.a(), BO.i()]), s0, KW, H0, Lm(m, Fd(2n, m, c)),
             ev.tag(2n, 45n, s0, c, {==}, hc, ok.isc(n1, m, ks, img, Fd(2n, m, c), im, fs, nx, ok.L(1n+n1, m, ks, img, c, im, fs, nx, hok, eP))),
-           CasesK(Lm(m, Fd(2n, m, c)), IH, ih, Wp(C.Cir.exec(1n+g, C.M.do([BO.a(), BO.i()]), s0), KW, H0), H0(2, s0),
+           CasesK(Lm(m, Fd(2n, m, c)), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.do([BO.a(), BO.i()]), s0), KW, H0), H0(2, s0),
             ih => +eM =>
-              Wp.seq(g, BO.a(), C.M.do([BO.i()]), s0, KW, H0,
-                Wp.set(g, 46n, C.M.f(2n, C.M.f(2n, C.M.g(C.R.oc()))), s0, t => Wp(C.Cir.exec(1n+g, C.M.do([BO.i()]), t), KW, H0), H0, x22,
+              Wp.seq(g, BO.a(), Mc.M.do([BO.i()]), s0, KW, H0,
+                Wp.set(g, 46n, Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.oc()))), s0, t => Wp(Cr.Cir.exec(1n+g, Mc.M.do([BO.i()]), t), KW, H0), H0, x22,
                   ev.ff(2n, 2n, 45n, s0, c, {==}, hc, ok.isc(n1, m, ks, img, Fd(2n, m, c), im, fs, nx, ok.L(1n+n1, m, ks, img, c, im, fs, nx, hok, eP))),
-                  Wp.seq(g, BO.i(), C.Cir.Stmt.nop{}, s1, KW, H0,
-                    Wp.if(g, C.M.eq(C.M.g(C.R.ow()), C.M.c(C.N.nil())), C.M.need(C.M.last(C.R.oc()), C.M.halt(0)),
-                      C.M.need(C.M.eq(C.M.g(C.R.ow()), C.M.c(C.N.con())), C.M.out.con()), s1, KB, H0, U32.is_eq(x22, 1), {==},
-                     CasesK(U32.is_eq(x22, 1), IH, ih, Wp(C.Cir.exec(1n+g, C.M.need(C.M.last(C.R.oc()), C.M.halt(0)), s1), KB, H0),
-                      Wp(C.Cir.exec(1n+g, C.M.need(C.M.eq(C.M.g(C.R.ow()), C.M.c(C.N.con())), C.M.out.con()), s1), KB, H0),
+                  Wp.seq(g, BO.i(), Cr.Cir.Stmt.nop{}, s1, KW, H0,
+                    Wp.if(g, Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.nil())), Mc.M.need(Mc.M.last(Mc.R.oc()), Mc.M.halt(0)),
+                      Mc.M.need(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con()), s1, KB, H0, U32.is_eq(x22, 1), {==},
+                     CasesK(U32.is_eq(x22, 1), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.need(Mc.M.last(Mc.R.oc()), Mc.M.halt(0)), s1), KB, H0),
+                      Wp(Cr.Cir.exec(1n+g, Mc.M.need(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con()), s1), KB, H0),
                       ih => +eN =>
-                        Wp.need(g, C.M.last(C.R.oc()), C.M.halt(0), s1, KB, H0, LAST(m, c),
+                        Wp.need(g, Mc.M.last(Mc.R.oc()), Mc.M.halt(0), s1, KB, H0, LAST(m, c),
                           ev.islab(3n, 45n, 0, s1, c, {==}, hc, ok.isc(n1, m, ks, img, Fd(3n, m, c), im, fs, nx, ok.R(1n+n1, m, ks, img, c, im, fs, nx, hok, eP))),
-                         CasesK(LAST(m, c), IH, ih, Wp(C.Cir.exec(1n+g, C.M.halt(0), s1), KB, H0), H0(2, s1),
+                         CasesK(LAST(m, c), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.halt(0), s1), KB, H0), H0(2, s1),
                           ih => +eL =>
                             Fin.nil(n1, b, c, x22, ov, oi, t1, t2, pg, out, outn, StN.ok(m, c, eP, eM, eN, eL)),
                           ih => +eL =>
                             Fin.none(n1, m, c, out, outn, s1, StN.n4(m, c, eP, eM, eN, eL)))),
                       ih => +eN =>
-                        Wp.need(g, C.M.eq(C.M.g(C.R.ow()), C.M.c(C.N.con())), C.M.out.con(), s1, KB, H0, U32.is_eq(x22, 2), {==},
-                         CasesK(U32.is_eq(x22, 2), IH, ih, Wp(C.Cir.exec(1n+g, C.M.out.con(), s1), KB, H0), H0(2, s1),
+                        Wp.need(g, Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con(), s1, KB, H0, U32.is_eq(x22, 2), {==},
+                         CasesK(U32.is_eq(x22, 2), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.out.con(), s1), KB, H0), H0(2, s1),
                           ih => +eC =>
                             LO.con(n1, g, hF, b, c, x22, ov, oi, t1, t2, pg, out, outn, ks, img, hok, hc, eP, eM, eN, eC, ih),
                           ih => +eC =>
@@ -3200,43 +3205,43 @@ def LO.run(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: C.Cir.Stat
           Fin.none(n1, m, c, out, outn, s0, StN.n1(m, c, eP))))))
 
 # the loop of M.out from the list cell c, with fuel F
-def LO.body(+n1: Nat, +F: Nat, +hF: PN.Le(Nat.add(1n+n1, 34n), F), +b: C.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
+def LO.body(+n1: Nat, +F: Nat, +hF: PN.Le(Nat.add(1n+n1, 34n), F), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +hok: {ok(1n+n1, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   ih: LO.IH(n1, b, ks, img)) ->
-  Wp(C.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
+  Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
   match F:
     case 0n:
-      Empty.absurd(Wp(C.Cir.exec(0n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), hF)
+      Empty.absurd(Wp(Cr.Cir.exec(0n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), hF)
     case 1n+f:
       match f:
         case 0n:
-          Empty.absurd(Wp(C.Cir.exec(1n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), PN.le_trans(34n, Nat.add(n1, 34n), 0n, PN.le_add_l(n1, 34n), hF))
+          Empty.absurd(Wp(Cr.Cir.exec(1n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), PN.le_trans(34n, Nat.add(n1, 34n), 0n, PN.le_add_l(n1, 34n), hF))
         case 1n+g:
           LO.run(n1, g, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok, ih)
 
 # the loop of M.out from the list cell c: the run halts as CU says, or runs
 # out of memory
-def LO(+n: Nat, +F: Nat, +hF: PN.Le(Nat.add(n, 34n), F), +b: C.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
+def LO(+n: Nat, +F: Nat, +hF: PN.Le(Nat.add(n, 34n), F), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +hok: {ok(n, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool}) ->
-  Wp(C.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
+  Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
   match n:
     case 0n:
-      Empty.absurd(Wp(C.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), ok.zero(St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b), hok))
+      Empty.absurd(Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), ok.zero(St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b), hok))
     case 1n+n1:
       match n1:
         case 0n:
           LO.body(0n, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok,
             rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 =>
-            Empty.absurd(Wp(C.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
+            Empty.absurd(Wp(Cr.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
               s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st)), ok.zero(St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b), hokr)))
         case 1n+n2:
           match n2:
             case 0n:
               LO.body(1n, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok,
                 rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 =>
-            Empty.absurd(Wp(C.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
+            Empty.absurd(Wp(Cr.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
               s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st)), ok.zero(St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b), hokr)))
             case 1n+n3:
               LO.body(1n+1n+n3, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok,
@@ -3253,266 +3258,266 @@ def At(+k: Nat, +xs: List<&2, U32>) -> U32:
 # M.out from a state whose focus register holds the cell c, with fuel 1 + f
 # of n + 34 or more: the run halts as CU says of the list of c, or runs out
 # of memory
-def MOUT(+n: Nat, +f: Nat, +hF: PN.Le(Nat.add(n, 34n), 1n+f), +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
-  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+def MOUT(+n: Nat, +f: Nat, +hF: PN.Le(Nat.add(n, 34n), 1n+f), +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  Wp(C.Cir.exec(1n+f, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), st => Empty,
+  Wp(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), st => Empty,
     s => st => Fin(CU(n, m, Step(m, c)), out, outn, s, st)):
-  +b = {C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn} : C.Cir.State}
+  +b = {Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn} : Cr.Cir.State}
   +esp = Rg.sp_eq(63n, regs, PN.toLe(63n, List.length(&2, U32, regs), hlen))
   +ec = Equal.cong(Maybe<&2, U32>, U32, x => Maybe.default(&2, U32, x, 0), Some{Rg.hd(regs)}, Some{c},
     Equal.trans(Maybe<&2, U32>, Some{Rg.hd(regs)}, List.get(&2, U32, regs, 0n), Some{c},
       Equal.cong(List<&2, U32>, Maybe<&2, U32>, xs => List.get(&2, U32, xs, 0n), Rg.sp(regs), regs, esp), hreg))
-  -K0 = {st => Empty : C.Cir.State -> Type}
-  -H0 = {s => st => Fin(CU(n, m, Step(m, Rg.hd(regs))), out, outn, s, st) : U32 -> C.Cir.State -> Type}
-  %ec : Wp(C.Cir.exec(1n+f, C.M.out(), b), st => Empty, s => st => Fin(CU(n, m, Step(m, _)), out, outn, s, st))
-  %esp : Wp(C.Cir.exec(1n+f, C.M.out(), C.Cir.State{_, m, nx, fs, im, pg, lim, inp, out, outn}), K0, H0)
-  Wp.seq(f, C.M.set(C.R.oc(), C.M.g(C.R.focus())), C.M.do([WO()]), C.Cir.State{Rg.sp(regs), m, nx, fs, im, pg, lim, inp, out, outn}, K0, H0,
-    Wp.set(f, 45n, C.M.g(C.R.focus()), C.Cir.State{Rg.sp(regs), m, nx, fs, im, pg, lim, inp, out, outn},
-      t => Wp(C.Cir.exec(1n+f, C.M.do([WO()]), t), K0, H0), H0, Rg.hd(regs), {==},
-      Wp.seq(f, WO(), C.Cir.Stmt.nop{}, ST(b, Rg.hd(regs), At(46n, regs), At(47n, regs), At(48n, regs), At(61n, regs), At(62n, regs), pg, out, outn), K0, H0,
+  -K0 = {st => Empty : Cr.Cir.State -> Type}
+  -H0 = {s => st => Fin(CU(n, m, Step(m, Rg.hd(regs))), out, outn, s, st) : U32 -> Cr.Cir.State -> Type}
+  %ec : Wp(Cr.Cir.exec(1n+f, Mc.M.out(), b), st => Empty, s => st => Fin(CU(n, m, Step(m, _)), out, outn, s, st))
+  %esp : Wp(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{_, m, nx, fs, im, pg, lim, inp, out, outn}), K0, H0)
+  Wp.seq(f, Mc.M.set(Mc.R.oc(), Mc.M.g(Mc.R.focus())), Mc.M.do([WO()]), Cr.Cir.State{Rg.sp(regs), m, nx, fs, im, pg, lim, inp, out, outn}, K0, H0,
+    Wp.set(f, 45n, Mc.M.g(Mc.R.focus()), Cr.Cir.State{Rg.sp(regs), m, nx, fs, im, pg, lim, inp, out, outn},
+      t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([WO()]), t), K0, H0), H0, Rg.hd(regs), {==},
+      Wp.seq(f, WO(), Cr.Cir.Stmt.nop{}, ST(b, Rg.hd(regs), At(46n, regs), At(47n, regs), At(48n, regs), At(61n, regs), At(62n, regs), pg, out, outn), K0, H0,
         LO(n, 1n+f, hF, b, Rg.hd(regs), At(46n, regs), At(47n, regs), At(48n, regs), At(61n, regs), At(62n, regs),
           pg, out, outn, ks, img,
           Tr(U32, x => {ok(n, m, ks, img, x, im, fs, nx) == True{} : Bool}, c, Rg.hd(regs), Equal.sym(U32, Rg.hd(regs), c, ec), hok)))))
 
 # U reads what Program.unbytes reads, for every term
-def UE(+t: C.Term) -> {C.Program.unbytes(t) == U(t) : Maybe<&2, List<&2, Word(8n)>>}:
+def UE(+t: Bk.Term) -> {Pg.Program.unbytes(t) == U(t) : Maybe<&2, List<&2, Word(8n)>>}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       {==}
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       {==}
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       {==}
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       {==}
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       {==}
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       {==}
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       {==}
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       {==}
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       {==}
-    case C.Term.Tup{+q, +a, +b}:
+    case Bk.Term.Tup{+q, +a, +b}:
       match q:
-        case C.Quan.Q0{}:
+        case Bk.Quan.Q0{}:
           {==}
-        case C.Quan.Q1{}:
+        case Bk.Quan.Q1{}:
           match a:
-            case C.Term.Var{_}:
+            case Bk.Term.Var{_}:
               {==}
-            case C.Term.Ref{_}:
+            case Bk.Term.Ref{_}:
               {==}
-            case C.Term.Ann{_, _}:
+            case Bk.Term.Ann{_, _}:
               {==}
-            case C.Term.Let{_, _, _}:
+            case Bk.Term.Let{_, _, _}:
               {==}
-            case C.Term.Typ{_}:
+            case Bk.Term.Typ{_}:
               {==}
-            case C.Term.Min{_, _}:
+            case Bk.Term.Min{_, _}:
               {==}
-            case C.Term.All{_, _, _}:
+            case Bk.Term.All{_, _, _}:
               {==}
-            case C.Term.Lam{_, _}:
+            case Bk.Term.Lam{_, _}:
               {==}
-            case C.Term.App{_, _, _}:
+            case Bk.Term.App{_, _, _}:
               {==}
-            case C.Term.Sig{_, _, _}:
+            case Bk.Term.Sig{_, _, _}:
               {==}
-            case C.Term.Tup{_, _, _}:
+            case Bk.Term.Tup{_, _, _}:
               {==}
-            case C.Term.Prj{_}:
+            case Bk.Term.Prj{_}:
               {==}
-            case C.Term.Enu{_}:
+            case Bk.Term.Enu{_}:
               {==}
-            case C.Term.Lab{+k}:
+            case Bk.Term.Lab{+k}:
               match b:
-                case C.Term.Var{_}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Ref{_}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Ann{_, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Let{_, _, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Typ{_}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Min{_, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.All{_, _, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Lam{_, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.App{_, _, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Sig{_, _, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Tup{+q2, +x, +y}:
+                case Bk.Term.Var{_}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Ref{_}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Ann{_, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Let{_, _, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Typ{_}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Min{_, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.All{_, _, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Lam{_, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.App{_, _, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Sig{_, _, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Tup{+q2, +x, +y}:
                   match q2:
-                    case C.Quan.Q0{}:
-                      Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                    case C.Quan.Q1{}:
+                    case Bk.Quan.Q0{}:
+                      Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                    case Bk.Quan.Q1{}:
                       match y:
-                        case C.Term.Var{_}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Ref{_}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Ann{_, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Let{_, _, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Typ{_}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Min{_, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.All{_, _, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Lam{_, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.App{_, _, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Sig{_, _, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Tup{+q3, +rest, +z}:
+                        case Bk.Term.Var{_}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Ref{_}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Ann{_, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Let{_, _, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Typ{_}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Min{_, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.All{_, _, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Lam{_, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.App{_, _, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Sig{_, _, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Tup{+q3, +rest, +z}:
                           match q3:
-                            case C.Quan.Q0{}:
-                              Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                            case C.Quan.Q1{}:
+                            case Bk.Quan.Q0{}:
+                              Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                            case Bk.Quan.Q1{}:
                               match z:
-                                case C.Term.Var{_}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Ref{_}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Ann{_, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Let{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Typ{_}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Min{_, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.All{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Lam{_, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.App{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Sig{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Tup{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Prj{_}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Enu{_}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Lab{+u}:
+                                case Bk.Term.Var{_}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Ref{_}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Ann{_, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Let{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Typ{_}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Min{_, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.All{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Lam{_, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.App{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Sig{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Tup{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Prj{_}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Enu{_}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Lab{+u}:
                                   LF(k, x, rest, u)
-                                case C.Term.Mat{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Efq{}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Eql{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Rfl{}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                                case C.Term.Rwt{_, _, _}:
-                                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                            case C.Quan.Q2{}:
-                              Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Prj{_}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Enu{_}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Lab{_}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Mat{_, _, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Efq{}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Eql{_, _, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Rfl{}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                        case C.Term.Rwt{_, _, _}:
-                          Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                    case C.Quan.Q2{}:
-                      Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Prj{_}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Enu{_}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Lab{+u}:
-                  LN(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), u)
-                case C.Term.Mat{_, _, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Efq{}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Eql{_, _, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Rfl{}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-                case C.Term.Rwt{_, _, _}:
-                  Uk_none(C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(k, C.Program.name.con()), b, {==}, {==})
-            case C.Term.Mat{_, _, _}:
+                                case Bk.Term.Mat{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Efq{}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Eql{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Rfl{}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                                case Bk.Term.Rwt{_, _, _}:
+                                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                            case Bk.Quan.Q2{}:
+                              Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Prj{_}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Enu{_}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Lab{_}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Mat{_, _, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Efq{}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Eql{_, _, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Rfl{}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                        case Bk.Term.Rwt{_, _, _}:
+                          Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                    case Bk.Quan.Q2{}:
+                      Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Prj{_}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Enu{_}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Lab{+u}:
+                  LN(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), u)
+                case Bk.Term.Mat{_, _, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Efq{}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Eql{_, _, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Rfl{}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+                case Bk.Term.Rwt{_, _, _}:
+                  Uk_none(Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(k, Pg.Program.name.con()), b, {==}, {==})
+            case Bk.Term.Mat{_, _, _}:
               {==}
-            case C.Term.Efq{}:
+            case Bk.Term.Efq{}:
               {==}
-            case C.Term.Eql{_, _, _}:
+            case Bk.Term.Eql{_, _, _}:
               {==}
-            case C.Term.Rfl{}:
+            case Bk.Term.Rfl{}:
               {==}
-            case C.Term.Rwt{_, _, _}:
+            case Bk.Term.Rwt{_, _, _}:
               {==}
-        case C.Quan.Q2{}:
+        case Bk.Quan.Q2{}:
           {==}
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       {==}
 
 # Wd reads what Program.unword reads, for every term
 def W0N(A: Bool, +u: List<&2, Word(8n)>) ->
-  {C.Program.unword.nil(Bool.and(A, C.Name.is_eq(u, C.Program.name.unit()))) == W0.k(A, C.Term.Lab{u}) : Maybe<&2, Word(0n)>}:
+  {Pg.Program.unword.nil(Bool.and(A, Sd.Name.is_eq(u, Pg.Program.name.unit()))) == W0.k(A, Bk.Term.Lab{u}) : Maybe<&2, Word(0n)>}:
   match A:
     case True{}:
       {==}
     case False{}:
       {==}
 
-def W0K_none(A: Bool, -z: C.Term, +h: {None{} == W0.z(VL(z)) : Maybe<&2, Word(0n)>}) -> {None{} == W0.k(A, z) : Maybe<&2, Word(0n)>}:
-  match A:
-    case True{}:
-      h
-    case False{}:
-      {==}
-
-def W1K_none(+q: Nat, A: Bool, -f: C.Term, +h: {None{} == W1.f(q, V1(f)) : Maybe<&2, Word(1n+q)>}) -> {None{} == W1.k(q, A, f) : Maybe<&2, Word(1n+q)>}:
+def W0K_none(A: Bool, -z: Bk.Term, +h: {None{} == W0.z(VL(z)) : Maybe<&2, Word(0n)>}) -> {None{} == W0.k(A, z) : Maybe<&2, Word(0n)>}:
   match A:
     case True{}:
       h
     case False{}:
       {==}
 
-def W1BU_none(+q: Nat, B: Bool, -x: C.Term, -r: C.Term, +h: {None{} == Ub.x(VL(x)) : Maybe<&2, Bool>}) ->
+def W1K_none(+q: Nat, A: Bool, -f: Bk.Term, +h: {None{} == W1.f(q, V1(f)) : Maybe<&2, Word(1n+q)>}) -> {None{} == W1.k(q, A, f) : Maybe<&2, Word(1n+q)>}:
+  match A:
+    case True{}:
+      h
+    case False{}:
+      {==}
+
+def W1BU_none(+q: Nat, B: Bool, -x: Bk.Term, -r: Bk.Term, +h: {None{} == Ub.x(VL(x)) : Maybe<&2, Bool>}) ->
   {None{} == W1.b(q, Ub.u(B, x), r) : Maybe<&2, Word(1n+q)>}:
   match B:
     case True{}:
@@ -3520,8 +3525,8 @@ def W1BU_none(+q: Nat, B: Bool, -x: C.Term, -r: C.Term, +h: {None{} == Ub.x(VL(x
     case False{}:
       {==}
 
-def W1BY_none(+q: Nat, my: Maybe<&2, List<&2, Word(8n)>>, -x: C.Term, -r: C.Term,
-  h: @u: List<&2, Word(8n)> -> {None{} == W1.b(q, Ub.u(C.Name.is_eq(u, C.Program.name.unit()), x), r) : Maybe<&2, Word(1n+q)>}) ->
+def W1BY_none(+q: Nat, my: Maybe<&2, List<&2, Word(8n)>>, -x: Bk.Term, -r: Bk.Term,
+  h: @u: List<&2, Word(8n)> -> {None{} == W1.b(q, Ub.u(Sd.Name.is_eq(u, Pg.Program.name.unit()), x), r) : Maybe<&2, Word(1n+q)>}) ->
   {None{} == W1.b(q, Ub.y(my, x), r) : Maybe<&2, Word(1n+q)>}:
   match my:
     case Some{u}:
@@ -3529,7 +3534,7 @@ def W1BY_none(+q: Nat, my: Maybe<&2, List<&2, Word(8n)>>, -x: C.Term, -r: C.Term
     case None{}:
       {==}
 
-def W1B_none(+q: Nat, mb: Maybe<&2, Bool>, -r: C.Term, h: @bb: Bool -> {None{} == W1.r2(q, bb, V1(r)) : Maybe<&2, Word(1n+q)>}) ->
+def W1B_none(+q: Nat, mb: Maybe<&2, Bool>, -r: Bk.Term, h: @bb: Bool -> {None{} == W1.r2(q, bb, V1(r)) : Maybe<&2, Word(1n+q)>}) ->
   {None{} == W1.b(q, mb, r) : Maybe<&2, Word(1n+q)>}:
   match mb:
     case Some{bb}:
@@ -3537,511 +3542,511 @@ def W1B_none(+q: Nat, mb: Maybe<&2, Bool>, -r: C.Term, h: @bb: Bool -> {None{} =
     case None{}:
       {==}
 
-def LW.W(+q: Nat, bb: Bool, mw: Maybe<&2, Word(q)>) -> {C.Program.unword.con(q, True{}, Some{bb}, mw) == W1.w(q, bb, mw) : Maybe<&2, Word(1n+q)>}:
+def LW.W(+q: Nat, bb: Bool, mw: Maybe<&2, Word(q)>) -> {Pg.Program.unword.con(q, True{}, Some{bb}, mw) == W1.w(q, bb, mw) : Maybe<&2, Word(1n+q)>}:
   match mw:
     case Some{y}:
       {==}
     case None{}:
       {==}
 
-def LW.C(C: Bool, +q: Nat, bb: Bool, +w: C.Term) ->
-  {C.Program.unword.con(q, C, Some{bb}, C.Program.unword(q, w)) == W1.u(q, bb, C, w) : Maybe<&2, Word(1n+q)>}:
+def LW.C(C: Bool, +q: Nat, bb: Bool, +w: Bk.Term) ->
+  {Pg.Program.unword.con(q, C, Some{bb}, Pg.Program.unword(q, w)) == W1.u(q, bb, C, w) : Maybe<&2, Word(1n+q)>}:
   match C:
     case True{}:
-      LW.W(q, bb, C.Program.unword(q, w))
+      LW.W(q, bb, Pg.Program.unword(q, w))
     case False{}:
       {==}
 
-def LW.N(C: Bool, +q: Nat, mw: Maybe<&2, Word(q)>) -> {C.Program.unword.con(q, C, None{}, mw) == None{} : Maybe<&2, Word(1n+q)>}:
+def LW.N(C: Bool, +q: Nat, mw: Maybe<&2, Word(q)>) -> {Pg.Program.unword.con(q, C, None{}, mw) == None{} : Maybe<&2, Word(1n+q)>}:
   match C:
     case True{}:
       {==}
     case False{}:
       {==}
 
-def LW.M(mb: Maybe<&2, Bool>, +q: Nat, +w: C.Term, +u2: List<&2, Word(8n)>) ->
-  {C.Program.unword.con(q, C.Name.is_eq(u2, C.Program.name.unit()), mb, C.Program.unword(q, w)) ==
-   W1.b(q, mb, C.Term.Tup{C.Quan.Q1{}, w, C.Term.Lab{u2}}) : Maybe<&2, Word(1n+q)>}:
+def LW.M(mb: Maybe<&2, Bool>, +q: Nat, +w: Bk.Term, +u2: List<&2, Word(8n)>) ->
+  {Pg.Program.unword.con(q, Sd.Name.is_eq(u2, Pg.Program.name.unit()), mb, Pg.Program.unword(q, w)) ==
+   W1.b(q, mb, Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Lab{u2}}) : Maybe<&2, Word(1n+q)>}:
   match mb:
     case None{}:
-      LW.N(C.Name.is_eq(u2, C.Program.name.unit()), q, C.Program.unword(q, w))
+      LW.N(Sd.Name.is_eq(u2, Pg.Program.name.unit()), q, Pg.Program.unword(q, w))
     case Some{bb}:
-      LW.C(C.Name.is_eq(u2, C.Program.name.unit()), q, bb, w)
+      LW.C(Sd.Name.is_eq(u2, Pg.Program.name.unit()), q, bb, w)
 
-def LW.B(B: Bool, +q: Nat, +bn: List<&2, Word(8n)>, +w: C.Term, +u2: List<&2, Word(8n)>) ->
-  {C.Program.unword.con(q, Bool.and(B, C.Name.is_eq(u2, C.Program.name.unit())), C.Program.unbit(bn), C.Program.unword(q, w)) ==
-   W1.b(q, Ub.u(B, C.Term.Lab{bn}), C.Term.Tup{C.Quan.Q1{}, w, C.Term.Lab{u2}}) : Maybe<&2, Word(1n+q)>}:
+def LW.B(B: Bool, +q: Nat, +bn: List<&2, Word(8n)>, +w: Bk.Term, +u2: List<&2, Word(8n)>) ->
+  {Pg.Program.unword.con(q, Bool.and(B, Sd.Name.is_eq(u2, Pg.Program.name.unit())), Pg.Program.unbit(bn), Pg.Program.unword(q, w)) ==
+   W1.b(q, Ub.u(B, Bk.Term.Lab{bn}), Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Lab{u2}}) : Maybe<&2, Word(1n+q)>}:
   match B:
     case True{}:
-      LW.M(C.Program.unbit(bn), q, w, u2)
+      LW.M(Pg.Program.unbit(bn), q, w, u2)
     case False{}:
       {==}
 
-def LW.A(A: Bool, +q: Nat, +bn: List<&2, Word(8n)>, +u1: List<&2, Word(8n)>, +w: C.Term, +u2: List<&2, Word(8n)>) ->
-  {C.Program.unword.con(q, Bool.and(Bool.and(A, C.Name.is_eq(u1, C.Program.name.unit())), C.Name.is_eq(u2, C.Program.name.unit())),
-     C.Program.unbit(bn), C.Program.unword(q, w)) ==
-   W1.k(q, A, C.Term.Tup{C.Quan.Q1{}, C.Term.Tup{C.Quan.Q1{}, C.Term.Lab{bn}, C.Term.Lab{u1}}, C.Term.Tup{C.Quan.Q1{}, w, C.Term.Lab{u2}}}) : Maybe<&2, Word(1n+q)>}:
+def LW.A(A: Bool, +q: Nat, +bn: List<&2, Word(8n)>, +u1: List<&2, Word(8n)>, +w: Bk.Term, +u2: List<&2, Word(8n)>) ->
+  {Pg.Program.unword.con(q, Bool.and(Bool.and(A, Sd.Name.is_eq(u1, Pg.Program.name.unit())), Sd.Name.is_eq(u2, Pg.Program.name.unit())),
+     Pg.Program.unbit(bn), Pg.Program.unword(q, w)) ==
+   W1.k(q, A, Bk.Term.Tup{Bk.Quan.Q1{}, Bk.Term.Tup{Bk.Quan.Q1{}, Bk.Term.Lab{bn}, Bk.Term.Lab{u1}}, Bk.Term.Tup{Bk.Quan.Q1{}, w, Bk.Term.Lab{u2}}}) : Maybe<&2, Word(1n+q)>}:
   match A:
     case True{}:
-      LW.B(C.Name.is_eq(u1, C.Program.name.unit()), q, bn, w, u2)
+      LW.B(Sd.Name.is_eq(u1, Pg.Program.name.unit()), q, bn, w, u2)
     case False{}:
       {==}
 
-def WE0(+t: C.Term) -> {C.Program.unword(0n, t) == Wd(0n, t) : Maybe<&2, Word(0n)>}:
+def WE0(+t: Bk.Term) -> {Pg.Program.unword(0n, t) == Wd(0n, t) : Maybe<&2, Word(0n)>}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       {==}
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       {==}
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       {==}
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       {==}
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       {==}
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       {==}
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       {==}
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       {==}
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       {==}
-    case C.Term.Tup{+q, +a, +b}:
+    case Bk.Term.Tup{+q, +a, +b}:
       match q:
-        case C.Quan.Q0{}:
+        case Bk.Quan.Q0{}:
           {==}
-        case C.Quan.Q1{}:
+        case Bk.Quan.Q1{}:
           match a:
-            case C.Term.Var{_}:
+            case Bk.Term.Var{_}:
               {==}
-            case C.Term.Ref{_}:
+            case Bk.Term.Ref{_}:
               {==}
-            case C.Term.Ann{_, _}:
+            case Bk.Term.Ann{_, _}:
               {==}
-            case C.Term.Let{_, _, _}:
+            case Bk.Term.Let{_, _, _}:
               {==}
-            case C.Term.Typ{_}:
+            case Bk.Term.Typ{_}:
               {==}
-            case C.Term.Min{_, _}:
+            case Bk.Term.Min{_, _}:
               {==}
-            case C.Term.All{_, _, _}:
+            case Bk.Term.All{_, _, _}:
               {==}
-            case C.Term.Lam{_, _}:
+            case Bk.Term.Lam{_, _}:
               {==}
-            case C.Term.App{_, _, _}:
+            case Bk.Term.App{_, _, _}:
               {==}
-            case C.Term.Sig{_, _, _}:
+            case Bk.Term.Sig{_, _, _}:
               {==}
-            case C.Term.Tup{_, _, _}:
+            case Bk.Term.Tup{_, _, _}:
               {==}
-            case C.Term.Prj{_}:
+            case Bk.Term.Prj{_}:
               {==}
-            case C.Term.Enu{_}:
+            case Bk.Term.Enu{_}:
               {==}
-            case C.Term.Lab{+k}:
+            case Bk.Term.Lab{+k}:
               match b:
-                case C.Term.Var{_}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Ref{_}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Ann{_, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Let{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Typ{_}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Min{_, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.All{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Lam{_, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.App{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Sig{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Tup{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Prj{_}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Enu{_}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Lab{+u}:
-                  W0N(C.Name.is_eq(k, C.Program.name.wnil()), u)
-                case C.Term.Mat{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Efq{}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Eql{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Rfl{}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-                case C.Term.Rwt{_, _, _}:
-                  W0K_none(C.Name.is_eq(k, C.Program.name.wnil()), b, {==})
-            case C.Term.Mat{_, _, _}:
+                case Bk.Term.Var{_}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Ref{_}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Ann{_, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Let{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Typ{_}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Min{_, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.All{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Lam{_, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.App{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Sig{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Tup{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Prj{_}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Enu{_}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Lab{+u}:
+                  W0N(Sd.Name.is_eq(k, Pg.Program.name.wnil()), u)
+                case Bk.Term.Mat{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Efq{}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Eql{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Rfl{}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+                case Bk.Term.Rwt{_, _, _}:
+                  W0K_none(Sd.Name.is_eq(k, Pg.Program.name.wnil()), b, {==})
+            case Bk.Term.Mat{_, _, _}:
               {==}
-            case C.Term.Efq{}:
+            case Bk.Term.Efq{}:
               {==}
-            case C.Term.Eql{_, _, _}:
+            case Bk.Term.Eql{_, _, _}:
               {==}
-            case C.Term.Rfl{}:
+            case Bk.Term.Rfl{}:
               {==}
-            case C.Term.Rwt{_, _, _}:
+            case Bk.Term.Rwt{_, _, _}:
               {==}
-        case C.Quan.Q2{}:
+        case Bk.Quan.Q2{}:
           {==}
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       {==}
 
-def WE1(+q: Nat, +t: C.Term) -> {C.Program.unword(1n+q, t) == Wd(1n+q, t) : Maybe<&2, Word(1n+q)>}:
+def WE1(+q: Nat, +t: Bk.Term) -> {Pg.Program.unword(1n+q, t) == Wd(1n+q, t) : Maybe<&2, Word(1n+q)>}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       {==}
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       {==}
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       {==}
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       {==}
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       {==}
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       {==}
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       {==}
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       {==}
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       {==}
-    case C.Term.Tup{+qq, +a, +f}:
+    case Bk.Term.Tup{+qq, +a, +f}:
       match qq:
-        case C.Quan.Q0{}:
+        case Bk.Quan.Q0{}:
           {==}
-        case C.Quan.Q1{}:
+        case Bk.Quan.Q1{}:
           match a:
-            case C.Term.Var{_}:
+            case Bk.Term.Var{_}:
               {==}
-            case C.Term.Ref{_}:
+            case Bk.Term.Ref{_}:
               {==}
-            case C.Term.Ann{_, _}:
+            case Bk.Term.Ann{_, _}:
               {==}
-            case C.Term.Let{_, _, _}:
+            case Bk.Term.Let{_, _, _}:
               {==}
-            case C.Term.Typ{_}:
+            case Bk.Term.Typ{_}:
               {==}
-            case C.Term.Min{_, _}:
+            case Bk.Term.Min{_, _}:
               {==}
-            case C.Term.All{_, _, _}:
+            case Bk.Term.All{_, _, _}:
               {==}
-            case C.Term.Lam{_, _}:
+            case Bk.Term.Lam{_, _}:
               {==}
-            case C.Term.App{_, _, _}:
+            case Bk.Term.App{_, _, _}:
               {==}
-            case C.Term.Sig{_, _, _}:
+            case Bk.Term.Sig{_, _, _}:
               {==}
-            case C.Term.Tup{_, _, _}:
+            case Bk.Term.Tup{_, _, _}:
               {==}
-            case C.Term.Prj{_}:
+            case Bk.Term.Prj{_}:
               {==}
-            case C.Term.Enu{_}:
+            case Bk.Term.Enu{_}:
               {==}
-            case C.Term.Lab{+k}:
+            case Bk.Term.Lab{+k}:
               match f:
-                case C.Term.Var{_}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Ref{_}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Ann{_, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Let{_, _, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Typ{_}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Min{_, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.All{_, _, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Lam{_, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.App{_, _, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Sig{_, _, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Tup{+q2, +bt, +r}:
+                case Bk.Term.Var{_}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Ref{_}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Ann{_, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Let{_, _, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Typ{_}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Min{_, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.All{_, _, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Lam{_, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.App{_, _, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Sig{_, _, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Tup{+q2, +bt, +r}:
                   match q2:
-                    case C.Quan.Q0{}:
-                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                    case C.Quan.Q1{}:
+                    case Bk.Quan.Q0{}:
+                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                    case Bk.Quan.Q1{}:
                       match bt:
-                        case C.Term.Var{_}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Ref{_}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Ann{_, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Let{_, _, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Typ{_}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Min{_, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.All{_, _, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Lam{_, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.App{_, _, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Sig{_, _, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Tup{+q3, +x, +y}:
+                        case Bk.Term.Var{_}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Ref{_}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Ann{_, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Let{_, _, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Typ{_}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Min{_, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.All{_, _, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Lam{_, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.App{_, _, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Sig{_, _, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Tup{+q3, +x, +y}:
                           match q3:
-                            case C.Quan.Q0{}:
-                              W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                            case C.Quan.Q1{}:
+                            case Bk.Quan.Q0{}:
+                              W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                            case Bk.Quan.Q1{}:
                               match x:
-                                case C.Term.Var{_}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Ref{_}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Ann{_, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Let{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Typ{_}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Min{_, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.All{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Lam{_, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.App{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Sig{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Tup{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Prj{_}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Enu{_}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Lab{+bn}:
+                                case Bk.Term.Var{_}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Ref{_}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Ann{_, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Let{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Typ{_}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Min{_, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.All{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Lam{_, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.App{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Sig{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Tup{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Prj{_}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Enu{_}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Lab{+bn}:
                                   match y:
-                                    case C.Term.Var{_}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Ref{_}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Ann{_, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Let{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Typ{_}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Min{_, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.All{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Lam{_, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.App{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Sig{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Tup{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Prj{_}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Enu{_}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Lab{+u1}:
+                                    case Bk.Term.Var{_}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Ref{_}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Ann{_, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Let{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Typ{_}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Min{_, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.All{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Lam{_, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.App{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Sig{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Tup{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Prj{_}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Enu{_}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Lab{+u1}:
                                       match r:
-                                        case C.Term.Var{_}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Ref{_}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Ann{_, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Let{_, _, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Typ{_}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Min{_, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.All{_, _, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Lam{_, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.App{_, _, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Sig{_, _, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Tup{+q4, +w, +z}:
+                                        case Bk.Term.Var{_}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Ref{_}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Ann{_, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Let{_, _, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Typ{_}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Min{_, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.All{_, _, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Lam{_, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.App{_, _, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Sig{_, _, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Tup{+q4, +w, +z}:
                                           match q4:
-                                            case C.Quan.Q0{}:
-                                              W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                            case C.Quan.Q1{}:
+                                            case Bk.Quan.Q0{}:
+                                              W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                            case Bk.Quan.Q1{}:
                                               match z:
-                                                case C.Term.Var{_}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Ref{_}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Ann{_, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Let{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Typ{_}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Min{_, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.All{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Lam{_, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.App{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Sig{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Tup{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Prj{_}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Enu{_}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Lab{+u2}:
-                                                  LW.A(C.Name.is_eq(k, C.Program.name.wcon()), q, bn, u1, w, u2)
-                                                case C.Term.Mat{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Efq{}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Eql{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Rfl{}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                                case C.Term.Rwt{_, _, _}:
-                                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                            case C.Quan.Q2{}:
-                                              W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Prj{_}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Enu{_}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Lab{_}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Mat{_, _, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Efq{}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Eql{_, _, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Rfl{}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                        case C.Term.Rwt{_, _, _}:
-                                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
-                                    case C.Term.Mat{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Efq{}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Eql{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Rfl{}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                    case C.Term.Rwt{_, _, _}:
-                                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                                case C.Term.Mat{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Efq{}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Eql{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Rfl{}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                                case C.Term.Rwt{_, _, _}:
-                                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, C.Name.is_eq(u, C.Program.name.unit()), x, r, {==})))
-                            case C.Quan.Q2{}:
-                              W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Prj{_}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Enu{_}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Lab{_}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Mat{_, _, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Efq{}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Eql{_, _, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Rfl{}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                        case C.Term.Rwt{_, _, _}:
-                          W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                    case C.Quan.Q2{}:
-                      W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Prj{_}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Enu{_}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Lab{_}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Mat{_, _, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Efq{}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Eql{_, _, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Rfl{}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-                case C.Term.Rwt{_, _, _}:
-                  W1K_none(q, C.Name.is_eq(k, C.Program.name.wcon()), f, {==})
-            case C.Term.Mat{_, _, _}:
+                                                case Bk.Term.Var{_}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Ref{_}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Ann{_, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Let{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Typ{_}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Min{_, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.All{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Lam{_, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.App{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Sig{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Tup{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Prj{_}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Enu{_}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Lab{+u2}:
+                                                  LW.A(Sd.Name.is_eq(k, Pg.Program.name.wcon()), q, bn, u1, w, u2)
+                                                case Bk.Term.Mat{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Efq{}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Eql{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Rfl{}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                                case Bk.Term.Rwt{_, _, _}:
+                                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                            case Bk.Quan.Q2{}:
+                                              W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Prj{_}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Enu{_}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Lab{_}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Mat{_, _, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Efq{}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Eql{_, _, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Rfl{}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                        case Bk.Term.Rwt{_, _, _}:
+                                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1B_none(q, Ub(bt), r, bb => {==}))
+                                    case Bk.Term.Mat{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Efq{}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Eql{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Rfl{}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                    case Bk.Term.Rwt{_, _, _}:
+                                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                                case Bk.Term.Mat{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Efq{}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Eql{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Rfl{}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                                case Bk.Term.Rwt{_, _, _}:
+                                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, W1BY_none(q, VL(y), x, r, u => W1BU_none(q, Sd.Name.is_eq(u, Pg.Program.name.unit()), x, r, {==})))
+                            case Bk.Quan.Q2{}:
+                              W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Prj{_}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Enu{_}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Lab{_}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Mat{_, _, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Efq{}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Eql{_, _, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Rfl{}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                        case Bk.Term.Rwt{_, _, _}:
+                          W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                    case Bk.Quan.Q2{}:
+                      W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Prj{_}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Enu{_}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Lab{_}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Mat{_, _, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Efq{}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Eql{_, _, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Rfl{}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+                case Bk.Term.Rwt{_, _, _}:
+                  W1K_none(q, Sd.Name.is_eq(k, Pg.Program.name.wcon()), f, {==})
+            case Bk.Term.Mat{_, _, _}:
               {==}
-            case C.Term.Efq{}:
+            case Bk.Term.Efq{}:
               {==}
-            case C.Term.Eql{_, _, _}:
+            case Bk.Term.Eql{_, _, _}:
               {==}
-            case C.Term.Rfl{}:
+            case Bk.Term.Rfl{}:
               {==}
-            case C.Term.Rwt{_, _, _}:
+            case Bk.Term.Rwt{_, _, _}:
               {==}
-        case C.Quan.Q2{}:
+        case Bk.Quan.Q2{}:
           {==}
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       {==}
 
-def WE(+p: Nat, +t: C.Term) -> {C.Program.unword(p, t) == Wd(p, t) : Maybe<&2, Word(p)>}:
+def WE(+p: Nat, +t: Bk.Term) -> {Pg.Program.unword(p, t) == Wd(p, t) : Maybe<&2, Word(p)>}:
   match p:
     case 0n:
       WE0(t)
@@ -4052,22 +4057,22 @@ def WE(+p: Nat, +t: C.Term) -> {C.Program.unword(p, t) == Wd(p, t) : Maybe<&2, W
 # The term of a word is the word that CW reads
 # ---------------------------------------------
 
-def W0z_eq(x: Bool) -> {C.Program.unword.nil(x) == CW0.z(x) : Maybe<&2, Word(0n)>}:
+def W0z_eq(x: Bool) -> {Pg.Program.unword.nil(x) == CW0.z(x) : Maybe<&2, Word(0n)>}:
   match x:
     case True{}:
       {==}
     case False{}:
       {==}
 
-def WB0.u2(+k: List<&2, Word(8n)>, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def WB0.u2(+k: List<&2, Word(8n)>, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +eL: {Lm(m, Fd(3n, m, c)) == True{} : Bool},
   +ek: {T.tm.name(ks, Fd(2n, m, Fd(3n, m, c))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) ->
   {W0.z(Some{k}) == CW0.z(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)) : Maybe<&2, Word(0n)>}:
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), kn0(Fd(2n, m, Fd(3n, m, c)), k, LK(g, m, ks, img, Fd(3n, m, c), im, fs, nx, hok3, eL, k, ek))) :
-    {C.Program.unword.nil(_) == CW0.z(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)) : Maybe<&2, Word(0n)>}
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), kn0(Fd(2n, m, Fd(3n, m, c)), k, LK(g, m, ks, img, Fd(3n, m, c), im, fs, nx, hok3, eL, k, ek))) :
+    {Pg.Program.unword.nil(_) == CW0.z(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)) : Maybe<&2, Word(0n)>}
   W0z_eq(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0))
 
-def WB0.u(bu: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def WB0.u(bu: Bool, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(3n, m, c)) == bu : Bool}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), z => {W0.z(VL(z)) == CW0.z(Bool.and(bu, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0))) : Maybe<&2, Word(0n)>}):
   match bu:
@@ -4078,7 +4083,7 @@ def WB0.u(bu: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>,
       cellLab(g, m, ks, img, Fd(3n, m, c), z => {W0.z(VL(z)) == CW0.z(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0))) : Maybe<&2, Word(0n)>}, e,
         k => ek => WB0.u2(k, g, m, ks, img, c, im, fs, nx, hok3, e, ek))
 
-def WB0.k(bk: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def WB0.k(bk: Bool, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), z => {W0.k(bk, z) == CW0.l(bk, m, c) : Maybe<&2, Word(0n)>}):
   match bk:
@@ -4087,15 +4092,15 @@ def WB0.k(bk: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>,
     case True{}:
       WB0.u(Lm(m, Fd(3n, m, c)), g, m, ks, img, c, im, fs, nx, hok3, {==})
 
-def WB0.k0(+k: List<&2, Word(8n)>, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def WB0.k0(+k: List<&2, Word(8n)>, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool},
   +eL: {Lm(m, Fd(2n, m, c)) == True{} : Bool}, +ek: {T.tm.name(ks, Fd(2n, m, Fd(2n, m, c))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), z => {W0.a(Some{k}, z) == CW0.l(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 3)), m, c) : Maybe<&2, Word(0n)>}):
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.wnil()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 3), kn3(Fd(2n, m, Fd(2n, m, c)), k, LK(g, m, ks, img, Fd(2n, m, c), im, fs, nx, hok2, eL, k, ek))) :
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.wnil()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 3), kn3(Fd(2n, m, Fd(2n, m, c)), k, LK(g, m, ks, img, Fd(2n, m, c), im, fs, nx, hok2, eL, k, ek))) :
     SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), z => {W0.k(_, z) == CW0.l(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 3), m, c) : Maybe<&2, Word(0n)>})
   WB0.k(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 3), g, m, ks, img, c, im, fs, nx, hok3)
 
-def WB0.l(bl: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def WB0.l(bl: Bool, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hok3: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool},
   +e: {Lm(m, Fd(2n, m, c)) == bl : Bool}) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), a => SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)),
@@ -4112,7 +4117,7 @@ def WB0.l(bl: Bool, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>,
         z => {W0.a(VL(a), z) == CW0.l(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 3)), m, c) : Maybe<&2, Word(0n)>}), e,
         k => ek => WB0.k0(k, g, m, ks, img, c, im, fs, nx, hok2, hok3, e, ek))
 
-def WB0.p(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def WB0.p(b: Bool, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eb: {Pm(m, c) == b : Bool}) ->
   SpecM(T.tm.of(1n+f, m, ks, img, c), t => {W0.r(V1(t)) == CW0.p(b, m, c) : Maybe<&2, Word(0n)>}):
   match b:
@@ -4129,7 +4134,7 @@ def WB0.p(b: Bool, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, 
               ok.r(1n+g, m, ks, img, c, im, fs, nx, hok, eb), {==}))
 
 # the term of the cell c, a word of no bits, is what CW reads
-def WB0(+fw: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def WB0(+fw: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +hok: {ok(fw, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
   SpecM(T.tm.of(fw, m, ks, img, c), t => {Wd(0n, t) == CW(0n, m, c) : Maybe<&2, Word(0n)>}):
   match fw:
@@ -4139,28 +4144,28 @@ def WB0(+fw: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List
       WB0.p(Pm(m, c), f, m, ks, img, c, im, fs, nx, hok, {==})
 
 # the claim of WB for the word of q bits after a bit
-def WB.IH(+q: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +im: U32, +fs: U32, +nx: U32) -> Type:
+def WB.IH(+q: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +im: U32, +fs: U32, +nx: U32) -> Type:
   @fw2: Nat -> @c2: U32 -> {ok(fw2, m, ks, img, c2, im, fs, nx) == True{} : Bool} ->
-    SpecM(T.tm.of(fw2, m, ks, img, c2), w => {C.Program.unword(q, w) == CW(q, m, c2) : Maybe<&2, Word(q)>})
+    SpecM(T.tm.of(fw2, m, ks, img, c2), w => {Pg.Program.unword(q, w) == CW(q, m, c2) : Maybe<&2, Word(q)>})
 
-def WB1.u(bu: Bool, +q: Nat, +x: Bool, +i: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokn: {ok(1n+i, m, ks, img, CW.next(m, c), im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1.u(bu: Bool, +q: Nat, +x: Bool, +i: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokn: {ok(1n+i, m, ks, img, CW.next(m, c), im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {W1.u(q, x, bu, w) == W1.g(q, GB.z(x, bu), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
   match bu:
     case False{}:
       SpecM.all(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {W1.u(q, x, False{}, w) == W1.g(q, GB.z(x, False{}), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}, w => {==})
     case True{}:
-      SpecM.map(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {C.Program.unword(q, w) == CW(q, m, CW.next(m, c)) : Maybe<&2, Word(q)>},
+      SpecM.map(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {Pg.Program.unword(q, w) == CW(q, m, CW.next(m, c)) : Maybe<&2, Word(q)>},
         w => {W1.u(q, x, True{}, w) == W1.g(q, GB.z(x, True{}), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}, ih(1n+i, CW.next(m, c), hokn),
-        w => e => Equal.cong(Maybe<&2, Word(q)>, Maybe<&2, Word(1n+q)>, mw => W1.w(q, x, mw), C.Program.unword(q, w), CW(q, m, CW.next(m, c)), e))
+        w => e => Equal.cong(Maybe<&2, Word(q)>, Maybe<&2, Word(1n+q)>, mw => W1.w(q, x, mw), Pg.Program.unword(q, w), CW(q, m, CW.next(m, c)), e))
 
-def WB1.u0(+k: List<&2, Word(8n)>, +q: Nat, +x: Bool, +i: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokz: {ok(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokn: {ok(1n+i, m, ks, img, CW.next(m, c), im, fs, nx) == True{} : Bool},
+def WB1.u0(+k: List<&2, Word(8n)>, +q: Nat, +x: Bool, +i: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokz: {ok(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokn: {ok(1n+i, m, ks, img, CW.next(m, c), im, fs, nx) == True{} : Bool},
   +eL: {Lm(m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))) == True{} : Bool}, +ek: {T.tm.name(ks, Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {W1.z(q, x, w, Some{k}) == W1.g(q, GB.z(x, Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0), kn0(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), k, LK(i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx, hokz, eL, k, ek))) :
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0), kn0(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), k, LK(i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx, hokz, eL, k, ek))) :
     SpecM(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {W1.u(q, x, _, w) == W1.g(q, GB.z(x, U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0)), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>})
   WB1.u(U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0), q, x, i, m, ks, img, c, im, fs, nx, hokn, ih)
 
-def WB1.z(bz: Bool, +q: Nat, +x: Bool, +i: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokz: {ok(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokn: {ok(1n+i, m, ks, img, CW.next(m, c), im, fs, nx) == True{} : Bool},
+def WB1.z(bz: Bool, +q: Nat, +x: Bool, +i: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokz: {ok(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokn: {ok(1n+i, m, ks, img, CW.next(m, c), im, fs, nx) == True{} : Bool},
   +e: {Lm(m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))) == bz : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), z => SpecM(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {W1.z(q, x, w, VL(z)) == W1.g(q, GB.z(x, Bool.and(bz, U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>})):
   match bz:
@@ -4172,7 +4177,7 @@ def WB1.z(bz: Bool, +q: Nat, +x: Bool, +i: Nat, +m: C.Cir.Cells, +ks: List<&2, L
       cellLab(i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), z => SpecM(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), w => {W1.z(q, x, w, VL(z)) == W1.g(q, GB.z(x, Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}),
         e, k => ek => WB1.u0(k, q, x, i, m, ks, img, c, im, fs, nx, hokz, hokn, e, ek, ih))
 
-def WB1.r(br: Bool, +q: Nat, +x: Bool, +h: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokr: {ok(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, Fd(3n, m, c))) == br : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1.r(br: Bool, +q: Nat, +x: Bool, +h: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokr: {ok(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, Fd(3n, m, c))) == br : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c))), r => {W1.r2(q, x, V1(r)) == W1.g(q, GB.r(x, br, m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
   match br:
     case False{}:
@@ -4184,10 +4189,10 @@ def WB1.r(br: Bool, +q: Nat, +x: Bool, +h: Nat, +m: C.Cir.Cells, +ks: List<&2, L
           cellT1(0n, m, ks, img, Fd(3n, m, Fd(3n, m, c)), r => {W1.r2(q, x, V1(r)) == W1.g(q, GB.r(x, True{}, m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}, e, Unit{})
         case 1n+i:
           cellT1(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, c)), r => {W1.r2(q, x, V1(r)) == W1.g(q, GB.r(x, True{}, m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}, e,
-            SpecM.swap(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), T.tm.of(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), w => z => {W1.r2(q, x, V1(C.Term.Tup{C.Quan.Q1{}, w, z})) == W1.g(q, GB.r(x, True{}, m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>},
+            SpecM.swap(T.tm.of(1n+i, m, ks, img, CW.next(m, c)), T.tm.of(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), w => z => {W1.r2(q, x, V1(Bk.Term.Tup{Bk.Quan.Q1{}, w, z})) == W1.g(q, GB.r(x, True{}, m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>},
               WB1.z(Lm(m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), q, x, i, m, ks, img, c, im, fs, nx, ok.r(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx, hokr, e), ok.l(1n+i, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx, hokr, e), {==}, ih)))
 
-def WB1.b(mb: Maybe<&2, Bool>, +q: Nat, +h: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokr: {ok(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1.b(mb: Maybe<&2, Bool>, +q: Nat, +h: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokr: {ok(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c))), r => {W1.b(q, mb, r) == W1.g(q, GB.b(mb, m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
   match mb:
     case None{}:
@@ -4195,14 +4200,14 @@ def WB1.b(mb: Maybe<&2, Bool>, +q: Nat, +h: Nat, +m: C.Cir.Cells, +ks: List<&2, 
     case Some{x}:
       WB1.r(Pm(m, Fd(3n, m, Fd(3n, m, c))), q, x, h, m, ks, img, c, im, fs, nx, hokr, {==}, ih)
 
-def WB1.bt(+q: Nat, -bt: C.Term, +h: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +eub: {Ub(bt) == CB(m, Fd(2n, m, Fd(3n, m, c))) : Maybe<&2, Bool>},
+def WB1.bt(+q: Nat, -bt: Bk.Term, +h: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +eub: {Ub(bt) == CB(m, Fd(2n, m, Fd(3n, m, c))) : Maybe<&2, Bool>},
   x: SpecM(T.tm.of(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c))), r => {W1.b(q, CB(m, Fd(2n, m, Fd(3n, m, c))), r) == W1.g(q, GB.b(CB(m, Fd(2n, m, Fd(3n, m, c))), m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>})) ->
   SpecM(T.tm.of(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c))), r => {W1.b(q, Ub(bt), r) == W1.g(q, GB.b(CB(m, Fd(2n, m, Fd(3n, m, c))), m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
   %Equal.sym(Maybe<&2, Bool>, Ub(bt), CB(m, Fd(2n, m, Fd(3n, m, c))), eub) :
     SpecM(T.tm.of(1n+h, m, ks, img, Fd(3n, m, Fd(3n, m, c))), r => {W1.b(q, _, r) == W1.g(q, GB.b(CB(m, Fd(2n, m, Fd(3n, m, c))), m, Fd(3n, m, Fd(3n, m, c))), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>})
   x
 
-def WB1.f(bf: Bool, +q: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, c)) == bf : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1.f(bf: Bool, +q: Nat, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, c)) == bf : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), fv => {W1.f(q, V1(fv)) == W1.g(q, GB.f(bf, m, Fd(3n, m, c)), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
   match bf:
     case False{}:
@@ -4219,7 +4224,7 @@ def WB1.f(bf: Bool, +q: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Wo
               BB(1n+h, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx, ok.l(1n+h, m, ks, img, Fd(3n, m, c), im, fs, nx, hokf, e)),
               bt => eub => WB1.bt(q, bt, h, m, ks, img, c, im, fs, nx, eub, WB1.b(CB(m, Fd(2n, m, Fd(3n, m, c))), q, h, m, ks, img, c, im, fs, nx, ok.r(1n+h, m, ks, img, Fd(3n, m, c), im, fs, nx, hokf, e), ih))))
 
-def WB1.k(bk: Bool, +q: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1.k(bk: Bool, +q: Nat, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), fv => {W1.k(q, bk, fv) == W1.g(q, GB.l(bk, m, Fd(3n, m, c)), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
   match bk:
     case False{}:
@@ -4227,14 +4232,14 @@ def WB1.k(bk: Bool, +q: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Wo
     case True{}:
       WB1.f(Pm(m, Fd(3n, m, c)), q, g, m, ks, img, c, im, fs, nx, hokf, {==}, ih)
 
-def WB1.k0(+k: List<&2, Word(8n)>, +q: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool},
+def WB1.k0(+k: List<&2, Word(8n)>, +q: Nat, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool},
   +eL: {Lm(m, Fd(2n, m, c)) == True{} : Bool}, +ek: {T.tm.name(ks, Fd(2n, m, Fd(2n, m, c))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), fv => {W1.a(q, Some{k}, fv) == W1.g(q, GB.l(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 4)), m, Fd(3n, m, c)), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.wcon()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 4), kn4(Fd(2n, m, Fd(2n, m, c)), k, LK(g, m, ks, img, Fd(2n, m, c), im, fs, nx, hok2, eL, k, ek))) :
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.wcon()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 4), kn4(Fd(2n, m, Fd(2n, m, c)), k, LK(g, m, ks, img, Fd(2n, m, c), im, fs, nx, hok2, eL, k, ek))) :
     SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), fv => {W1.k(q, _, fv) == W1.g(q, GB.l(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 4), m, Fd(3n, m, c)), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>})
   WB1.k(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 4), q, g, m, ks, img, c, im, fs, nx, hokf, ih)
 
-def WB1.l(bl: Bool, +q: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(2n, m, c)) == bl : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1.l(bl: Bool, +q: Nat, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+g, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hokf: {ok(1n+g, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(2n, m, c)) == bl : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+g, m, ks, img, Fd(2n, m, c)), a => SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), fv => {W1.a(q, VL(a), fv) == W1.g(q, GB.l(Bool.and(bl, U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 4)), m, Fd(3n, m, c)), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>})):
   match bl:
     case False{}:
@@ -4245,7 +4250,7 @@ def WB1.l(bl: Bool, +q: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Wo
       cellLab(g, m, ks, img, Fd(2n, m, c), a => SpecM(T.tm.of(1n+g, m, ks, img, Fd(3n, m, c)), fv => {W1.a(q, VL(a), fv) == W1.g(q, GB.l(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 4)), m, Fd(3n, m, c)), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}),
         e, k => ek => WB1.k0(k, q, g, m, ks, img, c, im, fs, nx, hok2, hokf, e, ek, ih))
 
-def WB1.p(b: Bool, +q: Nat, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eb: {Pm(m, c) == b : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1.p(b: Bool, +q: Nat, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eb: {Pm(m, c) == b : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+f, m, ks, img, c), t => {W1.r(q, V1(t)) == W1.g(q, GB.p(b, m, c), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}):
   match b:
     case False{}:
@@ -4259,7 +4264,7 @@ def WB1.p(b: Bool, +q: Nat, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Wor
           cellT1(1n+g, m, ks, img, c, t => {W1.r(q, V1(t)) == W1.g(q, GB.p(True{}, m, c), CW(q, m, CW.next(m, c))) : Maybe<&2, Word(1n+q)>}, eb,
             WB1.l(Lm(m, Fd(2n, m, c)), q, g, m, ks, img, c, im, fs, nx, ok.l(1n+g, m, ks, img, c, im, fs, nx, hok, eb), ok.r(1n+g, m, ks, img, c, im, fs, nx, hok, eb), {==}, ih))
 
-def WB1(+q: Nat, +fw: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(fw, m, ks, img, c, im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
+def WB1(+q: Nat, +fw: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(fw, m, ks, img, c, im, fs, nx) == True{} : Bool}, ih: WB.IH(q, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(fw, m, ks, img, c), t => {Wd(1n+q, t) == CW(1n+q, m, c) : Maybe<&2, Word(1n+q)>}):
   match fw:
     case 0n:
@@ -4268,43 +4273,43 @@ def WB1(+q: Nat, +fw: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +
       WB1.p(Pm(m, c), q, f, m, ks, img, c, im, fs, nx, hok, {==}, ih)
 
 # the term of the cell c, a word of p bits, is the word that CW reads
-def WB(+p: Nat, +fw: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(fw, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  SpecM(T.tm.of(fw, m, ks, img, c), t => {C.Program.unword(p, t) == CW(p, m, c) : Maybe<&2, Word(p)>}):
+def WB(+p: Nat, +fw: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(fw, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
+  SpecM(T.tm.of(fw, m, ks, img, c), t => {Pg.Program.unword(p, t) == CW(p, m, c) : Maybe<&2, Word(p)>}):
   match p:
     case 0n:
-      SpecM.map(T.tm.of(fw, m, ks, img, c), t => {Wd(0n, t) == CW(0n, m, c) : Maybe<&2, Word(0n)>}, t => {C.Program.unword(0n, t) == CW(0n, m, c) : Maybe<&2, Word(0n)>},
-        WB0(fw, m, ks, img, c, im, fs, nx, hok), t => e => Equal.trans(Maybe<&2, Word(0n)>, C.Program.unword(0n, t), Wd(0n, t), CW(0n, m, c), WE0(t), e))
+      SpecM.map(T.tm.of(fw, m, ks, img, c), t => {Wd(0n, t) == CW(0n, m, c) : Maybe<&2, Word(0n)>}, t => {Pg.Program.unword(0n, t) == CW(0n, m, c) : Maybe<&2, Word(0n)>},
+        WB0(fw, m, ks, img, c, im, fs, nx, hok), t => e => Equal.trans(Maybe<&2, Word(0n)>, Pg.Program.unword(0n, t), Wd(0n, t), CW(0n, m, c), WE0(t), e))
     case 1n+q:
-      SpecM.map(T.tm.of(fw, m, ks, img, c), t => {Wd(1n+q, t) == CW(1n+q, m, c) : Maybe<&2, Word(1n+q)>}, t => {C.Program.unword(1n+q, t) == CW(1n+q, m, c) : Maybe<&2, Word(1n+q)>},
+      SpecM.map(T.tm.of(fw, m, ks, img, c), t => {Wd(1n+q, t) == CW(1n+q, m, c) : Maybe<&2, Word(1n+q)>}, t => {Pg.Program.unword(1n+q, t) == CW(1n+q, m, c) : Maybe<&2, Word(1n+q)>},
         WB1(q, fw, m, ks, img, c, im, fs, nx, hok, fw2 => c2 => h2 => WB(q, fw2, m, ks, img, c2, im, fs, nx, h2)),
-        t => e => Equal.trans(Maybe<&2, Word(1n+q)>, C.Program.unword(1n+q, t), Wd(1n+q, t), CW(1n+q, m, c), WE1(q, t), e))
+        t => e => Equal.trans(Maybe<&2, Word(1n+q)>, Pg.Program.unword(1n+q, t), Wd(1n+q, t), CW(1n+q, m, c), WE1(q, t), e))
 
 # The term of a list is the list that CU reads
 # --------------------------------------------
 
 # the claim of LB for the rest of a list
-def LB.IH(+k: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +im: U32, +fs: U32, +nx: U32) -> Type:
+def LB.IH(+k: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +im: U32, +fs: U32, +nx: U32) -> Type:
   @rc2: U32 -> {ok(k, m, ks, img, rc2, im, fs, nx) == True{} : Bool} ->
-    SpecM(T.tm.of(k, m, ks, img, rc2), t => {C.Program.unbytes(t) == CU(k, m, Step(m, rc2)) : Maybe<&2, List<&2, Word(8n)>>})
+    SpecM(T.tm.of(k, m, ks, img, rc2), t => {Pg.Program.unbytes(t) == CU(k, m, Step(m, rc2)) : Maybe<&2, List<&2, Word(8n)>>})
 
-def LB.c4(mw: Maybe<&2, Word(8n)>, +a3: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, ih: LB.IH(1n+a3, m, ks, img, im, fs, nx)) ->
+def LB.c4(mw: Maybe<&2, Word(8n)>, +a3: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, ih: LB.IH(1n+a3, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {U.c4(mw, rest) == CU(4n+a3, m, S.c3(mw, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}):
   match mw:
     case None{}:
       SpecM.all(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {U.c4(None{}, rest) == CU(4n+a3, m, S.c3(None{}, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}, rest => Equal.sym(Maybe<&2, List<&2, Word(8n)>>, CU(1n+3n+a3, m, SR.done{None{}}), None{}, CUd(3n+a3, m, None{})))
     case Some{x}:
-      SpecM.map(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {C.Program.unbytes(rest) == CU(1n+a3, m, Step(m, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>},
+      SpecM.map(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {Pg.Program.unbytes(rest) == CU(1n+a3, m, Step(m, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>},
         rest => {U.c4(Some{x}, rest) == CU(4n+a3, m, S.c3(Some{x}, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}, ih(Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), hokr),
-        rest => e => Equal.cong(Maybe<&2, List<&2, Word(8n)>>, Maybe<&2, List<&2, Word(8n)>>, mr => U.c5(x, mr), C.Program.unbytes(rest), CU(1n+a3, m, Step(m, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))), e))
+        rest => e => Equal.cong(Maybe<&2, List<&2, Word(8n)>>, Maybe<&2, List<&2, Word(8n)>>, mr => U.c5(x, mr), Pg.Program.unbytes(rest), CU(1n+a3, m, Step(m, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))), e))
 
-def LB.c3w(-w: C.Term, +a3: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +ew: {C.Program.unword(8n, w) == CW(8n, m, Fd(2n, m, Fd(3n, m, c))) : Maybe<&2, Word(8n)>},
+def LB.c3w(-w: Bk.Term, +a3: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +ew: {Pg.Program.unword(8n, w) == CW(8n, m, Fd(2n, m, Fd(3n, m, c))) : Maybe<&2, Word(8n)>},
   x: SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {U.c4(CW(8n, m, Fd(2n, m, Fd(3n, m, c))), rest) == CU(4n+a3, m, S.c3(CW(8n, m, Fd(2n, m, Fd(3n, m, c))), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>})) ->
-  SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {U.c4(C.Program.unword(8n, w), rest) == CU(4n+a3, m, S.c3(CW(8n, m, Fd(2n, m, Fd(3n, m, c))), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}):
-  %Equal.sym(Maybe<&2, Word(8n)>, C.Program.unword(8n, w), CW(8n, m, Fd(2n, m, Fd(3n, m, c))), ew) :
+  SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {U.c4(Pg.Program.unword(8n, w), rest) == CU(4n+a3, m, S.c3(CW(8n, m, Fd(2n, m, Fd(3n, m, c))), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}):
+  %Equal.sym(Maybe<&2, Word(8n)>, Pg.Program.unword(8n, w), CW(8n, m, Fd(2n, m, Fd(3n, m, c))), ew) :
     SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {U.c4(_, rest) == CU(4n+a3, m, S.c3(CW(8n, m, Fd(2n, m, Fd(3n, m, c))), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>})
   x
 
-def LB.c3(bu: Bool, +a3: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, ih: LB.IH(1n+a3, m, ks, img, im, fs, nx)) ->
+def LB.c3(bu: Bool, +a3: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, ih: LB.IH(1n+a3, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => SpecM(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c3(bu, x, rest) == CU(4n+a3, m, S.c2(bu, m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>})):
   match bu:
     case False{}:
@@ -4312,19 +4317,19 @@ def LB.c3(bu: Bool, +a3: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>
         rest => SpecM.all(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c3(False{}, x, rest) == CU(4n+a3, m, S.c2(False{}, m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}, x => Equal.sym(Maybe<&2, List<&2, Word(8n)>>, CU(1n+3n+a3, m, SR.done{None{}}), None{}, CUd(3n+a3, m, None{}))))
     case True{}:
       SpecM.swap(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), rest => x => {U.c3(True{}, x, rest) == CU(4n+a3, m, S.c2(True{}, m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>},
-        SpecM.map(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {C.Program.unword(8n, x) == CW(8n, m, Fd(2n, m, Fd(3n, m, c))) : Maybe<&2, Word(8n)>},
+        SpecM.map(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {Pg.Program.unword(8n, x) == CW(8n, m, Fd(2n, m, Fd(3n, m, c))) : Maybe<&2, Word(8n)>},
           x => SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => {U.c3(True{}, x, rest) == CU(4n+a3, m, S.c2(True{}, m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}),
           WB(8n, 2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx, hokx),
           x => ex => LB.c3w(x, a3, m, ks, img, c, im, fs, nx, ex, LB.c4(CW(8n, m, Fd(2n, m, Fd(3n, m, c))), a3, m, ks, img, c, im, fs, nx, hokr, ih))))
 
-def LB.c2k(+k: List<&2, Word(8n)>, +a3: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokz: {ok(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool},
+def LB.c2k(+k: List<&2, Word(8n)>, +a3: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokz: {ok(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool},
   +eL: {Lm(m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))) == True{} : Bool}, +ek: {T.tm.name(ks, Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, ih: LB.IH(1n+a3, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => SpecM(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c2(x, rest, Some{k}) == CU(4n+a3, m, S.c2(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0)), m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>})):
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0), kn0(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), k, LK(a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx, hokz, eL, k, ek))) :
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0), kn0(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), k, LK(a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx, hokz, eL, k, ek))) :
     SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => SpecM(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c3(_, x, rest) == CU(4n+a3, m, S.c2(U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0), m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}))
   LB.c3(U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0), a3, m, ks, img, c, im, fs, nx, hokx, hokr, ih)
 
-def LB.c2(bz: Bool, +a3: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokz: {ok(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool},
+def LB.c2(bz: Bool, +a3: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hokr: {ok(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool}, +hokz: {ok(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c))), im, fs, nx) == True{} : Bool},
   +e: {Lm(m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))) == bz : Bool}, ih: LB.IH(1n+a3, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), z => SpecM(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), rest => SpecM(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x =>
     {U.c2(x, rest, VL(z)) == CU(4n+a3, m, S.c2(Bool.and(bz, U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0)), m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>}))):
@@ -4341,7 +4346,7 @@ def LB.c2(bz: Bool, +a3: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>
           {U.c2(x, rest, VL(z)) == CU(4n+a3, m, S.c2(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), 0)), m, Fd(2n, m, Fd(3n, m, c)), Fd(2n, m, Fd(3n, m, Fd(3n, m, c))))) : Maybe<&2, List<&2, Word(8n)>>})), e,
         k => ek => LB.c2k(k, a3, m, ks, img, c, im, fs, nx, hokx, hokr, hokz, e, ek, ih))
 
-def LB.c1(by: Bool, +a2: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(1n+a2, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hoky: {ok(1n+a2, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, Fd(3n, m, c))) == by : Bool}, ih: LB.IH(a2, m, ks, img, im, fs, nx)) ->
+def LB.c1(by: Bool, +a2: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokx: {ok(1n+a2, m, ks, img, Fd(2n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +hoky: {ok(1n+a2, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, Fd(3n, m, c))) == by : Bool}, ih: LB.IH(a2, m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a2, m, ks, img, Fd(3n, m, Fd(3n, m, c))), yy => SpecM(T.tm.of(1n+a2, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c1(x, V1(yy)) == CU(3n+a2, m, S.c1(by, m, Fd(2n, m, Fd(3n, m, c)), Fd(3n, m, Fd(3n, m, c)))) : Maybe<&2, List<&2, Word(8n)>>})):
   match by:
     case False{}:
@@ -4355,10 +4360,10 @@ def LB.c1(by: Bool, +a2: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>
         case 1n+a3:
           cellT1(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, c)), yy => SpecM(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c1(x, V1(yy)) == CU(4n+a3, m, S.c1(True{}, m, Fd(2n, m, Fd(3n, m, c)), Fd(3n, m, Fd(3n, m, c)))) : Maybe<&2, List<&2, Word(8n)>>}), e,
             SpecM.swap(T.tm.of(1n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, Fd(3n, m, c)))), T.tm.of(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))),
-              rest => z => SpecM(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c1(x, V1(C.Term.Tup{C.Quan.Q1{}, rest, z})) == CU(4n+a3, m, S.c1(True{}, m, Fd(2n, m, Fd(3n, m, c)), Fd(3n, m, Fd(3n, m, c)))) : Maybe<&2, List<&2, Word(8n)>>}),
+              rest => z => SpecM(T.tm.of(2n+a3, m, ks, img, Fd(2n, m, Fd(3n, m, c))), x => {U.c1(x, V1(Bk.Term.Tup{Bk.Quan.Q1{}, rest, z})) == CU(4n+a3, m, S.c1(True{}, m, Fd(2n, m, Fd(3n, m, c)), Fd(3n, m, Fd(3n, m, c)))) : Maybe<&2, List<&2, Word(8n)>>}),
               LB.c2(Lm(m, Fd(3n, m, Fd(3n, m, Fd(3n, m, c)))), a3, m, ks, img, c, im, fs, nx, hokx, ok.l(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx, hoky, e), ok.r(1n+a3, m, ks, img, Fd(3n, m, Fd(3n, m, c)), im, fs, nx, hoky, e), {==}, ih)))
 
-def LB.c0(b0: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokb: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, c)) == b0 : Bool}, ih: LB.IH(Pr(a1), m, ks, img, im, fs, nx)) ->
+def LB.c0(b0: Bool, +a1: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hokb: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Pm(m, Fd(3n, m, c)) == b0 : Bool}, ih: LB.IH(Pr(a1), m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.con(V1(y)) == CU(2n+a1, m, S.c0(b0, m, Fd(3n, m, c))) : Maybe<&2, List<&2, Word(8n)>>}):
   match b0:
     case False{}:
@@ -4370,24 +4375,24 @@ def LB.c0(b0: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>
           cellT1(0n, m, ks, img, Fd(3n, m, c), y => {U.con(V1(y)) == CU(2n, m, S.c0(True{}, m, Fd(3n, m, c))) : Maybe<&2, List<&2, Word(8n)>>}, e, Unit{})
         case 1n+a2:
           cellT1(1n+a2, m, ks, img, Fd(3n, m, c), y => {U.con(V1(y)) == CU(3n+a2, m, S.c0(True{}, m, Fd(3n, m, c))) : Maybe<&2, List<&2, Word(8n)>>}, e,
-            SpecM.swap(T.tm.of(1n+a2, m, ks, img, Fd(2n, m, Fd(3n, m, c))), T.tm.of(1n+a2, m, ks, img, Fd(3n, m, Fd(3n, m, c))), x => yy => {U.con(V1(C.Term.Tup{C.Quan.Q1{}, x, yy})) == CU(3n+a2, m, S.c0(True{}, m, Fd(3n, m, c))) : Maybe<&2, List<&2, Word(8n)>>},
+            SpecM.swap(T.tm.of(1n+a2, m, ks, img, Fd(2n, m, Fd(3n, m, c))), T.tm.of(1n+a2, m, ks, img, Fd(3n, m, Fd(3n, m, c))), x => yy => {U.con(V1(Bk.Term.Tup{Bk.Quan.Q1{}, x, yy})) == CU(3n+a2, m, S.c0(True{}, m, Fd(3n, m, c))) : Maybe<&2, List<&2, Word(8n)>>},
               LB.c1(Pm(m, Fd(3n, m, Fd(3n, m, c))), a2, m, ks, img, c, im, fs, nx, ok.l(1n+a2, m, ks, img, Fd(3n, m, c), im, fs, nx, hokb, e), ok.r(1n+a2, m, ks, img, Fd(3n, m, c), im, fs, nx, hokb, e), {==}, ih)))
 
-def LB.nilv(x: Bool, +a: Nat, +m: C.Cir.Cells) -> {C.Program.unbytes.nil(x) == CU(1n+a, m, S.nil(x)) : Maybe<&2, List<&2, Word(8n)>>}:
+def LB.nilv(x: Bool, +a: Nat, +m: Cr.Cir.Cells) -> {Pg.Program.unbytes.nil(x) == CU(1n+a, m, S.nil(x)) : Maybe<&2, List<&2, Word(8n)>>}:
   match x:
     case True{}:
       Equal.sym(Maybe<&2, List<&2, Word(8n)>>, CU(1n+a, m, SR.done{Some{Nil{}}}), Some{Nil{}}, CUd(a, m, Some{Nil{}}))
     case False{}:
       Equal.sym(Maybe<&2, List<&2, Word(8n)>>, CU(1n+a, m, SR.done{None{}}), None{}, CUd(a, m, None{}))
 
-def LB.nilk(+k: List<&2, Word(8n)>, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +eL: {Lm(m, Fd(3n, m, c)) == True{} : Bool},
+def LB.nilk(+k: List<&2, Word(8n)>, +a1: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +eL: {Lm(m, Fd(3n, m, c)) == True{} : Bool},
   +ek: {T.tm.name(ks, Fd(2n, m, Fd(3n, m, c))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) ->
   {U.nil(Some{k}) == CU(2n+a1, m, S.nil(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)))) : Maybe<&2, List<&2, Word(8n)>>}:
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), kn0(Fd(2n, m, Fd(3n, m, c)), k, LK(a1, m, ks, img, Fd(3n, m, c), im, fs, nx, hok3, eL, k, ek))) :
-    {C.Program.unbytes.nil(_) == CU(2n+a1, m, S.nil(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0))) : Maybe<&2, List<&2, Word(8n)>>}
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.unit()), U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), kn0(Fd(2n, m, Fd(3n, m, c)), k, LK(a1, m, ks, img, Fd(3n, m, c), im, fs, nx, hok3, eL, k, ek))) :
+    {Pg.Program.unbytes.nil(_) == CU(2n+a1, m, S.nil(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0))) : Maybe<&2, List<&2, Word(8n)>>}
   LB.nilv(U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0), 1n+a1, m)
 
-def LB.nil(bu: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(3n, m, c)) == bu : Bool}) ->
+def LB.nil(bu: Bool, +a1: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(3n, m, c)) == bu : Bool}) ->
   SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.nil(VL(y)) == CU(2n+a1, m, S.nil(Bool.and(bu, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)))) : Maybe<&2, List<&2, Word(8n)>>}):
   match bu:
     case False{}:
@@ -4397,7 +4402,7 @@ def LB.nil(bu: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>
       cellLab(a1, m, ks, img, Fd(3n, m, c), y => {U.nil(VL(y)) == CU(2n+a1, m, S.nil(Bool.and(True{}, U32.is_eq(Fd(2n, m, Fd(3n, m, c)), 0)))) : Maybe<&2, List<&2, Word(8n)>>}, e,
         k => ek => LB.nilk(k, a1, m, ks, img, c, im, fs, nx, hok3, e, ek))
 
-def LB.w(isnil: Bool, iscon: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, ih: LB.IH(Pr(a1), m, ks, img, im, fs, nx)) ->
+def LB.w(isnil: Bool, iscon: Bool, +a1: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, ih: LB.IH(Pr(a1), m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.k(isnil, iscon, y) == CU(2n+a1, m, S.w(isnil, iscon, m, c)) : Maybe<&2, List<&2, Word(8n)>>}):
   match isnil:
     case True{}:
@@ -4409,17 +4414,17 @@ def LB.w(isnil: Bool, iscon: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List
         case True{}:
           LB.c0(Pm(m, Fd(3n, m, c)), a1, m, ks, img, c, im, fs, nx, hok3, {==}, ih)
 
-def LB.k0(+k: List<&2, Word(8n)>, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+a1, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +eL: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
+def LB.k0(+k: List<&2, Word(8n)>, +a1: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+a1, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +eL: {Lm(m, Fd(2n, m, c)) == True{} : Bool},
   +ek: {T.tm.name(ks, Fd(2n, m, Fd(2n, m, c))) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, ih: LB.IH(Pr(a1), m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.a(Some{k}, y) == CU(2n+a1, m, S.l(True{}, m, c)) : Maybe<&2, List<&2, Word(8n)>>}):
   +h = LK(a1, m, ks, img, Fd(2n, m, c), im, fs, nx, hok2, eL, k, ek)
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.nil()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), kn1(Fd(2n, m, Fd(2n, m, c)), k, h)) :
-    SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.k(_, C.Name.is_eq(k, C.Program.name.con()), y) == CU(2n+a1, m, S.w(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 2), m, c)) : Maybe<&2, List<&2, Word(8n)>>})
-  %Equal.sym(Bool, C.Name.is_eq(k, C.Program.name.con()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 2), kn2(Fd(2n, m, Fd(2n, m, c)), k, h)) :
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.nil()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), kn1(Fd(2n, m, Fd(2n, m, c)), k, h)) :
+    SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.k(_, Sd.Name.is_eq(k, Pg.Program.name.con()), y) == CU(2n+a1, m, S.w(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 2), m, c)) : Maybe<&2, List<&2, Word(8n)>>})
+  %Equal.sym(Bool, Sd.Name.is_eq(k, Pg.Program.name.con()), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 2), kn2(Fd(2n, m, Fd(2n, m, c)), k, h)) :
     SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.k(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), _, y) == CU(2n+a1, m, S.w(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 2), m, c)) : Maybe<&2, List<&2, Word(8n)>>})
   LB.w(U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 1), U32.is_eq(Fd(2n, m, Fd(2n, m, c)), 2), a1, m, ks, img, c, im, fs, nx, hok3, ih)
 
-def LB.l(bl: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+a1, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(2n, m, c)) == bl : Bool}, ih: LB.IH(Pr(a1), m, ks, img, im, fs, nx)) ->
+def LB.l(bl: Bool, +a1: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok2: {ok(1n+a1, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +hok3: {ok(1n+a1, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}, +e: {Lm(m, Fd(2n, m, c)) == bl : Bool}, ih: LB.IH(Pr(a1), m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a1, m, ks, img, Fd(2n, m, c)), x => SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.a(VL(x), y) == CU(2n+a1, m, S.l(bl, m, c)) : Maybe<&2, List<&2, Word(8n)>>})):
   match bl:
     case False{}:
@@ -4430,7 +4435,7 @@ def LB.l(bl: Bool, +a1: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>,
       cellLab(a1, m, ks, img, Fd(2n, m, c), x => SpecM(T.tm.of(1n+a1, m, ks, img, Fd(3n, m, c)), y => {U.a(VL(x), y) == CU(2n+a1, m, S.l(True{}, m, c)) : Maybe<&2, List<&2, Word(8n)>>}), e,
         k => ek => LB.k0(k, a1, m, ks, img, c, im, fs, nx, hok2, hok3, e, ek, ih))
 
-def LB.p(b: Bool, +a: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(1n+a, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eb: {Pm(m, c) == b : Bool}, ih: LB.IH(Pr(Pr(a)), m, ks, img, im, fs, nx)) ->
+def LB.p(b: Bool, +a: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(1n+a, m, ks, img, c, im, fs, nx) == True{} : Bool}, +eb: {Pm(m, c) == b : Bool}, ih: LB.IH(Pr(Pr(a)), m, ks, img, im, fs, nx)) ->
   SpecM(T.tm.of(1n+a, m, ks, img, c), t => {U.r(V1(t)) == CU(1n+a, m, S.p(b, m, c)) : Maybe<&2, List<&2, Word(8n)>>}):
   match b:
     case False{}:
@@ -4445,27 +4450,27 @@ def LB.p(b: Bool, +a: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +
             LB.l(Lm(m, Fd(2n, m, c)), a1, m, ks, img, c, im, fs, nx, ok.l(1n+a1, m, ks, img, c, im, fs, nx, hok, eb), ok.r(1n+a1, m, ks, img, c, im, fs, nx, hok, eb), {==}, ih))
 
 # the term of the list cell c is the list that CU reads
-def LB(+n: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  SpecM(T.tm.of(n, m, ks, img, c), t => {C.Program.unbytes(t) == CU(n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}):
+def LB(+n: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32, +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
+  SpecM(T.tm.of(n, m, ks, img, c), t => {Pg.Program.unbytes(t) == CU(n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}):
   match n:
     case 0n:
       Unit{}
     case 1n+a:
       match a:
         case 0n:
-          SpecM.map(T.tm.of(1n, m, ks, img, c), t => {U(t) == CU(1n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}, t => {C.Program.unbytes(t) == CU(1n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>},
+          SpecM.map(T.tm.of(1n, m, ks, img, c), t => {U(t) == CU(1n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}, t => {Pg.Program.unbytes(t) == CU(1n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>},
             LB.p(Pm(m, c), 0n, m, ks, img, c, im, fs, nx, hok, {==}, rc2 => h => Unit{}),
-            t => e => Equal.trans(Maybe<&2, List<&2, Word(8n)>>, C.Program.unbytes(t), U(t), CU(1n, m, Step(m, c)), UE(t), e))
+            t => e => Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.unbytes(t), U(t), CU(1n, m, Step(m, c)), UE(t), e))
         case 1n+a1:
           match a1:
             case 0n:
-              SpecM.map(T.tm.of(2n, m, ks, img, c), t => {U(t) == CU(2n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}, t => {C.Program.unbytes(t) == CU(2n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>},
+              SpecM.map(T.tm.of(2n, m, ks, img, c), t => {U(t) == CU(2n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}, t => {Pg.Program.unbytes(t) == CU(2n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>},
                 LB.p(Pm(m, c), 1n, m, ks, img, c, im, fs, nx, hok, {==}, rc2 => h => Unit{}),
-                t => e => Equal.trans(Maybe<&2, List<&2, Word(8n)>>, C.Program.unbytes(t), U(t), CU(2n, m, Step(m, c)), UE(t), e))
+                t => e => Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.unbytes(t), U(t), CU(2n, m, Step(m, c)), UE(t), e))
             case 1n+a2:
-              SpecM.map(T.tm.of(3n+a2, m, ks, img, c), t => {U(t) == CU(3n+a2, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}, t => {C.Program.unbytes(t) == CU(3n+a2, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>},
+              SpecM.map(T.tm.of(3n+a2, m, ks, img, c), t => {U(t) == CU(3n+a2, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}, t => {Pg.Program.unbytes(t) == CU(3n+a2, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>},
                 LB.p(Pm(m, c), 2n+a2, m, ks, img, c, im, fs, nx, hok, {==}, rc2 => h => LB(a2, m, ks, img, rc2, im, fs, nx, h)),
-                t => e => Equal.trans(Maybe<&2, List<&2, Word(8n)>>, C.Program.unbytes(t), U(t), CU(3n+a2, m, Step(m, c)), UE(t), e))
+                t => e => Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.unbytes(t), U(t), CU(3n+a2, m, Step(m, c)), UE(t), e))
 
 # M.out gives the bytes of the focus' term
 # ----------------------------------------
@@ -4486,7 +4491,7 @@ def rev_app(+xs: List<&2, Word(8n)>, +acc: List<&2, Word(8n)>) ->
 # a halt with the status s in the state st, by the bytes r: with 0 and the
 # bytes of r out (the output holds them reversed, in front of out0; outn0
 # gains one for each), or with 2 when r is none
-def Gives.halt(r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32, s: U32, st: C.Cir.State) -> Type:
+def Gives.halt(r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32, s: U32, st: Cr.Cir.State) -> Type:
   match r:
     case Some{bs}:
       {s == 0 : U32} & ({St.out(st) == List.append(&2, Word(8n), List.reverse(&2, Word(8n), bs), out0) : List<&2, Word(8n)>} & {St.outn(st) == Incs(bs, outn0) : U32})
@@ -4494,20 +4499,20 @@ def Gives.halt(r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0
       {s == 2 : U32}
 
 # the run o halts as Gives.halt says, or runs out of memory
-def Gives(o: C.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32) -> Type:
+def Gives(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32) -> Type:
   match o:
-    case C.Cir.Out.next{_}:
+    case Cr.Cir.Out.next{_}:
       Empty
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       Gives.halt(r, out0, outn0, s, st)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Empty
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Empty
 
-def Gives.fin(r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn0: U32, +s: U32, +st: C.Cir.State, h: Fin(r, out0, outn0, s, st)) ->
+def Gives.fin(r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn0: U32, +s: U32, +st: Cr.Cir.State, h: Fin(r, out0, outn0, s, st)) ->
   Gives.halt(r, out0, outn0, s, st):
   match r:
     case Some{+bs}:
@@ -4518,18 +4523,18 @@ def Gives.fin(r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn
     case None{}:
       h
 
-def Gives.of(o: C.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn0: U32,
+def Gives.of(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn0: U32,
   h: Wp(o, st => Empty, s => st => Fin(r, out0, outn0, s, st))) -> Gives(o, r, out0, outn0):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       match h:
-    case C.Cir.Out.halt{+s, +st}:
+    case Cr.Cir.Out.halt{+s, +st}:
       Gives.fin(r, out0, outn0, s, st, h)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       match h:
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       match h:
 
 # THE LEMMA, with the fuel 1 + f of n + 34 or more. The focus register of the
@@ -4540,103 +4545,103 @@ def Gives.of(o: C.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Wor
 # number j of a label is one whose name in ks is the machine's name i (for i
 # from 0 to 6: (), Nil, Con, WNil, WCon, True, False) exactly when j is
 # i. Then M.out gives Program.unbytes(v) (Gives).
-def out.run(+n: Nat, +f: Nat, +hF: PN.Le(Nat.add(n, 34n), 1n+f), +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.run(+n: Nat, +f: Nat, +hF: PN.Le(Nat.add(n, 34n), 1n+f), +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +v: C.Term,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
+  +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  Gives(C.Cir.exec(1n+f, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), C.Program.unbytes(v), out, outn):
-  ev = Tr(Maybe<&2, C.Term>, r => SpecM(r, t => {C.Program.unbytes(t) == CU(n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}),
+  Gives(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
+  ev = Tr(Maybe<&2, Bk.Term>, r => SpecM(r, t => {Pg.Program.unbytes(t) == CU(n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}),
     T.tm.of(n, m, ks, img, c), Some{v}, htm, LB(n, m, ks, img, c, im, fs, nx, hok))
-  Gives.of(C.Cir.exec(1n+f, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), C.Program.unbytes(v), out, outn,
-    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Wp(C.Cir.exec(1n+f, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), st => Empty,
+  Gives.of(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn,
+    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Wp(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), st => Empty,
         s => st => Fin(r, out, outn, s, st)),
-      CU(n, m, Step(m, c)), C.Program.unbytes(v), Equal.sym(Maybe<&2, List<&2, Word(8n)>>, C.Program.unbytes(v), CU(n, m, Step(m, c)), ev),
+      CU(n, m, Step(m, c)), Pg.Program.unbytes(v), Equal.sym(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.unbytes(v), CU(n, m, Step(m, c)), ev),
       MOUT(n, f, hF, regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, hreg, hlen, hok)))
 
 # THE LEMMA, for some fuel F (1 + n + 34)
-def out.gives(+n: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.gives(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +v: C.Term,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
+  +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  &F: Nat -> Gives(C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), C.Program.unbytes(v), out, outn):
+  &F: Nat -> Gives(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
   (1n+Nat.add(n, 34n), out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
     regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, hok))
 
 # Gives, for bytes, as a halt with 0 or out of memory
-def Gives.some(o: C.Cir.Out, +bs: List<&2, Word(8n)>, +out0: List<&2, Word(8n)>, +outn0: U32, g: Gives(o, Some{bs}, out0, outn0)) ->
-  Or(&st: C.Cir.State -> ({o == C.Cir.Out.halt{0, st} : C.Cir.Out} & ({St.out(st) == List.append(&2, Word(8n), List.reverse(&2, Word(8n), bs), out0) : List<&2, Word(8n)>} &
+def Gives.some(o: Cr.Cir.Out, +bs: List<&2, Word(8n)>, +out0: List<&2, Word(8n)>, +outn0: U32, g: Gives(o, Some{bs}, out0, outn0)) ->
+  Or(&st: Cr.Cir.State -> ({o == Cr.Cir.Out.halt{0, st} : Cr.Cir.Out} & ({St.out(st) == List.append(&2, Word(8n), List.reverse(&2, Word(8n), bs), out0) : List<&2, Word(8n)>} &
       {St.outn(st) == Incs(bs, outn0) : U32})),
-    {o == C.Cir.Out.out_of_memory{} : C.Cir.Out}):
+    {o == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       match g:
-    case C.Cir.Out.halt{+s, +st}:
+    case Cr.Cir.Out.halt{+s, +st}:
       (e0, rest) = g
-      Inl{(st, (Equal.cong(U32, C.Cir.Out, x => C.Cir.Out.halt{x, st}, s, 0, e0), rest))}
-    case C.Cir.Out.out_of_memory{}:
+      Inl{(st, (Equal.cong(U32, Cr.Cir.Out, x => Cr.Cir.Out.halt{x, st}, s, 0, e0), rest))}
+    case Cr.Cir.Out.out_of_memory{}:
       Inr{{==}}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       match g:
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       match g:
 
 # Gives, for no bytes, as a halt with 2 or out of memory
-def Gives.none(o: C.Cir.Out, -out0: List<&2, Word(8n)>, -outn0: U32, g: Gives(o, None{}, out0, outn0)) ->
-  Or(&st: C.Cir.State -> {o == C.Cir.Out.halt{2, st} : C.Cir.Out}, {o == C.Cir.Out.out_of_memory{} : C.Cir.Out}):
+def Gives.none(o: Cr.Cir.Out, -out0: List<&2, Word(8n)>, -outn0: U32, g: Gives(o, None{}, out0, outn0)) ->
+  Or(&st: Cr.Cir.State -> {o == Cr.Cir.Out.halt{2, st} : Cr.Cir.Out}, {o == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       match g:
-    case C.Cir.Out.halt{+s, +st}:
-      Inl{(st, Equal.cong(U32, C.Cir.Out, x => C.Cir.Out.halt{x, st}, s, 2, g))}
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.halt{+s, +st}:
+      Inl{(st, Equal.cong(U32, Cr.Cir.Out, x => Cr.Cir.Out.halt{x, st}, s, 2, g))}
+    case Cr.Cir.Out.out_of_memory{}:
       Inr{{==}}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       match g:
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       match g:
 
 # when Program.unbytes(v) is Some{o}: M.out halts with 0 and the output o,
 # or runs out of memory
-def out.some(+n: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.some(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +v: C.Term, +o: List<&2, Word(8n)>,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
+  +img: List<&2, Bk.Term>, +v: Bk.Term, +o: List<&2, Word(8n)>,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool},
-  +eo: {C.Program.unbytes(v) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
-  &F: Nat -> Or(&st2: C.Cir.State ->
-      ({C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == C.Cir.Out.halt{0, st2} : C.Cir.Out} &
+  +eo: {Pg.Program.unbytes(v) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  &F: Nat -> Or(&st2: Cr.Cir.State ->
+      ({Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == Cr.Cir.Out.halt{0, st2} : Cr.Cir.Out} &
        ({St.out(st2) == List.append(&2, Word(8n), List.reverse(&2, Word(8n), o), out) : List<&2, Word(8n)>} & {St.outn(st2) == Incs(o, outn) : U32})),
-    {C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == C.Cir.Out.out_of_memory{} : C.Cir.Out}):
+    {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
   +F = {1n+Nat.add(n, 34n) : Nat}
-  +x = {C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) : C.Cir.Out}
+  +x = {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) : Cr.Cir.Out}
   (F, Gives.some(x, o, out, outn,
-    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn), C.Program.unbytes(v), Some{o}, eo,
+    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn), Pg.Program.unbytes(v), Some{o}, eo,
       out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
         regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, hok))))
 
 # when Program.unbytes(v) is none: M.out halts with 2, or runs out of memory
-def out.none(+n: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.none(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +v: C.Term,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
+  +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool},
-  +eo: {C.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>}) ->
-  &F: Nat -> Or(&st2: C.Cir.State -> {C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == C.Cir.Out.halt{2, st2} : C.Cir.Out},
-    {C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == C.Cir.Out.out_of_memory{} : C.Cir.Out}):
+  +eo: {Pg.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  &F: Nat -> Or(&st2: Cr.Cir.State -> {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == Cr.Cir.Out.halt{2, st2} : Cr.Cir.Out},
+    {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
   +F = {1n+Nat.add(n, 34n) : Nat}
-  +x = {C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) : C.Cir.Out}
+  +x = {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) : Cr.Cir.Out}
   (F, Gives.none(x, out, outn,
-    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn), C.Program.unbytes(v), None{}, eo,
+    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn), Pg.Program.unbytes(v), None{}, eo,
       out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
         regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, hok))))
 
@@ -4712,10 +4717,10 @@ def Wsym(+n: Nat, a: Word(n), b: Word(n)) -> {Cmp.is_eq(Word.cmp(n, a, b)) == Cm
         case WCon{+x, +at} WCon{+y, +bt}:
           Fsym(Word.cmp(p, at, bt), Word.cmp(p, bt, at), x, y, Wsym(p, at, bt))
 
-def Bsym(x: Word(8n), y: Word(8n)) -> {C.Byte.is_eq(x, y) == C.Byte.is_eq(y, x) : Bool}:
+def Bsym(x: Word(8n), y: Word(8n)) -> {Sd.Byte.is_eq(x, y) == Sd.Byte.is_eq(y, x) : Bool}:
   Wsym(8n, x, y)
 
-def Nsym(a: List<&2, Word(8n)>, b: List<&2, Word(8n)>) -> {C.Name.is_eq(a, b) == C.Name.is_eq(b, a) : Bool}:
+def Nsym(a: List<&2, Word(8n)>, b: List<&2, Word(8n)>) -> {Sd.Name.is_eq(a, b) == Sd.Name.is_eq(b, a) : Bool}:
   match a b:
     case Nil{} Nil{}:
       {==}
@@ -4724,9 +4729,9 @@ def Nsym(a: List<&2, Word(8n)>, b: List<&2, Word(8n)>) -> {C.Name.is_eq(a, b) ==
     case Con{_, _} Nil{}:
       {==}
     case Con{+x, +xs} Con{+y, +ys}:
-      %Bsym(y, x) : {Bool.and(_, C.Name.is_eq(xs, ys)) == Bool.and(C.Byte.is_eq(y, x), C.Name.is_eq(ys, xs)) : Bool}
-      %Equal.sym(Bool, C.Name.is_eq(xs, ys), C.Name.is_eq(ys, xs), Nsym(xs, ys)) :
-        {Bool.and(C.Byte.is_eq(y, x), _) == Bool.and(C.Byte.is_eq(y, x), C.Name.is_eq(ys, xs)) : Bool}
+      %Bsym(y, x) : {Bool.and(_, Sd.Name.is_eq(xs, ys)) == Bool.and(Sd.Byte.is_eq(y, x), Sd.Name.is_eq(ys, xs)) : Bool}
+      %Equal.sym(Bool, Sd.Name.is_eq(xs, ys), Sd.Name.is_eq(ys, xs), Nsym(xs, ys)) :
+        {Bool.and(Sd.Byte.is_eq(y, x), _) == Bool.and(Sd.Byte.is_eq(y, x), Sd.Name.is_eq(ys, xs)) : Bool}
       {==}
 
 # known.ok, once its parts are known
@@ -4735,13 +4740,13 @@ def KO(n0: Bool, n1: Bool, n2: Bool, n3: Bool, n4: Bool, n5: Bool, n6: Bool,
   iff(n0, x0) && iff(n1, x1) && iff(n2, x2) && iff(n3, x3) && iff(n4, x4) && iff(n5, x5) && iff(n6, x6)
 
 def KO.rw(+b: List<&2, Word(8n)>, +j: U32, n0: Bool, n1: Bool, n2: Bool, n3: Bool, n4: Bool, n5: Bool, n6: Bool, x0: Bool, x1: Bool, x2: Bool, x3: Bool, x4: Bool, x5: Bool, x6: Bool,
-  +en0: {C.Name.is_eq(b, C.Program.name.unit()) == n0 : Bool},
-  +en1: {C.Name.is_eq(b, C.Program.name.nil()) == n1 : Bool},
-  +en2: {C.Name.is_eq(b, C.Program.name.con()) == n2 : Bool},
-  +en3: {C.Name.is_eq(b, C.Program.name.wnil()) == n3 : Bool},
-  +en4: {C.Name.is_eq(b, C.Program.name.wcon()) == n4 : Bool},
-  +en5: {C.Name.is_eq(b, C.Program.name.true()) == n5 : Bool},
-  +en6: {C.Name.is_eq(b, C.Program.name.false()) == n6 : Bool},
+  +en0: {Sd.Name.is_eq(b, Pg.Program.name.unit()) == n0 : Bool},
+  +en1: {Sd.Name.is_eq(b, Pg.Program.name.nil()) == n1 : Bool},
+  +en2: {Sd.Name.is_eq(b, Pg.Program.name.con()) == n2 : Bool},
+  +en3: {Sd.Name.is_eq(b, Pg.Program.name.wnil()) == n3 : Bool},
+  +en4: {Sd.Name.is_eq(b, Pg.Program.name.wcon()) == n4 : Bool},
+  +en5: {Sd.Name.is_eq(b, Pg.Program.name.true()) == n5 : Bool},
+  +en6: {Sd.Name.is_eq(b, Pg.Program.name.false()) == n6 : Bool},
   +ex0: {U32.is_eq(j, 0) == x0 : Bool},
   +ex1: {U32.is_eq(j, 1) == x1 : Bool},
   +ex2: {U32.is_eq(j, 2) == x2 : Bool},
@@ -4750,13 +4755,13 @@ def KO.rw(+b: List<&2, Word(8n)>, +j: U32, n0: Bool, n1: Bool, n2: Bool, n3: Boo
   +ex5: {U32.is_eq(j, 5) == x5 : Bool},
   +ex6: {U32.is_eq(j, 6) == x6 : Bool},
   +h: {KO(n0, n1, n2, n3, n4, n5, n6, x0, x1, x2, x3, x4, x5, x6) == True{} : Bool}) -> {known.ok(j, b) == True{} : Bool}:
-  %Equal.sym(Bool, C.Name.is_eq(b, C.Program.name.unit()), n0, en0) : {KO(_, C.Name.is_eq(b, C.Program.name.nil()), C.Name.is_eq(b, C.Program.name.con()), C.Name.is_eq(b, C.Program.name.wnil()), C.Name.is_eq(b, C.Program.name.wcon()), C.Name.is_eq(b, C.Program.name.true()), C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
-  %Equal.sym(Bool, C.Name.is_eq(b, C.Program.name.nil()), n1, en1) : {KO(n0, _, C.Name.is_eq(b, C.Program.name.con()), C.Name.is_eq(b, C.Program.name.wnil()), C.Name.is_eq(b, C.Program.name.wcon()), C.Name.is_eq(b, C.Program.name.true()), C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
-  %Equal.sym(Bool, C.Name.is_eq(b, C.Program.name.con()), n2, en2) : {KO(n0, n1, _, C.Name.is_eq(b, C.Program.name.wnil()), C.Name.is_eq(b, C.Program.name.wcon()), C.Name.is_eq(b, C.Program.name.true()), C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
-  %Equal.sym(Bool, C.Name.is_eq(b, C.Program.name.wnil()), n3, en3) : {KO(n0, n1, n2, _, C.Name.is_eq(b, C.Program.name.wcon()), C.Name.is_eq(b, C.Program.name.true()), C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
-  %Equal.sym(Bool, C.Name.is_eq(b, C.Program.name.wcon()), n4, en4) : {KO(n0, n1, n2, n3, _, C.Name.is_eq(b, C.Program.name.true()), C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
-  %Equal.sym(Bool, C.Name.is_eq(b, C.Program.name.true()), n5, en5) : {KO(n0, n1, n2, n3, n4, _, C.Name.is_eq(b, C.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
-  %Equal.sym(Bool, C.Name.is_eq(b, C.Program.name.false()), n6, en6) : {KO(n0, n1, n2, n3, n4, n5, _, U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
+  %Equal.sym(Bool, Sd.Name.is_eq(b, Pg.Program.name.unit()), n0, en0) : {KO(_, Sd.Name.is_eq(b, Pg.Program.name.nil()), Sd.Name.is_eq(b, Pg.Program.name.con()), Sd.Name.is_eq(b, Pg.Program.name.wnil()), Sd.Name.is_eq(b, Pg.Program.name.wcon()), Sd.Name.is_eq(b, Pg.Program.name.true()), Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
+  %Equal.sym(Bool, Sd.Name.is_eq(b, Pg.Program.name.nil()), n1, en1) : {KO(n0, _, Sd.Name.is_eq(b, Pg.Program.name.con()), Sd.Name.is_eq(b, Pg.Program.name.wnil()), Sd.Name.is_eq(b, Pg.Program.name.wcon()), Sd.Name.is_eq(b, Pg.Program.name.true()), Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
+  %Equal.sym(Bool, Sd.Name.is_eq(b, Pg.Program.name.con()), n2, en2) : {KO(n0, n1, _, Sd.Name.is_eq(b, Pg.Program.name.wnil()), Sd.Name.is_eq(b, Pg.Program.name.wcon()), Sd.Name.is_eq(b, Pg.Program.name.true()), Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
+  %Equal.sym(Bool, Sd.Name.is_eq(b, Pg.Program.name.wnil()), n3, en3) : {KO(n0, n1, n2, _, Sd.Name.is_eq(b, Pg.Program.name.wcon()), Sd.Name.is_eq(b, Pg.Program.name.true()), Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
+  %Equal.sym(Bool, Sd.Name.is_eq(b, Pg.Program.name.wcon()), n4, en4) : {KO(n0, n1, n2, n3, _, Sd.Name.is_eq(b, Pg.Program.name.true()), Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
+  %Equal.sym(Bool, Sd.Name.is_eq(b, Pg.Program.name.true()), n5, en5) : {KO(n0, n1, n2, n3, n4, _, Sd.Name.is_eq(b, Pg.Program.name.false()), U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
+  %Equal.sym(Bool, Sd.Name.is_eq(b, Pg.Program.name.false()), n6, en6) : {KO(n0, n1, n2, n3, n4, n5, _, U32.is_eq(j, 0), U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
   %Equal.sym(Bool, U32.is_eq(j, 0), x0, ex0) : {KO(n0, n1, n2, n3, n4, n5, n6, _, U32.is_eq(j, 1), U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
   %Equal.sym(Bool, U32.is_eq(j, 1), x1, ex1) : {KO(n0, n1, n2, n3, n4, n5, n6, x0, _, U32.is_eq(j, 2), U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
   %Equal.sym(Bool, U32.is_eq(j, 2), x2, ex2) : {KO(n0, n1, n2, n3, n4, n5, n6, x0, x1, _, U32.is_eq(j, 3), U32.is_eq(j, 4), U32.is_eq(j, 5), U32.is_eq(j, 6)) == True{} : Bool}
@@ -4778,202 +4783,202 @@ def KD(n: Nat, xs: List<&2, List<&2, Word(8n)>>) -> List<&2, List<&2, Word(8n)>>
         case Con{_, t}:
           KD(p, t)
 
-def id.at0(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == True{} : Bool}) -> {C.Img.id(C.Img.known(ks2), k, 0) == 0 : U32}:
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.unit(), k), True{}, e0) : {C.Img.ref.if(_, 0, u => C.Img.id(KD(1n, C.Img.known(ks2)), k, U32.inc(0))) == 0 : U32}
+def id.at0(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == True{} : Bool}) -> {Mc.Img.id(Mc.Img.known(ks2), k, 0) == 0 : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.unit(), k), True{}, e0) : {Mc.Img.ref.if(_, 0, u => Mc.Img.id(KD(1n, Mc.Img.known(ks2)), k, U32.inc(0))) == 0 : U32}
   {==}
 
-def id.at1(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == True{} : Bool}) -> {C.Img.id(C.Img.known(ks2), k, 0) == 1 : U32}:
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.unit(), k), False{}, e0) : {C.Img.ref.if(_, 0, u => C.Img.id(KD(1n, C.Img.known(ks2)), k, U32.inc(0))) == 1 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.nil(), k), True{}, e1) : {C.Img.ref.if(_, 1, u => C.Img.id(KD(2n, C.Img.known(ks2)), k, U32.inc(1))) == 1 : U32}
+def id.at1(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == True{} : Bool}) -> {Mc.Img.id(Mc.Img.known(ks2), k, 0) == 1 : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.unit(), k), False{}, e0) : {Mc.Img.ref.if(_, 0, u => Mc.Img.id(KD(1n, Mc.Img.known(ks2)), k, U32.inc(0))) == 1 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.nil(), k), True{}, e1) : {Mc.Img.ref.if(_, 1, u => Mc.Img.id(KD(2n, Mc.Img.known(ks2)), k, U32.inc(1))) == 1 : U32}
   {==}
 
-def id.at2(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == True{} : Bool}) -> {C.Img.id(C.Img.known(ks2), k, 0) == 2 : U32}:
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.unit(), k), False{}, e0) : {C.Img.ref.if(_, 0, u => C.Img.id(KD(1n, C.Img.known(ks2)), k, U32.inc(0))) == 2 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.nil(), k), False{}, e1) : {C.Img.ref.if(_, 1, u => C.Img.id(KD(2n, C.Img.known(ks2)), k, U32.inc(1))) == 2 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.con(), k), True{}, e2) : {C.Img.ref.if(_, 2, u => C.Img.id(KD(3n, C.Img.known(ks2)), k, U32.inc(2))) == 2 : U32}
+def id.at2(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == True{} : Bool}) -> {Mc.Img.id(Mc.Img.known(ks2), k, 0) == 2 : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.unit(), k), False{}, e0) : {Mc.Img.ref.if(_, 0, u => Mc.Img.id(KD(1n, Mc.Img.known(ks2)), k, U32.inc(0))) == 2 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.nil(), k), False{}, e1) : {Mc.Img.ref.if(_, 1, u => Mc.Img.id(KD(2n, Mc.Img.known(ks2)), k, U32.inc(1))) == 2 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.con(), k), True{}, e2) : {Mc.Img.ref.if(_, 2, u => Mc.Img.id(KD(3n, Mc.Img.known(ks2)), k, U32.inc(2))) == 2 : U32}
   {==}
 
-def id.at3(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == True{} : Bool}) -> {C.Img.id(C.Img.known(ks2), k, 0) == 3 : U32}:
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.unit(), k), False{}, e0) : {C.Img.ref.if(_, 0, u => C.Img.id(KD(1n, C.Img.known(ks2)), k, U32.inc(0))) == 3 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.nil(), k), False{}, e1) : {C.Img.ref.if(_, 1, u => C.Img.id(KD(2n, C.Img.known(ks2)), k, U32.inc(1))) == 3 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.con(), k), False{}, e2) : {C.Img.ref.if(_, 2, u => C.Img.id(KD(3n, C.Img.known(ks2)), k, U32.inc(2))) == 3 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.wnil(), k), True{}, e3) : {C.Img.ref.if(_, 3, u => C.Img.id(KD(4n, C.Img.known(ks2)), k, U32.inc(3))) == 3 : U32}
+def id.at3(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == True{} : Bool}) -> {Mc.Img.id(Mc.Img.known(ks2), k, 0) == 3 : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.unit(), k), False{}, e0) : {Mc.Img.ref.if(_, 0, u => Mc.Img.id(KD(1n, Mc.Img.known(ks2)), k, U32.inc(0))) == 3 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.nil(), k), False{}, e1) : {Mc.Img.ref.if(_, 1, u => Mc.Img.id(KD(2n, Mc.Img.known(ks2)), k, U32.inc(1))) == 3 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.con(), k), False{}, e2) : {Mc.Img.ref.if(_, 2, u => Mc.Img.id(KD(3n, Mc.Img.known(ks2)), k, U32.inc(2))) == 3 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.wnil(), k), True{}, e3) : {Mc.Img.ref.if(_, 3, u => Mc.Img.id(KD(4n, Mc.Img.known(ks2)), k, U32.inc(3))) == 3 : U32}
   {==}
 
-def id.at4(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == True{} : Bool}) -> {C.Img.id(C.Img.known(ks2), k, 0) == 4 : U32}:
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.unit(), k), False{}, e0) : {C.Img.ref.if(_, 0, u => C.Img.id(KD(1n, C.Img.known(ks2)), k, U32.inc(0))) == 4 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.nil(), k), False{}, e1) : {C.Img.ref.if(_, 1, u => C.Img.id(KD(2n, C.Img.known(ks2)), k, U32.inc(1))) == 4 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.con(), k), False{}, e2) : {C.Img.ref.if(_, 2, u => C.Img.id(KD(3n, C.Img.known(ks2)), k, U32.inc(2))) == 4 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.wnil(), k), False{}, e3) : {C.Img.ref.if(_, 3, u => C.Img.id(KD(4n, C.Img.known(ks2)), k, U32.inc(3))) == 4 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.wcon(), k), True{}, e4) : {C.Img.ref.if(_, 4, u => C.Img.id(KD(5n, C.Img.known(ks2)), k, U32.inc(4))) == 4 : U32}
+def id.at4(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == True{} : Bool}) -> {Mc.Img.id(Mc.Img.known(ks2), k, 0) == 4 : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.unit(), k), False{}, e0) : {Mc.Img.ref.if(_, 0, u => Mc.Img.id(KD(1n, Mc.Img.known(ks2)), k, U32.inc(0))) == 4 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.nil(), k), False{}, e1) : {Mc.Img.ref.if(_, 1, u => Mc.Img.id(KD(2n, Mc.Img.known(ks2)), k, U32.inc(1))) == 4 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.con(), k), False{}, e2) : {Mc.Img.ref.if(_, 2, u => Mc.Img.id(KD(3n, Mc.Img.known(ks2)), k, U32.inc(2))) == 4 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.wnil(), k), False{}, e3) : {Mc.Img.ref.if(_, 3, u => Mc.Img.id(KD(4n, Mc.Img.known(ks2)), k, U32.inc(3))) == 4 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.wcon(), k), True{}, e4) : {Mc.Img.ref.if(_, 4, u => Mc.Img.id(KD(5n, Mc.Img.known(ks2)), k, U32.inc(4))) == 4 : U32}
   {==}
 
-def id.at5(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == False{} : Bool}, +e5: {C.Name.is_eq(C.Program.name.true(), k) == True{} : Bool}) -> {C.Img.id(C.Img.known(ks2), k, 0) == 5 : U32}:
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.unit(), k), False{}, e0) : {C.Img.ref.if(_, 0, u => C.Img.id(KD(1n, C.Img.known(ks2)), k, U32.inc(0))) == 5 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.nil(), k), False{}, e1) : {C.Img.ref.if(_, 1, u => C.Img.id(KD(2n, C.Img.known(ks2)), k, U32.inc(1))) == 5 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.con(), k), False{}, e2) : {C.Img.ref.if(_, 2, u => C.Img.id(KD(3n, C.Img.known(ks2)), k, U32.inc(2))) == 5 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.wnil(), k), False{}, e3) : {C.Img.ref.if(_, 3, u => C.Img.id(KD(4n, C.Img.known(ks2)), k, U32.inc(3))) == 5 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.wcon(), k), False{}, e4) : {C.Img.ref.if(_, 4, u => C.Img.id(KD(5n, C.Img.known(ks2)), k, U32.inc(4))) == 5 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.true(), k), True{}, e5) : {C.Img.ref.if(_, 5, u => C.Img.id(KD(6n, C.Img.known(ks2)), k, U32.inc(5))) == 5 : U32}
+def id.at5(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == False{} : Bool}, +e5: {Sd.Name.is_eq(Pg.Program.name.true(), k) == True{} : Bool}) -> {Mc.Img.id(Mc.Img.known(ks2), k, 0) == 5 : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.unit(), k), False{}, e0) : {Mc.Img.ref.if(_, 0, u => Mc.Img.id(KD(1n, Mc.Img.known(ks2)), k, U32.inc(0))) == 5 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.nil(), k), False{}, e1) : {Mc.Img.ref.if(_, 1, u => Mc.Img.id(KD(2n, Mc.Img.known(ks2)), k, U32.inc(1))) == 5 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.con(), k), False{}, e2) : {Mc.Img.ref.if(_, 2, u => Mc.Img.id(KD(3n, Mc.Img.known(ks2)), k, U32.inc(2))) == 5 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.wnil(), k), False{}, e3) : {Mc.Img.ref.if(_, 3, u => Mc.Img.id(KD(4n, Mc.Img.known(ks2)), k, U32.inc(3))) == 5 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.wcon(), k), False{}, e4) : {Mc.Img.ref.if(_, 4, u => Mc.Img.id(KD(5n, Mc.Img.known(ks2)), k, U32.inc(4))) == 5 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.true(), k), True{}, e5) : {Mc.Img.ref.if(_, 5, u => Mc.Img.id(KD(6n, Mc.Img.known(ks2)), k, U32.inc(5))) == 5 : U32}
   {==}
 
-def id.at6(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == False{} : Bool}, +e5: {C.Name.is_eq(C.Program.name.true(), k) == False{} : Bool}, +e6: {C.Name.is_eq(C.Program.name.false(), k) == True{} : Bool}) -> {C.Img.id(C.Img.known(ks2), k, 0) == 6 : U32}:
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.unit(), k), False{}, e0) : {C.Img.ref.if(_, 0, u => C.Img.id(KD(1n, C.Img.known(ks2)), k, U32.inc(0))) == 6 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.nil(), k), False{}, e1) : {C.Img.ref.if(_, 1, u => C.Img.id(KD(2n, C.Img.known(ks2)), k, U32.inc(1))) == 6 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.con(), k), False{}, e2) : {C.Img.ref.if(_, 2, u => C.Img.id(KD(3n, C.Img.known(ks2)), k, U32.inc(2))) == 6 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.wnil(), k), False{}, e3) : {C.Img.ref.if(_, 3, u => C.Img.id(KD(4n, C.Img.known(ks2)), k, U32.inc(3))) == 6 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.wcon(), k), False{}, e4) : {C.Img.ref.if(_, 4, u => C.Img.id(KD(5n, C.Img.known(ks2)), k, U32.inc(4))) == 6 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.true(), k), False{}, e5) : {C.Img.ref.if(_, 5, u => C.Img.id(KD(6n, C.Img.known(ks2)), k, U32.inc(5))) == 6 : U32}
-  %Equal.sym(Bool, C.Name.is_eq(C.Program.name.false(), k), True{}, e6) : {C.Img.ref.if(_, 6, u => C.Img.id(KD(7n, C.Img.known(ks2)), k, U32.inc(6))) == 6 : U32}
+def id.at6(+ks2: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == False{} : Bool}, +e5: {Sd.Name.is_eq(Pg.Program.name.true(), k) == False{} : Bool}, +e6: {Sd.Name.is_eq(Pg.Program.name.false(), k) == True{} : Bool}) -> {Mc.Img.id(Mc.Img.known(ks2), k, 0) == 6 : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.unit(), k), False{}, e0) : {Mc.Img.ref.if(_, 0, u => Mc.Img.id(KD(1n, Mc.Img.known(ks2)), k, U32.inc(0))) == 6 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.nil(), k), False{}, e1) : {Mc.Img.ref.if(_, 1, u => Mc.Img.id(KD(2n, Mc.Img.known(ks2)), k, U32.inc(1))) == 6 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.con(), k), False{}, e2) : {Mc.Img.ref.if(_, 2, u => Mc.Img.id(KD(3n, Mc.Img.known(ks2)), k, U32.inc(2))) == 6 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.wnil(), k), False{}, e3) : {Mc.Img.ref.if(_, 3, u => Mc.Img.id(KD(4n, Mc.Img.known(ks2)), k, U32.inc(3))) == 6 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.wcon(), k), False{}, e4) : {Mc.Img.ref.if(_, 4, u => Mc.Img.id(KD(5n, Mc.Img.known(ks2)), k, U32.inc(4))) == 6 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.true(), k), False{}, e5) : {Mc.Img.ref.if(_, 5, u => Mc.Img.id(KD(6n, Mc.Img.known(ks2)), k, U32.inc(5))) == 6 : U32}
+  %Equal.sym(Bool, Sd.Name.is_eq(Pg.Program.name.false(), k), True{}, e6) : {Mc.Img.ref.if(_, 6, u => Mc.Img.id(KD(7n, Mc.Img.known(ks2)), k, U32.inc(6))) == 6 : U32}
   {==}
 
-def lab.at0(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  +etn = eq_nat(j, 0, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, C.Img.id(C.Img.known(ks2), k, 0), 0, id.at0(ks2, k, e0), ej))
-  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.unit()}, Some{k},
-    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 0n, etn, ek))
-  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, C.Program.name.unit(), k, enk,
-    KO.rw(C.Program.name.unit(), j, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, nat_eq(j, 0, etn), ne_num(j, 1, 0n, etn, {==}), ne_num(j, 2, 0n, etn, {==}), ne_num(j, 3, 0n, etn, {==}), ne_num(j, 4, 0n, etn, {==}), ne_num(j, 5, 0n, etn, {==}), ne_num(j, 6, 0n, etn, {==}), {==}))
+def lab.at0(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  +etn = eq_nat(j, 0, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, Mc.Img.id(Mc.Img.known(ks2), k, 0), 0, id.at0(ks2, k, e0), ej))
+  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.unit()}, Some{k},
+    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 0n, etn, ek))
+  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, Pg.Program.name.unit(), k, enk,
+    KO.rw(Pg.Program.name.unit(), j, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, nat_eq(j, 0, etn), ne_num(j, 1, 0n, etn, {==}), ne_num(j, 2, 0n, etn, {==}), ne_num(j, 3, 0n, etn, {==}), ne_num(j, 4, 0n, etn, {==}), ne_num(j, 5, 0n, etn, {==}), ne_num(j, 6, 0n, etn, {==}), {==}))
 
-def lab.at1(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  +etn = eq_nat(j, 1, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, C.Img.id(C.Img.known(ks2), k, 0), 1, id.at1(ks2, k, e0, e1), ej))
-  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.nil()}, Some{k},
-    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 1n, etn, ek))
-  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, C.Program.name.nil(), k, enk,
-    KO.rw(C.Program.name.nil(), j, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 1n, etn, {==}), nat_eq(j, 1, etn), ne_num(j, 2, 1n, etn, {==}), ne_num(j, 3, 1n, etn, {==}), ne_num(j, 4, 1n, etn, {==}), ne_num(j, 5, 1n, etn, {==}), ne_num(j, 6, 1n, etn, {==}), {==}))
+def lab.at1(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  +etn = eq_nat(j, 1, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, Mc.Img.id(Mc.Img.known(ks2), k, 0), 1, id.at1(ks2, k, e0, e1), ej))
+  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.nil()}, Some{k},
+    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 1n, etn, ek))
+  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, Pg.Program.name.nil(), k, enk,
+    KO.rw(Pg.Program.name.nil(), j, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 1n, etn, {==}), nat_eq(j, 1, etn), ne_num(j, 2, 1n, etn, {==}), ne_num(j, 3, 1n, etn, {==}), ne_num(j, 4, 1n, etn, {==}), ne_num(j, 5, 1n, etn, {==}), ne_num(j, 6, 1n, etn, {==}), {==}))
 
-def lab.at2(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  +etn = eq_nat(j, 2, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, C.Img.id(C.Img.known(ks2), k, 0), 2, id.at2(ks2, k, e0, e1, e2), ej))
-  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.con()}, Some{k},
-    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 2n, etn, ek))
-  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, C.Program.name.con(), k, enk,
-    KO.rw(C.Program.name.con(), j, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 2n, etn, {==}), ne_num(j, 1, 2n, etn, {==}), nat_eq(j, 2, etn), ne_num(j, 3, 2n, etn, {==}), ne_num(j, 4, 2n, etn, {==}), ne_num(j, 5, 2n, etn, {==}), ne_num(j, 6, 2n, etn, {==}), {==}))
+def lab.at2(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  +etn = eq_nat(j, 2, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, Mc.Img.id(Mc.Img.known(ks2), k, 0), 2, id.at2(ks2, k, e0, e1, e2), ej))
+  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.con()}, Some{k},
+    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 2n, etn, ek))
+  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, Pg.Program.name.con(), k, enk,
+    KO.rw(Pg.Program.name.con(), j, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 2n, etn, {==}), ne_num(j, 1, 2n, etn, {==}), nat_eq(j, 2, etn), ne_num(j, 3, 2n, etn, {==}), ne_num(j, 4, 2n, etn, {==}), ne_num(j, 5, 2n, etn, {==}), ne_num(j, 6, 2n, etn, {==}), {==}))
 
-def lab.at3(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  +etn = eq_nat(j, 3, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, C.Img.id(C.Img.known(ks2), k, 0), 3, id.at3(ks2, k, e0, e1, e2, e3), ej))
-  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.wnil()}, Some{k},
-    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 3n, etn, ek))
-  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, C.Program.name.wnil(), k, enk,
-    KO.rw(C.Program.name.wnil(), j, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 3n, etn, {==}), ne_num(j, 1, 3n, etn, {==}), ne_num(j, 2, 3n, etn, {==}), nat_eq(j, 3, etn), ne_num(j, 4, 3n, etn, {==}), ne_num(j, 5, 3n, etn, {==}), ne_num(j, 6, 3n, etn, {==}), {==}))
+def lab.at3(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  +etn = eq_nat(j, 3, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, Mc.Img.id(Mc.Img.known(ks2), k, 0), 3, id.at3(ks2, k, e0, e1, e2, e3), ej))
+  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.wnil()}, Some{k},
+    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 3n, etn, ek))
+  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, Pg.Program.name.wnil(), k, enk,
+    KO.rw(Pg.Program.name.wnil(), j, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 3n, etn, {==}), ne_num(j, 1, 3n, etn, {==}), ne_num(j, 2, 3n, etn, {==}), nat_eq(j, 3, etn), ne_num(j, 4, 3n, etn, {==}), ne_num(j, 5, 3n, etn, {==}), ne_num(j, 6, 3n, etn, {==}), {==}))
 
-def lab.at4(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  +etn = eq_nat(j, 4, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, C.Img.id(C.Img.known(ks2), k, 0), 4, id.at4(ks2, k, e0, e1, e2, e3, e4), ej))
-  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.wcon()}, Some{k},
-    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 4n, etn, ek))
-  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, C.Program.name.wcon(), k, enk,
-    KO.rw(C.Program.name.wcon(), j, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 4n, etn, {==}), ne_num(j, 1, 4n, etn, {==}), ne_num(j, 2, 4n, etn, {==}), ne_num(j, 3, 4n, etn, {==}), nat_eq(j, 4, etn), ne_num(j, 5, 4n, etn, {==}), ne_num(j, 6, 4n, etn, {==}), {==}))
+def lab.at4(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  +etn = eq_nat(j, 4, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, Mc.Img.id(Mc.Img.known(ks2), k, 0), 4, id.at4(ks2, k, e0, e1, e2, e3, e4), ej))
+  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.wcon()}, Some{k},
+    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 4n, etn, ek))
+  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, Pg.Program.name.wcon(), k, enk,
+    KO.rw(Pg.Program.name.wcon(), j, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 4n, etn, {==}), ne_num(j, 1, 4n, etn, {==}), ne_num(j, 2, 4n, etn, {==}), ne_num(j, 3, 4n, etn, {==}), nat_eq(j, 4, etn), ne_num(j, 5, 4n, etn, {==}), ne_num(j, 6, 4n, etn, {==}), {==}))
 
-def lab.at5(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == False{} : Bool}, +e5: {C.Name.is_eq(C.Program.name.true(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  +etn = eq_nat(j, 5, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, C.Img.id(C.Img.known(ks2), k, 0), 5, id.at5(ks2, k, e0, e1, e2, e3, e4, e5), ej))
-  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.true()}, Some{k},
-    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 5n, etn, ek))
-  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, C.Program.name.true(), k, enk,
-    KO.rw(C.Program.name.true(), j, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 5n, etn, {==}), ne_num(j, 1, 5n, etn, {==}), ne_num(j, 2, 5n, etn, {==}), ne_num(j, 3, 5n, etn, {==}), ne_num(j, 4, 5n, etn, {==}), nat_eq(j, 5, etn), ne_num(j, 6, 5n, etn, {==}), {==}))
+def lab.at5(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == False{} : Bool}, +e5: {Sd.Name.is_eq(Pg.Program.name.true(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  +etn = eq_nat(j, 5, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, Mc.Img.id(Mc.Img.known(ks2), k, 0), 5, id.at5(ks2, k, e0, e1, e2, e3, e4, e5), ej))
+  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.true()}, Some{k},
+    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 5n, etn, ek))
+  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, Pg.Program.name.true(), k, enk,
+    KO.rw(Pg.Program.name.true(), j, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 5n, etn, {==}), ne_num(j, 1, 5n, etn, {==}), ne_num(j, 2, 5n, etn, {==}), ne_num(j, 3, 5n, etn, {==}), ne_num(j, 4, 5n, etn, {==}), nat_eq(j, 5, etn), ne_num(j, 6, 5n, etn, {==}), {==}))
 
-def lab.at6(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == False{} : Bool}, +e5: {C.Name.is_eq(C.Program.name.true(), k) == False{} : Bool}, +e6: {C.Name.is_eq(C.Program.name.false(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  +etn = eq_nat(j, 6, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, C.Img.id(C.Img.known(ks2), k, 0), 6, id.at6(ks2, k, e0, e1, e2, e3, e4, e5, e6), ej))
-  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.false()}, Some{k},
-    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 6n, etn, ek))
-  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, C.Program.name.false(), k, enk,
-    KO.rw(C.Program.name.false(), j, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 6n, etn, {==}), ne_num(j, 1, 6n, etn, {==}), ne_num(j, 2, 6n, etn, {==}), ne_num(j, 3, 6n, etn, {==}), ne_num(j, 4, 6n, etn, {==}), ne_num(j, 5, 6n, etn, {==}), nat_eq(j, 6, etn), {==}))
+def lab.at6(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == False{} : Bool}, +e5: {Sd.Name.is_eq(Pg.Program.name.true(), k) == False{} : Bool}, +e6: {Sd.Name.is_eq(Pg.Program.name.false(), k) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  +etn = eq_nat(j, 6, Tr(U32, y => {U32.is_eq(j, y) == True{} : Bool}, Mc.Img.id(Mc.Img.known(ks2), k, 0), 6, id.at6(ks2, k, e0, e1, e2, e3, e4, e5, e6), ej))
+  +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.false()}, Some{k},
+    Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 6n, etn, ek))
+  Tr(List<&2, Word(8n)>, b => {known.ok(j, b) == True{} : Bool}, Pg.Program.name.false(), k, enk,
+    KO.rw(Pg.Program.name.false(), j, False{}, False{}, False{}, False{}, False{}, False{}, True{}, False{}, False{}, False{}, False{}, False{}, False{}, True{}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, ne_num(j, 0, 6n, etn, {==}), ne_num(j, 1, 6n, etn, {==}), ne_num(j, 2, 6n, etn, {==}), ne_num(j, 3, 6n, etn, {==}), ne_num(j, 4, 6n, etn, {==}), ne_num(j, 5, 6n, etn, {==}), nat_eq(j, 6, etn), {==}))
 
-def lab.ne0(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +en: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 0) == b : Bool}) -> {U32.is_eq(j, 0) == False{} : Bool}:
+def lab.ne0(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +en: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 0) == b : Bool}) -> {U32.is_eq(j, 0) == False{} : Bool}:
   match b:
     case False{}:
       eb
     case True{}:
       +etn = eq_nat(j, 0, eb)
-      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.unit()}, Some{k},
-        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 0n, etn, ek))
-      Empty.absurd({U32.is_eq(j, 0) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {C.Name.is_eq(C.Program.name.unit(), y) == False{} : Bool}, k, C.Program.name.unit(),
-        Equal.sym(List<&2, Word(8n)>, C.Program.name.unit(), k, enk), en)))
+      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.unit()}, Some{k},
+        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 0n, etn, ek))
+      Empty.absurd({U32.is_eq(j, 0) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {Sd.Name.is_eq(Pg.Program.name.unit(), y) == False{} : Bool}, k, Pg.Program.name.unit(),
+        Equal.sym(List<&2, Word(8n)>, Pg.Program.name.unit(), k, enk), en)))
 
-def lab.ne1(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +en: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 1) == b : Bool}) -> {U32.is_eq(j, 1) == False{} : Bool}:
+def lab.ne1(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +en: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 1) == b : Bool}) -> {U32.is_eq(j, 1) == False{} : Bool}:
   match b:
     case False{}:
       eb
     case True{}:
       +etn = eq_nat(j, 1, eb)
-      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.nil()}, Some{k},
-        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 1n, etn, ek))
-      Empty.absurd({U32.is_eq(j, 1) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {C.Name.is_eq(C.Program.name.nil(), y) == False{} : Bool}, k, C.Program.name.nil(),
-        Equal.sym(List<&2, Word(8n)>, C.Program.name.nil(), k, enk), en)))
+      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.nil()}, Some{k},
+        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 1n, etn, ek))
+      Empty.absurd({U32.is_eq(j, 1) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {Sd.Name.is_eq(Pg.Program.name.nil(), y) == False{} : Bool}, k, Pg.Program.name.nil(),
+        Equal.sym(List<&2, Word(8n)>, Pg.Program.name.nil(), k, enk), en)))
 
-def lab.ne2(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +en: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 2) == b : Bool}) -> {U32.is_eq(j, 2) == False{} : Bool}:
+def lab.ne2(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +en: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 2) == b : Bool}) -> {U32.is_eq(j, 2) == False{} : Bool}:
   match b:
     case False{}:
       eb
     case True{}:
       +etn = eq_nat(j, 2, eb)
-      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.con()}, Some{k},
-        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 2n, etn, ek))
-      Empty.absurd({U32.is_eq(j, 2) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {C.Name.is_eq(C.Program.name.con(), y) == False{} : Bool}, k, C.Program.name.con(),
-        Equal.sym(List<&2, Word(8n)>, C.Program.name.con(), k, enk), en)))
+      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.con()}, Some{k},
+        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 2n, etn, ek))
+      Empty.absurd({U32.is_eq(j, 2) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {Sd.Name.is_eq(Pg.Program.name.con(), y) == False{} : Bool}, k, Pg.Program.name.con(),
+        Equal.sym(List<&2, Word(8n)>, Pg.Program.name.con(), k, enk), en)))
 
-def lab.ne3(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +en: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 3) == b : Bool}) -> {U32.is_eq(j, 3) == False{} : Bool}:
+def lab.ne3(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +en: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 3) == b : Bool}) -> {U32.is_eq(j, 3) == False{} : Bool}:
   match b:
     case False{}:
       eb
     case True{}:
       +etn = eq_nat(j, 3, eb)
-      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.wnil()}, Some{k},
-        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 3n, etn, ek))
-      Empty.absurd({U32.is_eq(j, 3) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {C.Name.is_eq(C.Program.name.wnil(), y) == False{} : Bool}, k, C.Program.name.wnil(),
-        Equal.sym(List<&2, Word(8n)>, C.Program.name.wnil(), k, enk), en)))
+      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.wnil()}, Some{k},
+        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 3n, etn, ek))
+      Empty.absurd({U32.is_eq(j, 3) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {Sd.Name.is_eq(Pg.Program.name.wnil(), y) == False{} : Bool}, k, Pg.Program.name.wnil(),
+        Equal.sym(List<&2, Word(8n)>, Pg.Program.name.wnil(), k, enk), en)))
 
-def lab.ne4(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +en: {C.Name.is_eq(C.Program.name.wcon(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 4) == b : Bool}) -> {U32.is_eq(j, 4) == False{} : Bool}:
+def lab.ne4(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +en: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 4) == b : Bool}) -> {U32.is_eq(j, 4) == False{} : Bool}:
   match b:
     case False{}:
       eb
     case True{}:
       +etn = eq_nat(j, 4, eb)
-      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.wcon()}, Some{k},
-        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 4n, etn, ek))
-      Empty.absurd({U32.is_eq(j, 4) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {C.Name.is_eq(C.Program.name.wcon(), y) == False{} : Bool}, k, C.Program.name.wcon(),
-        Equal.sym(List<&2, Word(8n)>, C.Program.name.wcon(), k, enk), en)))
+      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.wcon()}, Some{k},
+        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 4n, etn, ek))
+      Empty.absurd({U32.is_eq(j, 4) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {Sd.Name.is_eq(Pg.Program.name.wcon(), y) == False{} : Bool}, k, Pg.Program.name.wcon(),
+        Equal.sym(List<&2, Word(8n)>, Pg.Program.name.wcon(), k, enk), en)))
 
-def lab.ne5(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +en: {C.Name.is_eq(C.Program.name.true(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 5) == b : Bool}) -> {U32.is_eq(j, 5) == False{} : Bool}:
+def lab.ne5(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +en: {Sd.Name.is_eq(Pg.Program.name.true(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 5) == b : Bool}) -> {U32.is_eq(j, 5) == False{} : Bool}:
   match b:
     case False{}:
       eb
     case True{}:
       +etn = eq_nat(j, 5, eb)
-      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.true()}, Some{k},
-        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 5n, etn, ek))
-      Empty.absurd({U32.is_eq(j, 5) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {C.Name.is_eq(C.Program.name.true(), y) == False{} : Bool}, k, C.Program.name.true(),
-        Equal.sym(List<&2, Word(8n)>, C.Program.name.true(), k, enk), en)))
+      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.true()}, Some{k},
+        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 5n, etn, ek))
+      Empty.absurd({U32.is_eq(j, 5) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {Sd.Name.is_eq(Pg.Program.name.true(), y) == False{} : Bool}, k, Pg.Program.name.true(),
+        Equal.sym(List<&2, Word(8n)>, Pg.Program.name.true(), k, enk), en)))
 
-def lab.ne6(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +en: {C.Name.is_eq(C.Program.name.false(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 6) == b : Bool}) -> {U32.is_eq(j, 6) == False{} : Bool}:
+def lab.ne6(b: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +en: {Sd.Name.is_eq(Pg.Program.name.false(), k) == False{} : Bool}, +eb: {U32.is_eq(j, 6) == b : Bool}) -> {U32.is_eq(j, 6) == False{} : Bool}:
   match b:
     case False{}:
       eb
     case True{}:
       +etn = eq_nat(j, 6, eb)
-      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{C.Program.name.false()}, Some{k},
-        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, C.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 6n, etn, ek))
-      Empty.absurd({U32.is_eq(j, 6) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {C.Name.is_eq(C.Program.name.false(), y) == False{} : Bool}, k, C.Program.name.false(),
-        Equal.sym(List<&2, Word(8n)>, C.Program.name.false(), k, enk), en)))
+      +enk = Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, Nil{}), Some{Pg.Program.name.false()}, Some{k},
+        Tr(Nat, t => {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), t) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, U32.to_nat(j), 6n, etn, ek))
+      Empty.absurd({U32.is_eq(j, 6) == False{} : Bool}, PN.true_ne_false(Tr(List<&2, Word(8n)>, y => {Sd.Name.is_eq(Pg.Program.name.false(), y) == False{} : Bool}, k, Pg.Program.name.false(),
+        Equal.sym(List<&2, Word(8n)>, Pg.Program.name.false(), k, enk), en)))
 
-def lab.none(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +e0: {C.Name.is_eq(C.Program.name.unit(), k) == False{} : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == False{} : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == False{} : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == False{} : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == False{} : Bool}, +e5: {C.Name.is_eq(C.Program.name.true(), k) == False{} : Bool}, +e6: {C.Name.is_eq(C.Program.name.false(), k) == False{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
-  KO.rw(k, j, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, Equal.trans(Bool, C.Name.is_eq(k, C.Program.name.unit()), C.Name.is_eq(C.Program.name.unit(), k), False{}, Nsym(k, C.Program.name.unit()), e0), Equal.trans(Bool, C.Name.is_eq(k, C.Program.name.nil()), C.Name.is_eq(C.Program.name.nil(), k), False{}, Nsym(k, C.Program.name.nil()), e1), Equal.trans(Bool, C.Name.is_eq(k, C.Program.name.con()), C.Name.is_eq(C.Program.name.con(), k), False{}, Nsym(k, C.Program.name.con()), e2), Equal.trans(Bool, C.Name.is_eq(k, C.Program.name.wnil()), C.Name.is_eq(C.Program.name.wnil(), k), False{}, Nsym(k, C.Program.name.wnil()), e3), Equal.trans(Bool, C.Name.is_eq(k, C.Program.name.wcon()), C.Name.is_eq(C.Program.name.wcon(), k), False{}, Nsym(k, C.Program.name.wcon()), e4), Equal.trans(Bool, C.Name.is_eq(k, C.Program.name.true()), C.Name.is_eq(C.Program.name.true(), k), False{}, Nsym(k, C.Program.name.true()), e5), Equal.trans(Bool, C.Name.is_eq(k, C.Program.name.false()), C.Name.is_eq(C.Program.name.false(), k), False{}, Nsym(k, C.Program.name.false()), e6), lab.ne0(U32.is_eq(j, 0), ks2, j, k, ek, e0, {==}), lab.ne1(U32.is_eq(j, 1), ks2, j, k, ek, e1, {==}), lab.ne2(U32.is_eq(j, 2), ks2, j, k, ek, e2, {==}), lab.ne3(U32.is_eq(j, 3), ks2, j, k, ek, e3, {==}), lab.ne4(U32.is_eq(j, 4), ks2, j, k, ek, e4, {==}), lab.ne5(U32.is_eq(j, 5), ks2, j, k, ek, e5, {==}), lab.ne6(U32.is_eq(j, 6), ks2, j, k, ek, e6, {==}), {==})
+def lab.none(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == False{} : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == False{} : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == False{} : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == False{} : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == False{} : Bool}, +e5: {Sd.Name.is_eq(Pg.Program.name.true(), k) == False{} : Bool}, +e6: {Sd.Name.is_eq(Pg.Program.name.false(), k) == False{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+  KO.rw(k, j, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, False{}, Equal.trans(Bool, Sd.Name.is_eq(k, Pg.Program.name.unit()), Sd.Name.is_eq(Pg.Program.name.unit(), k), False{}, Nsym(k, Pg.Program.name.unit()), e0), Equal.trans(Bool, Sd.Name.is_eq(k, Pg.Program.name.nil()), Sd.Name.is_eq(Pg.Program.name.nil(), k), False{}, Nsym(k, Pg.Program.name.nil()), e1), Equal.trans(Bool, Sd.Name.is_eq(k, Pg.Program.name.con()), Sd.Name.is_eq(Pg.Program.name.con(), k), False{}, Nsym(k, Pg.Program.name.con()), e2), Equal.trans(Bool, Sd.Name.is_eq(k, Pg.Program.name.wnil()), Sd.Name.is_eq(Pg.Program.name.wnil(), k), False{}, Nsym(k, Pg.Program.name.wnil()), e3), Equal.trans(Bool, Sd.Name.is_eq(k, Pg.Program.name.wcon()), Sd.Name.is_eq(Pg.Program.name.wcon(), k), False{}, Nsym(k, Pg.Program.name.wcon()), e4), Equal.trans(Bool, Sd.Name.is_eq(k, Pg.Program.name.true()), Sd.Name.is_eq(Pg.Program.name.true(), k), False{}, Nsym(k, Pg.Program.name.true()), e5), Equal.trans(Bool, Sd.Name.is_eq(k, Pg.Program.name.false()), Sd.Name.is_eq(Pg.Program.name.false(), k), False{}, Nsym(k, Pg.Program.name.false()), e6), lab.ne0(U32.is_eq(j, 0), ks2, j, k, ek, e0, {==}), lab.ne1(U32.is_eq(j, 1), ks2, j, k, ek, e1, {==}), lab.ne2(U32.is_eq(j, 2), ks2, j, k, ek, e2, {==}), lab.ne3(U32.is_eq(j, 3), ks2, j, k, ek, e3, {==}), lab.ne4(U32.is_eq(j, 4), ks2, j, k, ek, e4, {==}), lab.ne5(U32.is_eq(j, 5), ks2, j, k, ek, e5, {==}), lab.ne6(U32.is_eq(j, 6), ks2, j, k, ek, e6, {==}), {==})
 
-def lab.cases(b0: Bool, b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +e0: {C.Name.is_eq(C.Program.name.unit(), k) == b0 : Bool}, +e1: {C.Name.is_eq(C.Program.name.nil(), k) == b1 : Bool}, +e2: {C.Name.is_eq(C.Program.name.con(), k) == b2 : Bool}, +e3: {C.Name.is_eq(C.Program.name.wnil(), k) == b3 : Bool}, +e4: {C.Name.is_eq(C.Program.name.wcon(), k) == b4 : Bool}, +e5: {C.Name.is_eq(C.Program.name.true(), k) == b5 : Bool}, +e6: {C.Name.is_eq(C.Program.name.false(), k) == b6 : Bool},
-  +ek: {T.tm.name(C.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {U32.is_eq(j, C.Img.id(C.Img.known(ks2), k, 0)) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
+def lab.cases(b0: Bool, b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +e0: {Sd.Name.is_eq(Pg.Program.name.unit(), k) == b0 : Bool}, +e1: {Sd.Name.is_eq(Pg.Program.name.nil(), k) == b1 : Bool}, +e2: {Sd.Name.is_eq(Pg.Program.name.con(), k) == b2 : Bool}, +e3: {Sd.Name.is_eq(Pg.Program.name.wnil(), k) == b3 : Bool}, +e4: {Sd.Name.is_eq(Pg.Program.name.wcon(), k) == b4 : Bool}, +e5: {Sd.Name.is_eq(Pg.Program.name.true(), k) == b5 : Bool}, +e6: {Sd.Name.is_eq(Pg.Program.name.false(), k) == b6 : Bool},
+  +ek: {T.tm.name(Mc.Img.known(ks2), j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+  +ej: {U32.is_eq(j, Mc.Img.id(Mc.Img.known(ks2), k, 0)) == True{} : Bool}) -> {known.ok(j, k) == True{} : Bool}:
   match b0:
     case True{}:
       lab.at0(ks2, j, k, ek, ej, e0)
@@ -5010,38 +5015,38 @@ def labid.of(n: Maybe<&2, List<&2, Word(8n)>>, +j: U32, +ks: List<&2, List<&2, W
     case None{}:
       True{}
     case Some{+k}:
-      U32.is_eq(j, C.Img.id(ks, k, 0))
+      U32.is_eq(j, Mc.Img.id(ks, k, 0))
 
 def labid(+ks: List<&2, List<&2, Word(8n)>>, +j: U32) -> Bool:
   labid.of(T.tm.name(ks, j), j, ks)
 
 def labid.ok.of(n: Maybe<&2, List<&2, Word(8n)>>, +ks2: List<&2, List<&2, Word(8n)>>, +j: U32,
-  +en: {T.tm.name(C.Img.known(ks2), j) == n : Maybe<&2, List<&2, Word(8n)>>}, +h: {labid.of(n, j, C.Img.known(ks2)) == True{} : Bool}) ->
+  +en: {T.tm.name(Mc.Img.known(ks2), j) == n : Maybe<&2, List<&2, Word(8n)>>}, +h: {labid.of(n, j, Mc.Img.known(ks2)) == True{} : Bool}) ->
   {labok.of(n, j) == True{} : Bool}:
   match n:
     case None{}:
       {==}
     case Some{+k}:
-      lab.cases(C.Name.is_eq(C.Program.name.unit(), k), C.Name.is_eq(C.Program.name.nil(), k), C.Name.is_eq(C.Program.name.con(), k), C.Name.is_eq(C.Program.name.wnil(), k), C.Name.is_eq(C.Program.name.wcon(), k), C.Name.is_eq(C.Program.name.true(), k), C.Name.is_eq(C.Program.name.false(), k), ks2, j, k, {==}, {==}, {==}, {==}, {==}, {==}, {==}, en, h)
+      lab.cases(Sd.Name.is_eq(Pg.Program.name.unit(), k), Sd.Name.is_eq(Pg.Program.name.nil(), k), Sd.Name.is_eq(Pg.Program.name.con(), k), Sd.Name.is_eq(Pg.Program.name.wnil(), k), Sd.Name.is_eq(Pg.Program.name.wcon(), k), Sd.Name.is_eq(Pg.Program.name.true(), k), Sd.Name.is_eq(Pg.Program.name.false(), k), ks2, j, k, {==}, {==}, {==}, {==}, {==}, {==}, {==}, en, h)
 
 # a label that holds the number of its name is one that ok accepts
-def labid.ok(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +h: {labid(C.Img.known(ks2), j) == True{} : Bool}) ->
-  {labok(C.Img.known(ks2), j) == True{} : Bool}:
-  labid.ok.of(T.tm.name(C.Img.known(ks2), j), ks2, j, {==}, h)
+def labid.ok(+ks2: List<&2, List<&2, Word(8n)>>, +j: U32, +h: {labid(Mc.Img.known(ks2), j) == True{} : Bool}) ->
+  {labok(Mc.Img.known(ks2), j) == True{} : Bool}:
+  labid.ok.of(T.tm.name(Mc.Img.known(ks2), j), ks2, j, {==}, h)
 
 # ok, with labels that hold the number of their name (labid) in place of
 # labok
 def okn.lab(+t: U32, +ks: List<&2, List<&2, Word(8n)>>, +j: U32) -> Bool:
   Bool.or(Bool.not(U32.is_eq(t, 13)), labid(ks, j))
 
-def okn(+fuel: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32,
+def okn(+fuel: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32,
   +fs: U32, +nx: U32) -> Bool:
   match fuel:
     case 0n:
       False{}
     case 1n+f:
       +t = Tg(m, c)
-      Bool.and(Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c))),
+      Bool.and(Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c))),
         Bool.or(Bool.not(U32.is_eq(t, 10)),
           Bool.and(okn(f, m, ks, img, Fd(2n, m, c), im, fs, nx), okn(f, m, ks, img, Fd(3n, m, c), im, fs, nx))))
 
@@ -5061,16 +5066,16 @@ def or_imp(x: Bool, -y: Bool, -z: Bool, +h: {Bool.or(Bool.not(x), y) == True{} :
       {==}
 
 # okn gives ok, when the names are the machine's first
-def okn.ok(+fuel: Nat, +m: C.Cir.Cells, +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
-  +h: {okn(fuel, m, C.Img.known(ks2), img, c, im, fs, nx) == True{} : Bool}) ->
-  {ok(fuel, m, C.Img.known(ks2), img, c, im, fs, nx) == True{} : Bool}:
+def okn.ok(+fuel: Nat, +m: Cr.Cir.Cells, +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+  +h: {okn(fuel, m, Mc.Img.known(ks2), img, c, im, fs, nx) == True{} : Bool}) ->
+  {ok(fuel, m, Mc.Img.known(ks2), img, c, im, fs, nx) == True{} : Bool}:
   match fuel:
     case 0n:
       h
     case 1n+f:
-      +ks = C.Img.known(ks2)
+      +ks = Mc.Img.known(ks2)
       +t = Tg(m, c)
-      +IC = C.Cir.is_cell(c, im, fs, nx)
+      +IC = Cr.Cir.is_cell(c, im, fs, nx)
       +IM = ok.img(t, T.tm.image(img, c))
       +L2 = okn.lab(t, ks, Fd(2n, m, c))
       +K2 = Bool.or(Bool.not(U32.is_eq(t, 10)), Bool.and(okn(f, m, ks, img, Fd(2n, m, c), im, fs, nx), okn(f, m, ks, img, Fd(3n, m, c), im, fs, nx)))
@@ -5090,79 +5095,79 @@ def okn.ok(+fuel: Nat, +m: C.Cir.Cells, +ks2: List<&2, List<&2, Word(8n)>>, +img
 
 # THE LEMMA, with the image's names: ks is C.Img.known(ks2), and every label
 # that the walk reads holds the number of its name (okn)
-def out.known(+n: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.known(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +v: C.Term,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
-  +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
+  +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
+  +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  &F: Nat -> Gives(C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), C.Program.unbytes(v), out, outn):
+  &F: Nat -> Gives(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
   out.gives(n, regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm,
-    Tr(List<&2, List<&2, Word(8n)>>, x => {ok(n, m, x, img, c, im, fs, nx) == True{} : Bool}, C.Img.known(ks2), ks,
-      Equal.sym(List<&2, List<&2, Word(8n)>>, ks, C.Img.known(ks2), hk),
+    Tr(List<&2, List<&2, Word(8n)>>, x => {ok(n, m, x, img, c, im, fs, nx) == True{} : Bool}, Mc.Img.known(ks2), ks,
+      Equal.sym(List<&2, List<&2, Word(8n)>>, ks, Mc.Img.known(ks2), hk),
       okn.ok(n, m, ks2, img, c, im, fs, nx,
-        Tr(List<&2, List<&2, Word(8n)>>, x => {okn(n, m, x, img, c, im, fs, nx) == True{} : Bool}, ks, C.Img.known(ks2), hk, hok))))
+        Tr(List<&2, List<&2, Word(8n)>>, x => {okn(n, m, x, img, c, im, fs, nx) == True{} : Bool}, ks, Mc.Img.known(ks2), hk, hok))))
 
 # More fuel keeps an ended run
 # ----------------------------
 
 # a ends, and b is a; or a runs out of fuel
-def OMc(a: C.Cir.Out, b: C.Cir.Out) -> Type:
+def OMc(a: Cr.Cir.Out, b: Cr.Cir.Out) -> Type:
   match a:
-    case C.Cir.Out.next{st}:
-      {C.Cir.Out.next{st} == b : C.Cir.Out}
-    case C.Cir.Out.halt{s, st}:
-      {C.Cir.Out.halt{s, st} == b : C.Cir.Out}
-    case C.Cir.Out.out_of_memory{}:
-      {C.Cir.Out.out_of_memory{} == b : C.Cir.Out}
-    case C.Cir.Out.trap{}:
-      {C.Cir.Out.trap{} == b : C.Cir.Out}
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.next{st}:
+      {Cr.Cir.Out.next{st} == b : Cr.Cir.Out}
+    case Cr.Cir.Out.halt{s, st}:
+      {Cr.Cir.Out.halt{s, st} == b : Cr.Cir.Out}
+    case Cr.Cir.Out.out_of_memory{}:
+      {Cr.Cir.Out.out_of_memory{} == b : Cr.Cir.Out}
+    case Cr.Cir.Out.trap{}:
+      {Cr.Cir.Out.trap{} == b : Cr.Cir.Out}
+    case Cr.Cir.Out.not_done{}:
       Unit
 
-def OMc.refl(x: C.Cir.Out) -> OMc(x, x):
+def OMc.refl(x: Cr.Cir.Out) -> OMc(x, x):
   match x:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       {==}
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       {==}
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       {==}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       {==}
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Unit{}
 
-def OMc.then(a: C.Cir.Out, -b: C.Cir.Out, -k1: C.Cir.State -> C.Cir.Out, -k2: C.Cir.State -> C.Cir.Out, hab: OMc(a, b),
-  hk: @t: C.Cir.State -> OMc(k1(t), k2(t))) -> OMc(C.Cir.exec.then(a, k1), C.Cir.exec.then(b, k2)):
+def OMc.then(a: Cr.Cir.Out, -b: Cr.Cir.Out, -k1: Cr.Cir.State -> Cr.Cir.Out, -k2: Cr.Cir.State -> Cr.Cir.Out, hab: OMc(a, b),
+  hk: @t: Cr.Cir.State -> OMc(k1(t), k2(t))) -> OMc(Cr.Cir.exec.then(a, k1), Cr.Cir.exec.then(b, k2)):
   match a:
-    case C.Cir.Out.next{st}:
-      %hab : OMc(k1(st), C.Cir.exec.then(_, k2))
+    case Cr.Cir.Out.next{st}:
+      %hab : OMc(k1(st), Cr.Cir.exec.then(_, k2))
       hk(st)
-    case C.Cir.Out.halt{s, st}:
-      %hab : {C.Cir.Out.halt{s, st} == C.Cir.exec.then(_, k2) : C.Cir.Out}
+    case Cr.Cir.Out.halt{s, st}:
+      %hab : {Cr.Cir.Out.halt{s, st} == Cr.Cir.exec.then(_, k2) : Cr.Cir.Out}
       {==}
-    case C.Cir.Out.out_of_memory{}:
-      %hab : {C.Cir.Out.out_of_memory{} == C.Cir.exec.then(_, k2) : C.Cir.Out}
+    case Cr.Cir.Out.out_of_memory{}:
+      %hab : {Cr.Cir.Out.out_of_memory{} == Cr.Cir.exec.then(_, k2) : Cr.Cir.Out}
       {==}
-    case C.Cir.Out.trap{}:
-      %hab : {C.Cir.Out.trap{} == C.Cir.exec.then(_, k2) : C.Cir.Out}
+    case Cr.Cir.Out.trap{}:
+      %hab : {Cr.Cir.Out.trap{} == Cr.Cir.exec.then(_, k2) : Cr.Cir.Out}
       {==}
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Unit{}
 
-def OMc.ifof(z: Bool, -y1: Unit -> C.Cir.Out, -n1: Unit -> C.Cir.Out, -y2: Unit -> C.Cir.Out, -n2: Unit -> C.Cir.Out,
-  hy: OMc(y1(Unit{}), y2(Unit{})), hn: OMc(n1(Unit{}), n2(Unit{}))) -> OMc(C.Cir.exec.if.of(z, y1, n1), C.Cir.exec.if.of(z, y2, n2)):
+def OMc.ifof(z: Bool, -y1: Unit -> Cr.Cir.Out, -n1: Unit -> Cr.Cir.Out, -y2: Unit -> Cr.Cir.Out, -n2: Unit -> Cr.Cir.Out,
+  hy: OMc(y1(Unit{}), y2(Unit{})), hn: OMc(n1(Unit{}), n2(Unit{}))) -> OMc(Cr.Cir.exec.if.of(z, y1, n1), Cr.Cir.exec.if.of(z, y2, n2)):
   match z:
     case False{}:
       hy
     case True{}:
       hn
 
-def OMc.if(v: Maybe<&2, U32>, -y1: Unit -> C.Cir.Out, -n1: Unit -> C.Cir.Out, -y2: Unit -> C.Cir.Out, -n2: Unit -> C.Cir.Out,
-  hy: OMc(y1(Unit{}), y2(Unit{})), hn: OMc(n1(Unit{}), n2(Unit{}))) -> OMc(C.Cir.exec.if(v, y1, n1), C.Cir.exec.if(v, y2, n2)):
+def OMc.if(v: Maybe<&2, U32>, -y1: Unit -> Cr.Cir.Out, -n1: Unit -> Cr.Cir.Out, -y2: Unit -> Cr.Cir.Out, -n2: Unit -> Cr.Cir.Out,
+  hy: OMc(y1(Unit{}), y2(Unit{})), hn: OMc(n1(Unit{}), n2(Unit{}))) -> OMc(Cr.Cir.exec.if(v, y1, n1), Cr.Cir.exec.if(v, y2, n2)):
   match v:
     case Some{+x}:
       OMc.ifof(U32.is_zero(x), y1, n1, y2, n2, hy, hn)
@@ -5170,110 +5175,110 @@ def OMc.if(v: Maybe<&2, U32>, -y1: Unit -> C.Cir.Out, -n1: Unit -> C.Cir.Out, -y
       {==}
 
 # a run with no fuel, and with some
-def EM0(s: C.Cir.Stmt, +g: Nat, +st: C.Cir.State) -> OMc(C.Cir.exec(0n, s, st), C.Cir.exec(1n+g, s, st)):
+def EM0(s: Cr.Cir.Stmt, +g: Nat, +st: Cr.Cir.State) -> OMc(Cr.Cir.exec(0n, s, st), Cr.Cir.exec(1n+g, s, st)):
   match s:
-    case C.Cir.Stmt.nop{}:
+    case Cr.Cir.Stmt.nop{}:
       {==}
-    case C.Cir.Stmt.set{+r, +e}:
-      OMc.refl(C.Cir.exec(0n, C.Cir.Stmt.set{r, e}, st))
-    case C.Cir.Stmt.store{+k, +a, +v}:
-      OMc.refl(C.Cir.exec(0n, C.Cir.Stmt.store{k, a, v}, st))
-    case C.Cir.Stmt.alloc{+r}:
-      OMc.refl(C.Cir.exec(0n, C.Cir.Stmt.alloc{r}, st))
-    case C.Cir.Stmt.emit{+v}:
-      OMc.refl(C.Cir.exec(0n, C.Cir.Stmt.emit{v}, st))
-    case C.Cir.Stmt.seq{+a, +b}:
-      OMc.then(C.Cir.exec(0n, a, st), C.Cir.exec(1n+g, a, st), u => C.Cir.exec(0n, b, u), u => C.Cir.exec(1n+g, b, u),
+    case Cr.Cir.Stmt.set{+r, +e}:
+      OMc.refl(Cr.Cir.exec(0n, Cr.Cir.Stmt.set{r, e}, st))
+    case Cr.Cir.Stmt.store{+k, +a, +v}:
+      OMc.refl(Cr.Cir.exec(0n, Cr.Cir.Stmt.store{k, a, v}, st))
+    case Cr.Cir.Stmt.alloc{+r}:
+      OMc.refl(Cr.Cir.exec(0n, Cr.Cir.Stmt.alloc{r}, st))
+    case Cr.Cir.Stmt.emit{+v}:
+      OMc.refl(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st))
+    case Cr.Cir.Stmt.seq{+a, +b}:
+      OMc.then(Cr.Cir.exec(0n, a, st), Cr.Cir.exec(1n+g, a, st), u => Cr.Cir.exec(0n, b, u), u => Cr.Cir.exec(1n+g, b, u),
         EM0(a, g, st), u => EM0(b, g, u))
-    case C.Cir.Stmt.if{+c, +x, +y}:
-      OMc.if(C.Cir.eval(c, st), u => C.Cir.exec(0n, x, st), u => C.Cir.exec(0n, y, st), u => C.Cir.exec(1n+g, x, st), u => C.Cir.exec(1n+g, y, st),
+    case Cr.Cir.Stmt.if{+c, +x, +y}:
+      OMc.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(0n, x, st), u => Cr.Cir.exec(0n, y, st), u => Cr.Cir.exec(1n+g, x, st), u => Cr.Cir.exec(1n+g, y, st),
         EM0(x, g, st), EM0(y, g, st))
-    case C.Cir.Stmt.while{_, _}:
+    case Cr.Cir.Stmt.while{_, _}:
       Unit{}
-    case C.Cir.Stmt.halt{+h}:
+    case Cr.Cir.Stmt.halt{+h}:
       {==}
 
 # a run that ends with the fuel f ends the same with f + g
-def EM(+f: Nat, +g: Nat, s: C.Cir.Stmt, +st: C.Cir.State) -> OMc(C.Cir.exec(f, s, st), C.Cir.exec(Nat.add(f, g), s, st)):
+def EM(+f: Nat, +g: Nat, s: Cr.Cir.Stmt, +st: Cr.Cir.State) -> OMc(Cr.Cir.exec(f, s, st), Cr.Cir.exec(Nat.add(f, g), s, st)):
   match f:
     case 0n:
       match g:
         case 0n:
-          OMc.refl(C.Cir.exec(0n, s, st))
+          OMc.refl(Cr.Cir.exec(0n, s, st))
         case 1n+h:
           EM0(s, h, st)
     case 1n+p:
       match s:
-        case C.Cir.Stmt.nop{}:
+        case Cr.Cir.Stmt.nop{}:
           {==}
-        case C.Cir.Stmt.set{+r, +e}:
-          OMc.refl(C.Cir.exec(1n+p, C.Cir.Stmt.set{r, e}, st))
-        case C.Cir.Stmt.store{+k, +a, +v}:
-          OMc.refl(C.Cir.exec(1n+p, C.Cir.Stmt.store{k, a, v}, st))
-        case C.Cir.Stmt.alloc{+r}:
-          OMc.refl(C.Cir.exec(1n+p, C.Cir.Stmt.alloc{r}, st))
-        case C.Cir.Stmt.emit{+v}:
-          OMc.refl(C.Cir.exec(1n+p, C.Cir.Stmt.emit{v}, st))
-        case C.Cir.Stmt.seq{+a, +b}:
-          OMc.then(C.Cir.exec(1n+p, a, st), C.Cir.exec(1n+Nat.add(p, g), a, st), u => C.Cir.exec(1n+p, b, u), u => C.Cir.exec(1n+Nat.add(p, g), b, u),
+        case Cr.Cir.Stmt.set{+r, +e}:
+          OMc.refl(Cr.Cir.exec(1n+p, Cr.Cir.Stmt.set{r, e}, st))
+        case Cr.Cir.Stmt.store{+k, +a, +v}:
+          OMc.refl(Cr.Cir.exec(1n+p, Cr.Cir.Stmt.store{k, a, v}, st))
+        case Cr.Cir.Stmt.alloc{+r}:
+          OMc.refl(Cr.Cir.exec(1n+p, Cr.Cir.Stmt.alloc{r}, st))
+        case Cr.Cir.Stmt.emit{+v}:
+          OMc.refl(Cr.Cir.exec(1n+p, Cr.Cir.Stmt.emit{v}, st))
+        case Cr.Cir.Stmt.seq{+a, +b}:
+          OMc.then(Cr.Cir.exec(1n+p, a, st), Cr.Cir.exec(1n+Nat.add(p, g), a, st), u => Cr.Cir.exec(1n+p, b, u), u => Cr.Cir.exec(1n+Nat.add(p, g), b, u),
             EM(1n+p, g, a, st), u => EM(1n+p, g, b, u))
-        case C.Cir.Stmt.if{+c, +x, +y}:
-          OMc.if(C.Cir.eval(c, st), u => C.Cir.exec(1n+p, x, st), u => C.Cir.exec(1n+p, y, st), u => C.Cir.exec(1n+Nat.add(p, g), x, st),
-            u => C.Cir.exec(1n+Nat.add(p, g), y, st), EM(1n+p, g, x, st), EM(1n+p, g, y, st))
-        case C.Cir.Stmt.while{+c, +body}:
-          OMc.if(C.Cir.eval(c, st), u => C.Cir.exec.then(C.Cir.exec(p, body, st), t => C.Cir.exec(p, C.Cir.Stmt.while{c, body}, t)), u => C.Cir.Out.next{st},
-            u => C.Cir.exec.then(C.Cir.exec(Nat.add(p, g), body, st), t => C.Cir.exec(Nat.add(p, g), C.Cir.Stmt.while{c, body}, t)), u => C.Cir.Out.next{st},
-            OMc.then(C.Cir.exec(p, body, st), C.Cir.exec(Nat.add(p, g), body, st), t => C.Cir.exec(p, C.Cir.Stmt.while{c, body}, t),
-              t => C.Cir.exec(Nat.add(p, g), C.Cir.Stmt.while{c, body}, t), EM(p, g, body, st), t => EM(p, g, C.Cir.Stmt.while{c, body}, t)),
+        case Cr.Cir.Stmt.if{+c, +x, +y}:
+          OMc.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(1n+p, x, st), u => Cr.Cir.exec(1n+p, y, st), u => Cr.Cir.exec(1n+Nat.add(p, g), x, st),
+            u => Cr.Cir.exec(1n+Nat.add(p, g), y, st), EM(1n+p, g, x, st), EM(1n+p, g, y, st))
+        case Cr.Cir.Stmt.while{+c, +body}:
+          OMc.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec.then(Cr.Cir.exec(p, body, st), t => Cr.Cir.exec(p, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st},
+            u => Cr.Cir.exec.then(Cr.Cir.exec(Nat.add(p, g), body, st), t => Cr.Cir.exec(Nat.add(p, g), Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st},
+            OMc.then(Cr.Cir.exec(p, body, st), Cr.Cir.exec(Nat.add(p, g), body, st), t => Cr.Cir.exec(p, Cr.Cir.Stmt.while{c, body}, t),
+              t => Cr.Cir.exec(Nat.add(p, g), Cr.Cir.Stmt.while{c, body}, t), EM(p, g, body, st), t => EM(p, g, Cr.Cir.Stmt.while{c, body}, t)),
             {==})
-        case C.Cir.Stmt.halt{+h}:
+        case Cr.Cir.Stmt.halt{+h}:
           {==}
 
 # Gives, or out of fuel
-def GivesF(o: C.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32) -> Type:
+def GivesF(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32) -> Type:
   match o:
-    case C.Cir.Out.next{_}:
+    case Cr.Cir.Out.next{_}:
       Empty
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       Gives.halt(r, out0, outn0, s, st)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Empty
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Unit
 
-def GivesF.of(a: C.Cir.Out, -b: C.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32,
+def GivesF.of(a: Cr.Cir.Out, -b: Cr.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32,
   hab: OMc(a, b), g: Gives(b, r, out0, outn0)) -> GivesF(a, r, out0, outn0):
   match a:
-    case C.Cir.Out.next{st}:
-      Empty.absurd(GivesF(C.Cir.Out.next{st}, r, out0, outn0),
-        Tr(C.Cir.Out, x => Gives(x, r, out0, outn0), b, C.Cir.Out.next{st}, Equal.sym(C.Cir.Out, C.Cir.Out.next{st}, b, hab), g))
-    case C.Cir.Out.halt{s, st}:
-      Tr(C.Cir.Out, x => Gives(x, r, out0, outn0), b, C.Cir.Out.halt{s, st}, Equal.sym(C.Cir.Out, C.Cir.Out.halt{s, st}, b, hab), g)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.next{st}:
+      Empty.absurd(GivesF(Cr.Cir.Out.next{st}, r, out0, outn0),
+        Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0), b, Cr.Cir.Out.next{st}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.next{st}, b, hab), g))
+    case Cr.Cir.Out.halt{s, st}:
+      Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0), b, Cr.Cir.Out.halt{s, st}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.halt{s, st}, b, hab), g)
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
-      Empty.absurd(GivesF(C.Cir.Out.trap{}, r, out0, outn0),
-        Tr(C.Cir.Out, x => Gives(x, r, out0, outn0), b, C.Cir.Out.trap{}, Equal.sym(C.Cir.Out, C.Cir.Out.trap{}, b, hab), g))
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.trap{}:
+      Empty.absurd(GivesF(Cr.Cir.Out.trap{}, r, out0, outn0),
+        Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0), b, Cr.Cir.Out.trap{}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.trap{}, b, hab), g))
+    case Cr.Cir.Out.not_done{}:
       Unit{}
 
 # THE LEMMA, for any fuel F: M.out gives Program.unbytes(v), or runs out of
 # fuel
-def out.any(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.any(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +v: C.Term,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
+  +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  GivesF(C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), C.Program.unbytes(v), out, outn):
+  GivesF(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
   +X = Nat.add(n, 34n)
-  +st = {C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn} : C.Cir.State}
-  GivesF.of(C.Cir.exec(F, C.M.out(), st), C.Cir.exec(Nat.add(F, 1n+X), C.M.out(), st), C.Program.unbytes(v), out, outn,
-    EM(F, 1n+X, C.M.out(), st),
-    Tr(Nat, k => Gives(C.Cir.exec(k, C.M.out(), st), C.Program.unbytes(v), out, outn), 1n+Nat.add(F, X), Nat.add(F, 1n+X),
+  +st = {Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn} : Cr.Cir.State}
+  GivesF.of(Cr.Cir.exec(F, Mc.M.out(), st), Cr.Cir.exec(Nat.add(F, 1n+X), Mc.M.out(), st), Pg.Program.unbytes(v), out, outn,
+    EM(F, 1n+X, Mc.M.out(), st),
+    Tr(Nat, k => Gives(Cr.Cir.exec(k, Mc.M.out(), st), Pg.Program.unbytes(v), out, outn), 1n+Nat.add(F, X), Nat.add(F, 1n+X),
       Equal.sym(Nat, Nat.add(F, 1n+X), 1n+Nat.add(F, X), PN.add_succ_r(F, X)),
       out.run(n, Nat.add(F, X), PN.le_succ(X, Nat.add(F, X), PN.le_add_l(F, X)), regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v,
         hreg, hlen, htm, hok)))
@@ -5302,11 +5307,11 @@ def rev_rev(+xs: List<&2, Word(8n)>) -> {List.reverse(&2, Word(8n), List.reverse
 
 # a halt with the status s in the state st2: with 0 and the bytes of v out (the
 # last first), or with 2 when v has none (OutH of proof_mach.bend)
-def OutH(+v: C.Term, +s: U32, st2: C.Cir.State) -> Data:
-  Either<&2, &2, PD({s == 0 : U32}, {C.Program.unbytes(v) == Some{List.reverse(&2, Word(8n), St.out(st2))} : Maybe<&2, List<&2, Word(8n)>>}),
-    PD({s == 2 : U32}, {C.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>})>
+def OutH(+v: Bk.Term, +s: U32, st2: Cr.Cir.State) -> Data:
+  Either<&2, &2, PD({s == 0 : U32}, {Pg.Program.unbytes(v) == Some{List.reverse(&2, Word(8n), St.out(st2))} : Maybe<&2, List<&2, Word(8n)>>}),
+    PD({s == 2 : U32}, {Pg.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>})>
 
-def OutH.of(r: Maybe<&2, List<&2, Word(8n)>>, +v: C.Term, +s: U32, +st: C.Cir.State, +er: {C.Program.unbytes(v) == r : Maybe<&2, List<&2, Word(8n)>>},
+def OutH.of(r: Maybe<&2, List<&2, Word(8n)>>, +v: Bk.Term, +s: U32, +st: Cr.Cir.State, +er: {Pg.Program.unbytes(v) == r : Maybe<&2, List<&2, Word(8n)>>},
   h: Gives.halt(r, Nil{}, 0, s, st)) -> OutH(v, s, st):
   match r:
     case Some{+bs}:
@@ -5318,7 +5323,7 @@ def OutH.of(r: Maybe<&2, List<&2, Word(8n)>>, +v: C.Term, +s: U32, +st: C.Cir.St
           Equal.cong(List<&2, Word(8n)>, List<&2, Word(8n)>, xs => List.reverse(&2, Word(8n), xs), List.append(&2, Word(8n), List.reverse(&2, Word(8n), bs), Nil{}), List.reverse(&2, Word(8n), bs),
             app_nil(List.reverse(&2, Word(8n), bs))),
           rev_rev(bs)))
-      Inl{(e0, Equal.trans(Maybe<&2, List<&2, Word(8n)>>, C.Program.unbytes(v), Some{bs}, Some{List.reverse(&2, Word(8n), St.out(st))}, er,
+      Inl{(e0, Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.unbytes(v), Some{bs}, Some{List.reverse(&2, Word(8n), St.out(st))}, er,
         Equal.cong(List<&2, Word(8n)>, Maybe<&2, List<&2, Word(8n)>>, xs => Some{xs}, bs, List.reverse(&2, Word(8n), St.out(st)),
           Equal.sym(List<&2, Word(8n)>, List.reverse(&2, Word(8n), St.out(st)), bs, e1))))}
     case None{}:
@@ -5327,94 +5332,94 @@ def OutH.of(r: Maybe<&2, List<&2, Word(8n)>>, +v: C.Term, +s: U32, +st: C.Cir.St
 # what the outcome o of M.out may be (Post(False, o, st => Empty, s => st2 =>
 # OutH(v, s, st2)) of proof_mach.bend): a halt as OutH says, out of memory,
 # or out of fuel
-def PostO(o: C.Cir.Out, +v: C.Term) -> Type:
+def PostO(o: Cr.Cir.Out, +v: Bk.Term) -> Type:
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       Empty
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       OutH(v, s, st)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Empty
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Unit
 
-def PostO.of(o: C.Cir.Out, +v: C.Term, g: GivesF(o, C.Program.unbytes(v), Nil{}, 0)) -> PostO(o, v):
+def PostO.of(o: Cr.Cir.Out, +v: Bk.Term, g: GivesF(o, Pg.Program.unbytes(v), Nil{}, 0)) -> PostO(o, v):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       match g:
-    case C.Cir.Out.halt{+s, +st}:
-      OutH.of(C.Program.unbytes(v), v, s, st, {==}, g)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.halt{+s, +st}:
+      OutH.of(Pg.Program.unbytes(v), v, s, st, {==}, g)
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       match g:
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Unit{}
 
 # the run ends: anything but out of fuel (Ends of proof_mach.bend)
-def EndsO(o: C.Cir.Out) -> Data:
+def EndsO(o: Cr.Cir.Out) -> Data:
   match o:
-    case C.Cir.Out.next{_}:
+    case Cr.Cir.Out.next{_}:
       Unit
-    case C.Cir.Out.halt{_, _}:
+    case Cr.Cir.Out.halt{_, _}:
       Unit
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Unit
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Empty
 
-def EndsO.of(o: C.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32, g: Gives(o, r, out0, outn0)) -> EndsO(o):
+def EndsO.of(o: Cr.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32, g: Gives(o, r, out0, outn0)) -> EndsO(o):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       Unit{}
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       Unit{}
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Unit{}
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       match g:
 
 # ok, from okn and the image's names
-def ok.known(+n: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32,
-  +im: U32, +fs: U32, +nx: U32, +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
+def ok.known(+n: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32,
+  +im: U32, +fs: U32, +nx: U32, +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}:
-  Tr(List<&2, List<&2, Word(8n)>>, x => {ok(n, m, x, img, c, im, fs, nx) == True{} : Bool}, C.Img.known(ks2), ks,
-    Equal.sym(List<&2, List<&2, Word(8n)>>, ks, C.Img.known(ks2), hk),
+  Tr(List<&2, List<&2, Word(8n)>>, x => {ok(n, m, x, img, c, im, fs, nx) == True{} : Bool}, Mc.Img.known(ks2), ks,
+    Equal.sym(List<&2, List<&2, Word(8n)>>, ks, Mc.Img.known(ks2), hk),
     okn.ok(n, m, ks2, img, c, im, fs, nx,
-      Tr(List<&2, List<&2, Word(8n)>>, x => {okn(n, m, x, img, c, im, fs, nx) == True{} : Bool}, ks, C.Img.known(ks2), hk, hok)))
+      Tr(List<&2, List<&2, Word(8n)>>, x => {okn(n, m, x, img, c, im, fs, nx) == True{} : Bool}, ks, Mc.Img.known(ks2), hk, hok)))
 
 # out.post of proof_mach.bend, from a state with no output yet: for any fuel
 # F, M.out halts as OutH says, runs out of memory, or runs out of fuel
-def out.post.of(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.post.of(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +c: U32, +ks: List<&2, List<&2, Word(8n)>>, +ks2: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +v: C.Term,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
-  +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
+  +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
+  +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  PostO(C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v):
-  PostO.of(C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v,
+  PostO(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v):
+  PostO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v,
     out.any(n, F, regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0, c, ks, img, v, hreg, hlen, htm, ok.known(n, m, ks, ks2, img, c, im, fs, nx, hk, hok)))
 
 # out.done of proof_mach.bend: with some fuel, M.out ends
-def out.done.of(+n: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+def out.done.of(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +v: C.Term,
-  +hreg: {List.get(&2, U32, regs, C.R.focus()) == Some{c} : Maybe<&2, U32>},
-  +hlen: {Nat.is_le(C.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>},
-  +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
+  +ks2: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
+  +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  Sigma<&2, &2, Nat, F => EndsO(C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}))>:
+  Sigma<&2, &2, Nat, F => EndsO(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}))>:
   +F = {1n+Nat.add(n, 34n) : Nat}
-  (F, EndsO.of(C.Cir.exec(F, C.M.out(), C.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), C.Program.unbytes(v), out, outn,
+  (F, EndsO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn,
     out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
       regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, ok.known(n, m, ks, ks2, img, c, im, fs, nx, hk, hok))))
 
@@ -5426,47 +5431,47 @@ def out.done.of(+n: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fs: U
 # facts of each node (okn.node and the lemmas after it), with more fuel too.
 
 # r is none, or r2 is r
-def MO(r: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>) -> Type:
+def MO(r: Maybe<&2, Bk.Term>, r2: Maybe<&2, Bk.Term>) -> Type:
   match r:
     case None{}:
       Unit
     case Some{x}:
-      {Some{x} == r2 : Maybe<&2, C.Term>}
+      {Some{x} == r2 : Maybe<&2, Bk.Term>}
 
-def MO.refl(r: Maybe<&2, C.Term>) -> MO(r, r):
+def MO.refl(r: Maybe<&2, Bk.Term>) -> MO(r, r):
   match r:
     case None{}:
       Unit{}
     case Some{x}:
       {==}
 
-def MO.one(-k: C.Term -> C.Term, r: Maybe<&2, C.Term>, -r2: Maybe<&2, C.Term>, h: MO(r, r2)) -> MO(T.tm.one(k, r), T.tm.one(k, r2)):
+def MO.one(-k: Bk.Term -> Bk.Term, r: Maybe<&2, Bk.Term>, -r2: Maybe<&2, Bk.Term>, h: MO(r, r2)) -> MO(T.tm.one(k, r), T.tm.one(k, r2)):
   match r:
     case None{}:
       Unit{}
     case Some{a}:
-      %h : {Some{k(a)} == T.tm.one(k, _) : Maybe<&2, C.Term>}
+      %h : {Some{k(a)} == T.tm.one(k, _) : Maybe<&2, Bk.Term>}
       {==}
 
-def MO.two(-k: C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, -r2: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -s2: Maybe<&2, C.Term>,
+def MO.two(-k: Bk.Term -> Bk.Term -> Bk.Term, r: Maybe<&2, Bk.Term>, -r2: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, -s2: Maybe<&2, Bk.Term>,
   hr: MO(r, r2), hs: MO(s, s2)) -> MO(T.tm.two(k, r, s), T.tm.two(k, r2, s2)):
   match r s:
     case Some{a} Some{b}:
-      %hr : {Some{k(a, b)} == T.tm.two(k, _, s2) : Maybe<&2, C.Term>}
-      %hs : {Some{k(a, b)} == T.tm.two(k, Some{a}, _) : Maybe<&2, C.Term>}
+      %hr : {Some{k(a, b)} == T.tm.two(k, _, s2) : Maybe<&2, Bk.Term>}
+      %hs : {Some{k(a, b)} == T.tm.two(k, Some{a}, _) : Maybe<&2, Bk.Term>}
       {==}
     case Some{a} None{}:
       Unit{}
     case None{} _:
       Unit{}
 
-def MO.three(-k: C.Term -> C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, -r2: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -s2: Maybe<&2, C.Term>,
-  t: Maybe<&2, C.Term>, -t2: Maybe<&2, C.Term>, hr: MO(r, r2), hs: MO(s, s2), ht: MO(t, t2)) -> MO(T.tm.three(k, r, s, t), T.tm.three(k, r2, s2, t2)):
+def MO.three(-k: Bk.Term -> Bk.Term -> Bk.Term -> Bk.Term, r: Maybe<&2, Bk.Term>, -r2: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, -s2: Maybe<&2, Bk.Term>,
+  t: Maybe<&2, Bk.Term>, -t2: Maybe<&2, Bk.Term>, hr: MO(r, r2), hs: MO(s, s2), ht: MO(t, t2)) -> MO(T.tm.three(k, r, s, t), T.tm.three(k, r2, s2, t2)):
   match r s t:
     case Some{a} Some{b} Some{d}:
-      %hr : {Some{k(a, b, d)} == T.tm.three(k, _, s2, t2) : Maybe<&2, C.Term>}
-      %hs : {Some{k(a, b, d)} == T.tm.three(k, Some{a}, _, t2) : Maybe<&2, C.Term>}
-      %ht : {Some{k(a, b, d)} == T.tm.three(k, Some{a}, Some{b}, _) : Maybe<&2, C.Term>}
+      %hr : {Some{k(a, b, d)} == T.tm.three(k, _, s2, t2) : Maybe<&2, Bk.Term>}
+      %hs : {Some{k(a, b, d)} == T.tm.three(k, Some{a}, _, t2) : Maybe<&2, Bk.Term>}
+      %ht : {Some{k(a, b, d)} == T.tm.three(k, Some{a}, Some{b}, _) : Maybe<&2, Bk.Term>}
       {==}
     case Some{a} Some{b} None{}:
       Unit{}
@@ -5475,12 +5480,12 @@ def MO.three(-k: C.Term -> C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, -r2
     case None{} _ _:
       Unit{}
 
-def MO.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, C.Term>, -r2: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, -s2: Maybe<&2, C.Term>,
+def MO.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, Bk.Term>, -r2: Maybe<&2, Bk.Term>, s: Maybe<&2, Bk.Term>, -s2: Maybe<&2, Bk.Term>,
   hr: MO(r, r2), hs: MO(s, s2)) -> MO(T.tm.mat(n, r, s), T.tm.mat(n, r2, s2)):
   match n r s:
     case Some{+x} Some{a} Some{b}:
-      %hr : {Some{C.Term.Mat{x, a, b}} == T.tm.mat(Some{x}, _, s2) : Maybe<&2, C.Term>}
-      %hs : {Some{C.Term.Mat{x, a, b}} == T.tm.mat(Some{x}, Some{a}, _) : Maybe<&2, C.Term>}
+      %hr : {Some{Bk.Term.Mat{x, a, b}} == T.tm.mat(Some{x}, _, s2) : Maybe<&2, Bk.Term>}
+      %hs : {Some{Bk.Term.Mat{x, a, b}} == T.tm.mat(Some{x}, Some{a}, _) : Maybe<&2, Bk.Term>}
       {==}
     case Some{x} Some{a} None{}:
       Unit{}
@@ -5489,14 +5494,14 @@ def MO.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, C.Term>, -r2: Maybe<&2
     case None{} _ _:
       Unit{}
 
-def MO.cell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
-  p2: Unit -> Maybe<&2, C.Term>, p3: Unit -> Maybe<&2, C.Term>, p4: Unit -> Maybe<&2, C.Term>,
-  -q2: Unit -> Maybe<&2, C.Term>, -q3: Unit -> Maybe<&2, C.Term>, -q4: Unit -> Maybe<&2, C.Term>,
+def MO.cell(tag: Nat, +q: Bk.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  p2: Unit -> Maybe<&2, Bk.Term>, p3: Unit -> Maybe<&2, Bk.Term>, p4: Unit -> Maybe<&2, Bk.Term>,
+  -q2: Unit -> Maybe<&2, Bk.Term>, -q3: Unit -> Maybe<&2, Bk.Term>, -q4: Unit -> Maybe<&2, Bk.Term>,
   h2: MO(p2(Unit{}), q2(Unit{})), h3: MO(p3(Unit{}), q3(Unit{})), h4: MO(p4(Unit{}), q4(Unit{}))) ->
   MO(T.tm.cell(tag, q, c, f2, ks, img, p2, p3, p4), T.tm.cell(tag, q, c, f2, ks, img, q2, q3, q4)):
   match tag:
     case 0n:
-      MO.refl(Some{C.Term.Var{U32.to_nat(f2)}})
+      MO.refl(Some{Bk.Term.Var{U32.to_nat(f2)}})
     case 1n+t1:
       match t1:
         case 0n:
@@ -5504,43 +5509,43 @@ def MO.cell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, Word
         case 1n+t2:
           match t2:
             case 0n:
-              MO.two(a => b => C.Term.Ann{a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
+              MO.two(a => b => Bk.Term.Ann{a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
             case 1n+t3:
               match t3:
                 case 0n:
-                  MO.two(a => b => C.Term.Let{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
+                  MO.two(a => b => Bk.Term.Let{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
                 case 1n+t4:
                   match t4:
                     case 0n:
-                      MO.one(a => C.Term.Typ{a}, p2(Unit{}), q2(Unit{}), h2)
+                      MO.one(a => Bk.Term.Typ{a}, p2(Unit{}), q2(Unit{}), h2)
                     case 1n+t5:
                       match t5:
                         case 0n:
-                          MO.two(a => b => C.Term.Min{a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
+                          MO.two(a => b => Bk.Term.Min{a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
                         case 1n+t6:
                           match t6:
                             case 0n:
-                              MO.two(a => b => C.Term.All{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
+                              MO.two(a => b => Bk.Term.All{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
                             case 1n+t7:
                               match t7:
                                 case 0n:
-                                  MO.one(a => C.Term.Lam{q, a}, p2(Unit{}), q2(Unit{}), h2)
+                                  MO.one(a => Bk.Term.Lam{q, a}, p2(Unit{}), q2(Unit{}), h2)
                                 case 1n+t8:
                                   match t8:
                                     case 0n:
-                                      MO.two(a => b => C.Term.App{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
+                                      MO.two(a => b => Bk.Term.App{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
                                     case 1n+t9:
                                       match t9:
                                         case 0n:
-                                          MO.two(a => b => C.Term.Sig{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
+                                          MO.two(a => b => Bk.Term.Sig{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
                                         case 1n+t10:
                                           match t10:
                                             case 0n:
-                                              MO.two(a => b => C.Term.Tup{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
+                                              MO.two(a => b => Bk.Term.Tup{q, a, b}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), h2, h3)
                                             case 1n+t11:
                                               match t11:
                                                 case 0n:
-                                                  MO.one(a => C.Term.Prj{a}, p2(Unit{}), q2(Unit{}), h2)
+                                                  MO.one(a => Bk.Term.Prj{a}, p2(Unit{}), q2(Unit{}), h2)
                                                 case 1n+t12:
                                                   match t12:
                                                     case 0n:
@@ -5548,7 +5553,7 @@ def MO.cell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, Word
                                                     case 1n+t13:
                                                       match t13:
                                                         case 0n:
-                                                          MO.refl(T.tm.named(T.tm.name(ks, f2), k => C.Term.Lab{k}))
+                                                          MO.refl(T.tm.named(T.tm.name(ks, f2), k => Bk.Term.Lab{k}))
                                                         case 1n+t14:
                                                           match t14:
                                                             case 0n:
@@ -5556,24 +5561,24 @@ def MO.cell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, Word
                                                             case 1n+t15:
                                                               match t15:
                                                                 case 0n:
-                                                                  MO.refl(Some{C.Term.Efq{}})
+                                                                  MO.refl(Some{Bk.Term.Efq{}})
                                                                 case 1n+t16:
                                                                   match t16:
                                                                     case 0n:
-                                                                      MO.three(a => b => d => C.Term.Eql{a, b, d}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), p4(Unit{}), q4(Unit{}), h2, h3, h4)
+                                                                      MO.three(a => b => d => Bk.Term.Eql{a, b, d}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), p4(Unit{}), q4(Unit{}), h2, h3, h4)
                                                                     case 1n+t17:
                                                                       match t17:
                                                                         case 0n:
-                                                                          MO.refl(Some{C.Term.Rfl{}})
+                                                                          MO.refl(Some{Bk.Term.Rfl{}})
                                                                         case 1n+t18:
                                                                           match t18:
                                                                             case 0n:
-                                                                              MO.three(a => b => d => C.Term.Rwt{a, b, d}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), p4(Unit{}), q4(Unit{}), h2, h3, h4)
+                                                                              MO.three(a => b => d => Bk.Term.Rwt{a, b, d}, p2(Unit{}), q2(Unit{}), p3(Unit{}), q3(Unit{}), p4(Unit{}), q4(Unit{}), h2, h3, h4)
                                                                             case 1n+t19:
                                                                               Unit{}
 
 # a cell's term with the fuel f is its term with the fuel f + g
-def tm.mono(+f: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32) ->
+def tm.mono(+f: Nat, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32) ->
   MO(T.tm.of(f, m, ks, img, c), T.tm.of(Nat.add(f, g), m, ks, img, c)):
   match f:
     case 0n:
@@ -5586,7 +5591,7 @@ def tm.mono(+f: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>
         tm.mono(p, g, m, ks, img, Fd(2n, m, c)), tm.mono(p, g, m, ks, img, Fd(3n, m, c)), tm.mono(p, g, m, ks, img, Fd(4n, m, c)))
 
 # Unit for none, Empty for some
-def MT.none(x: Maybe<&2, C.Term>) -> Type:
+def MT.none(x: Maybe<&2, Bk.Term>) -> Type:
   match x:
     case None{}:
       Unit
@@ -5594,28 +5599,28 @@ def MT.none(x: Maybe<&2, C.Term>) -> Type:
       Empty
 
 # with more fuel, a term that is there is the same
-def MO.use(r: Maybe<&2, C.Term>, -r2: Maybe<&2, C.Term>, -v: C.Term, +e: {r == Some{v} : Maybe<&2, C.Term>}, h: MO(r, r2)) ->
-  {r2 == Some{v} : Maybe<&2, C.Term>}:
+def MO.use(r: Maybe<&2, Bk.Term>, -r2: Maybe<&2, Bk.Term>, -v: Bk.Term, +e: {r == Some{v} : Maybe<&2, Bk.Term>}, h: MO(r, r2)) ->
+  {r2 == Some{v} : Maybe<&2, Bk.Term>}:
   match r:
     case None{}:
-      Empty.absurd({r2 == Some{v} : Maybe<&2, C.Term>}, Tr(Maybe<&2, C.Term>, x => MT.none(x), None{}, Some{v}, e, Unit{}))
+      Empty.absurd({r2 == Some{v} : Maybe<&2, Bk.Term>}, Tr(Maybe<&2, Bk.Term>, x => MT.none(x), None{}, Some{v}, e, Unit{}))
     case Some{x}:
-      Equal.trans(Maybe<&2, C.Term>, r2, Some{x}, Some{v}, Equal.sym(Maybe<&2, C.Term>, Some{x}, r2, h), e)
+      Equal.trans(Maybe<&2, Bk.Term>, r2, Some{x}, Some{v}, Equal.sym(Maybe<&2, Bk.Term>, Some{x}, r2, h), e)
 
 # T.tm.of(f) == Some{v} gives T.tm.of(f + g) == Some{v}
-def tm.more(+f: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, -v: C.Term,
-  +e: {T.tm.of(f, m, ks, img, c) == Some{v} : Maybe<&2, C.Term>}) -> {T.tm.of(Nat.add(f, g), m, ks, img, c) == Some{v} : Maybe<&2, C.Term>}:
+def tm.more(+f: Nat, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, -v: Bk.Term,
+  +e: {T.tm.of(f, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>}) -> {T.tm.of(Nat.add(f, g), m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>}:
   MO.use(T.tm.of(f, m, ks, img, c), T.tm.of(Nat.add(f, g), m, ks, img, c), v, e, tm.mono(f, g, m, ks, img, c))
 
 # okn with more fuel
-def okn.mono(+f: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def okn.mono(+f: Nat, +g: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +h: {okn(f, m, ks, img, c, im, fs, nx) == True{} : Bool}) -> {okn(Nat.add(f, g), m, ks, img, c, im, fs, nx) == True{} : Bool}:
   match f:
     case 0n:
       Empty.absurd({okn(g, m, ks, img, c, im, fs, nx) == True{} : Bool}, PN.false_ne_true(h))
     case 1n+p:
       +t = Tg(m, c)
-      +A = Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c)))
+      +A = Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c)))
       +K2 = Bool.or(Bool.not(U32.is_eq(t, 10)), Bool.and(okn(p, m, ks, img, Fd(2n, m, c), im, fs, nx), okn(p, m, ks, img, Fd(3n, m, c), im, fs, nx)))
       and_i(A, Bool.or(Bool.not(U32.is_eq(t, 10)), Bool.and(okn(Nat.add(p, g), m, ks, img, Fd(2n, m, c), im, fs, nx), okn(Nat.add(p, g), m, ks, img, Fd(3n, m, c), im, fs, nx))),
         and_l(A, K2, h),
@@ -5627,28 +5632,28 @@ def okn.mono(+f: Nat, +g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>
 
 # okn at the cell c, from the facts of its node: it is a cell, its image's
 # term (for a Ref or an Enu), its label's number, and its parts (for a pair)
-def okn.node(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
-  +hc: {C.Cir.is_cell(c, im, fs, nx) == True{} : Bool},
+def okn.node(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+  +hc: {Cr.Cir.is_cell(c, im, fs, nx) == True{} : Bool},
   +hi: {ok.img(Tg(m, c), T.tm.image(img, c)) == True{} : Bool},
   +hl: {okn.lab(Tg(m, c), ks, Fd(2n, m, c)) == True{} : Bool},
   +hp: {Bool.or(Bool.not(U32.is_eq(Tg(m, c), 10)), Bool.and(okn(f, m, ks, img, Fd(2n, m, c), im, fs, nx), okn(f, m, ks, img, Fd(3n, m, c), im, fs, nx))) == True{} : Bool}) ->
   {okn(1n+f, m, ks, img, c, im, fs, nx) == True{} : Bool}:
   +t = Tg(m, c)
-  and_i(Bool.and(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c))),
+  and_i(Bool.and(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c))),
     Bool.or(Bool.not(U32.is_eq(t, 10)), Bool.and(okn(f, m, ks, img, Fd(2n, m, c), im, fs, nx), okn(f, m, ks, img, Fd(3n, m, c), im, fs, nx))),
-    and_i(Bool.and(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c)),
-      and_i(C.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c)), hc, hi), hl), hp)
+    and_i(Bool.and(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c))), okn.lab(t, ks, Fd(2n, m, c)),
+      and_i(Cr.Cir.is_cell(c, im, fs, nx), ok.img(t, T.tm.image(img, c)), hc, hi), hl), hp)
 
 # the image's term, for a node of the tag tg: none asked unless tg is 1
 # (Ref) or 12 (Enu), whose image's term is the node's
-def oimg.eq(+t: U32, +tg: U32, +r: Maybe<&2, C.Term>, +e: {t == tg : U32}, +h: {ok.img(tg, r) == True{} : Bool}) -> {ok.img(t, r) == True{} : Bool}:
+def oimg.eq(+t: U32, +tg: U32, +r: Maybe<&2, Bk.Term>, +e: {t == tg : U32}, +h: {ok.img(tg, r) == True{} : Bool}) -> {ok.img(t, r) == True{} : Bool}:
   Tr(U32, x => {ok.img(x, r) == True{} : Bool}, tg, t, Equal.sym(U32, t, tg, e), h)
 
-def oimg.ref(+r: Maybe<&2, C.Term>, +k: List<&2, Word(8n)>, +e: {r == Some{C.Term.Ref{k}} : Maybe<&2, C.Term>}) -> {ok.img(1, r) == True{} : Bool}:
-  Tr(Maybe<&2, C.Term>, x => {ok.img(1, x) == True{} : Bool}, Some{C.Term.Ref{k}}, r, Equal.sym(Maybe<&2, C.Term>, r, Some{C.Term.Ref{k}}, e), {==})
+def oimg.ref(+r: Maybe<&2, Bk.Term>, +k: List<&2, Word(8n)>, +e: {r == Some{Bk.Term.Ref{k}} : Maybe<&2, Bk.Term>}) -> {ok.img(1, r) == True{} : Bool}:
+  Tr(Maybe<&2, Bk.Term>, x => {ok.img(1, x) == True{} : Bool}, Some{Bk.Term.Ref{k}}, r, Equal.sym(Maybe<&2, Bk.Term>, r, Some{Bk.Term.Ref{k}}, e), {==})
 
-def oimg.enu(+r: Maybe<&2, C.Term>, +ns: List<&2, List<&2, Word(8n)>>, +e: {r == Some{C.Term.Enu{ns}} : Maybe<&2, C.Term>}) -> {ok.img(12, r) == True{} : Bool}:
-  Tr(Maybe<&2, C.Term>, x => {ok.img(12, x) == True{} : Bool}, Some{C.Term.Enu{ns}}, r, Equal.sym(Maybe<&2, C.Term>, r, Some{C.Term.Enu{ns}}, e), {==})
+def oimg.enu(+r: Maybe<&2, Bk.Term>, +ns: List<&2, List<&2, Word(8n)>>, +e: {r == Some{Bk.Term.Enu{ns}} : Maybe<&2, Bk.Term>}) -> {ok.img(12, r) == True{} : Bool}:
+  Tr(Maybe<&2, Bk.Term>, x => {ok.img(12, x) == True{} : Bool}, Some{Bk.Term.Enu{ns}}, r, Equal.sym(Maybe<&2, Bk.Term>, r, Some{Bk.Term.Enu{ns}}, e), {==})
 
 # the label's number, for a node of the tag tg: none asked unless tg is 13,
 # whose number j is that of its name k (Nm of proof_mach.bend)
@@ -5657,16 +5662,16 @@ def olab.eq(+t: U32, +tg: U32, +ks: List<&2, List<&2, Word(8n)>>, +j: U32, +e: {
   Tr(U32, x => {okn.lab(x, ks, j) == True{} : Bool}, tg, t, Equal.sym(U32, t, tg, e), h)
 
 def olab.lab(+ks: List<&2, List<&2, Word(8n)>>, +j: U32, +k: List<&2, Word(8n)>, +en: {T.tm.name(ks, j) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-  +ej: {j == C.Img.id(ks, k, 0) : U32}) -> {okn.lab(13, ks, j) == True{} : Bool}:
+  +ej: {j == Mc.Img.id(ks, k, 0) : U32}) -> {okn.lab(13, ks, j) == True{} : Bool}:
   %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, T.tm.name(ks, j), Some{k}, en) : {labid.of(_, j, ks) == True{} : Bool}
-  Tr(U32, x => {U32.is_eq(j, x) == True{} : Bool}, j, C.Img.id(ks, k, 0), ej, nat_eq(j, j, {==}))
+  Tr(U32, x => {U32.is_eq(j, x) == True{} : Bool}, j, Mc.Img.id(ks, k, 0), ej, nat_eq(j, j, {==}))
 
 # the parts, for a node of the tag tg: none asked unless tg is 10 (Tup)
 def okids.eq(+t: U32, +tg: U32, -X: Bool, +e: {t == tg : U32}, +h: {Bool.or(Bool.not(U32.is_eq(tg, 10)), X) == True{} : Bool}) ->
   {Bool.or(Bool.not(U32.is_eq(t, 10)), X) == True{} : Bool}:
   Tr(U32, x => {Bool.or(Bool.not(U32.is_eq(x, 10)), X) == True{} : Bool}, tg, t, Equal.sym(U32, t, tg, e), h)
 
-def okids.tup(+t: U32, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
+def okids.tup(+t: U32, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +im: U32, +fs: U32, +nx: U32,
   +h2: {okn(f, m, ks, img, Fd(2n, m, c), im, fs, nx) == True{} : Bool}, +h3: {okn(f, m, ks, img, Fd(3n, m, c), im, fs, nx) == True{} : Bool}) ->
   {Bool.or(Bool.not(U32.is_eq(t, 10)), Bool.and(okn(f, m, ks, img, Fd(2n, m, c), im, fs, nx), okn(f, m, ks, img, Fd(3n, m, c), im, fs, nx))) == True{} : Bool}:
   or_r_true(Bool.not(U32.is_eq(t, 10)), Bool.and(okn(f, m, ks, img, Fd(2n, m, c), im, fs, nx), okn(f, m, ks, img, Fd(3n, m, c), im, fs, nx)),
@@ -5674,9 +5679,9 @@ def okids.tup(+t: U32, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)
 
 # the term of a node of the tag tg: T.tm.cell of the tag, with its parts'
 # terms one level less deep
-def tm.at(+f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +tg: U32, +e: {Tg(m, c) == tg : U32}) ->
+def tm.at(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +tg: U32, +e: {Tg(m, c) == tg : U32}) ->
   {T.tm.of(1n+f, m, ks, img, c) == T.tm.cell(U32.to_nat(tg), T.tm.quan(U32.and(U32.shrn(Fd(0n, m, c), 6n), 3)), c, Fd(2n, m, c), ks, img,
-    u => T.tm.of(f, m, ks, img, Fd(2n, m, c)), u => T.tm.of(f, m, ks, img, Fd(3n, m, c)), u => T.tm.of(f, m, ks, img, Fd(4n, m, c))) : Maybe<&2, C.Term>}:
+    u => T.tm.of(f, m, ks, img, Fd(2n, m, c)), u => T.tm.of(f, m, ks, img, Fd(3n, m, c)), u => T.tm.of(f, m, ks, img, Fd(4n, m, c))) : Maybe<&2, Bk.Term>}:
   Tr(U32, x => {T.tm.of(1n+f, m, ks, img, c) == T.tm.cell(U32.to_nat(x), T.tm.quan(U32.and(U32.shrn(Fd(0n, m, c), 6n), 3)), c, Fd(2n, m, c), ks, img,
-      u => T.tm.of(f, m, ks, img, Fd(2n, m, c)), u => T.tm.of(f, m, ks, img, Fd(3n, m, c)), u => T.tm.of(f, m, ks, img, Fd(4n, m, c))) : Maybe<&2, C.Term>},
+      u => T.tm.of(f, m, ks, img, Fd(2n, m, c)), u => T.tm.of(f, m, ks, img, Fd(3n, m, c)), u => T.tm.of(f, m, ks, img, Fd(4n, m, c))) : Maybe<&2, Bk.Term>},
     Tg(m, c), tg, e, {==})

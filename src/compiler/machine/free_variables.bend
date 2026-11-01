@@ -16,21 +16,24 @@
 #   unit, so each index is below 2^25. The reader's invariant (fv.Sok): after
 #   c tokens, every Nat of its stack is below c and every term below c.
 import Base
-import ./impl.bend as C
-import ./proof_need.bend as N
-import ./proof_mach_defs.bend as PM
-import ./proof_copy_terms.bend as CT
-import ./proof_img.bend as I
+import ../../shared/shared.bend as Sd
+import ../../book/impl.bend as Bk
+import ../../eval/impl.bend as El
+import ../../program/impl.bend as Pg
+import ../need_big.bend as N
+import ./definitions.bend as PM
+import ./copy_terms.bend as CT
+import ../img_small.bend as I
 
 # The bound of the defs
 # ---------------------
 
 # every def's body is below B
-def Defs.below(ds: List<&2, C.Def>, +B: Nat) -> Bool:
+def Defs.below(ds: List<&2, Bk.Def>, +B: Nat) -> Bool:
   match ds:
     case Nil{}:
       True{}
-    case Con{C.Def{_, _, v, _}, rest}:
+    case Con{Bk.Def{_, _, v, _}, rest}:
       Bool.and(PM.Term.below(v, B), Defs.below(rest, B))
 
 # Kit
@@ -164,18 +167,18 @@ def fv.lt_up(n: Nat, c: Nat, h: {Nat.is_lt(n, c) == True{} : Bool}) -> {Nat.is_l
           fv.lt_up(np, cp, h)
 
 # a term below c is below 1 + c, 2 + c and 3 + c
-def fv.up1(t: C.Term, +c: Nat, +h: {PM.Term.below(t, c) == True{} : Bool}) -> {PM.Term.below(t, 1n+c) == True{} : Bool}:
+def fv.up1(t: Bk.Term, +c: Nat, +h: {PM.Term.below(t, c) == True{} : Bool}) -> {PM.Term.below(t, 1n+c) == True{} : Bool}:
   CT.Tz.below_mono(t, c, 1n+c, fv.le_up(c), h)
 
-def fv.up2(+t: C.Term, +c: Nat, +h: {PM.Term.below(t, c) == True{} : Bool}) -> {PM.Term.below(t, 2n+c) == True{} : Bool}:
+def fv.up2(+t: Bk.Term, +c: Nat, +h: {PM.Term.below(t, c) == True{} : Bool}) -> {PM.Term.below(t, 2n+c) == True{} : Bool}:
   fv.up1(t, 1n+c, fv.up1(t, c, h))
 
-def fv.up3(+t: C.Term, +c: Nat, +h: {PM.Term.below(t, c) == True{} : Bool}) -> {PM.Term.below(t, 3n+c) == True{} : Bool}:
+def fv.up3(+t: Bk.Term, +c: Nat, +h: {PM.Term.below(t, c) == True{} : Bool}) -> {PM.Term.below(t, 3n+c) == True{} : Bool}:
   fv.up1(t, 2n+c, fv.up2(t, c, h))
 
 # a higher bound keeps Defs.below
 def Defs.mono(
-  ds: List<&2, C.Def>,
+  ds: List<&2, Bk.Def>,
   +n: Nat,
   +m: Nat,
   +h: {Nat.is_le(n, m) == True{} : Bool},
@@ -184,7 +187,7 @@ def Defs.mono(
   match ds:
     case Nil{}:
       {==}
-    case Con{C.Def{_, _, +v, _}, +rest}:
+    case Con{Bk.Def{_, _, +v, _}, +rest}:
       fv.and_i(
         PM.Term.below(v, m),
         Defs.below(rest, m),
@@ -203,7 +206,7 @@ def fv.sh.at(
   +n: Nat,
   eb: {Nat.is_lt(i, c) == b : Bool},
   h: {Nat.is_lt(i, Nat.add(c, n)) == True{} : Bool}
-) -> {Nat.is_lt(C.Term.shift.at(b, i, d), Nat.add(c, Nat.add(d, n))) == True{} : Bool}:
+) -> {Nat.is_lt(El.Term.shift.at(b, i, d), Nat.add(c, Nat.add(d, n))) == True{} : Bool}:
   match b:
     case True{}:
       fv.lt_add(i, c, Nat.add(d, n), eb)
@@ -212,110 +215,110 @@ def fv.sh.at(
 
 # a shift by d at the cutoff c of a term below c + n is below c + (d + n)
 def fv.sh(
-  t: C.Term,
+  t: Bk.Term,
   +d: Nat,
   +c: Nat,
   +n: Nat,
   +hb: {PM.Term.below(t, Nat.add(c, n)) == True{} : Bool}
-) -> {PM.Term.below(C.Term.shift(t, d, c), Nat.add(c, Nat.add(d, n))) == True{} : Bool}:
+) -> {PM.Term.below(El.Term.shift(t, d, c), Nat.add(c, Nat.add(d, n))) == True{} : Bool}:
   match t:
-    case C.Term.Var{+i}:
+    case Bk.Term.Var{+i}:
       fv.sh.at(Nat.is_lt(i, c), i, c, d, n, {==}, hb)
-    case C.Term.Ann{+x, +y}:
+    case Bk.Term.Ann{+x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)),
         fv.sh(y, d, c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)))
-    case C.Term.Let{_, +x, +y}:
+    case Bk.Term.Let{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, 1n+c), 1n+Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, 1n+c), 1n+Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, 1n+Nat.add(c, n)), hb)),
         fv.sh(y, d, 1n+c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, 1n+Nat.add(c, n)), hb)))
-    case C.Term.Typ{+x}:
+    case Bk.Term.Typ{+x}:
       fv.sh(x, d, c, n, hb)
-    case C.Term.Min{+x, +y}:
+    case Bk.Term.Min{+x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)),
         fv.sh(y, d, c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)))
-    case C.Term.All{_, +x, +y}:
+    case Bk.Term.All{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, 1n+c), 1n+Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, 1n+c), 1n+Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, 1n+Nat.add(c, n)), hb)),
         fv.sh(y, d, 1n+c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, 1n+Nat.add(c, n)), hb)))
-    case C.Term.Lam{_, +x}:
+    case Bk.Term.Lam{_, +x}:
       fv.sh(x, d, 1n+c, n, hb)
-    case C.Term.App{_, +x, +y}:
+    case Bk.Term.App{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)),
         fv.sh(y, d, c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)))
-    case C.Term.Sig{_, +x, +y}:
+    case Bk.Term.Sig{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, 1n+c), 1n+Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, 1n+c), 1n+Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, 1n+Nat.add(c, n)), hb)),
         fv.sh(y, d, 1n+c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, 1n+Nat.add(c, n)), hb)))
-    case C.Term.Tup{_, +x, +y}:
+    case Bk.Term.Tup{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)),
         fv.sh(y, d, c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)))
-    case C.Term.Prj{+x}:
+    case Bk.Term.Prj{+x}:
       fv.sh(x, d, c, n, hb)
-    case C.Term.Mat{_, +x, +y}:
+    case Bk.Term.Mat{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        PM.Term.below(C.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        PM.Term.below(El.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)),
         fv.sh(y, d, c, n, fv.and_r(PM.Term.below(x, Nat.add(c, n)), PM.Term.below(y, Nat.add(c, n)), hb)))
-    case C.Term.Eql{+x, +y, +z}:
+    case Bk.Term.Eql{+x, +y, +z}:
       +r = fv.and_r(PM.Term.below(x, Nat.add(c, n)), Bool.and(PM.Term.below(y, Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n))), hb)
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        Bool.and(PM.Term.below(C.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))), PM.Term.below(C.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n)))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        Bool.and(PM.Term.below(El.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))), PM.Term.below(El.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n)))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), Bool.and(PM.Term.below(y, Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n))), hb)),
         fv.and_i(
-          PM.Term.below(C.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
-          PM.Term.below(C.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n))),
+          PM.Term.below(El.Term.shift(y, d, c), Nat.add(c, Nat.add(d, n))),
+          PM.Term.below(El.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n))),
           fv.sh(y, d, c, n, fv.and_l(PM.Term.below(y, Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n)), r)),
           fv.sh(z, d, c, n, fv.and_r(PM.Term.below(y, Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n)), r))))
-    case C.Term.Rwt{+x, +y, +z}:
+    case Bk.Term.Rwt{+x, +y, +z}:
       +r = fv.and_r(PM.Term.below(x, Nat.add(c, n)), Bool.and(PM.Term.below(y, 2n+Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n))), hb)
       fv.and_i(
-        PM.Term.below(C.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
-        Bool.and(PM.Term.below(C.Term.shift(y, d, 2n+c), 2n+Nat.add(c, Nat.add(d, n))), PM.Term.below(C.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n)))),
+        PM.Term.below(El.Term.shift(x, d, c), Nat.add(c, Nat.add(d, n))),
+        Bool.and(PM.Term.below(El.Term.shift(y, d, 2n+c), 2n+Nat.add(c, Nat.add(d, n))), PM.Term.below(El.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n)))),
         fv.sh(x, d, c, n, fv.and_l(PM.Term.below(x, Nat.add(c, n)), Bool.and(PM.Term.below(y, 2n+Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n))), hb)),
         fv.and_i(
-          PM.Term.below(C.Term.shift(y, d, 2n+c), 2n+Nat.add(c, Nat.add(d, n))),
-          PM.Term.below(C.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n))),
+          PM.Term.below(El.Term.shift(y, d, 2n+c), 2n+Nat.add(c, Nat.add(d, n))),
+          PM.Term.below(El.Term.shift(z, d, c), Nat.add(c, Nat.add(d, n))),
           fv.sh(y, d, 2n+c, n, fv.and_l(PM.Term.below(y, 2n+Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n)), r)),
           fv.sh(z, d, c, n, fv.and_r(PM.Term.below(y, 2n+Nat.add(c, n)), PM.Term.below(z, Nat.add(c, n)), r))))
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
 
 # the term of the variable i in e, with i < |e| + n and e below n, is below n
 def fv.env(
-  e: List<&2, C.Term>,
+  e: List<&2, Bk.Term>,
   i: Nat,
   +n: Nat,
-  hi: {Nat.is_lt(i, Nat.add(List.length(&2, C.Term, e), n)) == True{} : Bool},
+  hi: {Nat.is_lt(i, Nat.add(List.length(&2, Bk.Term, e), n)) == True{} : Bool},
   +he: {PM.Terms.below(e, n) == True{} : Bool}
-) -> {PM.Term.below(C.Env.sub(e, i), n) == True{} : Bool}:
+) -> {PM.Term.below(El.Env.sub(e, i), n) == True{} : Bool}:
   match e:
     case Nil{}:
       hi
@@ -331,13 +334,13 @@ def fv.lift.at(
   b: Bool,
   +i: Nat,
   +p: Nat,
-  +e: List<&2, C.Term>,
+  +e: List<&2, Bk.Term>,
   +n: Nat,
   eb: {Nat.is_lt(i, 1n+p) == b : Bool},
-  hi: {Nat.is_lt(i, Nat.add(1n+p, Nat.add(List.length(&2, C.Term, e), n))) == True{} : Bool},
+  hi: {Nat.is_lt(i, Nat.add(1n+p, Nat.add(List.length(&2, Bk.Term, e), n))) == True{} : Bool},
   +he: {PM.Terms.below(e, n) == True{} : Bool}
 ) -> {
-  PM.Term.below(C.Term.lift.at(b, i, C.Term.shift(C.Env.sub(e, Nat.sub(i, 1n+p)), 1n+p, 0n)), Nat.add(1n+p, n))
+  PM.Term.below(El.Term.lift.at(b, i, El.Term.shift(El.Env.sub(e, Nat.sub(i, 1n+p)), 1n+p, 0n)), Nat.add(1n+p, n))
     == True{} : Bool
 }:
   match b:
@@ -345,21 +348,21 @@ def fv.lift.at(
       fv.lt_add(i, 1n+p, n, eb)
     case False{}:
       fv.sh(
-        C.Env.sub(e, Nat.sub(i, 1n+p)),
+        El.Env.sub(e, Nat.sub(i, 1n+p)),
         1n+p,
         0n,
         n,
-        fv.env(e, Nat.sub(i, 1n+p), n, fv.lt_sub(1n+p, i, Nat.add(List.length(&2, C.Term, e), n), eb, hi), he))
+        fv.env(e, Nat.sub(i, 1n+p), n, fv.lt_sub(1n+p, i, Nat.add(List.length(&2, Bk.Term, e), n), eb, hi), he))
 
 # the variable i under d binders, with e below n put in: below d + n
 def fv.lift(
-  +e: List<&2, C.Term>,
+  +e: List<&2, Bk.Term>,
   d: Nat,
   +i: Nat,
   +n: Nat,
-  hi: {Nat.is_lt(i, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))) == True{} : Bool},
+  hi: {Nat.is_lt(i, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))) == True{} : Bool},
   +he: {PM.Terms.below(e, n) == True{} : Bool}
-) -> {PM.Term.below(C.Term.lift(e, d, i), Nat.add(d, n)) == True{} : Bool}:
+) -> {PM.Term.below(El.Term.lift(e, d, i), Nat.add(d, n)) == True{} : Bool}:
   match d:
     case 0n:
       fv.env(e, i, n, hi, he)
@@ -369,111 +372,111 @@ def fv.lift(
 # a term below d + (|e| + n), under d binders, with e below n put in for its
 # free variables: below d + n
 def fv.sb(
-  t: C.Term,
-  +e: List<&2, C.Term>,
+  t: Bk.Term,
+  +e: List<&2, Bk.Term>,
   +d: Nat,
   +n: Nat,
-  +hb: {PM.Term.below(t, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))) == True{} : Bool},
+  +hb: {PM.Term.below(t, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))) == True{} : Bool},
   +he: {PM.Terms.below(e, n) == True{} : Bool}
-) -> {PM.Term.below(C.Term.subst(t, e, d), Nat.add(d, n)) == True{} : Bool}:
+) -> {PM.Term.below(El.Term.subst(t, e, d), Nat.add(d, n)) == True{} : Bool}:
   match t:
-    case C.Term.Var{+i}:
+    case Bk.Term.Var{+i}:
       fv.lift(e, d, i, n, hb, he)
-    case C.Term.Ann{+x, +y}:
+    case Bk.Term.Ann{+x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, d), Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.Let{_, +x, +y}:
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, d), Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.Let{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, 1n+d), 1n+Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, 1n+d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.Typ{+x}:
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, 1n+d), 1n+Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, 1n+d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.Typ{+x}:
       fv.sb(x, e, d, n, hb, he)
-    case C.Term.Min{+x, +y}:
+    case Bk.Term.Min{+x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, d), Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.All{_, +x, +y}:
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, d), Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.All{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, 1n+d), 1n+Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, 1n+d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.Lam{_, +x}:
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, 1n+d), 1n+Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, 1n+d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.Lam{_, +x}:
       fv.sb(x, e, 1n+d, n, hb, he)
-    case C.Term.App{_, +x, +y}:
+    case Bk.Term.App{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, d), Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.Sig{_, +x, +y}:
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, d), Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.Sig{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, 1n+d), 1n+Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, 1n+d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.Tup{_, +x, +y}:
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, 1n+d), 1n+Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, 1n+d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, 1n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.Tup{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, d), Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.Prj{+x}:
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, d), Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.Prj{+x}:
       fv.sb(x, e, d, n, hb, he)
-    case C.Term.Mat{_, +x, +y}:
+    case Bk.Term.Mat{_, +x, +y}:
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        PM.Term.below(C.Term.subst(y, e, d), Nat.add(d, n)),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he),
-        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), hb), he))
-    case C.Term.Eql{+x, +y, +z}:
-      +r = fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), Bool.and(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n)))), hb)
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        PM.Term.below(El.Term.subst(y, e, d), Nat.add(d, n)),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he),
+        fv.sb(y, e, d, n, fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), hb), he))
+    case Bk.Term.Eql{+x, +y, +z}:
+      +r = fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), Bool.and(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n)))), hb)
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        Bool.and(PM.Term.below(C.Term.subst(y, e, d), Nat.add(d, n)), PM.Term.below(C.Term.subst(z, e, d), Nat.add(d, n))),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), Bool.and(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n)))), hb), he),
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        Bool.and(PM.Term.below(El.Term.subst(y, e, d), Nat.add(d, n)), PM.Term.below(El.Term.subst(z, e, d), Nat.add(d, n))),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), Bool.and(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n)))), hb), he),
         fv.and_i(
-          PM.Term.below(C.Term.subst(y, e, d), Nat.add(d, n)),
-          PM.Term.below(C.Term.subst(z, e, d), Nat.add(d, n)),
-          fv.sb(y, e, d, n, fv.and_l(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), r), he),
-          fv.sb(z, e, d, n, fv.and_r(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), r), he)))
-    case C.Term.Rwt{+x, +y, +z}:
-      +r = fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), Bool.and(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n)))), hb)
+          PM.Term.below(El.Term.subst(y, e, d), Nat.add(d, n)),
+          PM.Term.below(El.Term.subst(z, e, d), Nat.add(d, n)),
+          fv.sb(y, e, d, n, fv.and_l(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), r), he),
+          fv.sb(z, e, d, n, fv.and_r(PM.Term.below(y, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), r), he)))
+    case Bk.Term.Rwt{+x, +y, +z}:
+      +r = fv.and_r(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), Bool.and(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n)))), hb)
       fv.and_i(
-        PM.Term.below(C.Term.subst(x, e, d), Nat.add(d, n)),
-        Bool.and(PM.Term.below(C.Term.subst(y, e, 2n+d), 2n+Nat.add(d, n)), PM.Term.below(C.Term.subst(z, e, d), Nat.add(d, n))),
-        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), Bool.and(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n)))), hb), he),
+        PM.Term.below(El.Term.subst(x, e, d), Nat.add(d, n)),
+        Bool.and(PM.Term.below(El.Term.subst(y, e, 2n+d), 2n+Nat.add(d, n)), PM.Term.below(El.Term.subst(z, e, d), Nat.add(d, n))),
+        fv.sb(x, e, d, n, fv.and_l(PM.Term.below(x, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), Bool.and(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n)))), hb), he),
         fv.and_i(
-          PM.Term.below(C.Term.subst(y, e, 2n+d), 2n+Nat.add(d, n)),
-          PM.Term.below(C.Term.subst(z, e, d), Nat.add(d, n)),
-          fv.sb(y, e, 2n+d, n, fv.and_l(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), r), he),
-          fv.sb(z, e, d, n, fv.and_r(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, C.Term, e), n))), r), he)))
-    case C.Term.Ref{_}:
+          PM.Term.below(El.Term.subst(y, e, 2n+d), 2n+Nat.add(d, n)),
+          PM.Term.below(El.Term.subst(z, e, d), Nat.add(d, n)),
+          fv.sb(y, e, 2n+d, n, fv.and_l(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), r), he),
+          fv.sb(z, e, d, n, fv.and_r(PM.Term.below(y, 2n+Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), PM.Term.below(z, Nat.add(d, Nat.add(List.length(&2, Bk.Term, e), n))), r), he)))
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
 
 # f with v put in for its variable 0: below B
 def fv.inst(
-  f: C.Term,
-  +v: C.Term,
+  f: Bk.Term,
+  +v: Bk.Term,
   +B: Nat,
   hf: {PM.Term.below(f, 1n+B) == True{} : Bool},
   hv: {PM.Term.below(v, B) == True{} : Bool}
-) -> {PM.Term.below(C.Term.inst(f, v), B) == True{} : Bool}:
+) -> {PM.Term.below(El.Term.inst(f, v), B) == True{} : Bool}:
   fv.sb(f, Con{v, Nil{}}, 0n, B, hf, fv.and_i(PM.Term.below(v, B), True{}, hv, {==}))
 
 # Spines
@@ -481,37 +484,37 @@ def fv.inst(
 
 # t applied to arguments below B
 def fv.spine(
-  xs: List<&2, C.Arg>,
-  +t: C.Term,
+  xs: List<&2, El.Arg>,
+  +t: Bk.Term,
   +B: Nat,
   ht: {PM.Term.below(t, B) == True{} : Bool},
   +hx: {PM.Terms.below(PM.Arg.terms(xs), B) == True{} : Bool}
-) -> {PM.Term.below(C.Term.spine(xs, t), B) == True{} : Bool}:
+) -> {PM.Term.below(El.Term.spine(xs, t), B) == True{} : Bool}:
   match xs:
     case Nil{}:
       ht
-    case Con{C.Arg{+q, +x}, +rest}:
+    case Con{El.Arg{+q, +x}, +rest}:
       +rs = PM.Terms.below(PM.Arg.terms(rest), B)
       fv.spine(
         rest,
-        C.Term.App{q, t, x},
+        Bk.Term.App{q, t, x},
         B,
         fv.and_i(PM.Term.below(t, B), PM.Term.below(x, B), ht, fv.and_l(PM.Term.below(x, B), rs, hx)),
         fv.and_r(PM.Term.below(x, B), rs, hx))
 
 # the arguments of a spine below B, in front of xs
 def fv.args(
-  +t: C.Term,
-  +xs: List<&2, C.Arg>,
+  +t: Bk.Term,
+  +xs: List<&2, El.Arg>,
   +B: Nat,
   +ht: {PM.Term.below(t, B) == True{} : Bool},
   +hx: {PM.Terms.below(PM.Arg.terms(xs), B) == True{} : Bool}
-) -> {PM.Terms.below(PM.Arg.terms(C.Term.args(t, xs)), B) == True{} : Bool}:
+) -> {PM.Terms.below(PM.Arg.terms(El.Term.args(t, xs)), B) == True{} : Bool}:
   match t:
-    case C.Term.App{+q, +f, +x}:
+    case Bk.Term.App{+q, +f, +x}:
       fv.args(
         f,
-        Con{C.Arg{q, x}, xs},
+        Con{El.Arg{q, x}, xs},
         B,
         fv.and_l(PM.Term.below(f, B), PM.Term.below(x, B), ht),
         fv.and_i(
@@ -526,7 +529,7 @@ def fv.args(
 # --------------
 
 # a step's result, when there is one, is below B
-def fv.Mt(m: Maybe<C.Term>, +B: Nat) -> Bool:
+def fv.Mt(m: Maybe<Bk.Term>, +B: Nat) -> Bool:
   match m:
     case None{}:
       True{}
@@ -534,7 +537,7 @@ def fv.Mt(m: Maybe<C.Term>, +B: Nat) -> Bool:
       PM.Term.below(u, B)
 
 # a walk's leaf, when there is one, is below B
-def fv.Mm(m: Maybe<Maybe<C.Term>>, +B: Nat) -> Bool:
+def fv.Mm(m: Maybe<Maybe<Bk.Term>>, +B: Nat) -> Bool:
   match m:
     case Some{Some{u}}:
       PM.Term.below(u, B)
@@ -542,11 +545,11 @@ def fv.Mm(m: Maybe<Maybe<C.Term>>, +B: Nat) -> Bool:
       True{}
 
 # a def's body, when there is one, is below B
-def fv.Md(m: Maybe<C.Def>, +B: Nat) -> Bool:
+def fv.Md(m: Maybe<Bk.Def>, +B: Nat) -> Bool:
   match m:
     case None{}:
       True{}
-    case Some{C.Def{_, _, v, _}}:
+    case Some{Bk.Def{_, _, v, _}}:
       PM.Term.below(v, B)
 
 # The walk
@@ -554,10 +557,10 @@ def fv.Md(m: Maybe<C.Def>, +B: Nat) -> Bool:
 
 def fv.walk.if(
   b: Bool,
-  r: Maybe<Maybe<C.Term>>,
+  r: Maybe<Maybe<Bk.Term>>,
   +B: Nat,
   h: {fv.Mm(r, B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.walk.if(b, r), B) == True{} : Bool}:
+) -> {fv.Mm(El.Eval.walk.if(b, r), B) == True{} : Bool}:
   match b:
     case True{}:
       h
@@ -566,12 +569,12 @@ def fv.walk.if(
 
 def fv.walk.pick(
   b: Bool,
-  r: Maybe<Maybe<C.Term>>,
-  s: Maybe<Maybe<C.Term>>,
+  r: Maybe<Maybe<Bk.Term>>,
+  s: Maybe<Maybe<Bk.Term>>,
   +B: Nat,
   hr: {fv.Mm(r, B) == True{} : Bool},
   hs: {fv.Mm(s, B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.walk.pick(b, r, s), B) == True{} : Bool}:
+) -> {fv.Mm(El.Eval.walk.pick(b, r, s), B) == True{} : Bool}:
   match b:
     case True{}:
       hr
@@ -580,12 +583,12 @@ def fv.walk.pick(
 
 def fv.walk.app(
   node: Bool,
-  r: Maybe<Maybe<C.Term>>,
-  u: C.Term,
+  r: Maybe<Maybe<Bk.Term>>,
+  u: Bk.Term,
   +B: Nat,
   hr: {fv.Mm(r, B) == True{} : Bool},
   hu: {PM.Term.below(u, B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.walk.app(node, r, u), B) == True{} : Bool}:
+) -> {fv.Mm(El.Eval.walk.app(node, r, u), B) == True{} : Bool}:
   match node:
     case True{}:
       hr
@@ -594,11 +597,11 @@ def fv.walk.app(
 
 def fv.walk.leaf(
   node: Bool,
-  xs: List<&2, C.Arg>,
-  u: C.Term,
+  xs: List<&2, El.Arg>,
+  u: Bk.Term,
   +B: Nat,
   hu: {PM.Term.below(u, B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.walk.leaf(node, xs, u), B) == True{} : Bool}:
+) -> {fv.Mm(El.Eval.walk.leaf(node, xs, u), B) == True{} : Bool}:
   match node:
     case True{}:
       match xs:
@@ -612,20 +615,20 @@ def fv.walk.leaf(
 # the walk of a case tree t below |e| + B, with e bound below B, on arguments
 # below B: its leaf is below B
 def fv.walk(
-  +t: C.Term,
-  +e: List<&2, C.Term>,
-  +xs: List<&2, C.Arg>,
+  +t: Bk.Term,
+  +e: List<&2, Bk.Term>,
+  +xs: List<&2, El.Arg>,
   +B: Nat,
-  +ht: {PM.Term.below(t, Nat.add(List.length(&2, C.Term, e), B)) == True{} : Bool},
+  +ht: {PM.Term.below(t, Nat.add(List.length(&2, Bk.Term, e), B)) == True{} : Bool},
   +he: {PM.Terms.below(e, B) == True{} : Bool},
   +hx: {PM.Terms.below(PM.Arg.terms(xs), B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.walk(t, e, xs), B) == True{} : Bool}:
+) -> {fv.Mm(El.Eval.walk(t, e, xs), B) == True{} : Bool}:
   match t xs:
-    case C.Term.Lam{+p, +f} Con{C.Arg{+q, +x}, +rest}:
+    case Bk.Term.Lam{+p, +f} Con{El.Arg{+q, +x}, +rest}:
       +rs = PM.Terms.below(PM.Arg.terms(rest), B)
       fv.walk.if(
-        C.Quan.binds(p, q, x),
-        C.Eval.walk(f, Con{x, e}, rest),
+        El.Quan.binds(p, q, x),
+        El.Eval.walk(f, Con{x, e}, rest),
         B,
         fv.walk(
           f,
@@ -635,14 +638,14 @@ def fv.walk(
           ht,
           fv.and_i(PM.Term.below(x, B), PM.Terms.below(e, B), fv.and_l(PM.Term.below(x, B), rs, hx), he),
           fv.and_r(PM.Term.below(x, B), rs, hx)))
-    case C.Term.Prj{+hh} Con{C.Arg{+q, C.Term.Tup{+r, +a, +b}}, +rest}:
+    case Bk.Term.Prj{+hh} Con{El.Arg{+q, Bk.Term.Tup{+r, +a, +b}}, +rest}:
       +rs = PM.Terms.below(PM.Arg.terms(rest), B)
       +ab = Bool.and(PM.Term.below(a, B), PM.Term.below(b, B))
       +hab = fv.and_l(ab, rs, hx)
-      +ys = Con{C.Arg{C.Quan.fld(r, q), a}, Con{C.Arg{q, b}, rest}}
+      +ys = Con{El.Arg{El.Quan.fld(r, q), a}, Con{El.Arg{q, b}, rest}}
       fv.walk.if(
-        C.Quan.live(q),
-        C.Eval.walk(hh, e, ys),
+        El.Quan.live(q),
+        El.Eval.walk(hh, e, ys),
         B,
         fv.walk(
           hh,
@@ -660,28 +663,28 @@ def fv.walk(
               rs,
               fv.and_r(PM.Term.below(a, B), PM.Term.below(b, B), hab),
               fv.and_r(ab, rs, hx)))))
-    case C.Term.Mat{+k, +hh, +mm} Con{C.Arg{+q, C.Term.Lab{+j}}, +rest}:
-      +L = Nat.add(List.length(&2, C.Term, e), B)
-      +ys = Con{C.Arg{q, C.Term.Lab{j}}, rest}
+    case Bk.Term.Mat{+k, +hh, +mm} Con{El.Arg{+q, Bk.Term.Lab{+j}}, +rest}:
+      +L = Nat.add(List.length(&2, Bk.Term, e), B)
+      +ys = Con{El.Arg{q, Bk.Term.Lab{j}}, rest}
       fv.walk.if(
-        C.Quan.live(q),
-        C.Eval.walk.pick(C.Name.is_eq(j, k), C.Eval.walk(hh, e, rest), C.Eval.walk(mm, e, ys)),
+        El.Quan.live(q),
+        El.Eval.walk.pick(Sd.Name.is_eq(j, k), El.Eval.walk(hh, e, rest), El.Eval.walk(mm, e, ys)),
         B,
         fv.walk.pick(
-          C.Name.is_eq(j, k),
-          C.Eval.walk(hh, e, rest),
-          C.Eval.walk(mm, e, ys),
+          Sd.Name.is_eq(j, k),
+          El.Eval.walk(hh, e, rest),
+          El.Eval.walk(mm, e, ys),
           B,
           fv.walk(hh, e, rest, B, fv.and_l(PM.Term.below(hh, L), PM.Term.below(mm, L), ht), he, hx),
           fv.walk(mm, e, ys, B, fv.and_r(PM.Term.below(hh, L), PM.Term.below(mm, L), ht), he, hx)))
-    case C.Term.App{+q, +f, C.Term.Var{+v}} ys:
-      +L = Nat.add(List.length(&2, C.Term, e), B)
-      +u = C.Term.App{q, f, C.Term.Var{v}}
-      +zs = Con{C.Arg{q, C.Env.sub(e, v)}, ys}
+    case Bk.Term.App{+q, +f, Bk.Term.Var{+v}} ys:
+      +L = Nat.add(List.length(&2, Bk.Term, e), B)
+      +u = Bk.Term.App{q, f, Bk.Term.Var{v}}
+      +zs = Con{El.Arg{q, El.Env.sub(e, v)}, ys}
       fv.walk.app(
-        C.Term.takes(C.Term.head(f)),
-        C.Eval.walk(f, e, zs),
-        C.Term.spine(ys, C.Term.subst(u, e, 0n)),
+        El.Term.takes(El.Term.head(f)),
+        El.Eval.walk(f, e, zs),
+        El.Term.spine(ys, El.Term.subst(u, e, 0n)),
         B,
         fv.walk(
           f,
@@ -691,30 +694,30 @@ def fv.walk(
           fv.and_l(PM.Term.below(f, L), Nat.is_lt(v, L), ht),
           he,
           fv.and_i(
-            PM.Term.below(C.Env.sub(e, v), B),
+            PM.Term.below(El.Env.sub(e, v), B),
             PM.Terms.below(PM.Arg.terms(ys), B),
             fv.env(e, v, B, fv.and_r(PM.Term.below(f, L), Nat.is_lt(v, L), ht), he),
             hx)),
-        fv.spine(ys, C.Term.subst(u, e, 0n), B, fv.sb(u, e, 0n, B, ht, he), hx))
+        fv.spine(ys, El.Term.subst(u, e, 0n), B, fv.sb(u, e, 0n, B, ht, he), hx))
     case u ys:
       fv.walk.leaf(
-        C.Term.takes(u),
+        El.Term.takes(u),
         ys,
-        C.Term.spine(ys, C.Term.subst(u, e, 0n)),
+        El.Term.spine(ys, El.Term.subst(u, e, 0n)),
         B,
-        fv.spine(ys, C.Term.subst(u, e, 0n), B, fv.sb(u, e, 0n, B, ht, he), hx))
+        fv.spine(ys, El.Term.subst(u, e, 0n), B, fv.sb(u, e, 0n, B, ht, he), hx))
 
 # Calls
 # -----
 
 def fv.get.if(
   b: Bool,
-  d: C.Def,
-  r: Maybe<C.Def>,
+  d: Bk.Def,
+  r: Maybe<Bk.Def>,
   +B: Nat,
   hd: {fv.Md(Some{d}, B) == True{} : Bool},
   hr: {fv.Md(r, B) == True{} : Bool}
-) -> {fv.Md(C.Book.get.if(b, d, r), B) == True{} : Bool}:
+) -> {fv.Md(El.Book.get.if(b, d, r), B) == True{} : Bool}:
   match b:
     case True{}:
       hd
@@ -723,66 +726,66 @@ def fv.get.if(
 
 # the def of a name, in defs below B, has a body below B
 def fv.get(
-  ds: List<&2, C.Def>,
+  ds: List<&2, Bk.Def>,
   +k: List<&2, Word(8n)>,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool}
-) -> {fv.Md(C.Book.get(ds, k), B) == True{} : Bool}:
+) -> {fv.Md(El.Book.get(ds, k), B) == True{} : Bool}:
   match ds:
     case Nil{}:
       {==}
-    case Con{C.Def{+n, +T, +v, +o}, +rest}:
+    case Con{Bk.Def{+n, +T, +v, +o}, +rest}:
       fv.get.if(
-        C.Name.is_eq(n, k),
-        C.Def{n, T, v, o},
-        C.Book.get(rest, k),
+        Sd.Name.is_eq(n, k),
+        Bk.Def{n, T, v, o},
+        El.Book.get(rest, k),
         B,
         fv.and_l(PM.Term.below(v, B), Defs.below(rest, B), hd),
         fv.get(rest, k, B, fv.and_r(PM.Term.below(v, B), Defs.below(rest, B), hd)))
 
 def fv.cw.def(
-  m: Maybe<C.Def>,
-  +xs: List<&2, C.Arg>,
+  m: Maybe<Bk.Def>,
+  +xs: List<&2, El.Arg>,
   +B: Nat,
   hm: {fv.Md(m, B) == True{} : Bool},
   hx: {PM.Terms.below(PM.Arg.terms(xs), B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.callWalk.def(m, xs), B) == True{} : Bool}:
+) -> {fv.Mm(El.Eval.callWalk.def(m, xs), B) == True{} : Bool}:
   match m:
     case None{}:
       {==}
-    case Some{C.Def{_, _, +v, _}}:
+    case Some{Bk.Def{_, _, +v, _}}:
       fv.walk(v, Nil{}, xs, B, hm, {==}, hx)
 
 def fv.cw.head(
-  +ds: List<&2, C.Def>,
-  h: C.Term,
-  +xs: List<&2, C.Arg>,
+  +ds: List<&2, Bk.Def>,
+  h: Bk.Term,
+  +xs: List<&2, El.Arg>,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool},
   +hx: {PM.Terms.below(PM.Arg.terms(xs), B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.callWalk.head(ds, h, xs), B) == True{} : Bool}:
+) -> {fv.Mm(El.Eval.callWalk.head(ds, h, xs), B) == True{} : Bool}:
   match h:
-    case C.Term.Ref{+k}:
-      fv.cw.def(C.Book.get(ds, k), xs, B, fv.get(ds, k, B, hd), hx)
+    case Bk.Term.Ref{+k}:
+      fv.cw.def(El.Book.get(ds, k), xs, B, fv.get(ds, k, B, hd), hx)
     case _:
       {==}
 
 # the walk of a call below B, in defs below B: its leaf is below B
 def fv.cw(
-  +ds: List<&2, C.Def>,
-  +t: C.Term,
+  +ds: List<&2, Bk.Def>,
+  +t: Bk.Term,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool},
   +ht: {PM.Term.below(t, B) == True{} : Bool}
-) -> {fv.Mm(C.Eval.callWalk(ds, t), B) == True{} : Bool}:
-  fv.cw.head(ds, C.Term.head(t), C.Term.args(t, Nil{}), B, hd, fv.args(t, Nil{}, B, ht, {==}))
+) -> {fv.Mm(El.Eval.callWalk(ds, t), B) == True{} : Bool}:
+  fv.cw.head(ds, El.Term.head(t), El.Term.args(t, Nil{}), B, hd, fv.args(t, Nil{}, B, ht, {==}))
 
 def fv.call.if(
   ok: Bool,
-  r: Maybe<Maybe<C.Term>>,
+  r: Maybe<Maybe<Bk.Term>>,
   +B: Nat,
   hr: {fv.Mm(r, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.call.if(ok, r), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.call.if(ok, r), B) == True{} : Bool}:
   match ok r:
     case True{} Some{Some{u}}:
       hr
@@ -791,23 +794,23 @@ def fv.call.if(
 
 # the step of a call below B, in defs below B
 def fv.call(
-  +ds: List<&2, C.Def>,
-  +t: C.Term,
+  +ds: List<&2, Bk.Def>,
+  +t: Bk.Term,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool},
   +ht: {PM.Term.below(t, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.call(ds, t), B) == True{} : Bool}:
-  fv.call.if(C.Eval.vals(ds, t, True{}), C.Eval.callWalk(ds, t), B, fv.cw(ds, t, B, hd, ht))
+) -> {fv.Mt(El.Eval.call(ds, t), B) == True{} : Bool}:
+  fv.call.if(El.Eval.vals(ds, t, True{}), El.Eval.callWalk(ds, t), B, fv.cw(ds, t, B, hd, ht))
 
 # Redexes
 # -------
 
 def fv.redex.if(
   b: Bool,
-  u: C.Term,
+  u: Bk.Term,
   +B: Nat,
   hu: {PM.Term.below(u, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.redex.if(b, u), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.redex.if(b, u), B) == True{} : Bool}:
   match b:
     case True{}:
       hu
@@ -816,12 +819,12 @@ def fv.redex.if(
 
 def fv.redex.pick(
   b: Bool,
-  h: C.Term,
-  m: C.Term,
+  h: Bk.Term,
+  m: Bk.Term,
   +B: Nat,
   hh: {PM.Term.below(h, B) == True{} : Bool},
   hm: {PM.Term.below(m, B) == True{} : Bool}
-) -> {PM.Term.below(C.Eval.redex.pick(b, h, m), B) == True{} : Bool}:
+) -> {PM.Term.below(El.Eval.redex.pick(b, h, m), B) == True{} : Bool}:
   match b:
     case True{}:
       hh
@@ -830,65 +833,65 @@ def fv.redex.pick(
 
 # the step of App q f x, f and x below B
 def fv.redex(
-  +ds: List<&2, C.Def>,
-  +q: C.Quan,
-  +f: C.Term,
-  +x: C.Term,
+  +ds: List<&2, Bk.Def>,
+  +q: Bk.Quan,
+  +f: Bk.Term,
+  +x: Bk.Term,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool},
   +hf: {PM.Term.below(f, B) == True{} : Bool},
   +hx: {PM.Term.below(x, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.redex(ds, q, f, x), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.redex(ds, q, f, x), B) == True{} : Bool}:
   match f x:
-    case C.Term.Lam{+p, +b} y:
-      fv.redex.if(C.Quan.binds(p, q, y), C.Term.inst(b, y), B, fv.inst(b, y, B, hf, hx))
-    case C.Term.Prj{+h} C.Term.Tup{+r, +a, +b}:
-      +g = C.Term.App{C.Quan.fld(r, q), h, a}
+    case Bk.Term.Lam{+p, +b} y:
+      fv.redex.if(El.Quan.binds(p, q, y), El.Term.inst(b, y), B, fv.inst(b, y, B, hf, hx))
+    case Bk.Term.Prj{+h} Bk.Term.Tup{+r, +a, +b}:
+      +g = Bk.Term.App{El.Quan.fld(r, q), h, a}
       fv.redex.if(
-        C.Quan.live(q),
-        C.Term.App{q, g, b},
+        El.Quan.live(q),
+        Bk.Term.App{q, g, b},
         B,
         fv.and_i(
           PM.Term.below(g, B),
           PM.Term.below(b, B),
           fv.and_i(PM.Term.below(h, B), PM.Term.below(a, B), hf, fv.and_l(PM.Term.below(a, B), PM.Term.below(b, B), hx)),
           fv.and_r(PM.Term.below(a, B), PM.Term.below(b, B), hx)))
-    case C.Term.Mat{+k, +h, +m} C.Term.Lab{+j}:
-      +w = C.Term.App{q, m, C.Term.Lab{j}}
+    case Bk.Term.Mat{+k, +h, +m} Bk.Term.Lab{+j}:
+      +w = Bk.Term.App{q, m, Bk.Term.Lab{j}}
       fv.redex.if(
-        C.Quan.live(q),
-        C.Eval.redex.pick(C.Name.is_eq(j, k), h, w),
+        El.Quan.live(q),
+        El.Eval.redex.pick(Sd.Name.is_eq(j, k), h, w),
         B,
         fv.redex.pick(
-          C.Name.is_eq(j, k),
+          Sd.Name.is_eq(j, k),
           h,
           w,
           B,
           fv.and_l(PM.Term.below(h, B), PM.Term.below(m, B), hf),
           fv.and_i(PM.Term.below(m, B), True{}, fv.and_r(PM.Term.below(h, B), PM.Term.below(m, B), hf), {==})))
     case g y:
-      fv.call(ds, C.Term.App{q, g, y}, B, hd, fv.and_i(PM.Term.below(g, B), PM.Term.below(y, B), hf, hx))
+      fv.call(ds, Bk.Term.App{q, g, y}, B, hd, fv.and_i(PM.Term.below(g, B), PM.Term.below(y, B), hf, hx))
 
 # Steps
 # -----
 
 def fv.step.app(
-  q: C.Quan,
-  +f: C.Term,
-  +x: C.Term,
-  sf: Maybe<C.Term>,
+  q: Bk.Quan,
+  +f: Bk.Term,
+  +x: Bk.Term,
+  sf: Maybe<Bk.Term>,
   vf: Bool,
   live: Bool,
-  sx: Maybe<C.Term>,
+  sx: Maybe<Bk.Term>,
   vx: Bool,
-  +r: Maybe<C.Term>,
+  +r: Maybe<Bk.Term>,
   +B: Nat,
   +hf: {PM.Term.below(f, B) == True{} : Bool},
   +hx: {PM.Term.below(x, B) == True{} : Bool},
   hsf: {fv.Mt(sf, B) == True{} : Bool},
   hsx: {fv.Mt(sx, B) == True{} : Bool},
   +hr: {fv.Mt(r, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r), B) == True{} : Bool}:
   match sf:
     case Some{+f2}:
       fv.and_i(PM.Term.below(f2, B), PM.Term.below(x, B), hsf, hx)
@@ -913,12 +916,12 @@ def fv.step.app(
 
 def fv.step.unlet(
   fits: Bool,
-  f: C.Term,
-  +v: C.Term,
+  f: Bk.Term,
+  +v: Bk.Term,
   +B: Nat,
   hf: {PM.Term.below(f, 1n+B) == True{} : Bool},
   hv: {PM.Term.below(v, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step.unlet(fits, f, v), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step.unlet(fits, f, v), B) == True{} : Bool}:
   match fits:
     case True{}:
       fv.inst(f, v, B, hf, hv)
@@ -926,18 +929,18 @@ def fv.step.unlet(
       {==}
 
 def fv.step.let(
-  +q: C.Quan,
-  +v: C.Term,
-  +f: C.Term,
+  +q: Bk.Quan,
+  +v: Bk.Term,
+  +f: Bk.Term,
   live: Bool,
-  sv: Maybe<C.Term>,
+  sv: Maybe<Bk.Term>,
   vv: Bool,
   +fits: Bool,
   +B: Nat,
   +hv: {PM.Term.below(v, B) == True{} : Bool},
   +hf: {PM.Term.below(f, 1n+B) == True{} : Bool},
   hsv: {fv.Mt(sv, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step.let(q, v, f, live, sv, vv, fits), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step.let(q, v, f, live, sv, vv, fits), B) == True{} : Bool}:
   match live:
     case False{}:
       fv.step.unlet(fits, f, v, B, hf, hv)
@@ -953,13 +956,13 @@ def fv.step.let(
               {==}
 
 def fv.step.tup_b(
-  q: C.Quan,
-  +a: C.Term,
-  sb: Maybe<C.Term>,
+  q: Bk.Quan,
+  +a: Bk.Term,
+  sb: Maybe<Bk.Term>,
   +B: Nat,
   ha: {PM.Term.below(a, B) == True{} : Bool},
   hsb: {fv.Mt(sb, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step.tup_b(q, a, sb), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step.tup_b(q, a, sb), B) == True{} : Bool}:
   match sb:
     case Some{+b2}:
       fv.and_i(PM.Term.below(a, B), PM.Term.below(b2, B), ha, hsb)
@@ -967,19 +970,19 @@ def fv.step.tup_b(
       {==}
 
 def fv.step.tup(
-  +q: C.Quan,
-  +a: C.Term,
-  +b: C.Term,
+  +q: Bk.Quan,
+  +a: Bk.Term,
+  +b: Bk.Term,
   live: Bool,
-  sa: Maybe<C.Term>,
+  sa: Maybe<Bk.Term>,
   va: Bool,
-  +sb: Maybe<C.Term>,
+  +sb: Maybe<Bk.Term>,
   +B: Nat,
   +ha: {PM.Term.below(a, B) == True{} : Bool},
   +hb: {PM.Term.below(b, B) == True{} : Bool},
   hsa: {fv.Mt(sa, B) == True{} : Bool},
   +hsb: {fv.Mt(sb, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step.tup(q, a, b, live, sa, va, sb), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step.tup(q, a, b, live, sa, va, sb), B) == True{} : Bool}:
   match live:
     case False{}:
       fv.step.tup_b(q, a, sb, B, ha, hsb)
@@ -994,25 +997,25 @@ def fv.step.tup(
             case False{}:
               {==}
 
-def fv.step.cast(e: C.Term, f: C.Term, +B: Nat, hf: {PM.Term.below(f, B) == True{} : Bool}) ->
-  {fv.Mt(C.Eval.step.cast(e, f), B) == True{} : Bool}:
+def fv.step.cast(e: Bk.Term, f: Bk.Term, +B: Nat, hf: {PM.Term.below(f, B) == True{} : Bool}) ->
+  {fv.Mt(El.Eval.step.cast(e, f), B) == True{} : Bool}:
   match e:
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       hf
     case _:
       {==}
 
 def fv.step.rwt(
-  +e: C.Term,
-  +P: C.Term,
-  +f: C.Term,
-  se: Maybe<C.Term>,
+  +e: Bk.Term,
+  +P: Bk.Term,
+  +f: Bk.Term,
+  se: Maybe<Bk.Term>,
   ve: Bool,
   +B: Nat,
   hP: {PM.Term.below(P, 2n+B) == True{} : Bool},
   +hf: {PM.Term.below(f, B) == True{} : Bool},
   hse: {fv.Mt(se, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step.rwt(e, P, f, se, ve), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step.rwt(e, P, f, se, ve), B) == True{} : Bool}:
   match se:
     case Some{+e2}:
       fv.and_i(
@@ -1027,7 +1030,7 @@ def fv.step.rwt(
         case False{}:
           {==}
 
-def fv.meet.of(i: Maybe<C.Quan>, j: Maybe<C.Quan>, +B: Nat) -> {fv.Mt(C.Eval.meet.of(i, j), B) == True{} : Bool}:
+def fv.meet.of(i: Maybe<Bk.Quan>, j: Maybe<Bk.Quan>, +B: Nat) -> {fv.Mt(El.Eval.meet.of(i, j), B) == True{} : Bool}:
   match i j:
     case Some{_} Some{_}:
       {==}
@@ -1035,28 +1038,28 @@ def fv.meet.of(i: Maybe<C.Quan>, j: Maybe<C.Quan>, +B: Nat) -> {fv.Mt(C.Eval.mee
       {==}
 
 # the meet of two terms is a label, or none
-def fv.meet(a: C.Term, b: C.Term, +B: Nat) -> {fv.Mt(C.Eval.meet(a, b), B) == True{} : Bool}:
+def fv.meet(a: Bk.Term, b: Bk.Term, +B: Nat) -> {fv.Mt(El.Eval.meet(a, b), B) == True{} : Bool}:
   match a b:
-    case C.Term.Lab{+i} C.Term.Lab{+j}:
-      fv.meet.of(C.Quan.read(i), C.Quan.read(j), B)
+    case Bk.Term.Lab{+i} Bk.Term.Lab{+j}:
+      fv.meet.of(El.Quan.read(i), El.Quan.read(j), B)
     case _ _:
       {==}
 
 def fv.step.min(
-  +a: C.Term,
-  +b: C.Term,
-  sa: Maybe<C.Term>,
+  +a: Bk.Term,
+  +b: Bk.Term,
+  sa: Maybe<Bk.Term>,
   va: Bool,
-  sb: Maybe<C.Term>,
+  sb: Maybe<Bk.Term>,
   vb: Bool,
-  m: Maybe<C.Term>,
+  m: Maybe<Bk.Term>,
   +B: Nat,
   +ha: {PM.Term.below(a, B) == True{} : Bool},
   +hb: {PM.Term.below(b, B) == True{} : Bool},
   hsa: {fv.Mt(sa, B) == True{} : Bool},
   hsb: {fv.Mt(sb, B) == True{} : Bool},
   hm: {fv.Mt(m, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step.min(a, b, sa, va, sb, vb, m), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step.min(a, b, sa, va, sb, vb, m), B) == True{} : Bool}:
   match sa:
     case Some{+a2}:
       fv.and_i(PM.Term.below(a2, B), PM.Term.below(b, B), hsa, hb)
@@ -1077,90 +1080,90 @@ def fv.step.min(
 
 # one step of a term below B, in defs below B: below B
 def fv.st(
-  +ds: List<&2, C.Def>,
-  t: C.Term,
+  +ds: List<&2, Bk.Def>,
+  t: Bk.Term,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool},
   +ht: {PM.Term.below(t, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.step(ds, t), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.step(ds, t), B) == True{} : Bool}:
   match t:
-    case C.Term.Ann{+x, +y}:
+    case Bk.Term.Ann{+x, +y}:
       fv.and_l(PM.Term.below(x, B), PM.Term.below(y, B), ht)
-    case C.Term.Ref{+k}:
-      fv.call(ds, C.Term.Ref{k}, B, hd, {==})
-    case C.Term.App{+q, +f, +x}:
+    case Bk.Term.Ref{+k}:
+      fv.call(ds, Bk.Term.Ref{k}, B, hd, {==})
+    case Bk.Term.App{+q, +f, +x}:
       +hf = fv.and_l(PM.Term.below(f, B), PM.Term.below(x, B), ht)
       +hx = fv.and_r(PM.Term.below(f, B), PM.Term.below(x, B), ht)
       fv.step.app(
         q,
         f,
         x,
-        C.Eval.step(ds, f),
-        C.Eval.vals(ds, f, False{}),
-        C.Quan.live(q),
-        C.Eval.step(ds, x),
-        C.Eval.vals(ds, x, False{}),
-        C.Eval.redex(ds, q, f, x),
+        El.Eval.step(ds, f),
+        El.Eval.vals(ds, f, False{}),
+        El.Quan.live(q),
+        El.Eval.step(ds, x),
+        El.Eval.vals(ds, x, False{}),
+        El.Eval.redex(ds, q, f, x),
         B,
         hf,
         hx,
         fv.st(ds, f, B, hd, hf),
         fv.st(ds, x, B, hd, hx),
         fv.redex(ds, q, f, x, B, hd, hf, hx))
-    case C.Term.Let{+q, +v, +f}:
+    case Bk.Term.Let{+q, +v, +f}:
       +hv = fv.and_l(PM.Term.below(v, B), PM.Term.below(f, 1n+B), ht)
       fv.step.let(
         q,
         v,
         f,
-        C.Quan.live(q),
-        C.Eval.step(ds, v),
-        C.Eval.vals(ds, v, False{}),
-        C.Quan.fits(q, v),
+        El.Quan.live(q),
+        El.Eval.step(ds, v),
+        El.Eval.vals(ds, v, False{}),
+        El.Quan.fits(q, v),
         B,
         hv,
         fv.and_r(PM.Term.below(v, B), PM.Term.below(f, 1n+B), ht),
         fv.st(ds, v, B, hd, hv))
-    case C.Term.Tup{+q, +a, +b}:
+    case Bk.Term.Tup{+q, +a, +b}:
       +ha = fv.and_l(PM.Term.below(a, B), PM.Term.below(b, B), ht)
       +hb = fv.and_r(PM.Term.below(a, B), PM.Term.below(b, B), ht)
       fv.step.tup(
         q,
         a,
         b,
-        C.Quan.live(q),
-        C.Eval.step(ds, a),
-        C.Eval.vals(ds, a, False{}),
-        C.Eval.step(ds, b),
+        El.Quan.live(q),
+        El.Eval.step(ds, a),
+        El.Eval.vals(ds, a, False{}),
+        El.Eval.step(ds, b),
         B,
         ha,
         hb,
         fv.st(ds, a, B, hd, ha),
         fv.st(ds, b, B, hd, hb))
-    case C.Term.Rwt{+e, +P, +f}:
+    case Bk.Term.Rwt{+e, +P, +f}:
       +he = fv.and_l(PM.Term.below(e, B), Bool.and(PM.Term.below(P, 2n+B), PM.Term.below(f, B)), ht)
       +hr = fv.and_r(PM.Term.below(e, B), Bool.and(PM.Term.below(P, 2n+B), PM.Term.below(f, B)), ht)
       fv.step.rwt(
         e,
         P,
         f,
-        C.Eval.step(ds, e),
-        C.Eval.vals(ds, e, False{}),
+        El.Eval.step(ds, e),
+        El.Eval.vals(ds, e, False{}),
         B,
         fv.and_l(PM.Term.below(P, 2n+B), PM.Term.below(f, B), hr),
         fv.and_r(PM.Term.below(P, 2n+B), PM.Term.below(f, B), hr),
         fv.st(ds, e, B, hd, he))
-    case C.Term.Min{+a, +b}:
+    case Bk.Term.Min{+a, +b}:
       +ha = fv.and_l(PM.Term.below(a, B), PM.Term.below(b, B), ht)
       +hb = fv.and_r(PM.Term.below(a, B), PM.Term.below(b, B), ht)
       fv.step.min(
         a,
         b,
-        C.Eval.step(ds, a),
-        C.Eval.vals(ds, a, False{}),
-        C.Eval.step(ds, b),
-        C.Eval.vals(ds, b, False{}),
-        C.Eval.meet(a, b),
+        El.Eval.step(ds, a),
+        El.Eval.vals(ds, a, False{}),
+        El.Eval.step(ds, b),
+        El.Eval.vals(ds, b, False{}),
+        El.Eval.meet(a, b),
         B,
         ha,
         hb,
@@ -1175,43 +1178,43 @@ def fv.st(
 
 # a step of a term below B, in defs below B, is below B
 def fv.step(
-  ds: List<&2, C.Def>,
-  t: C.Term,
-  u: C.Term,
+  ds: List<&2, Bk.Def>,
+  t: Bk.Term,
+  u: Bk.Term,
   +B: Nat,
   hd: {Defs.below(ds, B) == True{} : Bool},
   ht: {PM.Term.below(t, B) == True{} : Bool},
-  h: {C.Eval.step(ds, t) == Some{u} : Maybe<C.Term>}
+  h: {El.Eval.step(ds, t) == Some{u} : Maybe<Bk.Term>}
 ) -> {PM.Term.below(u, B) == True{} : Bool}:
   %h : {fv.Mt(_, B) == True{} : Bool}
   fv.st(ds, t, B, hd, ht)
 
 def fv.run(
   n: Nat,
-  +ds: List<&2, C.Def>,
-  r: Maybe<C.Term>,
+  +ds: List<&2, Bk.Def>,
+  r: Maybe<Bk.Term>,
   +B: Nat,
   +hd: {Defs.below(ds, B) == True{} : Bool},
   hr: {fv.Mt(r, B) == True{} : Bool}
-) -> {fv.Mt(C.Eval.run(n, ds, r), B) == True{} : Bool}:
+) -> {fv.Mt(El.Eval.run(n, ds, r), B) == True{} : Bool}:
   match n r:
     case 0n s:
       hr
     case 1n+_ None{}:
       {==}
     case 1n++m Some{+t}:
-      fv.run(m, ds, C.Eval.step(ds, t), B, hd, fv.st(ds, t, B, hd, hr))
+      fv.run(m, ds, El.Eval.step(ds, t), B, hd, fv.st(ds, t, B, hd, hr))
 
 # n steps of a term below B, in defs below B, give a term below B
 def fv.steps(
   n: Nat,
-  ds: List<&2, C.Def>,
-  t: C.Term,
-  u: C.Term,
+  ds: List<&2, Bk.Def>,
+  t: Bk.Term,
+  u: Bk.Term,
   +B: Nat,
   hd: {Defs.below(ds, B) == True{} : Bool},
   ht: {PM.Term.below(t, B) == True{} : Bool},
-  h: {C.Eval.steps(n, ds, t) == Some{u} : Maybe<C.Term>}
+  h: {El.Eval.steps(n, ds, t) == Some{u} : Maybe<Bk.Term>}
 ) -> {PM.Term.below(u, B) == True{} : Bool}:
   %h : {fv.Mt(_, B) == True{} : Bool}
   fv.run(n, ds, Some{t}, B, hd, ht)
@@ -1219,14 +1222,14 @@ def fv.steps(
 # The start term
 # --------------
 
-def fv.bit(b: Bool) -> {PM.Term.below(C.Program.bit(b), 0n) == True{} : Bool}:
+def fv.bit(b: Bool) -> {PM.Term.below(Pg.Program.bit(b), 0n) == True{} : Bool}:
   match b:
     case True{}:
       {==}
     case False{}:
       {==}
 
-def fv.word(n: Nat, w: Word(n)) -> {PM.Term.below(C.Program.word(n, w), 0n) == True{} : Bool}:
+def fv.word(n: Nat, w: Word(n)) -> {PM.Term.below(Pg.Program.word(n, w), 0n) == True{} : Bool}:
   match n:
     case 0n:
       {==}
@@ -1234,22 +1237,22 @@ def fv.word(n: Nat, w: Word(n)) -> {PM.Term.below(C.Program.word(n, w), 0n) == T
       match w:
         case WCon{+b, +t}:
           fv.and_i(
-            PM.Term.below(C.Program.bit(b), 0n),
-            Bool.and(PM.Term.below(C.Program.word(p, t), 0n), True{}),
+            PM.Term.below(Pg.Program.bit(b), 0n),
+            Bool.and(PM.Term.below(Pg.Program.word(p, t), 0n), True{}),
             fv.bit(b),
-            fv.and_i(PM.Term.below(C.Program.word(p, t), 0n), True{}, fv.word(p, t), {==}))
+            fv.and_i(PM.Term.below(Pg.Program.word(p, t), 0n), True{}, fv.word(p, t), {==}))
 
-def fv.bytes(i: List<&2, Word(8n)>) -> {PM.Term.below(C.Program.bytes(i), 0n) == True{} : Bool}:
+def fv.bytes(i: List<&2, Word(8n)>) -> {PM.Term.below(Pg.Program.bytes(i), 0n) == True{} : Bool}:
   match i:
     case Nil{}:
       {==}
     case Con{+b, +rest}:
       fv.and_i(
-        PM.Term.below(C.Program.word(8n, b), 0n),
-        Bool.and(PM.Term.below(C.Program.bytes(rest), 0n), True{}),
+        PM.Term.below(Pg.Program.word(8n, b), 0n),
+        Bool.and(PM.Term.below(Pg.Program.bytes(rest), 0n), True{}),
         fv.word(8n, b),
-        fv.and_i(PM.Term.below(C.Program.bytes(rest), 0n), True{}, fv.bytes(rest), {==}))
+        fv.and_i(PM.Term.below(Pg.Program.bytes(rest), 0n), True{}, fv.bytes(rest), {==}))
 
 # the start term is closed
-def fv.start(i: List<&2, Word(8n)>) -> {PM.Term.below(C.Program.start(i), 0n) == True{} : Bool}:
+def fv.start(i: List<&2, Word(8n)>) -> {PM.Term.below(Pg.Program.start(i), 0n) == True{} : Bool}:
   fv.bytes(i)

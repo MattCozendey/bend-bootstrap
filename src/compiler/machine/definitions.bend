@@ -13,9 +13,14 @@
 # run of statements (eq.*, rw.*, ev.*). It imports no phase file.
 
 import Base
-import ./impl.bend as C
-import ./proof_term.bend as T
-import ./proof_need.bend as N
+import ../../book/impl.bend as Bk
+import ../../eval/impl.bend as El
+import ../../wasm/impl.bend as Wa
+import ../../program/impl.bend as Pg
+import ../cir/impl.bend as Cr
+import ./impl.bend as Mc
+import ./cell_terms.bend as T
+import ../need_big.bend as N
 
 # Kit
 # ---
@@ -49,90 +54,90 @@ def ND(dn: Bool) -> Type:
 # what the outcome o of a statement may be: next, with a state of which Q
 # holds; a halt with the status s in the state st, of which H holds; out of
 # memory; never a trap; out of fuel only when dn is False
-def Post(dn: Bool, o: C.Cir.Out, Q: C.Cir.State -> Type, H: U32 -> C.Cir.State -> Type) -> Type:
+def Post(dn: Bool, o: Cr.Cir.Out, Q: Cr.Cir.State -> Type, H: U32 -> Cr.Cir.State -> Type) -> Type:
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       Q(st)
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       H(s, st)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Empty
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       ND(dn)
 
 # the run ends: anything but out of fuel
-def Ends(o: C.Cir.Out) -> Data:
+def Ends(o: Cr.Cir.Out) -> Data:
   match o:
-    case C.Cir.Out.next{_}:
+    case Cr.Cir.Out.next{_}:
       Unit
-    case C.Cir.Out.halt{_, _}:
+    case Cr.Cir.Out.halt{_, _}:
       Unit
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Unit
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Empty
 
 # a statement, then more: Q of the first gives what the rest may be
-def post.then(dn: Bool, o: C.Cir.Out, -k: C.Cir.State -> C.Cir.Out, -Q: C.Cir.State -> Type, -R: C.Cir.State -> Type,
-  -H1: U32 -> C.Cir.State -> Type, -H2: U32 -> C.Cir.State -> Type,
-  h: Post(dn, o, Q, H1), hh: @s: U32 -> @st: C.Cir.State -> H1(s, st) -> H2(s, st),
-  g: @st: C.Cir.State -> Q(st) -> Post(dn, k(st), R, H2)) -> Post(dn, C.Cir.exec.then(o, k), R, H2):
+def post.then(dn: Bool, o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -R: Cr.Cir.State -> Type,
+  -H1: U32 -> Cr.Cir.State -> Type, -H2: U32 -> Cr.Cir.State -> Type,
+  h: Post(dn, o, Q, H1), hh: @s: U32 -> @st: Cr.Cir.State -> H1(s, st) -> H2(s, st),
+  g: @st: Cr.Cir.State -> Q(st) -> Post(dn, k(st), R, H2)) -> Post(dn, Cr.Cir.exec.then(o, k), R, H2):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       g(st, h)
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       hh(s, st, h)
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       h
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       h
 
 # a then b, for any fuel
-def post.seq(+f: Nat, dn: Bool, a: C.Cir.Stmt, +b: C.Cir.Stmt, +st: C.Cir.State, -Q: C.Cir.State -> Type,
-  -R: C.Cir.State -> Type, -H1: U32 -> C.Cir.State -> Type, -H2: U32 -> C.Cir.State -> Type,
-  h: Post(dn, C.Cir.exec(f, a, st), Q, H1), hh: @s: U32 -> @st: C.Cir.State -> H1(s, st) -> H2(s, st),
-  g: @st: C.Cir.State -> Q(st) -> Post(dn, C.Cir.exec(f, b, st), R, H2)) ->
-  Post(dn, C.Cir.exec(f, C.Cir.Stmt.seq{a, b}, st), R, H2):
+def post.seq(+f: Nat, dn: Bool, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type,
+  -R: Cr.Cir.State -> Type, -H1: U32 -> Cr.Cir.State -> Type, -H2: U32 -> Cr.Cir.State -> Type,
+  h: Post(dn, Cr.Cir.exec(f, a, st), Q, H1), hh: @s: U32 -> @st: Cr.Cir.State -> H1(s, st) -> H2(s, st),
+  g: @st: Cr.Cir.State -> Q(st) -> Post(dn, Cr.Cir.exec(f, b, st), R, H2)) ->
+  Post(dn, Cr.Cir.exec(f, Cr.Cir.Stmt.seq{a, b}, st), R, H2):
   match f:
     case 0n:
-      post.then(dn, C.Cir.exec(0n, a, st), t => C.Cir.exec(0n, b, t), Q, R, H1, H2, h, hh, g)
+      post.then(dn, Cr.Cir.exec(0n, a, st), t => Cr.Cir.exec(0n, b, t), Q, R, H1, H2, h, hh, g)
     case 1n+p:
-      post.then(dn, C.Cir.exec(1n+p, a, st), t => C.Cir.exec(1n+p, b, t), Q, R, H1, H2, h, hh, g)
+      post.then(dn, Cr.Cir.exec(1n+p, a, st), t => Cr.Cir.exec(1n+p, b, t), Q, R, H1, H2, h, hh, g)
 
 # a run that ends, and holds what Post(False) says, holds what Post(True) says
-def post.ends(o: C.Cir.Out, -Q: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type, h: Post(False{}, o, Q, H),
+def post.ends(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, h: Post(False{}, o, Q, H),
   d: Ends(o)) -> Post(True{}, o, Q, H):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       h
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       h
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       h
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       d
 
 # Post(True) says the run ends
-def post.end(o: C.Cir.Out, -Q: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Type, h: Post(True{}, o, Q, H)) ->
+def post.end(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, h: Post(True{}, o, Q, H)) ->
   Ends(o):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       Unit{}
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       Unit{}
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Unit{}
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       h
 
 # More fuel
@@ -141,53 +146,53 @@ def post.end(o: C.Cir.Out, -Q: C.Cir.State -> Type, -H: U32 -> C.Cir.State -> Ty
 # A run that ends with the fuel f ends the same with any fuel g >= f (mono),
 # by induction on f, then on the statement.
 
-def ends.then(o: C.Cir.Out, -k: C.Cir.State -> C.Cir.Out, d: Ends(C.Cir.exec.then(o, k))) -> Ends(o):
+def ends.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, d: Ends(Cr.Cir.exec.then(o, k))) -> Ends(o):
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       Unit{}
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       Unit{}
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit{}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Unit{}
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       d
 
 # the rest of a seq, after the same outcome o
-def mono.then(o: C.Cir.Out, -f: Nat, -g: Nat, -b: C.Cir.Stmt, d: Ends(C.Cir.exec.then(o, t => C.Cir.exec(f, b, t))),
-  ih: @t: C.Cir.State -> Ends(C.Cir.exec(f, b, t)) -> {C.Cir.exec(f, b, t) == C.Cir.exec(g, b, t) : C.Cir.Out}) ->
-  {C.Cir.exec.then(o, t => C.Cir.exec(f, b, t)) == C.Cir.exec.then(o, t => C.Cir.exec(g, b, t)) : C.Cir.Out}:
+def mono.then(o: Cr.Cir.Out, -f: Nat, -g: Nat, -b: Cr.Cir.Stmt, d: Ends(Cr.Cir.exec.then(o, t => Cr.Cir.exec(f, b, t))),
+  ih: @t: Cr.Cir.State -> Ends(Cr.Cir.exec(f, b, t)) -> {Cr.Cir.exec(f, b, t) == Cr.Cir.exec(g, b, t) : Cr.Cir.Out}) ->
+  {Cr.Cir.exec.then(o, t => Cr.Cir.exec(f, b, t)) == Cr.Cir.exec.then(o, t => Cr.Cir.exec(g, b, t)) : Cr.Cir.Out}:
   match o:
-    case C.Cir.Out.next{st}:
+    case Cr.Cir.Out.next{st}:
       ih(st, d)
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       {==}
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       {==}
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       {==}
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       {==}
 
 # a seq: its first part by ha, then the rest by ih
-def mono.seq(+f: Nat, -g: Nat, +a: C.Cir.Stmt, -b: C.Cir.Stmt, +st: C.Cir.State,
-  +d: Ends(C.Cir.exec.then(C.Cir.exec(f, a, st), t => C.Cir.exec(f, b, t))),
-  ha: Ends(C.Cir.exec(f, a, st)) -> {C.Cir.exec(f, a, st) == C.Cir.exec(g, a, st) : C.Cir.Out},
-  ih: @t: C.Cir.State -> Ends(C.Cir.exec(f, b, t)) -> {C.Cir.exec(f, b, t) == C.Cir.exec(g, b, t) : C.Cir.Out}) ->
-  {C.Cir.exec.then(C.Cir.exec(f, a, st), t => C.Cir.exec(f, b, t)) ==
-    C.Cir.exec.then(C.Cir.exec(g, a, st), t => C.Cir.exec(g, b, t)) : C.Cir.Out}:
-  +e = ha(ends.then(C.Cir.exec(f, a, st), t => C.Cir.exec(f, b, t), d))
-  %e : {C.Cir.exec.then(C.Cir.exec(f, a, st), t => C.Cir.exec(f, b, t)) ==
-    C.Cir.exec.then(_, t => C.Cir.exec(g, b, t)) : C.Cir.Out}
-  mono.then(C.Cir.exec(f, a, st), f, g, b, d, ih)
+def mono.seq(+f: Nat, -g: Nat, +a: Cr.Cir.Stmt, -b: Cr.Cir.Stmt, +st: Cr.Cir.State,
+  +d: Ends(Cr.Cir.exec.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t))),
+  ha: Ends(Cr.Cir.exec(f, a, st)) -> {Cr.Cir.exec(f, a, st) == Cr.Cir.exec(g, a, st) : Cr.Cir.Out},
+  ih: @t: Cr.Cir.State -> Ends(Cr.Cir.exec(f, b, t)) -> {Cr.Cir.exec(f, b, t) == Cr.Cir.exec(g, b, t) : Cr.Cir.Out}) ->
+  {Cr.Cir.exec.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t)) ==
+    Cr.Cir.exec.then(Cr.Cir.exec(g, a, st), t => Cr.Cir.exec(g, b, t)) : Cr.Cir.Out}:
+  +e = ha(ends.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t), d))
+  %e : {Cr.Cir.exec.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t)) ==
+    Cr.Cir.exec.then(_, t => Cr.Cir.exec(g, b, t)) : Cr.Cir.Out}
+  mono.then(Cr.Cir.exec(f, a, st), f, g, b, d, ih)
 
-def mono.if.of(z: Bool, -f: Nat, -g: Nat, -t: C.Cir.Stmt, -e: C.Cir.Stmt, -st: C.Cir.State,
-  d: Ends(C.Cir.exec.if.of(z, u => C.Cir.exec(f, t, st), u => C.Cir.exec(f, e, st))),
-  ht: Ends(C.Cir.exec(f, t, st)) -> {C.Cir.exec(f, t, st) == C.Cir.exec(g, t, st) : C.Cir.Out},
-  he: Ends(C.Cir.exec(f, e, st)) -> {C.Cir.exec(f, e, st) == C.Cir.exec(g, e, st) : C.Cir.Out}) ->
-  {C.Cir.exec.if.of(z, u => C.Cir.exec(f, t, st), u => C.Cir.exec(f, e, st)) ==
-    C.Cir.exec.if.of(z, u => C.Cir.exec(g, t, st), u => C.Cir.exec(g, e, st)) : C.Cir.Out}:
+def mono.if.of(z: Bool, -f: Nat, -g: Nat, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, -st: Cr.Cir.State,
+  d: Ends(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st))),
+  ht: Ends(Cr.Cir.exec(f, t, st)) -> {Cr.Cir.exec(f, t, st) == Cr.Cir.exec(g, t, st) : Cr.Cir.Out},
+  he: Ends(Cr.Cir.exec(f, e, st)) -> {Cr.Cir.exec(f, e, st) == Cr.Cir.exec(g, e, st) : Cr.Cir.Out}) ->
+  {Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st)) ==
+    Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(g, t, st), u => Cr.Cir.exec(g, e, st)) : Cr.Cir.Out}:
   match z:
     case False{}:
       ht(d)
@@ -195,28 +200,28 @@ def mono.if.of(z: Bool, -f: Nat, -g: Nat, -t: C.Cir.Stmt, -e: C.Cir.Stmt, -st: C
       he(d)
 
 # an if: the branch that its condition takes
-def mono.if(c: Maybe<&2, U32>, -f: Nat, -g: Nat, -t: C.Cir.Stmt, -e: C.Cir.Stmt, -st: C.Cir.State,
-  d: Ends(C.Cir.exec.if(c, u => C.Cir.exec(f, t, st), u => C.Cir.exec(f, e, st))),
-  ht: Ends(C.Cir.exec(f, t, st)) -> {C.Cir.exec(f, t, st) == C.Cir.exec(g, t, st) : C.Cir.Out},
-  he: Ends(C.Cir.exec(f, e, st)) -> {C.Cir.exec(f, e, st) == C.Cir.exec(g, e, st) : C.Cir.Out}) ->
-  {C.Cir.exec.if(c, u => C.Cir.exec(f, t, st), u => C.Cir.exec(f, e, st)) ==
-    C.Cir.exec.if(c, u => C.Cir.exec(g, t, st), u => C.Cir.exec(g, e, st)) : C.Cir.Out}:
+def mono.if(c: Maybe<&2, U32>, -f: Nat, -g: Nat, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, -st: Cr.Cir.State,
+  d: Ends(Cr.Cir.exec.if(c, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st))),
+  ht: Ends(Cr.Cir.exec(f, t, st)) -> {Cr.Cir.exec(f, t, st) == Cr.Cir.exec(g, t, st) : Cr.Cir.Out},
+  he: Ends(Cr.Cir.exec(f, e, st)) -> {Cr.Cir.exec(f, e, st) == Cr.Cir.exec(g, e, st) : Cr.Cir.Out}) ->
+  {Cr.Cir.exec.if(c, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st)) ==
+    Cr.Cir.exec.if(c, u => Cr.Cir.exec(g, t, st), u => Cr.Cir.exec(g, e, st)) : Cr.Cir.Out}:
   match c:
     case Some{x}:
       mono.if.of(U32.is_zero(x), f, g, t, e, st, d, ht, he)
     case None{}:
       {==}
 
-def mono.wh.of(z: Bool, -f: Nat, -g: Nat, -c: C.Cir.Expr, -body: C.Cir.Stmt, -st: C.Cir.State,
-  d: Ends(C.Cir.exec.if.of(z, u => C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)),
-    u => C.Cir.Out.next{st})),
-  h: Ends(C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t))) ->
-    {C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)) ==
-      C.Cir.exec.then(C.Cir.exec(g, body, st), t => C.Cir.exec(g, C.Cir.Stmt.while{c, body}, t)) : C.Cir.Out}) ->
-  {C.Cir.exec.if.of(z, u => C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)),
-    u => C.Cir.Out.next{st}) ==
-   C.Cir.exec.if.of(z, u => C.Cir.exec.then(C.Cir.exec(g, body, st), t => C.Cir.exec(g, C.Cir.Stmt.while{c, body}, t)),
-    u => C.Cir.Out.next{st}) : C.Cir.Out}:
+def mono.wh.of(z: Bool, -f: Nat, -g: Nat, -c: Cr.Cir.Expr, -body: Cr.Cir.Stmt, -st: Cr.Cir.State,
+  d: Ends(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
+    u => Cr.Cir.Out.next{st})),
+  h: Ends(Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t))) ->
+    {Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)) ==
+      Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)) : Cr.Cir.Out}) ->
+  {Cr.Cir.exec.if.of(z, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
+    u => Cr.Cir.Out.next{st}) ==
+   Cr.Cir.exec.if.of(z, u => Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)),
+    u => Cr.Cir.Out.next{st}) : Cr.Cir.Out}:
   match z:
     case False{}:
       h(d)
@@ -224,16 +229,16 @@ def mono.wh.of(z: Bool, -f: Nat, -g: Nat, -c: C.Cir.Expr, -body: C.Cir.Stmt, -st
       {==}
 
 # a round of a while: its body, then the while again
-def mono.wh(v: Maybe<&2, U32>, -f: Nat, -g: Nat, -c: C.Cir.Expr, -body: C.Cir.Stmt, -st: C.Cir.State,
-  d: Ends(C.Cir.exec.if(v, u => C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)),
-    u => C.Cir.Out.next{st})),
-  h: Ends(C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t))) ->
-    {C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)) ==
-      C.Cir.exec.then(C.Cir.exec(g, body, st), t => C.Cir.exec(g, C.Cir.Stmt.while{c, body}, t)) : C.Cir.Out}) ->
-  {C.Cir.exec.if(v, u => C.Cir.exec.then(C.Cir.exec(f, body, st), t => C.Cir.exec(f, C.Cir.Stmt.while{c, body}, t)),
-    u => C.Cir.Out.next{st}) ==
-   C.Cir.exec.if(v, u => C.Cir.exec.then(C.Cir.exec(g, body, st), t => C.Cir.exec(g, C.Cir.Stmt.while{c, body}, t)),
-    u => C.Cir.Out.next{st}) : C.Cir.Out}:
+def mono.wh(v: Maybe<&2, U32>, -f: Nat, -g: Nat, -c: Cr.Cir.Expr, -body: Cr.Cir.Stmt, -st: Cr.Cir.State,
+  d: Ends(Cr.Cir.exec.if(v, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
+    u => Cr.Cir.Out.next{st})),
+  h: Ends(Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t))) ->
+    {Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)) ==
+      Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)) : Cr.Cir.Out}) ->
+  {Cr.Cir.exec.if(v, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
+    u => Cr.Cir.Out.next{st}) ==
+   Cr.Cir.exec.if(v, u => Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)),
+    u => Cr.Cir.Out.next{st}) : Cr.Cir.Out}:
   match v:
     case Some{x}:
       mono.wh.of(U32.is_zero(x), f, g, c, body, st, d, h)
@@ -241,56 +246,56 @@ def mono.wh(v: Maybe<&2, U32>, -f: Nat, -g: Nat, -c: C.Cir.Expr, -body: C.Cir.St
       {==}
 
 # more fuel keeps a run that ends
-def mono(+f: Nat, +g: Nat, +s: C.Cir.Stmt, +st: C.Cir.State, +le: N.Le(f, g), +d: Ends(C.Cir.exec(f, s, st))) ->
-  {C.Cir.exec(f, s, st) == C.Cir.exec(g, s, st) : C.Cir.Out}:
+def mono(+f: Nat, +g: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, +le: N.Le(f, g), +d: Ends(Cr.Cir.exec(f, s, st))) ->
+  {Cr.Cir.exec(f, s, st) == Cr.Cir.exec(g, s, st) : Cr.Cir.Out}:
   match f g:
     case 0n 0n:
       {==}
     case 0n 1n+h:
       match s:
-        case C.Cir.Stmt.nop{}:
+        case Cr.Cir.Stmt.nop{}:
           {==}
-        case C.Cir.Stmt.set{r, e}:
+        case Cr.Cir.Stmt.set{r, e}:
           {==}
-        case C.Cir.Stmt.store{k, c, v}:
+        case Cr.Cir.Stmt.store{k, c, v}:
           {==}
-        case C.Cir.Stmt.alloc{r}:
+        case Cr.Cir.Stmt.alloc{r}:
           {==}
-        case C.Cir.Stmt.emit{v}:
+        case Cr.Cir.Stmt.emit{v}:
           {==}
-        case C.Cir.Stmt.seq{+a, +b}:
+        case Cr.Cir.Stmt.seq{+a, +b}:
           mono.seq(0n, 1n+h, a, b, st, d, x => mono(0n, 1n+h, a, st, le, x), t => x => mono(0n, 1n+h, b, t, le, x))
-        case C.Cir.Stmt.if{c, +t, +e}:
-          mono.if(C.Cir.eval(c, st), 0n, 1n+h, t, e, st, d, x => mono(0n, 1n+h, t, st, le, x),
+        case Cr.Cir.Stmt.if{c, +t, +e}:
+          mono.if(Cr.Cir.eval(c, st), 0n, 1n+h, t, e, st, d, x => mono(0n, 1n+h, t, st, le, x),
             x => mono(0n, 1n+h, e, st, le, x))
-        case C.Cir.Stmt.while{c, body}:
-          Empty.absurd({C.Cir.exec(0n, C.Cir.Stmt.while{c, body}, st) == C.Cir.exec(1n+h, C.Cir.Stmt.while{c, body}, st) : C.Cir.Out}, d)
-        case C.Cir.Stmt.halt{x}:
+        case Cr.Cir.Stmt.while{c, body}:
+          Empty.absurd({Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, body}, st) == Cr.Cir.exec(1n+h, Cr.Cir.Stmt.while{c, body}, st) : Cr.Cir.Out}, d)
+        case Cr.Cir.Stmt.halt{x}:
           {==}
     case 1n+p 0n:
-      Empty.absurd({C.Cir.exec(1n+p, s, st) == C.Cir.exec(0n, s, st) : C.Cir.Out}, le)
+      Empty.absurd({Cr.Cir.exec(1n+p, s, st) == Cr.Cir.exec(0n, s, st) : Cr.Cir.Out}, le)
     case 1n+p 1n+h:
       match s:
-        case C.Cir.Stmt.nop{}:
+        case Cr.Cir.Stmt.nop{}:
           {==}
-        case C.Cir.Stmt.set{r, e}:
+        case Cr.Cir.Stmt.set{r, e}:
           {==}
-        case C.Cir.Stmt.store{k, c, v}:
+        case Cr.Cir.Stmt.store{k, c, v}:
           {==}
-        case C.Cir.Stmt.alloc{r}:
+        case Cr.Cir.Stmt.alloc{r}:
           {==}
-        case C.Cir.Stmt.emit{v}:
+        case Cr.Cir.Stmt.emit{v}:
           {==}
-        case C.Cir.Stmt.seq{+a, +b}:
+        case Cr.Cir.Stmt.seq{+a, +b}:
           mono.seq(1n+p, 1n+h, a, b, st, d, x => mono(1n+p, 1n+h, a, st, le, x), t => x => mono(1n+p, 1n+h, b, t, le, x))
-        case C.Cir.Stmt.if{c, +t, +e}:
-          mono.if(C.Cir.eval(c, st), 1n+p, 1n+h, t, e, st, d, x => mono(1n+p, 1n+h, t, st, le, x),
+        case Cr.Cir.Stmt.if{c, +t, +e}:
+          mono.if(Cr.Cir.eval(c, st), 1n+p, 1n+h, t, e, st, d, x => mono(1n+p, 1n+h, t, st, le, x),
             x => mono(1n+p, 1n+h, e, st, le, x))
-        case C.Cir.Stmt.while{+c, +body}:
-          mono.wh(C.Cir.eval(c, st), p, h, c, body, st, d,
-            x => mono.seq(p, h, body, C.Cir.Stmt.while{c, body}, st, x, y => mono(p, h, body, st, le, y),
-              t => y => mono(p, h, C.Cir.Stmt.while{c, body}, t, le, y)))
-        case C.Cir.Stmt.halt{x}:
+        case Cr.Cir.Stmt.while{+c, +body}:
+          mono.wh(Cr.Cir.eval(c, st), p, h, c, body, st, d,
+            x => mono.seq(p, h, body, Cr.Cir.Stmt.while{c, body}, st, x, y => mono(p, h, body, st, le, y),
+              t => y => mono(p, h, Cr.Cir.Stmt.while{c, body}, t, le, y)))
+        case Cr.Cir.Stmt.halt{x}:
           {==}
 
 # Terms of states
@@ -335,32 +340,32 @@ def FK.tag(k: FK) -> U32:
       40
 
 type AF is Data:
-  AF{kind: FK, q: C.Quan, k: Bool, a: C.Term, b: C.Term}
+  AF{kind: FK, q: Bk.Quan, k: Bool, a: Bk.Term, b: Bk.Term}
 
 # the frame with t in its hole (Frame.plug)
-def A.plug(fr: AF, t: C.Term) -> C.Term:
+def A.plug(fr: AF, t: Bk.Term) -> Bk.Term:
   match fr:
     case AF{FK.arg{}, q, _, a, _}:
-      C.Term.App{q, t, a}
+      Bk.Term.App{q, t, a}
     case AF{FK.val{}, q, _, a, _}:
-      C.Term.App{q, t, a}
+      Bk.Term.App{q, t, a}
     case AF{FK.fun{}, q, _, a, _}:
-      C.Term.App{q, a, t}
+      Bk.Term.App{q, a, t}
     case AF{FK.let{}, q, _, a, _}:
-      C.Term.Let{q, t, a}
+      Bk.Term.Let{q, t, a}
     case AF{FK.tupb{}, q, _, a, _}:
-      C.Term.Tup{q, t, a}
+      Bk.Term.Tup{q, t, a}
     case AF{FK.tupa{}, q, _, a, _}:
-      C.Term.Tup{q, a, t}
+      Bk.Term.Tup{q, a, t}
     case AF{FK.rwt{}, _, _, a, b}:
-      C.Term.Rwt{t, a, b}
+      Bk.Term.Rwt{t, a, b}
     case AF{FK.minb{}, _, _, a, _}:
-      C.Term.Min{t, a}
+      Bk.Term.Min{t, a}
     case AF{FK.mina{}, _, _, a, _}:
-      C.Term.Min{a, t}
+      Bk.Term.Min{a, t}
 
 # the frames fs around t, the innermost first (plugs)
-def A.plugs(fs: List<&2, AF>, t: C.Term) -> C.Term:
+def A.plugs(fs: List<&2, AF>, t: Bk.Term) -> Bk.Term:
   match fs:
     case Nil{}:
       t
@@ -375,17 +380,17 @@ def Nat.of(b: Bool) -> Nat:
       0n
 
 # 3 × the nodes of t: the measure of a term to evaluate
-def A.w3(t: C.Term) -> Nat:
-  +s = C.Term.size(t)
+def A.w3(t: Bk.Term) -> Nat:
+  +s = Pg.Term.size(t)
   Nat.add(s, Nat.add(s, s))
 
 # the measure of a frame: what its admin moves still cost, before a step
 def A.w.frame(fr: AF) -> Nat:
   match fr:
     case AF{FK.arg{}, +q, +k, a, _}:
-      Bool.pick(Nat, Bool.and(C.Quan.live(q), Bool.not(k)), 2n+A.w3(a), 1n)
+      Bool.pick(Nat, Bool.and(El.Quan.live(q), Bool.not(k)), 2n+A.w3(a), 1n)
     case AF{FK.val{}, +q, +k, a, _}:
-      Bool.pick(Nat, Bool.and(C.Quan.live(q), Bool.not(k)), 2n+A.w3(a), 1n)
+      Bool.pick(Nat, Bool.and(El.Quan.live(q), Bool.not(k)), 2n+A.w3(a), 1n)
     case AF{FK.fun{}, _, _, _, _}:
       1n
     case AF{FK.let{}, _, _, _, _}:
@@ -409,34 +414,34 @@ def A.w.frames(fs: List<&2, AF>) -> Nat:
       Nat.add(A.w.frame(fr), A.w.frames(rest))
 
 # the measure of a state: its frames', and its focus' when it is to evaluate
-def A.w(ret: Bool, focus: C.Term, fs: List<&2, AF>) -> Nat:
+def A.w(ret: Bool, focus: Bk.Term, fs: List<&2, AF>) -> Nat:
   Nat.add(Bool.pick(Nat, ret, 0n, A.w3(focus)), A.w.frames(fs))
 
 # what a frame knows (Frame.Ok): the function of App q f □ is a value, and q
 # is live; a known argument is a value; Let and Tup □ b are live; the first
 # field of Tup q a □ is a value when q is live; Min a □ holds a value
-def AF.ok(+ds: List<&2, C.Def>, fr: AF) -> Data:
+def AF.ok(+ds: List<&2, Bk.Def>, fr: AF) -> Data:
   match fr:
     case AF{FK.arg{}, _, k, a, _}:
-      {Bool.or(Bool.not(k), C.Eval.vals(ds, a, False{})) == True{} : Bool}
+      {Bool.or(Bool.not(k), El.Eval.vals(ds, a, False{})) == True{} : Bool}
     case AF{FK.val{}, _, k, a, _}:
-      {Bool.or(Bool.not(k), C.Eval.vals(ds, a, False{})) == True{} : Bool}
+      {Bool.or(Bool.not(k), El.Eval.vals(ds, a, False{})) == True{} : Bool}
     case AF{FK.fun{}, q, _, a, _}:
-      {Bool.and(C.Quan.live(q), C.Eval.vals(ds, a, False{})) == True{} : Bool}
+      {Bool.and(El.Quan.live(q), El.Eval.vals(ds, a, False{})) == True{} : Bool}
     case AF{FK.let{}, q, _, _, _}:
-      {C.Quan.live(q) == True{} : Bool}
+      {El.Quan.live(q) == True{} : Bool}
     case AF{FK.tupb{}, q, _, _, _}:
-      {C.Quan.live(q) == True{} : Bool}
+      {El.Quan.live(q) == True{} : Bool}
     case AF{FK.tupa{}, q, _, a, _}:
-      {Bool.or(Bool.not(C.Quan.live(q)), C.Eval.vals(ds, a, False{})) == True{} : Bool}
+      {Bool.or(Bool.not(El.Quan.live(q)), El.Eval.vals(ds, a, False{})) == True{} : Bool}
     case AF{FK.rwt{}, _, _, _, _}:
       Unit
     case AF{FK.minb{}, _, _, _, _}:
       Unit
     case AF{FK.mina{}, _, _, a, _}:
-      {C.Eval.vals(ds, a, False{}) == True{} : Bool}
+      {El.Eval.vals(ds, a, False{}) == True{} : Bool}
 
-def AFs.ok(+ds: List<&2, C.Def>, fs: List<&2, AF>) -> Data:
+def AFs.ok(+ds: List<&2, Bk.Def>, fs: List<&2, AF>) -> Data:
   match fs:
     case Nil{}:
       Unit
@@ -447,20 +452,20 @@ def AFs.ok(+ds: List<&2, C.Def>, fs: List<&2, AF>) -> Data:
 # -------------
 
 # field k of the cell c
-def Fd(k: Nat, m: C.Cir.Cells, +c: U32) -> U32:
-  C.Cir.Cell.get(k, C.Cir.Cells.get(m, c))
+def Fd(k: Nat, m: Cr.Cir.Cells, +c: U32) -> U32:
+  Cr.Cir.Cell.get(k, Cr.Cir.Cells.get(m, c))
 
 # the parts of field 0, as the machine reads them (M.tag, M.q, M.flag, M.fv)
-def Tg(m: C.Cir.Cells, +c: U32) -> U32:
+def Tg(m: Cr.Cir.Cells, +c: U32) -> U32:
   U32.and(Fd(0n, m, c), 63)
 
-def Qn(m: C.Cir.Cells, +c: U32) -> U32:
+def Qn(m: Cr.Cir.Cells, +c: U32) -> U32:
   U32.and(U32.shrn(Fd(0n, m, c), 6n), 3)
 
-def Fl(m: C.Cir.Cells, +c: U32, fl: U32) -> Bool:
+def Fl(m: Cr.Cir.Cells, +c: U32, fl: U32) -> Bool:
   U32.is_ne(U32.and(Fd(0n, m, c), fl), 0)
 
-def Fv(m: C.Cir.Cells, +c: U32) -> U32:
+def Fv(m: Cr.Cir.Cells, +c: U32) -> U32:
   U32.shrn(Fd(0n, m, c), 13n)
 
 # c is one of the machine's own cells, from fi, before nx
@@ -468,45 +473,45 @@ def Own(+fi: U32, +nx: U32, +c: U32) -> Bool:
   Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx))
 
 # every free variable of t is below n (Term.subst's binders)
-def Term.below(t: C.Term, +n: Nat) -> Bool:
+def Term.below(t: Bk.Term, +n: Nat) -> Bool:
   match t:
-    case C.Term.Var{i}:
+    case Bk.Term.Var{i}:
       Nat.is_lt(i, n)
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       True{}
-    case C.Term.Ann{x, T}:
+    case Bk.Term.Ann{x, T}:
       Bool.and(Term.below(x, n), Term.below(T, n))
-    case C.Term.Let{_, v, f}:
+    case Bk.Term.Let{_, v, f}:
       Bool.and(Term.below(v, n), Term.below(f, 1n+n))
-    case C.Term.Typ{x}:
+    case Bk.Term.Typ{x}:
       Term.below(x, n)
-    case C.Term.Min{a, b}:
+    case Bk.Term.Min{a, b}:
       Bool.and(Term.below(a, n), Term.below(b, n))
-    case C.Term.All{_, A, B}:
+    case Bk.Term.All{_, A, B}:
       Bool.and(Term.below(A, n), Term.below(B, 1n+n))
-    case C.Term.Lam{_, f}:
+    case Bk.Term.Lam{_, f}:
       Term.below(f, 1n+n)
-    case C.Term.App{_, f, x}:
+    case Bk.Term.App{_, f, x}:
       Bool.and(Term.below(f, n), Term.below(x, n))
-    case C.Term.Sig{_, A, B}:
+    case Bk.Term.Sig{_, A, B}:
       Bool.and(Term.below(A, n), Term.below(B, 1n+n))
-    case C.Term.Tup{_, a, b}:
+    case Bk.Term.Tup{_, a, b}:
       Bool.and(Term.below(a, n), Term.below(b, n))
-    case C.Term.Prj{h}:
+    case Bk.Term.Prj{h}:
       Term.below(h, n)
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       True{}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       True{}
-    case C.Term.Mat{_, h, m}:
+    case Bk.Term.Mat{_, h, m}:
       Bool.and(Term.below(h, n), Term.below(m, n))
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       True{}
-    case C.Term.Eql{a, b, T}:
+    case Bk.Term.Eql{a, b, T}:
       Bool.and(Term.below(a, n), Bool.and(Term.below(b, n), Term.below(T, n)))
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       True{}
-    case C.Term.Rwt{e, P, f}:
+    case Bk.Term.Rwt{e, P, f}:
       Bool.and(Term.below(e, n), Bool.and(Term.below(P, 2n+n), Term.below(f, n)))
 
 # the parts of field 0 of a cell, as the machine reads them
@@ -526,10 +531,10 @@ def FvW(+f0: U32) -> U32:
 # it (Is, Inv): t is Data. Inside M.data the flag may be set ahead of the
 # check that fails (the run then halts), so the heap's operations hold for
 # either dk (HSK)
-def DataK(dk: Bool, +f0: U32, t: C.Term) -> Data:
+def DataK(dk: Bool, +f0: U32, t: Bk.Term) -> Data:
   match dk:
     case True{}:
-      {Bool.or(Bool.not(FlW(f0, 512)), C.Term.is_data(t)) == True{} : Bool}
+      {Bool.or(Bool.not(FlW(f0, 512)), El.Term.is_data(t)) == True{} : Bool}
     case False{}:
       Unit
 
@@ -537,106 +542,106 @@ def DataK(dk: Bool, +f0: U32, t: C.Term) -> Data:
 # cell; one of the machine's own, or STATIC; its tag; VALUE says t is a value,
 # DATA that it is Data (when dk); fv bounds its free variables, unless it is
 # fv_max
-def NdK(+dk: Bool, +ds: List<&2, C.Def>, +im: U32, +fi: U32, +nx: U32, +c: U32, +x: C.Cir.Cell, +t: C.Term, +tag: U32) -> Data:
-  +f0 = C.Cir.Cell.get(0n, x)
-  P2({C.Cir.is_cell(c, im, fi, nx) == True{} : Bool},
+def NdK(+dk: Bool, +ds: List<&2, Bk.Def>, +im: U32, +fi: U32, +nx: U32, +c: U32, +x: Cr.Cir.Cell, +t: Bk.Term, +tag: U32) -> Data:
+  +f0 = Cr.Cir.Cell.get(0n, x)
+  P2({Cr.Cir.is_cell(c, im, fi, nx) == True{} : Bool},
   P2({Bool.or(Own(fi, nx, c), FlW(f0, 1024)) == True{} : Bool},
   P2({TgW(f0) == tag : U32},
-  P2({Bool.or(Bool.not(FlW(f0, 256)), C.Eval.vals(ds, t, False{})) == True{} : Bool},
+  P2({Bool.or(Bool.not(FlW(f0, 256)), El.Eval.vals(ds, t, False{})) == True{} : Bool},
   P2(DataK(dk, f0, t),
     {Bool.or(U32.is_eq(FvW(f0), 524287), Term.below(t, U32.to_nat(FvW(f0)))) == True{} : Bool})))))
 
-def Nd(+ds: List<&2, C.Def>, +im: U32, +fi: U32, +nx: U32, +c: U32, +x: C.Cir.Cell, +t: C.Term, +tag: U32) -> Data:
+def Nd(+ds: List<&2, Bk.Def>, +im: U32, +fi: U32, +nx: U32, +c: U32, +x: Cr.Cir.Cell, +t: Bk.Term, +tag: U32) -> Data:
   NdK(True{}, ds, im, fi, nx, c, x, t, tag)
 
 # the quantity of the cell x is q
-def Qs(+x: C.Cir.Cell, q: C.Quan) -> Data:
-  {QnW(C.Cir.Cell.get(0n, x)) == C.Img.quan(q) : U32}
+def Qs(+x: Cr.Cir.Cell, q: Bk.Quan) -> Data:
+  {QnW(Cr.Cir.Cell.get(0n, x)) == Mc.Img.quan(q) : U32}
 
 # the name of a label or a λ-match: its place in the image's names ks, the
 # first of the name k
-def Nm(+ks: List<&2, List<&2, Word(8n)>>, +x: C.Cir.Cell, +k: List<&2, Word(8n)>) -> Data:
-  P2({T.tm.name(ks, C.Cir.Cell.get(2n, x)) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
-    {C.Cir.Cell.get(2n, x) == C.Img.id(ks, k, 0) : U32})
+def Nm(+ks: List<&2, List<&2, Word(8n)>>, +x: Cr.Cir.Cell, +k: List<&2, Word(8n)>) -> Data:
+  P2({T.tm.name(ks, Cr.Cir.Cell.get(2n, x)) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+    {Cr.Cir.Cell.get(2n, x) == Mc.Img.id(ks, k, 0) : U32})
 
 # a part y of the cell c is STATIC, or c is one of the machine's own: no cell of
 # the image points to one of the machine's
-def Sp(+fi: U32, +nx: U32, +c: U32, +y: C.Cir.Cell) -> Data:
-  {Bool.or(Own(fi, nx, c), FlW(C.Cir.Cell.get(0n, y), 1024)) == True{} : Bool}
+def Sp(+fi: U32, +nx: U32, +c: U32, +y: Cr.Cir.Cell) -> Data:
+  {Bool.or(Own(fi, nx, c), FlW(Cr.Cir.Cell.get(0n, y), 1024)) == True{} : Bool}
 
 # the cell c, of the value x in the cells m, stands for the term t: by the
 # tag and the parts of each of its cells, as T.tm.of reads them; a Ref or an
 # Enu is one of the image's, img its term, and a Ref holds the body of the
 # first def of its name, where the image places it (Img.ref)
-def IsCK(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, +x: C.Cir.Cell, t: C.Term) -> Data:
+def IsCK(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, +x: Cr.Cir.Cell, t: Bk.Term) -> Data:
   match t:
-    case C.Term.Var{+i}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Var{i}, 0), {U32.to_nat(C.Cir.Cell.get(2n, x)) == i : Nat})
-    case C.Term.Ref{+k}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Ref{k}, 1),
-      P2({T.tm.image(img, c) == Some{C.Term.Ref{k}} : Maybe<&2, C.Term>},
-      P2({FvW(C.Cir.Cell.get(0n, x)) == 0 : U32},
-        {C.Cir.Cell.get(2n, x) == C.Img.ref(C.Img.defs(ds, C.I.book()), k) : U32})))
-    case C.Term.Ann{+y, +z}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Ann{y, z}, 2),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), y)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), z))))
-    case C.Term.Let{+q, +v, +f}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Let{q, v, f}, 3), P2(Qs(x, q),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), v)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), f)))))
-    case C.Term.Typ{+y}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Typ{y}, 4), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), y)))
-    case C.Term.Min{+a, +b}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Min{a, b}, 5),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), b))))
-    case C.Term.All{+q, +a, +b}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.All{q, a, b}, 6), P2(Qs(x, q),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), b)))))
-    case C.Term.Lam{+q, +f}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Lam{q, f}, 7), P2(Qs(x, q), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), f))))
-    case C.Term.App{+q, +f, +y}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.App{q, f, y}, 8), P2(Qs(x, q),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), f)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), y)))))
-    case C.Term.Sig{+q, +a, +b}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Sig{q, a, b}, 9), P2(Qs(x, q),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), b)))))
-    case C.Term.Tup{+q, +a, +b}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Tup{q, a, b}, 10), P2(Qs(x, q),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), b)))))
-    case C.Term.Prj{+h}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Prj{h}, 11), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), h)))
-    case C.Term.Enu{+e}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Enu{e}, 12),
-      P2({T.tm.image(img, c) == Some{C.Term.Enu{e}} : Maybe<&2, C.Term>}, {FvW(C.Cir.Cell.get(0n, x)) == 0 : U32}))
-    case C.Term.Lab{+k}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Lab{k}, 13), Nm(ks, x, k))
-    case C.Term.Mat{+k, +h, +n}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Mat{k, h, n}, 14), P2(Nm(ks, x, k),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), h)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(4n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(4n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(4n, x)), n)))))
-    case C.Term.Efq{}:
-      NdK(dk, ds, im, fi, nx, c, x, C.Term.Efq{}, 15)
-    case C.Term.Eql{+a, +b, +y}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Eql{a, b, y}, 16),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), a)),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), b)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(4n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(4n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(4n, x)), y)))))
-    case C.Term.Rfl{}:
-      NdK(dk, ds, im, fi, nx, c, x, C.Term.Rfl{}, 17)
-    case C.Term.Rwt{+e, +p, +f}:
-      P2(NdK(dk, ds, im, fi, nx, c, x, C.Term.Rwt{e, p, f}, 18),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, x)), e)),
-      P2(P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, x)), p)), P2(Sp(fi, nx, c, C.Cir.Cells.get(m, C.Cir.Cell.get(4n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(4n, x), C.Cir.Cells.get(m, C.Cir.Cell.get(4n, x)), f)))))
+    case Bk.Term.Var{+i}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Var{i}, 0), {U32.to_nat(Cr.Cir.Cell.get(2n, x)) == i : Nat})
+    case Bk.Term.Ref{+k}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Ref{k}, 1),
+      P2({T.tm.image(img, c) == Some{Bk.Term.Ref{k}} : Maybe<&2, Bk.Term>},
+      P2({FvW(Cr.Cir.Cell.get(0n, x)) == 0 : U32},
+        {Cr.Cir.Cell.get(2n, x) == Mc.Img.ref(Mc.Img.defs(ds, Mc.I.book()), k) : U32})))
+    case Bk.Term.Ann{+y, +z}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Ann{y, z}, 2),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), y)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), z))))
+    case Bk.Term.Let{+q, +v, +f}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Let{q, v, f}, 3), P2(Qs(x, q),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), v)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), f)))))
+    case Bk.Term.Typ{+y}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Typ{y}, 4), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), y)))
+    case Bk.Term.Min{+a, +b}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Min{a, b}, 5),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), b))))
+    case Bk.Term.All{+q, +a, +b}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.All{q, a, b}, 6), P2(Qs(x, q),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), b)))))
+    case Bk.Term.Lam{+q, +f}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Lam{q, f}, 7), P2(Qs(x, q), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), f))))
+    case Bk.Term.App{+q, +f, +y}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.App{q, f, y}, 8), P2(Qs(x, q),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), f)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), y)))))
+    case Bk.Term.Sig{+q, +a, +b}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Sig{q, a, b}, 9), P2(Qs(x, q),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), b)))))
+    case Bk.Term.Tup{+q, +a, +b}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Tup{q, a, b}, 10), P2(Qs(x, q),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), a)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), b)))))
+    case Bk.Term.Prj{+h}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Prj{h}, 11), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), h)))
+    case Bk.Term.Enu{+e}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Enu{e}, 12),
+      P2({T.tm.image(img, c) == Some{Bk.Term.Enu{e}} : Maybe<&2, Bk.Term>}, {FvW(Cr.Cir.Cell.get(0n, x)) == 0 : U32}))
+    case Bk.Term.Lab{+k}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Lab{k}, 13), Nm(ks, x, k))
+    case Bk.Term.Mat{+k, +h, +n}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Mat{k, h, n}, 14), P2(Nm(ks, x, k),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), h)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x)), n)))))
+    case Bk.Term.Efq{}:
+      NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Efq{}, 15)
+    case Bk.Term.Eql{+a, +b, +y}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Eql{a, b, y}, 16),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), a)),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), b)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x)), y)))))
+    case Bk.Term.Rfl{}:
+      NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Rfl{}, 17)
+    case Bk.Term.Rwt{+e, +p, +f}:
+      P2(NdK(dk, ds, im, fi, nx, c, x, Bk.Term.Rwt{e, p, f}, 18),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)), e)),
+      P2(P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)), p)), P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x))), IsCK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, x), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x)), f)))))
 
-def IsC(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, +x: C.Cir.Cell, t: C.Term) -> Data:
+def IsC(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, +x: Cr.Cir.Cell, t: Bk.Term) -> Data:
   IsCK(True{}, ds, m, im, fi, nx, ks, img, c, x, t)
 
 # the cell c of the cells m stands for the term t (with DATA's meaning when dk)
-def IsK(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, t: C.Term) -> Data:
-  IsCK(dk, ds, m, im, fi, nx, ks, img, c, C.Cir.Cells.get(m, c), t)
+def IsK(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, t: Bk.Term) -> Data:
+  IsCK(dk, ds, m, im, fi, nx, ks, img, c, Cr.Cir.Cells.get(m, c), t)
 
-def Is(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, t: C.Term) -> Data:
+def Is(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, t: Bk.Term) -> Data:
   IsK(True{}, ds, m, im, fi, nx, ks, img, c, t)
 
 def Mem(xs: List<&2, U32>, +c: U32) -> Bool:
@@ -647,42 +652,42 @@ def Mem(xs: List<&2, U32>, +c: U32) -> Bool:
       Bool.or(U32.is_eq(x, c), Mem(rest, c))
 
 # the part b of a frame: in field 3, for Rwt only
-def Frs.bK(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, kind: FK, b: C.Term) -> Data:
+def Frs.bK(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, kind: FK, b: Bk.Term) -> Data:
   match kind:
     case FK.rwt{}:
       IsK(dk, ds, m, im, fi, nx, ks, img, c, b)
     case _:
       Unit
 
-def Frs.b(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, kind: FK, b: C.Term) -> Data:
+def Frs.b(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, kind: FK, b: Bk.Term) -> Data:
   Frs.bK(True{}, ds, m, im, fi, nx, ks, img, c, kind, b)
 
 # the frames from the cell fr on, linked by field 1, the innermost first: each
 # one of the machine's own cells, not STATIC, not in the pend list ps, of its
 # kind's tag, its quantity and its flag K, with its parts standing for a and,
 # for Rwt, b; 0 after the last
-def FrsK(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>) -> Data:
+def FrsK(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>) -> Data:
   match fs:
     case Nil{}:
       {fr == 0 : U32}
     case Con{AF{+kind, +q, +k, +a, +b}, rest}:
       P2({U32.is_eq(fr, 0) == False{} : Bool},
-      P2({C.Cir.is_cell(fr, im, fi, nx) == True{} : Bool},
+      P2({Cr.Cir.is_cell(fr, im, fi, nx) == True{} : Bool},
       P2({Own(fi, nx, fr) == True{} : Bool},
       P2({Fl(m, fr, 1024) == False{} : Bool},
       P2({Mem(ps, fr) == False{} : Bool},
       P2({Tg(m, fr) == FK.tag(kind) : U32},
-      P2(Qs(C.Cir.Cells.get(m, fr), q),
+      P2(Qs(Cr.Cir.Cells.get(m, fr), q),
       P2({Fl(m, fr, 2048) == k : Bool},
       P2(IsK(dk, ds, m, im, fi, nx, ks, img, Fd(2n, m, fr), a),
       P2(Frs.bK(dk, ds, m, im, fi, nx, ks, img, Fd(3n, m, fr), kind, b),
         FrsK(dk, ds, m, im, fi, nx, ks, img, ps, Fd(1n, m, fr), rest)))))))))))
 
-def Frs(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>) -> Data:
+def Frs(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>) -> Data:
   FrsK(True{}, ds, m, im, fi, nx, ks, img, ps, fr, fs)
 
 # Counts and the pend list
@@ -712,7 +717,7 @@ def Fs.term(+a: U32, +x2: U32, +x3: U32, +x4: U32) -> List<&2, U32>:
   Fs.opt(U32.is_ne(U32.and(a, 1), 0), x2, Fs.opt(U32.is_ne(U32.and(a, 2), 0), x3, Fs.opt(U32.is_ne(U32.and(a, 4), 0), x4, Nil{})))
 
 # the pointers that the cell o holds
-def Fs(+m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32) -> List<&2, U32>:
+def Fs(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32) -> List<&2, U32>:
   +f0 = Fd(0n, m, o)
   +tg = TgW(f0)
   Bool.pick(List<&2, U32>, U32.is_lt(tg, 19),
@@ -731,7 +736,7 @@ def RcL(rs: List<&2, U32>, +c: U32) -> Nat:
       Nat.add(Nat.of(U32.is_eq(r, c)), RcL(rest, c))
 
 # the pointers to c of the n cells from o
-def Pc(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) -> Nat:
+def Pc(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) -> Nat:
   match n:
     case 0n:
       0n
@@ -739,12 +744,12 @@ def Pc(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) -> Nat:
       Nat.add(RcL(Fs(m, ps, o), c), Pc(p, m, ps, U32.inc(o), c))
 
 # the pointers to c: of the n cells of the machine, from fi, and of the roots
-def Ptr(+n: Nat, +m: C.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32) -> Nat:
+def Ptr(+n: Nat, +m: Cr.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32) -> Nat:
   Nat.add(Pc(n, m, ps, fi, c), RcL(rs, c))
 
 # each of the n cells from c that is a term cell, not STATIC and out of ps,
 # counts its pointers, exactly
-def Cnt(n: Nat, +m: C.Cir.Cells, +c: U32, +N: Nat, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>) -> Bool:
+def Cnt(n: Nat, +m: Cr.Cir.Cells, +c: U32, +N: Nat, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>) -> Bool:
   match n:
     case 0n:
       True{}
@@ -756,22 +761,22 @@ def Cnt(n: Nat, +m: C.Cir.Cells, +c: U32, +N: Nat, +fi: U32, +ps: List<&2, U32>,
 
 # a pointer y, to the cell of the value c: below nx, to a term cell (a tag
 # below 19), a cell, one of the machine's own or STATIC (as NdK says of a node)
-def LtC(+y: U32, +c: C.Cir.Cell, +im: U32, +fi: U32, +nx: U32) -> Bool:
-  +f0 = C.Cir.Cell.get(0n, c)
+def LtC(+y: U32, +c: Cr.Cir.Cell, +im: U32, +fi: U32, +nx: U32) -> Bool:
+  +f0 = Cr.Cir.Cell.get(0n, c)
   Bool.and(Bool.and(U32.is_lt(y, nx), U32.is_lt(TgW(f0), 19)),
-    Bool.and(C.Cir.is_cell(y, im, fi, nx), Bool.or(Own(fi, nx, y), FlW(f0, 1024))))
+    Bool.and(Cr.Cir.is_cell(y, im, fi, nx), Bool.or(Own(fi, nx, y), FlW(f0, 1024))))
 
 # each pointer of xs is below nx, to a term cell, a cell, one of the
 # machine's own or STATIC
-def Lt.all(xs: List<&2, U32>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32) -> Bool:
+def Lt.all(xs: List<&2, U32>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32) -> Bool:
   match xs:
     case Nil{}:
       True{}
     case Con{+x, rest}:
-      Bool.and(LtC(x, C.Cir.Cells.get(m, x), im, fi, nx), Lt.all(rest, m, im, fi, nx))
+      Bool.and(LtC(x, Cr.Cir.Cells.get(m, x), im, fi, nx), Lt.all(rest, m, im, fi, nx))
 
 # the pointers of each of the n cells from o, as Lt.all says
-def Pts(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32) -> Bool:
+def Pts(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32) -> Bool:
   match n:
     case 0n:
       True{}
@@ -779,7 +784,7 @@ def Pts(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32
       Bool.and(Lt.all(Fs(m, ps, o), m, im, fi, nx), Pts(p, m, ps, U32.inc(o), im, fi, nx))
 
 # the pend list from the cell p: the cells ps, linked by field 1, then 0
-def Chain(ps: List<&2, U32>, +m: C.Cir.Cells, +p: U32) -> Data:
+def Chain(ps: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32) -> Data:
   match ps:
     case Nil{}:
       {p == 0 : U32}
@@ -789,7 +794,7 @@ def Chain(ps: List<&2, U32>, +m: C.Cir.Cells, +p: U32) -> Data:
 # each cell of qs, of the pend list ps, is one of the machine's own, not
 # STATIC, a term cell or one of the machine's own kinds, and nothing points
 # to it
-def PendOK(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells, +fi: U32, +nx: U32, +rs: List<&2, U32>) -> Data:
+def PendOK(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +rs: List<&2, U32>) -> Data:
   match qs:
     case Nil{}:
       Unit
@@ -802,7 +807,7 @@ def PendOK(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells, +fi: U32, +nx
 
 # the heap of the cells m, the machine's from fi to nx, with the roots rs and
 # the pend list ps from pend
-def Heap(+m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, U32>, +pend: U32, +ps: List<&2, U32>) -> Data:
+def Heap(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, U32>, +pend: U32, +ps: List<&2, U32>) -> Data:
   +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
   P2(Chain(ps, m, pend),
   P2(PendOK(ps, ps, m, fi, nx, rs),
@@ -827,47 +832,47 @@ def Tbl.rows() -> List<&2, Row>:
    Row{3, 0, 0}, Row{3, 4, 1}, Row{3, 0, 0}, Row{1, 0, 1}, Row{0, 0, 1}, Row{0, 0, 1}, Row{6, 0, 1}, Row{0, 0, 1},
    Row{7, 0, 1}, Row{0, 0, 1}, Row{7, 8, 0}]
 
-def Tbl.go(rs: List<&2, Row>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +at: U32) -> Data:
+def Tbl.go(rs: List<&2, Row>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +at: U32) -> Data:
   match rs:
     case Nil{}:
       Unit
     case Con{Row{a, b, c}, rest}:
-      P2({C.Cir.is_cell(at, im, fi, nx) == True{} : Bool},
+      P2({Cr.Cir.is_cell(at, im, fi, nx) == True{} : Bool},
       P2({Fd(2n, m, at) == a : U32}, P2({Fd(3n, m, at) == b : U32}, P2({Fd(4n, m, at) == c : U32},
         Tbl.go(rest, m, im, fi, nx, U32.inc(at))))))
 
 # the table by tag, from cell 272: cells, with their fields
-def Tbl(+m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32) -> Data:
+def Tbl(+m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32) -> Data:
   Tbl.go(Tbl.rows(), m, im, fi, nx, 272)
 
 # the bodies of the defs dl, from the cell at on, as Img.defs places them:
 # cells of the image
-def DefsK(dl: List<&2, C.Def>, +dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +at: U32) -> Data:
+def DefsK(dl: List<&2, Bk.Def>, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +at: U32) -> Data:
   match dl:
     case Nil{}:
       Unit
-    case Con{C.Def{_, _, +v, _}, rest}:
+    case Con{Bk.Def{_, _, +v, _}, rest}:
       P2({U32.is_eq(at, 0) == False{} : Bool},
       P2({U32.is_le(at, im) == True{} : Bool},
       P2(IsK(dk, ds, m, im, fi, nx, ks, img, at, v),
-        DefsK(rest, dk, ds, m, im, fi, nx, ks, img, U32.add(at, C.Img.size(v))))))
+        DefsK(rest, dk, ds, m, im, fi, nx, ks, img, U32.add(at, Mc.Img.size(v))))))
 
-def Defs(dl: List<&2, C.Def>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +at: U32) -> Data:
+def Defs(dl: List<&2, Bk.Def>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +at: U32) -> Data:
   DefsK(dl, True{}, ds, m, im, fi, nx, ks, img, at)
 
-def ImgOKK(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells,
+def ImgOKK(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
   +im: U32, +fi: U32, +nx: U32) -> Data:
   P2(Tbl(m, im, fi, nx),
-  P2(DefsK(ds, dk, ds, m, im, fi, nx, ks, img, C.I.book()),
-  P2(IsK(dk, ds, m, im, fi, nx, ks, img, 8, C.Term.Lab{C.Quan.name(C.Quan.Q0{})}),
-  P2(IsK(dk, ds, m, im, fi, nx, ks, img, 9, C.Term.Lab{C.Quan.name(C.Quan.Q1{})}),
-  P2(IsK(dk, ds, m, im, fi, nx, ks, img, 10, C.Term.Lab{C.Quan.name(C.Quan.Q2{})}),
-  P2(Ex(List<&2, List<&2, Word(8n)>>, ks2 => {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>}),
+  P2(DefsK(ds, dk, ds, m, im, fi, nx, ks, img, Mc.I.book()),
+  P2(IsK(dk, ds, m, im, fi, nx, ks, img, 8, Bk.Term.Lab{El.Quan.name(Bk.Quan.Q0{})}),
+  P2(IsK(dk, ds, m, im, fi, nx, ks, img, 9, Bk.Term.Lab{El.Quan.name(Bk.Quan.Q1{})}),
+  P2(IsK(dk, ds, m, im, fi, nx, ks, img, 10, Bk.Term.Lab{El.Quan.name(Bk.Quan.Q2{})}),
+  P2(Ex(List<&2, List<&2, Word(8n)>>, ks2 => {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>}),
   P2({U32.is_le(290, im) == True{} : Bool}, {U32.is_lt(im, fi) == True{} : Bool})))))))
 
-def ImgOK(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +im: U32,
+def ImgOK(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +im: U32,
   +fi: U32, +nx: U32) -> Data:
   ImgOKK(True{}, ds, ks, img, m, im, fi, nx)
 
@@ -900,22 +905,22 @@ def RG(+foc: U32, +md: U32, +sp: U32, +pend: U32, rest: List<&2, U32>) -> List<&
 # with some fuel it ends (MV). round.mv picks the move.
 
 # the state of the registers RG, the cells m, and no output, as Inv finds it
-def S(+foc: U32, +md: U32, +sp: U32, +pend: U32, rest: R59, m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lim: U32, inp: List<&2, Word(8n)>) -> C.Cir.State:
-  C.Cir.State{RG(foc, md, sp, pend, R59.list(rest)), m, nx, fi, im, pg, lim, inp, Nil{}, 0}
+def S(+foc: U32, +md: U32, +sp: U32, +pend: U32, rest: R59, m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +pg: U32, +lim: U32, inp: List<&2, Word(8n)>) -> Cr.Cir.State:
+  Cr.Cir.State{RG(foc, md, sp, pend, R59.list(rest)), m, nx, fi, im, pg, lim, inp, Nil{}, 0}
 
 # what the invariant finds in a state: the abstract state (ret: mode 1, the
 # focus' term, the frames), the focus' cell, the top frame, the pend list
 # and its cells, and the registers past the first four
 type Wit is Data:
-  Wit{ret: Bool, focus: C.Term, fs: List<&2, AF>, foc: U32, sp: U32, pend: U32, ps: List<&2, U32>, rest: R59}
+  Wit{ret: Bool, focus: Bk.Term, fs: List<&2, AF>, foc: U32, sp: U32, pend: U32, ps: List<&2, U32>, rest: R59}
 
-def InvOf(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +out: List<&2, Word(8n)>, +outn: U32, +t: C.Term, +w: Nat, +ret: Bool,
-  +focus: C.Term, +fs: List<&2, AF>, +foc: U32, +sp: U32, +pend: U32, +ps: List<&2, U32>, +rest: R59) -> Data:
-  P2({A.plugs(fs, focus) == t : C.Term},
+def InvOf(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +out: List<&2, Word(8n)>, +outn: U32, +t: Bk.Term, +w: Nat, +ret: Bool,
+  +focus: Bk.Term, +fs: List<&2, AF>, +foc: U32, +sp: U32, +pend: U32, +ps: List<&2, U32>, +rest: R59) -> Data:
+  P2({A.plugs(fs, focus) == t : Bk.Term},
   P2({A.w(ret, focus, fs) == w : Nat},
-  P2({Bool.or(Bool.not(ret), C.Eval.vals(ds, focus, False{})) == True{} : Bool},
+  P2({Bool.or(Bool.not(ret), El.Eval.vals(ds, focus, False{})) == True{} : Bool},
   P2(AFs.ok(ds, fs),
   P2({regs == RG(foc, Bool.to_u32(ret), sp, pend, R59.list(rest)) : List<&2, U32>},
   P2(Is(ds, m, im, fi, nx, ks, img, foc, focus),
@@ -925,16 +930,16 @@ def InvOf(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2
   P2({out == Nil{} : List<&2, Word(8n)>}, {outn == 0 : U32}))))))))))
 
 # the state st holds the abstract state of x, of the term t and the measure w
-def InvW(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, st: C.Cir.State, +t: C.Term,
+def InvW(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, st: Cr.Cir.State, +t: Bk.Term,
   +w: Nat, x: Wit) -> Data:
   match st x:
-    case C.Cir.State{regs, m, nx, fi, im, _, _, _, out, outn} Wit{ret, focus, fs, foc, sp, pend, ps, rest}:
+    case Cr.Cir.State{regs, m, nx, fi, im, _, _, _, out, outn} Wit{ret, focus, fs, foc, sp, pend, ps, rest}:
       InvOf(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest)
 
 # Inv: between two rounds of the main loop, the state st stands for the term
 # t, with the measure w, in the book ds, with the image's names ks and terms
 # img
-def Inv(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +st: C.Cir.State, +t: C.Term,
+def Inv(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st: Cr.Cir.State, +t: Bk.Term,
   +w: Nat) -> Data:
   Ex(Wit, x => InvW(ds, ks, img, st, t, w, x))
 
@@ -952,7 +957,7 @@ def Inv(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, 
 # with DATA's meaning when dk, as Inv has it).
 
 type Rt is Data:
-  Rt{c: U32, t: C.Term}
+  Rt{c: U32, t: Bk.Term}
 
 def Rt.cells(rs: List<&2, Rt>) -> List<&2, U32>:
   match rs:
@@ -961,7 +966,7 @@ def Rt.cells(rs: List<&2, Rt>) -> List<&2, U32>:
     case Con{Rt{c, _}, rest}:
       Con{c, Rt.cells(rest)}
 
-def Rt.terms(rs: List<&2, Rt>) -> List<&2, C.Term>:
+def Rt.terms(rs: List<&2, Rt>) -> List<&2, Bk.Term>:
   match rs:
     case Nil{}:
       Nil{}
@@ -969,63 +974,63 @@ def Rt.terms(rs: List<&2, Rt>) -> List<&2, C.Term>:
       Con{u, Rt.terms(rest)}
 
 # each cell of rs stands for its term
-def RtsK(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, rs: List<&2, Rt>) -> Data:
+def RtsK(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, rs: List<&2, Rt>) -> Data:
   match rs:
     case Nil{}:
       Unit
     case Con{Rt{+c, +u}, rest}:
       P2(IsK(dk, ds, m, im, fi, nx, ks, img, c, u), RtsK(dk, ds, m, im, fi, nx, ks, img, rest))
 
-def Rts(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, rs: List<&2, Rt>) -> Data:
+def Rts(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, rs: List<&2, Rt>) -> Data:
   RtsK(True{}, ds, m, im, fi, nx, ks, img, rs)
 
 # c is a node of the term t at the cell r: r, or a node of one of its parts,
 # in the fields that IsC reads
-def Node(t: C.Term, +m: C.Cir.Cells, +r: U32, +c: U32) -> Bool:
+def Node(t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +c: U32) -> Bool:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       U32.is_eq(r, c)
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       U32.is_eq(r, c)
-    case C.Term.Ann{y, z}:
+    case Bk.Term.Ann{y, z}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(y, m, Fd(2n, m, r), c), Node(z, m, Fd(3n, m, r), c)))
-    case C.Term.Let{_, v, f}:
+    case Bk.Term.Let{_, v, f}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(v, m, Fd(2n, m, r), c), Node(f, m, Fd(3n, m, r), c)))
-    case C.Term.Typ{y}:
+    case Bk.Term.Typ{y}:
       Bool.or(U32.is_eq(r, c), Node(y, m, Fd(2n, m, r), c))
-    case C.Term.Min{a, b}:
+    case Bk.Term.Min{a, b}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)))
-    case C.Term.All{_, a, b}:
+    case Bk.Term.All{_, a, b}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)))
-    case C.Term.Lam{_, f}:
+    case Bk.Term.Lam{_, f}:
       Bool.or(U32.is_eq(r, c), Node(f, m, Fd(2n, m, r), c))
-    case C.Term.App{_, f, y}:
+    case Bk.Term.App{_, f, y}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(f, m, Fd(2n, m, r), c), Node(y, m, Fd(3n, m, r), c)))
-    case C.Term.Sig{_, a, b}:
+    case Bk.Term.Sig{_, a, b}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)))
-    case C.Term.Tup{_, a, b}:
+    case Bk.Term.Tup{_, a, b}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)))
-    case C.Term.Prj{h}:
+    case Bk.Term.Prj{h}:
       Bool.or(U32.is_eq(r, c), Node(h, m, Fd(2n, m, r), c))
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       U32.is_eq(r, c)
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       U32.is_eq(r, c)
-    case C.Term.Mat{_, h, n}:
+    case Bk.Term.Mat{_, h, n}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(h, m, Fd(3n, m, r), c), Node(n, m, Fd(4n, m, r), c)))
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       U32.is_eq(r, c)
-    case C.Term.Eql{a, b, y}:
+    case Bk.Term.Eql{a, b, y}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(y, m, Fd(4n, m, r), c))))
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       U32.is_eq(r, c)
-    case C.Term.Rwt{e, y, f}:
+    case Bk.Term.Rwt{e, y, f}:
       Bool.or(U32.is_eq(r, c), Bool.or(Node(e, m, Fd(2n, m, r), c), Bool.or(Node(y, m, Fd(3n, m, r), c), Node(f, m, Fd(4n, m, r), c))))
 
 # c is a node of the term of one of the roots os
-def Nodes(os: List<&2, Rt>, +m: C.Cir.Cells, +c: U32) -> Bool:
+def Nodes(os: List<&2, Rt>, +m: Cr.Cir.Cells, +c: U32) -> Bool:
   match os:
     case Nil{}:
       False{}
@@ -1033,14 +1038,14 @@ def Nodes(os: List<&2, Rt>, +m: C.Cir.Cells, +c: U32) -> Bool:
       Bool.or(Node(u, m, r, c), Nodes(rest, m, c))
 
 # each cell of bs is STATIC or a node of an owned root's term (os)
-def Held(+m: C.Cir.Cells, +os: List<&2, Rt>, bs: List<&2, Rt>) -> Data:
+def Held(+m: Cr.Cir.Cells, +os: List<&2, Rt>, bs: List<&2, Rt>) -> Data:
   match bs:
     case Nil{}:
       Unit
     case Con{Rt{+c, _}, rest}:
       P2({Bool.or(Fl(m, c, 1024), Nodes(os, m, c)) == True{} : Bool}, Held(m, os, rest))
 
-def HSK(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells,
+def HSK(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
   +nx: U32, +fi: U32, +im: U32, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32,
   +ps: List<&2, U32>) -> Data:
   P2(RtsK(dk, ds, m, im, fi, nx, ks, img, os),
@@ -1050,14 +1055,14 @@ def HSK(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img
   P2(Heap(m, nx, fi, im, Rt.cells(os), pend, ps),
     ImgOKK(dk, ds, ks, img, m, im, fi, nx))))))
 
-def HS(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32,
+def HS(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32,
   +ps: List<&2, U32>) -> Data:
   HSK(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)
 
-def Term.is_var(t: C.Term) -> Bool:
+def Term.is_var(t: Bk.Term) -> Bool:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       True{}
     case _:
       False{}
@@ -1068,35 +1073,35 @@ def Term.is_var(t: C.Term) -> Bool:
 # STATIC or a node of an owned root's term (os); each term's cell STATIC or
 # out of the pend list too (M.walk's arguments and locals; M.copy's locals,
 # with any quantity)
-def Ag(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +os: List<&2, Rt>, +a: U32, xs: List<&2, C.Arg>) -> Data:
+def Ag(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, Rt>, +a: U32, xs: List<&2, El.Arg>) -> Data:
   match xs:
     case Nil{}:
       {a == 0 : U32}
-    case Con{C.Arg{+q, +x}, rest}:
+    case Con{El.Arg{+q, +x}, rest}:
       P2({U32.is_eq(a, 0) == False{} : Bool},
-      P2({C.Cir.is_cell(a, im, fi, nx) == True{} : Bool},
+      P2({Cr.Cir.is_cell(a, im, fi, nx) == True{} : Bool},
       P2({Own(fi, nx, a) == True{} : Bool},
       P2({Fl(m, a, 1024) == False{} : Bool},
       P2({Mem(ps, a) == False{} : Bool},
       P2({Tg(m, a) == 41 : U32},
-      P2(Qs(C.Cir.Cells.get(m, a), q),
-      P2({Bool.or(Bool.not(Fl(m, a, 2048)), C.Eval.vals(ds, x, False{})) == True{} : Bool},
+      P2(Qs(Cr.Cir.Cells.get(m, a), q),
+      P2({Bool.or(Bool.not(Fl(m, a, 2048)), El.Eval.vals(ds, x, False{})) == True{} : Bool},
       P2({Bool.or(Bool.not(Fl(m, a, 4096)), Term.is_var(x)) == True{} : Bool},
       P2(Is(ds, m, im, fi, nx, ks, img, Fd(2n, m, a), x),
       P2({Bool.or(Fl(m, a, 4096), Bool.or(Fl(m, Fd(2n, m, a), 1024), Nodes(os, m, Fd(2n, m, a)))) == True{} : Bool},
       P2({Bool.or(Fl(m, Fd(2n, m, a), 1024), Bool.not(Mem(ps, Fd(2n, m, a)))) == True{} : Bool},
         Ag(ds, m, im, fi, nx, ks, img, ps, os, Fd(1n, m, a), rest)))))))))))))
 
-def Arg.terms(xs: List<&2, C.Arg>) -> List<&2, C.Term>:
+def Arg.terms(xs: List<&2, El.Arg>) -> List<&2, Bk.Term>:
   match xs:
     case Nil{}:
       Nil{}
-    case Con{C.Arg{_, x}, rest}:
+    case Con{El.Arg{_, x}, rest}:
       Con{x, Arg.terms(rest)}
 
 # every free variable of each of the terms xs is below n
-def Terms.below(xs: List<&2, C.Term>, +n: Nat) -> Bool:
+def Terms.below(xs: List<&2, Bk.Term>, +n: Nat) -> Bool:
   match xs:
     case Nil{}:
       True{}
@@ -1137,28 +1142,28 @@ def Data.scr() -> List<&2, Nat>:
 def Walk.scr() -> List<&2, Nat>:
   [3n, 4n, 5n, 6n, 7n, 19n, 20n, 21n, 22n, 23n, 24n, 25n, 26n, 27n, 28n, 29n, 42n, 43n, 44n, 61n]
 
-def St.cells(st: C.Cir.State) -> C.Cir.Cells:
+def St.cells(st: Cr.Cir.State) -> Cr.Cir.Cells:
   match st:
-    case C.Cir.State{_, m, _, _, _, _, _, _, _, _}:
+    case Cr.Cir.State{_, m, _, _, _, _, _, _, _, _}:
       m
 
-def St.next(st: C.Cir.State) -> U32:
+def St.next(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, nx, _, _, _, _, _, _, _}:
+    case Cr.Cir.State{_, _, nx, _, _, _, _, _, _, _}:
       nx
 
 # a state after a statement of a move: the same first cell, image, limit and
 # input, no output, and 63 registers, of which keep's are kept
 def Same(+regs: List<&2, U32>, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
-  st: C.Cir.State) -> Data:
+  st: Cr.Cir.State) -> Data:
   match st:
-    case C.Cir.State{+regs2, _, _, fi2, im2, _, lim2, inp2, out2, outn2}:
+    case Cr.Cir.State{+regs2, _, _, fi2, im2, _, lim2, inp2, out2, outn2}:
       P2({fi2 == fi : U32}, P2({im2 == im : U32}, P2({lim2 == lim : U32}, P2({inp2 == inp : List<&2, Word(8n)>},
       P2({out2 == Nil{} : List<&2, Word(8n)>}, P2({outn2 == 0 : U32},
       P2({List.length(&2, U32, regs2) == 63n : Nat}, Kept(regs, regs2, keep))))))))
 
 # the register r of the state st holds v
-def Reg(st: C.Cir.State, +r: Nat, +v: U32) -> Data:
+def Reg(st: Cr.Cir.State, +r: Nat, +v: U32) -> Data:
   {List.get(&2, U32, St.regs(st), r) == Some{v} : Maybe<&2, U32>}
 
 # Open: M.copy (proof_copy.bend)
@@ -1173,27 +1178,27 @@ def Reg(st: C.Cir.State, +r: Nat, +v: U32) -> Data:
 # Every cell that a copy takes is from the pend list or new (the frame
 # condition on allocation, by which HS's terms stay). With some fuel it ends.
 
-def CopyQ(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
+def CopyQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>, +os: List<&2, Rt>,
-  +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +t: C.Term, +ce: U32, +es: List<&2, C.Arg>, +st2: C.Cir.State) -> Data:
+  +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +t: Bk.Term, +ce: U32, +es: List<&2, El.Arg>, +st2: Cr.Cir.State) -> Data:
   +m2 = St.cells(st2)
   +nx2 = St.next(st2)
   P2(Same(regs, fi, im, lim, inp, keep, st2),
   Ex(U32, n => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
     P2(Reg(st2, r, n), P2(Reg(st2, 3n, pend2),
-    P2(HS(ds, ks, img, m2, nx2, fi, im, Con{Rt{n, C.Term.subst(t, Arg.terms(es), 0n)}, os}, bs, fs, sp, pend2, ps2),
+    P2(HS(ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, bs, fs, sp, pend2, ps2),
       Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, ce, es))))))))
 # the conclusion of copy.post (proof_mach.bend), for the phase that proves it
-def CopyPost(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +src: Nat,
+def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +src: Nat,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +c: U32, +t: C.Term, +ce: U32, +es: List<&2, C.Arg>,
+  +c: U32, +t: Bk.Term, +ce: U32, +es: List<&2, El.Arg>,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{c, t}, bs}, fs, sp, pend, ps),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, src) == Some{c} : Maybe<&2, U32>},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
   he: {List.get(&2, U32, regs, 36n) == Some{ce} : Maybe<&2, U32>},
-  hn: {List.get(&2, U32, regs, 37n) == Some{U32.from_nat(List.length(&2, C.Arg, es))} : Maybe<&2, U32>},
+  hn: {List.get(&2, U32, regs, 37n) == Some{U32.from_nat(List.length(&2, El.Arg, es))} : Maybe<&2, U32>},
   env: Ag(ds, m, im, fi, nx, ks, img, ps, os, ce, es),
   hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Nat.mem([3n, 39n], r))) == True{} : Bool},
   hsrc: {Nat.mem([4n, 5n, 6n, 7n, 39n], src) == False{} : Bool},
@@ -1201,27 +1206,27 @@ def CopyPost(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   hv: {Terms.below(Arg.terms(es), U32.to_nat(2147483648)) == True{} : Bool},
   hk: {Disj(keep, Copy.scr(r)) == True{} : Bool}) ->
   Type:
-  Post(False{}, C.Cir.exec(f, C.M.copy(r, src), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+  Post(False{}, Cr.Cir.exec(f, Mc.M.copy(r, src), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => CopyQ(ds, ks, img, regs, fi, im, lim, inp, r, keep, os, Con{Rt{c, t}, bs}, fs, sp, t, ce, es, st2),
     s => st2 => Empty)
 
 # the conclusion of copy.done (proof_mach.bend), for the phase that proves it
-def CopyDone(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +src: Nat,
+def CopyDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +src: Nat,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +c: U32, +t: C.Term, +ce: U32, +es: List<&2, C.Arg>,
+  +c: U32, +t: Bk.Term, +ce: U32, +es: List<&2, El.Arg>,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{c, t}, bs}, fs, sp, pend, ps),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, src) == Some{c} : Maybe<&2, U32>},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
   he: {List.get(&2, U32, regs, 36n) == Some{ce} : Maybe<&2, U32>},
-  hn: {List.get(&2, U32, regs, 37n) == Some{U32.from_nat(List.length(&2, C.Arg, es))} : Maybe<&2, U32>},
+  hn: {List.get(&2, U32, regs, 37n) == Some{U32.from_nat(List.length(&2, El.Arg, es))} : Maybe<&2, U32>},
   env: Ag(ds, m, im, fi, nx, ks, img, ps, os, ce, es),
   hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Nat.mem([3n, 39n], r))) == True{} : Bool},
   hsrc: {Nat.mem([4n, 5n, 6n, 7n, 39n], src) == False{} : Bool},
   ho: N.Le(List.length(&2, Rt, os), 64n)) ->
   Data:
-  Ex(Nat, f => Ends(C.Cir.exec(f, C.M.copy(r, src), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
+  Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.copy(r, src), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
 
 
 # Open: M.data (proof_walk.bend)
@@ -1242,18 +1247,18 @@ def DataH(b: Bool, X: Data) -> Data:
     case False{}:
       Unit
 
-def DataQ(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
+def DataQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>,
-  +fs: List<&2, AF>, +sp: U32, +v: C.Term, +st2: C.Cir.State) -> Data:
+  +fs: List<&2, AF>, +sp: U32, +v: Bk.Term, +st2: Cr.Cir.State) -> Data:
   P2(Same(regs, fi, im, lim, inp, keep, st2),
-  P2(Reg(st2, 43n, Bool.to_u32(C.Term.is_data(v))),
+  P2(Reg(st2, 43n, Bool.to_u32(El.Term.is_data(v))),
   Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
-    P2(Reg(st2, 3n, pend2), DataH(C.Term.is_data(v), HS(ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2)))))))
+    P2(Reg(st2, 3n, pend2), DataH(El.Term.is_data(v), HS(ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2)))))))
 # the conclusion of data.post (proof_mach.bend), for the phase that proves it
-def DataPost(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +c: U32, +v: C.Term,
+  +c: U32, +v: Bk.Term,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{c, v}, bs}, fs, sp, pend, ps),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>},
@@ -1261,21 +1266,21 @@ def DataPost(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   hr: {Nat.mem(Data.scr(), r) == False{} : Bool},
   hk: {Disj(keep, Data.scr()) == True{} : Bool}) ->
   Type:
-  Post(False{}, C.Cir.exec(f, C.M.data(r), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+  Post(False{}, Cr.Cir.exec(f, Mc.M.data(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => DataQ(ds, ks, img, regs, fi, im, lim, inp, keep, os, Con{Rt{c, v}, bs}, fs, sp, v, st2), s => st2 => Empty)
 
 # the conclusion of data.done (proof_mach.bend), for the phase that proves it
-def DataDone(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+def DataDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +c: U32, +v: C.Term,
+  +c: U32, +v: Bk.Term,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{c, v}, bs}, fs, sp, pend, ps),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
   hr: {Nat.mem(Data.scr(), r) == False{} : Bool}) ->
   Data:
-  Ex(Nat, f => Ends(C.Cir.exec(f, C.M.data(r), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
+  Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.data(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
 
 
 # Open: M.walk (proof_walk.bend)
@@ -1291,23 +1296,23 @@ def DataDone(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List
 # again, except when wres is 3 (a check of M.data may have failed), and
 # only Walk.scr()'s registers change. With some fuel it ends.
 
-def WalkR(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m2: C.Cir.Cells, +nx2: U32,
-  +fi: U32, +im: U32, +ps2: List<&2, U32>, +os: List<&2, Rt>, +tt: C.Term, +xs: List<&2, C.Arg>, +res: U32, +wt2: U32, +env: U32,
+def WalkR(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m2: Cr.Cir.Cells, +nx2: U32,
+  +fi: U32, +im: U32, +ps2: List<&2, U32>, +os: List<&2, Rt>, +tt: Bk.Term, +xs: List<&2, El.Arg>, +res: U32, +wt2: U32, +env: U32,
   +wn: U32, +args: U32) -> Type:
-  Or(P2({res == 1 : U32}, Ex(C.Term, u => Ex(List<&2, C.Arg>, e => Ex(List<&2, C.Arg>, ys =>
-      P2({C.Eval.walk(tt, Nil{}, xs) == Some{Some{C.Term.spine(ys, C.Term.subst(u, Arg.terms(e), 0n))}} : Maybe<Maybe<C.Term>>},
+  Or(P2({res == 1 : U32}, Ex(Bk.Term, u => Ex(List<&2, El.Arg>, e => Ex(List<&2, El.Arg>, ys =>
+      P2({El.Eval.walk(tt, Nil{}, xs) == Some{Some{El.Term.spine(ys, El.Term.subst(u, Arg.terms(e), 0n))}} : Maybe<Maybe<Bk.Term>>},
       P2(Is(ds, m2, im, fi, nx2, ks, img, wt2, u),
       P2({Fl(m2, wt2, 1024) == True{} : Bool},
-      P2({wn == U32.from_nat(List.length(&2, C.Arg, e))  : U32},
+      P2({wn == U32.from_nat(List.length(&2, El.Arg, e))  : U32},
       P2(Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, env, e), Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, args, ys)))))))))),
-  Or(P2({res == 2 : U32}, P2({C.Eval.walk(tt, Nil{}, xs) == Some{None{}} : Maybe<Maybe<C.Term>>},
-      Ex(List<&2, C.Arg>, e => Ex(List<&2, C.Arg>, ys =>
+  Or(P2({res == 2 : U32}, P2({El.Eval.walk(tt, Nil{}, xs) == Some{None{}} : Maybe<Maybe<Bk.Term>>},
+      Ex(List<&2, El.Arg>, e => Ex(List<&2, El.Arg>, ys =>
         P2(Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, env, e), Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, args, ys)))))),
-    P2({res == 3 : U32}, {C.Eval.walk(tt, Nil{}, xs) == None{} : Maybe<Maybe<C.Term>>})))
+    P2({res == 3 : U32}, {El.Eval.walk(tt, Nil{}, xs) == None{} : Maybe<Maybe<Bk.Term>>})))
 
-def WalkQ(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
+def WalkQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>,
-  +fs: List<&2, AF>, +sp: U32, +tt: C.Term, +xs: List<&2, C.Arg>, +st2: C.Cir.State) -> Type:
+  +fs: List<&2, AF>, +sp: U32, +tt: Bk.Term, +xs: List<&2, El.Arg>, +st2: Cr.Cir.State) -> Type:
   +m2 = St.cells(st2)
   +nx2 = St.next(st2)
   Same(regs, fi, im, lim, inp, keep, st2) &
@@ -1316,10 +1321,10 @@ def WalkQ(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2
     Reg(st2, 3n, pend2) & DataH(U32.is_ne(res, 3), HS(ds, ks, img, m2, nx2, fi, im, os, bs, fs, sp, pend2, ps2)) &
     WalkR(ds, ks, img, m2, nx2, fi, im, ps2, os, tt, xs, res, wt2, env, wn, args)
 # the conclusion of walk.post (proof_mach.bend), for the phase that proves it
-def WalkPost(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+def WalkPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +tc: U32, +tt: C.Term, +a: U32, +xs: List<&2, C.Arg>,
+  +tc: U32, +tt: Bk.Term, +a: U32, +xs: List<&2, El.Arg>,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{tc, tt}, bs}, fs, sp, pend, ps),
   hst: {Fl(m, tc, 1024) == True{} : Bool},
   hl: {List.length(&2, U32, regs) == 63n : Nat},
@@ -1329,14 +1334,14 @@ def WalkPost(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   args: Ag(ds, m, im, fi, nx, ks, img, ps, os, a, xs),
   hk: {Disj(keep, Walk.scr()) == True{} : Bool}) ->
   Type:
-  Post(False{}, C.Cir.exec(f, C.M.walk(), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+  Post(False{}, Cr.Cir.exec(f, Mc.M.walk(), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => WalkQ(ds, ks, img, regs, fi, im, lim, inp, keep, os, Con{Rt{tc, tt}, bs}, fs, sp, tt, xs, st2), s => st2 => Empty)
 
 # the conclusion of walk.done (proof_mach.bend), for the phase that proves it
-def WalkDone(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+def WalkDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +tc: U32, +tt: C.Term, +a: U32, +xs: List<&2, C.Arg>,
+  +tc: U32, +tt: Bk.Term, +a: U32, +xs: List<&2, El.Arg>,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{tc, tt}, bs}, fs, sp, pend, ps),
   hst: {Fl(m, tc, 1024) == True{} : Bool},
   hl: {List.length(&2, U32, regs) == 63n : Nat},
@@ -1345,7 +1350,7 @@ def WalkDone(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
   args: Ag(ds, m, im, fi, nx, ks, img, ps, os, a, xs)) ->
   Data:
-  Ex(Nat, f => Ends(C.Cir.exec(f, C.M.walk(), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
+  Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.walk(), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})))
 
 
 # Open: M.out (proof_out.bend)
@@ -1355,135 +1360,135 @@ def WalkDone(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List
 # with 0 and the bytes of Program.unbytes(v) (the output, the last first), or
 # with 2 when it is none; it may run out of memory. With some fuel it ends.
 
-def OutH(+v: C.Term, +s: U32, st2: C.Cir.State) -> Data:
-  Either<&2, &2, P2({s == 0 : U32}, {C.Program.unbytes(v) == Some{List.reverse(&2, Word(8n), St.out(st2))} : Maybe<&2, List<&2, Word(8n)>>}),
-    P2({s == 2 : U32}, {C.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>})>
+def OutH(+v: Bk.Term, +s: U32, st2: Cr.Cir.State) -> Data:
+  Either<&2, &2, P2({s == 0 : U32}, {Pg.Program.unbytes(v) == Some{List.reverse(&2, Word(8n), St.out(st2))} : Maybe<&2, List<&2, Word(8n)>>}),
+    P2({s == 2 : U32}, {Pg.Program.unbytes(v) == None{} : Maybe<&2, List<&2, Word(8n)>>})>
 # the conclusion of out.post (proof_mach.bend), for the phase that proves it
-def OutPost(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +foc: U32,
-  +pend: U32, +rest: R59, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
-  +v: C.Term, +ks2: List<&2, List<&2, Word(8n)>>,
+def OutPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
+  +pend: U32, +rest: R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +v: Bk.Term, +ks2: List<&2, List<&2, Word(8n)>>,
   hv: Is(ds, m, im, fi, nx, ks, img, foc, v),
-  hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>}) ->
+  hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>}) ->
   Type:
-  Post(False{}, C.Cir.exec(f, C.M.out(), S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)), st => Empty,
+  Post(False{}, Cr.Cir.exec(f, Mc.M.out(), S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)), st => Empty,
     s => st2 => OutH(v, s, st2))
 
 # the conclusion of out.done (proof_mach.bend), for the phase that proves it
-def OutDone(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +foc: U32,
-  +pend: U32, +rest: R59, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
-  +v: C.Term, +ks2: List<&2, List<&2, Word(8n)>>,
+def OutDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
+  +pend: U32, +rest: R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +v: Bk.Term, +ks2: List<&2, List<&2, Word(8n)>>,
   hv: Is(ds, m, im, fi, nx, ks, img, foc, v),
-  hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>}) ->
+  hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>}) ->
   Data:
-  Ex(Nat, f => Ends(C.Cir.exec(f, C.M.out(), S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp))))
+  Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.out(), S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp))))
 
 
 # Rounds
 # ------
 
 # the main loop of Mach.code and its body: a move by the mode
-def B.body() -> C.Cir.Stmt:
-  C.M.if(C.M.eq(C.M.g(C.R.mode()), C.M.c(0)), C.M.ev(), C.M.ret())
+def B.body() -> Cr.Cir.Stmt:
+  Mc.M.if(Mc.M.eq(Mc.M.g(Mc.R.mode()), Mc.M.c(0)), Mc.M.ev(), Mc.M.ret())
 
-def B.loop() -> C.Cir.Stmt:
-  C.M.while(C.M.c(1), B.body())
+def B.loop() -> Cr.Cir.Stmt:
+  Mc.M.while(Mc.M.c(1), B.body())
 
 # what follows M.input in Mach.code
-def B.rest() -> C.Cir.Stmt:
-  C.Cir.Stmt.seq{C.M.set(C.R.mode(), C.M.c(0)), C.Cir.Stmt.seq{B.loop(), C.Cir.Stmt.nop{}}}
+def B.rest() -> Cr.Cir.Stmt:
+  Cr.Cir.Stmt.seq{Mc.M.set(Mc.R.mode(), Mc.M.c(0)), Cr.Cir.Stmt.seq{B.loop(), Cr.Cir.Stmt.nop{}}}
 
-def St.regs(st: C.Cir.State) -> List<&2, U32>:
+def St.regs(st: Cr.Cir.State) -> List<&2, U32>:
   match st:
-    case C.Cir.State{regs, _, _, _, _, _, _, _, _, _}:
+    case Cr.Cir.State{regs, _, _, _, _, _, _, _, _, _}:
       regs
 
-def St.out(st: C.Cir.State) -> List<&2, Word(8n)>:
+def St.out(st: Cr.Cir.State) -> List<&2, Word(8n)>:
   match st:
-    case C.Cir.State{_, _, _, _, _, _, _, _, out, _}:
+    case Cr.Cir.State{_, _, _, _, _, _, _, _, out, _}:
       out
 
 # an admin move: the same term, with a smaller measure
-def Adm(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +st: C.Cir.State, +t: C.Term,
+def Adm(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st: Cr.Cir.State, +t: Bk.Term,
   +w: Nat) -> Data:
   Ex(Nat, w2 => P2(Inv(ds, ks, img, st, t, w2), N.Le(1n+w2, w)))
 
 # a step: the term u of Eval's step
-def Stp(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +st: C.Cir.State, +t: C.Term) ->
+def Stp(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st: Cr.Cir.State, +t: Bk.Term) ->
   Data:
-  Ex(C.Term, u => P2({C.Eval.step(ds, t) == Some{u} : Maybe<C.Term>}, Ex(Nat, w2 => Inv(ds, ks, img, st, u, w2))))
+  Ex(Bk.Term, u => P2({El.Eval.step(ds, t) == Some{u} : Maybe<Bk.Term>}, Ex(Nat, w2 => Inv(ds, ks, img, st, u, w2))))
 
 # a round from the term t and the measure w that goes on: an admin move or a
 # step
-def Rnd(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +t: C.Term, +w: Nat,
-  +st: C.Cir.State) -> Type:
+def Rnd(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +t: Bk.Term, +w: Nat,
+  +st: Cr.Cir.State) -> Type:
   Or(Adm(ds, ks, img, st, t, w), Stp(ds, ks, img, st, t))
 
 # a round that halts, from the term t: with 0, t has no step and its result
 # is the output's bytes; with 2, it has no step and no result
-def HR(+ds: List<&2, C.Def>, +t: C.Term, +s: U32, st: C.Cir.State) -> Type:
-  Or(P2({s == 0 : U32}, P2({C.Eval.step(ds, t) == None{} : Maybe<C.Term>},
-      {C.Program.result(ds, Some{t}) == Some{List.reverse(&2, Word(8n), St.out(st))} : Maybe<&2, List<&2, Word(8n)>>})),
-    P2({s == 2 : U32}, P2({C.Eval.step(ds, t) == None{} : Maybe<C.Term>},
-      {C.Program.result(ds, Some{t}) == None{} : Maybe<&2, List<&2, Word(8n)>>})))
+def HR(+ds: List<&2, Bk.Def>, +t: Bk.Term, +s: U32, st: Cr.Cir.State) -> Type:
+  Or(P2({s == 0 : U32}, P2({El.Eval.step(ds, t) == None{} : Maybe<Bk.Term>},
+      {Pg.Program.result(ds, Some{t}) == Some{List.reverse(&2, Word(8n), St.out(st))} : Maybe<&2, List<&2, Word(8n)>>})),
+    P2({s == 2 : U32}, P2({El.Eval.step(ds, t) == None{} : Maybe<Bk.Term>},
+      {Pg.Program.result(ds, Some{t}) == None{} : Maybe<&2, List<&2, Word(8n)>>})))
 
 # a halt of the main loop, from the term t: with 0, Eval reaches from t the
 # output's bytes; with 2, it reaches no result
-def HE(+ds: List<&2, C.Def>, +t: C.Term, +s: U32, st: C.Cir.State) -> Type:
-  Or(P2({s == 0 : U32}, Ex(Nat, k => {C.Program.result(ds, C.Eval.steps(k, ds, t)) == Some{List.reverse(&2, Word(8n), St.out(st))} : Maybe<&2, List<&2, Word(8n)>>})),
-    {s == 2 : U32} & @k: Nat -> {C.Program.result(ds, C.Eval.steps(k, ds, t)) == None{} : Maybe<&2, List<&2, Word(8n)>>})
+def HE(+ds: List<&2, Bk.Def>, +t: Bk.Term, +s: U32, st: Cr.Cir.State) -> Type:
+  Or(P2({s == 0 : U32}, Ex(Nat, k => {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{List.reverse(&2, Word(8n), St.out(st))} : Maybe<&2, List<&2, Word(8n)>>})),
+    {s == 2 : U32} & @k: Nat -> {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == None{} : Maybe<&2, List<&2, Word(8n)>>})
 
 # the end of a run that gives the bytes o, or runs out of memory
-def Good(+o: List<&2, Word(8n)>, r: C.Cir.Out) -> Data:
+def Good(+o: List<&2, Word(8n)>, r: Cr.Cir.Out) -> Data:
   match r:
-    case C.Cir.Out.next{_}:
+    case Cr.Cir.Out.next{_}:
       Empty
-    case C.Cir.Out.halt{s, st}:
+    case Cr.Cir.Out.halt{s, st}:
       P2({s == 0 : U32}, {List.reverse(&2, Word(8n), St.out(st)) == o : List<&2, Word(8n)>})
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Unit
-    case C.Cir.Out.trap{}:
+    case Cr.Cir.Out.trap{}:
       Empty
-    case C.Cir.Out.not_done{}:
+    case Cr.Cir.Out.not_done{}:
       Empty
 
 # the parts of an admin move and of a step
-def adm.w(-ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -st: C.Cir.State, -t: C.Term,
+def adm.w(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -st: Cr.Cir.State, -t: Bk.Term,
   -w: Nat, a: Adm(ds, ks, img, st, t, w)) -> Nat:
   match a:
     case Tuple{w2, _}:
       w2
 
-def adm.inv(-ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -st: C.Cir.State, -t: C.Term,
+def adm.inv(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -st: Cr.Cir.State, -t: Bk.Term,
   -w: Nat, a: Adm(ds, ks, img, st, t, w)) -> Inv(ds, ks, img, st, t, adm.w(ds, ks, img, st, t, w, a)):
   match a:
     case Tuple{_, Tuple{i, _}}:
       i
 
-def adm.lt(-ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -st: C.Cir.State, -t: C.Term,
+def adm.lt(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -st: Cr.Cir.State, -t: Bk.Term,
   -w: Nat, a: Adm(ds, ks, img, st, t, w)) -> N.Le(1n+adm.w(ds, ks, img, st, t, w, a), w):
   match a:
     case Tuple{_, Tuple{_, l}}:
       l
 
-def stp.u(-ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -st: C.Cir.State, -t: C.Term,
-  x: Stp(ds, ks, img, st, t)) -> C.Term:
+def stp.u(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -st: Cr.Cir.State, -t: Bk.Term,
+  x: Stp(ds, ks, img, st, t)) -> Bk.Term:
   match x:
     case Tuple{u, _}:
       u
 
-def stp.es(-ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -st: C.Cir.State, -t: C.Term,
-  x: Stp(ds, ks, img, st, t)) -> {C.Eval.step(ds, t) == Some{stp.u(ds, ks, img, st, t, x)} : Maybe<C.Term>}:
+def stp.es(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -st: Cr.Cir.State, -t: Bk.Term,
+  x: Stp(ds, ks, img, st, t)) -> {El.Eval.step(ds, t) == Some{stp.u(ds, ks, img, st, t, x)} : Maybe<Bk.Term>}:
   match x:
     case Tuple{_, Tuple{e, _}}:
       e
 
-def stp.w(-ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -st: C.Cir.State, -t: C.Term,
+def stp.w(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -st: Cr.Cir.State, -t: Bk.Term,
   x: Stp(ds, ks, img, st, t)) -> Nat:
   match x:
     case Tuple{_, Tuple{_, Tuple{w2, _}}}:
       w2
 
-def stp.inv(-ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -st: C.Cir.State, -t: C.Term,
+def stp.inv(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -st: Cr.Cir.State, -t: Bk.Term,
   x: Stp(ds, ks, img, st, t)) -> Inv(ds, ks, img, st, stp.u(ds, ks, img, st, t, x), stp.w(ds, ks, img, st, t, x)):
   match x:
     case Tuple{_, Tuple{_, Tuple{_, i}}}:
@@ -1517,7 +1522,7 @@ def mb.ne(-o: List<&2, Word(8n)>, e: {None{} == Some{o} : Maybe<&2, List<&2, Wor
   Unit{}
 
 # no steps from None
-def run.none(+j: Nat, +ds: List<&2, C.Def>) -> {C.Eval.run(j, ds, None{}) == None{} : Maybe<C.Term>}:
+def run.none(+j: Nat, +ds: List<&2, Bk.Def>) -> {El.Eval.run(j, ds, None{}) == None{} : Maybe<Bk.Term>}:
   match j:
     case 0n:
       {==}
@@ -1525,12 +1530,12 @@ def run.none(+j: Nat, +ds: List<&2, C.Def>) -> {C.Eval.run(j, ds, None{}) == Non
       {==}
 
 # the result of a term that is no value is none
-def res.nv(+ds: List<&2, C.Def>, +t: C.Term, nv: {C.Eval.vals(ds, t, False{}) == False{} : Bool}) ->
-  {C.Program.result(ds, Some{t}) == None{} : Maybe<&2, List<&2, Word(8n)>>}:
-  %Equal.sym(Bool, C.Eval.vals(ds, t, False{}), False{}, nv) : {C.Program.result.if(_, t) == None{} : Maybe<&2, List<&2, Word(8n)>>}
+def res.nv(+ds: List<&2, Bk.Def>, +t: Bk.Term, nv: {El.Eval.vals(ds, t, False{}) == False{} : Bool}) ->
+  {Pg.Program.result(ds, Some{t}) == None{} : Maybe<&2, List<&2, Word(8n)>>}:
+  %Equal.sym(Bool, El.Eval.vals(ds, t, False{}), False{}, nv) : {Pg.Program.result.if(_, t) == None{} : Maybe<&2, List<&2, Word(8n)>>}
   {==}
 
-def st.none(x: Maybe<C.Term>) -> Type:
+def st.none(x: Maybe<Bk.Term>) -> Type:
   match x:
     case None{}:
       Unit
@@ -1538,7 +1543,7 @@ def st.none(x: Maybe<C.Term>) -> Type:
       Empty
 
 # no step is not a step
-def st.ne(-u: C.Term, e: {None{} == Some{u} : Maybe<C.Term>}) -> Empty:
+def st.ne(-u: Bk.Term, e: {None{} == Some{u} : Maybe<Bk.Term>}) -> Empty:
   %e : st.none(_)
   Unit{}
 
@@ -1663,7 +1668,7 @@ def u32.ne(+a: U32, +b: U32, h: {U32.is_eq(a, b) == False{} : Bool}, e: {a == b 
   bool.ft(Empty, Equal.trans(Bool, False{}, U32.is_eq(a, b), True{}, Equal.sym(Bool, U32.is_eq(a, b), False{}, h),
     (%e : {U32.is_eq(a, _) == True{} : Bool}; u32.refl(a))))
 
-def cl.none(n: Nat, +w: Word(n)) -> {C.Cir.Cells.get.at(n, w, C.Cir.Cells.none{}) == C.Cir.Cell.zero() : C.Cir.Cell}:
+def cl.none(n: Nat, +w: Word(n)) -> {Cr.Cir.Cells.get.at(n, w, Cr.Cir.Cells.none{}) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}:
   match n:
     case 0n:
       {==}
@@ -1674,82 +1679,82 @@ def cl.none(n: Nat, +w: Word(n)) -> {C.Cir.Cells.get.at(n, w, C.Cir.Cells.none{}
         case WCon{False{}, t}:
           {==}
 
-def cl.gs.at(n: Nat, +w: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell) ->
-  {C.Cir.Cells.get.at(n, w, C.Cir.Cells.set.at(n, w, m, c)) == c : C.Cir.Cell}:
+def cl.gs.at(n: Nat, +w: Word(n), +m: Cr.Cir.Cells, +c: Cr.Cir.Cell) ->
+  {Cr.Cir.Cells.get.at(n, w, Cr.Cir.Cells.set.at(n, w, m, c)) == c : Cr.Cir.Cell}:
   match n:
     case 0n:
       {==}
     case 1n+p:
       match w m:
-        case WCon{False{}, +t} C.Cir.Cells.node{+lo, +hi}:
+        case WCon{False{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
           cl.gs.at(p, t, lo, c)
-        case WCon{True{}, +t} C.Cir.Cells.node{+lo, +hi}:
+        case WCon{True{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
           cl.gs.at(p, t, hi, c)
-        case WCon{False{}, +t} C.Cir.Cells.none{}:
-          cl.gs.at(p, t, C.Cir.Cells.none{}, c)
-        case WCon{True{}, +t} C.Cir.Cells.none{}:
-          cl.gs.at(p, t, C.Cir.Cells.none{}, c)
-        case WCon{False{}, +t} C.Cir.Cells.one{d}:
-          cl.gs.at(p, t, C.Cir.Cells.none{}, c)
-        case WCon{True{}, +t} C.Cir.Cells.one{d}:
-          cl.gs.at(p, t, C.Cir.Cells.none{}, c)
+        case WCon{False{}, +t} Cr.Cir.Cells.none{}:
+          cl.gs.at(p, t, Cr.Cir.Cells.none{}, c)
+        case WCon{True{}, +t} Cr.Cir.Cells.none{}:
+          cl.gs.at(p, t, Cr.Cir.Cells.none{}, c)
+        case WCon{False{}, +t} Cr.Cir.Cells.one{d}:
+          cl.gs.at(p, t, Cr.Cir.Cells.none{}, c)
+        case WCon{True{}, +t} Cr.Cir.Cells.one{d}:
+          cl.gs.at(p, t, Cr.Cir.Cells.none{}, c)
 
 # a cell set is there
-def cl.gs(+m: C.Cir.Cells, +i: U32, +c: C.Cir.Cell) -> {C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), i) == c : C.Cir.Cell}:
+def cl.gs(+m: Cr.Cir.Cells, +i: U32, +c: Cr.Cir.Cell) -> {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), i) == c : Cr.Cir.Cell}:
   match i:
     case U32{+w}:
       cl.gs.at(32n, w, m, c)
 
-def cl.go.at(n: Nat, +v: Word(n), +w: Word(n), +m: C.Cir.Cells, +c: C.Cir.Cell, h: {Weq(n, v, w) == False{} : Bool}) ->
-  {C.Cir.Cells.get.at(n, v, C.Cir.Cells.set.at(n, w, m, c)) == C.Cir.Cells.get.at(n, v, m) : C.Cir.Cell}:
+def cl.go.at(n: Nat, +v: Word(n), +w: Word(n), +m: Cr.Cir.Cells, +c: Cr.Cir.Cell, h: {Weq(n, v, w) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get.at(n, v, Cr.Cir.Cells.set.at(n, w, m, c)) == Cr.Cir.Cells.get.at(n, v, m) : Cr.Cir.Cell}:
   match n:
     case 0n:
       match v w:
         case WNil{} WNil{}:
-          bool.ft({C.Cir.Cells.get.at(0n, WNil{}, C.Cir.Cells.set.at(0n, WNil{}, m, c)) == C.Cir.Cells.get.at(0n, WNil{}, m) : C.Cir.Cell},
+          bool.ft({Cr.Cir.Cells.get.at(0n, WNil{}, Cr.Cir.Cells.set.at(0n, WNil{}, m, c)) == Cr.Cir.Cells.get.at(0n, WNil{}, m) : Cr.Cir.Cell},
             Equal.sym(Bool, True{}, False{}, h))
     case 1n+(+p):
       match v w m:
-        case WCon{False{}, +s} WCon{False{}, +t} C.Cir.Cells.node{+lo, +hi}:
+        case WCon{False{}, +s} WCon{False{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
           cl.go.at(p, s, t, lo, c, h)
-        case WCon{False{}, +s} WCon{False{}, +t} C.Cir.Cells.none{}:
-          Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-            cl.go.at(p, s, t, C.Cir.Cells.none{}, c, h), cl.none(p, s))
-        case WCon{False{}, +s} WCon{False{}, +t} C.Cir.Cells.one{+d}:
-          Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-            cl.go.at(p, s, t, C.Cir.Cells.none{}, c, h), cl.none(p, s))
-        case WCon{False{}, +s} WCon{True{}, +t} C.Cir.Cells.node{+lo, +hi}:
+        case WCon{False{}, +s} WCon{False{}, +t} Cr.Cir.Cells.none{}:
+          Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+            cl.go.at(p, s, t, Cr.Cir.Cells.none{}, c, h), cl.none(p, s))
+        case WCon{False{}, +s} WCon{False{}, +t} Cr.Cir.Cells.one{+d}:
+          Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+            cl.go.at(p, s, t, Cr.Cir.Cells.none{}, c, h), cl.none(p, s))
+        case WCon{False{}, +s} WCon{True{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
           {==}
-        case WCon{False{}, +s} WCon{True{}, +t} C.Cir.Cells.none{}:
+        case WCon{False{}, +s} WCon{True{}, +t} Cr.Cir.Cells.none{}:
           cl.none(p, s)
-        case WCon{False{}, +s} WCon{True{}, +t} C.Cir.Cells.one{+d}:
+        case WCon{False{}, +s} WCon{True{}, +t} Cr.Cir.Cells.one{+d}:
           cl.none(p, s)
-        case WCon{True{}, +s} WCon{False{}, +t} C.Cir.Cells.node{+lo, +hi}:
+        case WCon{True{}, +s} WCon{False{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
           {==}
-        case WCon{True{}, +s} WCon{False{}, +t} C.Cir.Cells.none{}:
+        case WCon{True{}, +s} WCon{False{}, +t} Cr.Cir.Cells.none{}:
           cl.none(p, s)
-        case WCon{True{}, +s} WCon{False{}, +t} C.Cir.Cells.one{+d}:
+        case WCon{True{}, +s} WCon{False{}, +t} Cr.Cir.Cells.one{+d}:
           cl.none(p, s)
-        case WCon{True{}, +s} WCon{True{}, +t} C.Cir.Cells.node{+lo, +hi}:
+        case WCon{True{}, +s} WCon{True{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
           cl.go.at(p, s, t, hi, c, h)
-        case WCon{True{}, +s} WCon{True{}, +t} C.Cir.Cells.none{}:
-          Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-            cl.go.at(p, s, t, C.Cir.Cells.none{}, c, h), cl.none(p, s))
-        case WCon{True{}, +s} WCon{True{}, +t} C.Cir.Cells.one{+d}:
-          Equal.trans(C.Cir.Cell, C.Cir.Cells.get.at(p, s, C.Cir.Cells.set.at(p, t, C.Cir.Cells.none{}, c)), C.Cir.Cells.get.at(p, s, C.Cir.Cells.none{}), C.Cir.Cell.zero(),
-            cl.go.at(p, s, t, C.Cir.Cells.none{}, c, h), cl.none(p, s))
+        case WCon{True{}, +s} WCon{True{}, +t} Cr.Cir.Cells.none{}:
+          Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+            cl.go.at(p, s, t, Cr.Cir.Cells.none{}, c, h), cl.none(p, s))
+        case WCon{True{}, +s} WCon{True{}, +t} Cr.Cir.Cells.one{+d}:
+          Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, c)), Cr.Cir.Cells.get.at(p, s, Cr.Cir.Cells.none{}), Cr.Cir.Cell.zero(),
+            cl.go.at(p, s, t, Cr.Cir.Cells.none{}, c, h), cl.none(p, s))
 
 # a set keeps the other cells
-def cl.go(+m: C.Cir.Cells, +j: U32, +i: U32, +c: C.Cir.Cell, h: {U32.is_eq(j, i) == False{} : Bool}) ->
-  {C.Cir.Cells.get(C.Cir.Cells.set(m, i, c), j) == C.Cir.Cells.get(m, j) : C.Cir.Cell}:
+def cl.go(+m: Cr.Cir.Cells, +j: U32, +i: U32, +c: Cr.Cir.Cell, h: {U32.is_eq(j, i) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), j) == Cr.Cir.Cells.get(m, j) : Cr.Cir.Cell}:
   match j i:
     case U32{+v} U32{+w}:
       cl.go.at(32n, v, w, m, c, Equal.trans(Bool, Weq(32n, v, w), Cmp.is_eq(Word.cmp(32n, v, w)), False{},
         Equal.sym(Bool, Cmp.is_eq(Word.cmp(32n, v, w)), Weq(32n, v, w), weq.cmp(32n, v, w)), h))
 
 # a cell equal to sx would have sx's tag
-def ne.of(b: Bool, +m: C.Cir.Cells, +c: U32, +sx: U32, -tag: U32, eb: {U32.is_eq(c, sx) == b : Bool},
-  etag: {TgW(C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c))) == tag : U32}, ht: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == False{} : Bool},
+def ne.of(b: Bool, +m: Cr.Cir.Cells, +c: U32, +sx: U32, -tag: U32, eb: {U32.is_eq(c, sx) == b : Bool},
+  etag: {TgW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c))) == tag : U32}, ht: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == False{} : Bool},
   hl: {U32.is_lt(tag, 32) == True{} : Bool}) -> {U32.is_eq(c, sx) == False{} : Bool}:
   match b:
     case False{}:
@@ -1759,7 +1764,7 @@ def ne.of(b: Bool, +m: C.Cir.Cells, +c: U32, +sx: U32, -tag: U32, eb: {U32.is_eq
       bool.ft({U32.is_eq(c, sx) == False{} : Bool},
         Equal.trans(Bool, False{}, U32.is_lt(TgW(Fd(0n, m, c)), 32), True{},
           (%Equal.sym(U32, c, sx, e) : {False{} == U32.is_lt(TgW(Fd(0n, m, _)), 32) : Bool}; Equal.sym(Bool, U32.is_lt(TgW(Fd(0n, m, sx)), 32), False{}, ht)),
-          (%Equal.sym(U32, TgW(C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c))), tag, etag) : {U32.is_lt(_, 32) == True{} : Bool}; hl)))
+          (%Equal.sym(U32, TgW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c))), tag, etag) : {U32.is_lt(_, 32) == True{} : Bool}; hl)))
 
 # Stores to a cell of the machine's own kinds
 # -------------------------------------------
@@ -1769,148 +1774,148 @@ def ne.of(b: Bool, +m: C.Cir.Cells, +c: U32, +sx: U32, -tag: U32, eb: {U32.is_eq
 # so it is another cell (is.st, by induction on the term).
 
 # a node of the tag tag (below 32) is not the cell sx (of a tag of 32 or more)
-def ne.nd(+ds: List<&2, C.Def>, +im: U32, +fi: U32, +nx: U32, +m: C.Cir.Cells, +c: U32, +sx: U32, -t: C.Term, +tag: U32,
-  nd: Nd(ds, im, fi, nx, c, C.Cir.Cells.get(m, c), t, tag), ht: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == False{} : Bool},
+def ne.nd(+ds: List<&2, Bk.Def>, +im: U32, +fi: U32, +nx: U32, +m: Cr.Cir.Cells, +c: U32, +sx: U32, -t: Bk.Term, +tag: U32,
+  nd: Nd(ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), t, tag), ht: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == False{} : Bool},
   hl: {U32.is_lt(tag, 32) == True{} : Bool}) -> {U32.is_eq(c, sx) == False{} : Bool}:
   match nd:
     case Tuple{_, Tuple{_, Tuple{etag, _}}}:
       ne.of(U32.is_eq(c, sx), m, c, sx, tag, {==}, etag, ht, hl)
 
-def isc.at(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, -y1: C.Cir.Cell, -y2: C.Cir.Cell, -t: C.Term, e: {y1 == y2 : C.Cir.Cell},
+def isc.at(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, -y1: Cr.Cir.Cell, -y2: Cr.Cir.Cell, -t: Bk.Term, e: {y1 == y2 : Cr.Cir.Cell},
   h: IsC(ds, m, im, fi, nx, ks, img, c, y2, t)) -> IsC(ds, m, im, fi, nx, ks, img, c, y1, t):
-  %Equal.sym(C.Cir.Cell, y1, y2, e) : IsC(ds, m, im, fi, nx, ks, img, c, _, t)
+  %Equal.sym(Cr.Cir.Cell, y1, y2, e) : IsC(ds, m, im, fi, nx, ks, img, c, _, t)
   h
 
-def sp.at(+fi: U32, +nx: U32, +c: U32, -y1: C.Cir.Cell, -y2: C.Cir.Cell, e: {y1 == y2 : C.Cir.Cell}, h: Sp(fi, nx, c, y2)) ->
+def sp.at(+fi: U32, +nx: U32, +c: U32, -y1: Cr.Cir.Cell, -y2: Cr.Cir.Cell, e: {y1 == y2 : Cr.Cir.Cell}, h: Sp(fi, nx, c, y2)) ->
   Sp(fi, nx, c, y1):
-  %Equal.sym(C.Cir.Cell, y1, y2, e) : Sp(fi, nx, c, _)
+  %Equal.sym(Cr.Cir.Cell, y1, y2, e) : Sp(fi, nx, c, _)
   h
 
 # a store to the cell sx, of a tag of 32 or more, keeps the cell c and its term
-def is.st(t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +sx: U32, +sv: C.Cir.Cell, +c: U32, +ht: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == False{} : Bool},
+def is.st(t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +sx: U32, +sv: Cr.Cir.Cell, +c: U32, +ht: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == False{} : Bool},
   h: Is(ds, m, im, fi, nx, ks, img, c, t)) ->
-  P2({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c) == C.Cir.Cells.get(m, c) : C.Cir.Cell}, Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, t)):
+  P2({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell}, Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, t)):
   match t:
-    case C.Term.Var{+i}:
+    case Bk.Term.Var{+i}:
       match h:
         case Tuple{+nd, x1}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Var{i}, 0, nd, ht, {==}))
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Var{i}, ec, (nd, x1)))
-    case C.Term.Ref{+kk}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Var{i}, 0, nd, ht, {==}))
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Var{i}, ec, (nd, x1)))
+    case Bk.Term.Ref{+kk}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{x2, x3}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Ref{kk}, 1, nd, ht, {==}))
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Ref{kk}, ec, (nd, (x1, (x2, x3)))))
-    case C.Term.Ann{+t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Ref{kk}, 1, nd, ht, {==}))
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Ref{kk}, ec, (nd, (x1, (x2, x3)))))
+    case Bk.Term.Ann{+t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Ann{t1, t2}, 2, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Ann{t1, t2}, ec, (nd, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3))))))
-    case C.Term.Let{+qq, +t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Ann{t1, t2}, 2, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Ann{t1, t2}, ec, (nd, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3))))))
+    case Bk.Term.Let{+qq, +t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Let{qq, t1, t2}, 3, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Let{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3)))))))
-    case C.Term.Typ{+t1}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Let{qq, t1, t2}, 3, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Let{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3)))))))
+    case Bk.Term.Typ{+t1}:
       match h:
         case Tuple{+nd, Tuple{sp2, h2}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Typ{t1}, 4, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Typ{t1}, ec, (nd, (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)))))
-    case C.Term.Min{+t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Typ{t1}, 4, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Typ{t1}, ec, (nd, (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)))))
+    case Bk.Term.Min{+t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Min{t1, t2}, 5, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Min{t1, t2}, ec, (nd, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3))))))
-    case C.Term.All{+qq, +t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Min{t1, t2}, 5, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Min{t1, t2}, ec, (nd, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3))))))
+    case Bk.Term.All{+qq, +t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.All{qq, t1, t2}, 6, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.All{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3)))))))
-    case C.Term.Lam{+qq, +t1}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.All{qq, t1, t2}, 6, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.All{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3)))))))
+    case Bk.Term.Lam{+qq, +t1}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{sp2, h2}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Lam{qq, t1}, 7, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Lam{qq, t1}, ec, (nd, (x1, (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2))))))
-    case C.Term.App{+qq, +t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Lam{qq, t1}, 7, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Lam{qq, t1}, ec, (nd, (x1, (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2))))))
+    case Bk.Term.App{+qq, +t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.App{qq, t1, t2}, 8, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.App{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3)))))))
-    case C.Term.Sig{+qq, +t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.App{qq, t1, t2}, 8, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.App{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3)))))))
+    case Bk.Term.Sig{+qq, +t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Sig{qq, t1, t2}, 9, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Sig{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3)))))))
-    case C.Term.Tup{+qq, +t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Sig{qq, t1, t2}, 9, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Sig{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3)))))))
+    case Bk.Term.Tup{+qq, +t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Tup{qq, t1, t2}, 10, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Tup{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3)))))))
-    case C.Term.Prj{+t1}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Tup{qq, t1, t2}, 10, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Tup{qq, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3)))))))
+    case Bk.Term.Prj{+t1}:
       match h:
         case Tuple{+nd, Tuple{sp2, h2}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Prj{t1}, 11, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Prj{t1}, ec, (nd, (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)))))
-    case C.Term.Enu{+ee}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Prj{t1}, 11, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Prj{t1}, ec, (nd, (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)))))
+    case Bk.Term.Enu{+ee}:
       match h:
         case Tuple{+nd, Tuple{x1, x2}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Enu{ee}, 12, nd, ht, {==}))
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Enu{ee}, ec, (nd, (x1, x2))))
-    case C.Term.Lab{+kk}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Enu{ee}, 12, nd, ht, {==}))
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Enu{ee}, ec, (nd, (x1, x2))))
+    case Bk.Term.Lab{+kk}:
       match h:
         case Tuple{+nd, x1}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Lab{kk}, 13, nd, ht, {==}))
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Lab{kk}, ec, (nd, x1)))
-    case C.Term.Mat{+kk, +t1, +t2}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Lab{kk}, 13, nd, ht, {==}))
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Lab{kk}, ec, (nd, x1)))
+    case Bk.Term.Mat{+kk, +t1, +t2}:
       match h:
         case Tuple{+nd, Tuple{x1, Tuple{Tuple{sp3, h3}, Tuple{sp4, h4}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Mat{kk, t1, t2}, 14, nd, ht, {==}))
-          +r3 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          +r4 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), ht, h4)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Mat{kk, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t1), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t1), r3)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), t2), r4), sp4), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), t2), r4)))))))
-    case C.Term.Efq{}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Mat{kk, t1, t2}, 14, nd, ht, {==}))
+          +r3 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          +r4 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), ht, h4)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Mat{kk, t1, t2}, ec, (nd, (x1, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t1), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t1), r3)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), t2), r4), sp4), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), t2), r4)))))))
+    case Bk.Term.Efq{}:
       +nd = h
-      +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Efq{}, 15, nd, ht, {==}))
-      (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Efq{}, ec, nd))
-    case C.Term.Eql{+t1, +t2, +t3}:
+      +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Efq{}, 15, nd, ht, {==}))
+      (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Efq{}, ec, nd))
+    case Bk.Term.Eql{+t1, +t2, +t3}:
       match h:
         case Tuple{+nd, Tuple{Tuple{sp2, h2}, Tuple{Tuple{sp3, h3}, Tuple{sp4, h4}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Eql{t1, t2, t3}, 16, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          +r4 = is.st(t3, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), ht, h4)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Eql{t1, t2, t3}, ec, (nd, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), t3), r4), sp4), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), t3), r4)))))))
-    case C.Term.Rfl{}:
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Eql{t1, t2, t3}, 16, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          +r4 = is.st(t3, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), ht, h4)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Eql{t1, t2, t3}, ec, (nd, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), t3), r4), sp4), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), t3), r4)))))))
+    case Bk.Term.Rfl{}:
       +nd = h
-      +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Rfl{}, 17, nd, ht, {==}))
-      (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Rfl{}, ec, nd))
-    case C.Term.Rwt{+t1, +t2, +t3}:
+      +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Rfl{}, 17, nd, ht, {==}))
+      (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Rfl{}, ec, nd))
+    case Bk.Term.Rwt{+t1, +t2, +t3}:
       match h:
         case Tuple{+nd, Tuple{Tuple{sp2, h2}, Tuple{Tuple{sp3, h3}, Tuple{sp4, h4}}}}:
-          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, C.Term.Rwt{t1, t2, t3}, 18, nd, ht, {==}))
-          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), ht, h2)
-          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), ht, h3)
-          +r4 = is.st(t3, ds, m, im, fi, nx, ks, img, sx, sv, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), ht, h4)
-          (ec, isc.at(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), c), C.Cir.Cells.get(m, c), C.Term.Rwt{t1, t2, t3}, ec, (nd, ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)), t1), r2)), ((sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(3n, C.Cir.Cells.get(m, c)), t2), r3)), (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))), C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))), Ex.fst({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), t3), r4), sp4), Ex.snd({C.Cir.Cells.get(C.Cir.Cells.set(m, sx, sv), C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) == C.Cir.Cells.get(m, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c))) : C.Cir.Cell}, _ => Is(ds, C.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, C.Cir.Cell.get(4n, C.Cir.Cells.get(m, c)), t3), r4)))))))
+          +ec = cl.go(m, c, sx, sv, ne.nd(ds, im, fi, nx, m, c, sx, Bk.Term.Rwt{t1, t2, t3}, 18, nd, ht, {==}))
+          +r2 = is.st(t1, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), ht, h2)
+          +r3 = is.st(t2, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), ht, h3)
+          +r4 = is.st(t3, ds, m, im, fi, nx, ks, img, sx, sv, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), ht, h4)
+          (ec, isc.at(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c), Cr.Cir.Cells.get(m, c), Bk.Term.Rwt{t1, t2, t3}, ec, (nd, ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2), sp2), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, c)), t1), r2)), ((sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3), sp3), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, Cr.Cir.Cells.get(m, c)), t2), r3)), (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))), Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))), Ex.fst({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), t3), r4), sp4), Ex.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) == Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c))) : Cr.Cir.Cell}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, Cr.Cir.Cell.get(4n, Cr.Cir.Cells.get(m, c)), t3), r4)))))))
 
 # Stores to field 1
 # -----------------
@@ -1919,298 +1924,298 @@ def is.st(t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, 
 # the frames) keeps every term that Is says, and field 0 of its cells (is.f1,
 # by induction on the term): Is reads fields 0, 2, 3 and 4 only.
 
-def set1.id(+y: C.Cir.Cell) -> {y == C.Cir.Cell.set(1n, y, C.Cir.Cell.get(1n, y)) : C.Cir.Cell}:
+def set1.id(+y: Cr.Cir.Cell) -> {y == Cr.Cir.Cell.set(1n, y, Cr.Cir.Cell.get(1n, y)) : Cr.Cir.Cell}:
   match y:
-    case C.Cir.Cell{a, b, x2, x3, x4}:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
       {==}
 
-def cl.f1.of(b: Bool, +m: C.Cir.Cells, +sx: U32, +sv: U32, +c: U32, eb: {U32.is_eq(c, sx) == b : Bool}) ->
-  Ex(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), w) : C.Cir.Cell}):
+def cl.f1.of(b: Bool, +m: Cr.Cir.Cells, +sx: U32, +sv: U32, +c: U32, eb: {U32.is_eq(c, sx) == b : Bool}) ->
+  Ex(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), w) : Cr.Cir.Cell}):
   match b:
     case True{}:
       +e = u32.eq(c, sx, eb)
       %Equal.sym(U32, c, sx, e) :
-        Ex(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), _) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, _), w) : C.Cir.Cell})
-      (sv, cl.gs(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)))
+        Ex(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), _) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, _), w) : Cr.Cir.Cell})
+      (sv, cl.gs(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)))
     case False{}:
-      (C.Cir.Cell.get(1n, C.Cir.Cells.get(m, c)),
-        Equal.trans(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cells.get(m, c),
-          C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), C.Cir.Cell.get(1n, C.Cir.Cells.get(m, c))),
-          cl.go(m, c, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv), eb), set1.id(C.Cir.Cells.get(m, c))))
+      (Cr.Cir.Cell.get(1n, Cr.Cir.Cells.get(m, c)),
+        Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cells.get(m, c),
+          Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Cr.Cir.Cell.get(1n, Cr.Cir.Cells.get(m, c))),
+          cl.go(m, c, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv), eb), set1.id(Cr.Cir.Cells.get(m, c))))
 
 # after a store to field 1, a cell is its old one with another field 1
-def cl.f1(+m: C.Cir.Cells, +sx: U32, +sv: U32, +c: U32) ->
-  Ex(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), w) : C.Cir.Cell}):
+def cl.f1(+m: Cr.Cir.Cells, +sx: U32, +sv: U32, +c: U32) ->
+  Ex(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), w) : Cr.Cir.Cell}):
   cl.f1.of(U32.is_eq(c, sx), m, sx, sv, c, {==})
 
-def sp.at0(+fi: U32, +nx: U32, +c: U32, -y1: C.Cir.Cell, -y2: C.Cir.Cell,
-  e: {C.Cir.Cell.get(0n, y1) == C.Cir.Cell.get(0n, y2) : U32}, h: Sp(fi, nx, c, y2)) -> Sp(fi, nx, c, y1):
-  %Equal.sym(U32, C.Cir.Cell.get(0n, y1), C.Cir.Cell.get(0n, y2), e) : {Bool.or(Own(fi, nx, c), FlW(_, 1024)) == True{} : Bool}
+def sp.at0(+fi: U32, +nx: U32, +c: U32, -y1: Cr.Cir.Cell, -y2: Cr.Cir.Cell,
+  e: {Cr.Cir.Cell.get(0n, y1) == Cr.Cir.Cell.get(0n, y2) : U32}, h: Sp(fi, nx, c, y2)) -> Sp(fi, nx, c, y1):
+  %Equal.sym(U32, Cr.Cir.Cell.get(0n, y1), Cr.Cir.Cell.get(0n, y2), e) : {Bool.or(Own(fi, nx, c), FlW(_, 1024)) == True{} : Bool}
   h
 
 
 # a store to field 1 of the cell sx keeps field 0 of the cell c, of the old
 # value y, and its term
-def is.f1(t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +sx: U32, +sv: U32, +c: U32, y: C.Cir.Cell, +w: U32,
-  +ew: {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c) == C.Cir.Cell.set(1n, y, w) : C.Cir.Cell},
-  +ey: {C.Cir.Cells.get(m, c) == y : C.Cir.Cell}, h: IsC(ds, m, im, fi, nx, ks, img, c, y, t)) ->
-  P2({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)) : U32},
-    Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, t)):
+def is.f1(t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +sx: U32, +sv: U32, +c: U32, y: Cr.Cir.Cell, +w: U32,
+  +ew: {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c) == Cr.Cir.Cell.set(1n, y, w) : Cr.Cir.Cell},
+  +ey: {Cr.Cir.Cells.get(m, c) == y : Cr.Cir.Cell}, h: IsC(ds, m, im, fi, nx, ks, img, c, y, t)) ->
+  P2({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)) : U32},
+    Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, t)):
   match t:
-    case C.Term.Var{+i}:
+    case Bk.Term.Var{+i}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, x1e}:
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Var{i}, ew, (nd, x1e)))
-    case C.Term.Ref{+kk}:
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Var{i}, ew, (nd, x1e)))
+    case Bk.Term.Ref{+kk}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{x2e, x3e}}}:
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Ref{kk}, ew, (nd, (x1e, (x2e, x3e)))))
-    case C.Term.Ann{+t1, +t2}:
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Ref{kk}, ew, (nd, (x1e, (x2e, x3e)))))
+    case Bk.Term.Ann{+t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Ann{t1, t2}, ew, (nd, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3))))))
-    case C.Term.Let{+qq, +t1, +t2}:
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Ann{t1, t2}, ew, (nd, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3))))))
+    case Bk.Term.Let{+qq, +t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Let{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
-    case C.Term.Typ{+t1}:
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Let{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
+    case Bk.Term.Typ{+t1}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{sp2, h2}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Typ{t1}, ew, (nd, (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)))))
-    case C.Term.Min{+t1, +t2}:
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Typ{t1}, ew, (nd, (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)))))
+    case Bk.Term.Min{+t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Min{t1, t2}, ew, (nd, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3))))))
-    case C.Term.All{+qq, +t1, +t2}:
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Min{t1, t2}, ew, (nd, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3))))))
+    case Bk.Term.All{+qq, +t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.All{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
-    case C.Term.Lam{+qq, +t1}:
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.All{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
+    case Bk.Term.Lam{+qq, +t1}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{sp2, h2}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Lam{qq, t1}, ew, (nd, (x1e, (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2))))))
-    case C.Term.App{+qq, +t1, +t2}:
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Lam{qq, t1}, ew, (nd, (x1e, (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2))))))
+    case Bk.Term.App{+qq, +t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.App{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
-    case C.Term.Sig{+qq, +t1, +t2}:
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.App{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
+    case Bk.Term.Sig{+qq, +t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Sig{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
-    case C.Term.Tup{+qq, +t1, +t2}:
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Sig{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
+    case Bk.Term.Tup{+qq, +t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Tup{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
-    case C.Term.Prj{+t1}:
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Tup{qq, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)))))))
+    case Bk.Term.Prj{+t1}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{sp2, h2}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Prj{t1}, ew, (nd, (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)))))
-    case C.Term.Enu{+ee}:
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Prj{t1}, ew, (nd, (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)))))
+    case Bk.Term.Enu{+ee}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, x2e}}:
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Enu{ee}, ew, (nd, (x1e, x2e))))
-    case C.Term.Lab{+kk}:
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Enu{ee}, ew, (nd, (x1e, x2e))))
+    case Bk.Term.Lab{+kk}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, x1e}:
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Lab{kk}, ew, (nd, x1e)))
-    case C.Term.Mat{+kk, +t1, +t2}:
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Lab{kk}, ew, (nd, x1e)))
+    case Bk.Term.Mat{+kk, +t1, +t2}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{x1e, Tuple{Tuple{sp3, h3}, Tuple{sp4, h4}}}}:
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
+              +r3 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
               +c4 = cl.f1(m, sx, sv, x4)
-              +r4 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x4, C.Cir.Cells.get(m, x4), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x4), w) : C.Cir.Cell}, c4),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x4), w) : C.Cir.Cell}, c4), {==}, h4)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Mat{kk, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t1), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t1), r3)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4), C.Cir.Cells.get(m, x4), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t2), r4), sp4), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t2), r4)))))))
-    case C.Term.Efq{}:
+              +r4 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x4, Cr.Cir.Cells.get(m, x4), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x4), w) : Cr.Cir.Cell}, c4),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x4), w) : Cr.Cir.Cell}, c4), {==}, h4)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Mat{kk, t1, t2}, ew, (nd, (x1e, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t1), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t1), r3)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4), Cr.Cir.Cells.get(m, x4), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t2), r4), sp4), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t2), r4)))))))
+    case Bk.Term.Efq{}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
-          (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-            isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Efq{}, ew, h))
-    case C.Term.Eql{+t1, +t2, +t3}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+          (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+            isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Efq{}, ew, h))
+    case Bk.Term.Eql{+t1, +t2, +t3}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{Tuple{sp2, h2}, Tuple{Tuple{sp3, h3}, Tuple{sp4, h4}}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
               +c4 = cl.f1(m, sx, sv, x4)
-              +r4 = is.f1(t3, ds, m, im, fi, nx, ks, img, sx, sv, x4, C.Cir.Cells.get(m, x4), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x4), w) : C.Cir.Cell}, c4),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x4), w) : C.Cir.Cell}, c4), {==}, h4)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Eql{t1, t2, t3}, ew, (nd, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4), C.Cir.Cells.get(m, x4), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4), sp4), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4)))))))
-    case C.Term.Rfl{}:
+              +r4 = is.f1(t3, ds, m, im, fi, nx, ks, img, sx, sv, x4, Cr.Cir.Cells.get(m, x4), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x4), w) : Cr.Cir.Cell}, c4),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x4), w) : Cr.Cir.Cell}, c4), {==}, h4)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Eql{t1, t2, t3}, ew, (nd, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4), Cr.Cir.Cells.get(m, x4), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4), sp4), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4)))))))
+    case Bk.Term.Rfl{}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
-          (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-            isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Rfl{}, ew, h))
-    case C.Term.Rwt{+t1, +t2, +t3}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+          (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+            isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Rfl{}, ew, h))
+    case Bk.Term.Rwt{+t1, +t2, +t3}:
       match y:
-        case C.Cir.Cell{+a, b0, +x2, +x3, +x4}:
+        case Cr.Cir.Cell{+a, b0, +x2, +x3, +x4}:
           match h:
             case Tuple{nd, Tuple{Tuple{sp2, h2}, Tuple{Tuple{sp3, h3}, Tuple{sp4, h4}}}}:
               +c2 = cl.f1(m, sx, sv, x2)
-              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, C.Cir.Cells.get(m, x2), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x2), w) : C.Cir.Cell}, c2), {==}, h2)
+              +r2 = is.f1(t1, ds, m, im, fi, nx, ks, img, sx, sv, x2, Cr.Cir.Cells.get(m, x2), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x2), w) : Cr.Cir.Cell}, c2), {==}, h2)
               +c3 = cl.f1(m, sx, sv, x3)
-              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, C.Cir.Cells.get(m, x3), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x3), w) : C.Cir.Cell}, c3), {==}, h3)
+              +r3 = is.f1(t2, ds, m, im, fi, nx, ks, img, sx, sv, x3, Cr.Cir.Cells.get(m, x3), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x3), w) : Cr.Cir.Cell}, c3), {==}, h3)
               +c4 = cl.f1(m, sx, sv, x4)
-              +r4 = is.f1(t3, ds, m, im, fi, nx, ks, img, sx, sv, x4, C.Cir.Cells.get(m, x4), Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x4), w) : C.Cir.Cell}, c4),
-                Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x4), w) : C.Cir.Cell}, c4), {==}, h4)
-              (Equal.trans(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)), a, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)),
-            Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, ew),
-            Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), a, Equal.cong(C.Cir.Cell, U32, z => C.Cir.Cell.get(0n, z), C.Cir.Cells.get(m, c), C.Cir.Cell{a, b0, x2, x3, x4}, ey))),
-                isc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c), C.Cir.Cell{a, w, x2, x3, x4}, C.Term.Rwt{t1, t2, t3}, ew, (nd, ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2), C.Cir.Cells.get(m, x2), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x2)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), ((sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3), C.Cir.Cells.get(m, x3), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x3)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)), (sp.at0(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4), C.Cir.Cells.get(m, x4), Ex.fst({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4), sp4), Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), x4)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4)))))))
+              +r4 = is.f1(t3, ds, m, im, fi, nx, ks, img, sx, sv, x4, Cr.Cir.Cells.get(m, x4), Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x4), w) : Cr.Cir.Cell}, c4),
+                Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x4), w) : Cr.Cir.Cell}, c4), {==}, h4)
+              (Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)), a, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)),
+            Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, ew),
+            Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), a, Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(m, c), Cr.Cir.Cell{a, b0, x2, x3, x4}, ey))),
+                isc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c), Cr.Cir.Cell{a, w, x2, x3, x4}, Bk.Term.Rwt{t1, t2, t3}, ew, (nd, ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2), Cr.Cir.Cells.get(m, x2), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2), sp2), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x2)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x2)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x2, t1), r2)), ((sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3), Cr.Cir.Cells.get(m, x3), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3), sp3), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x3)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x3)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x3, t2), r3)), (sp.at0(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4), Cr.Cir.Cells.get(m, x4), Ex.fst({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4), sp4), Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), x4)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x4)) : U32}, _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, x4, t3), r4)))))))
 
 # a store to field 1 keeps every term
-def is.f1.top(+t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +sx: U32, +sv: U32, +c: U32, h: Is(ds, m, im, fi, nx, ks, img, c, t)) ->
-  Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, t):
+def is.f1.top(+t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +sx: U32, +sv: U32, +c: U32, h: Is(ds, m, im, fi, nx, ks, img, c, t)) ->
+  Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, t):
   +r = cl.f1(m, sx, sv, c)
-  +q = is.f1(t, ds, m, im, fi, nx, ks, img, sx, sv, c, C.Cir.Cells.get(m, c),
-    Ex.fst(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), w) : C.Cir.Cell}, r),
-    Ex.snd(U32, w => {C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), w) : C.Cir.Cell}, r), {==}, h)
-  Ex.snd({C.Cir.Cell.get(0n, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), c)) == C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)) : U32},
-    _ => Is(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, t), q)
+  +q = is.f1(t, ds, m, im, fi, nx, ks, img, sx, sv, c, Cr.Cir.Cells.get(m, c),
+    Ex.fst(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), w) : Cr.Cir.Cell}, r),
+    Ex.snd(U32, w => {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), w) : Cr.Cir.Cell}, r), {==}, h)
+  Ex.snd({Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), c)) == Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)) : U32},
+    _ => Is(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, t), q)
 
 def ne.fr.k(kind: FK, -fr: U32, -sx: U32, h: {U32.is_lt(FK.tag(kind), 32) == True{} : Bool}) ->
   {U32.is_eq(fr, sx) == False{} : Bool}:
@@ -2235,32 +2240,32 @@ def ne.fr.k(kind: FK, -fr: U32, -sx: U32, h: {U32.is_lt(FK.tag(kind), 32) == Tru
       bool.ft({U32.is_eq(fr, sx) == False{} : Bool}, h)
 
 # the frames from fr, with the top cell's value x (Frs, by its parts)
-def FrsC(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, +x: C.Cir.Cell, fs: List<&2, AF>) -> Data:
+def FrsC(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, +x: Cr.Cir.Cell, fs: List<&2, AF>) -> Data:
   match fs:
     case Nil{}:
       {fr == 0 : U32}
     case Con{AF{+kind, +q, +k, +a, +b}, rest}:
       P2({U32.is_eq(fr, 0) == False{} : Bool},
-      P2({C.Cir.is_cell(fr, im, fi, nx) == True{} : Bool},
+      P2({Cr.Cir.is_cell(fr, im, fi, nx) == True{} : Bool},
       P2({Own(fi, nx, fr) == True{} : Bool},
-      P2({FlW(C.Cir.Cell.get(0n, x), 1024) == False{} : Bool},
+      P2({FlW(Cr.Cir.Cell.get(0n, x), 1024) == False{} : Bool},
       P2({Mem(ps, fr) == False{} : Bool},
-      P2({TgW(C.Cir.Cell.get(0n, x)) == FK.tag(kind) : U32},
+      P2({TgW(Cr.Cir.Cell.get(0n, x)) == FK.tag(kind) : U32},
       P2(Qs(x, q),
-      P2({FlW(C.Cir.Cell.get(0n, x), 2048) == k : Bool},
-      P2(Is(ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), a),
-      P2(Frs.b(ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), kind, b),
-        Frs(ds, m, im, fi, nx, ks, img, ps, C.Cir.Cell.get(1n, x), rest)))))))))))
+      P2({FlW(Cr.Cir.Cell.get(0n, x), 2048) == k : Bool},
+      P2(Is(ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), a),
+      P2(Frs.b(ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), kind, b),
+        Frs(ds, m, im, fi, nx, ks, img, ps, Cr.Cir.Cell.get(1n, x), rest)))))))))))
 
-def frsc.at(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, -y1: C.Cir.Cell, -y2: C.Cir.Cell, -fs: List<&2, AF>,
-  e: {y1 == y2 : C.Cir.Cell}, h: FrsC(ds, m, im, fi, nx, ks, img, ps, fr, y2, fs)) -> FrsC(ds, m, im, fi, nx, ks, img, ps, fr, y1, fs):
-  %Equal.sym(C.Cir.Cell, y1, y2, e) : FrsC(ds, m, im, fi, nx, ks, img, ps, fr, _, fs)
+def frsc.at(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, -y1: Cr.Cir.Cell, -y2: Cr.Cir.Cell, -fs: List<&2, AF>,
+  e: {y1 == y2 : Cr.Cir.Cell}, h: FrsC(ds, m, im, fi, nx, ks, img, ps, fr, y2, fs)) -> FrsC(ds, m, im, fi, nx, ks, img, ps, fr, y1, fs):
+  %Equal.sym(Cr.Cir.Cell, y1, y2, e) : FrsC(ds, m, im, fi, nx, ks, img, ps, fr, _, fs)
   h
 
 # a frame's cell (of a tag of 32 or more) is not the cell sx (of a tag below 32)
-def ne.fr(b: Bool, +m: C.Cir.Cells, +fr: U32, +sx: U32, kind: FK, eb: {U32.is_eq(fr, sx) == b : Bool},
+def ne.fr(b: Bool, +m: Cr.Cir.Cells, +fr: U32, +sx: U32, kind: FK, eb: {U32.is_eq(fr, sx) == b : Bool},
   etag: {Tg(m, fr) == FK.tag(kind) : U32}, hsx: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == True{} : Bool}) ->
   {U32.is_eq(fr, sx) == False{} : Bool}:
   match b:
@@ -2272,17 +2277,17 @@ def ne.fr(b: Bool, +m: C.Cir.Cells, +fr: U32, +sx: U32, kind: FK, eb: {U32.is_eq
       ne.fr.k(kind, fr, sx, Equal.trans(Bool, U32.is_lt(FK.tag(kind), 32), U32.is_lt(Tg(m, fr), 32), True{},
         Equal.cong(U32, Bool, z => U32.is_lt(z, 32), FK.tag(kind), Tg(m, fr), Equal.sym(U32, Tg(m, fr), FK.tag(kind), etag)), h2))
 
-def frs.c(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: Frs(ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
-  FrsC(ds, m, im, fi, nx, ks, img, ps, fr, C.Cir.Cells.get(m, fr), fs):
+def frs.c(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: Frs(ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
+  FrsC(ds, m, im, fi, nx, ks, img, ps, fr, Cr.Cir.Cells.get(m, fr), fs):
   match fs:
     case Nil{}:
       h
     case Con{AF{kind, q, k, a, b}, rest}:
       h
 
-def frs.uc(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: FrsC(ds, m, im, fi, nx, ks, img, ps, fr, C.Cir.Cells.get(m, fr), fs)) ->
+def frs.uc(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: FrsC(ds, m, im, fi, nx, ks, img, ps, fr, Cr.Cir.Cells.get(m, fr), fs)) ->
   Frs(ds, m, im, fi, nx, ks, img, ps, fr, fs):
   match fs:
     case Nil{}:
@@ -2290,41 +2295,41 @@ def frs.uc(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, 
     case Con{AF{kind, q, k, a, b}, rest}:
       h
 
-def FrsCK(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, +x: C.Cir.Cell, fs: List<&2, AF>) -> Data:
+def FrsCK(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, +x: Cr.Cir.Cell, fs: List<&2, AF>) -> Data:
   match fs:
     case Nil{}:
       {fr == 0 : U32}
     case Con{AF{+kind, +q, +k, +a, +b}, rest}:
       P2({U32.is_eq(fr, 0) == False{} : Bool},
-      P2({C.Cir.is_cell(fr, im, fi, nx) == True{} : Bool},
+      P2({Cr.Cir.is_cell(fr, im, fi, nx) == True{} : Bool},
       P2({Own(fi, nx, fr) == True{} : Bool},
-      P2({FlW(C.Cir.Cell.get(0n, x), 1024) == False{} : Bool},
+      P2({FlW(Cr.Cir.Cell.get(0n, x), 1024) == False{} : Bool},
       P2({Mem(ps, fr) == False{} : Bool},
-      P2({TgW(C.Cir.Cell.get(0n, x)) == FK.tag(kind) : U32},
+      P2({TgW(Cr.Cir.Cell.get(0n, x)) == FK.tag(kind) : U32},
       P2(Qs(x, q),
-      P2({FlW(C.Cir.Cell.get(0n, x), 2048) == k : Bool},
-      P2(IsK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(2n, x), a),
-      P2(Frs.bK(dk, ds, m, im, fi, nx, ks, img, C.Cir.Cell.get(3n, x), kind, b),
-        FrsK(dk, ds, m, im, fi, nx, ks, img, ps, C.Cir.Cell.get(1n, x), rest)))))))))))
+      P2({FlW(Cr.Cir.Cell.get(0n, x), 2048) == k : Bool},
+      P2(IsK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(2n, x), a),
+      P2(Frs.bK(dk, ds, m, im, fi, nx, ks, img, Cr.Cir.Cell.get(3n, x), kind, b),
+        FrsK(dk, ds, m, im, fi, nx, ks, img, ps, Cr.Cir.Cell.get(1n, x), rest)))))))))))
 
-def frsc.atk(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, -y1: C.Cir.Cell, -y2: C.Cir.Cell, -fs: List<&2, AF>,
-  e: {y1 == y2 : C.Cir.Cell}, h: FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, y2, fs)) -> FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, y1, fs):
-  %Equal.sym(C.Cir.Cell, y1, y2, e) : FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, _, fs)
+def frsc.atk(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, -y1: Cr.Cir.Cell, -y2: Cr.Cir.Cell, -fs: List<&2, AF>,
+  e: {y1 == y2 : Cr.Cir.Cell}, h: FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, y2, fs)) -> FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, y1, fs):
+  %Equal.sym(Cr.Cir.Cell, y1, y2, e) : FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, _, fs)
   h
 
-def frs.ck(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: FrsK(dk, ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
-  FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, C.Cir.Cells.get(m, fr), fs):
+def frs.ck(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: FrsK(dk, ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
+  FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, Cr.Cir.Cells.get(m, fr), fs):
   match fs:
     case Nil{}:
       h
     case Con{AF{kind, q, k, a, b}, rest}:
       h
 
-def frs.uck(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, C.Cir.Cells.get(m, fr), fs)) ->
+def frs.uck(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, fs: List<&2, AF>, h: FrsCK(dk, ds, m, im, fi, nx, ks, img, ps, fr, Cr.Cir.Cells.get(m, fr), fs)) ->
   FrsK(dk, ds, m, im, fi, nx, ks, img, ps, fr, fs):
   match fs:
     case Nil{}:
@@ -2332,9 +2337,9 @@ def frs.uck(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32
     case Con{AF{kind, q, k, a, b}, rest}:
       h
 
-def frsb.f1(kind: FK, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +sx: U32, +sv: U32, +c: U32, +b: C.Term, h: Frs.b(ds, m, im, fi, nx, ks, img, c, kind, b)) ->
-  Frs.b(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, kind, b):
+def frsb.f1(kind: FK, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +sx: U32, +sv: U32, +c: U32, +b: Bk.Term, h: Frs.b(ds, m, im, fi, nx, ks, img, c, kind, b)) ->
+  Frs.b(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, c, kind, b):
   match kind:
     case FK.rwt{}:
       is.f1.top(b, ds, m, im, fi, nx, ks, img, sx, sv, c, h)
@@ -2356,10 +2361,10 @@ def frsb.f1(kind: FK, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32,
       Unit{}
 
 # a store to field 1 of a cell of a tag below 32 keeps the frames
-def frs.f1(fs: List<&2, AF>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +ps: List<&2, U32>, +sx: U32, +sv: U32, +fr: U32,
+def frs.f1(fs: List<&2, AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +sx: U32, +sv: U32, +fr: U32,
   +hsx: {U32.is_lt(TgW(Fd(0n, m, sx)), 32) == True{} : Bool}, h: Frs(ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
-  Frs(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, ps, fr, fs):
+  Frs(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, ps, fr, fs):
   match fs:
     case Nil{}:
       h
@@ -2367,9 +2372,9 @@ def frs.f1(fs: List<&2, AF>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +f
       match h:
         case Tuple{e0, Tuple{ev, Tuple{eo, Tuple{es, Tuple{em, Tuple{+etg, Tuple{eq, Tuple{ek, Tuple{ia, Tuple{ib, ir}}}}}}}}}}:
           +ne = ne.fr(U32.is_eq(fr, sx), m, fr, sx, kind, {==}, etg, hsx)
-          +ec = cl.go(m, fr, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv), ne)
-          frs.uc(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, ps, fr, Con{AF{kind, q, k, a, b}, rest},
-            frsc.at(ds, C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, ps, fr, C.Cir.Cells.get(C.Cir.Cells.set(m, sx, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, sx), sv)), fr), C.Cir.Cells.get(m, fr),
+          +ec = cl.go(m, fr, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv), ne)
+          frs.uc(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, ps, fr, Con{AF{kind, q, k, a, b}, rest},
+            frsc.at(ds, Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), im, fi, nx, ks, img, ps, fr, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, sx), sv)), fr), Cr.Cir.Cells.get(m, fr),
               Con{AF{kind, q, k, a, b}, rest}, ec,
               (e0, (ev, (eo, (es, (em, (etg, (eq, (ek,
                 (is.f1.top(a, ds, m, im, fi, nx, ks, img, sx, sv, Fd(2n, m, fr), ia),
@@ -2385,83 +2390,83 @@ def frs.f1(fs: List<&2, AF>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +f
 # the table (tbl.at).
 
 # the state with the register r set to v, or with field k of the cell i set to x
-def St.set(st: C.Cir.State, +r: Nat, +v: U32) -> C.Cir.State:
+def St.set(st: Cr.Cir.State, +r: Nat, +v: U32) -> Cr.Cir.State:
   match st:
-    case C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}:
-      C.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}
+    case Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}:
+      Cr.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}
 
-def eq.set(+f: Nat, +r: Nat, e: C.Cir.Expr, st: C.Cir.State, +v: U32,
-  ev: {C.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>},
+def eq.set(+f: Nat, +r: Nat, e: Cr.Cir.Expr, st: Cr.Cir.State, +v: U32,
+  ev: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>},
   hl: {Nat.is_lt(r, List.length(&2, U32, St.regs(st))) == True{} : Bool}) ->
-  {C.Cir.exec(f, C.Cir.Stmt.set{r, e}, st) == C.Cir.Out.next{St.set(st, r, v)} : C.Cir.Out}:
+  {Cr.Cir.exec(f, Cr.Cir.Stmt.set{r, e}, st) == Cr.Cir.Out.next{St.set(st, r, v)} : Cr.Cir.Out}:
   match f st:
-    case 0n C.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      %Equal.sym(Maybe<&2, U32>, C.Cir.eval(e, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}), Some{v}, ev) :
-        {C.Cir.exec.set(r, _, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-          C.Cir.Out.next{C.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : C.Cir.Out}
+    case 0n Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(e, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}), Some{v}, ev) :
+        {Cr.Cir.exec.set(r, _, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+          Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       %Equal.sym(Bool, Nat.is_lt(r, List.length(&2, U32, regs)), True{}, hl) :
-        {C.Cir.exec.set.of(C.Cir.regs.set.if(_, regs, r, v), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-          C.Cir.Out.next{C.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : C.Cir.Out}
+        {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+          Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       {==}
-    case 1n+g C.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      %Equal.sym(Maybe<&2, U32>, C.Cir.eval(e, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}), Some{v}, ev) :
-        {C.Cir.exec.set(r, _, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-          C.Cir.Out.next{C.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : C.Cir.Out}
+    case 1n+g Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(e, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}), Some{v}, ev) :
+        {Cr.Cir.exec.set(r, _, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+          Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       %Equal.sym(Bool, Nat.is_lt(r, List.length(&2, U32, regs)), True{}, hl) :
-        {C.Cir.exec.set.of(C.Cir.regs.set.if(_, regs, r, v), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-          C.Cir.Out.next{C.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : C.Cir.Out}
+        {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+          Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       {==}
 
 # a then b, after a ends with st1
-def rw.seq(+f: Nat, a: C.Cir.Stmt, +b: C.Cir.Stmt, +st: C.Cir.State, +st1: C.Cir.State,
-  e1: {C.Cir.exec(f, a, st) == C.Cir.Out.next{st1} : C.Cir.Out}) ->
-  {C.Cir.exec(f, b, st1) == C.Cir.exec(f, C.Cir.Stmt.seq{a, b}, st) : C.Cir.Out}:
+def rw.seq(+f: Nat, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, +st1: Cr.Cir.State,
+  e1: {Cr.Cir.exec(f, a, st) == Cr.Cir.Out.next{st1} : Cr.Cir.Out}) ->
+  {Cr.Cir.exec(f, b, st1) == Cr.Cir.exec(f, Cr.Cir.Stmt.seq{a, b}, st) : Cr.Cir.Out}:
   match f:
     case 0n:
-      %Equal.sym(C.Cir.Out, C.Cir.exec(0n, a, st), C.Cir.Out.next{st1}, e1) :
-        {C.Cir.exec(0n, b, st1) == C.Cir.exec.then(_, u => C.Cir.exec(0n, b, u)) : C.Cir.Out}
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, a, st), Cr.Cir.Out.next{st1}, e1) :
+        {Cr.Cir.exec(0n, b, st1) == Cr.Cir.exec.then(_, u => Cr.Cir.exec(0n, b, u)) : Cr.Cir.Out}
       {==}
     case 1n+g:
-      %Equal.sym(C.Cir.Out, C.Cir.exec(1n+g, a, st), C.Cir.Out.next{st1}, e1) :
-        {C.Cir.exec(1n+g, b, st1) == C.Cir.exec.then(_, u => C.Cir.exec(1n+g, b, u)) : C.Cir.Out}
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+g, a, st), Cr.Cir.Out.next{st1}, e1) :
+        {Cr.Cir.exec(1n+g, b, st1) == Cr.Cir.exec.then(_, u => Cr.Cir.exec(1n+g, b, u)) : Cr.Cir.Out}
       {==}
 
 # an if whose condition is not 0, and one whose condition is 0
-def eq.if.t(+f: Nat, c: C.Cir.Expr, +t: C.Cir.Stmt, +e: C.Cir.Stmt, +st: C.Cir.State, -v: U32,
-  ev: {C.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>}, nz: {U32.is_zero(v) == False{} : Bool}) ->
-  {C.Cir.exec(f, C.Cir.Stmt.if{c, t, e}, st) == C.Cir.exec(f, t, st) : C.Cir.Out}:
+def eq.if.t(+f: Nat, c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, -v: U32,
+  ev: {Cr.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>}, nz: {U32.is_zero(v) == False{} : Bool}) ->
+  {Cr.Cir.exec(f, Cr.Cir.Stmt.if{c, t, e}, st) == Cr.Cir.exec(f, t, st) : Cr.Cir.Out}:
   match f:
     case 0n:
-      %Equal.sym(Maybe<&2, U32>, C.Cir.eval(c, st), Some{v}, ev) :
-        {C.Cir.exec.if(_, u => C.Cir.exec(0n, t, st), u => C.Cir.exec(0n, e, st)) == C.Cir.exec(0n, t, st) : C.Cir.Out}
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, ev) :
+        {Cr.Cir.exec.if(_, u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st)) == Cr.Cir.exec(0n, t, st) : Cr.Cir.Out}
       %Equal.sym(Bool, U32.is_zero(v), False{}, nz) :
-        {C.Cir.exec.if.of(_, u => C.Cir.exec(0n, t, st), u => C.Cir.exec(0n, e, st)) == C.Cir.exec(0n, t, st) : C.Cir.Out}
+        {Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st)) == Cr.Cir.exec(0n, t, st) : Cr.Cir.Out}
       {==}
     case 1n+g:
-      %Equal.sym(Maybe<&2, U32>, C.Cir.eval(c, st), Some{v}, ev) :
-        {C.Cir.exec.if(_, u => C.Cir.exec(1n+g, t, st), u => C.Cir.exec(1n+g, e, st)) == C.Cir.exec(1n+g, t, st) : C.Cir.Out}
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, ev) :
+        {Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+g, t, st), u => Cr.Cir.exec(1n+g, e, st)) == Cr.Cir.exec(1n+g, t, st) : Cr.Cir.Out}
       %Equal.sym(Bool, U32.is_zero(v), False{}, nz) :
-        {C.Cir.exec.if.of(_, u => C.Cir.exec(1n+g, t, st), u => C.Cir.exec(1n+g, e, st)) == C.Cir.exec(1n+g, t, st) : C.Cir.Out}
+        {Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(1n+g, t, st), u => Cr.Cir.exec(1n+g, e, st)) == Cr.Cir.exec(1n+g, t, st) : Cr.Cir.Out}
       {==}
 
-def eq.if.e(+f: Nat, c: C.Cir.Expr, +t: C.Cir.Stmt, +e: C.Cir.Stmt, +st: C.Cir.State, -v: U32,
-  ev: {C.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>}, z: {U32.is_zero(v) == True{} : Bool}) ->
-  {C.Cir.exec(f, C.Cir.Stmt.if{c, t, e}, st) == C.Cir.exec(f, e, st) : C.Cir.Out}:
+def eq.if.e(+f: Nat, c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, -v: U32,
+  ev: {Cr.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>}, z: {U32.is_zero(v) == True{} : Bool}) ->
+  {Cr.Cir.exec(f, Cr.Cir.Stmt.if{c, t, e}, st) == Cr.Cir.exec(f, e, st) : Cr.Cir.Out}:
   match f:
     case 0n:
-      %Equal.sym(Maybe<&2, U32>, C.Cir.eval(c, st), Some{v}, ev) :
-        {C.Cir.exec.if(_, u => C.Cir.exec(0n, t, st), u => C.Cir.exec(0n, e, st)) == C.Cir.exec(0n, e, st) : C.Cir.Out}
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, ev) :
+        {Cr.Cir.exec.if(_, u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st)) == Cr.Cir.exec(0n, e, st) : Cr.Cir.Out}
       %Equal.sym(Bool, U32.is_zero(v), True{}, z) :
-        {C.Cir.exec.if.of(_, u => C.Cir.exec(0n, t, st), u => C.Cir.exec(0n, e, st)) == C.Cir.exec(0n, e, st) : C.Cir.Out}
+        {Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st)) == Cr.Cir.exec(0n, e, st) : Cr.Cir.Out}
       {==}
     case 1n+g:
-      %Equal.sym(Maybe<&2, U32>, C.Cir.eval(c, st), Some{v}, ev) :
-        {C.Cir.exec.if(_, u => C.Cir.exec(1n+g, t, st), u => C.Cir.exec(1n+g, e, st)) == C.Cir.exec(1n+g, e, st) : C.Cir.Out}
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, ev) :
+        {Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+g, t, st), u => Cr.Cir.exec(1n+g, e, st)) == Cr.Cir.exec(1n+g, e, st) : Cr.Cir.Out}
       %Equal.sym(Bool, U32.is_zero(v), True{}, z) :
-        {C.Cir.exec.if.of(_, u => C.Cir.exec(1n+g, t, st), u => C.Cir.exec(1n+g, e, st)) == C.Cir.exec(1n+g, e, st) : C.Cir.Out}
+        {Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(1n+g, t, st), u => Cr.Cir.exec(1n+g, e, st)) == Cr.Cir.exec(1n+g, e, st) : Cr.Cir.Out}
       {==}
 
-def eq.nop(+f: Nat, +st: C.Cir.State) -> {C.Cir.exec(f, C.Cir.Stmt.nop{}, st) == C.Cir.Out.next{st} : C.Cir.Out}:
+def eq.nop(+f: Nat, +st: Cr.Cir.State) -> {Cr.Cir.exec(f, Cr.Cir.Stmt.nop{}, st) == Cr.Cir.Out.next{st} : Cr.Cir.Out}:
   match f:
     case 0n:
       {==}
@@ -2469,27 +2474,27 @@ def eq.nop(+f: Nat, +st: C.Cir.State) -> {C.Cir.exec(f, C.Cir.Stmt.nop{}, st) ==
       {==}
 
 # the value of an operation, from its operands'
-def ev.op(o: C.Wasm.Op, a: C.Cir.Expr, b: C.Cir.Expr, +st: C.Cir.State, -x: U32, -y: U32,
-  ea: {C.Cir.eval(a, st) == Some{x} : Maybe<&2, U32>}, eb: {C.Cir.eval(b, st) == Some{y} : Maybe<&2, U32>}) ->
-  {C.Cir.eval(C.Cir.Expr.op{o, a, b}, st) == Some{C.Wasm.op(o, x, y)} : Maybe<&2, U32>}:
-  %Equal.sym(Maybe<&2, U32>, C.Cir.eval(a, st), Some{x}, ea) :
-    {C.Cir.eval.op(o, _, C.Cir.eval(b, st)) == Some{C.Wasm.op(o, x, y)} : Maybe<&2, U32>}
-  %Equal.sym(Maybe<&2, U32>, C.Cir.eval(b, st), Some{y}, eb) :
-    {C.Cir.eval.op(o, Some{x}, _) == Some{C.Wasm.op(o, x, y)} : Maybe<&2, U32>}
+def ev.op(o: Wa.Wasm.Op, a: Cr.Cir.Expr, b: Cr.Cir.Expr, +st: Cr.Cir.State, -x: U32, -y: U32,
+  ea: {Cr.Cir.eval(a, st) == Some{x} : Maybe<&2, U32>}, eb: {Cr.Cir.eval(b, st) == Some{y} : Maybe<&2, U32>}) ->
+  {Cr.Cir.eval(Cr.Cir.Expr.op{o, a, b}, st) == Some{Wa.Wasm.op(o, x, y)} : Maybe<&2, U32>}:
+  %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(a, st), Some{x}, ea) :
+    {Cr.Cir.eval.op(o, _, Cr.Cir.eval(b, st)) == Some{Wa.Wasm.op(o, x, y)} : Maybe<&2, U32>}
+  %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(b, st), Some{y}, eb) :
+    {Cr.Cir.eval.op(o, Some{x}, _) == Some{Wa.Wasm.op(o, x, y)} : Maybe<&2, U32>}
   {==}
 
 # the value of a field of a cell
-def ev.fld(+k: Nat, c: C.Cir.Expr, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32,
+def ev.fld(+k: Nat, c: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32,
   +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +i: U32,
-  ec: {C.Cir.eval(c, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) == Some{i} : Maybe<&2, U32>},
-  hv: {C.Cir.is_cell(i, im, fi, nx) == True{} : Bool}) ->
-  {C.Cir.eval(C.Cir.Expr.field{k, c}, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-    Some{C.Cir.Cell.get(k, C.Cir.Cells.get(m, i))} : Maybe<&2, U32>}:
-  %Equal.sym(Maybe<&2, U32>, C.Cir.eval(c, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}), Some{i}, ec) :
-    {C.Cir.eval.field(k, _, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-      Some{C.Cir.Cell.get(k, C.Cir.Cells.get(m, i))} : Maybe<&2, U32>}
-  %Equal.sym(Bool, C.Cir.is_cell(i, im, fi, nx), True{}, hv) :
-    {C.Cir.eval.field.if(_, k, m, i) == Some{C.Cir.Cell.get(k, C.Cir.Cells.get(m, i))} : Maybe<&2, U32>}
+  ec: {Cr.Cir.eval(c, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) == Some{i} : Maybe<&2, U32>},
+  hv: {Cr.Cir.is_cell(i, im, fi, nx) == True{} : Bool}) ->
+  {Cr.Cir.eval(Cr.Cir.Expr.field{k, c}, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+    Some{Cr.Cir.Cell.get(k, Cr.Cir.Cells.get(m, i))} : Maybe<&2, U32>}:
+  %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}), Some{i}, ec) :
+    {Cr.Cir.eval.field(k, _, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+      Some{Cr.Cir.Cell.get(k, Cr.Cir.Cells.get(m, i))} : Maybe<&2, U32>}
+  %Equal.sym(Bool, Cr.Cir.is_cell(i, im, fi, nx), True{}, hv) :
+    {Cr.Cir.eval.field.if(_, k, m, i) == Some{Cr.Cir.Cell.get(k, Cr.Cir.Cells.get(m, i))} : Maybe<&2, U32>}
   {==}
 
 # 1 or'ed with a Bool is not 0
@@ -2501,203 +2506,203 @@ def or1(b: Bool) -> {U32.is_zero(U32.or(1, Bool.to_u32(b))) == False{} : Bool}:
       {==}
 
 # the tag of a term's cell
-def A.tag(t: C.Term) -> U32:
+def A.tag(t: Bk.Term) -> U32:
   match t:
 
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       0
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       1
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       2
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       3
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       4
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       5
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       6
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       7
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       8
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       9
-    case C.Term.Tup{_, _, _}:
+    case Bk.Term.Tup{_, _, _}:
       10
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       11
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       12
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       13
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       14
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       15
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       16
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       17
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       18
 
 # what the cell of a term says of itself
-def is.nd(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, t: C.Term, h: Is(ds, m, im, fi, nx, ks, img, c, t)) ->
-  Nd(ds, im, fi, nx, c, C.Cir.Cells.get(m, c), t, A.tag(t)):
+def is.nd(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, t: Bk.Term, h: Is(ds, m, im, fi, nx, ks, img, c, t)) ->
+  Nd(ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), t, A.tag(t)):
   match t:
-    case C.Term.Var{+i}:
+    case Bk.Term.Var{+i}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Ref{+k}:
+    case Bk.Term.Ref{+k}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Ann{+x, +y}:
+    case Bk.Term.Ann{+x, +y}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Let{+q, +v, +b}:
+    case Bk.Term.Let{+q, +v, +b}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Typ{+x}:
+    case Bk.Term.Typ{+x}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Min{+a, +b}:
+    case Bk.Term.Min{+a, +b}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.All{+q, +a, +b}:
+    case Bk.Term.All{+q, +a, +b}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Lam{+q, +b}:
+    case Bk.Term.Lam{+q, +b}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.App{+q, +g, +x}:
+    case Bk.Term.App{+q, +g, +x}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Sig{+q, +a, +b}:
+    case Bk.Term.Sig{+q, +a, +b}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Tup{+q, +a, +b}:
+    case Bk.Term.Tup{+q, +a, +b}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Prj{+hh}:
+    case Bk.Term.Prj{+hh}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Enu{+e}:
+    case Bk.Term.Enu{+e}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Lab{+k}:
+    case Bk.Term.Lab{+k}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Mat{+k, +hh, +n}:
+    case Bk.Term.Mat{+k, +hh, +n}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       h
-    case C.Term.Eql{+a, +b, +y}:
+    case Bk.Term.Eql{+a, +b, +y}:
       match h:
         case Tuple{n, _}:
           n
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       h
-    case C.Term.Rwt{+e, +p, +b}:
+    case Bk.Term.Rwt{+e, +p, +b}:
       match h:
         case Tuple{n, _}:
           n
 
 # the table's cell for the tag of t is a cell (I.table)
-def tbl.at(-m: C.Cir.Cells, -im: U32, -fi: U32, -nx: U32, t: C.Term, h: Tbl(m, im, fi, nx)) ->
-  {C.Cir.is_cell(U32.add(272, A.tag(t)), im, fi, nx) == True{} : Bool}:
+def tbl.at(-m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, t: Bk.Term, h: Tbl(m, im, fi, nx)) ->
+  {Cr.Cir.is_cell(U32.add(272, A.tag(t)), im, fi, nx) == True{} : Bool}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       match h:
         case Tuple{e, _}:
           e
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}:
           e
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}:
           e
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}:
           e
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Tup{_, _, _}:
+    case Bk.Term.Tup{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
@@ -2710,51 +2715,51 @@ def nat.pred(n: Nat) -> Nat:
       p
 
 # a term has a node or more
-def size.pos(t: C.Term) -> {C.Term.size(t) == 1n+nat.pred(C.Term.size(t)) : Nat}:
+def size.pos(t: Bk.Term) -> {Pg.Term.size(t) == 1n+nat.pred(Pg.Term.size(t)) : Nat}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       {==}
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       {==}
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       {==}
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       {==}
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       {==}
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       {==}
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       {==}
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       {==}
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       {==}
-    case C.Term.Tup{_, _, _}:
+    case Bk.Term.Tup{_, _, _}:
       {==}
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       {==}
 
 # the measure of a term to evaluate is at least 1
-def A.w3.pos(+t: C.Term) -> N.Le(1n, A.w3(t)):
-  %Equal.sym(Nat, C.Term.size(t), 1n+nat.pred(C.Term.size(t)), size.pos(t)) : N.Le(1n, Nat.add(_, Nat.add(_, _)))
-  N.le_zero(Nat.add(nat.pred(C.Term.size(t)), Nat.add(1n+nat.pred(C.Term.size(t)), 1n+nat.pred(C.Term.size(t)))))
+def A.w3.pos(+t: Bk.Term) -> N.Le(1n, A.w3(t)):
+  %Equal.sym(Nat, Pg.Term.size(t), 1n+nat.pred(Pg.Term.size(t)), size.pos(t)) : N.Le(1n, Nat.add(_, Nat.add(_, _)))
+  N.le_zero(Nat.add(nat.pred(Pg.Term.size(t)), Nat.add(1n+nat.pred(Pg.Term.size(t)), 1n+nat.pred(Pg.Term.size(t)))))
 
 # The run
 # -------
@@ -2763,73 +2768,73 @@ def A.w3.pos(+t: C.Term) -> N.Le(1n, A.w3(t)):
 # the input (Start says what it computed), or runs out of memory first.
 
 # the state from which Cir.result runs the program
-def St0(+regs: Nat, cells: List<&2, C.Cir.Cell>, +first: U32, +k: U32, +p: U32, +lim: U32, i: List<&2, Word(8n)>) ->
-  C.Cir.State:
-  C.Cir.State{List.replicate(U32, regs, 0), C.Cir.load(cells, 1, C.Cir.Cells.none{}), first, first, k, p, lim, i, Nil{}, 0}
+def St0(+regs: Nat, cells: List<&2, Cr.Cir.Cell>, +first: U32, +k: U32, +p: U32, +lim: U32, i: List<&2, Word(8n)>) ->
+  Cr.Cir.State:
+  Cr.Cir.State{List.replicate(U32, regs, 0), Cr.Cir.load(cells, 1, Cr.Cir.Cells.none{}), first, first, k, p, lim, i, Nil{}, 0}
 
 # what Cir.result computed for the start: the image's k cells, its room for
 # them, the input's len bytes, the limit lim of the pages, the p pages after
 # alloc, and the first cell after the input
-def Start(cells: List<&2, C.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32, +p: U32, +lim: U32,
+def Start(cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32, +p: U32, +lim: U32,
   +first: U32) -> Data:
-  P2({k == C.Wasm.encode.len(C.Cir.Cell, cells) : U32},
-  P2({U32.is_le(C.Cir.pages(C.Cir.input.at(k)), m) == True{} : Bool},
-  P2({lim == C.Wasm.min(m, 65536) : U32},
-  P2({C.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
-  P2({C.Cir.alloc.pages(k, len, C.Cir.pages(C.Cir.input.at(k)), lim) == Some{p} : Maybe<&2, U32>},
-    {first == C.Cir.first(k, U32.add(C.Cir.input.at(k), len)) : U32})))))
+  P2({k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  P2({U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  P2({lim == Wa.Wasm.min(m, 65536) : U32},
+  P2({Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
+  P2({Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim) == Some{p} : Maybe<&2, U32>},
+    {first == Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)) : U32})))))
 
 # The start
 # ---------
 
 # the state with the mode 0
-def Mode0(st: C.Cir.State) -> C.Cir.State:
+def Mode0(st: Cr.Cir.State) -> Cr.Cir.State:
   match st:
-    case C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}:
-      C.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}
+    case Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}:
+      Cr.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}
 
 def regs.set1(+regs: List<&2, U32>, e: {List.length(&2, U32, regs) == 63n : Nat}) ->
-  {C.Cir.regs.set(regs, 1n, 0) == Some{List.set(&2, U32, regs, 1n, 0)} : Maybe<&2, List<&2, U32>>}:
+  {Cr.Cir.regs.set(regs, 1n, 0) == Some{List.set(&2, U32, regs, 1n, 0)} : Maybe<&2, List<&2, U32>>}:
   %Equal.sym(Nat, List.length(&2, U32, regs), 63n, e) :
-    {C.Cir.regs.set.if(Nat.is_lt(1n, _), regs, 1n, 0) == Some{List.set(&2, U32, regs, 1n, 0)} : Maybe<&2, List<&2, U32>>}
+    {Cr.Cir.regs.set.if(Nat.is_lt(1n, _), regs, 1n, 0) == Some{List.set(&2, U32, regs, 1n, 0)} : Maybe<&2, List<&2, U32>>}
   {==}
 
 # Mach.code's M.set(R.mode(), M.c(0)), after M.input
-def setmode(+f: Nat, st: C.Cir.State, e: {List.length(&2, U32, St.regs(st)) == 63n : Nat}) ->
-  {C.Cir.exec(f, C.M.set(C.R.mode(), C.M.c(0)), st) == C.Cir.Out.next{Mode0(st)} : C.Cir.Out}:
+def setmode(+f: Nat, st: Cr.Cir.State, e: {List.length(&2, U32, St.regs(st)) == 63n : Nat}) ->
+  {Cr.Cir.exec(f, Mc.M.set(Mc.R.mode(), Mc.M.c(0)), st) == Cr.Cir.Out.next{Mode0(st)} : Cr.Cir.Out}:
   match f st:
-    case 0n C.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      %Equal.sym(Maybe<&2, List<&2, U32>>, C.Cir.regs.set(regs, 1n, 0), Some{List.set(&2, U32, regs, 1n, 0)}, regs.set1(regs, e)) : {C.Cir.exec.set.of(_, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-        C.Cir.Out.next{C.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}} : C.Cir.Out}
+    case 0n Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      %Equal.sym(Maybe<&2, List<&2, U32>>, Cr.Cir.regs.set(regs, 1n, 0), Some{List.set(&2, U32, regs, 1n, 0)}, regs.set1(regs, e)) : {Cr.Cir.exec.set.of(_, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+        Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       {==}
-    case 1n+p C.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      %Equal.sym(Maybe<&2, List<&2, U32>>, C.Cir.regs.set(regs, 1n, 0), Some{List.set(&2, U32, regs, 1n, 0)}, regs.set1(regs, e)) : {C.Cir.exec.set.of(_, C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
-        C.Cir.Out.next{C.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}} : C.Cir.Out}
+    case 1n+p Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      %Equal.sym(Maybe<&2, List<&2, U32>>, Cr.Cir.regs.set(regs, 1n, 0), Some{List.set(&2, U32, regs, 1n, 0)}, regs.set1(regs, e)) : {Cr.Cir.exec.set.of(_, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}) ==
+        Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       {==}
 
 # after M.input: ten registers or more, and once the mode is 0, the invariant
 # of Program.start(i), with the image's names and terms (proof_term.bend)
-def InvIn(+ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +st: C.Cir.State) -> Data:
+def InvIn(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st: Cr.Cir.State) -> Data:
   P2({List.length(&2, U32, St.regs(st)) == 63n : Nat},
-    Ex(Nat, w => Inv(ds, T.tm.names(ds), T.tm.img(ds), Mode0(st), C.Program.start(i), w)))
+    Ex(Nat, w => Inv(ds, T.tm.names(ds), T.tm.img(ds), Mode0(st), Pg.Program.start(i), w)))
 # the conclusion of input.post (proof_mach.bend), for the phase that proves it
-def InputPost(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
+def InputPost(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32,
-  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
-  small: {C.Img.small(p, 0) == True{} : Bool},
-  s: Start(C.Img.cells(ds), i, m, k, len, pg, lim, first)) ->
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  small: {Mc.Img.small(p, 0) == True{} : Bool},
+  s: Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first)) ->
   Type:
-  Post(False{}, C.Cir.exec(f, C.M.input(), St0(C.Mach.regs(), C.Img.cells(ds), first, k, pg, lim, i)),
+  Post(False{}, Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     st => InvIn(ds, i, st), s2 => st2 => Empty)
 
 # the conclusion of input.done (proof_mach.bend), for the phase that proves it
-def InputDone(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
+def InputDone(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32,
-  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
-  small: {C.Img.small(p, 0) == True{} : Bool},
-  s: Start(C.Img.cells(ds), i, m, k, len, pg, lim, first)) ->
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  small: {Mc.Img.small(p, 0) == True{} : Bool},
+  s: Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first)) ->
   Data:
-  Ex(Nat, f => Ends(C.Cir.exec(f, C.M.input(), St0(C.Mach.regs(), C.Img.cells(ds), first, k, pg, lim, i))))
+  Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i))))
 
 
 # Memory (mach.memory)
@@ -2859,28 +2864,28 @@ def InputDone(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n
 #   3. then loop.done's out-of-memory cases are empty, and its Good is a
 #      halt with 0 (mach.memory.proof, from the parts of mach.complete).
 
-def St.lim(st: C.Cir.State) -> U32:
+def St.lim(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, _, _, _, _, lim, _, _, _}:
+    case Cr.Cir.State{_, _, _, _, _, _, lim, _, _, _}:
       lim
 
-def St.first(st: C.Cir.State) -> U32:
+def St.first(st: Cr.Cir.State) -> U32:
   match st:
-    case C.Cir.State{_, _, _, fi, _, _, _, _, _, _}:
+    case Cr.Cir.State{_, _, _, fi, _, _, _, _, _, _}:
       fi
 
 # the machine's own cells of a state
-def Mem.cells(+st: C.Cir.State) -> Nat:
+def Mem.cells(+st: Cr.Cir.State) -> Nat:
   Nat.sub(U32.to_nat(St.next(st)), U32.to_nat(St.first(st)))
 
 # the most cells of the machine's own that a round from the term t needs
-def Peak(t: C.Term) -> Nat:
-  Nat.add(Nat.mul(3n, C.Term.size(t)), N.D(16n, 1n))
+def Peak(t: Bk.Term) -> Nat:
+  Nat.add(Nat.mul(3n, Pg.Term.size(t)), N.D(16n, 1n))
 
 # the run does not run out of memory
-def NoOom(o: C.Cir.Out) -> Data:
+def NoOom(o: Cr.Cir.Out) -> Data:
   match o:
-    case C.Cir.Out.out_of_memory{}:
+    case Cr.Cir.Out.out_of_memory{}:
       Empty
     case _:
       Unit
@@ -3043,7 +3048,7 @@ def mem.tl(+x: U32, +c: U32, -rest: List<&2, U32>, h: {Mem(rest, c) == True{} : 
 
 # the cell p, at or after o and before n cells from o, counts its pointers to
 # c in Pc
-def Pc.at.b(b: Bool, +k: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +p: U32, +c: U32, eb: {U32.is_eq(o, p) == b : Bool},
+def Pc.at.b(b: Bool, +k: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +p: U32, +c: U32, eb: {U32.is_eq(o, p) == b : Bool},
   h1: N.Le(U32.to_nat(o), U32.to_nat(p)), h2: N.Le(1n+U32.to_nat(p), Nat.add(U32.to_nat(o), 1n+k)),
   ih: N.Le(U32.to_nat(U32.inc(o)), U32.to_nat(p)) -> N.Le(1n+U32.to_nat(p), Nat.add(U32.to_nat(U32.inc(o)), k)) ->
     N.Le(RcL(Fs(m, ps, p), c), Pc(k, m, ps, U32.inc(o), c))) ->
@@ -3064,7 +3069,7 @@ def Pc.at.b(b: Bool, +k: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +p: 
       N.le_trans(RcL(Fs(m, ps, p), c), Pc(k, m, ps, U32.inc(o), c), Nat.add(RcL(Fs(m, ps, o), c), Pc(k, m, ps, U32.inc(o), c)),
         ih(h1b, h2b), N.le_add_l(RcL(Fs(m, ps, o), c), Pc(k, m, ps, U32.inc(o), c)))
 
-def Pc.at(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +p: U32, +c: U32,
+def Pc.at(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +p: U32, +c: U32,
   h1: N.Le(U32.to_nat(o), U32.to_nat(p)), h2: N.Le(1n+U32.to_nat(p), Nat.add(U32.to_nat(o), n))) ->
   N.Le(RcL(Fs(m, ps, p), c), Pc(n, m, ps, o, c)):
   match n:
@@ -3076,7 +3081,7 @@ def Pc.at(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +p: U32, +c: U32
       Pc.at.b(U32.is_eq(o, p), k, m, ps, o, p, c, {==}, h1, h2, x => y => Pc.at(k, m, ps, U32.inc(o), p, c, x, y))
 
 # a cell of the machine's own counts its pointers to c in Ptr
-def Ptr.at(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +p: U32, +c: U32,
+def Ptr.at(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +p: U32, +c: U32,
   own: {Own(fi, nx, p) == True{} : Bool}) ->
   N.Le(RcL(Fs(m, ps, p), c), Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, c)):
   +o2 = own
@@ -3093,124 +3098,124 @@ def Ptr.at(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2
 
 # the mask of a term's tag: the fields of its parts (1 for field 2, 2 for 3,
 # 4 for 4), as I.table holds it
-def Mask(t: C.Term) -> U32:
+def Mask(t: Bk.Term) -> U32:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       0
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       0
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       3
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       3
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       1
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       3
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       3
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       1
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       3
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       3
-    case C.Term.Tup{_, _, _}:
+    case Bk.Term.Tup{_, _, _}:
       3
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       1
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       0
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       0
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       6
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       0
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       7
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       0
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       7
 
 # the table's mask for the tag of t (Tbl)
-def tbl.mask(-m: C.Cir.Cells, -im: U32, -fi: U32, -nx: U32, t: C.Term, h: Tbl(m, im, fi, nx)) ->
+def tbl.mask(-m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, t: Bk.Term, h: Tbl(m, im, fi, nx)) ->
   {Fd(2n, m, U32.add(272, A.tag(t))) == Mask(t) : U32}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       match h:
         case Tuple{_, Tuple{e, _}}:
           e
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}:
           e
-    case C.Term.Ann{_, _}:
+    case Bk.Term.Ann{_, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}:
           e
-    case C.Term.Let{_, _, _}:
+    case Bk.Term.Let{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}:
           e
-    case C.Term.Typ{_}:
+    case Bk.Term.Typ{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Min{_, _}:
+    case Bk.Term.Min{_, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.All{_, _, _}:
+    case Bk.Term.All{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Lam{_, _}:
+    case Bk.Term.Lam{_, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.App{_, _, _}:
+    case Bk.Term.App{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Sig{_, _, _}:
+    case Bk.Term.Sig{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Tup{_, _, _}:
+    case Bk.Term.Tup{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Prj{_}:
+    case Bk.Term.Prj{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Mat{_, _, _}:
+    case Bk.Term.Mat{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Eql{_, _, _}:
+    case Bk.Term.Eql{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
-    case C.Term.Rwt{_, _, _}:
+    case Bk.Term.Rwt{_, _, _}:
       match h:
         case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
           e
@@ -3219,7 +3224,7 @@ def tbl.mask(-m: C.Cir.Cells, -im: U32, -fi: U32, -nx: U32, t: C.Term, h: Tbl(m,
 # -------------------
 
 # Fs, with the test of the tag b and the tag tg apart
-def FsP(b: Bool, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32) -> List<&2, U32>:
+def FsP(b: Bool, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32) -> List<&2, U32>:
   Bool.pick(List<&2, U32>, b, Fs.term(Fd(2n, m, U32.add(272, tg)), Fd(2n, m, o), Fd(3n, m, o), Fd(4n, m, o)),
     Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(Mem(ps, o))),
       Con{Fd(2n, m, o), Fs.opt(U32.is_eq(tg, 38), Fd(3n, m, o), Nil{})},
@@ -3228,7 +3233,7 @@ def FsP(b: Bool, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32) -> List
 
 # the pointers of a term cell of the tag tg, whose mask is mask, are its parts
 # by the mask
-def fs.term(+m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32, +mask: U32, etag: {TgW(Fd(0n, m, o)) == tg : U32},
+def fs.term(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32, +mask: U32, etag: {TgW(Fd(0n, m, o)) == tg : U32},
   hlt: {U32.is_lt(tg, 19) == True{} : Bool}, emask: {Fd(2n, m, U32.add(272, tg)) == mask : U32}) ->
   {Fs(m, ps, o) == Fs.term(mask, Fd(2n, m, o), Fd(3n, m, o), Fd(4n, m, o)) : List<&2, U32>}:
   %Equal.sym(U32, TgW(Fd(0n, m, o)), tg, etag) :
@@ -3240,7 +3245,7 @@ def fs.term(+m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32, +mask: U32, 
   {==}
 
 # a part y, by the mask, of a term cell c of the machine's own has a pointer
-def ptr.part(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32, +y: U32, +tg: U32, +mask: U32,
+def ptr.part(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32, +y: U32, +tg: U32, +mask: U32,
   etag: {TgW(Fd(0n, m, c)) == tg : U32}, hlt: {U32.is_lt(tg, 19) == True{} : Bool},
   emask: {Fd(2n, m, U32.add(272, tg)) == mask : U32}, own: {Own(fi, nx, c) == True{} : Bool},
   hm: {Mem(Fs.term(mask, Fd(2n, m, c), Fd(3n, m, c), Fd(4n, m, c)), y) == True{} : Bool}) ->
@@ -3252,7 +3257,7 @@ def ptr.part(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<
     Ptr.at(m, nx, fi, ps, rs, c, y, own))
 
 # a cell with a pointer is not one with none
-def ne.ptr(b: Bool, +y: U32, +z: U32, +n: Nat, +m: C.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>,
+def ne.ptr(b: Bool, +y: U32, +z: U32, +n: Nat, +m: Cr.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>,
   eb: {U32.is_eq(y, z) == b : Bool}, hy: N.Le(1n, Ptr(n, m, fi, ps, rs, y)), hz: {Ptr(n, m, fi, ps, rs, z) == 0n : Nat}) ->
   {U32.is_eq(y, z) == False{} : Bool}:
   match b:
@@ -3265,7 +3270,7 @@ def ne.ptr(b: Bool, +y: U32, +z: U32, +n: Nat, +m: C.Cir.Cells, +fi: U32, +ps: L
           N.le_rw_r(1n, Ptr(n, m, fi, ps, rs, y), Ptr(n, m, fi, ps, rs, z), Equal.cong(U32, Nat, w => Ptr(n, m, fi, ps, rs, w), y, z, e), hy)))
 
 # a STATIC cell is not one that is not STATIC
-def ne.st(b: Bool, +m: C.Cir.Cells, +y: U32, +z: U32, eb: {U32.is_eq(y, z) == b : Bool},
+def ne.st(b: Bool, +m: Cr.Cir.Cells, +y: U32, +z: U32, eb: {U32.is_eq(y, z) == b : Bool},
   hy: {Fl(m, y, 1024) == True{} : Bool}, hz: {Fl(m, z, 1024) == False{} : Bool}) -> {U32.is_eq(y, z) == False{} : Bool}:
   match b:
     case False{}:
@@ -3275,9 +3280,9 @@ def ne.st(b: Bool, +m: C.Cir.Cells, +y: U32, +z: U32, eb: {U32.is_eq(y, z) == b 
       bool.ft({U32.is_eq(y, z) == False{} : Bool}, Equal.trans(Bool, False{}, Fl(m, z, 1024), True{}, Equal.sym(Bool, Fl(m, z, 1024), False{}, hz),
         (%e : {Fl(m, _, 1024) == True{} : Bool}; hy)))
 
-def part.ne.b(o: Bool, +m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32, +y: U32, +z: U32,
+def part.ne.b(o: Bool, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32, +y: U32, +z: U32,
   +tg: U32, +mask: U32, eo: {Own(fi, nx, c) == o : Bool},
-  sp: {Bool.or(o, FlW(C.Cir.Cell.get(0n, C.Cir.Cells.get(m, y)), 1024)) == True{} : Bool},
+  sp: {Bool.or(o, FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, y)), 1024)) == True{} : Bool},
   etag: {TgW(Fd(0n, m, c)) == tg : U32}, hlt: {U32.is_lt(tg, 19) == True{} : Bool},
   emask: {Fd(2n, m, U32.add(272, tg)) == mask : U32},
   hm: {Mem(Fs.term(mask, Fd(2n, m, c), Fd(3n, m, c), Fd(4n, m, c)), y) == True{} : Bool},
@@ -3292,8 +3297,8 @@ def part.ne.b(o: Bool, +m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, 
 
 # a part y of a node c (by the mask of c's tag tg) is not the cell z, which
 # nothing points to and is not STATIC
-def part.ne(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32, +y: U32, +z: U32,
-  +tg: U32, +mask: U32, sp: Sp(fi, nx, c, C.Cir.Cells.get(m, y)),
+def part.ne(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32, +y: U32, +z: U32,
+  +tg: U32, +mask: U32, sp: Sp(fi, nx, c, Cr.Cir.Cells.get(m, y)),
   etag: {TgW(Fd(0n, m, c)) == tg : U32}, hlt: {U32.is_lt(tg, 19) == True{} : Bool},
   emask: {Fd(2n, m, U32.add(272, tg)) == mask : U32},
   hm: {Mem(Fs.term(mask, Fd(2n, m, c), Fd(3n, m, c), Fd(4n, m, c)), y) == True{} : Bool},
@@ -3311,7 +3316,7 @@ def part.ne(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&
 # (node.ptr, nodes.ptr): so it is in no pend list, and no M.alloc takes it.
 
 # x is STATIC or has a pointer
-def Hd(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +x: U32) -> Bool:
+def Hd(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +x: U32) -> Bool:
   Bool.or(Fl(m, x, 1024), Nat.is_lt(0n, Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, x)))
 
 def or.l(b: Bool, -c: Bool, h: {b == True{} : Bool}) -> {Bool.or(b, c) == True{} : Bool}:
@@ -3337,22 +3342,22 @@ def le1.lt(x: Nat, h: N.Le(1n, x)) -> {Nat.is_lt(0n, x) == True{} : Bool}:
     case 1n+p:
       {==}
 
-def nd.tgk(-dk: Bool, -ds: List<&2, C.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, -x: C.Cir.Cell, -t: C.Term, -tag: U32,
-  h: NdK(dk, ds, im, fi, nx, c, x, t, tag)) -> {TgW(C.Cir.Cell.get(0n, x)) == tag : U32}:
+def nd.tgk(-dk: Bool, -ds: List<&2, Bk.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, -x: Cr.Cir.Cell, -t: Bk.Term, -tag: U32,
+  h: NdK(dk, ds, im, fi, nx, c, x, t, tag)) -> {TgW(Cr.Cir.Cell.get(0n, x)) == tag : U32}:
   (e0, r0) = h
   (e1, r1) = r0
   (e, r) = r1
   e
 
-def hd.eq(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +r: U32, +c: U32,
+def hd.eq(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +r: U32, +c: U32,
   e: {U32.is_eq(r, c) == True{} : Bool}, hr: {Hd(m, nx, fi, ps, rs, r) == True{} : Bool}) -> {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}:
   %u32.eq(r, c, e) : {Hd(m, nx, fi, ps, rs, _) == True{} : Bool}
   hr
 
 # a part y, among the pointers of r, of r that is one of the machine's own
 # (o) or of y that is STATIC: y is STATIC or has a pointer
-def part.held(o: Bool, +m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +r: U32, +y: U32,
-  eo: {Own(fi, nx, r) == o : Bool}, sp: {Bool.or(o, FlW(C.Cir.Cell.get(0n, C.Cir.Cells.get(m, y)), 1024)) == True{} : Bool},
+def part.held(o: Bool, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +r: U32, +y: U32,
+  eo: {Own(fi, nx, r) == o : Bool}, sp: {Bool.or(o, FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, y)), 1024)) == True{} : Bool},
   hm: {Mem(Fs(m, ps, r), y) == True{} : Bool}) -> {Hd(m, nx, fi, ps, rs, y) == True{} : Bool}:
   match o:
     case True{}:
@@ -3364,7 +3369,7 @@ def part.held(o: Bool, +m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, 
       or.l(Fl(m, y, 1024), Nat.is_lt(0n, Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, y)), sp)
 
 # a part by the mask of a term cell is among its pointers
-def hm.at(+m: C.Cir.Cells, +ps: List<&2, U32>, +r: U32, +tg: U32, +mask: U32, +y: U32, etag: {TgW(Fd(0n, m, r)) == tg : U32},
+def hm.at(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +r: U32, +tg: U32, +mask: U32, +y: U32, etag: {TgW(Fd(0n, m, r)) == tg : U32},
   hlt: {U32.is_lt(tg, 19) == True{} : Bool}, emask: {Fd(2n, m, U32.add(272, tg)) == mask : U32},
   hy: {Mem(Fs.term(mask, Fd(2n, m, r), Fd(3n, m, r), Fd(4n, m, r)), y) == True{} : Bool}) -> {Mem(Fs(m, ps, r), y) == True{} : Bool}:
   %Equal.sym(List<&2, U32>, Fs(m, ps, r), Fs.term(mask, Fd(2n, m, r), Fd(3n, m, r), Fd(4n, m, r)), fs.term(m, ps, r, tg, mask, etag, hlt, emask)) :
@@ -3374,112 +3379,112 @@ def hm.at(+m: C.Cir.Cells, +ps: List<&2, U32>, +r: U32, +tg: U32, +mask: U32, +y
 # a node c of the term t at r, a cell that is STATIC or has a pointer, is
 # STATIC or has a pointer: each part of a node of the machine's own has the
 # node's pointer, and a part of another node is STATIC
-def node.ptr(t: C.Term, +dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +tbl: Tbl(m, im, fi, nx), +r: U32, +c: U32,
+def node.ptr(t: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +tbl: Tbl(m, im, fi, nx), +r: U32, +c: U32,
   h: IsK(dk, ds, m, im, fi, nx, ks, img, r, t), hr: {Hd(m, nx, fi, ps, rs, r) == True{} : Bool},
   hn: {Node(t, m, r, c) == True{} : Bool}) -> {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}:
   match t:
-    case C.Term.Var{+i}:
+    case Bk.Term.Var{+i}:
       hd.eq(m, nx, fi, ps, rs, r, c, hn, hr)
-    case C.Term.Ref{+k}:
+    case Bk.Term.Ref{+k}:
       hd.eq(m, nx, fi, ps, rs, r, c, hn, hr)
-    case C.Term.Ann{+y, +z}:
+    case Bk.Term.Ann{+y, +z}:
       match h:
         case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Ann{y, z}, 2, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Ann{y, z}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ann{y, z}, 2, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Ann{y, z}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(y, m, Fd(2n, m, r), c), Node(z, m, Fd(3n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(y, m, Fd(2n, m, r), c), Node(z, m, Fd(3n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(y, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 2, 3, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}))), e2), e3 => node.ptr(z, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 2, 3, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})))), e3)))
-    case C.Term.Let{+q, +v, +f}:
+    case Bk.Term.Let{+q, +v, +f}:
       match h:
         case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Let{q, v, f}, 3, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Let{q, v, f}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Let{q, v, f}, 3, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Let{q, v, f}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(v, m, Fd(2n, m, r), c), Node(f, m, Fd(3n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(v, m, Fd(2n, m, r), c), Node(f, m, Fd(3n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(v, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 3, 3, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}))), e2), e3 => node.ptr(f, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 3, 3, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})))), e3)))
-    case C.Term.Typ{+y}:
+    case Bk.Term.Typ{+y}:
       match h:
         case Tuple{+nd, Tuple{+sp2, h2}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Typ{y}, 4, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Typ{y}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Typ{y}, 4, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Typ{y}, tbl)
           or.cases(U32.is_eq(r, c), Node(y, m, Fd(2n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e2 => node.ptr(y, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 4, 1, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Nil{}))), e2))
-    case C.Term.Min{+a, +b}:
+    case Bk.Term.Min{+a, +b}:
       match h:
         case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Min{a, b}, 5, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Min{a, b}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Min{a, b}, 5, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(a, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 5, 3, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}))), e2), e3 => node.ptr(b, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 5, 3, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})))), e3)))
-    case C.Term.All{+q, +a, +b}:
+    case Bk.Term.All{+q, +a, +b}:
       match h:
         case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.All{q, a, b}, 6, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.All{q, a, b}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.All{q, a, b}, 6, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(a, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 6, 3, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}))), e2), e3 => node.ptr(b, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 6, 3, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})))), e3)))
-    case C.Term.Lam{+q, +f}:
+    case Bk.Term.Lam{+q, +f}:
       match h:
         case Tuple{+nd, Tuple{_, Tuple{+sp2, h2}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Lam{q, f}, 7, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Lam{q, f}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Lam{q, f}, 7, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Lam{q, f}, tbl)
           or.cases(U32.is_eq(r, c), Node(f, m, Fd(2n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e2 => node.ptr(f, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 7, 1, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Nil{}))), e2))
-    case C.Term.App{+q, +f, +y}:
+    case Bk.Term.App{+q, +f, +y}:
       match h:
         case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.App{q, f, y}, 8, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.App{q, f, y}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.App{q, f, y}, 8, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.App{q, f, y}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(f, m, Fd(2n, m, r), c), Node(y, m, Fd(3n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(f, m, Fd(2n, m, r), c), Node(y, m, Fd(3n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(f, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 8, 3, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}))), e2), e3 => node.ptr(y, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 8, 3, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})))), e3)))
-    case C.Term.Sig{+q, +a, +b}:
+    case Bk.Term.Sig{+q, +a, +b}:
       match h:
         case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Sig{q, a, b}, 9, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Sig{q, a, b}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Sig{q, a, b}, 9, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(a, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 9, 3, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}))), e2), e3 => node.ptr(b, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 9, 3, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})))), e3)))
-    case C.Term.Tup{+q, +a, +b}:
+    case Bk.Term.Tup{+q, +a, +b}:
       match h:
         case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Tup{q, a, b}, 10, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Tup{q, a, b}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Tup{q, a, b}, 10, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(a, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 10, 3, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}))), e2), e3 => node.ptr(b, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 10, 3, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})))), e3)))
-    case C.Term.Prj{+hh}:
+    case Bk.Term.Prj{+hh}:
       match h:
         case Tuple{+nd, Tuple{+sp2, h2}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Prj{hh}, 11, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Prj{hh}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Prj{hh}, 11, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Prj{hh}, tbl)
           or.cases(U32.is_eq(r, c), Node(hh, m, Fd(2n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e2 => node.ptr(hh, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 11, 1, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Nil{}))), e2))
-    case C.Term.Enu{+e}:
+    case Bk.Term.Enu{+e}:
       hd.eq(m, nx, fi, ps, rs, r, c, hn, hr)
-    case C.Term.Lab{+k}:
+    case Bk.Term.Lab{+k}:
       hd.eq(m, nx, fi, ps, rs, r, c, hn, hr)
-    case C.Term.Mat{+k, +hh, +n}:
+    case Bk.Term.Mat{+k, +hh, +n}:
       match h:
         case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp3, h3}, Tuple{+sp4, h4}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Mat{k, hh, n}, 14, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Mat{k, hh, n}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Mat{k, hh, n}, 14, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, hh, n}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(hh, m, Fd(3n, m, r), c), Node(n, m, Fd(4n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(hh, m, Fd(3n, m, r), c), Node(n, m, Fd(4n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e3 => node.ptr(hh, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 14, 6, Fd(3n, m, r), et, {==}, em, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}))), e3), e4 => node.ptr(n, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(4n, m, r), c, h4, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(4n, m, r), {==}, sp4, hm.at(m, ps, r, 14, 6, Fd(4n, m, r), et, {==}, em, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{})))), e4)))
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       hd.eq(m, nx, fi, ps, rs, r, c, hn, hr)
-    case C.Term.Eql{+a, +b, +y}:
+    case Bk.Term.Eql{+a, +b, +y}:
       match h:
         case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{Tuple{+sp3, h3}, Tuple{+sp4, h4}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Eql{a, b, y}, 16, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, y}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, y}, 16, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, y}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(y, m, Fd(4n, m, r), c))), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(y, m, Fd(4n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(a, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 16, 7, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}))), e2), e => or.cases(Node(b, m, Fd(3n, m, r), c), Node(y, m, Fd(4n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e3 => node.ptr(b, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 16, 7, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})))), e3), e4 => node.ptr(y, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(4n, m, r), c, h4, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(4n, m, r), {==}, sp4, hm.at(m, ps, r, 16, 7, Fd(4n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))))), e4))))
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       hd.eq(m, nx, fi, ps, rs, r, c, hn, hr)
-    case C.Term.Rwt{+ee, +pp, +ff}:
+    case Bk.Term.Rwt{+ee, +pp, +ff}:
       match h:
         case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{Tuple{+sp3, h3}, Tuple{+sp4, h4}}}}:
-          +et = nd.tgk(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Rwt{ee, pp, ff}, 18, nd)
-          +em = tbl.mask(m, im, fi, nx, C.Term.Rwt{ee, pp, ff}, tbl)
+          +et = nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{ee, pp, ff}, 18, nd)
+          +em = tbl.mask(m, im, fi, nx, Bk.Term.Rwt{ee, pp, ff}, tbl)
           or.cases(U32.is_eq(r, c), Bool.or(Node(ee, m, Fd(2n, m, r), c), Bool.or(Node(pp, m, Fd(3n, m, r), c), Node(ff, m, Fd(4n, m, r), c))), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, hn, e => hd.eq(m, nx, fi, ps, rs, r, c, e, hr),
             e => or.cases(Node(ee, m, Fd(2n, m, r), c), Bool.or(Node(pp, m, Fd(3n, m, r), c), Node(ff, m, Fd(4n, m, r), c)), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e2 => node.ptr(ee, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(2n, m, r), c, h2, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(2n, m, r), {==}, sp2, hm.at(m, ps, r, 18, 7, Fd(2n, m, r), et, {==}, em, mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}))), e2), e => or.cases(Node(pp, m, Fd(3n, m, r), c), Node(ff, m, Fd(4n, m, r), c), {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}, e, e3 => node.ptr(pp, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(3n, m, r), c, h3, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(3n, m, r), {==}, sp3, hm.at(m, ps, r, 18, 7, Fd(3n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})))), e3), e4 => node.ptr(ff, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, Fd(4n, m, r), c, h4, part.held(Own(fi, nx, r), m, nx, fi, ps, rs, r, Fd(4n, m, r), {==}, sp4, hm.at(m, ps, r, 18, 7, Fd(4n, m, r), et, {==}, em, mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))))), e4))))
 
@@ -3513,7 +3518,7 @@ def allin.refl(xs: List<&2, U32>) -> {AllIn(xs, xs) == True{} : Bool}:
       and.i(Mem(Con{x, rest}, x), AllIn(rest, Con{x, rest}), mem.hd(x, rest), allin.cons(rest, x, rest, allin.refl(rest)))
 
 # a root has a pointer
-def root.hd(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +r: U32,
+def root.hd(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +r: U32,
   e: {Mem(rs, r) == True{} : Bool}) -> {Hd(m, nx, fi, ps, rs, r) == True{} : Bool}:
   +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
   or.r(Fl(m, r, 1024), Nat.is_lt(0n, Ptr(n, m, fi, ps, rs, r)),
@@ -3521,8 +3526,8 @@ def root.hd(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&
       N.le_add_l(Pc(n, m, ps, fi, r), RcL(rs, r)))))
 
 # a node of the term of a root of os2, whose cells are roots of rs
-def nodes.ptr(os2: List<&2, Rt>, +dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +tbl: Tbl(m, im, fi, nx), +c: U32,
+def nodes.ptr(os2: List<&2, Rt>, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +tbl: Tbl(m, im, fi, nx), +c: U32,
   hos: RtsK(dk, ds, m, im, fi, nx, ks, img, os2), +hin: {AllIn(Rt.cells(os2), rs) == True{} : Bool},
   hn: {Nodes(os2, m, c) == True{} : Bool}) -> {Hd(m, nx, fi, ps, rs, c) == True{} : Bool}:
   match os2:
@@ -3543,15 +3548,15 @@ def nodes.ptr(os2: List<&2, Rt>, +dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cell
 # cell z that nothing points to, not STATIC, keeps the heap and every term
 # (hs.fz).
 
-def isc.atk(+dk: Bool, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +c: U32, -y1: C.Cir.Cell, -y2: C.Cir.Cell, -t: C.Term, e: {y1 == y2 : C.Cir.Cell},
+def isc.atk(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, -y1: Cr.Cir.Cell, -y2: Cr.Cir.Cell, -t: Bk.Term, e: {y1 == y2 : Cr.Cir.Cell},
   h: IsCK(dk, ds, m, im, fi, nx, ks, img, c, y2, t)) -> IsCK(dk, ds, m, im, fi, nx, ks, img, c, y1, t):
-  %Equal.sym(C.Cir.Cell, y1, y2, e) : IsCK(dk, ds, m, im, fi, nx, ks, img, c, _, t)
+  %Equal.sym(Cr.Cir.Cell, y1, y2, e) : IsCK(dk, ds, m, im, fi, nx, ks, img, c, _, t)
   h
 
 # the tag that a node says
-def nd.tg(+dk: Bool, -ds: List<&2, C.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, -x: C.Cir.Cell, -t: C.Term, -tag: U32,
-  h: NdK(dk, ds, im, fi, nx, c, x, t, tag)) -> {TgW(C.Cir.Cell.get(0n, x)) == tag : U32}:
+def nd.tg(+dk: Bool, -ds: List<&2, Bk.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, -x: Cr.Cir.Cell, -t: Bk.Term, -tag: U32,
+  h: NdK(dk, ds, im, fi, nx, c, x, t, tag)) -> {TgW(Cr.Cir.Cell.get(0n, x)) == tag : U32}:
   (e0, r0) = h
   (e1, r1) = r0
   (e, r) = r1
@@ -3559,188 +3564,188 @@ def nd.tg(+dk: Bool, -ds: List<&2, C.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32
 
 # a part of a node, after a store to the cell z, which nothing points to and
 # is not STATIC: the part is not z, so the store keeps it (rec)
-def part.fz(+dk: Bool, ty: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +c: U32, +y: U32, +tg: U32, +mask: U32,
+def part.fz(+dk: Bool, ty: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +c: U32, +y: U32, +tg: U32, +mask: U32,
   hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, hzs: {Fl(m, z, 1024) == False{} : Bool},
   etag: {TgW(Fd(0n, m, c)) == tg : U32}, hlt: {U32.is_lt(tg, 19) == True{} : Bool},
   emask: {Fd(2n, m, U32.add(272, tg)) == mask : U32},
   hm: {Mem(Fs.term(mask, Fd(2n, m, c), Fd(3n, m, c), Fd(4n, m, c)), y) == True{} : Bool},
-  rec: {U32.is_eq(y, z) == False{} : Bool} -> IsK(dk, ds, m, im, fi, nx, ks, img, y, ty) -> IsK(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, y, ty),
-  hp: P2(Sp(fi, nx, c, C.Cir.Cells.get(m, y)), IsCK(dk, ds, m, im, fi, nx, ks, img, y, C.Cir.Cells.get(m, y), ty))) ->
-  P2(Sp(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), y)),
-    IsCK(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, y, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), y), ty)):
+  rec: {U32.is_eq(y, z) == False{} : Bool} -> IsK(dk, ds, m, im, fi, nx, ks, img, y, ty) -> IsK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, y, ty),
+  hp: P2(Sp(fi, nx, c, Cr.Cir.Cells.get(m, y)), IsCK(dk, ds, m, im, fi, nx, ks, img, y, Cr.Cir.Cells.get(m, y), ty))) ->
+  P2(Sp(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), y)),
+    IsCK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, y, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), y), ty)):
   (+sp, hy) = hp
   +ne = part.ne(m, nx, fi, ps, rs, c, y, z, tg, mask, sp, etag, hlt, emask, hm, hz0, hzs)
-  (sp.at(fi, nx, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), y), C.Cir.Cells.get(m, y), cl.go(m, y, z, x, ne), sp), rec(ne, hy))
+  (sp.at(fi, nx, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), y), Cr.Cir.Cells.get(m, y), cl.go(m, y, z, x, ne), sp), rec(ne, hy))
 
 # a store to the cell z, which nothing points to (Ptr 0) and is not STATIC,
 # keeps the term of every cell c but z
-def is.fz(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +c: U32, +tbl: Tbl(m, im, fi, nx),
+def is.fz(+dk: Bool, t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +c: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hc: {U32.is_eq(c, z) == False{} : Bool}, h: IsK(dk, ds, m, im, fi, nx, ks, img, c, t)) ->
-  IsK(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, t):
+  IsK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, t):
   match t:
-    case C.Term.Var{+i}:
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Var{i}, cl.go(m, c, z, x, hc),
+    case Bk.Term.Var{+i}:
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Var{i}, cl.go(m, c, z, x, hc),
             h)
-    case C.Term.Ref{+k}:
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Ref{k}, cl.go(m, c, z, x, hc),
+    case Bk.Term.Ref{+k}:
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Ref{k}, cl.go(m, c, z, x, hc),
             h)
-    case C.Term.Enu{+e}:
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Enu{e}, cl.go(m, c, z, x, hc),
+    case Bk.Term.Enu{+e}:
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Enu{e}, cl.go(m, c, z, x, hc),
             h)
-    case C.Term.Lab{+k}:
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Lab{k}, cl.go(m, c, z, x, hc),
+    case Bk.Term.Lab{+k}:
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Lab{k}, cl.go(m, c, z, x, hc),
             h)
-    case C.Term.Efq{}:
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Efq{}, cl.go(m, c, z, x, hc),
+    case Bk.Term.Efq{}:
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Efq{}, cl.go(m, c, z, x, hc),
             h)
-    case C.Term.Rfl{}:
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Rfl{}, cl.go(m, c, z, x, hc),
+    case Bk.Term.Rfl{}:
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Rfl{}, cl.go(m, c, z, x, hc),
             h)
-    case C.Term.Ann{+a, +b}:
+    case Bk.Term.Ann{+a, +b}:
       (+nd, r) = h
       (pa, pb) = r
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Ann{a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Ann{a, b}, cl.go(m, c, z, x, hc),
             (nd, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 2, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Ann{a, b}, 2, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Ann{a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Ann{a, b}, 2, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Ann{a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 2, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Ann{a, b}, 2, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Ann{a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Ann{a, b}, 2, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Ann{a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb))))
-    case C.Term.Min{+a, +b}:
+    case Bk.Term.Min{+a, +b}:
       (+nd, r) = h
       (pa, pb) = r
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Min{a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Min{a, b}, cl.go(m, c, z, x, hc),
             (nd, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 5, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Min{a, b}, 5, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Min{a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Min{a, b}, 5, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 5, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Min{a, b}, 5, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Min{a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Min{a, b}, 5, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb))))
-    case C.Term.Let{+q, +a, +b}:
+    case Bk.Term.Let{+q, +a, +b}:
       (+nd, r) = h
       (qs, r2) = r
       (pa, pb) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Let{q, a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Let{q, a, b}, cl.go(m, c, z, x, hc),
             (nd, (qs, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 3, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Let{q, a, b}, 3, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Let{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Let{q, a, b}, 3, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Let{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 3, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Let{q, a, b}, 3, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Let{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Let{q, a, b}, 3, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Let{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb)))))
-    case C.Term.All{+q, +a, +b}:
+    case Bk.Term.All{+q, +a, +b}:
       (+nd, r) = h
       (qs, r2) = r
       (pa, pb) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.All{q, a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.All{q, a, b}, cl.go(m, c, z, x, hc),
             (nd, (qs, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 6, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.All{q, a, b}, 6, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.All{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.All{q, a, b}, 6, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 6, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.All{q, a, b}, 6, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.All{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.All{q, a, b}, 6, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb)))))
-    case C.Term.App{+q, +a, +b}:
+    case Bk.Term.App{+q, +a, +b}:
       (+nd, r) = h
       (qs, r2) = r
       (pa, pb) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.App{q, a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.App{q, a, b}, cl.go(m, c, z, x, hc),
             (nd, (qs, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 8, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.App{q, a, b}, 8, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.App{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.App{q, a, b}, 8, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.App{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 8, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.App{q, a, b}, 8, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.App{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.App{q, a, b}, 8, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.App{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb)))))
-    case C.Term.Sig{+q, +a, +b}:
+    case Bk.Term.Sig{+q, +a, +b}:
       (+nd, r) = h
       (qs, r2) = r
       (pa, pb) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Sig{q, a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Sig{q, a, b}, cl.go(m, c, z, x, hc),
             (nd, (qs, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 9, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Sig{q, a, b}, 9, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Sig{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Sig{q, a, b}, 9, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 9, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Sig{q, a, b}, 9, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Sig{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Sig{q, a, b}, 9, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb)))))
-    case C.Term.Tup{+q, +a, +b}:
+    case Bk.Term.Tup{+q, +a, +b}:
       (+nd, r) = h
       (qs, r2) = r
       (pa, pb) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Tup{q, a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Tup{q, a, b}, cl.go(m, c, z, x, hc),
             (nd, (qs, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 10, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Tup{q, a, b}, 10, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Tup{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Tup{q, a, b}, 10, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 10, 3, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Tup{q, a, b}, 10, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Tup{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Tup{q, a, b}, 10, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Nil{}}, mem.hd(Fd(3n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb)))))
-    case C.Term.Typ{+a}:
+    case Bk.Term.Typ{+a}:
       (+nd, pa) = h
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Typ{a}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Typ{a}, cl.go(m, c, z, x, hc),
             (nd, part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 4, 1, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Typ{a}, 4, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Typ{a}, tbl), mem.hd(Fd(2n, m, c), Nil{}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Typ{a}, 4, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Typ{a}, tbl), mem.hd(Fd(2n, m, c), Nil{}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa)))
-    case C.Term.Prj{+a}:
+    case Bk.Term.Prj{+a}:
       (+nd, pa) = h
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Prj{a}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Prj{a}, cl.go(m, c, z, x, hc),
             (nd, part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 11, 1, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Prj{a}, 11, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Prj{a}, tbl), mem.hd(Fd(2n, m, c), Nil{}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Prj{a}, 11, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Prj{a}, tbl), mem.hd(Fd(2n, m, c), Nil{}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa)))
-    case C.Term.Lam{+q, +a}:
+    case Bk.Term.Lam{+q, +a}:
       (+nd, r) = h
       (qs, pa) = r
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Lam{q, a}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Lam{q, a}, cl.go(m, c, z, x, hc),
             (nd, (qs, part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 7, 1, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Lam{q, a}, 7, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Lam{q, a}, tbl), mem.hd(Fd(2n, m, c), Nil{}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Lam{q, a}, 7, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Lam{q, a}, tbl), mem.hd(Fd(2n, m, c), Nil{}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa))))
-    case C.Term.Mat{+k, +a, +b}:
+    case Bk.Term.Mat{+k, +a, +b}:
       (+nd, r) = h
       (nm, r2) = r
       (pa, pb) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Mat{k, a, b}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Mat{k, a, b}, cl.go(m, c, z, x, hc),
             (nd, (nm, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 14, 6, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Mat{k, a, b}, 14, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Mat{k, a, b}, tbl), mem.hd(Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Mat{k, a, b}, 14, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, a, b}, tbl), mem.hd(Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pa),
               part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(4n, m, c), 14, 6, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Mat{k, a, b}, 14, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Mat{k, a, b}, tbl), mem.tl(Fd(3n, m, c), Fd(4n, m, c), Con{Fd(4n, m, c), Nil{}}, mem.hd(Fd(4n, m, c), Nil{})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Mat{k, a, b}, 14, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, a, b}, tbl), mem.tl(Fd(3n, m, c), Fd(4n, m, c), Con{Fd(4n, m, c), Nil{}}, mem.hd(Fd(4n, m, c), Nil{})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(4n, m, c), tbl, hz0, hzs, e, hh), pb)))))
-    case C.Term.Eql{+a, +b, +d}:
+    case Bk.Term.Eql{+a, +b, +d}:
       (+nd, r) = h
       (pa, r2) = r
       (pb, pd) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Eql{a, b, d}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Eql{a, b, d}, cl.go(m, c, z, x, hc),
             (nd, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 16, 7, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Eql{a, b, d}, 16, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Eql{a, b, d}, 16, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               (part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 16, 7, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Eql{a, b, d}, 16, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.hd(Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Eql{a, b, d}, 16, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.hd(Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb),
               part.fz(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(4n, m, c), 16, 7, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Eql{a, b, d}, 16, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(4n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.tl(Fd(3n, m, c), Fd(4n, m, c), Con{Fd(4n, m, c), Nil{}}, mem.hd(Fd(4n, m, c), Nil{}))),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Eql{a, b, d}, 16, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(4n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.tl(Fd(3n, m, c), Fd(4n, m, c), Con{Fd(4n, m, c), Nil{}}, mem.hd(Fd(4n, m, c), Nil{}))),
               e => hh => is.fz(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(4n, m, c), tbl, hz0, hzs, e, hh), pd)))))
-    case C.Term.Rwt{+a, +b, +d}:
+    case Bk.Term.Rwt{+a, +b, +d}:
       (+nd, r) = h
       (pa, r2) = r
       (pb, pd) = r2
-      isc.atk(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), c), C.Cir.Cells.get(m, c), C.Term.Rwt{a, b, d}, cl.go(m, c, z, x, hc),
+      isc.atk(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), c), Cr.Cir.Cells.get(m, c), Bk.Term.Rwt{a, b, d}, cl.go(m, c, z, x, hc),
             (nd, (part.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(2n, m, c), 18, 7, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Rwt{a, b, d}, 18, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Rwt{a, b, d}, 18, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.hd(Fd(2n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}),
               e => hh => is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, c), tbl, hz0, hzs, e, hh), pa),
               (part.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(3n, m, c), 18, 7, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Rwt{a, b, d}, 18, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.hd(Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}})),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Rwt{a, b, d}, 18, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(3n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.hd(Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}})),
               e => hh => is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, c), tbl, hz0, hzs, e, hh), pb),
               part.fz(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, Fd(4n, m, c), 18, 7, hz0, hzs,
-              nd.tg(dk, ds, im, fi, nx, c, C.Cir.Cells.get(m, c), C.Term.Rwt{a, b, d}, 18, nd), {==}, tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(4n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.tl(Fd(3n, m, c), Fd(4n, m, c), Con{Fd(4n, m, c), Nil{}}, mem.hd(Fd(4n, m, c), Nil{}))),
+              nd.tg(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), Bk.Term.Rwt{a, b, d}, 18, nd), {==}, tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, c), Fd(4n, m, c), Con{Fd(3n, m, c), Con{Fd(4n, m, c), Nil{}}}, mem.tl(Fd(3n, m, c), Fd(4n, m, c), Con{Fd(4n, m, c), Nil{}}, mem.hd(Fd(4n, m, c), Nil{}))),
               e => hh => is.fz(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(4n, m, c), tbl, hz0, hzs, e, hh), pd)))))
 
 # the term cell o does not read its mask at z
 
-def TblAt(+m: C.Cir.Cells, +o: U32, +z: U32) -> Bool:
+def TblAt(+m: Cr.Cir.Cells, +o: U32, +z: U32) -> Bool:
   Bool.or(Bool.not(U32.is_lt(Tg(m, o), 19)), Bool.not(U32.is_eq(U32.add(272, Tg(m, o)), z)))
 
 # none of the n cells from o reads its mask at z
 
-def TblR(n: Nat, +m: C.Cir.Cells, +o: U32, +z: U32) -> Bool:
+def TblR(n: Nat, +m: Cr.Cir.Cells, +o: U32, +z: U32) -> Bool:
   match n:
     case 0n:
       True{}
@@ -3763,15 +3768,15 @@ def tbl.ne(l: Bool, e: Bool, ht: {Bool.or(Bool.not(l), Bool.not(e)) == True{} : 
 
 # Fs of the cell o, by its value y, with the mask a
 
-def FsK(b: Bool, +a: U32, +y: C.Cir.Cell, +ps: List<&2, U32>, +o: U32) -> List<&2, U32>:
-  +tg = TgW(C.Cir.Cell.get(0n, y))
-  Bool.pick(List<&2, U32>, b, Fs.term(a, C.Cir.Cell.get(2n, y), C.Cir.Cell.get(3n, y), C.Cir.Cell.get(4n, y)),
+def FsK(b: Bool, +a: U32, +y: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32) -> List<&2, U32>:
+  +tg = TgW(Cr.Cir.Cell.get(0n, y))
+  Bool.pick(List<&2, U32>, b, Fs.term(a, Cr.Cir.Cell.get(2n, y), Cr.Cir.Cell.get(3n, y), Cr.Cir.Cell.get(4n, y)),
     Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(Mem(ps, o))),
-      Con{C.Cir.Cell.get(2n, y), Fs.opt(U32.is_eq(tg, 38), C.Cir.Cell.get(3n, y), Nil{})},
-      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), FlW(C.Cir.Cell.get(0n, y), 4096)), Bool.not(Mem(ps, o))),
-        [C.Cir.Cell.get(2n, y)], Nil{})))
+      Con{Cr.Cir.Cell.get(2n, y), Fs.opt(U32.is_eq(tg, 38), Cr.Cir.Cell.get(3n, y), Nil{})},
+      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), FlW(Cr.Cir.Cell.get(0n, y), 4096)), Bool.not(Mem(ps, o))),
+        [Cr.Cir.Cell.get(2n, y)], Nil{})))
 
-def fsk.b(b: Bool, +a1: U32, +a2: U32, +y: C.Cir.Cell, +ps: List<&2, U32>, +o: U32, h: {b == True{} : Bool} -> {a1 == a2 : U32}) ->
+def fsk.b(b: Bool, +a1: U32, +a2: U32, +y: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32, h: {b == True{} : Bool} -> {a1 == a2 : U32}) ->
   {FsK(b, a1, y, ps, o) == FsK(b, a2, y, ps, o) : List<&2, U32>}:
   match b:
     case False{}:
@@ -3782,49 +3787,49 @@ def fsk.b(b: Bool, +a1: U32, +a2: U32, +y: C.Cir.Cell, +ps: List<&2, U32>, +o: U
 
 # a store to z keeps Fs of another cell o, that does not read its mask at z
 
-def fs.eq(+m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>, +o: U32, ne: {U32.is_eq(o, z) == False{} : Bool},
-  ht: {TblAt(m, o, z) == True{} : Bool}) -> {Fs(C.Cir.Cells.set(m, z, x), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
-  +M2 = C.Cir.Cells.set(m, z, x)
-  +Y = C.Cir.Cells.get(m, o)
-  +tg = TgW(C.Cir.Cell.get(0n, Y))
-  %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, o), Y, cl.go(m, o, z, x, ne)) :
-    {FsK(U32.is_lt(TgW(C.Cir.Cell.get(0n, _)), 19), Fd(2n, M2, U32.add(272, TgW(C.Cir.Cell.get(0n, _)))), _, ps, o) ==
+def fs.eq(+m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32, ne: {U32.is_eq(o, z) == False{} : Bool},
+  ht: {TblAt(m, o, z) == True{} : Bool}) -> {Fs(Cr.Cir.Cells.set(m, z, x), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
+  +M2 = Cr.Cir.Cells.set(m, z, x)
+  +Y = Cr.Cir.Cells.get(m, o)
+  +tg = TgW(Cr.Cir.Cell.get(0n, Y))
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, o), Y, cl.go(m, o, z, x, ne)) :
+    {FsK(U32.is_lt(TgW(Cr.Cir.Cell.get(0n, _)), 19), Fd(2n, M2, U32.add(272, TgW(Cr.Cir.Cell.get(0n, _)))), _, ps, o) ==
       FsK(U32.is_lt(tg, 19), Fd(2n, m, U32.add(272, tg)), Y, ps, o) : List<&2, U32>}
   fsk.b(U32.is_lt(tg, 19), Fd(2n, M2, U32.add(272, tg)), Fd(2n, m, U32.add(272, tg)), Y, ps, o,
-    e => Equal.cong(C.Cir.Cell, U32, w => C.Cir.Cell.get(2n, w), C.Cir.Cells.get(M2, U32.add(272, tg)), C.Cir.Cells.get(m, U32.add(272, tg)),
+    e => Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(2n, w), Cr.Cir.Cells.get(M2, U32.add(272, tg)), Cr.Cir.Cells.get(m, U32.add(272, tg)),
       cl.go(m, U32.add(272, tg), z, x, tbl.ne(U32.is_lt(tg, 19), U32.is_eq(U32.add(272, tg), z), ht, e))))
 
 # a store to z keeps Fs of every cell: of z too, when it holds no pointer
 
 # before or after
 
-def fs.eq2(b: Bool, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>, +o: U32, eb: {U32.is_eq(o, z) == b : Bool},
+def fs.eq2(b: Bool, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32, eb: {U32.is_eq(o, z) == b : Bool},
   ht: {TblAt(m, o, z) == True{} : Bool}, hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>},
-  hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}) ->
-  {Fs(C.Cir.Cells.set(m, z, x), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
+  hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}) ->
+  {Fs(Cr.Cir.Cells.set(m, z, x), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
   match b:
     case False{}:
       fs.eq(m, z, x, ps, o, eb, ht)
     case True{}:
-      %Equal.sym(U32, o, z, u32.eq(o, z, eb)) : {Fs(C.Cir.Cells.set(m, z, x), ps, _) == Fs(m, ps, _) : List<&2, U32>}
-      Equal.trans(List<&2, U32>, Fs(C.Cir.Cells.set(m, z, x), ps, z), Nil{}, Fs(m, ps, z), hf1, Equal.sym(List<&2, U32>, Fs(m, ps, z), Nil{}, hf0))
+      %Equal.sym(U32, o, z, u32.eq(o, z, eb)) : {Fs(Cr.Cir.Cells.set(m, z, x), ps, _) == Fs(m, ps, _) : List<&2, U32>}
+      Equal.trans(List<&2, U32>, Fs(Cr.Cir.Cells.set(m, z, x), ps, z), Nil{}, Fs(m, ps, z), hf1, Equal.sym(List<&2, U32>, Fs(m, ps, z), Nil{}, hf0))
 
-def fs.all(+m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>, +o: U32,
+def fs.all(+m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32,
   ht: {TblAt(m, o, z) == True{} : Bool}, hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>},
-  hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}) ->
-  {Fs(C.Cir.Cells.set(m, z, x), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
+  hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}) ->
+  {Fs(Cr.Cir.Cells.set(m, z, x), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
   fs.eq2(U32.is_eq(o, z), m, z, x, ps, o, {==}, ht, hf0, hf1)
 
 # a store to z keeps the pointers that the n cells from o hold
 
-def Pc.eq(n: Nat, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>, +o: U32, +c: U32,
-  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
-  ht: {TblR(n, m, o, z) == True{} : Bool}) -> {Pc(n, C.Cir.Cells.set(m, z, x), ps, o, c) == Pc(n, m, ps, o, c) : Nat}:
+def Pc.eq(n: Nat, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32, +c: U32,
+  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
+  ht: {TblR(n, m, o, z) == True{} : Bool}) -> {Pc(n, Cr.Cir.Cells.set(m, z, x), ps, o, c) == Pc(n, m, ps, o, c) : Nat}:
   match n:
     case 0n:
       {==}
     case 1n+(+k):
-      +M2 = C.Cir.Cells.set(m, z, x)
+      +M2 = Cr.Cir.Cells.set(m, z, x)
       +ht2 = ht
       +e1 = fs.all(m, z, x, ps, o, and.l(TblAt(m, o, z), TblR(k, m, U32.inc(o), z), ht2), hf0, hf1)
       +e2 = Pc.eq(k, m, z, x, ps, U32.inc(o), c, hf0, hf1, and.r(TblAt(m, o, z), TblR(k, m, U32.inc(o), z), ht2))
@@ -3836,10 +3841,10 @@ def Pc.eq(n: Nat, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>, 
 
 # and every count
 
-def Ptr.eq(+n: Nat, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32,
-  hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
-  ht: {TblR(n, m, fi, z) == True{} : Bool}) -> {Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, c) == Ptr(n, m, fi, ps, rs, c) : Nat}:
-  Equal.cong(Nat, Nat, w => Nat.add(w, RcL(rs, c)), Pc(n, C.Cir.Cells.set(m, z, x), ps, fi, c), Pc(n, m, ps, fi, c),
+def Ptr.eq(+n: Nat, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32,
+  hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
+  ht: {TblR(n, m, fi, z) == True{} : Bool}) -> {Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, c) == Ptr(n, m, fi, ps, rs, c) : Nat}:
+  Equal.cong(Nat, Nat, w => Nat.add(w, RcL(rs, c)), Pc(n, Cr.Cir.Cells.set(m, z, x), ps, fi, c), Pc(n, m, ps, fi, c),
     Pc.eq(n, m, z, x, ps, fi, c, hf0, hf1, ht))
 
 def or.f.l(a: Bool, -b: Bool, h: {Bool.or(a, b) == False{} : Bool}) -> {a == False{} : Bool}:
@@ -3897,90 +3902,90 @@ def ge.of(c: Cmp, h: {Cmp.is_lt(c) == False{} : Bool}) -> {Cmp.is_ge(c) == True{
 
 # Cnt at a cell, by its value y and its pointers P
 
-def CntC(+y: C.Cir.Cell, +P: Nat, +ps: List<&2, U32>, +o: U32) -> Bool:
-  Bool.or(Bool.not(U32.is_lt(TgW(C.Cir.Cell.get(0n, y)), 19)), Bool.or(FlW(C.Cir.Cell.get(0n, y), 1024), Bool.or(Mem(ps, o),
-    Nat.is_eq(U32.to_nat(C.Cir.Cell.get(1n, y)), P))))
+def CntC(+y: Cr.Cir.Cell, +P: Nat, +ps: List<&2, U32>, +o: U32) -> Bool:
+  Bool.or(Bool.not(U32.is_lt(TgW(Cr.Cir.Cell.get(0n, y)), 19)), Bool.or(FlW(Cr.Cir.Cell.get(0n, y), 1024), Bool.or(Mem(ps, o),
+    Nat.is_eq(U32.to_nat(Cr.Cir.Cell.get(1n, y)), P))))
 
-def cnt.at(b: Bool, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +o: U32, +n: Nat, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>,
-  eb: {U32.is_eq(o, z) == b : Bool}, hxt: {U32.is_lt(TgW(C.Cir.Cell.get(0n, x)), 19) == False{} : Bool},
-  hP: {Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, o) == Ptr(n, m, fi, ps, rs, o) : Nat},
-  h: {CntC(C.Cir.Cells.get(m, o), Ptr(n, m, fi, ps, rs, o), ps, o) == True{} : Bool}) ->
-  {CntC(C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), o), Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, o), ps, o) == True{} : Bool}:
+def cnt.at(b: Bool, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +o: U32, +n: Nat, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>,
+  eb: {U32.is_eq(o, z) == b : Bool}, hxt: {U32.is_lt(TgW(Cr.Cir.Cell.get(0n, x)), 19) == False{} : Bool},
+  hP: {Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, o) == Ptr(n, m, fi, ps, rs, o) : Nat},
+  h: {CntC(Cr.Cir.Cells.get(m, o), Ptr(n, m, fi, ps, rs, o), ps, o) == True{} : Bool}) ->
+  {CntC(Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), o), Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, o), ps, o) == True{} : Bool}:
   match b:
     case True{}:
-      %Equal.sym(U32, o, z, u32.eq(o, z, eb)) : {CntC(C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), _), Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, _), ps, _) == True{} : Bool}
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), z), x, cl.gs(m, z, x)) : {CntC(_, Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, z), ps, z) == True{} : Bool}
-      or.l(Bool.not(U32.is_lt(TgW(C.Cir.Cell.get(0n, x)), 19)), Bool.or(FlW(C.Cir.Cell.get(0n, x), 1024), Bool.or(Mem(ps, z),
-        Nat.is_eq(U32.to_nat(C.Cir.Cell.get(1n, x)), Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, z)))),
-        (%Equal.sym(Bool, U32.is_lt(TgW(C.Cir.Cell.get(0n, x)), 19), False{}, hxt) : {Bool.not(_) == True{} : Bool}; {==}))
+      %Equal.sym(U32, o, z, u32.eq(o, z, eb)) : {CntC(Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), _), Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, _), ps, _) == True{} : Bool}
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), z), x, cl.gs(m, z, x)) : {CntC(_, Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, z), ps, z) == True{} : Bool}
+      or.l(Bool.not(U32.is_lt(TgW(Cr.Cir.Cell.get(0n, x)), 19)), Bool.or(FlW(Cr.Cir.Cell.get(0n, x), 1024), Bool.or(Mem(ps, z),
+        Nat.is_eq(U32.to_nat(Cr.Cir.Cell.get(1n, x)), Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, z)))),
+        (%Equal.sym(Bool, U32.is_lt(TgW(Cr.Cir.Cell.get(0n, x)), 19), False{}, hxt) : {Bool.not(_) == True{} : Bool}; {==}))
     case False{}:
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), o), C.Cir.Cells.get(m, o), cl.go(m, o, z, x, eb)) : {CntC(_, Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, o), ps, o) == True{} : Bool}
-      %Equal.sym(Nat, Ptr(n, C.Cir.Cells.set(m, z, x), fi, ps, rs, o), Ptr(n, m, fi, ps, rs, o), hP) : {CntC(C.Cir.Cells.get(m, o), _, ps, o) == True{} : Bool}
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), o), Cr.Cir.Cells.get(m, o), cl.go(m, o, z, x, eb)) : {CntC(_, Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, o), ps, o) == True{} : Bool}
+      %Equal.sym(Nat, Ptr(n, Cr.Cir.Cells.set(m, z, x), fi, ps, rs, o), Ptr(n, m, fi, ps, rs, o), hP) : {CntC(Cr.Cir.Cells.get(m, o), _, ps, o) == True{} : Bool}
       h
 
 # a store to z, which gets a cell of the machine's own kinds (a tag of 32 or
 
 # more), keeps the counts
 
-def Cnt.fz(k: Nat, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +o: U32, +n: Nat, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>,
-  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
-  +htN: {TblR(n, m, fi, z) == True{} : Bool}, +hxt: {U32.is_lt(TgW(C.Cir.Cell.get(0n, x)), 19) == False{} : Bool},
-  h: {Cnt(k, m, o, n, fi, ps, rs) == True{} : Bool}) -> {Cnt(k, C.Cir.Cells.set(m, z, x), o, n, fi, ps, rs) == True{} : Bool}:
+def Cnt.fz(k: Nat, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +o: U32, +n: Nat, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>,
+  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
+  +htN: {TblR(n, m, fi, z) == True{} : Bool}, +hxt: {U32.is_lt(TgW(Cr.Cir.Cell.get(0n, x)), 19) == False{} : Bool},
+  h: {Cnt(k, m, o, n, fi, ps, rs) == True{} : Bool}) -> {Cnt(k, Cr.Cir.Cells.set(m, z, x), o, n, fi, ps, rs) == True{} : Bool}:
   match k:
     case 0n:
       {==}
     case 1n+(+j):
-      +M2 = C.Cir.Cells.set(m, z, x)
+      +M2 = Cr.Cir.Cells.set(m, z, x)
       +h2 = h
-      and.i(CntC(C.Cir.Cells.get(M2, o), Ptr(n, M2, fi, ps, rs, o), ps, o), Cnt(j, M2, U32.inc(o), n, fi, ps, rs),
+      and.i(CntC(Cr.Cir.Cells.get(M2, o), Ptr(n, M2, fi, ps, rs, o), ps, o), Cnt(j, M2, U32.inc(o), n, fi, ps, rs),
         cnt.at(U32.is_eq(o, z), m, z, x, o, n, fi, ps, rs, {==}, hxt, Ptr.eq(n, m, z, x, fi, ps, rs, o, hf0, hf1, htN),
-          and.l(CntC(C.Cir.Cells.get(m, o), Ptr(n, m, fi, ps, rs, o), ps, o), Cnt(j, m, U32.inc(o), n, fi, ps, rs), h2)),
+          and.l(CntC(Cr.Cir.Cells.get(m, o), Ptr(n, m, fi, ps, rs, o), ps, o), Cnt(j, m, U32.inc(o), n, fi, ps, rs), h2)),
         Cnt.fz(j, m, z, x, U32.inc(o), n, fi, ps, rs, hf0, hf1, htN, hxt,
-          and.r(CntC(C.Cir.Cells.get(m, o), Ptr(n, m, fi, ps, rs, o), ps, o), Cnt(j, m, U32.inc(o), n, fi, ps, rs), h2)))
+          and.r(CntC(Cr.Cir.Cells.get(m, o), Ptr(n, m, fi, ps, rs, o), ps, o), Cnt(j, m, U32.inc(o), n, fi, ps, rs), h2)))
 
 # the pointers xs, none of them z, point to term cells after a store to z
 
-def lt.fz(xs: List<&2, U32>, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +im: U32, +fi: U32, +nx: U32, hr: {RcL(xs, z) == 0n : Nat},
-  h: {Lt.all(xs, m, im, fi, nx) == True{} : Bool}) -> {Lt.all(xs, C.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}:
+def lt.fz(xs: List<&2, U32>, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +im: U32, +fi: U32, +nx: U32, hr: {RcL(xs, z) == 0n : Nat},
+  h: {Lt.all(xs, m, im, fi, nx) == True{} : Bool}) -> {Lt.all(xs, Cr.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}:
   match xs:
     case Nil{}:
       {==}
     case Con{+y, +rest}:
-      +M2 = C.Cir.Cells.set(m, z, x)
+      +M2 = Cr.Cir.Cells.set(m, z, x)
       +hr2 = hr
       +h2 = h
       +ne = of.z(U32.is_eq(y, z), RcL(rest, z), hr2)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, y), C.Cir.Cells.get(m, y), cl.go(m, y, z, x, ne)) :
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, y), Cr.Cir.Cells.get(m, y), cl.go(m, y, z, x, ne)) :
         {Bool.and(LtC(y, _, im, fi, nx), Lt.all(rest, M2, im, fi, nx)) == True{} : Bool}
-      and.i(LtC(y, C.Cir.Cells.get(m, y), im, fi, nx), Lt.all(rest, M2, im, fi, nx),
-        and.l(LtC(y, C.Cir.Cells.get(m, y), im, fi, nx), Lt.all(rest, m, im, fi, nx), h2),
+      and.i(LtC(y, Cr.Cir.Cells.get(m, y), im, fi, nx), Lt.all(rest, M2, im, fi, nx),
+        and.l(LtC(y, Cr.Cir.Cells.get(m, y), im, fi, nx), Lt.all(rest, m, im, fi, nx), h2),
         lt.fz(rest, m, z, x, im, fi, nx, add0.r(Nat.of(U32.is_eq(y, z)), RcL(rest, z), hr2),
-          and.r(LtC(y, C.Cir.Cells.get(m, y), im, fi, nx), Lt.all(rest, m, im, fi, nx), h2)))
+          and.r(LtC(y, Cr.Cir.Cells.get(m, y), im, fi, nx), Lt.all(rest, m, im, fi, nx), h2)))
 
-def pts.at(b: Bool, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32, eb: {U32.is_eq(o, z) == b : Bool},
-  hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}, ht: {TblAt(m, o, z) == True{} : Bool},
+def pts.at(b: Bool, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32, eb: {U32.is_eq(o, z) == b : Bool},
+  hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}, ht: {TblAt(m, o, z) == True{} : Bool},
   hr: {RcL(Fs(m, ps, o), z) == 0n : Nat}, h: {Lt.all(Fs(m, ps, o), m, im, fi, nx) == True{} : Bool}) ->
-  {Lt.all(Fs(C.Cir.Cells.set(m, z, x), ps, o), C.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}:
+  {Lt.all(Fs(Cr.Cir.Cells.set(m, z, x), ps, o), Cr.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}:
   match b:
     case True{}:
-      %Equal.sym(U32, o, z, u32.eq(o, z, eb)) : {Lt.all(Fs(C.Cir.Cells.set(m, z, x), ps, _), C.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}
-      %Equal.sym(List<&2, U32>, Fs(C.Cir.Cells.set(m, z, x), ps, z), Nil{}, hf1) : {Lt.all(_, C.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}
+      %Equal.sym(U32, o, z, u32.eq(o, z, eb)) : {Lt.all(Fs(Cr.Cir.Cells.set(m, z, x), ps, _), Cr.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}
+      %Equal.sym(List<&2, U32>, Fs(Cr.Cir.Cells.set(m, z, x), ps, z), Nil{}, hf1) : {Lt.all(_, Cr.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}
       {==}
     case False{}:
-      %Equal.sym(List<&2, U32>, Fs(C.Cir.Cells.set(m, z, x), ps, o), Fs(m, ps, o), fs.eq(m, z, x, ps, o, eb, ht)) : {Lt.all(_, C.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}
+      %Equal.sym(List<&2, U32>, Fs(Cr.Cir.Cells.set(m, z, x), ps, o), Fs(m, ps, o), fs.eq(m, z, x, ps, o, eb, ht)) : {Lt.all(_, Cr.Cir.Cells.set(m, z, x), im, fi, nx) == True{} : Bool}
       lt.fz(Fs(m, ps, o), m, z, x, im, fi, nx, hr, h)
 
 # and keeps that every pointer points to a term cell
 
-def Pts.fz(k: Nat, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32,
-  +hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}, hz: {Pc(k, m, ps, o, z) == 0n : Nat},
+def Pts.fz(k: Nat, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32,
+  +hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>}, hz: {Pc(k, m, ps, o, z) == 0n : Nat},
   ht: {TblR(k, m, o, z) == True{} : Bool}, h: {Pts(k, m, ps, o, im, fi, nx) == True{} : Bool}) ->
-  {Pts(k, C.Cir.Cells.set(m, z, x), ps, o, im, fi, nx) == True{} : Bool}:
+  {Pts(k, Cr.Cir.Cells.set(m, z, x), ps, o, im, fi, nx) == True{} : Bool}:
   match k:
     case 0n:
       {==}
     case 1n+(+j):
-      +M2 = C.Cir.Cells.set(m, z, x)
+      +M2 = Cr.Cir.Cells.set(m, z, x)
       +hz2 = hz
       +ht2 = ht
       +h2 = h
@@ -3993,10 +3998,10 @@ def Pts.fz(k: Nat, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +ps: List<&2, U32>,
 
 # the pend list's cells, none of them z
 
-def PendOK.fz(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +fi: U32, +nx: U32, +rs: List<&2, U32>,
-  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
+def PendOK.fz(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +fi: U32, +nx: U32, +rs: List<&2, U32>,
+  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
   +htN: {TblR(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, z) == True{} : Bool}, hq: {Mem(qs, z) == False{} : Bool},
-  h: PendOK(qs, ps, m, fi, nx, rs)) -> PendOK(qs, ps, C.Cir.Cells.set(m, z, x), fi, nx, rs):
+  h: PendOK(qs, ps, m, fi, nx, rs)) -> PendOK(qs, ps, Cr.Cir.Cells.set(m, z, x), fi, nx, rs):
   match qs:
     case Nil{}:
       Unit{}
@@ -4005,33 +4010,33 @@ def PendOK.fz(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells, +z: U32, +
       (hs, r2) = r1
       (htg, r3) = r2
       (hp0, r4) = r3
-      +M2 = C.Cir.Cells.set(m, z, x)
+      +M2 = Cr.Cir.Cells.set(m, z, x)
       +hq2 = hq
       +ne = or.f.l(U32.is_eq(p, z), Mem(rest, z), hq2)
       +ec = cl.go(m, p, z, x, ne)
-      (ho, ((%Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, p), C.Cir.Cells.get(m, p), ec) :
-          {U32.is_ne(U32.and(C.Cir.Cell.get(0n, _), 1024), 0) == False{} : Bool}; hs),
-        ((%Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, p), C.Cir.Cells.get(m, p), ec) :
-          {Bool.or(U32.is_lt(U32.and(C.Cir.Cell.get(0n, _), 63), 19), U32.is_le(32, U32.and(C.Cir.Cell.get(0n, _), 63))) == True{} : Bool}; htg),
+      (ho, ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, p), Cr.Cir.Cells.get(m, p), ec) :
+          {U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0) == False{} : Bool}; hs),
+        ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, p), Cr.Cir.Cells.get(m, p), ec) :
+          {Bool.or(U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19), U32.is_le(32, U32.and(Cr.Cir.Cell.get(0n, _), 63))) == True{} : Bool}; htg),
         ((%Equal.sym(Nat, Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), M2, fi, ps, rs, p), Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, p),
             Ptr.eq(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, z, x, fi, ps, rs, p, hf0, hf1, htN)) : {_ == 0n : Nat}; hp0),
           PendOK.fz(rest, ps, m, z, x, fi, nx, rs, hf0, hf1, htN, or.f.r(U32.is_eq(p, z), Mem(rest, z), hq2), r4)))))
 
 # the pend list's links, none of them at z
 
-def Chain.fz(qs: List<&2, U32>, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +p: U32, hq: {Mem(qs, z) == False{} : Bool},
-  h: Chain(qs, m, p)) -> Chain(qs, C.Cir.Cells.set(m, z, x), p):
+def Chain.fz(qs: List<&2, U32>, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +p: U32, hq: {Mem(qs, z) == False{} : Bool},
+  h: Chain(qs, m, p)) -> Chain(qs, Cr.Cir.Cells.set(m, z, x), p):
   match qs:
     case Nil{}:
       h
     case Con{+y, +rest}:
       (e1, r1) = h
       (e2, r2) = r1
-      +M2 = C.Cir.Cells.set(m, z, x)
+      +M2 = Cr.Cir.Cells.set(m, z, x)
       +hq2 = hq
       +ne = or.f.l(U32.is_eq(y, z), Mem(rest, z), hq2)
       (e1, (e2, (%Equal.sym(U32, Fd(1n, M2, y), Fd(1n, m, y),
-          Equal.cong(C.Cir.Cell, U32, w => C.Cir.Cell.get(1n, w), C.Cir.Cells.get(M2, y), C.Cir.Cells.get(m, y), cl.go(m, y, z, x, ne))) :
+          Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(1n, w), Cr.Cir.Cells.get(M2, y), Cr.Cir.Cells.get(m, y), cl.go(m, y, z, x, ne))) :
           Chain(rest, M2, _);
         Chain.fz(rest, m, z, x, Fd(1n, m, y), or.f.r(U32.is_eq(y, z), Mem(rest, z), hq2), r2))))
 
@@ -4039,12 +4044,12 @@ def Chain.fz(qs: List<&2, U32>, +m: C.Cir.Cells, +z: U32, +x: C.Cir.Cell, +p: U3
 
 # cell of the machine's own kinds with no pointer in it, keeps the heap
 
-def Heap.fz(+m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, U32>, +pend: U32, +ps: List<&2, U32>, +z: U32, +x: C.Cir.Cell,
-  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
+def Heap.fz(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, U32>, +pend: U32, +ps: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell,
+  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
   +htN: {TblR(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, z) == True{} : Bool}, +hzm: {Mem(ps, z) == False{} : Bool},
   hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat},
-  hxt: {U32.is_lt(TgW(C.Cir.Cell.get(0n, x)), 19) == False{} : Bool},
-  h: Heap(m, nx, fi, im, rs, pend, ps)) -> Heap(C.Cir.Cells.set(m, z, x), nx, fi, im, rs, pend, ps):
+  hxt: {U32.is_lt(TgW(Cr.Cir.Cell.get(0n, x)), 19) == False{} : Bool},
+  h: Heap(m, nx, fi, im, rs, pend, ps)) -> Heap(Cr.Cir.Cells.set(m, z, x), nx, fi, im, rs, pend, ps):
   (hc, r1) = h
   (hp, r2) = r1
   (hcn, r3) = r2
@@ -4092,25 +4097,25 @@ def rew.ne(+r: U32, +c: U32, +z: U32, e: {U32.is_eq(r, c) == True{} : Bool}, hr:
 
 # a node c of the term t at r, a cell that is not z, is not z
 
-def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +r: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
+def node.ne(+dk: Bool, t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +r: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hr: {U32.is_eq(r, z) == False{} : Bool}, h: IsK(dk, ds, m, im, fi, nx, ks, img, r, t), hn: {Node(t, m, r, c) == True{} : Bool}) ->
   {U32.is_eq(c, z) == False{} : Bool}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       rew.ne(r, c, z, hn, hr)
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       rew.ne(r, c, z, hn, hr)
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       rew.ne(r, c, z, hn, hr)
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       rew.ne(r, c, z, hn, hr)
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       rew.ne(r, c, z, hn, hr)
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       rew.ne(r, c, z, hn, hr)
-    case C.Term.Ann{+a, +b}:
+    case Bk.Term.Ann{+a, +b}:
       (+nd, rr) = h
       (pa, pb) = rr
       (spa, ha) = pa
@@ -4118,12 +4123,12 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 2, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Ann{a, b}, 2, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Ann{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 2, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ann{a, b}, 2, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Ann{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 2, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Ann{a, b}, 2, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Ann{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.Min{+a, +b}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 2, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ann{a, b}, 2, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Ann{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.Min{+a, +b}:
       (+nd, rr) = h
       (pa, pb) = rr
       (spa, ha) = pa
@@ -4131,12 +4136,12 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 5, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Min{a, b}, 5, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Min{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 5, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Min{a, b}, 5, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 5, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Min{a, b}, 5, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Min{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.Let{+q, +a, +b}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 5, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Min{a, b}, 5, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.Let{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
@@ -4145,12 +4150,12 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 3, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Let{q, a, b}, 3, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Let{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 3, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Let{q, a, b}, 3, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Let{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 3, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Let{q, a, b}, 3, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Let{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.All{+q, +a, +b}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 3, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Let{q, a, b}, 3, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Let{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.All{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
@@ -4159,12 +4164,12 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 6, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.All{q, a, b}, 6, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.All{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 6, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.All{q, a, b}, 6, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 6, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.All{q, a, b}, 6, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.All{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.App{+q, +a, +b}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 6, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.All{q, a, b}, 6, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.App{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
@@ -4173,12 +4178,12 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 8, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.App{q, a, b}, 8, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.App{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 8, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.App{q, a, b}, 8, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.App{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 8, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.App{q, a, b}, 8, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.App{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.Sig{+q, +a, +b}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 8, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.App{q, a, b}, 8, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.App{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.Sig{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
@@ -4187,12 +4192,12 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 9, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Sig{q, a, b}, 9, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Sig{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 9, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Sig{q, a, b}, 9, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 9, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Sig{q, a, b}, 9, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Sig{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.Tup{+q, +a, +b}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 9, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Sig{q, a, b}, 9, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.Tup{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
@@ -4201,37 +4206,37 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 10, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Tup{q, a, b}, 10, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Tup{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 10, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Tup{q, a, b}, 10, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 10, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Tup{q, a, b}, 10, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Tup{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.Typ{+a}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 10, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Tup{q, a, b}, 10, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.Typ{+a}:
       (+nd, pa) = h
       (spa, ha) = pa
       node.or2(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 4, 1, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Typ{a}, 4, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Typ{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha, e))
-    case C.Term.Prj{+a}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 4, 1, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Typ{a}, 4, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Typ{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha, e))
+    case Bk.Term.Prj{+a}:
       (+nd, pa) = h
       (spa, ha) = pa
       node.or2(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 11, 1, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Prj{a}, 11, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Prj{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha, e))
-    case C.Term.Lam{+q, +a}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 11, 1, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Prj{a}, 11, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Prj{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha, e))
+    case Bk.Term.Lam{+q, +a}:
       (+nd, rr) = h
       (qs, pa) = rr
       (spa, ha) = pa
       node.or2(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 7, 1, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Lam{q, a}, 7, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Lam{q, a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha, e))
-    case C.Term.Mat{+k, +a, +b}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 7, 1, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Lam{q, a}, 7, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Lam{q, a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha, e))
+    case Bk.Term.Mat{+k, +a, +b}:
       (+nd, rr) = h
       (nm, r2) = rr
       (pa, pb) = r2
@@ -4240,12 +4245,12 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or3(U32.is_eq(r, c), Node(a, m, Fd(3n, m, r), c), Node(b, m, Fd(4n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 14, 6, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Mat{k, a, b}, 14, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Mat{k, a, b}, tbl), mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 14, 6, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Mat{k, a, b}, 14, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, a, b}, tbl), mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(4n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 14, 6, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Mat{k, a, b}, 14, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Mat{k, a, b}, tbl), mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{})), hz0, hzs), hb, e))
-    case C.Term.Eql{+a, +b, +d}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 14, 6, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Mat{k, a, b}, 14, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, a, b}, tbl), mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{})), hz0, hzs), hb, e))
+    case Bk.Term.Eql{+a, +b, +d}:
       (+nd, rr) = h
       (pa, r2) = rr
       (spa, ha) = pa
@@ -4255,15 +4260,15 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or4(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 16, 7, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Eql{a, b, d}, 16, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 16, 7, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, d}, 16, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 16, 7, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Eql{a, b, d}, 16, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 16, 7, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, d}, 16, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb, e),
         e => node.ne(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(4n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 16, 7, spd, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Eql{a, b, d}, 16, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd, e))
-    case C.Term.Rwt{+a, +b, +d}:
+          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 16, 7, spd, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, d}, 16, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd, e))
+    case Bk.Term.Rwt{+a, +b, +d}:
       (+nd, rr) = h
       (pa, r2) = rr
       (spa, ha) = pa
@@ -4273,231 +4278,231 @@ def node.ne(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       node.or4(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c), {U32.is_eq(c, z) == False{} : Bool}, hn,
         e => rew.ne(r, c, z, e, hr),
         e => node.ne(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 18, 7, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Rwt{a, b, d}, 18, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 18, 7, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{a, b, d}, 18, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha, e),
         e => node.ne(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 18, 7, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Rwt{a, b, d}, 18, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb, e),
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 18, 7, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{a, b, d}, 18, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb, e),
         e => node.ne(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, Fd(4n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 18, 7, spd, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Rwt{a, b, d}, 18, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd, e))
+          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 18, 7, spd, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{a, b, d}, 18, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd, e))
 
 # a store to z keeps the nodes of a term at a cell r that is not z
 
-def Node.fz(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +r: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
+def Node.fz(+dk: Bool, t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +r: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hr: {U32.is_eq(r, z) == False{} : Bool}, h: IsK(dk, ds, m, im, fi, nx, ks, img, r, t)) ->
-  {Node(t, C.Cir.Cells.set(m, z, x), r, c) == Node(t, m, r, c) : Bool}:
+  {Node(t, Cr.Cir.Cells.set(m, z, x), r, c) == Node(t, m, r, c) : Bool}:
   match t:
-    case C.Term.Var{_}:
+    case Bk.Term.Var{_}:
       {==}
-    case C.Term.Ref{_}:
+    case Bk.Term.Ref{_}:
       {==}
-    case C.Term.Enu{_}:
+    case Bk.Term.Enu{_}:
       {==}
-    case C.Term.Lab{_}:
+    case Bk.Term.Lab{_}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Ann{+a, +b}:
+    case Bk.Term.Ann{+a, +b}:
       (+nd, rr) = h
       (pa, pb) = rr
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 2, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Ann{a, b}, 2, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Ann{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 2, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ann{a, b}, 2, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Ann{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 2, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Ann{a, b}, 2, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Ann{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 2, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ann{a, b}, 2, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Ann{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
       {==}
-    case C.Term.Min{+a, +b}:
+    case Bk.Term.Min{+a, +b}:
       (+nd, rr) = h
       (pa, pb) = rr
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 5, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Min{a, b}, 5, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Min{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 5, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Min{a, b}, 5, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 5, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Min{a, b}, 5, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Min{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 5, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Min{a, b}, 5, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
       {==}
-    case C.Term.Let{+q, +a, +b}:
+    case Bk.Term.Let{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 3, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Let{q, a, b}, 3, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Let{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 3, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Let{q, a, b}, 3, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Let{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 3, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Let{q, a, b}, 3, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Let{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 3, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Let{q, a, b}, 3, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Let{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
       {==}
-    case C.Term.All{+q, +a, +b}:
+    case Bk.Term.All{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 6, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.All{q, a, b}, 6, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.All{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 6, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.All{q, a, b}, 6, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 6, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.All{q, a, b}, 6, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.All{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 6, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.All{q, a, b}, 6, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
       {==}
-    case C.Term.App{+q, +a, +b}:
+    case Bk.Term.App{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 8, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.App{q, a, b}, 8, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.App{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 8, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.App{q, a, b}, 8, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.App{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 8, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.App{q, a, b}, 8, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.App{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 8, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.App{q, a, b}, 8, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.App{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
       {==}
-    case C.Term.Sig{+q, +a, +b}:
+    case Bk.Term.Sig{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 9, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Sig{q, a, b}, 9, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Sig{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 9, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Sig{q, a, b}, 9, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 9, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Sig{q, a, b}, 9, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Sig{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 9, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Sig{q, a, b}, 9, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
       {==}
-    case C.Term.Tup{+q, +a, +b}:
+    case Bk.Term.Tup{+q, +a, +b}:
       (+nd, rr) = h
       (qs, r2) = rr
       (pa, pb) = r2
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 10, 3, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Tup{q, a, b}, 10, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Tup{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 10, 3, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Tup{q, a, b}, 10, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 10, 3, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Tup{q, a, b}, 10, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Tup{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 10, 3, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Tup{q, a, b}, 10, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Nil{}}, mem.hd(Fd(3n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Node(b, m, Fd(3n, m, r), c))) : Bool}
       {==}
-    case C.Term.Typ{+a}:
+    case Bk.Term.Typ{+a}:
       (+nd, pa) = h
       (spa, ha) = pa
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c)) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c)) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 4, 1, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Typ{a}, 4, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Typ{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 4, 1, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Typ{a}, 4, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Typ{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha)) :
         {Bool.or(U32.is_eq(r, c), _) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
       {==}
-    case C.Term.Prj{+a}:
+    case Bk.Term.Prj{+a}:
       (+nd, pa) = h
       (spa, ha) = pa
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c)) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c)) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 11, 1, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Prj{a}, 11, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Prj{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 11, 1, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Prj{a}, 11, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Prj{a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha)) :
         {Bool.or(U32.is_eq(r, c), _) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
       {==}
-    case C.Term.Lam{+q, +a}:
+    case Bk.Term.Lam{+q, +a}:
       (+nd, rr) = h
       (qs, pa) = rr
       (spa, ha) = pa
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c)) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c)) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 7, 1, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Lam{q, a}, 7, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Lam{q, a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 7, 1, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Lam{q, a}, 7, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Lam{q, a}, tbl), mem.hd(Fd(2n, m, r), Nil{}), hz0, hzs), ha)) :
         {Bool.or(U32.is_eq(r, c), _) == Bool.or(U32.is_eq(r, c), Node(a, m, Fd(2n, m, r), c)) : Bool}
       {==}
-    case C.Term.Mat{+k, +a, +b}:
+    case Bk.Term.Mat{+k, +a, +b}:
       (+nd, rr) = h
       (nm, r2) = rr
       (pa, pb) = r2
       (spa, ha) = pa
       (spb, hb) = pb
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c), Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(4n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(3n, m, r), c), Node(b, m, Fd(4n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(a, m, Fd(3n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c), Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(4n, _), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(3n, m, r), c), Node(b, m, Fd(4n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(a, m, Fd(3n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 14, 6, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Mat{k, a, b}, 14, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Mat{k, a, b}, tbl), mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(3n, m, r), c), Node(b, m, Fd(4n, m, r), c))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c), Node(b, m, Fd(4n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 14, 6, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Mat{k, a, b}, 14, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, a, b}, tbl), mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(3n, m, r), c), Node(b, m, Fd(4n, m, r), c))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c), Node(b, m, Fd(4n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(4n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 14, 6, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Mat{k, a, b}, 14, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Mat{k, a, b}, tbl), mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{})), hz0, hzs), hb)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 14, 6, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Mat{k, a, b}, 14, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, a, b}, tbl), mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{})), hz0, hzs), hb)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(3n, m, r), c), _)) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(3n, m, r), c), Node(b, m, Fd(4n, m, r), c))) : Bool}
       {==}
-    case C.Term.Eql{+a, +b, +d}:
+    case Bk.Term.Eql{+a, +b, +d}:
       (+nd, rr) = h
       (pa, r2) = rr
       (spa, ha) = pa
@@ -4505,25 +4510,25 @@ def Node.fz(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       (spb, hb) = pb
       (spd, hd) = pd
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Bool.or(Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c), Node(d, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(4n, _), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Bool.or(Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c), Node(d, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(4n, _), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 16, 7, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Eql{a, b, d}, 16, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Bool.or(Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(d, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 16, 7, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, d}, 16, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Bool.or(Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(d, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 16, 7, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Eql{a, b, d}, 16, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(_, Node(d, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
-      %Equal.sym(Bool, Node(d, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c), Node(d, m, Fd(4n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 16, 7, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, d}, 16, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(_, Node(d, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
+      %Equal.sym(Bool, Node(d, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c), Node(d, m, Fd(4n, m, r), c),
         Node.fz(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(4n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 16, 7, spd, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Eql{a, b, d}, 16, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 16, 7, spd, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, d}, 16, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), _))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
       {==}
-    case C.Term.Rwt{+a, +b, +d}:
+    case Bk.Term.Rwt{+a, +b, +d}:
       (+nd, rr) = h
       (pa, r2) = rr
       (spa, ha) = pa
@@ -4531,22 +4536,22 @@ def Node.fz(+dk: Bool, t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
       (spb, hb) = pb
       (spd, hd) = pd
       +ec = cl.go(m, r, z, x, hr)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(C.Cir.Cells.set(m, z, x), r), C.Cir.Cells.get(m, r), ec) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(2n, _), c), Bool.or(Node(b, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(3n, _), c), Node(d, C.Cir.Cells.set(m, z, x), C.Cir.Cell.get(4n, _), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
-      %Equal.sym(Bool, Node(a, C.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), r), Cr.Cir.Cells.get(m, r), ec) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(2n, _), c), Bool.or(Node(b, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(3n, _), c), Node(d, Cr.Cir.Cells.set(m, z, x), Cr.Cir.Cell.get(4n, _), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
+      %Equal.sym(Bool, Node(a, Cr.Cir.Cells.set(m, z, x), Fd(2n, m, r), c), Node(a, m, Fd(2n, m, r), c),
         Node.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 18, 7, spa, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Rwt{a, b, d}, 18, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(_, Bool.or(Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(d, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
-      %Equal.sym(Bool, Node(b, C.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(2n, m, r), z, 18, 7, spa, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{a, b, d}, 18, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.hd(Fd(2n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}), hz0, hzs), ha)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(_, Bool.or(Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(d, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
+      %Equal.sym(Bool, Node(b, Cr.Cir.Cells.set(m, z, x), Fd(3n, m, r), c), Node(b, m, Fd(3n, m, r), c),
         Node.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 18, 7, spb, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Rwt{a, b, d}, 18, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb)) :
-        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(_, Node(d, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
-      %Equal.sym(Bool, Node(d, C.Cir.Cells.set(m, z, x), Fd(4n, m, r), c), Node(d, m, Fd(4n, m, r), c),
+          part.ne(m, nx, fi, ps, rs, r, Fd(3n, m, r), z, 18, 7, spb, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{a, b, d}, 18, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(3n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.hd(Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}})), hz0, hzs), hb)) :
+        {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(_, Node(d, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
+      %Equal.sym(Bool, Node(d, Cr.Cir.Cells.set(m, z, x), Fd(4n, m, r), c), Node(d, m, Fd(4n, m, r), c),
         Node.fz(dk, d, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(4n, m, r), c, tbl, hz0, hzs,
-          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 18, 7, spd, nd.tg(dk, ds, im, fi, nx, r, C.Cir.Cells.get(m, r), C.Term.Rwt{a, b, d}, 18, nd), {==},
-            tbl.mask(m, im, fi, nx, C.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd)) :
+          part.ne(m, nx, fi, ps, rs, r, Fd(4n, m, r), z, 18, 7, spd, nd.tg(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{a, b, d}, 18, nd), {==},
+            tbl.mask(m, im, fi, nx, Bk.Term.Rwt{a, b, d}, tbl), mem.tl(Fd(2n, m, r), Fd(4n, m, r), Con{Fd(3n, m, r), Con{Fd(4n, m, r), Nil{}}}, mem.tl(Fd(3n, m, r), Fd(4n, m, r), Con{Fd(4n, m, r), Nil{}}, mem.hd(Fd(4n, m, r), Nil{}))), hz0, hzs), hd)) :
         {Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), _))) == Bool.or(U32.is_eq(r, c), Bool.or(Node(a, m, Fd(2n, m, r), c), Bool.or(Node(b, m, Fd(3n, m, r), c), Node(d, m, Fd(4n, m, r), c)))) : Bool}
       {==}
 
@@ -4593,8 +4598,8 @@ def lt0.le1(p: Nat, h: {Nat.is_lt(0n, p) == True{} : Bool}) -> N.Le(1n, p):
 
 # a node of an owned root's term is not z
 
-def nodes.ne(+dk: Bool, os: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
+def nodes.ne(+dk: Bool, os: List<&2, Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hn: {NeAll(Rt.cells(os), z) == True{} : Bool}, ho: RtsK(dk, ds, m, im, fi, nx, ks, img, os), h: {Nodes(os, m, c) == True{} : Bool}) ->
   {U32.is_eq(c, z) == False{} : Bool}:
@@ -4608,8 +4613,8 @@ def nodes.ne(+dk: Bool, os: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells,
         e => node.ne(dk, u, ds, m, im, fi, nx, ks, img, ps, rs, z, r, c, tbl, hz0, hzs, neall.hd(r, z, Rt.cells(rest), hn2), hu, e),
         e => nodes.ne(dk, rest, ds, m, im, fi, nx, ks, img, ps, rs, z, c, tbl, hz0, hzs, neall.tl(r, z, Rt.cells(rest), hn2), hr, e))
 
-def held.ne(+dk: Bool, f: Bool, +os: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
+def held.ne(+dk: Bool, f: Bool, +os: List<&2, Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +c: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hn: {NeAll(Rt.cells(os), z) == True{} : Bool}, ho: RtsK(dk, ds, m, im, fi, nx, ks, img, os),
   ef: {Fl(m, c, 1024) == f : Bool}, h: {Bool.or(f, Nodes(os, m, c)) == True{} : Bool}) -> {U32.is_eq(c, z) == False{} : Bool}:
@@ -4621,8 +4626,8 @@ def held.ne(+dk: Bool, f: Bool, +os: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.C
 
 # no borrowed cell is z, which is not STATIC and has no pointer
 
-def neall.held(+dk: Bool, bs: List<&2, Rt>, +os: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +tbl: Tbl(m, im, fi, nx),
+def neall.held(+dk: Bool, bs: List<&2, Rt>, +os: List<&2, Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   +hn: {NeAll(Rt.cells(os), z) == True{} : Bool}, +ho: RtsK(dk, ds, m, im, fi, nx, ks, img, os), h: Held(m, os, bs)) ->
   {NeAll(Rt.cells(bs), z) == True{} : Bool}:
@@ -4636,32 +4641,32 @@ def neall.held(+dk: Bool, bs: List<&2, Rt>, +os: List<&2, Rt>, +ds: List<&2, C.D
 
 # a store to z keeps the nodes of the owned roots' terms
 
-def Nodes.fz(+dk: Bool, os: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +c: U32, +tbl: Tbl(m, im, fi, nx),
+def Nodes.fz(+dk: Bool, os: List<&2, Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +c: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hn: {NeAll(Rt.cells(os), z) == True{} : Bool}, ho: RtsK(dk, ds, m, im, fi, nx, ks, img, os)) ->
-  {Nodes(os, C.Cir.Cells.set(m, z, x), c) == Nodes(os, m, c) : Bool}:
+  {Nodes(os, Cr.Cir.Cells.set(m, z, x), c) == Nodes(os, m, c) : Bool}:
   match os:
     case Nil{}:
       {==}
     case Con{Rt{+r, +u}, +rest}:
       (hu, hr) = ho
       +hn2 = hn
-      %Equal.sym(Bool, Node(u, C.Cir.Cells.set(m, z, x), r, c), Node(u, m, r, c),
+      %Equal.sym(Bool, Node(u, Cr.Cir.Cells.set(m, z, x), r, c), Node(u, m, r, c),
         Node.fz(dk, u, ds, m, im, fi, nx, ks, img, ps, rs, z, x, r, c, tbl, hz0, hzs, neall.hd(r, z, Rt.cells(rest), hn2), hu)) :
-        {Bool.or(_, Nodes(rest, C.Cir.Cells.set(m, z, x), c)) == Bool.or(Node(u, m, r, c), Nodes(rest, m, c)) : Bool}
-      %Equal.sym(Bool, Nodes(rest, C.Cir.Cells.set(m, z, x), c), Nodes(rest, m, c),
+        {Bool.or(_, Nodes(rest, Cr.Cir.Cells.set(m, z, x), c)) == Bool.or(Node(u, m, r, c), Nodes(rest, m, c)) : Bool}
+      %Equal.sym(Bool, Nodes(rest, Cr.Cir.Cells.set(m, z, x), c), Nodes(rest, m, c),
         Nodes.fz(dk, rest, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, tbl, hz0, hzs, neall.tl(r, z, Rt.cells(rest), hn2), hr)) :
         {Bool.or(Node(u, m, r, c), _) == Bool.or(Node(u, m, r, c), Nodes(rest, m, c)) : Bool}
       {==}
 
 # a store to z keeps the terms of cells that are not z
 
-def Rts.fz(+dk: Bool, xs: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +tbl: Tbl(m, im, fi, nx),
+def Rts.fz(+dk: Bool, xs: List<&2, Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hn: {NeAll(Rt.cells(xs), z) == True{} : Bool}, h: RtsK(dk, ds, m, im, fi, nx, ks, img, xs)) ->
-  RtsK(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, xs):
+  RtsK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, xs):
   match xs:
     case Nil{}:
       Unit{}
@@ -4673,20 +4678,20 @@ def Rts.fz(+dk: Bool, xs: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +
 
 # a store to z keeps Held
 
-def Held.fz(+dk: Bool, bs: List<&2, Rt>, +os: List<&2, Rt>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell,
+def Held.fz(+dk: Bool, bs: List<&2, Rt>, +os: List<&2, Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell,
   +tbl: Tbl(m, im, fi, nx), +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat},
   +hzs: {Fl(m, z, 1024) == False{} : Bool}, +hno: {NeAll(Rt.cells(os), z) == True{} : Bool}, +ho: RtsK(dk, ds, m, im, fi, nx, ks, img, os),
-  hn: {NeAll(Rt.cells(bs), z) == True{} : Bool}, h: Held(m, os, bs)) -> Held(C.Cir.Cells.set(m, z, x), os, bs):
+  hn: {NeAll(Rt.cells(bs), z) == True{} : Bool}, h: Held(m, os, bs)) -> Held(Cr.Cir.Cells.set(m, z, x), os, bs):
   match bs:
     case Nil{}:
       Unit{}
     case Con{Rt{+c, _}, +rest}:
       (hh, hr) = h
       +hn2 = hn
-      +M2 = C.Cir.Cells.set(m, z, x)
-      ((%Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, c), C.Cir.Cells.get(m, c), cl.go(m, c, z, x, neall.hd(c, z, Rt.cells(rest), hn2))) :
-          {Bool.or(U32.is_ne(U32.and(C.Cir.Cell.get(0n, _), 1024), 0), Nodes(os, M2, c)) == True{} : Bool};
+      +M2 = Cr.Cir.Cells.set(m, z, x)
+      ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, c), Cr.Cir.Cells.get(m, c), cl.go(m, c, z, x, neall.hd(c, z, Rt.cells(rest), hn2))) :
+          {Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0), Nodes(os, M2, c)) == True{} : Bool};
         %Equal.sym(Bool, Nodes(os, M2, c), Nodes(os, m, c), Nodes.fz(dk, os, ds, m, im, fi, nx, ks, img, ps, rs, z, x, c, tbl, hz0, hzs, hno, ho)) :
           {Bool.or(Fl(m, c, 1024), _) == True{} : Bool};
         hh),
@@ -4694,14 +4699,14 @@ def Held.fz(+dk: Bool, bs: List<&2, Rt>, +os: List<&2, Rt>, +ds: List<&2, C.Def>
 
 # Fs of a frame, past the test of its tag
 
-def FsR(c: Bool, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32) -> List<&2, U32>:
+def FsR(c: Bool, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32) -> List<&2, U32>:
   Bool.pick(List<&2, U32>, c, Con{Fd(2n, m, o), Fs.opt(U32.is_eq(tg, 38), Fd(3n, m, o), Nil{})},
     Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), FlW(Fd(0n, m, o), 4096)), Bool.not(Mem(ps, o))),
       [Fd(2n, m, o)], Nil{}))
 
 # the pointers of a frame out of the pend list: its field 2, and 3 for Rwt
 
-def fs.frame(+m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32, etag: {TgW(Fd(0n, m, o)) == tg : U32},
+def fs.frame(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +tg: U32, etag: {TgW(Fd(0n, m, o)) == tg : U32},
   hlt: {U32.is_lt(tg, 19) == False{} : Bool}, hge: {U32.is_le(32, tg) == True{} : Bool}, hle: {U32.is_le(tg, 40) == True{} : Bool},
   hm: {Mem(ps, o) == False{} : Bool}) ->
   {Fs(m, ps, o) == Con{Fd(2n, m, o), Fs.opt(U32.is_eq(tg, 38), Fd(3n, m, o), Nil{})} : List<&2, U32>}:
@@ -4778,7 +4783,7 @@ def fk.le(kind: FK) -> {U32.is_le(FK.tag(kind), 40) == True{} : Bool}:
 
 # a part y of a frame fr is not z, which has no pointer
 
-def fr.ne(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +fr: U32, +y: U32, +z: U32, +tg: U32,
+def fr.ne(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +fr: U32, +y: U32, +z: U32, +tg: U32,
   etag: {TgW(Fd(0n, m, fr)) == tg : U32}, hlt: {U32.is_lt(tg, 19) == False{} : Bool}, hge: {U32.is_le(32, tg) == True{} : Bool},
   hle: {U32.is_le(tg, 40) == True{} : Bool}, em: {Mem(ps, fr) == False{} : Bool}, own: {Own(fi, nx, fr) == True{} : Bool},
   hy: {Mem(Con{Fd(2n, m, fr), Fs.opt(U32.is_eq(tg, 38), Fd(3n, m, fr), Nil{})}, y) == True{} : Bool},
@@ -4792,13 +4797,13 @@ def fr.ne(+m: C.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2,
 
 # the part b of a frame, after a store to z
 
-def Frs.b.fz(+dk: Bool, kind: FK, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +fr: U32, +b: C.Term,
+def Frs.b.fz(+dk: Bool, kind: FK, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +fr: U32, +b: Bk.Term,
   +tbl: Tbl(m, im, fi, nx), +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat},
   +hzs: {Fl(m, z, 1024) == False{} : Bool}, etag: {TgW(Fd(0n, m, fr)) == FK.tag(kind) : U32},
   em: {Mem(ps, fr) == False{} : Bool}, own: {Own(fi, nx, fr) == True{} : Bool},
   h: Frs.bK(dk, ds, m, im, fi, nx, ks, img, Fd(3n, m, fr), kind, b)) ->
-  Frs.bK(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, Fd(3n, m, fr), kind, b):
+  Frs.bK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, Fd(3n, m, fr), kind, b):
   match kind:
     case FK.rwt{}:
       is.fz(dk, b, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(3n, m, fr), tbl, hz0, hzs,
@@ -4823,21 +4828,21 @@ def Frs.b.fz(+dk: Bool, kind: FK, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U3
 
 # a store to z, a cell of a tag below 32 with no pointer, keeps the frames
 
-def Frs.fz(+dk: Bool, fs: List<&2, AF>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +fr: U32,
+def Frs.fz(+dk: Bool, fs: List<&2, AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +fr: U32,
   +tbl: Tbl(m, im, fi, nx), +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat},
   +hzs: {Fl(m, z, 1024) == False{} : Bool}, +hzt: {U32.is_lt(TgW(Fd(0n, m, z)), 32) == True{} : Bool},
-  h: FrsK(dk, ds, m, im, fi, nx, ks, img, ps, fr, fs)) -> FrsK(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, ps, fr, fs):
+  h: FrsK(dk, ds, m, im, fi, nx, ks, img, ps, fr, fs)) -> FrsK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, ps, fr, fs):
   match fs:
     case Nil{}:
       h
     case Con{AF{+kind, +q, +k, +a, +b}, +rest}:
       match h:
         case Tuple{e0, Tuple{ev, Tuple{+eo, Tuple{es, Tuple{+em, Tuple{+etg, Tuple{eq, Tuple{ek, Tuple{ia, Tuple{ib, ir}}}}}}}}}}:
-          +M2 = C.Cir.Cells.set(m, z, x)
+          +M2 = Cr.Cir.Cells.set(m, z, x)
           +ne = ne.fr(U32.is_eq(fr, z), m, fr, z, kind, {==}, etg, hzt)
           frs.uck(dk, ds, M2, im, fi, nx, ks, img, ps, fr, Con{AF{kind, q, k, a, b}, rest},
-            frsc.atk(dk, ds, M2, im, fi, nx, ks, img, ps, fr, C.Cir.Cells.get(M2, fr), C.Cir.Cells.get(m, fr), Con{AF{kind, q, k, a, b}, rest},
+            frsc.atk(dk, ds, M2, im, fi, nx, ks, img, ps, fr, Cr.Cir.Cells.get(M2, fr), Cr.Cir.Cells.get(m, fr), Con{AF{kind, q, k, a, b}, rest},
               cl.go(m, fr, z, x, ne),
               (e0, (ev, (eo, (es, (em, (etg, (eq, (ek,
                 (is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, fr), tbl, hz0, hzs,
@@ -4858,21 +4863,21 @@ def ne.mem(b: Bool, +ps: List<&2, U32>, +y: U32, +z: U32, eb: {U32.is_eq(y, z) =
         (%Equal.sym(U32, y, z, e) : {Mem(ps, _) == True{} : Bool}; hz)))
 
 # a store to a cell of the pend list keeps the frames
-def Frs.fzp(+dk: Bool, fs: List<&2, AF>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +fr: U32,
+def Frs.fzp(+dk: Bool, fs: List<&2, AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +fr: U32,
   +tbl: Tbl(m, im, fi, nx), +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat},
   +hzs: {Fl(m, z, 1024) == False{} : Bool}, +hzp: {Mem(ps, z) == True{} : Bool},
-  h: FrsK(dk, ds, m, im, fi, nx, ks, img, ps, fr, fs)) -> FrsK(dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, ps, fr, fs):
+  h: FrsK(dk, ds, m, im, fi, nx, ks, img, ps, fr, fs)) -> FrsK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, ps, fr, fs):
   match fs:
     case Nil{}:
       h
     case Con{AF{+kind, +q, +k, +a, +b}, +rest}:
       match h:
         case Tuple{e0, Tuple{ev, Tuple{+eo, Tuple{es, Tuple{+em, Tuple{+etg, Tuple{eq, Tuple{ek, Tuple{ia, Tuple{ib, ir}}}}}}}}}}:
-          +M2 = C.Cir.Cells.set(m, z, x)
+          +M2 = Cr.Cir.Cells.set(m, z, x)
           +ne = ne.mem(U32.is_eq(fr, z), ps, fr, z, {==}, em, hzp)
           frs.uck(dk, ds, M2, im, fi, nx, ks, img, ps, fr, Con{AF{kind, q, k, a, b}, rest},
-            frsc.atk(dk, ds, M2, im, fi, nx, ks, img, ps, fr, C.Cir.Cells.get(M2, fr), C.Cir.Cells.get(m, fr), Con{AF{kind, q, k, a, b}, rest},
+            frsc.atk(dk, ds, M2, im, fi, nx, ks, img, ps, fr, Cr.Cir.Cells.get(M2, fr), Cr.Cir.Cells.get(m, fr), Con{AF{kind, q, k, a, b}, rest},
               cl.go(m, fr, z, x, ne),
               (e0, (ev, (eo, (es, (em, (etg, (eq, (ek,
                 (is.fz(dk, a, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Fd(2n, m, fr), tbl, hz0, hzs,
@@ -4905,9 +4910,9 @@ def lit.ne(b: Bool, +l: U32, +z: U32, +bd: U32, eb: {U32.is_eq(l, z) == b : Bool
       Empty.absurd({U32.is_eq(l, z) == False{} : Bool}, N.not_succ_le(U32.to_nat(bd), N.le_trans(1n+U32.to_nat(bd), U32.to_nat(z), U32.to_nat(bd), hz,
         N.le_rw_l(U32.to_nat(l), U32.to_nat(z), U32.to_nat(bd), Equal.cong(U32, Nat, w => U32.to_nat(w), l, z, e), u.le(l, bd, hl)))))
 
-def Tbl.fz(rs: List<&2, Row>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +z: U32, +x: C.Cir.Cell, +at: U32,
+def Tbl.fz(rs: List<&2, Row>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +z: U32, +x: Cr.Cir.Cell, +at: U32,
   +hz: N.Le(1n+U32.to_nat(290), U32.to_nat(z)), hb: {TblB(rs, at) == True{} : Bool}, h: Tbl.go(rs, m, im, fi, nx, at)) ->
-  Tbl.go(rs, C.Cir.Cells.set(m, z, x), im, fi, nx, at):
+  Tbl.go(rs, Cr.Cir.Cells.set(m, z, x), im, fi, nx, at):
   match rs:
     case Nil{}:
       Unit{}
@@ -4917,37 +4922,37 @@ def Tbl.fz(rs: List<&2, Row>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +z:
       (e3, r3) = r2
       (e4, r4) = r3
       +hb2 = hb
-      +M2 = C.Cir.Cells.set(m, z, x)
+      +M2 = Cr.Cir.Cells.set(m, z, x)
       +ne = lit.ne(U32.is_eq(at, z), at, z, 290, {==}, and.l(U32.is_le(at, 290), TblB(rest, U32.inc(at)), hb2), hz)
       +ea = cl.go(m, at, z, x, ne)
-      (ec, ((%Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, at), C.Cir.Cells.get(m, at), ea) : {C.Cir.Cell.get(2n, _) == a : U32}; e2),
-        ((%Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, at), C.Cir.Cells.get(m, at), ea) : {C.Cir.Cell.get(3n, _) == b : U32}; e3),
-        ((%Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, at), C.Cir.Cells.get(m, at), ea) : {C.Cir.Cell.get(4n, _) == c : U32}; e4),
+      (ec, ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, at), Cr.Cir.Cells.get(m, at), ea) : {Cr.Cir.Cell.get(2n, _) == a : U32}; e2),
+        ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, at), Cr.Cir.Cells.get(m, at), ea) : {Cr.Cir.Cell.get(3n, _) == b : U32}; e3),
+        ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, at), Cr.Cir.Cells.get(m, at), ea) : {Cr.Cir.Cell.get(4n, _) == c : U32}; e4),
           Tbl.fz(rest, m, im, fi, nx, z, x, U32.inc(at), hz, and.r(U32.is_le(at, 290), TblB(rest, U32.inc(at)), hb2), r4)))))
 
-def Defs.fz(+dk: Bool, dl: List<&2, C.Def>, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, C.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell, +at: U32, +tbl: Tbl(m, im, fi, nx),
+def Defs.fz(+dk: Bool, dl: List<&2, Bk.Def>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +at: U32, +tbl: Tbl(m, im, fi, nx),
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   +hzi: N.Le(1n+U32.to_nat(im), U32.to_nat(z)), h: DefsK(dl, dk, ds, m, im, fi, nx, ks, img, at)) ->
-  DefsK(dl, dk, ds, C.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, at):
+  DefsK(dl, dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, at):
   match dl:
     case Nil{}:
       Unit{}
-    case Con{C.Def{_, _, +v, _}, +rest}:
+    case Con{Bk.Def{_, _, +v, _}, +rest}:
       (e0, r1) = h
       (ele, r2) = r1
       (hv, r3) = r2
       +ele2 = {ele : {U32.is_le(at, im) == True{} : Bool}}
       (e0, (ele2, (is.fz(dk, v, ds, m, im, fi, nx, ks, img, ps, rs, z, x, at, tbl, hz0, hzs, lit.ne(U32.is_eq(at, z), at, z, im, {==}, ele2, hzi), hv),
-        Defs.fz(dk, rest, ds, m, im, fi, nx, ks, img, ps, rs, z, x, U32.add(at, C.Img.size(v)), tbl, hz0, hzs, hzi, r3))))
+        Defs.fz(dk, rest, ds, m, im, fi, nx, ks, img, ps, rs, z, x, U32.add(at, Mc.Img.size(v)), tbl, hz0, hzs, hzi, r3))))
 
 # a store to z, one of the machine's own cells, keeps the image
 
-def ImgOK.fz(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: C.Cir.Cell,
+def ImgOK.fz(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ps: List<&2, U32>, +rs: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell,
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}, +hzs: {Fl(m, z, 1024) == False{} : Bool},
   hzo: {Own(fi, nx, z) == True{} : Bool},
-  h: ImgOKK(dk, ds, ks, img, m, im, fi, nx)) -> ImgOKK(dk, ds, ks, img, C.Cir.Cells.set(m, z, x), im, fi, nx):
+  h: ImgOKK(dk, ds, ks, img, m, im, fi, nx)) -> ImgOKK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), im, fi, nx):
   (+tbl, r1) = h
   (hd, r2) = r1
   (h8, r3) = r2
@@ -4960,15 +4965,15 @@ def ImgOK.fz(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>,
   +hzi = N.le_trans(1n+U32.to_nat(im), U32.to_nat(fi), U32.to_nat(z), u.lt(im, fi, eim), u.le(fi, z, and.l(U32.is_le(fi, z), U32.is_lt(z, nx), hzo)))
   +hz = N.le_trans(1n+U32.to_nat(290), 1n+U32.to_nat(im), U32.to_nat(z), u.le(290, im, e290), hzi)
   (Tbl.fz(Tbl.rows(), m, im, fi, nx, z, x, 272, hz, {==}, tbl),
-    (Defs.fz(dk, ds, ds, m, im, fi, nx, ks, img, ps, rs, z, x, C.I.book(), tbl, hz0, hzs, hzi, hd),
-    (is.fz(dk, C.Term.Lab{C.Quan.name(C.Quan.Q0{})}, ds, m, im, fi, nx, ks, img, ps, rs, z, x, 8, tbl, hz0, hzs, lit.ne(U32.is_eq(8, z), 8, z, 290, {==}, {==}, hz), h8),
-    (is.fz(dk, C.Term.Lab{C.Quan.name(C.Quan.Q1{})}, ds, m, im, fi, nx, ks, img, ps, rs, z, x, 9, tbl, hz0, hzs, lit.ne(U32.is_eq(9, z), 9, z, 290, {==}, {==}, hz), h9),
-    (is.fz(dk, C.Term.Lab{C.Quan.name(C.Quan.Q2{})}, ds, m, im, fi, nx, ks, img, ps, rs, z, x, 10, tbl, hz0, hzs, lit.ne(U32.is_eq(10, z), 10, z, 290, {==}, {==}, hz), h10),
+    (Defs.fz(dk, ds, ds, m, im, fi, nx, ks, img, ps, rs, z, x, Mc.I.book(), tbl, hz0, hzs, hzi, hd),
+    (is.fz(dk, Bk.Term.Lab{El.Quan.name(Bk.Quan.Q0{})}, ds, m, im, fi, nx, ks, img, ps, rs, z, x, 8, tbl, hz0, hzs, lit.ne(U32.is_eq(8, z), 8, z, 290, {==}, {==}, hz), h8),
+    (is.fz(dk, Bk.Term.Lab{El.Quan.name(Bk.Quan.Q1{})}, ds, m, im, fi, nx, ks, img, ps, rs, z, x, 9, tbl, hz0, hzs, lit.ne(U32.is_eq(9, z), 9, z, 290, {==}, {==}, hz), h9),
+    (is.fz(dk, Bk.Term.Lab{El.Quan.name(Bk.Quan.Q2{})}, ds, m, im, fi, nx, ks, img, ps, rs, z, x, 10, tbl, hz0, hzs, lit.ne(U32.is_eq(10, z), 10, z, 290, {==}, {==}, hz), h10),
     (hks, (e290, eim)))))))
 
 # the table, of the image
 
-def img.tbl(+dk: Bool, -ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -m: C.Cir.Cells, -im: U32,
+def img.tbl(+dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -im: U32,
   -fi: U32, -nx: U32, io: ImgOKK(dk, ds, ks, img, m, im, fi, nx)) -> Tbl(m, im, fi, nx):
   (tb, r) = io
   tb
@@ -5091,7 +5096,7 @@ def tbl.small.at(n0: Nat, +tg: U32, en: {U32.to_nat(tg) == n0 : Nat}, h: N.Le(1n
 def tbl.small(+tg: U32, h: {U32.is_lt(tg, 19) == True{} : Bool}) -> {U32.is_le(U32.add(272, tg), 290) == True{} : Bool}:
   tbl.small.at(U32.to_nat(tg), tg, {==}, u.lt(tg, 19, h))
 
-def tblat.b(b: Bool, +m: C.Cir.Cells, +o: U32, +z: U32, +eb: {U32.is_lt(Tg(m, o), 19) == b : Bool},
+def tblat.b(b: Bool, +m: Cr.Cir.Cells, +o: U32, +z: U32, +eb: {U32.is_lt(Tg(m, o), 19) == b : Bool},
   hz: N.Le(1n+U32.to_nat(290), U32.to_nat(z))) -> {TblAt(m, o, z) == True{} : Bool}:
   match b:
     case False{}:
@@ -5108,7 +5113,7 @@ def tblat.b(b: Bool, +m: C.Cir.Cells, +o: U32, +z: U32, +eb: {U32.is_lt(Tg(m, o)
 
 # no cell reads its mask at z, past 290
 
-def TblR.of(n: Nat, +m: C.Cir.Cells, +o: U32, +z: U32, +hz: N.Le(1n+U32.to_nat(290), U32.to_nat(z))) -> {TblR(n, m, o, z) == True{} : Bool}:
+def TblR.of(n: Nat, +m: Cr.Cir.Cells, +o: U32, +z: U32, +hz: N.Le(1n+U32.to_nat(290), U32.to_nat(z))) -> {TblR(n, m, o, z) == True{} : Bool}:
   match n:
     case 0n:
       {==}
@@ -5117,7 +5122,7 @@ def TblR.of(n: Nat, +m: C.Cir.Cells, +o: U32, +z: U32, +hz: N.Le(1n+U32.to_nat(2
 
 # z is past 290, when it is one of the machine's own
 
-def img.hz(+dk: Bool, -ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, C.Term>, -m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +z: U32,
+def img.hz(+dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +z: U32,
   io: ImgOKK(dk, ds, ks, img, m, im, fi, nx), hzo: {Own(fi, nx, z) == True{} : Bool}) -> N.Le(1n+U32.to_nat(290), U32.to_nat(z)):
   (tb, r1) = io
   (hd, r2) = r1
@@ -5137,15 +5142,15 @@ def img.hz(+dk: Bool, -ds: List<&2, C.Def>, -ks: List<&2, List<&2, Word(8n)>>, -
 # none; it gets a cell x that is no term cell (a tag of 19 or more) and holds
 # no pointer. Then HS holds with the same terms.
 
-def hs.fz(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32, +x: C.Cir.Cell,
+def hs.fz(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
   +hzo: {Own(fi, nx, z) == True{} : Bool}, +hzm: {Mem(ps, z) == False{} : Bool},
   +hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, Rt.cells(os), z) == 0n : Nat},
   +hzs: {Fl(m, z, 1024) == False{} : Bool}, hzt: {U32.is_lt(TgW(Fd(0n, m, z)), 32) == True{} : Bool},
-  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
-  hxt: {U32.is_lt(TgW(C.Cir.Cell.get(0n, x)), 19) == False{} : Bool}) ->
-  HSK(dk, ds, ks, img, C.Cir.Cells.set(m, z, x), nx, fi, im, os, bs, fs, sp, pend, ps):
+  +hf0: {Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hf1: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Nil{} : List<&2, U32>},
+  hxt: {U32.is_lt(TgW(Cr.Cir.Cell.get(0n, x)), 19) == False{} : Bool}) ->
+  HSK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, os, bs, fs, sp, pend, ps):
   (ho0, r1) = hs
   (hb, r2) = r1
   (hh0, r3) = r2
@@ -5179,12 +5184,12 @@ type W1 is Data:
   W1{c: U32, v: U32}
 
 # the cells m with field 1 of each cell of ws set, the first of ws last
-def Put1(ws: List<&2, W1>, +m: C.Cir.Cells) -> C.Cir.Cells:
+def Put1(ws: List<&2, W1>, +m: Cr.Cir.Cells) -> Cr.Cir.Cells:
   match ws:
     case Nil{}:
       m
     case Con{W1{+c, v}, +rest}:
-      C.Cir.Cells.set(Put1(rest, m), c, C.Cir.Cell.set(1n, C.Cir.Cells.get(Put1(rest, m), c), v))
+      Cr.Cir.Cells.set(Put1(rest, m), c, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(Put1(rest, m), c), v))
 
 def W1.cells(ws: List<&2, W1>) -> List<&2, U32>:
   match ws:
@@ -5193,34 +5198,34 @@ def W1.cells(ws: List<&2, W1>) -> List<&2, U32>:
     case Con{W1{c, _}, rest}:
       Con{c, W1.cells(rest)}
 
-def cg0(+x: C.Cir.Cell, -w: U32) -> {C.Cir.Cell.get(0n, C.Cir.Cell.set(1n, x, w)) == C.Cir.Cell.get(0n, x) : U32}:
+def cg0(+x: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, x, w)) == Cr.Cir.Cell.get(0n, x) : U32}:
   match x:
-    case C.Cir.Cell{a, b, x2, x3, x4}:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
       {==}
 
-def cg1(+x: C.Cir.Cell, -w: U32) -> {C.Cir.Cell.get(1n, C.Cir.Cell.set(1n, x, w)) == w : U32}:
+def cg1(+x: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(1n, Cr.Cir.Cell.set(1n, x, w)) == w : U32}:
   match x:
-    case C.Cir.Cell{a, b, x2, x3, x4}:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
       {==}
 
-def cg2(+x: C.Cir.Cell, -w: U32) -> {C.Cir.Cell.get(2n, C.Cir.Cell.set(1n, x, w)) == C.Cir.Cell.get(2n, x) : U32}:
+def cg2(+x: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(2n, Cr.Cir.Cell.set(1n, x, w)) == Cr.Cir.Cell.get(2n, x) : U32}:
   match x:
-    case C.Cir.Cell{a, b, x2, x3, x4}:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
       {==}
 
-def cg3(+x: C.Cir.Cell, -w: U32) -> {C.Cir.Cell.get(3n, C.Cir.Cell.set(1n, x, w)) == C.Cir.Cell.get(3n, x) : U32}:
+def cg3(+x: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(3n, Cr.Cir.Cell.set(1n, x, w)) == Cr.Cir.Cell.get(3n, x) : U32}:
   match x:
-    case C.Cir.Cell{a, b, x2, x3, x4}:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
       {==}
 
-def cg4(+x: C.Cir.Cell, -w: U32) -> {C.Cir.Cell.get(4n, C.Cir.Cell.set(1n, x, w)) == C.Cir.Cell.get(4n, x) : U32}:
+def cg4(+x: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(4n, Cr.Cir.Cell.set(1n, x, w)) == Cr.Cir.Cell.get(4n, x) : U32}:
   match x:
-    case C.Cir.Cell{a, b, x2, x3, x4}:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
       {==}
 
-def s1s1(+x: C.Cir.Cell, -a: U32, -b: U32) -> {C.Cir.Cell.set(1n, C.Cir.Cell.set(1n, x, a), b) == C.Cir.Cell.set(1n, x, b) : C.Cir.Cell}:
+def s1s1(+x: Cr.Cir.Cell, -a: U32, -b: U32) -> {Cr.Cir.Cell.set(1n, Cr.Cir.Cell.set(1n, x, a), b) == Cr.Cir.Cell.set(1n, x, b) : Cr.Cir.Cell}:
   match x:
-    case C.Cir.Cell{y0, y1, y2, y3, y4}:
+    case Cr.Cir.Cell{y0, y1, y2, y3, y4}:
       {==}
 
 # is_eq is symmetric
@@ -5235,95 +5240,95 @@ def ne.sym.b(c: Bool, +a: U32, +b: U32, ec: {U32.is_eq(b, a) == c : Bool}, h: {U
 def ne.sym(+a: U32, +b: U32, h: {U32.is_eq(a, b) == False{} : Bool}) -> {U32.is_eq(b, a) == False{} : Bool}:
   ne.sym.b(U32.is_eq(b, a), a, b, {==}, h)
 
-def put1.at.b(b: Bool, +m: C.Cir.Cells, +rest: List<&2, W1>, +z: U32, +v: U32, +c: U32, eb: {U32.is_eq(c, z) == b : Bool},
-  ihc: {C.Cir.Cells.get(Put1(rest, m), c) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(rest, m), c)) : C.Cir.Cell},
-  ihz: {C.Cir.Cells.get(Put1(rest, m), z) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, z), Fd(1n, Put1(rest, m), z)) : C.Cir.Cell}) ->
-  {C.Cir.Cells.get(Put1(Con{W1{z, v}, rest}, m), c) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(Con{W1{z, v}, rest}, m), c)) : C.Cir.Cell}:
+def put1.at.b(b: Bool, +m: Cr.Cir.Cells, +rest: List<&2, W1>, +z: U32, +v: U32, +c: U32, eb: {U32.is_eq(c, z) == b : Bool},
+  ihc: {Cr.Cir.Cells.get(Put1(rest, m), c) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(rest, m), c)) : Cr.Cir.Cell},
+  ihz: {Cr.Cir.Cells.get(Put1(rest, m), z) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, z), Fd(1n, Put1(rest, m), z)) : Cr.Cir.Cell}) ->
+  {Cr.Cir.Cells.get(Put1(Con{W1{z, v}, rest}, m), c) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(Con{W1{z, v}, rest}, m), c)) : Cr.Cir.Cell}:
   match b:
     case False{}:
       +M = Put1(rest, m)
-      +x = C.Cir.Cell.set(1n, C.Cir.Cells.get(M, z), v)
-      +M2 = C.Cir.Cells.set(M, z, x)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, c), C.Cir.Cells.get(M, c), cl.go(M, c, z, x, eb)) :
-        {_ == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), C.Cir.Cell.get(1n, _)) : C.Cir.Cell}
+      +x = Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, z), v)
+      +M2 = Cr.Cir.Cells.set(M, z, x)
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, c), Cr.Cir.Cells.get(M, c), cl.go(M, c, z, x, eb)) :
+        {_ == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Cr.Cir.Cell.get(1n, _)) : Cr.Cir.Cell}
       ihc
     case True{}:
       +M = Put1(rest, m)
-      +x = C.Cir.Cell.set(1n, C.Cir.Cells.get(M, z), v)
-      +M2 = C.Cir.Cells.set(M, z, x)
+      +x = Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, z), v)
+      +M2 = Cr.Cir.Cells.set(M, z, x)
       %Equal.sym(U32, c, z, u32.eq(c, z, eb)) :
-        {C.Cir.Cells.get(M2, _) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, _), Fd(1n, M2, _)) : C.Cir.Cell}
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, z), x, cl.gs(M, z, x)) :
-        {_ == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, z), C.Cir.Cell.get(1n, _)) : C.Cir.Cell}
-      %Equal.sym(U32, C.Cir.Cell.get(1n, x), v, cg1(C.Cir.Cells.get(M, z), v)) :
-        {x == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, z), _) : C.Cir.Cell}
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M, z), C.Cir.Cell.set(1n, C.Cir.Cells.get(m, z), Fd(1n, M, z)), ihz) :
-        {C.Cir.Cell.set(1n, _, v) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, z), v) : C.Cir.Cell}
-      s1s1(C.Cir.Cells.get(m, z), Fd(1n, M, z), v)
+        {Cr.Cir.Cells.get(M2, _) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, _), Fd(1n, M2, _)) : Cr.Cir.Cell}
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, z), x, cl.gs(M, z, x)) :
+        {_ == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, z), Cr.Cir.Cell.get(1n, _)) : Cr.Cir.Cell}
+      %Equal.sym(U32, Cr.Cir.Cell.get(1n, x), v, cg1(Cr.Cir.Cells.get(M, z), v)) :
+        {x == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, z), _) : Cr.Cir.Cell}
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M, z), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, z), Fd(1n, M, z)), ihz) :
+        {Cr.Cir.Cell.set(1n, _, v) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, z), v) : Cr.Cir.Cell}
+      s1s1(Cr.Cir.Cells.get(m, z), Fd(1n, M, z), v)
 
 # after stores to field 1, a cell is its old one with another field 1
-def put1.at(ws: List<&2, W1>, +m: C.Cir.Cells, +c: U32) ->
-  {C.Cir.Cells.get(Put1(ws, m), c) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)) : C.Cir.Cell}:
+def put1.at(ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) ->
+  {Cr.Cir.Cells.get(Put1(ws, m), c) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)) : Cr.Cir.Cell}:
   match ws:
     case Nil{}:
-      set1.id(C.Cir.Cells.get(m, c))
+      set1.id(Cr.Cir.Cells.get(m, c))
     case Con{W1{+z, +v}, +rest}:
       put1.at.b(U32.is_eq(c, z), m, rest, z, v, c, {==}, put1.at(rest, m, c), put1.at(rest, m, z))
 
 # and a cell that no store reaches is the old one
-def put1.out(ws: List<&2, W1>, +m: C.Cir.Cells, +c: U32, h: {Mem(W1.cells(ws), c) == False{} : Bool}) ->
-  {C.Cir.Cells.get(Put1(ws, m), c) == C.Cir.Cells.get(m, c) : C.Cir.Cell}:
+def put1.out(ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32, h: {Mem(W1.cells(ws), c) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get(Put1(ws, m), c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell}:
   match ws:
     case Nil{}:
       {==}
     case Con{W1{+z, +v}, +rest}:
       +h2 = h
-      Equal.trans(C.Cir.Cell, C.Cir.Cells.get(Put1(Con{W1{z, v}, rest}, m), c), C.Cir.Cells.get(Put1(rest, m), c), C.Cir.Cells.get(m, c),
-        cl.go(Put1(rest, m), c, z, C.Cir.Cell.set(1n, C.Cir.Cells.get(Put1(rest, m), z), v),
+      Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(Put1(Con{W1{z, v}, rest}, m), c), Cr.Cir.Cells.get(Put1(rest, m), c), Cr.Cir.Cells.get(m, c),
+        cl.go(Put1(rest, m), c, z, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(Put1(rest, m), z), v),
           ne.sym(z, c, or.f.l(U32.is_eq(z, c), Mem(W1.cells(rest), c), h2))),
         put1.out(rest, m, c, or.f.r(U32.is_eq(z, c), Mem(W1.cells(rest), c), h2)))
 
-def put1.f0(+ws: List<&2, W1>, +m: C.Cir.Cells, +c: U32) -> {Fd(0n, Put1(ws, m), c) == Fd(0n, m, c) : U32}:
-  Equal.trans(U32, Fd(0n, Put1(ws, m), c), C.Cir.Cell.get(0n, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(0n, m, c),
-    Equal.cong(C.Cir.Cell, U32, y => C.Cir.Cell.get(0n, y), C.Cir.Cells.get(Put1(ws, m), c), C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
-    cg0(C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
+def put1.f0(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> {Fd(0n, Put1(ws, m), c) == Fd(0n, m, c) : U32}:
+  Equal.trans(U32, Fd(0n, Put1(ws, m), c), Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(0n, m, c),
+    Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(0n, y), Cr.Cir.Cells.get(Put1(ws, m), c), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
+    cg0(Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
 
-def put1.f2(+ws: List<&2, W1>, +m: C.Cir.Cells, +c: U32) -> {Fd(2n, Put1(ws, m), c) == Fd(2n, m, c) : U32}:
-  Equal.trans(U32, Fd(2n, Put1(ws, m), c), C.Cir.Cell.get(2n, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(2n, m, c),
-    Equal.cong(C.Cir.Cell, U32, y => C.Cir.Cell.get(2n, y), C.Cir.Cells.get(Put1(ws, m), c), C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
-    cg2(C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
+def put1.f2(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> {Fd(2n, Put1(ws, m), c) == Fd(2n, m, c) : U32}:
+  Equal.trans(U32, Fd(2n, Put1(ws, m), c), Cr.Cir.Cell.get(2n, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(2n, m, c),
+    Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(2n, y), Cr.Cir.Cells.get(Put1(ws, m), c), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
+    cg2(Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
 
-def put1.f3(+ws: List<&2, W1>, +m: C.Cir.Cells, +c: U32) -> {Fd(3n, Put1(ws, m), c) == Fd(3n, m, c) : U32}:
-  Equal.trans(U32, Fd(3n, Put1(ws, m), c), C.Cir.Cell.get(3n, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(3n, m, c),
-    Equal.cong(C.Cir.Cell, U32, y => C.Cir.Cell.get(3n, y), C.Cir.Cells.get(Put1(ws, m), c), C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
-    cg3(C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
+def put1.f3(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> {Fd(3n, Put1(ws, m), c) == Fd(3n, m, c) : U32}:
+  Equal.trans(U32, Fd(3n, Put1(ws, m), c), Cr.Cir.Cell.get(3n, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(3n, m, c),
+    Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(3n, y), Cr.Cir.Cells.get(Put1(ws, m), c), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
+    cg3(Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
 
-def put1.f4(+ws: List<&2, W1>, +m: C.Cir.Cells, +c: U32) -> {Fd(4n, Put1(ws, m), c) == Fd(4n, m, c) : U32}:
-  Equal.trans(U32, Fd(4n, Put1(ws, m), c), C.Cir.Cell.get(4n, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(4n, m, c),
-    Equal.cong(C.Cir.Cell, U32, y => C.Cir.Cell.get(4n, y), C.Cir.Cells.get(Put1(ws, m), c), C.Cir.Cell.set(1n, C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
-    cg4(C.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
+def put1.f4(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> {Fd(4n, Put1(ws, m), c) == Fd(4n, m, c) : U32}:
+  Equal.trans(U32, Fd(4n, Put1(ws, m), c), Cr.Cir.Cell.get(4n, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c))), Fd(4n, m, c),
+    Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(4n, y), Cr.Cir.Cells.get(Put1(ws, m), c), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)), put1.at(ws, m, c)),
+    cg4(Cr.Cir.Cells.get(m, c), Fd(1n, Put1(ws, m), c)))
 
-def fsk.s1(b: Bool, +a: U32, +y: C.Cir.Cell, -w: U32, +ps: List<&2, U32>, +o: U32) ->
-  {FsK(b, a, C.Cir.Cell.set(1n, y, w), ps, o) == FsK(b, a, y, ps, o) : List<&2, U32>}:
+def fsk.s1(b: Bool, +a: U32, +y: Cr.Cir.Cell, -w: U32, +ps: List<&2, U32>, +o: U32) ->
+  {FsK(b, a, Cr.Cir.Cell.set(1n, y, w), ps, o) == FsK(b, a, y, ps, o) : List<&2, U32>}:
   match y:
-    case C.Cir.Cell{y0, y1, y2, y3, y4}:
+    case Cr.Cir.Cell{y0, y1, y2, y3, y4}:
       {==}
 
 # stores to field 1 keep the pointers of each cell
-def fs.put1(+ws: List<&2, W1>, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32) -> {Fs(Put1(ws, m), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
+def fs.put1(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32) -> {Fs(Put1(ws, m), ps, o) == Fs(m, ps, o) : List<&2, U32>}:
   +M2 = Put1(ws, m)
-  +Y = C.Cir.Cells.get(m, o)
+  +Y = Cr.Cir.Cells.get(m, o)
   +w = Fd(1n, M2, o)
-  +tg = TgW(C.Cir.Cell.get(0n, Y))
-  %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, o), C.Cir.Cell.set(1n, Y, w), put1.at(ws, m, o)) :
-    {FsK(U32.is_lt(TgW(C.Cir.Cell.get(0n, _)), 19), Fd(2n, M2, U32.add(272, TgW(C.Cir.Cell.get(0n, _)))), _, ps, o) == Fs(m, ps, o) : List<&2, U32>}
-  %Equal.sym(U32, C.Cir.Cell.get(0n, C.Cir.Cell.set(1n, Y, w)), C.Cir.Cell.get(0n, Y), cg0(Y, w)) :
-    {FsK(U32.is_lt(TgW(_), 19), Fd(2n, M2, U32.add(272, TgW(_))), C.Cir.Cell.set(1n, Y, w), ps, o) == Fs(m, ps, o) : List<&2, U32>}
+  +tg = TgW(Cr.Cir.Cell.get(0n, Y))
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, o), Cr.Cir.Cell.set(1n, Y, w), put1.at(ws, m, o)) :
+    {FsK(U32.is_lt(TgW(Cr.Cir.Cell.get(0n, _)), 19), Fd(2n, M2, U32.add(272, TgW(Cr.Cir.Cell.get(0n, _)))), _, ps, o) == Fs(m, ps, o) : List<&2, U32>}
+  %Equal.sym(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, Y, w)), Cr.Cir.Cell.get(0n, Y), cg0(Y, w)) :
+    {FsK(U32.is_lt(TgW(_), 19), Fd(2n, M2, U32.add(272, TgW(_))), Cr.Cir.Cell.set(1n, Y, w), ps, o) == Fs(m, ps, o) : List<&2, U32>}
   %Equal.sym(U32, Fd(2n, M2, U32.add(272, tg)), Fd(2n, m, U32.add(272, tg)), put1.f2(ws, m, U32.add(272, tg))) :
-    {FsK(U32.is_lt(tg, 19), _, C.Cir.Cell.set(1n, Y, w), ps, o) == Fs(m, ps, o) : List<&2, U32>}
+    {FsK(U32.is_lt(tg, 19), _, Cr.Cir.Cell.set(1n, Y, w), ps, o) == Fs(m, ps, o) : List<&2, U32>}
   fsk.s1(U32.is_lt(tg, 19), Fd(2n, m, U32.add(272, tg)), Y, w, ps, o)
 
-def pc.put1(n: Nat, +ws: List<&2, W1>, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) ->
+def pc.put1(n: Nat, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) ->
   {Pc(n, Put1(ws, m), ps, o, c) == Pc(n, m, ps, o, c) : Nat}:
   match n:
     case 0n:
@@ -5336,33 +5341,33 @@ def pc.put1(n: Nat, +ws: List<&2, W1>, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: 
         {Nat.add(RcL(Fs(m, ps, o), c), _) == Nat.add(RcL(Fs(m, ps, o), c), Pc(k, m, ps, U32.inc(o), c)) : Nat}
       {==}
 
-def ptr.put1(+n: Nat, +ws: List<&2, W1>, +m: C.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32) ->
+def ptr.put1(+n: Nat, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32) ->
   {Ptr(n, Put1(ws, m), fi, ps, rs, c) == Ptr(n, m, fi, ps, rs, c) : Nat}:
   Equal.cong(Nat, Nat, w => Nat.add(w, RcL(rs, c)), Pc(n, Put1(ws, m), ps, fi, c), Pc(n, m, ps, fi, c), pc.put1(n, ws, m, ps, fi, c))
 
-def ltc.s1(+y: U32, +x: C.Cir.Cell, -w: U32, +im: U32, +fi: U32, +nx: U32) ->
-  {LtC(y, C.Cir.Cell.set(1n, x, w), im, fi, nx) == LtC(y, x, im, fi, nx) : Bool}:
+def ltc.s1(+y: U32, +x: Cr.Cir.Cell, -w: U32, +im: U32, +fi: U32, +nx: U32) ->
+  {LtC(y, Cr.Cir.Cell.set(1n, x, w), im, fi, nx) == LtC(y, x, im, fi, nx) : Bool}:
   match x:
-    case C.Cir.Cell{a, b, x2, x3, x4}:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
       {==}
 
-def lt.put1(xs: List<&2, U32>, +ws: List<&2, W1>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32) ->
+def lt.put1(xs: List<&2, U32>, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32) ->
   {Lt.all(xs, Put1(ws, m), im, fi, nx) == Lt.all(xs, m, im, fi, nx) : Bool}:
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
       +M2 = Put1(ws, m)
-      %Equal.sym(C.Cir.Cell, C.Cir.Cells.get(M2, x), C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x), Fd(1n, M2, x)), put1.at(ws, m, x)) :
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, x), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x), Fd(1n, M2, x)), put1.at(ws, m, x)) :
         {Bool.and(LtC(x, _, im, fi, nx), Lt.all(rest, M2, im, fi, nx)) == Lt.all(Con{x, rest}, m, im, fi, nx) : Bool}
-      %Equal.sym(Bool, LtC(x, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, x), Fd(1n, M2, x)), im, fi, nx), LtC(x, C.Cir.Cells.get(m, x), im, fi, nx),
-          ltc.s1(x, C.Cir.Cells.get(m, x), Fd(1n, M2, x), im, fi, nx)) :
+      %Equal.sym(Bool, LtC(x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x), Fd(1n, M2, x)), im, fi, nx), LtC(x, Cr.Cir.Cells.get(m, x), im, fi, nx),
+          ltc.s1(x, Cr.Cir.Cells.get(m, x), Fd(1n, M2, x), im, fi, nx)) :
         {Bool.and(_, Lt.all(rest, M2, im, fi, nx)) == Lt.all(Con{x, rest}, m, im, fi, nx) : Bool}
       %Equal.sym(Bool, Lt.all(rest, M2, im, fi, nx), Lt.all(rest, m, im, fi, nx), lt.put1(rest, ws, m, im, fi, nx)) :
-        {Bool.and(LtC(x, C.Cir.Cells.get(m, x), im, fi, nx), _) == Lt.all(Con{x, rest}, m, im, fi, nx) : Bool}
+        {Bool.and(LtC(x, Cr.Cir.Cells.get(m, x), im, fi, nx), _) == Lt.all(Con{x, rest}, m, im, fi, nx) : Bool}
       {==}
 
-def pts.put1(n: Nat, +ws: List<&2, W1>, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32) ->
+def pts.put1(n: Nat, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32) ->
   {Pts(n, Put1(ws, m), ps, o, im, fi, nx) == Pts(n, m, ps, o, im, fi, nx) : Bool}:
   match n:
     case 0n:
@@ -5377,7 +5382,7 @@ def pts.put1(n: Nat, +ws: List<&2, W1>, +m: C.Cir.Cells, +ps: List<&2, U32>, +o:
         {Bool.and(Lt.all(Fs(m, ps, o), m, im, fi, nx), _) == Pts(1n+k, m, ps, o, im, fi, nx) : Bool}
       {==}
 
-def pendok.put1(qs: List<&2, U32>, +ps: List<&2, U32>, +ws: List<&2, W1>, +m: C.Cir.Cells, +fi: U32, +nx: U32, +rs: List<&2, U32>,
+def pendok.put1(qs: List<&2, U32>, +ps: List<&2, U32>, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +rs: List<&2, U32>,
   h: PendOK(qs, ps, m, fi, nx, rs)) -> PendOK(qs, ps, Put1(ws, m), fi, nx, rs):
   match qs:
     case Nil{}:
@@ -5456,7 +5461,7 @@ def len.term(+a: U32, +x2: U32, +x3: U32, +x4: U32) -> N.Le(List.length(&2, U32,
       len.opt(U32.is_ne(U32.and(a, 4), 0), x4, Nil{}, 0n, N.le_zero(0n))))
 
 # a cell holds at most 3 pointers
-def fs.len(+m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32) -> N.Le(List.length(&2, U32, Fs(m, ps, o)), 3n):
+def fs.len(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32) -> N.Le(List.length(&2, U32, Fs(m, ps, o)), 3n):
   +tg = TgW(Fd(0n, m, o))
   len.pick(U32.is_lt(tg, 19), Fs.term(Fd(2n, m, U32.add(272, tg)), Fd(2n, m, o), Fd(3n, m, o), Fd(4n, m, o)),
     Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(Mem(ps, o))),
@@ -5474,7 +5479,7 @@ def fs.len(+m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32) -> N.Le(List.length(&2,
         [Fd(2n, m, o)], Nil{}, 3n, N.le_zero(2n), N.le_zero(3n))))
 
 # the pointers to c of n cells: at most 3 n
-def pc.bound(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) -> N.Le(Pc(n, m, ps, o, c), Nat.mul(3n, n)):
+def pc.bound(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) -> N.Le(Pc(n, m, ps, o, c), Nat.mul(3n, n)):
   match n:
     case 0n:
       N.le_zero(0n)
@@ -5484,20 +5489,20 @@ def pc.bound(n: Nat, +m: C.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) -> N
           N.le_trans(RcL(Fs(m, ps, o), c), List.length(&2, U32, Fs(m, ps, o)), 3n, rcl.len(Fs(m, ps, o), c), fs.len(m, ps, o)),
           pc.bound(p, m, ps, U32.inc(o), c)))
 
-def ptr.bound(+n: Nat, +m: C.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32) ->
+def ptr.bound(+n: Nat, +m: Cr.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +c: U32) ->
   N.Le(Ptr(n, m, fi, ps, rs, c), Nat.add(Nat.mul(3n, n), List.length(&2, U32, rs))):
   N.add_mono(Pc(n, m, ps, fi, c), Nat.mul(3n, n), RcL(rs, c), List.length(&2, U32, rs), pc.bound(n, m, ps, fi, c), rcl.len(rs, c))
 
 # M.inc(r), with the held cell c of u in register r, and at most 64 owned
 # roots: c is an owned root too
-def inc.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
-  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: C.Term,
+def inc.post(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{Rt{c, u}, bs}, fs, sp, pend, ps),
   hn: N.Le(List.length(&2, Rt, os), 64n),
   hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>}) ->
-  Post(False{}, C.Cir.exec(f, C.M.inc(r), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
-    st2 => Ex(C.Cir.Cells, m2 => P2({st2 == C.Cir.State{regs, m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : C.Cir.State},
+  Post(False{}, Cr.Cir.exec(f, Mc.M.inc(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+    st2 => Ex(Cr.Cir.Cells, m2 => P2({st2 == Cr.Cir.State{regs, m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
       HSK(dk, ds, ks, img, m2, nx, fi, im, Con{Rt{c, u}, os}, Con{Rt{c, u}, bs}, fs, sp, pend, ps))),
     s => st2 => Empty):
   ?TODO
@@ -5505,24 +5510,24 @@ def inc.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Wo
 # M.dec(r), with the owned root c of u in register r, when each borrowed term
 # is held without that root: c is no root, and goes to the pend list at 0;
 # only registers dr and pend change
-def dec.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
-  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: C.Term,
+def dec.post(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, Con{Rt{c, u}, os}, bs, fs, sp, pend, ps),
   hb: Held(m, os, bs),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
   h5: {Nat.is_eq(5n, r) == False{} : Bool}) ->
-  Post(False{}, C.Cir.exec(f, C.M.dec(r), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
-    st2 => Ex(C.Cir.Cells, m2 => Ex(U32, d => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
-      P2({st2 == C.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : C.Cir.State},
+  Post(False{}, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+    st2 => Ex(Cr.Cir.Cells, m2 => Ex(U32, d => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
+      P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
         HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2)))))),
     s => st2 => Empty):
   ?TODO
 
 # the parts of the pend list's first cell, which M.alloc takes
-def Taken(ps: List<&2, U32>, +m: C.Cir.Cells, +q: U32) -> Bool:
+def Taken(ps: List<&2, U32>, +m: Cr.Cir.Cells, +q: U32) -> Bool:
   match ps:
     case Nil{}:
       False{}
@@ -5533,14 +5538,14 @@ def Taken(ps: List<&2, U32>, +m: C.Cir.Cells, +q: U32) -> Bool:
 # the state st2: next grows; each cell q out of ps, other than nx, keeps its
 # fields but field 1, and field 1 too unless q is a term cell and a part of
 # the cell taken
-def AlFr(+m: C.Cir.Cells, +ps: List<&2, U32>, +nx: U32, st2: C.Cir.State) -> Type:
+def AlFr(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +nx: U32, st2: Cr.Cir.State) -> Type:
   {U32.is_le(nx, St.next(st2)) == True{} : Bool} &
   (@q: U32 -> {Mem(ps, q) == False{} : Bool} -> {U32.is_eq(q, nx) == False{} : Bool} ->
-    P2({C.Cir.Cells.get(St.cells(st2), q) == C.Cir.Cell.set(1n, C.Cir.Cells.get(m, q), Fd(1n, St.cells(st2), q)) : C.Cir.Cell},
+    P2({Cr.Cir.Cells.get(St.cells(st2), q) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, q), Fd(1n, St.cells(st2), q)) : Cr.Cir.Cell},
       {Bool.or(Bool.and(U32.is_lt(Tg(m, q), 19), Taken(ps, m, q)), U32.is_eq(Fd(1n, St.cells(st2), q), Fd(1n, m, q))) == True{} : Bool}))
 
 # each cell of ws is a term cell, a part of the cell taken
-def Took(ws: List<&2, W1>, +ps: List<&2, U32>, +m: C.Cir.Cells) -> Bool:
+def Took(ws: List<&2, W1>, +ps: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
   match ws:
     case Nil{}:
       True{}
@@ -5548,7 +5553,7 @@ def Took(ws: List<&2, W1>, +ps: List<&2, U32>, +m: C.Cir.Cells) -> Bool:
       Bool.and(Bool.and(U32.is_lt(Tg(m, c), 19), Taken(ps, m, c)), Took(rest, ps, m))
 
 # each cell of qs is of the pend list ps, or a term cell
-def PsSub(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells) -> Bool:
+def PsSub(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
   match qs:
     case Nil{}:
       True{}
@@ -5560,22 +5565,22 @@ def PsSub(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells) -> Bool:
 # the pend list's first, whose parts lose a pointer); HS holds with the same
 # terms; only Copy.scr's alloc registers (aq, am, dx, dr), pend and r change.
 # Out of memory only when it is new.
-def alloc.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +regs: List<&2, U32>,
-  +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+def alloc.post(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
   hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n))) == True{} : Bool},
   hk: {Disj(keep, [r, 3n, 4n, 5n, 6n, 7n]) == True{} : Bool}) ->
-  Post(False{}, C.Cir.exec(f, C.M.alloc(r), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+  Post(False{}, Cr.Cir.exec(f, Mc.M.alloc(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => P2(Same(regs, fi, im, lim, inp, keep, st2),
       Ex(U32, z => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
         P2(Reg(st2, r, z), P2(Reg(st2, 3n, pend2),
-        P2({C.Cir.Cells.get(St.cells(st2), z) == C.Cir.Cell.zero() : C.Cir.Cell},
+        P2({Cr.Cir.Cells.get(St.cells(st2), z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
         P2({Own(fi, St.next(st2), z) == True{} : Bool}, P2({Mem(ps2, z) == False{} : Bool},
         P2({Bool.or(Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool},
-        P2(Ex(List<&2, W1>, ws => P2({St.cells(st2) == C.Cir.Cells.set(Put1(ws, m), z, C.Cir.Cell.zero()) : C.Cir.Cells},
+        P2(Ex(List<&2, W1>, ws => P2({St.cells(st2) == Cr.Cir.Cells.set(Put1(ws, m), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells},
           {Took(ws, ps, m) == True{} : Bool})),
         P2({PsSub(ps2, ps, m) == True{} : Bool},
         P2({Ptr(Nat.sub(U32.to_nat(St.next(st2)), U32.to_nat(fi)), St.cells(st2), fi, ps2, Rt.cells(os), z) == 0n : Nat},
@@ -5587,8 +5592,8 @@ def alloc.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, 
 # register r, out of the pend list, that holds no pointer (Fs): z goes to the
 # pend list. (A frame, or an argument that owns its term, holds one: its
 # pointer must go to a root first.)
-def release.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
-  +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+def release.post(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
   hz: {Own(fi, nx, z) == True{} : Bool}, ht: {U32.is_lt(Tg(m, z), 32) == False{} : Bool},
@@ -5597,8 +5602,8 @@ def release.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, r) == Some{z} : Maybe<&2, U32>},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}) ->
-  Post(False{}, C.Cir.exec(f, C.M.release(r), C.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
-    st2 => Ex(C.Cir.Cells, m2 => P2({st2 == C.Cir.State{List.set(&2, U32, regs, 3n, z), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : C.Cir.State},
+  Post(False{}, Cr.Cir.exec(f, Mc.M.release(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+    st2 => Ex(Cr.Cir.Cells, m2 => P2({st2 == Cr.Cir.State{List.set(&2, U32, regs, 3n, z), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
       HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, z, Con{z, ps}))),
     s => st2 => Empty):
   ?TODO
@@ -5613,14 +5618,14 @@ def release.post(+f: Nat, +dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2
 # setting either keeps every held term.
 
 # the pend list's cells of a heap
-def heap.pend(-m: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -rs: List<&2, U32>, -pend: U32, -ps: List<&2, U32>, h: Heap(m, nx, fi, im, rs, pend, ps)) ->
+def heap.pend(-m: Cr.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -rs: List<&2, U32>, -pend: U32, -ps: List<&2, U32>, h: Heap(m, nx, fi, im, rs, pend, ps)) ->
   PendOK(ps, ps, m, fi, nx, rs):
   match h:
     case Tuple{_, Tuple{p, _}}:
       p
 
 # a cell of the pend list is not STATIC, and nothing points to it
-def pendok.mem(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells, +fi: U32, +nx: U32, +rs: List<&2, U32>, +z: U32,
+def pendok.mem(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +rs: List<&2, U32>, +z: U32,
   h: PendOK(qs, ps, m, fi, nx, rs), hm: {Mem(qs, z) == True{} : Bool}) ->
   P2({Fl(m, z, 1024) == False{} : Bool}, {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}):
   match qs:
@@ -5636,13 +5641,13 @@ def pendok.mem(qs: List<&2, U32>, +ps: List<&2, U32>, +m: C.Cir.Cells, +fi: U32,
               (hs, h0)),
             e => pendok.mem(rest, ps, m, fi, nx, rs, z, hr, e))
 
-def is.pend(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32,
+def is.pend(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +x: C.Cir.Cell,
+  +x: Cr.Cir.Cell,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
   +hp: {Mem(ps, pend) == True{} : Bool}) ->
-  P2(RtsK(dk, ds, C.Cir.Cells.set(m, pend, x), im, fi, nx, ks, img, os), P2(RtsK(dk, ds, C.Cir.Cells.set(m, pend, x), im, fi, nx, ks, img, bs),
-    FrsK(dk, ds, C.Cir.Cells.set(m, pend, x), im, fi, nx, ks, img, ps, sp, fs))):
+  P2(RtsK(dk, ds, Cr.Cir.Cells.set(m, pend, x), im, fi, nx, ks, img, os), P2(RtsK(dk, ds, Cr.Cir.Cells.set(m, pend, x), im, fi, nx, ks, img, bs),
+    FrsK(dk, ds, Cr.Cir.Cells.set(m, pend, x), im, fi, nx, ks, img, ps, sp, fs))):
   (ho0, r1) = hs
   (hb, r2) = r1
   (hh0, r3) = r2
@@ -5663,12 +5668,12 @@ def is.pend(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
     (Rts.fz(dk, bs, ds, m, im, fi, nx, ks, img, ps, rs, pend, x, tbl, hz0, hzs, hnb, hb),
       Frs.fzp(dk, fs, ds, m, im, fi, nx, ks, img, ps, rs, pend, x, sp, tbl, hz0, hzs, hp, hf)))
 
-def is.fresh(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32,
+def is.fresh(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
-  +x: C.Cir.Cell,
+  +x: Cr.Cir.Cell,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) ->
-  P2(RtsK(dk, ds, C.Cir.Cells.set(m, nx, x), im, fi, U32.inc(nx), ks, img, os), P2(RtsK(dk, ds, C.Cir.Cells.set(m, nx, x), im, fi, U32.inc(nx), ks, img, bs),
-    FrsK(dk, ds, C.Cir.Cells.set(m, nx, x), im, fi, U32.inc(nx), ks, img, ps, sp, fs))):
+  P2(RtsK(dk, ds, Cr.Cir.Cells.set(m, nx, x), im, fi, U32.inc(nx), ks, img, os), P2(RtsK(dk, ds, Cr.Cir.Cells.set(m, nx, x), im, fi, U32.inc(nx), ks, img, bs),
+    FrsK(dk, ds, Cr.Cir.Cells.set(m, nx, x), im, fi, U32.inc(nx), ks, img, ps, sp, fs))):
   ?TODO
 
 # Open: what the phases need of HS (this file)
@@ -5683,7 +5688,7 @@ def is.fresh(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>,
 # of a cell keeps HSK, when (for dk) each term that the cell stands for is
 # Data.
 
-def held.ptr(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32,
+def held.ptr(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
   +c: U32,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
@@ -5695,7 +5700,7 @@ def held.ptr(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>,
         e => or.l(Fl(m, c, 1024), Nat.is_lt(0n, Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, Rt.cells(os), c)), e),
         e => nodes.ptr(os, dk, ds, m, im, fi, nx, ks, img, ps, Rt.cells(os), tbl, c, hos, allin.refl(Rt.cells(os)), e))
 
-def node.part(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32,
+def node.part(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
   +c: U32, +y: U32,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
@@ -5704,25 +5709,25 @@ def node.part(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>
   {Nodes(os, m, y) == True{} : Bool}:
   ?TODO
 
-def store.post(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32,
+def store.post(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +us: List<&2, Rt>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32,
-  +ps: List<&2, U32>, +z: U32, +x: C.Cir.Cell,
+  +ps: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, List.append(&2, Rt, us, os), bs, fs, sp, pend, ps),
   hb: Held(m, os, bs),
   ho: {Own(fi, nx, z) == True{} : Bool}, hm: {Mem(ps, z) == False{} : Bool}, hzs: {Fl(m, z, 1024) == False{} : Bool},
   hzt: {Bool.or(U32.is_lt(Tg(m, z), 32), U32.is_le(41, Tg(m, z))) == True{} : Bool},
   hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, Rt.cells(List.append(&2, Rt, us, os)), z) == 0n : Nat},
   hzf: {Fs(m, ps, z) == Nil{} : List<&2, U32>},
-  ht: {U32.is_le(32, TgW(C.Cir.Cell.get(0n, x))) == True{} : Bool},
-  hf: {Fs(C.Cir.Cells.set(m, z, x), ps, z) == Rt.cells(us) : List<&2, U32>}) ->
-  HSK(dk, ds, ks, img, C.Cir.Cells.set(m, z, x), nx, fi, im, os, bs, fs, sp, pend, ps):
+  ht: {U32.is_le(32, TgW(Cr.Cir.Cell.get(0n, x))) == True{} : Bool},
+  hf: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Rt.cells(us) : List<&2, U32>}) ->
+  HSK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, os, bs, fs, sp, pend, ps):
   ?TODO
 
-def data.flag(+dk: Bool, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +m: C.Cir.Cells, +nx: U32,
+def data.flag(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
   +c: U32,
   hs: HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
-  hd: @t2: C.Term -> IsK(dk, ds, m, im, fi, nx, ks, img, c, t2) -> DataK(dk, 512, t2)) ->
-  HSK(dk, ds, ks, img, C.Cir.Cells.set(m, c, C.Cir.Cell.set(0n, C.Cir.Cells.get(m, c), U32.or(Fd(0n, m, c), 512))), nx, fi, im,
+  hd: @t2: Bk.Term -> IsK(dk, ds, m, im, fi, nx, ks, img, c, t2) -> DataK(dk, 512, t2)) ->
+  HSK(dk, ds, ks, img, Cr.Cir.Cells.set(m, c, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, c), U32.or(Fd(0n, m, c), 512))), nx, fi, im,
     os, bs, fs, sp, pend, ps):
   ?TODO

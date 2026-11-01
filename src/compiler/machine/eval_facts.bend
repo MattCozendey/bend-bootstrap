@@ -9,8 +9,10 @@
 # does).
 
 import Base
-import ./impl.bend as C
-import ./proof_mach_defs.bend as D
+import ../../shared/shared.bend as Sd
+import ../../book/impl.bend as Bk
+import ../../eval/impl.bend as El
+import ./definitions.bend as D
 
 # Kit
 # ---
@@ -40,8 +42,8 @@ def and.f(a: Bool, -b: Bool, h: {b == False{} : Bool}) -> {Bool.and(a, b) == Fal
       {==}
 
 # a step is not none
-def sm.ne(-u: C.Term, e: {Some{u} == None{} : Maybe<C.Term>}) -> Empty:
-  D.st.ne(u, Equal.sym(Maybe<C.Term>, Some{u}, None{}, e))
+def sm.ne(-u: Bk.Term, e: {Some{u} == None{} : Maybe<Bk.Term>}) -> Empty:
+  D.st.ne(u, Equal.sym(Maybe<Bk.Term>, Some{u}, None{}, e))
 
 # x is True when y is, and y is False when x is
 def bool.back(b: Bool, -x: Bool, -y: Bool, eb: {x == b : Bool}, more: {x == False{} : Bool} -> {y == False{} : Bool},
@@ -55,31 +57,31 @@ def bool.back(b: Bool, -x: Bool, -y: Bool, eb: {x == b : Bool}, more: {x == Fals
 # A walk that does not wait does not wait with more arguments
 # ------------------------------------------------------------
 
-def w.if(b: Bool, -r: Maybe<Maybe<C.Term>>, -s: Maybe<Maybe<C.Term>>,
-  h: {C.Eval.waits(C.Eval.walk.if(b, r)) == False{} : Bool},
-  g: {C.Eval.waits(r) == False{} : Bool} -> {C.Eval.waits(s) == False{} : Bool}) ->
-  {C.Eval.waits(C.Eval.walk.if(b, s)) == False{} : Bool}:
+def w.if(b: Bool, -r: Maybe<Maybe<Bk.Term>>, -s: Maybe<Maybe<Bk.Term>>,
+  h: {El.Eval.waits(El.Eval.walk.if(b, r)) == False{} : Bool},
+  g: {El.Eval.waits(r) == False{} : Bool} -> {El.Eval.waits(s) == False{} : Bool}) ->
+  {El.Eval.waits(El.Eval.walk.if(b, s)) == False{} : Bool}:
   match b:
     case True{}:
       g(h)
     case False{}:
       {==}
 
-def w.pick(b: Bool, -r1: Maybe<Maybe<C.Term>>, -s1: Maybe<Maybe<C.Term>>, -r2: Maybe<Maybe<C.Term>>, -s2: Maybe<Maybe<C.Term>>,
-  h: {C.Eval.waits(C.Eval.walk.pick(b, r1, s1)) == False{} : Bool},
-  g1: {C.Eval.waits(r1) == False{} : Bool} -> {C.Eval.waits(r2) == False{} : Bool},
-  g2: {C.Eval.waits(s1) == False{} : Bool} -> {C.Eval.waits(s2) == False{} : Bool}) ->
-  {C.Eval.waits(C.Eval.walk.pick(b, r2, s2)) == False{} : Bool}:
+def w.pick(b: Bool, -r1: Maybe<Maybe<Bk.Term>>, -s1: Maybe<Maybe<Bk.Term>>, -r2: Maybe<Maybe<Bk.Term>>, -s2: Maybe<Maybe<Bk.Term>>,
+  h: {El.Eval.waits(El.Eval.walk.pick(b, r1, s1)) == False{} : Bool},
+  g1: {El.Eval.waits(r1) == False{} : Bool} -> {El.Eval.waits(r2) == False{} : Bool},
+  g2: {El.Eval.waits(s1) == False{} : Bool} -> {El.Eval.waits(s2) == False{} : Bool}) ->
+  {El.Eval.waits(El.Eval.walk.pick(b, r2, s2)) == False{} : Bool}:
   match b:
     case True{}:
       g1(h)
     case False{}:
       g2(h)
 
-def w.app(b: Bool, -r: Maybe<Maybe<C.Term>>, -s: Maybe<Maybe<C.Term>>, -u: C.Term, -v: C.Term,
-  h: {C.Eval.waits(C.Eval.walk.app(b, r, u)) == False{} : Bool},
-  g: {C.Eval.waits(r) == False{} : Bool} -> {C.Eval.waits(s) == False{} : Bool}) ->
-  {C.Eval.waits(C.Eval.walk.app(b, s, v)) == False{} : Bool}:
+def w.app(b: Bool, -r: Maybe<Maybe<Bk.Term>>, -s: Maybe<Maybe<Bk.Term>>, -u: Bk.Term, -v: Bk.Term,
+  h: {El.Eval.waits(El.Eval.walk.app(b, r, u)) == False{} : Bool},
+  g: {El.Eval.waits(r) == False{} : Bool} -> {El.Eval.waits(s) == False{} : Bool}) ->
+  {El.Eval.waits(El.Eval.walk.app(b, s, v)) == False{} : Bool}:
   match b:
     case True{}:
       g(h)
@@ -87,427 +89,427 @@ def w.app(b: Bool, -r: Maybe<Maybe<C.Term>>, -s: Maybe<Maybe<C.Term>>, -u: C.Ter
       {==}
 
 # the walk of the case tree t, with e bound, on xs then ys
-def WM(t: C.Term, e: List<&2, C.Term>, xs: List<&2, C.Arg>, ys: List<&2, C.Arg>) -> Type:
-  {C.Eval.waits(C.Eval.walk(t, e, List.append(&2, C.Arg, xs, ys))) == False{} : Bool}
+def WM(t: Bk.Term, e: List<&2, Bk.Term>, xs: List<&2, El.Arg>, ys: List<&2, El.Arg>) -> Type:
+  {El.Eval.waits(El.Eval.walk(t, e, List.append(&2, El.Arg, xs, ys))) == False{} : Bool}
 
-def walk.more(t: C.Term, +e: List<&2, C.Term>, xs: List<&2, C.Arg>, +ys: List<&2, C.Arg>,
-  h: {C.Eval.waits(C.Eval.walk(t, e, xs)) == False{} : Bool}) -> WM(t, e, xs, ys):
+def walk.more(t: Bk.Term, +e: List<&2, Bk.Term>, xs: List<&2, El.Arg>, +ys: List<&2, El.Arg>,
+  h: {El.Eval.waits(El.Eval.walk(t, e, xs)) == False{} : Bool}) -> WM(t, e, xs, ys):
   match t:
-    case C.Term.Var{+z0}:
+    case Bk.Term.Var{+z0}:
       {==}
-    case C.Term.Ref{+z0}:
+    case Bk.Term.Ref{+z0}:
       {==}
-    case C.Term.Ann{+z0, +z1}:
+    case Bk.Term.Ann{+z0, +z1}:
       {==}
-    case C.Term.Let{+z0, +z1, +z2}:
+    case Bk.Term.Let{+z0, +z1, +z2}:
       {==}
-    case C.Term.Typ{+z0}:
+    case Bk.Term.Typ{+z0}:
       {==}
-    case C.Term.Min{+z0, +z1}:
+    case Bk.Term.Min{+z0, +z1}:
       {==}
-    case C.Term.All{+z0, +z1, +z2}:
+    case Bk.Term.All{+z0, +z1, +z2}:
       {==}
-    case C.Term.Lam{+z0, +z1}:
+    case Bk.Term.Lam{+z0, +z1}:
       match xs:
         case Nil{}:
-          ft(WM(C.Term.Lam{z0, z1}, e, Nil{}, ys), h)
-        case Con{C.Arg{+q, +x}, +rest}:
-          w.if(C.Quan.binds(z0, q, x), C.Eval.walk(z1, Con{x, e}, rest), C.Eval.walk(z1, Con{x, e}, List.append(&2, C.Arg, rest, ys)), h,
+          ft(WM(Bk.Term.Lam{z0, z1}, e, Nil{}, ys), h)
+        case Con{El.Arg{+q, +x}, +rest}:
+          w.if(El.Quan.binds(z0, q, x), El.Eval.walk(z1, Con{x, e}, rest), El.Eval.walk(z1, Con{x, e}, List.append(&2, El.Arg, rest, ys)), h,
             hr => walk.more(z1, Con{x, e}, rest, ys, hr))
-    case C.Term.App{+z0, +z1, +z2}:
+    case Bk.Term.App{+z0, +z1, +z2}:
       match z2:
-        case C.Term.Var{+y0}:
-          w.app(C.Term.takes(C.Term.head(z1)), C.Eval.walk(z1, e, Con{C.Arg{z0, C.Env.sub(e, y0)}, xs}),
-            C.Eval.walk(z1, e, Con{C.Arg{z0, C.Env.sub(e, y0)}, List.append(&2, C.Arg, xs, ys)}),
-            C.Term.spine(xs, C.Term.subst(C.Term.App{z0, z1, C.Term.Var{y0}}, e, 0n)),
-            C.Term.spine(List.append(&2, C.Arg, xs, ys), C.Term.subst(C.Term.App{z0, z1, C.Term.Var{y0}}, e, 0n)), h,
-            hr => walk.more(z1, e, Con{C.Arg{z0, C.Env.sub(e, y0)}, xs}, ys, hr))
-        case C.Term.Ref{+y0}:
+        case Bk.Term.Var{+y0}:
+          w.app(El.Term.takes(El.Term.head(z1)), El.Eval.walk(z1, e, Con{El.Arg{z0, El.Env.sub(e, y0)}, xs}),
+            El.Eval.walk(z1, e, Con{El.Arg{z0, El.Env.sub(e, y0)}, List.append(&2, El.Arg, xs, ys)}),
+            El.Term.spine(xs, El.Term.subst(Bk.Term.App{z0, z1, Bk.Term.Var{y0}}, e, 0n)),
+            El.Term.spine(List.append(&2, El.Arg, xs, ys), El.Term.subst(Bk.Term.App{z0, z1, Bk.Term.Var{y0}}, e, 0n)), h,
+            hr => walk.more(z1, e, Con{El.Arg{z0, El.Env.sub(e, y0)}, xs}, ys, hr))
+        case Bk.Term.Ref{+y0}:
           {==}
-        case C.Term.Ann{+y0, +y1}:
+        case Bk.Term.Ann{+y0, +y1}:
           {==}
-        case C.Term.Let{+y0, +y1, +y2}:
+        case Bk.Term.Let{+y0, +y1, +y2}:
           {==}
-        case C.Term.Typ{+y0}:
+        case Bk.Term.Typ{+y0}:
           {==}
-        case C.Term.Min{+y0, +y1}:
+        case Bk.Term.Min{+y0, +y1}:
           {==}
-        case C.Term.All{+y0, +y1, +y2}:
+        case Bk.Term.All{+y0, +y1, +y2}:
           {==}
-        case C.Term.Lam{+y0, +y1}:
+        case Bk.Term.Lam{+y0, +y1}:
           {==}
-        case C.Term.App{+y0, +y1, +y2}:
+        case Bk.Term.App{+y0, +y1, +y2}:
           {==}
-        case C.Term.Sig{+y0, +y1, +y2}:
+        case Bk.Term.Sig{+y0, +y1, +y2}:
           {==}
-        case C.Term.Tup{+y0, +y1, +y2}:
+        case Bk.Term.Tup{+y0, +y1, +y2}:
           {==}
-        case C.Term.Prj{+y0}:
+        case Bk.Term.Prj{+y0}:
           {==}
-        case C.Term.Enu{+y0}:
+        case Bk.Term.Enu{+y0}:
           {==}
-        case C.Term.Lab{+y0}:
+        case Bk.Term.Lab{+y0}:
           {==}
-        case C.Term.Mat{+y0, +y1, +y2}:
+        case Bk.Term.Mat{+y0, +y1, +y2}:
           {==}
-        case C.Term.Efq{}:
+        case Bk.Term.Efq{}:
           {==}
-        case C.Term.Eql{+y0, +y1, +y2}:
+        case Bk.Term.Eql{+y0, +y1, +y2}:
           {==}
-        case C.Term.Rfl{}:
+        case Bk.Term.Rfl{}:
           {==}
-        case C.Term.Rwt{+y0, +y1, +y2}:
+        case Bk.Term.Rwt{+y0, +y1, +y2}:
           {==}
-    case C.Term.Sig{+z0, +z1, +z2}:
+    case Bk.Term.Sig{+z0, +z1, +z2}:
       {==}
-    case C.Term.Tup{+z0, +z1, +z2}:
+    case Bk.Term.Tup{+z0, +z1, +z2}:
       {==}
-    case C.Term.Prj{+z0}:
+    case Bk.Term.Prj{+z0}:
       match xs:
         case Nil{}:
-          ft(WM(C.Term.Prj{z0}, e, Nil{}, ys), h)
-        case Con{C.Arg{+q, +x}, +rest}:
+          ft(WM(Bk.Term.Prj{z0}, e, Nil{}, ys), h)
+        case Con{El.Arg{+q, +x}, +rest}:
           match x:
-            case C.Term.Var{+y0}:
+            case Bk.Term.Var{+y0}:
               {==}
-            case C.Term.Ref{+y0}:
+            case Bk.Term.Ref{+y0}:
               {==}
-            case C.Term.Ann{+y0, +y1}:
+            case Bk.Term.Ann{+y0, +y1}:
               {==}
-            case C.Term.Let{+y0, +y1, +y2}:
+            case Bk.Term.Let{+y0, +y1, +y2}:
               {==}
-            case C.Term.Typ{+y0}:
+            case Bk.Term.Typ{+y0}:
               {==}
-            case C.Term.Min{+y0, +y1}:
+            case Bk.Term.Min{+y0, +y1}:
               {==}
-            case C.Term.All{+y0, +y1, +y2}:
+            case Bk.Term.All{+y0, +y1, +y2}:
               {==}
-            case C.Term.Lam{+y0, +y1}:
+            case Bk.Term.Lam{+y0, +y1}:
               {==}
-            case C.Term.App{+y0, +y1, +y2}:
+            case Bk.Term.App{+y0, +y1, +y2}:
               {==}
-            case C.Term.Sig{+y0, +y1, +y2}:
+            case Bk.Term.Sig{+y0, +y1, +y2}:
               {==}
-            case C.Term.Tup{+y0, +y1, +y2}:
-              w.if(C.Quan.live(q), C.Eval.walk(z0, e, Con{C.Arg{C.Quan.fld(y0, q), y1}, Con{C.Arg{q, y2}, rest}}),
-                C.Eval.walk(z0, e, Con{C.Arg{C.Quan.fld(y0, q), y1}, Con{C.Arg{q, y2}, List.append(&2, C.Arg, rest, ys)}}), h,
-                hr => walk.more(z0, e, Con{C.Arg{C.Quan.fld(y0, q), y1}, Con{C.Arg{q, y2}, rest}}, ys, hr))
-            case C.Term.Prj{+y0}:
+            case Bk.Term.Tup{+y0, +y1, +y2}:
+              w.if(El.Quan.live(q), El.Eval.walk(z0, e, Con{El.Arg{El.Quan.fld(y0, q), y1}, Con{El.Arg{q, y2}, rest}}),
+                El.Eval.walk(z0, e, Con{El.Arg{El.Quan.fld(y0, q), y1}, Con{El.Arg{q, y2}, List.append(&2, El.Arg, rest, ys)}}), h,
+                hr => walk.more(z0, e, Con{El.Arg{El.Quan.fld(y0, q), y1}, Con{El.Arg{q, y2}, rest}}, ys, hr))
+            case Bk.Term.Prj{+y0}:
               {==}
-            case C.Term.Enu{+y0}:
+            case Bk.Term.Enu{+y0}:
               {==}
-            case C.Term.Lab{+y0}:
+            case Bk.Term.Lab{+y0}:
               {==}
-            case C.Term.Mat{+y0, +y1, +y2}:
+            case Bk.Term.Mat{+y0, +y1, +y2}:
               {==}
-            case C.Term.Efq{}:
+            case Bk.Term.Efq{}:
               {==}
-            case C.Term.Eql{+y0, +y1, +y2}:
+            case Bk.Term.Eql{+y0, +y1, +y2}:
               {==}
-            case C.Term.Rfl{}:
+            case Bk.Term.Rfl{}:
               {==}
-            case C.Term.Rwt{+y0, +y1, +y2}:
+            case Bk.Term.Rwt{+y0, +y1, +y2}:
               {==}
-    case C.Term.Enu{+z0}:
+    case Bk.Term.Enu{+z0}:
       {==}
-    case C.Term.Lab{+z0}:
+    case Bk.Term.Lab{+z0}:
       {==}
-    case C.Term.Mat{+z0, +z1, +z2}:
+    case Bk.Term.Mat{+z0, +z1, +z2}:
       match xs:
         case Nil{}:
-          ft(WM(C.Term.Mat{z0, z1, z2}, e, Nil{}, ys), h)
-        case Con{C.Arg{+q, +x}, +rest}:
+          ft(WM(Bk.Term.Mat{z0, z1, z2}, e, Nil{}, ys), h)
+        case Con{El.Arg{+q, +x}, +rest}:
           match x:
-            case C.Term.Var{+y0}:
+            case Bk.Term.Var{+y0}:
               {==}
-            case C.Term.Ref{+y0}:
+            case Bk.Term.Ref{+y0}:
               {==}
-            case C.Term.Ann{+y0, +y1}:
+            case Bk.Term.Ann{+y0, +y1}:
               {==}
-            case C.Term.Let{+y0, +y1, +y2}:
+            case Bk.Term.Let{+y0, +y1, +y2}:
               {==}
-            case C.Term.Typ{+y0}:
+            case Bk.Term.Typ{+y0}:
               {==}
-            case C.Term.Min{+y0, +y1}:
+            case Bk.Term.Min{+y0, +y1}:
               {==}
-            case C.Term.All{+y0, +y1, +y2}:
+            case Bk.Term.All{+y0, +y1, +y2}:
               {==}
-            case C.Term.Lam{+y0, +y1}:
+            case Bk.Term.Lam{+y0, +y1}:
               {==}
-            case C.Term.App{+y0, +y1, +y2}:
+            case Bk.Term.App{+y0, +y1, +y2}:
               {==}
-            case C.Term.Sig{+y0, +y1, +y2}:
+            case Bk.Term.Sig{+y0, +y1, +y2}:
               {==}
-            case C.Term.Tup{+y0, +y1, +y2}:
+            case Bk.Term.Tup{+y0, +y1, +y2}:
               {==}
-            case C.Term.Prj{+y0}:
+            case Bk.Term.Prj{+y0}:
               {==}
-            case C.Term.Enu{+y0}:
+            case Bk.Term.Enu{+y0}:
               {==}
-            case C.Term.Lab{+y0}:
-              w.if(C.Quan.live(q), C.Eval.walk.pick(C.Name.is_eq(y0, z0), C.Eval.walk(z1, e, rest), C.Eval.walk(z2, e, Con{C.Arg{q, C.Term.Lab{y0}}, rest})),
-                C.Eval.walk.pick(C.Name.is_eq(y0, z0), C.Eval.walk(z1, e, List.append(&2, C.Arg, rest, ys)), C.Eval.walk(z2, e, Con{C.Arg{q, C.Term.Lab{y0}}, List.append(&2, C.Arg, rest, ys)})), h,
-                hr => w.pick(C.Name.is_eq(y0, z0), C.Eval.walk(z1, e, rest), C.Eval.walk(z2, e, Con{C.Arg{q, C.Term.Lab{y0}}, rest}),
-                  C.Eval.walk(z1, e, List.append(&2, C.Arg, rest, ys)), C.Eval.walk(z2, e, Con{C.Arg{q, C.Term.Lab{y0}}, List.append(&2, C.Arg, rest, ys)}), hr,
-                  a1 => walk.more(z1, e, rest, ys, a1), a2 => walk.more(z2, e, Con{C.Arg{q, C.Term.Lab{y0}}, rest}, ys, a2)))
-            case C.Term.Mat{+y0, +y1, +y2}:
+            case Bk.Term.Lab{+y0}:
+              w.if(El.Quan.live(q), El.Eval.walk.pick(Sd.Name.is_eq(y0, z0), El.Eval.walk(z1, e, rest), El.Eval.walk(z2, e, Con{El.Arg{q, Bk.Term.Lab{y0}}, rest})),
+                El.Eval.walk.pick(Sd.Name.is_eq(y0, z0), El.Eval.walk(z1, e, List.append(&2, El.Arg, rest, ys)), El.Eval.walk(z2, e, Con{El.Arg{q, Bk.Term.Lab{y0}}, List.append(&2, El.Arg, rest, ys)})), h,
+                hr => w.pick(Sd.Name.is_eq(y0, z0), El.Eval.walk(z1, e, rest), El.Eval.walk(z2, e, Con{El.Arg{q, Bk.Term.Lab{y0}}, rest}),
+                  El.Eval.walk(z1, e, List.append(&2, El.Arg, rest, ys)), El.Eval.walk(z2, e, Con{El.Arg{q, Bk.Term.Lab{y0}}, List.append(&2, El.Arg, rest, ys)}), hr,
+                  a1 => walk.more(z1, e, rest, ys, a1), a2 => walk.more(z2, e, Con{El.Arg{q, Bk.Term.Lab{y0}}, rest}, ys, a2)))
+            case Bk.Term.Mat{+y0, +y1, +y2}:
               {==}
-            case C.Term.Efq{}:
+            case Bk.Term.Efq{}:
               {==}
-            case C.Term.Eql{+y0, +y1, +y2}:
+            case Bk.Term.Eql{+y0, +y1, +y2}:
               {==}
-            case C.Term.Rfl{}:
+            case Bk.Term.Rfl{}:
               {==}
-            case C.Term.Rwt{+y0, +y1, +y2}:
+            case Bk.Term.Rwt{+y0, +y1, +y2}:
               {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       match xs:
         case Nil{}:
-          ft(WM(C.Term.Efq{}, e, Nil{}, ys), h)
+          ft(WM(Bk.Term.Efq{}, e, Nil{}, ys), h)
         case Con{+x, +rest}:
           {==}
-    case C.Term.Eql{+z0, +z1, +z2}:
+    case Bk.Term.Eql{+z0, +z1, +z2}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{+z0, +z1, +z2}:
+    case Bk.Term.Rwt{+z0, +z1, +z2}:
       {==}
 
 # the same for a call's walk, from the head of its spine
-def cwd.more(mb: Maybe<C.Def>, xs: List<&2, C.Arg>, +ys: List<&2, C.Arg>,
-  h: {C.Eval.waits(C.Eval.callWalk.def(mb, xs)) == False{} : Bool}) ->
-  {C.Eval.waits(C.Eval.callWalk.def(mb, List.append(&2, C.Arg, xs, ys))) == False{} : Bool}:
+def cwd.more(mb: Maybe<Bk.Def>, xs: List<&2, El.Arg>, +ys: List<&2, El.Arg>,
+  h: {El.Eval.waits(El.Eval.callWalk.def(mb, xs)) == False{} : Bool}) ->
+  {El.Eval.waits(El.Eval.callWalk.def(mb, List.append(&2, El.Arg, xs, ys))) == False{} : Bool}:
   match mb:
     case None{}:
       {==}
-    case Some{C.Def{+k, +T, +v, +o}}:
+    case Some{Bk.Def{+k, +T, +v, +o}}:
       walk.more(v, Nil{}, xs, ys, h)
 
-def cwh.more(+ds: List<&2, C.Def>, hd: C.Term, xs: List<&2, C.Arg>, +ys: List<&2, C.Arg>,
-  h: {C.Eval.waits(C.Eval.callWalk.head(ds, hd, xs)) == False{} : Bool}) ->
-  {C.Eval.waits(C.Eval.callWalk.head(ds, hd, List.append(&2, C.Arg, xs, ys))) == False{} : Bool}:
+def cwh.more(+ds: List<&2, Bk.Def>, hd: Bk.Term, xs: List<&2, El.Arg>, +ys: List<&2, El.Arg>,
+  h: {El.Eval.waits(El.Eval.callWalk.head(ds, hd, xs)) == False{} : Bool}) ->
+  {El.Eval.waits(El.Eval.callWalk.head(ds, hd, List.append(&2, El.Arg, xs, ys))) == False{} : Bool}:
   match hd:
-    case C.Term.Var{+z0}:
+    case Bk.Term.Var{+z0}:
       {==}
-    case C.Term.Ref{+z0}:
-      cwd.more(C.Book.get(ds, z0), xs, ys, h)
-    case C.Term.Ann{+z0, +z1}:
+    case Bk.Term.Ref{+z0}:
+      cwd.more(El.Book.get(ds, z0), xs, ys, h)
+    case Bk.Term.Ann{+z0, +z1}:
       {==}
-    case C.Term.Let{+z0, +z1, +z2}:
+    case Bk.Term.Let{+z0, +z1, +z2}:
       {==}
-    case C.Term.Typ{+z0}:
+    case Bk.Term.Typ{+z0}:
       {==}
-    case C.Term.Min{+z0, +z1}:
+    case Bk.Term.Min{+z0, +z1}:
       {==}
-    case C.Term.All{+z0, +z1, +z2}:
+    case Bk.Term.All{+z0, +z1, +z2}:
       {==}
-    case C.Term.Lam{+z0, +z1}:
+    case Bk.Term.Lam{+z0, +z1}:
       {==}
-    case C.Term.App{+z0, +z1, +z2}:
+    case Bk.Term.App{+z0, +z1, +z2}:
       {==}
-    case C.Term.Sig{+z0, +z1, +z2}:
+    case Bk.Term.Sig{+z0, +z1, +z2}:
       {==}
-    case C.Term.Tup{+z0, +z1, +z2}:
+    case Bk.Term.Tup{+z0, +z1, +z2}:
       {==}
-    case C.Term.Prj{+z0}:
+    case Bk.Term.Prj{+z0}:
       {==}
-    case C.Term.Enu{+z0}:
+    case Bk.Term.Enu{+z0}:
       {==}
-    case C.Term.Lab{+z0}:
+    case Bk.Term.Lab{+z0}:
       {==}
-    case C.Term.Mat{+z0, +z1, +z2}:
+    case Bk.Term.Mat{+z0, +z1, +z2}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{+z0, +z1, +z2}:
+    case Bk.Term.Eql{+z0, +z1, +z2}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{+z0, +z1, +z2}:
+    case Bk.Term.Rwt{+z0, +z1, +z2}:
       {==}
 
 # the arguments of a spine, in front of xs then ys
-def args.app(t: C.Term, xs: List<&2, C.Arg>, +ys: List<&2, C.Arg>) ->
-  {C.Term.args(t, List.append(&2, C.Arg, xs, ys)) == List.append(&2, C.Arg, C.Term.args(t, xs), ys) : List<&2, C.Arg>}:
+def args.app(t: Bk.Term, xs: List<&2, El.Arg>, +ys: List<&2, El.Arg>) ->
+  {El.Term.args(t, List.append(&2, El.Arg, xs, ys)) == List.append(&2, El.Arg, El.Term.args(t, xs), ys) : List<&2, El.Arg>}:
   match t:
-    case C.Term.Var{+z0}:
+    case Bk.Term.Var{+z0}:
       {==}
-    case C.Term.Ref{+z0}:
+    case Bk.Term.Ref{+z0}:
       {==}
-    case C.Term.Ann{+z0, +z1}:
+    case Bk.Term.Ann{+z0, +z1}:
       {==}
-    case C.Term.Let{+z0, +z1, +z2}:
+    case Bk.Term.Let{+z0, +z1, +z2}:
       {==}
-    case C.Term.Typ{+z0}:
+    case Bk.Term.Typ{+z0}:
       {==}
-    case C.Term.Min{+z0, +z1}:
+    case Bk.Term.Min{+z0, +z1}:
       {==}
-    case C.Term.All{+z0, +z1, +z2}:
+    case Bk.Term.All{+z0, +z1, +z2}:
       {==}
-    case C.Term.Lam{+z0, +z1}:
+    case Bk.Term.Lam{+z0, +z1}:
       {==}
-    case C.Term.App{+z0, +z1, +z2}:
-      args.app(z1, Con{C.Arg{z0, z2}, xs}, ys)
-    case C.Term.Sig{+z0, +z1, +z2}:
+    case Bk.Term.App{+z0, +z1, +z2}:
+      args.app(z1, Con{El.Arg{z0, z2}, xs}, ys)
+    case Bk.Term.Sig{+z0, +z1, +z2}:
       {==}
-    case C.Term.Tup{+z0, +z1, +z2}:
+    case Bk.Term.Tup{+z0, +z1, +z2}:
       {==}
-    case C.Term.Prj{+z0}:
+    case Bk.Term.Prj{+z0}:
       {==}
-    case C.Term.Enu{+z0}:
+    case Bk.Term.Enu{+z0}:
       {==}
-    case C.Term.Lab{+z0}:
+    case Bk.Term.Lab{+z0}:
       {==}
-    case C.Term.Mat{+z0, +z1, +z2}:
+    case Bk.Term.Mat{+z0, +z1, +z2}:
       {==}
-    case C.Term.Efq{}:
+    case Bk.Term.Efq{}:
       {==}
-    case C.Term.Eql{+z0, +z1, +z2}:
+    case Bk.Term.Eql{+z0, +z1, +z2}:
       {==}
-    case C.Term.Rfl{}:
+    case Bk.Term.Rfl{}:
       {==}
-    case C.Term.Rwt{+z0, +z1, +z2}:
+    case Bk.Term.Rwt{+z0, +z1, +z2}:
       {==}
 
 # a call's walk that does not wait does not wait with one more argument
-def cw.app(+ds: List<&2, C.Def>, +u: C.Term, +q: C.Quan, +a: C.Term,
-  h: {C.Eval.waits(C.Eval.callWalk(ds, u)) == False{} : Bool}) ->
-  {C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{q, u, a})) == False{} : Bool}:
-  %Equal.sym(List<&2, C.Arg>, C.Term.args(u, List.append(&2, C.Arg, Nil{}, [C.Arg{q, a}])), List.append(&2, C.Arg, C.Term.args(u, Nil{}), [C.Arg{q, a}]),
-    args.app(u, Nil{}, [C.Arg{q, a}])) : {C.Eval.waits(C.Eval.callWalk.head(ds, C.Term.head(u), _)) == False{} : Bool}
-  cwh.more(ds, C.Term.head(u), C.Term.args(u, Nil{}), [C.Arg{q, a}], h)
+def cw.app(+ds: List<&2, Bk.Def>, +u: Bk.Term, +q: Bk.Quan, +a: Bk.Term,
+  h: {El.Eval.waits(El.Eval.callWalk(ds, u)) == False{} : Bool}) ->
+  {El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{q, u, a})) == False{} : Bool}:
+  %Equal.sym(List<&2, El.Arg>, El.Term.args(u, List.append(&2, El.Arg, Nil{}, [El.Arg{q, a}])), List.append(&2, El.Arg, El.Term.args(u, Nil{}), [El.Arg{q, a}]),
+    args.app(u, Nil{}, [El.Arg{q, a}])) : {El.Eval.waits(El.Eval.callWalk.head(ds, El.Term.head(u), _)) == False{} : Bool}
+  cwh.more(ds, El.Term.head(u), El.Term.args(u, Nil{}), [El.Arg{q, a}], h)
 
-def cw.acc(+ds: List<&2, C.Def>, +f: C.Term, +acc: List<&2, C.Arg>,
-  hw: {C.Eval.waits(C.Eval.callWalk.head(ds, C.Term.head(f), C.Term.args(f, acc))) == True{} : Bool}) ->
-  {C.Eval.waits(C.Eval.callWalk.head(ds, C.Term.head(f), List.append(&2, C.Arg, C.Term.args(f, Nil{}), acc))) == True{} : Bool}:
-  %args.app(f, Nil{}, acc) : {C.Eval.waits(C.Eval.callWalk.head(ds, C.Term.head(f), _)) == True{} : Bool}
+def cw.acc(+ds: List<&2, Bk.Def>, +f: Bk.Term, +acc: List<&2, El.Arg>,
+  hw: {El.Eval.waits(El.Eval.callWalk.head(ds, El.Term.head(f), El.Term.args(f, acc))) == True{} : Bool}) ->
+  {El.Eval.waits(El.Eval.callWalk.head(ds, El.Term.head(f), List.append(&2, El.Arg, El.Term.args(f, Nil{}), acc))) == True{} : Bool}:
+  %args.app(f, Nil{}, acc) : {El.Eval.waits(El.Eval.callWalk.head(ds, El.Term.head(f), _)) == True{} : Bool}
   hw
 
 # a call's walk that waits with more arguments waits with none
-def cw.back(+ds: List<&2, C.Def>, +f: C.Term, +acc: List<&2, C.Arg>,
-  hw: {C.Eval.waits(C.Eval.callWalk.head(ds, C.Term.head(f), C.Term.args(f, acc))) == True{} : Bool}) ->
-  {C.Eval.waits(C.Eval.callWalk(ds, f)) == True{} : Bool}:
+def cw.back(+ds: List<&2, Bk.Def>, +f: Bk.Term, +acc: List<&2, El.Arg>,
+  hw: {El.Eval.waits(El.Eval.callWalk.head(ds, El.Term.head(f), El.Term.args(f, acc))) == True{} : Bool}) ->
+  {El.Eval.waits(El.Eval.callWalk(ds, f)) == True{} : Bool}:
   +hw2 = cw.acc(ds, f, acc, hw)
-  bool.back(C.Eval.waits(C.Eval.callWalk(ds, f)), C.Eval.waits(C.Eval.callWalk(ds, f)),
-    C.Eval.waits(C.Eval.callWalk.head(ds, C.Term.head(f), List.append(&2, C.Arg, C.Term.args(f, Nil{}), acc))), {==},
-    e => cwh.more(ds, C.Term.head(f), C.Term.args(f, Nil{}), acc, e), hw2)
+  bool.back(El.Eval.waits(El.Eval.callWalk(ds, f)), El.Eval.waits(El.Eval.callWalk(ds, f)),
+    El.Eval.waits(El.Eval.callWalk.head(ds, El.Term.head(f), List.append(&2, El.Arg, El.Term.args(f, Nil{}), acc))), {==},
+    e => cwh.more(ds, El.Term.head(f), El.Term.args(f, Nil{}), acc, e), hw2)
 
 # Values
 # ------
 
 # a spine of a def on arguments that are values is a value when its walk waits
-def vals.tf(+ds: List<&2, C.Def>, u: C.Term, ht: {C.Eval.vals(ds, u, True{}) == True{} : Bool}) ->
-  {C.Eval.vals(ds, u, False{}) == C.Eval.waits(C.Eval.callWalk(ds, u)) : Bool}:
+def vals.tf(+ds: List<&2, Bk.Def>, u: Bk.Term, ht: {El.Eval.vals(ds, u, True{}) == True{} : Bool}) ->
+  {El.Eval.vals(ds, u, False{}) == El.Eval.waits(El.Eval.callWalk(ds, u)) : Bool}:
   match u:
-    case C.Term.Var{+z0}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Var{z0}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Var{z0})) : Bool}, ht)
-    case C.Term.Ref{+z0}:
+    case Bk.Term.Var{+z0}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Var{z0}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Var{z0})) : Bool}, ht)
+    case Bk.Term.Ref{+z0}:
       {==}
-    case C.Term.Ann{+z0, +z1}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Ann{z0, z1}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Ann{z0, z1})) : Bool}, ht)
-    case C.Term.Let{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Let{z0, z1, z2}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Let{z0, z1, z2})) : Bool}, ht)
-    case C.Term.Typ{+z0}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Typ{z0}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Typ{z0})) : Bool}, ht)
-    case C.Term.Min{+z0, +z1}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Min{z0, z1}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Min{z0, z1})) : Bool}, ht)
-    case C.Term.All{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.All{z0, z1, z2}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.All{z0, z1, z2})) : Bool}, ht)
-    case C.Term.Lam{+z0, +z1}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Lam{z0, z1}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Lam{z0, z1})) : Bool}, ht)
-    case C.Term.App{+z0, +z1, +z2}:
-      %Equal.sym(Bool, Bool.and(C.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z2, False{}))), True{}, ht) :
-        {Bool.and(_, C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{z0, z1, z2}))) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{z0, z1, z2})) : Bool}
+    case Bk.Term.Ann{+z0, +z1}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Ann{z0, z1}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Ann{z0, z1})) : Bool}, ht)
+    case Bk.Term.Let{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Let{z0, z1, z2}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Let{z0, z1, z2})) : Bool}, ht)
+    case Bk.Term.Typ{+z0}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Typ{z0}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Typ{z0})) : Bool}, ht)
+    case Bk.Term.Min{+z0, +z1}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Min{z0, z1}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Min{z0, z1})) : Bool}, ht)
+    case Bk.Term.All{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.All{z0, z1, z2}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.All{z0, z1, z2})) : Bool}, ht)
+    case Bk.Term.Lam{+z0, +z1}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Lam{z0, z1}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Lam{z0, z1})) : Bool}, ht)
+    case Bk.Term.App{+z0, +z1, +z2}:
+      %Equal.sym(Bool, Bool.and(El.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z2, False{}))), True{}, ht) :
+        {Bool.and(_, El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{z0, z1, z2}))) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{z0, z1, z2})) : Bool}
       {==}
-    case C.Term.Sig{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Sig{z0, z1, z2}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Sig{z0, z1, z2})) : Bool}, ht)
-    case C.Term.Tup{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Tup{z0, z1, z2}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Tup{z0, z1, z2})) : Bool}, ht)
-    case C.Term.Prj{+z0}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Prj{z0}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Prj{z0})) : Bool}, ht)
-    case C.Term.Enu{+z0}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Enu{z0}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Enu{z0})) : Bool}, ht)
-    case C.Term.Lab{+z0}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Lab{z0}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Lab{z0})) : Bool}, ht)
-    case C.Term.Mat{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Mat{z0, z1, z2}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Mat{z0, z1, z2})) : Bool}, ht)
-    case C.Term.Efq{}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Efq{}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Efq{})) : Bool}, ht)
-    case C.Term.Eql{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Eql{z0, z1, z2}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Eql{z0, z1, z2})) : Bool}, ht)
-    case C.Term.Rfl{}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Rfl{}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Rfl{})) : Bool}, ht)
-    case C.Term.Rwt{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.vals(ds, C.Term.Rwt{z0, z1, z2}, False{}) == C.Eval.waits(C.Eval.callWalk(ds, C.Term.Rwt{z0, z1, z2})) : Bool}, ht)
+    case Bk.Term.Sig{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Sig{z0, z1, z2}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Sig{z0, z1, z2})) : Bool}, ht)
+    case Bk.Term.Tup{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Tup{z0, z1, z2}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Tup{z0, z1, z2})) : Bool}, ht)
+    case Bk.Term.Prj{+z0}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Prj{z0}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Prj{z0})) : Bool}, ht)
+    case Bk.Term.Enu{+z0}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Enu{z0}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Enu{z0})) : Bool}, ht)
+    case Bk.Term.Lab{+z0}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Lab{z0}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Lab{z0})) : Bool}, ht)
+    case Bk.Term.Mat{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Mat{z0, z1, z2}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Mat{z0, z1, z2})) : Bool}, ht)
+    case Bk.Term.Efq{}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Efq{}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Efq{})) : Bool}, ht)
+    case Bk.Term.Eql{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Eql{z0, z1, z2}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Eql{z0, z1, z2})) : Bool}, ht)
+    case Bk.Term.Rfl{}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Rfl{}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Rfl{})) : Bool}, ht)
+    case Bk.Term.Rwt{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.vals(ds, Bk.Term.Rwt{z0, z1, z2}, False{}) == El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.Rwt{z0, z1, z2})) : Bool}, ht)
 
 # the call of a walk that waits is none
-def call.none(ok: Bool, r: Maybe<Maybe<C.Term>>, h: {C.Eval.waits(r) == True{} : Bool}) -> {C.Eval.call.if(ok, r) == None{} : Maybe<C.Term>}:
+def call.none(ok: Bool, r: Maybe<Maybe<Bk.Term>>, h: {El.Eval.waits(r) == True{} : Bool}) -> {El.Eval.call.if(ok, r) == None{} : Maybe<Bk.Term>}:
   match ok:
     case True{}:
       match r:
         case None{}:
-          D.bool.ft({C.Eval.call.if(True{}, None{}) == None{} : Maybe<C.Term>}, h)
+          D.bool.ft({El.Eval.call.if(True{}, None{}) == None{} : Maybe<Bk.Term>}, h)
         case Some{+s}:
           match s:
             case None{}:
               {==}
             case Some{+u}:
-              D.bool.ft({C.Eval.call.if(True{}, Some{Some{u}}) == None{} : Maybe<C.Term>}, h)
+              D.bool.ft({El.Eval.call.if(True{}, Some{Some{u}}) == None{} : Maybe<Bk.Term>}, h)
     case False{}:
       {==}
 
 # the redex of a spine of a def is its call
-def redex.call(+ds: List<&2, C.Def>, g: C.Term, +q: C.Quan, +x: C.Term, ht: {C.Eval.vals(ds, g, True{}) == True{} : Bool}) ->
-  {C.Eval.redex(ds, q, g, x) == C.Eval.call(ds, C.Term.App{q, g, x}) : Maybe<C.Term>}:
+def redex.call(+ds: List<&2, Bk.Def>, g: Bk.Term, +q: Bk.Quan, +x: Bk.Term, ht: {El.Eval.vals(ds, g, True{}) == True{} : Bool}) ->
+  {El.Eval.redex(ds, q, g, x) == El.Eval.call(ds, Bk.Term.App{q, g, x}) : Maybe<Bk.Term>}:
   match g:
-    case C.Term.Var{+z0}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Var{z0}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Var{z0}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Ref{+z0}:
+    case Bk.Term.Var{+z0}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Var{z0}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Var{z0}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Ref{+z0}:
       {==}
-    case C.Term.Ann{+z0, +z1}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Ann{z0, z1}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Ann{z0, z1}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Let{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Let{z0, z1, z2}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Let{z0, z1, z2}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Typ{+z0}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Typ{z0}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Typ{z0}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Min{+z0, +z1}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Min{z0, z1}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Min{z0, z1}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.All{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.All{z0, z1, z2}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.All{z0, z1, z2}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Lam{+z0, +z1}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Lam{z0, z1}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Lam{z0, z1}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.App{+z0, +z1, +z2}:
+    case Bk.Term.Ann{+z0, +z1}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Ann{z0, z1}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Ann{z0, z1}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Let{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Let{z0, z1, z2}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Let{z0, z1, z2}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Typ{+z0}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Typ{z0}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Typ{z0}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Min{+z0, +z1}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Min{z0, z1}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Min{z0, z1}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.All{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.All{z0, z1, z2}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.All{z0, z1, z2}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Lam{+z0, +z1}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Lam{z0, z1}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Lam{z0, z1}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.App{+z0, +z1, +z2}:
       {==}
-    case C.Term.Sig{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Sig{z0, z1, z2}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Sig{z0, z1, z2}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Tup{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Tup{z0, z1, z2}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Tup{z0, z1, z2}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Prj{+z0}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Prj{z0}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Prj{z0}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Enu{+z0}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Enu{z0}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Enu{z0}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Lab{+z0}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Lab{z0}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Lab{z0}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Mat{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Mat{z0, z1, z2}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Mat{z0, z1, z2}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Efq{}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Efq{}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Efq{}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Eql{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Eql{z0, z1, z2}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Eql{z0, z1, z2}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Rfl{}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Rfl{}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Rfl{}, x}) : Maybe<C.Term>}, ht)
-    case C.Term.Rwt{+z0, +z1, +z2}:
-      D.bool.ft({C.Eval.redex(ds, q, C.Term.Rwt{z0, z1, z2}, x) == C.Eval.call(ds, C.Term.App{q, C.Term.Rwt{z0, z1, z2}, x}) : Maybe<C.Term>}, ht)
+    case Bk.Term.Sig{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Sig{z0, z1, z2}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Sig{z0, z1, z2}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Tup{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Tup{z0, z1, z2}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Tup{z0, z1, z2}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Prj{+z0}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Prj{z0}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Prj{z0}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Enu{+z0}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Enu{z0}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Enu{z0}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Lab{+z0}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Lab{z0}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Lab{z0}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Mat{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Mat{z0, z1, z2}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Mat{z0, z1, z2}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Efq{}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Efq{}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Efq{}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Eql{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Eql{z0, z1, z2}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Eql{z0, z1, z2}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Rfl{}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Rfl{}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Rfl{}, x}) : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Rwt{+z0, +z1, +z2}:
+      D.bool.ft({El.Eval.redex(ds, q, Bk.Term.Rwt{z0, z1, z2}, x) == El.Eval.call(ds, Bk.Term.App{q, Bk.Term.Rwt{z0, z1, z2}, x}) : Maybe<Bk.Term>}, ht)
 
 # App q f x has no step, when f has none, is a value, and x has none and is a
 # value when q is live, and the redex is none
-def app.none(+q: C.Quan, +f: C.Term, +x: C.Term, sf: Maybe<C.Term>, vf: Bool, live: Bool, sx: Maybe<C.Term>, vx: Bool, -r: Maybe<C.Term>,
-  esf: {sf == None{} : Maybe<C.Term>}, hx: {Bool.or(Bool.not(live), vx) == True{} : Bool},
-  esx: {vx == True{} : Bool} -> {sx == None{} : Maybe<C.Term>}, er: {r == None{} : Maybe<C.Term>}) ->
-  {C.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r) == None{} : Maybe<C.Term>}:
+def app.none(+q: Bk.Quan, +f: Bk.Term, +x: Bk.Term, sf: Maybe<Bk.Term>, vf: Bool, live: Bool, sx: Maybe<Bk.Term>, vx: Bool, -r: Maybe<Bk.Term>,
+  esf: {sf == None{} : Maybe<Bk.Term>}, hx: {Bool.or(Bool.not(live), vx) == True{} : Bool},
+  esx: {vx == True{} : Bool} -> {sx == None{} : Maybe<Bk.Term>}, er: {r == None{} : Maybe<Bk.Term>}) ->
+  {El.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r) == None{} : Maybe<Bk.Term>}:
   match sf:
     case Some{+f2}:
-      Empty.absurd({C.Eval.step.app(q, f, x, Some{f2}, vf, live, sx, vx, r) == None{} : Maybe<C.Term>}, sm.ne(f2, esf))
+      Empty.absurd({El.Eval.step.app(q, f, x, Some{f2}, vf, live, sx, vx, r) == None{} : Maybe<Bk.Term>}, sm.ne(f2, esf))
     case None{}:
       match vf:
         case False{}:
@@ -519,7 +521,7 @@ def app.none(+q: C.Quan, +f: C.Term, +x: C.Term, sf: Maybe<C.Term>, vf: Bool, li
             case True{}:
               match sx:
                 case Some{+x2}:
-                  Empty.absurd({C.Eval.step.app(q, f, x, None{}, True{}, True{}, Some{x2}, vx, r) == None{} : Maybe<C.Term>}, sm.ne(x2, esx(hx)))
+                  Empty.absurd({El.Eval.step.app(q, f, x, None{}, True{}, True{}, Some{x2}, vx, r) == None{} : Maybe<Bk.Term>}, sm.ne(x2, esx(hx)))
                 case None{}:
                   match vx:
                     case True{}:
@@ -529,21 +531,21 @@ def app.none(+q: C.Quan, +f: C.Term, +x: C.Term, sf: Maybe<C.Term>, vf: Bool, li
 
 # Tup q a b has no step, when a has none when it is a value and q live, and b
 # has none
-def tup.none(+q: C.Quan, +a: C.Term, +b: C.Term, live: Bool, sa: Maybe<C.Term>, va: Bool, sb: Maybe<C.Term>,
-  hx: {Bool.or(Bool.not(live), va) == True{} : Bool}, esa: {va == True{} : Bool} -> {sa == None{} : Maybe<C.Term>},
-  esb: {sb == None{} : Maybe<C.Term>}) -> {C.Eval.step.tup(q, a, b, live, sa, va, sb) == None{} : Maybe<C.Term>}:
+def tup.none(+q: Bk.Quan, +a: Bk.Term, +b: Bk.Term, live: Bool, sa: Maybe<Bk.Term>, va: Bool, sb: Maybe<Bk.Term>,
+  hx: {Bool.or(Bool.not(live), va) == True{} : Bool}, esa: {va == True{} : Bool} -> {sa == None{} : Maybe<Bk.Term>},
+  esb: {sb == None{} : Maybe<Bk.Term>}) -> {El.Eval.step.tup(q, a, b, live, sa, va, sb) == None{} : Maybe<Bk.Term>}:
   match live:
     case False{}:
-      %Equal.sym(Maybe<C.Term>, sb, None{}, esb) : {C.Eval.step.tup_b(q, a, _) == None{} : Maybe<C.Term>}
+      %Equal.sym(Maybe<Bk.Term>, sb, None{}, esb) : {El.Eval.step.tup_b(q, a, _) == None{} : Maybe<Bk.Term>}
       {==}
     case True{}:
       match sa:
         case Some{+a2}:
-          Empty.absurd({C.Eval.step.tup(q, a, b, True{}, Some{a2}, va, sb) == None{} : Maybe<C.Term>}, sm.ne(a2, esa(hx)))
+          Empty.absurd({El.Eval.step.tup(q, a, b, True{}, Some{a2}, va, sb) == None{} : Maybe<Bk.Term>}, sm.ne(a2, esa(hx)))
         case None{}:
           match va:
             case True{}:
-              %Equal.sym(Maybe<C.Term>, sb, None{}, esb) : {C.Eval.step.tup_b(q, a, _) == None{} : Maybe<C.Term>}
+              %Equal.sym(Maybe<Bk.Term>, sb, None{}, esb) : {El.Eval.step.tup_b(q, a, _) == None{} : Maybe<Bk.Term>}
               {==}
             case False{}:
               {==}
@@ -553,171 +555,171 @@ def tup.none(+q: C.Quan, +a: C.Term, +b: C.Term, live: Bool, sa: Maybe<C.Term>, 
 
 # what stops says has no step: a value (a False), or a spine of a def on
 # arguments that are values, whose walk with more arguments acc waits (a True)
-def SH(a: Bool, +ds: List<&2, C.Def>, +t: C.Term, +acc: List<&2, C.Arg>) -> Data:
+def SH(a: Bool, +ds: List<&2, Bk.Def>, +t: Bk.Term, +acc: List<&2, El.Arg>) -> Data:
   match a:
     case False{}:
-      {C.Eval.vals(ds, t, False{}) == True{} : Bool}
+      {El.Eval.vals(ds, t, False{}) == True{} : Bool}
     case True{}:
-      D.P2({C.Eval.vals(ds, t, True{}) == True{} : Bool},
-        {C.Eval.waits(C.Eval.callWalk.head(ds, C.Term.head(t), C.Term.args(t, acc))) == True{} : Bool})
+      D.P2({El.Eval.vals(ds, t, True{}) == True{} : Bool},
+        {El.Eval.waits(El.Eval.callWalk.head(ds, El.Term.head(t), El.Term.args(t, acc))) == True{} : Bool})
 
-def stops(t: C.Term, a: Bool, +ds: List<&2, C.Def>, +acc: List<&2, C.Arg>, +h: SH(a, ds, t, acc)) ->
-  {C.Eval.step(ds, t) == None{} : Maybe<C.Term>}:
+def stops(t: Bk.Term, a: Bool, +ds: List<&2, Bk.Def>, +acc: List<&2, El.Arg>, +h: SH(a, ds, t, acc)) ->
+  {El.Eval.step(ds, t) == None{} : Maybe<Bk.Term>}:
   match t:
-    case C.Term.Var{+z0}:
+    case Bk.Term.Var{+z0}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Var{z0}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Ref{+z0}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Var{z0}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Ref{+z0}:
       match a:
         case False{}:
-          call.none(True{}, C.Eval.callWalk(ds, C.Term.Ref{z0}), h)
+          call.none(True{}, El.Eval.callWalk(ds, Bk.Term.Ref{z0}), h)
         case True{}:
           (ht, hw) = h
-          call.none(True{}, C.Eval.callWalk(ds, C.Term.Ref{z0}), cw.back(ds, C.Term.Ref{z0}, acc, hw))
-    case C.Term.Ann{+z0, +z1}:
+          call.none(True{}, El.Eval.callWalk(ds, Bk.Term.Ref{z0}), cw.back(ds, Bk.Term.Ref{z0}, acc, hw))
+    case Bk.Term.Ann{+z0, +z1}:
       match a:
         case False{}:
-          D.bool.ft({C.Eval.step(ds, C.Term.Ann{z0, z1}) == None{} : Maybe<C.Term>}, h)
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Ann{z0, z1}) == None{} : Maybe<Bk.Term>}, h)
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Ann{z0, z1}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Let{+z0, +z1, +z2}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Ann{z0, z1}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Let{+z0, +z1, +z2}:
       match a:
         case False{}:
-          D.bool.ft({C.Eval.step(ds, C.Term.Let{z0, z1, z2}) == None{} : Maybe<C.Term>}, h)
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Let{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, h)
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Let{z0, z1, z2}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Typ{+z0}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Let{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Typ{+z0}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Typ{z0}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Min{+z0, +z1}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Typ{z0}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Min{+z0, +z1}:
       match a:
         case False{}:
-          D.bool.ft({C.Eval.step(ds, C.Term.Min{z0, z1}) == None{} : Maybe<C.Term>}, h)
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Min{z0, z1}) == None{} : Maybe<Bk.Term>}, h)
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Min{z0, z1}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.All{+z0, +z1, +z2}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Min{z0, z1}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.All{+z0, +z1, +z2}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.All{z0, z1, z2}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Lam{+z0, +z1}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.All{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Lam{+z0, +z1}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Lam{z0, z1}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.App{+z0, +z1, +z2}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Lam{z0, z1}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.App{+z0, +z1, +z2}:
       match a:
         case False{}:
-          +ok = and.l(Bool.and(C.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z2, False{}))), C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{z0, z1, z2})), h)
-          +hw = and.r(Bool.and(C.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z2, False{}))), C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{z0, z1, z2})), h)
-          +hg = and.l(C.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z2, False{})), ok)
-          +hx = and.r(C.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z2, False{})), ok)
-          +er = Equal.trans(Maybe<C.Term>, C.Eval.redex(ds, z0, z1, z2), C.Eval.call(ds, C.Term.App{z0, z1, z2}), None{},
+          +ok = and.l(Bool.and(El.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z2, False{}))), El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{z0, z1, z2})), h)
+          +hw = and.r(Bool.and(El.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z2, False{}))), El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{z0, z1, z2})), h)
+          +hg = and.l(El.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z2, False{})), ok)
+          +hx = and.r(El.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z2, False{})), ok)
+          +er = Equal.trans(Maybe<Bk.Term>, El.Eval.redex(ds, z0, z1, z2), El.Eval.call(ds, Bk.Term.App{z0, z1, z2}), None{},
             redex.call(ds, z1, z0, z2, hg),
-            call.none(C.Eval.vals(ds, C.Term.App{z0, z1, z2}, True{}), C.Eval.callWalk(ds, C.Term.App{z0, z1, z2}), hw))
-          app.none(z0, z1, z2, C.Eval.step(ds, z1), C.Eval.vals(ds, z1, False{}), C.Quan.live(z0), C.Eval.step(ds, z2), C.Eval.vals(ds, z2, False{}),
-            C.Eval.redex(ds, z0, z1, z2), stops(z1, True{}, ds, [C.Arg{z0, z2}], (hg, hw)), hx, e => stops(z2, False{}, ds, Nil{}, e), er)
+            call.none(El.Eval.vals(ds, Bk.Term.App{z0, z1, z2}, True{}), El.Eval.callWalk(ds, Bk.Term.App{z0, z1, z2}), hw))
+          app.none(z0, z1, z2, El.Eval.step(ds, z1), El.Eval.vals(ds, z1, False{}), El.Quan.live(z0), El.Eval.step(ds, z2), El.Eval.vals(ds, z2, False{}),
+            El.Eval.redex(ds, z0, z1, z2), stops(z1, True{}, ds, [El.Arg{z0, z2}], (hg, hw)), hx, e => stops(z2, False{}, ds, Nil{}, e), er)
         case True{}:
           (+ht, +hw) = h
-          +hg = and.l(C.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z2, False{})), ht)
-          +hx = and.r(C.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z2, False{})), ht)
-          +er = Equal.trans(Maybe<C.Term>, C.Eval.redex(ds, z0, z1, z2), C.Eval.call(ds, C.Term.App{z0, z1, z2}), None{},
+          +hg = and.l(El.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z2, False{})), ht)
+          +hx = and.r(El.Eval.vals(ds, z1, True{}), Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z2, False{})), ht)
+          +er = Equal.trans(Maybe<Bk.Term>, El.Eval.redex(ds, z0, z1, z2), El.Eval.call(ds, Bk.Term.App{z0, z1, z2}), None{},
             redex.call(ds, z1, z0, z2, hg),
-            call.none(C.Eval.vals(ds, C.Term.App{z0, z1, z2}, True{}), C.Eval.callWalk(ds, C.Term.App{z0, z1, z2}), cw.back(ds, C.Term.App{z0, z1, z2}, acc, hw)))
-          app.none(z0, z1, z2, C.Eval.step(ds, z1), C.Eval.vals(ds, z1, False{}), C.Quan.live(z0), C.Eval.step(ds, z2), C.Eval.vals(ds, z2, False{}),
-            C.Eval.redex(ds, z0, z1, z2), stops(z1, True{}, ds, Con{C.Arg{z0, z2}, acc}, (hg, hw)), hx, e => stops(z2, False{}, ds, Nil{}, e), er)
-    case C.Term.Sig{+z0, +z1, +z2}:
+            call.none(El.Eval.vals(ds, Bk.Term.App{z0, z1, z2}, True{}), El.Eval.callWalk(ds, Bk.Term.App{z0, z1, z2}), cw.back(ds, Bk.Term.App{z0, z1, z2}, acc, hw)))
+          app.none(z0, z1, z2, El.Eval.step(ds, z1), El.Eval.vals(ds, z1, False{}), El.Quan.live(z0), El.Eval.step(ds, z2), El.Eval.vals(ds, z2, False{}),
+            El.Eval.redex(ds, z0, z1, z2), stops(z1, True{}, ds, Con{El.Arg{z0, z2}, acc}, (hg, hw)), hx, e => stops(z2, False{}, ds, Nil{}, e), er)
+    case Bk.Term.Sig{+z0, +z1, +z2}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Sig{z0, z1, z2}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Tup{+z0, +z1, +z2}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Sig{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Tup{+z0, +z1, +z2}:
       match a:
         case False{}:
-          +hx = and.l(Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z1, False{})), C.Eval.vals(ds, z2, False{}), h)
-          +hb = and.r(Bool.or(Bool.not(C.Quan.live(z0)), C.Eval.vals(ds, z1, False{})), C.Eval.vals(ds, z2, False{}), h)
-          tup.none(z0, z1, z2, C.Quan.live(z0), C.Eval.step(ds, z1), C.Eval.vals(ds, z1, False{}), C.Eval.step(ds, z2), hx,
+          +hx = and.l(Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z1, False{})), El.Eval.vals(ds, z2, False{}), h)
+          +hb = and.r(Bool.or(Bool.not(El.Quan.live(z0)), El.Eval.vals(ds, z1, False{})), El.Eval.vals(ds, z2, False{}), h)
+          tup.none(z0, z1, z2, El.Quan.live(z0), El.Eval.step(ds, z1), El.Eval.vals(ds, z1, False{}), El.Eval.step(ds, z2), hx,
             e => stops(z1, False{}, ds, Nil{}, e), stops(z2, False{}, ds, Nil{}, hb))
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Tup{z0, z1, z2}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Prj{+z0}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Tup{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Prj{+z0}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Prj{z0}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Enu{+z0}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Prj{z0}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Enu{+z0}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Enu{z0}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Lab{+z0}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Enu{z0}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Lab{+z0}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Lab{z0}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Mat{+z0, +z1, +z2}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Lab{z0}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Mat{+z0, +z1, +z2}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Mat{z0, z1, z2}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Efq{}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Mat{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Efq{}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Efq{}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Eql{+z0, +z1, +z2}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Efq{}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Eql{+z0, +z1, +z2}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Eql{z0, z1, z2}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Rfl{}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Eql{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Rfl{}:
       match a:
         case False{}:
           {==}
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Rfl{}) == None{} : Maybe<C.Term>}, ht)
-    case C.Term.Rwt{+z0, +z1, +z2}:
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Rfl{}) == None{} : Maybe<Bk.Term>}, ht)
+    case Bk.Term.Rwt{+z0, +z1, +z2}:
       match a:
         case False{}:
-          D.bool.ft({C.Eval.step(ds, C.Term.Rwt{z0, z1, z2}) == None{} : Maybe<C.Term>}, h)
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Rwt{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, h)
         case True{}:
           (ht, hw) = h
-          D.bool.ft({C.Eval.step(ds, C.Term.Rwt{z0, z1, z2}) == None{} : Maybe<C.Term>}, ht)
+          D.bool.ft({El.Eval.step(ds, Bk.Term.Rwt{z0, z1, z2}) == None{} : Maybe<Bk.Term>}, ht)
 
 # a value has no step (Lean's eval_value)
-def ev.stops(+ds: List<&2, C.Def>, +t: C.Term, h: {C.Eval.vals(ds, t, False{}) == True{} : Bool}) ->
-  {C.Eval.step(ds, t) == None{} : Maybe<C.Term>}:
+def ev.stops(+ds: List<&2, Bk.Def>, +t: Bk.Term, h: {El.Eval.vals(ds, t, False{}) == True{} : Bool}) ->
+  {El.Eval.step(ds, t) == None{} : Maybe<Bk.Term>}:
   stops(t, False{}, ds, Nil{}, h)
 
 
@@ -726,37 +728,37 @@ def ev.stops(+ds: List<&2, C.Def>, +t: C.Term, h: {C.Eval.vals(ds, t, False{}) =
 
 # Rwt e P f, Min a b and Let q v f, with a first part that has no step and is
 # no value, have no step
-def rwt.none(+e: C.Term, +p: C.Term, +f: C.Term, se: Maybe<C.Term>, ve: Bool, ese: {se == None{} : Maybe<C.Term>},
-  eve: {ve == False{} : Bool}) -> {C.Eval.step.rwt(e, p, f, se, ve) == None{} : Maybe<C.Term>}:
+def rwt.none(+e: Bk.Term, +p: Bk.Term, +f: Bk.Term, se: Maybe<Bk.Term>, ve: Bool, ese: {se == None{} : Maybe<Bk.Term>},
+  eve: {ve == False{} : Bool}) -> {El.Eval.step.rwt(e, p, f, se, ve) == None{} : Maybe<Bk.Term>}:
   match se:
     case Some{+e2}:
-      Empty.absurd({C.Eval.step.rwt(e, p, f, Some{e2}, ve) == None{} : Maybe<C.Term>}, sm.ne(e2, ese))
+      Empty.absurd({El.Eval.step.rwt(e, p, f, Some{e2}, ve) == None{} : Maybe<Bk.Term>}, sm.ne(e2, ese))
     case None{}:
       match ve:
         case True{}:
-          D.bool.ft({C.Eval.step.rwt(e, p, f, None{}, True{}) == None{} : Maybe<C.Term>}, Equal.sym(Bool, True{}, False{}, eve))
+          D.bool.ft({El.Eval.step.rwt(e, p, f, None{}, True{}) == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, eve))
         case False{}:
           {==}
 
-def min.none(+a: C.Term, +b: C.Term, sa: Maybe<C.Term>, va: Bool, sb: Maybe<C.Term>, +vb: Bool, mt: Maybe<C.Term>,
-  esa: {sa == None{} : Maybe<C.Term>}, eva: {va == False{} : Bool}) -> {C.Eval.step.min(a, b, sa, va, sb, vb, mt) == None{} : Maybe<C.Term>}:
+def min.none(+a: Bk.Term, +b: Bk.Term, sa: Maybe<Bk.Term>, va: Bool, sb: Maybe<Bk.Term>, +vb: Bool, mt: Maybe<Bk.Term>,
+  esa: {sa == None{} : Maybe<Bk.Term>}, eva: {va == False{} : Bool}) -> {El.Eval.step.min(a, b, sa, va, sb, vb, mt) == None{} : Maybe<Bk.Term>}:
   match sa:
     case Some{+a2}:
-      Empty.absurd({C.Eval.step.min(a, b, Some{a2}, va, sb, vb, mt) == None{} : Maybe<C.Term>}, sm.ne(a2, esa))
+      Empty.absurd({El.Eval.step.min(a, b, Some{a2}, va, sb, vb, mt) == None{} : Maybe<Bk.Term>}, sm.ne(a2, esa))
     case None{}:
       match va:
         case True{}:
-          D.bool.ft({C.Eval.step.min(a, b, None{}, True{}, sb, vb, mt) == None{} : Maybe<C.Term>}, Equal.sym(Bool, True{}, False{}, eva))
+          D.bool.ft({El.Eval.step.min(a, b, None{}, True{}, sb, vb, mt) == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, eva))
         case False{}:
           {==}
 
 # Min a b, with a value a with no step and a b with no step that is no value
-def min.none2(+a: C.Term, +b: C.Term, sa: Maybe<C.Term>, va: Bool, sb: Maybe<C.Term>, vb: Bool, mt: Maybe<C.Term>,
-  esa: {sa == None{} : Maybe<C.Term>}, eva: {va == True{} : Bool}, esb: {sb == None{} : Maybe<C.Term>}, evb: {vb == False{} : Bool}) ->
-  {C.Eval.step.min(a, b, sa, va, sb, vb, mt) == None{} : Maybe<C.Term>}:
+def min.none2(+a: Bk.Term, +b: Bk.Term, sa: Maybe<Bk.Term>, va: Bool, sb: Maybe<Bk.Term>, vb: Bool, mt: Maybe<Bk.Term>,
+  esa: {sa == None{} : Maybe<Bk.Term>}, eva: {va == True{} : Bool}, esb: {sb == None{} : Maybe<Bk.Term>}, evb: {vb == False{} : Bool}) ->
+  {El.Eval.step.min(a, b, sa, va, sb, vb, mt) == None{} : Maybe<Bk.Term>}:
   match sa:
     case Some{+a2}:
-      Empty.absurd({C.Eval.step.min(a, b, Some{a2}, va, sb, vb, mt) == None{} : Maybe<C.Term>}, sm.ne(a2, esa))
+      Empty.absurd({El.Eval.step.min(a, b, Some{a2}, va, sb, vb, mt) == None{} : Maybe<Bk.Term>}, sm.ne(a2, esa))
     case None{}:
       match va:
         case False{}:
@@ -764,68 +766,68 @@ def min.none2(+a: C.Term, +b: C.Term, sa: Maybe<C.Term>, va: Bool, sb: Maybe<C.T
         case True{}:
           match sb:
             case Some{+b2}:
-              Empty.absurd({C.Eval.step.min(a, b, None{}, True{}, Some{b2}, vb, mt) == None{} : Maybe<C.Term>}, sm.ne(b2, esb))
+              Empty.absurd({El.Eval.step.min(a, b, None{}, True{}, Some{b2}, vb, mt) == None{} : Maybe<Bk.Term>}, sm.ne(b2, esb))
             case None{}:
               match vb:
                 case True{}:
-                  D.bool.ft({C.Eval.step.min(a, b, None{}, True{}, None{}, True{}, mt) == None{} : Maybe<C.Term>}, Equal.sym(Bool, True{}, False{}, evb))
+                  D.bool.ft({El.Eval.step.min(a, b, None{}, True{}, None{}, True{}, mt) == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, evb))
                 case False{}:
                   {==}
 
-def let.none(+q: C.Quan, +v: C.Term, +f: C.Term, live: Bool, sv: Maybe<C.Term>, vv: Bool, +fits: Bool, el: {live == True{} : Bool},
-  esv: {sv == None{} : Maybe<C.Term>}, evv: {vv == False{} : Bool}) -> {C.Eval.step.let(q, v, f, live, sv, vv, fits) == None{} : Maybe<C.Term>}:
+def let.none(+q: Bk.Quan, +v: Bk.Term, +f: Bk.Term, live: Bool, sv: Maybe<Bk.Term>, vv: Bool, +fits: Bool, el: {live == True{} : Bool},
+  esv: {sv == None{} : Maybe<Bk.Term>}, evv: {vv == False{} : Bool}) -> {El.Eval.step.let(q, v, f, live, sv, vv, fits) == None{} : Maybe<Bk.Term>}:
   match live:
     case False{}:
-      D.bool.ft({C.Eval.step.let(q, v, f, False{}, sv, vv, fits) == None{} : Maybe<C.Term>}, el)
+      D.bool.ft({El.Eval.step.let(q, v, f, False{}, sv, vv, fits) == None{} : Maybe<Bk.Term>}, el)
     case True{}:
       match sv:
         case Some{+v2}:
-          Empty.absurd({C.Eval.step.let(q, v, f, True{}, Some{v2}, vv, fits) == None{} : Maybe<C.Term>}, sm.ne(v2, esv))
+          Empty.absurd({El.Eval.step.let(q, v, f, True{}, Some{v2}, vv, fits) == None{} : Maybe<Bk.Term>}, sm.ne(v2, esv))
         case None{}:
           match vv:
             case True{}:
-              D.bool.ft({C.Eval.step.let(q, v, f, True{}, None{}, True{}, fits) == None{} : Maybe<C.Term>}, Equal.sym(Bool, True{}, False{}, evv))
+              D.bool.ft({El.Eval.step.let(q, v, f, True{}, None{}, True{}, fits) == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, evv))
             case False{}:
               {==}
 
 # Tup q a b, q live, with an a with no step that is no value
-def tupb.none(+q: C.Quan, +a: C.Term, +b: C.Term, live: Bool, sa: Maybe<C.Term>, va: Bool, sb: Maybe<C.Term>, el: {live == True{} : Bool},
-  esa: {sa == None{} : Maybe<C.Term>}, eva: {va == False{} : Bool}) -> {C.Eval.step.tup(q, a, b, live, sa, va, sb) == None{} : Maybe<C.Term>}:
+def tupb.none(+q: Bk.Quan, +a: Bk.Term, +b: Bk.Term, live: Bool, sa: Maybe<Bk.Term>, va: Bool, sb: Maybe<Bk.Term>, el: {live == True{} : Bool},
+  esa: {sa == None{} : Maybe<Bk.Term>}, eva: {va == False{} : Bool}) -> {El.Eval.step.tup(q, a, b, live, sa, va, sb) == None{} : Maybe<Bk.Term>}:
   match live:
     case False{}:
-      D.bool.ft({C.Eval.step.tup(q, a, b, False{}, sa, va, sb) == None{} : Maybe<C.Term>}, el)
+      D.bool.ft({El.Eval.step.tup(q, a, b, False{}, sa, va, sb) == None{} : Maybe<Bk.Term>}, el)
     case True{}:
       match sa:
         case Some{+a2}:
-          Empty.absurd({C.Eval.step.tup(q, a, b, True{}, Some{a2}, va, sb) == None{} : Maybe<C.Term>}, sm.ne(a2, esa))
+          Empty.absurd({El.Eval.step.tup(q, a, b, True{}, Some{a2}, va, sb) == None{} : Maybe<Bk.Term>}, sm.ne(a2, esa))
         case None{}:
           match va:
             case True{}:
-              D.bool.ft({C.Eval.step.tup(q, a, b, True{}, None{}, True{}, sb) == None{} : Maybe<C.Term>}, Equal.sym(Bool, True{}, False{}, eva))
+              D.bool.ft({El.Eval.step.tup(q, a, b, True{}, None{}, True{}, sb) == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, eva))
             case False{}:
               {==}
 
 # App q f x, with an f with no step that is no value
-def appf.none(+q: C.Quan, +f: C.Term, +x: C.Term, sf: Maybe<C.Term>, vf: Bool, +live: Bool, sx: Maybe<C.Term>, +vx: Bool, r: Maybe<C.Term>,
-  esf: {sf == None{} : Maybe<C.Term>}, evf: {vf == False{} : Bool}) -> {C.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r) == None{} : Maybe<C.Term>}:
+def appf.none(+q: Bk.Quan, +f: Bk.Term, +x: Bk.Term, sf: Maybe<Bk.Term>, vf: Bool, +live: Bool, sx: Maybe<Bk.Term>, +vx: Bool, r: Maybe<Bk.Term>,
+  esf: {sf == None{} : Maybe<Bk.Term>}, evf: {vf == False{} : Bool}) -> {El.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r) == None{} : Maybe<Bk.Term>}:
   match sf:
     case Some{+f2}:
-      Empty.absurd({C.Eval.step.app(q, f, x, Some{f2}, vf, live, sx, vx, r) == None{} : Maybe<C.Term>}, sm.ne(f2, esf))
+      Empty.absurd({El.Eval.step.app(q, f, x, Some{f2}, vf, live, sx, vx, r) == None{} : Maybe<Bk.Term>}, sm.ne(f2, esf))
     case None{}:
       match vf:
         case True{}:
-          D.bool.ft({C.Eval.step.app(q, f, x, None{}, True{}, live, sx, vx, r) == None{} : Maybe<C.Term>}, Equal.sym(Bool, True{}, False{}, evf))
+          D.bool.ft({El.Eval.step.app(q, f, x, None{}, True{}, live, sx, vx, r) == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, evf))
         case False{}:
           {==}
 
 # App q f x, with a live q, a value f with no step and an x with no step that
 # is no value
-def appx.none(+q: C.Quan, +f: C.Term, +x: C.Term, sf: Maybe<C.Term>, vf: Bool, live: Bool, sx: Maybe<C.Term>, vx: Bool, r: Maybe<C.Term>,
-  el: {live == True{} : Bool}, esf: {sf == None{} : Maybe<C.Term>}, esx: {sx == None{} : Maybe<C.Term>},
-  evx: {vx == False{} : Bool}) -> {C.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r) == None{} : Maybe<C.Term>}:
+def appx.none(+q: Bk.Quan, +f: Bk.Term, +x: Bk.Term, sf: Maybe<Bk.Term>, vf: Bool, live: Bool, sx: Maybe<Bk.Term>, vx: Bool, r: Maybe<Bk.Term>,
+  el: {live == True{} : Bool}, esf: {sf == None{} : Maybe<Bk.Term>}, esx: {sx == None{} : Maybe<Bk.Term>},
+  evx: {vx == False{} : Bool}) -> {El.Eval.step.app(q, f, x, sf, vf, live, sx, vx, r) == None{} : Maybe<Bk.Term>}:
   match sf:
     case Some{+f2}:
-      Empty.absurd({C.Eval.step.app(q, f, x, Some{f2}, vf, live, sx, vx, r) == None{} : Maybe<C.Term>}, sm.ne(f2, esf))
+      Empty.absurd({El.Eval.step.app(q, f, x, Some{f2}, vf, live, sx, vx, r) == None{} : Maybe<Bk.Term>}, sm.ne(f2, esf))
     case None{}:
       match vf:
         case False{}:
@@ -833,37 +835,37 @@ def appx.none(+q: C.Quan, +f: C.Term, +x: C.Term, sf: Maybe<C.Term>, vf: Bool, l
         case True{}:
           match live:
             case False{}:
-              D.bool.ft({C.Eval.step.app(q, f, x, None{}, True{}, False{}, sx, vx, r) == None{} : Maybe<C.Term>}, el)
+              D.bool.ft({El.Eval.step.app(q, f, x, None{}, True{}, False{}, sx, vx, r) == None{} : Maybe<Bk.Term>}, el)
             case True{}:
               match sx:
                 case Some{+x2}:
-                  Empty.absurd({C.Eval.step.app(q, f, x, None{}, True{}, True{}, Some{x2}, vx, r) == None{} : Maybe<C.Term>}, sm.ne(x2, esx))
+                  Empty.absurd({El.Eval.step.app(q, f, x, None{}, True{}, True{}, Some{x2}, vx, r) == None{} : Maybe<Bk.Term>}, sm.ne(x2, esx))
                 case None{}:
                   match vx:
                     case True{}:
-                      D.bool.ft({C.Eval.step.app(q, f, x, None{}, True{}, True{}, None{}, True{}, r) == None{} : Maybe<C.Term>}, Equal.sym(Bool, True{}, False{}, evx))
+                      D.bool.ft({El.Eval.step.app(q, f, x, None{}, True{}, True{}, None{}, True{}, r) == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, evx))
                     case False{}:
                       {==}
 
 
 # the stuck facts of a term
-def Stk(+ds: List<&2, C.Def>, t: C.Term) -> Data:
-  D.P2({C.Eval.step(ds, t) == None{} : Maybe<C.Term>}, {C.Eval.vals(ds, t, False{}) == False{} : Bool})
+def Stk(+ds: List<&2, Bk.Def>, t: Bk.Term) -> Data:
+  D.P2({El.Eval.step(ds, t) == None{} : Maybe<Bk.Term>}, {El.Eval.vals(ds, t, False{}) == False{} : Bool})
 
 # App q u a is no value, when u is none
-def vapp.f(b: Bool, +ds: List<&2, C.Def>, +q: C.Quan, +u: C.Term, +a: C.Term, +eb: {C.Eval.vals(ds, u, True{}) == b : Bool},
-  hv: {C.Eval.vals(ds, u, False{}) == False{} : Bool}) -> {C.Eval.vals(ds, C.Term.App{q, u, a}, False{}) == False{} : Bool}:
+def vapp.f(b: Bool, +ds: List<&2, Bk.Def>, +q: Bk.Quan, +u: Bk.Term, +a: Bk.Term, +eb: {El.Eval.vals(ds, u, True{}) == b : Bool},
+  hv: {El.Eval.vals(ds, u, False{}) == False{} : Bool}) -> {El.Eval.vals(ds, Bk.Term.App{q, u, a}, False{}) == False{} : Bool}:
   match b:
     case False{}:
-      %Equal.sym(Bool, C.Eval.vals(ds, u, True{}), False{}, eb) :
-        {Bool.and(Bool.and(_, Bool.or(Bool.not(C.Quan.live(q)), C.Eval.vals(ds, a, False{}))), C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{q, u, a}))) == False{} : Bool}
+      %Equal.sym(Bool, El.Eval.vals(ds, u, True{}), False{}, eb) :
+        {Bool.and(Bool.and(_, Bool.or(Bool.not(El.Quan.live(q)), El.Eval.vals(ds, a, False{}))), El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{q, u, a}))) == False{} : Bool}
       {==}
     case True{}:
-      +ew = Equal.trans(Bool, C.Eval.waits(C.Eval.callWalk(ds, u)), C.Eval.vals(ds, u, False{}), False{},
-        Equal.sym(Bool, C.Eval.vals(ds, u, False{}), C.Eval.waits(C.Eval.callWalk(ds, u)), vals.tf(ds, u, eb)), hv)
-      %Equal.sym(Bool, C.Eval.vals(ds, u, True{}), True{}, eb) :
-        {Bool.and(Bool.and(_, Bool.or(Bool.not(C.Quan.live(q)), C.Eval.vals(ds, a, False{}))), C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{q, u, a}))) == False{} : Bool}
-      and.f(Bool.or(Bool.not(C.Quan.live(q)), C.Eval.vals(ds, a, False{})), C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{q, u, a})), cw.app(ds, u, q, a, ew))
+      +ew = Equal.trans(Bool, El.Eval.waits(El.Eval.callWalk(ds, u)), El.Eval.vals(ds, u, False{}), False{},
+        Equal.sym(Bool, El.Eval.vals(ds, u, False{}), El.Eval.waits(El.Eval.callWalk(ds, u)), vals.tf(ds, u, eb)), hv)
+      %Equal.sym(Bool, El.Eval.vals(ds, u, True{}), True{}, eb) :
+        {Bool.and(Bool.and(_, Bool.or(Bool.not(El.Quan.live(q)), El.Eval.vals(ds, a, False{}))), El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{q, u, a}))) == False{} : Bool}
+      and.f(Bool.or(Bool.not(El.Quan.live(q)), El.Eval.vals(ds, a, False{})), El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{q, u, a})), cw.app(ds, u, q, a, ew))
 
 # App q a u, with q live, is no value when u is none
 def vfun.f(l: Bool, va: Bool, vu: Bool, +w: Bool, el: {l == True{} : Bool}, ev: {vu == False{} : Bool}) ->
@@ -896,43 +898,43 @@ def vtup.f(l: Bool, vu: Bool, +vb: Bool, el: {l == True{} : Bool}, ev: {vu == Fa
           {==}
 
 # one frame around a focus with no step that is no value
-def stuck1(+ds: List<&2, C.Def>, fr: D.AF, +u: C.Term, +ok: D.AF.ok(ds, fr),
-  +hs: {C.Eval.step(ds, u) == None{} : Maybe<C.Term>}, +hv: {C.Eval.vals(ds, u, False{}) == False{} : Bool}) ->
+def stuck1(+ds: List<&2, Bk.Def>, fr: D.AF, +u: Bk.Term, +ok: D.AF.ok(ds, fr),
+  +hs: {El.Eval.step(ds, u) == None{} : Maybe<Bk.Term>}, +hv: {El.Eval.vals(ds, u, False{}) == False{} : Bool}) ->
   Stk(ds, D.A.plug(fr, u)):
   match fr:
     case D.AF{+kind, +q, +k, +a, +b}:
       match kind:
         case D.FK.arg{}:
-          (appf.none(q, u, a, C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}), C.Quan.live(q), C.Eval.step(ds, a), C.Eval.vals(ds, a, False{}),
-            C.Eval.redex(ds, q, u, a), hs, hv),
-           vapp.f(C.Eval.vals(ds, u, True{}), ds, q, u, a, {==}, hv))
+          (appf.none(q, u, a, El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}), El.Quan.live(q), El.Eval.step(ds, a), El.Eval.vals(ds, a, False{}),
+            El.Eval.redex(ds, q, u, a), hs, hv),
+           vapp.f(El.Eval.vals(ds, u, True{}), ds, q, u, a, {==}, hv))
         case D.FK.val{}:
-          (appf.none(q, u, a, C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}), C.Quan.live(q), C.Eval.step(ds, a), C.Eval.vals(ds, a, False{}),
-            C.Eval.redex(ds, q, u, a), hs, hv),
-           vapp.f(C.Eval.vals(ds, u, True{}), ds, q, u, a, {==}, hv))
+          (appf.none(q, u, a, El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}), El.Quan.live(q), El.Eval.step(ds, a), El.Eval.vals(ds, a, False{}),
+            El.Eval.redex(ds, q, u, a), hs, hv),
+           vapp.f(El.Eval.vals(ds, u, True{}), ds, q, u, a, {==}, hv))
         case D.FK.fun{}:
-          +el = and.l(C.Quan.live(q), C.Eval.vals(ds, a, False{}), ok)
-          +ea = and.r(C.Quan.live(q), C.Eval.vals(ds, a, False{}), ok)
-          (appx.none(q, a, u, C.Eval.step(ds, a), C.Eval.vals(ds, a, False{}), C.Quan.live(q), C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}),
-            C.Eval.redex(ds, q, a, u), el, ev.stops(ds, a, ea), hs, hv),
-           vfun.f(C.Quan.live(q), C.Eval.vals(ds, a, True{}), C.Eval.vals(ds, u, False{}), C.Eval.waits(C.Eval.callWalk(ds, C.Term.App{q, a, u})), el, hv))
+          +el = and.l(El.Quan.live(q), El.Eval.vals(ds, a, False{}), ok)
+          +ea = and.r(El.Quan.live(q), El.Eval.vals(ds, a, False{}), ok)
+          (appx.none(q, a, u, El.Eval.step(ds, a), El.Eval.vals(ds, a, False{}), El.Quan.live(q), El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}),
+            El.Eval.redex(ds, q, a, u), el, ev.stops(ds, a, ea), hs, hv),
+           vfun.f(El.Quan.live(q), El.Eval.vals(ds, a, True{}), El.Eval.vals(ds, u, False{}), El.Eval.waits(El.Eval.callWalk(ds, Bk.Term.App{q, a, u})), el, hv))
         case D.FK.let{}:
-          (let.none(q, u, a, C.Quan.live(q), C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}), C.Quan.fits(q, u), ok, hs, hv), {==})
+          (let.none(q, u, a, El.Quan.live(q), El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}), El.Quan.fits(q, u), ok, hs, hv), {==})
         case D.FK.tupb{}:
-          (tupb.none(q, u, a, C.Quan.live(q), C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}), C.Eval.step(ds, a), ok, hs, hv),
-           vtup.f(C.Quan.live(q), C.Eval.vals(ds, u, False{}), C.Eval.vals(ds, a, False{}), ok, hv))
+          (tupb.none(q, u, a, El.Quan.live(q), El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}), El.Eval.step(ds, a), ok, hs, hv),
+           vtup.f(El.Quan.live(q), El.Eval.vals(ds, u, False{}), El.Eval.vals(ds, a, False{}), ok, hv))
         case D.FK.tupa{}:
-          (tup.none(q, a, u, C.Quan.live(q), C.Eval.step(ds, a), C.Eval.vals(ds, a, False{}), C.Eval.step(ds, u), ok, e => ev.stops(ds, a, e), hs),
-           and.f(Bool.or(Bool.not(C.Quan.live(q)), C.Eval.vals(ds, a, False{})), C.Eval.vals(ds, u, False{}), hv))
+          (tup.none(q, a, u, El.Quan.live(q), El.Eval.step(ds, a), El.Eval.vals(ds, a, False{}), El.Eval.step(ds, u), ok, e => ev.stops(ds, a, e), hs),
+           and.f(Bool.or(Bool.not(El.Quan.live(q)), El.Eval.vals(ds, a, False{})), El.Eval.vals(ds, u, False{}), hv))
         case D.FK.rwt{}:
-          (rwt.none(u, a, b, C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}), hs, hv), {==})
+          (rwt.none(u, a, b, El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}), hs, hv), {==})
         case D.FK.minb{}:
-          (min.none(u, a, C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}), C.Eval.step(ds, a), C.Eval.vals(ds, a, False{}), C.Eval.meet(u, a), hs, hv), {==})
+          (min.none(u, a, El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}), El.Eval.step(ds, a), El.Eval.vals(ds, a, False{}), El.Eval.meet(u, a), hs, hv), {==})
         case D.FK.mina{}:
-          (min.none2(a, u, C.Eval.step(ds, a), C.Eval.vals(ds, a, False{}), C.Eval.step(ds, u), C.Eval.vals(ds, u, False{}), C.Eval.meet(a, u),
+          (min.none2(a, u, El.Eval.step(ds, a), El.Eval.vals(ds, a, False{}), El.Eval.step(ds, u), El.Eval.vals(ds, u, False{}), El.Eval.meet(a, u),
             ev.stops(ds, a, ok), ok, hs, hv), {==})
 
-def ev.stuck.go(+ds: List<&2, C.Def>, fs: List<&2, D.AF>, +u: C.Term, hfs: D.AFs.ok(ds, fs), st: Stk(ds, u)) ->
+def ev.stuck.go(+ds: List<&2, Bk.Def>, fs: List<&2, D.AF>, +u: Bk.Term, hfs: D.AFs.ok(ds, fs), st: Stk(ds, u)) ->
   Stk(ds, D.A.plugs(fs, u)):
   match fs:
     case Nil{}:
@@ -943,7 +945,7 @@ def ev.stuck.go(+ds: List<&2, C.Def>, fs: List<&2, D.AF>, +u: C.Term, hfs: D.AFs
       ev.stuck.go(ds, rest, D.A.plug(fr, u), oks, stuck1(ds, fr, u, ok, hs, hv))
 
 # a focus with no step that is no value makes its frames' term so
-def ev.stuck(+ds: List<&2, C.Def>, fs: List<&2, D.AF>, +u: C.Term, hfs: D.AFs.ok(ds, fs),
-  hs: {C.Eval.step(ds, u) == None{} : Maybe<C.Term>}, hv: {C.Eval.vals(ds, u, False{}) == False{} : Bool}) ->
+def ev.stuck(+ds: List<&2, Bk.Def>, fs: List<&2, D.AF>, +u: Bk.Term, hfs: D.AFs.ok(ds, fs),
+  hs: {El.Eval.step(ds, u) == None{} : Maybe<Bk.Term>}, hv: {El.Eval.vals(ds, u, False{}) == False{} : Bool}) ->
   Stk(ds, D.A.plugs(fs, u)):
   ev.stuck.go(ds, fs, u, hfs, (hs, hv))
