@@ -12,7 +12,7 @@
    defines a module, x.pure gets a line (pure i "name" ...): the command's
    index in the script, and the exports of the module's functions that change
    nothing in its instance (pure_exports). It uses the spec's own parser,
-   syntax and encoder (convert.sh builds it with them). *)
+   syntax and encoder (convert.ts builds it with them). *)
 
 open Types
 open Ast
