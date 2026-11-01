@@ -20,11 +20,12 @@ less. A caller bug has one of two causes:
 
 ## Layout
 
+- `shared.bend` (optional, see feature layout): A self-contained module(laws, proofs, tests live in it) which imports only from Base only or other self-contained shared upwards modules. 
 - `spec.bend`: the full public interface, and the claims about it. It imports Base only. The user
   owns it.
 - `impl.bend`: imports `./spec.bend as Spec`. It has the code, fills each interface law, and
   proves each claim. You can rewrite it.
-- `tests.bend`: the tests that the module earned (see Tests).
+- `tests.bend` (optional): the tests that the module earned (see Tests).
 - A caller imports `spec.bend` for the names, and `impl.bend` for the code. It uses only the names
   of `spec.bend`.
 - Bend checks the proofs of a file that has or imports foreign or unsafe code, but that file never
@@ -79,3 +80,7 @@ the `#|` lines that its run must print.
 
 - If a caller relies on a fact that no law states, add the law or remove the reliance.
 - Still trusted, not proven: the caller code itself, speed, and the Bend compiler and runtime.
+
+## Folder structure and shared modules
+
+- Features are onion-like. For each layer, there may be a `shared.bend` file XOR a `shared` folder if the utility earns it(file grows too large). A `shared` folder, being a feature, may too contain `shared.bend` XOR a nested `shared` folder if needed.
