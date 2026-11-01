@@ -42,7 +42,58 @@ def «reader.Term.arms» : Def :=
           (Term.App
             (Quan.Q0)
             (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-            (Term.Ref "U32"))
+            (Term.App
+              (Quan.Q1)
+              (Term.Ref "Word")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Lab "Succ")
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                              (Term.Lab "()")))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))))
           (Term.Enu ["()"]))
         (Term.Mat
           "Term.Ann"
@@ -123,7 +174,61 @@ def «reader.Term.arms» : Def :=
                                   (Term.App
                                     (Quan.Q0)
                                     (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                                    (Term.Ref "U32")))
+                                    (Term.App
+                                      (Quan.Q1)
+                                      (Term.Ref "Word")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Lab "Succ")
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Lab "Succ")
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Lab "Succ")
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Tup
+                                                        (Quan.Q1)
+                                                        (Term.Lab "Succ")
+                                                        (Term.Tup
+                                                          (Quan.Q1)
+                                                          (Term.Tup
+                                                            (Quan.Q1)
+                                                            (Term.Lab "Succ")
+                                                            (Term.Tup
+                                                              (Quan.Q1)
+                                                              (Term.Tup
+                                                                (Quan.Q1)
+                                                                (Term.Lab "Succ")
+                                                                (Term.Tup
+                                                                  (Quan.Q1)
+                                                                  (Term.Tup
+                                                                    (Quan.Q1)
+                                                                    (Term.Lab "Succ")
+                                                                    (Term.Tup
+                                                                      (Quan.Q1)
+                                                                      (Term.Tup
+                                                                        (Quan.Q1)
+                                                                        (Term.Lab "Zero")
+                                                                        (Term.Lab "()"))
+                                                                      (Term.Lab "()")))
+                                                                  (Term.Lab "()")))
+                                                              (Term.Lab "()")))
+                                                          (Term.Lab "()")))
+                                                      (Term.Lab "()")))
+                                                  (Term.Lab "()")))
+                                              (Term.Lab "()")))
+                                          (Term.Lab "()"))))))
                                 (Term.Enu ["()"]))
                               (Term.Mat
                                 "Term.Lab"
@@ -132,7 +237,61 @@ def «reader.Term.arms» : Def :=
                                   (Term.App
                                     (Quan.Q0)
                                     (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                                    (Term.Ref "U32"))
+                                    (Term.App
+                                      (Quan.Q1)
+                                      (Term.Ref "Word")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Lab "Succ")
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Lab "Succ")
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Lab "Succ")
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Tup
+                                                        (Quan.Q1)
+                                                        (Term.Lab "Succ")
+                                                        (Term.Tup
+                                                          (Quan.Q1)
+                                                          (Term.Tup
+                                                            (Quan.Q1)
+                                                            (Term.Lab "Succ")
+                                                            (Term.Tup
+                                                              (Quan.Q1)
+                                                              (Term.Tup
+                                                                (Quan.Q1)
+                                                                (Term.Lab "Succ")
+                                                                (Term.Tup
+                                                                  (Quan.Q1)
+                                                                  (Term.Tup
+                                                                    (Quan.Q1)
+                                                                    (Term.Lab "Succ")
+                                                                    (Term.Tup
+                                                                      (Quan.Q1)
+                                                                      (Term.Tup
+                                                                        (Quan.Q1)
+                                                                        (Term.Lab "Zero")
+                                                                        (Term.Lab "()"))
+                                                                      (Term.Lab "()")))
+                                                                  (Term.Lab "()")))
+                                                              (Term.Lab "()")))
+                                                          (Term.Lab "()")))
+                                                      (Term.Lab "()")))
+                                                  (Term.Lab "()")))
+                                              (Term.Lab "()")))
+                                          (Term.Lab "()")))))
                                   (Term.Enu ["()"]))
                                 (Term.Mat
                                   "Term.Mat"
@@ -141,7 +300,61 @@ def «reader.Term.arms» : Def :=
                                     (Term.App
                                       (Quan.Q0)
                                       (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                                      (Term.Ref "U32"))
+                                      (Term.App
+                                        (Quan.Q1)
+                                        (Term.Ref "Word")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Lab "Succ")
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Lab "Succ")
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Lab "Succ")
+                                                      (Term.Tup
+                                                        (Quan.Q1)
+                                                        (Term.Tup
+                                                          (Quan.Q1)
+                                                          (Term.Lab "Succ")
+                                                          (Term.Tup
+                                                            (Quan.Q1)
+                                                            (Term.Tup
+                                                              (Quan.Q1)
+                                                              (Term.Lab "Succ")
+                                                              (Term.Tup
+                                                                (Quan.Q1)
+                                                                (Term.Tup
+                                                                  (Quan.Q1)
+                                                                  (Term.Lab "Succ")
+                                                                  (Term.Tup
+                                                                    (Quan.Q1)
+                                                                    (Term.Tup
+                                                                      (Quan.Q1)
+                                                                      (Term.Lab "Succ")
+                                                                      (Term.Tup
+                                                                        (Quan.Q1)
+                                                                        (Term.Tup
+                                                                          (Quan.Q1)
+                                                                          (Term.Lab "Zero")
+                                                                          (Term.Lab "()"))
+                                                                        (Term.Lab "()")))
+                                                                    (Term.Lab "()")))
+                                                                (Term.Lab "()")))
+                                                            (Term.Lab "()")))
+                                                        (Term.Lab "()")))
+                                                    (Term.Lab "()")))
+                                                (Term.Lab "()")))
+                                            (Term.Lab "()")))))
                                     (Term.Sig
                                       (Quan.Q1)
                                       (Term.Ref "Term")
@@ -195,7 +408,61 @@ def «reader.Def.arms» : Def :=
       "Def"
       (Term.Sig
         (Quan.Q1)
-        (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
+        (Term.App
+          (Quan.Q0)
+          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+          (Term.App
+            (Quan.Q1)
+            (Term.Ref "Word")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()")))))
         (Term.Sig
           (Quan.Q1)
           (Term.Ref "Term")
@@ -233,7 +500,61 @@ def «reader.Item.arms» : Def :=
             (Term.App
               (Quan.Q0)
               (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-              (Term.Ref "U32"))
+              (Term.App
+                (Quan.Q1)
+                (Term.Ref "Word")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Lab "Succ")
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Lab "Zero")
+                                                  (Term.Lab "()"))
+                                                (Term.Lab "()")))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))))
             (Term.Enu ["()"]))
           (Term.Mat
             "Item.names"
@@ -245,7 +566,61 @@ def «reader.Item.arms» : Def :=
                 (Term.App
                   (Quan.Q0)
                   (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-                  (Term.Ref "U32")))
+                  (Term.App
+                    (Quan.Q1)
+                    (Term.Ref "Word")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup
+                                              (Quan.Q1)
+                                              (Term.Lab "Succ")
+                                              (Term.Tup
+                                                (Quan.Q1)
+                                                (Term.Tup
+                                                  (Quan.Q1)
+                                                  (Term.Lab "Succ")
+                                                  (Term.Tup
+                                                    (Quan.Q1)
+                                                    (Term.Tup
+                                                      (Quan.Q1)
+                                                      (Term.Lab "Zero")
+                                                      (Term.Lab "()"))
+                                                    (Term.Lab "()")))
+                                                (Term.Lab "()")))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()"))))))
               (Term.Enu ["()"]))
             (Term.Mat
               "Item.bool"
@@ -355,7 +730,58 @@ def «reader.Book.read.byte» : Def :=
       (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "Item"))
       (Term.All
         (Quan.Q1)
-        (Term.Ref "U32")
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Word")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Lab "Succ")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))
+              (Term.Lab "()"))))
         (Term.App
           (Quan.Q0)
           (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
@@ -3993,7 +4419,58 @@ def «reader.Book.read.token» : Def :=
           (Term.Ref "Item"))
         (Term.All
           (Quan.Q1)
-          (Term.Ref "U32")
+          (Term.App
+            (Quan.Q1)
+            (Term.Ref "Word")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()"))))
           (Term.App
             (Quan.Q0)
             (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
@@ -4502,22 +4979,32 @@ def «reader.Word.to_nat» : Def :=
           (Term.Efq))),
     false⟩
 
-def «reader.U32.to_nat» : Def :=
-  ⟨"U32.to_nat",
-    Term.All (Quan.Q1) (Term.Ref "U32") (Term.Ref "Nat"),
-    Term.Prj
-      (Term.Mat
-        "U32"
-        (Term.Prj
-          (Term.Lam
+def «reader.Book.read.step» : Def :=
+  ⟨"Book.read.step",
+    Term.All
+      (Quan.Q1)
+      (Term.App
+        (Quan.Q0)
+        (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
+        (Term.App
+          (Quan.Q0)
+          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+          (Term.Ref "Item")))
+      (Term.All
+        (Quan.Q1)
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Word")
+          (Term.Tup
             (Quan.Q1)
-            (Term.Mat
-              "()"
-              (Term.App
+            (Term.Lab "Succ")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Tup
                 (Quan.Q1)
-                (Term.App
+                (Term.Lab "Succ")
+                (Term.Tup
                   (Quan.Q1)
-                  (Term.Ref "Word.to_nat")
                   (Term.Tup
                     (Quan.Q1)
                     (Term.Lab "Succ")
@@ -4533,6 +5020,123 @@ def «reader.U32.to_nat» : Def :=
                             (Term.Lab "Succ")
                             (Term.Tup
                               (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))
+              (Term.Lab "()"))))
+        (Term.All
+          (Quan.Q1)
+          (Term.App
+            (Quan.Q1)
+            (Term.Ref "Word")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Lab "Succ")
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Lab "Succ")
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Lab "Succ")
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Lab "Succ")
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Lab "Succ")
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Lab "Succ")
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Lab "Succ")
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Lab "Succ")
+                                          (Term.Tup
+                                            (Quan.Q1)
+                                            (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                            (Term.Lab "()")))
+                                        (Term.Lab "()")))
+                                    (Term.Lab "()")))
+                                (Term.Lab "()")))
+                            (Term.Lab "()")))
+                        (Term.Lab "()")))
+                    (Term.Lab "()")))
+                (Term.Lab "()"))))
+          (Term.App
+            (Quan.Q0)
+            (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
+            (Term.App
+              (Quan.Q0)
+              (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+              (Term.Ref "Item"))))),
+    Term.Prj
+      (Term.Mat
+        "None"
+        (Term.Mat
+          "()"
+          (Term.Lam
+            (Quan.Q1)
+            (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()"))))
+          (Term.Efq))
+        (Term.Mat
+          "Some"
+          (Term.Prj
+            (Term.Lam
+              (Quan.Q1)
+              (Term.Mat
+                "()"
+                (Term.Lam
+                  (Quan.Q1)
+                  (Term.Lam
+                    (Quan.Q1)
+                    (Term.App
+                      (Quan.Q1)
+                      (Term.App
+                        (Quan.Q1)
+                        (Term.App
+                          (Quan.Q1)
+                          (Term.Ref "Book.read.token")
+                          (Term.App
+                            (Quan.Q1)
+                            (Term.App
+                              (Quan.Q1)
+                              (Term.Ref "Word.to_nat")
                               (Term.Tup
                                 (Quan.Q1)
                                 (Term.Lab "Succ")
@@ -4575,168 +5179,8 @@ def «reader.U32.to_nat» : Def :=
                                                               (Quan.Q1)
                                                               (Term.Tup
                                                                 (Quan.Q1)
-                                                                (Term.Lab "Succ")
-                                                                (Term.Tup
-                                                                  (Quan.Q1)
-                                                                  (Term.Tup
-                                                                    (Quan.Q1)
-                                                                    (Term.Lab "Succ")
-                                                                    (Term.Tup
-                                                                      (Quan.Q1)
-                                                                      (Term.Tup
-                                                                        (Quan.Q1)
-                                                                        (Term.Lab "Succ")
-                                                                        (Term.Tup
-                                                                          (Quan.Q1)
-                                                                          (Term.Tup
-                                                                            (Quan.Q1)
-                                                                            (Term.Lab "Succ")
-                                                                            (Term.Tup
-                                                                              (Quan.Q1)
-                                                                              (Term.Tup
-                                                                                (Quan.Q1)
-                                                                                (Term.Lab "Succ")
-                                                                                (Term.Tup
-                                                                                  (Quan.Q1)
-                                                                                  (Term.Tup
-                                                                                    (Quan.Q1)
-                                                                                    (Term.Lab
-                                                                                      "Succ")
-                                                                                    (Term.Tup
-                                                                                      (Quan.Q1)
-                                                                                      (Term.Tup
-                                                                                        (Quan.Q1)
-                                                                                        (Term.Lab
-                                                                                          "Succ")
-                                                                                        (Term.Tup
-                                                                                          (Quan.Q1)
-                                                                                          (Term.Tup
-                                                                                            (Quan.Q1)
-                                                                                            (Term.Lab
-                                                                                              "Succ")
-                                                                                            (Term.Tup
-                                                                                              (Quan.Q1)
-                                                                                              (Term.Tup
-                                                                                                (Quan.Q1)
-                                                                                                (Term.Lab
-                                                                                                  "Succ")
-                                                                                                (Term.Tup
-                                                                                                  (Quan.Q1)
-                                                                                                  (Term.Tup
-                                                                                                    (Quan.Q1)
-                                                                                                    (Term.Lab
-                                                                                                      "Succ")
-                                                                                                    (Term.Tup
-                                                                                                      (Quan.Q1)
-                                                                                                      (Term.Tup
-                                                                                                        (Quan.Q1)
-                                                                                                        (Term.Lab
-                                                                                                          "Succ")
-                                                                                                        (Term.Tup
-                                                                                                          (Quan.Q1)
-                                                                                                          (Term.Tup
-                                                                                                            (Quan.Q1)
-                                                                                                            (Term.Lab
-                                                                                                              "Succ")
-                                                                                                            (Term.Tup
-                                                                                                              (Quan.Q1)
-                                                                                                              (Term.Tup
-                                                                                                                (Quan.Q1)
-                                                                                                                (Term.Lab
-                                                                                                                  "Succ")
-                                                                                                                (Term.Tup
-                                                                                                                  (Quan.Q1)
-                                                                                                                  (Term.Tup
-                                                                                                                    (Quan.Q1)
-                                                                                                                    (Term.Lab
-                                                                                                                      "Succ")
-                                                                                                                    (Term.Tup
-                                                                                                                      (Quan.Q1)
-                                                                                                                      (Term.Tup
-                                                                                                                        (Quan.Q1)
-                                                                                                                        (Term.Lab
-                                                                                                                          "Succ")
-                                                                                                                        (Term.Tup
-                                                                                                                          (Quan.Q1)
-                                                                                                                          (Term.Tup
-                                                                                                                            (Quan.Q1)
-                                                                                                                            (Term.Lab
-                                                                                                                              "Succ")
-                                                                                                                            (Term.Tup
-                                                                                                                              (Quan.Q1)
-                                                                                                                              (Term.Tup
-                                                                                                                                (Quan.Q1)
-                                                                                                                                (Term.Lab
-                                                                                                                                  "Succ")
-                                                                                                                                (Term.Tup
-                                                                                                                                  (Quan.Q1)
-                                                                                                                                  (Term.Tup
-                                                                                                                                    (Quan.Q1)
-                                                                                                                                    (Term.Lab
-                                                                                                                                      "Succ")
-                                                                                                                                    (Term.Tup
-                                                                                                                                      (Quan.Q1)
-                                                                                                                                      (Term.Tup
-                                                                                                                                        (Quan.Q1)
-                                                                                                                                        (Term.Lab
-                                                                                                                                          "Succ")
-                                                                                                                                        (Term.Tup
-                                                                                                                                          (Quan.Q1)
-                                                                                                                                          (Term.Tup
-                                                                                                                                            (Quan.Q1)
-                                                                                                                                            (Term.Lab
-                                                                                                                                              "Succ")
-                                                                                                                                            (Term.Tup
-                                                                                                                                              (Quan.Q1)
-                                                                                                                                              (Term.Tup
-                                                                                                                                                (Quan.Q1)
-                                                                                                                                                (Term.Lab
-                                                                                                                                                  "Succ")
-                                                                                                                                                (Term.Tup
-                                                                                                                                                  (Quan.Q1)
-                                                                                                                                                  (Term.Tup
-                                                                                                                                                    (Quan.Q1)
-                                                                                                                                                    (Term.Lab
-                                                                                                                                                      "Zero")
-                                                                                                                                                    (Term.Lab
-                                                                                                                                                      "()"))
-                                                                                                                                                  (Term.Lab
-                                                                                                                                                    "()")))
-                                                                                                                                              (Term.Lab
-                                                                                                                                                "()")))
-                                                                                                                                          (Term.Lab
-                                                                                                                                            "()")))
-                                                                                                                                      (Term.Lab
-                                                                                                                                        "()")))
-                                                                                                                                  (Term.Lab
-                                                                                                                                    "()")))
-                                                                                                                              (Term.Lab
-                                                                                                                                "()")))
-                                                                                                                          (Term.Lab
-                                                                                                                            "()")))
-                                                                                                                      (Term.Lab
-                                                                                                                        "()")))
-                                                                                                                  (Term.Lab
-                                                                                                                    "()")))
-                                                                                                              (Term.Lab
-                                                                                                                "()")))
-                                                                                                          (Term.Lab
-                                                                                                            "()")))
-                                                                                                      (Term.Lab
-                                                                                                        "()")))
-                                                                                                  (Term.Lab
-                                                                                                    "()")))
-                                                                                              (Term.Lab
-                                                                                                "()")))
-                                                                                          (Term.Lab
-                                                                                            "()")))
-                                                                                      (Term.Lab
-                                                                                        "()")))
-                                                                                  (Term.Lab "()")))
-                                                                              (Term.Lab "()")))
-                                                                          (Term.Lab "()")))
-                                                                      (Term.Lab "()")))
-                                                                  (Term.Lab "()")))
+                                                                (Term.Lab "Zero")
+                                                                (Term.Lab "()"))
                                                               (Term.Lab "()")))
                                                           (Term.Lab "()")))
                                                       (Term.Lab "()")))
@@ -4744,67 +5188,8 @@ def «reader.U32.to_nat» : Def :=
                                               (Term.Lab "()")))
                                           (Term.Lab "()")))
                                       (Term.Lab "()")))
-                                  (Term.Lab "()")))
-                              (Term.Lab "()")))
-                          (Term.Lab "()")))
-                      (Term.Lab "()"))))
-                (Term.Var 0))
-              (Term.Efq))))
-        (Term.Efq)),
-    false⟩
-
-def «reader.Book.read.step» : Def :=
-  ⟨"Book.read.step",
-    Term.All
-      (Quan.Q1)
-      (Term.App
-        (Quan.Q0)
-        (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
-        (Term.App
-          (Quan.Q0)
-          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-          (Term.Ref "Item")))
-      (Term.All
-        (Quan.Q1)
-        (Term.Ref "U32")
-        (Term.All
-          (Quan.Q1)
-          (Term.Ref "U32")
-          (Term.App
-            (Quan.Q0)
-            (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
-            (Term.App
-              (Quan.Q0)
-              (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-              (Term.Ref "Item"))))),
-    Term.Prj
-      (Term.Mat
-        "None"
-        (Term.Mat
-          "()"
-          (Term.Lam
-            (Quan.Q1)
-            (Term.Lam (Quan.Q1) (Term.Tup (Quan.Q1) (Term.Lab "None") (Term.Lab "()"))))
-          (Term.Efq))
-        (Term.Mat
-          "Some"
-          (Term.Prj
-            (Term.Lam
-              (Quan.Q1)
-              (Term.Mat
-                "()"
-                (Term.Lam
-                  (Quan.Q1)
-                  (Term.Lam
-                    (Quan.Q1)
-                    (Term.App
-                      (Quan.Q1)
-                      (Term.App
-                        (Quan.Q1)
-                        (Term.App
-                          (Quan.Q1)
-                          (Term.Ref "Book.read.token")
-                          (Term.App (Quan.Q1) (Term.Ref "U32.to_nat") (Term.Var 1)))
+                                  (Term.Lab "()"))))
+                            (Term.Var 1)))
                         (Term.Var 2))
                       (Term.Var 0))))
                 (Term.Efq))))
@@ -4905,7 +5290,61 @@ def «reader.Book.read.go» : Def :=
   ⟨"Book.read.go",
     Term.All
       (Quan.Q1)
-      (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
+      (Term.App
+        (Quan.Q0)
+        (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+        (Term.App
+          (Quan.Q1)
+          (Term.Ref "Word")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Lab "Succ")
+            (Term.Tup
+              (Quan.Q1)
+              (Term.Tup
+                (Quan.Q1)
+                (Term.Lab "Succ")
+                (Term.Tup
+                  (Quan.Q1)
+                  (Term.Tup
+                    (Quan.Q1)
+                    (Term.Lab "Succ")
+                    (Term.Tup
+                      (Quan.Q1)
+                      (Term.Tup
+                        (Quan.Q1)
+                        (Term.Lab "Succ")
+                        (Term.Tup
+                          (Quan.Q1)
+                          (Term.Tup
+                            (Quan.Q1)
+                            (Term.Lab "Succ")
+                            (Term.Tup
+                              (Quan.Q1)
+                              (Term.Tup
+                                (Quan.Q1)
+                                (Term.Lab "Succ")
+                                (Term.Tup
+                                  (Quan.Q1)
+                                  (Term.Tup
+                                    (Quan.Q1)
+                                    (Term.Lab "Succ")
+                                    (Term.Tup
+                                      (Quan.Q1)
+                                      (Term.Tup
+                                        (Quan.Q1)
+                                        (Term.Lab "Succ")
+                                        (Term.Tup
+                                          (Quan.Q1)
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
+                                          (Term.Lab "()")))
+                                      (Term.Lab "()")))
+                                  (Term.Lab "()")))
+                              (Term.Lab "()")))
+                          (Term.Lab "()")))
+                      (Term.Lab "()")))
+                  (Term.Lab "()")))
+              (Term.Lab "()")))))
       (Term.All
         (Quan.Q1)
         (Term.App
@@ -4982,35 +5421,9 @@ def «reader.Book.read» : Def :=
   ⟨"Book.read",
     Term.All
       (Quan.Q1)
-      (Term.App (Quan.Q0) (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "U32"))
       (Term.App
         (Quan.Q0)
-        (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
-        (Term.App
-          (Quan.Q0)
-          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
-          (Term.Ref "Def"))),
-    Term.Lam
-      (Quan.Q1)
-      (Term.App
-        (Quan.Q1)
-        (Term.App (Quan.Q1) (Term.Ref "Book.read.go") (Term.Var 0))
-        (Term.Tup
-          (Quan.Q1)
-          (Term.Lab "Some")
-          (Term.Tup
-            (Quan.Q1)
-            (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
-            (Term.Lab "()")))),
-    false⟩
-
-def «reader.U32.arms» : Def :=
-  ⟨"U32.arms",
-    Term.All (Quan.Q1) (Term.Enu ["U32"]) (Term.Typ (Term.Lab "Q2")),
-    Term.Mat
-      "U32"
-      (Term.Sig
-        (Quan.Q1)
+        (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
         (Term.App
           (Quan.Q1)
           (Term.Ref "Word")
@@ -5054,184 +5467,7 @@ def «reader.U32.arms» : Def :=
                                         (Term.Lab "Succ")
                                         (Term.Tup
                                           (Quan.Q1)
-                                          (Term.Tup
-                                            (Quan.Q1)
-                                            (Term.Lab "Succ")
-                                            (Term.Tup
-                                              (Quan.Q1)
-                                              (Term.Tup
-                                                (Quan.Q1)
-                                                (Term.Lab "Succ")
-                                                (Term.Tup
-                                                  (Quan.Q1)
-                                                  (Term.Tup
-                                                    (Quan.Q1)
-                                                    (Term.Lab "Succ")
-                                                    (Term.Tup
-                                                      (Quan.Q1)
-                                                      (Term.Tup
-                                                        (Quan.Q1)
-                                                        (Term.Lab "Succ")
-                                                        (Term.Tup
-                                                          (Quan.Q1)
-                                                          (Term.Tup
-                                                            (Quan.Q1)
-                                                            (Term.Lab "Succ")
-                                                            (Term.Tup
-                                                              (Quan.Q1)
-                                                              (Term.Tup
-                                                                (Quan.Q1)
-                                                                (Term.Lab "Succ")
-                                                                (Term.Tup
-                                                                  (Quan.Q1)
-                                                                  (Term.Tup
-                                                                    (Quan.Q1)
-                                                                    (Term.Lab "Succ")
-                                                                    (Term.Tup
-                                                                      (Quan.Q1)
-                                                                      (Term.Tup
-                                                                        (Quan.Q1)
-                                                                        (Term.Lab "Succ")
-                                                                        (Term.Tup
-                                                                          (Quan.Q1)
-                                                                          (Term.Tup
-                                                                            (Quan.Q1)
-                                                                            (Term.Lab "Succ")
-                                                                            (Term.Tup
-                                                                              (Quan.Q1)
-                                                                              (Term.Tup
-                                                                                (Quan.Q1)
-                                                                                (Term.Lab "Succ")
-                                                                                (Term.Tup
-                                                                                  (Quan.Q1)
-                                                                                  (Term.Tup
-                                                                                    (Quan.Q1)
-                                                                                    (Term.Lab
-                                                                                      "Succ")
-                                                                                    (Term.Tup
-                                                                                      (Quan.Q1)
-                                                                                      (Term.Tup
-                                                                                        (Quan.Q1)
-                                                                                        (Term.Lab
-                                                                                          "Succ")
-                                                                                        (Term.Tup
-                                                                                          (Quan.Q1)
-                                                                                          (Term.Tup
-                                                                                            (Quan.Q1)
-                                                                                            (Term.Lab
-                                                                                              "Succ")
-                                                                                            (Term.Tup
-                                                                                              (Quan.Q1)
-                                                                                              (Term.Tup
-                                                                                                (Quan.Q1)
-                                                                                                (Term.Lab
-                                                                                                  "Succ")
-                                                                                                (Term.Tup
-                                                                                                  (Quan.Q1)
-                                                                                                  (Term.Tup
-                                                                                                    (Quan.Q1)
-                                                                                                    (Term.Lab
-                                                                                                      "Succ")
-                                                                                                    (Term.Tup
-                                                                                                      (Quan.Q1)
-                                                                                                      (Term.Tup
-                                                                                                        (Quan.Q1)
-                                                                                                        (Term.Lab
-                                                                                                          "Succ")
-                                                                                                        (Term.Tup
-                                                                                                          (Quan.Q1)
-                                                                                                          (Term.Tup
-                                                                                                            (Quan.Q1)
-                                                                                                            (Term.Lab
-                                                                                                              "Succ")
-                                                                                                            (Term.Tup
-                                                                                                              (Quan.Q1)
-                                                                                                              (Term.Tup
-                                                                                                                (Quan.Q1)
-                                                                                                                (Term.Lab
-                                                                                                                  "Succ")
-                                                                                                                (Term.Tup
-                                                                                                                  (Quan.Q1)
-                                                                                                                  (Term.Tup
-                                                                                                                    (Quan.Q1)
-                                                                                                                    (Term.Lab
-                                                                                                                      "Succ")
-                                                                                                                    (Term.Tup
-                                                                                                                      (Quan.Q1)
-                                                                                                                      (Term.Tup
-                                                                                                                        (Quan.Q1)
-                                                                                                                        (Term.Lab
-                                                                                                                          "Succ")
-                                                                                                                        (Term.Tup
-                                                                                                                          (Quan.Q1)
-                                                                                                                          (Term.Tup
-                                                                                                                            (Quan.Q1)
-                                                                                                                            (Term.Lab
-                                                                                                                              "Succ")
-                                                                                                                            (Term.Tup
-                                                                                                                              (Quan.Q1)
-                                                                                                                              (Term.Tup
-                                                                                                                                (Quan.Q1)
-                                                                                                                                (Term.Lab
-                                                                                                                                  "Succ")
-                                                                                                                                (Term.Tup
-                                                                                                                                  (Quan.Q1)
-                                                                                                                                  (Term.Tup
-                                                                                                                                    (Quan.Q1)
-                                                                                                                                    (Term.Lab
-                                                                                                                                      "Succ")
-                                                                                                                                    (Term.Tup
-                                                                                                                                      (Quan.Q1)
-                                                                                                                                      (Term.Tup
-                                                                                                                                        (Quan.Q1)
-                                                                                                                                        (Term.Lab
-                                                                                                                                          "Succ")
-                                                                                                                                        (Term.Tup
-                                                                                                                                          (Quan.Q1)
-                                                                                                                                          (Term.Tup
-                                                                                                                                            (Quan.Q1)
-                                                                                                                                            (Term.Lab
-                                                                                                                                              "Zero")
-                                                                                                                                            (Term.Lab
-                                                                                                                                              "()"))
-                                                                                                                                          (Term.Lab
-                                                                                                                                            "()")))
-                                                                                                                                      (Term.Lab
-                                                                                                                                        "()")))
-                                                                                                                                  (Term.Lab
-                                                                                                                                    "()")))
-                                                                                                                              (Term.Lab
-                                                                                                                                "()")))
-                                                                                                                          (Term.Lab
-                                                                                                                            "()")))
-                                                                                                                      (Term.Lab
-                                                                                                                        "()")))
-                                                                                                                  (Term.Lab
-                                                                                                                    "()")))
-                                                                                                              (Term.Lab
-                                                                                                                "()")))
-                                                                                                          (Term.Lab
-                                                                                                            "()")))
-                                                                                                      (Term.Lab
-                                                                                                        "()")))
-                                                                                                  (Term.Lab
-                                                                                                    "()")))
-                                                                                              (Term.Lab
-                                                                                                "()")))
-                                                                                          (Term.Lab
-                                                                                            "()")))
-                                                                                      (Term.Lab
-                                                                                        "()")))
-                                                                                  (Term.Lab "()")))
-                                                                              (Term.Lab "()")))
-                                                                          (Term.Lab "()")))
-                                                                      (Term.Lab "()")))
-                                                                  (Term.Lab "()")))
-                                                              (Term.Lab "()")))
-                                                          (Term.Lab "()")))
-                                                      (Term.Lab "()")))
-                                                  (Term.Lab "()")))
-                                              (Term.Lab "()")))
+                                          (Term.Tup (Quan.Q1) (Term.Lab "Zero") (Term.Lab "()"))
                                           (Term.Lab "()")))
                                       (Term.Lab "()")))
                                   (Term.Lab "()")))
@@ -5239,15 +5475,135 @@ def «reader.U32.arms» : Def :=
                           (Term.Lab "()")))
                       (Term.Lab "()")))
                   (Term.Lab "()")))
-              (Term.Lab "()"))))
-        (Term.Enu ["()"]))
-      (Term.Efq),
+              (Term.Lab "()")))))
+      (Term.App
+        (Quan.Q0)
+        (Term.App (Quan.Q0) (Term.Ref "Maybe") (Term.Lab "Q1"))
+        (Term.App
+          (Quan.Q0)
+          (Term.App (Quan.Q0) (Term.Ref "List") (Term.Lab "Q2"))
+          (Term.Ref "Def"))),
+    Term.Lam
+      (Quan.Q1)
+      (Term.App
+        (Quan.Q1)
+        (Term.App (Quan.Q1) (Term.Ref "Book.read.go") (Term.Var 0))
+        (Term.Tup
+          (Quan.Q1)
+          (Term.Lab "Some")
+          (Term.Tup
+            (Quan.Q1)
+            (Term.Tup (Quan.Q1) (Term.Lab "Nil") (Term.Lab "()"))
+            (Term.Lab "()")))),
     false⟩
 
-def «reader.U32» : Def :=
-  ⟨"U32",
+def «reader.Maybe.arms» : Def :=
+  ⟨"Maybe.arms",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All
+        (Quan.Q0)
+        (Term.Typ (Term.Var 0))
+        (Term.All (Quan.Q1) (Term.Enu ["None", "Some"]) (Term.Typ (Term.Var 2)))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Mat
+          "None"
+          (Term.Enu ["()"])
+          (Term.Mat "Some" (Term.Sig (Quan.Q1) (Term.Var 0) (Term.Enu ["()"])) (Term.Efq)))),
+    false⟩
+
+def «reader.Maybe» : Def :=
+  ⟨"Maybe",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Sig
+          (Quan.Q1)
+          (Term.Enu ["None", "Some"])
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q0)
+              (Term.App (Quan.Q0) (Term.Ref "Maybe.arms") (Term.Var 2))
+              (Term.Var 1))
+            (Term.Var 0)))),
+    false⟩
+
+def «reader.List.arms» : Def :=
+  ⟨"List.arms",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All
+        (Quan.Q0)
+        (Term.Typ (Term.Var 0))
+        (Term.All (Quan.Q1) (Term.Enu ["Nil", "Con"]) (Term.Typ (Term.Var 2)))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Mat
+          "Nil"
+          (Term.Enu ["()"])
+          (Term.Mat
+            "Con"
+            (Term.Sig
+              (Quan.Q1)
+              (Term.Var 0)
+              (Term.Sig
+                (Quan.Q1)
+                (Term.App
+                  (Quan.Q0)
+                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Var 2))
+                  (Term.Var 1))
+                (Term.Enu ["()"])))
+            (Term.Efq)))),
+    false⟩
+
+def «reader.List» : Def :=
+  ⟨"List",
+    Term.All
+      (Quan.Q0)
+      (Term.Enu ["Q0", "Q1", "Q2"])
+      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
+    Term.Lam
+      (Quan.Q0)
+      (Term.Lam
+        (Quan.Q0)
+        (Term.Sig
+          (Quan.Q1)
+          (Term.Enu ["Nil", "Con"])
+          (Term.App
+            (Quan.Q1)
+            (Term.App
+              (Quan.Q0)
+              (Term.App (Quan.Q0) (Term.Ref "List.arms") (Term.Var 2))
+              (Term.Var 1))
+            (Term.Var 0)))),
+    false⟩
+
+def «reader.Bool.arms» : Def :=
+  ⟨"Bool.arms",
+    Term.All (Quan.Q1) (Term.Enu ["False", "True"]) (Term.Typ (Term.Lab "Q2")),
+    Term.Mat "False" (Term.Enu ["()"]) (Term.Mat "True" (Term.Enu ["()"]) (Term.Efq)),
+    false⟩
+
+def «reader.Bool» : Def :=
+  ⟨"Bool",
     Term.Typ (Term.Lab "Q2"),
-    Term.Sig (Quan.Q1) (Term.Enu ["U32"]) (Term.App (Quan.Q1) (Term.Ref "U32.arms") (Term.Var 0)),
+    Term.Sig
+      (Quan.Q1)
+      (Term.Enu ["False", "True"])
+      (Term.App (Quan.Q1) (Term.Ref "Bool.arms") (Term.Var 0)),
     false⟩
 
 def «reader.Word.Nil.arms» : Def :=
@@ -5312,62 +5668,6 @@ def «reader.Word» : Def :=
           (Term.Efq))),
     false⟩
 
-def «reader.Maybe.arms» : Def :=
-  ⟨"Maybe.arms",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All
-        (Quan.Q0)
-        (Term.Typ (Term.Var 0))
-        (Term.All (Quan.Q1) (Term.Enu ["None", "Some"]) (Term.Typ (Term.Var 2)))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Mat
-          "None"
-          (Term.Enu ["()"])
-          (Term.Mat "Some" (Term.Sig (Quan.Q1) (Term.Var 0) (Term.Enu ["()"])) (Term.Efq)))),
-    false⟩
-
-def «reader.Maybe» : Def :=
-  ⟨"Maybe",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Sig
-          (Quan.Q1)
-          (Term.Enu ["None", "Some"])
-          (Term.App
-            (Quan.Q1)
-            (Term.App
-              (Quan.Q0)
-              (Term.App (Quan.Q0) (Term.Ref "Maybe.arms") (Term.Var 2))
-              (Term.Var 1))
-            (Term.Var 0)))),
-    false⟩
-
-def «reader.Bool.arms» : Def :=
-  ⟨"Bool.arms",
-    Term.All (Quan.Q1) (Term.Enu ["False", "True"]) (Term.Typ (Term.Lab "Q2")),
-    Term.Mat "False" (Term.Enu ["()"]) (Term.Mat "True" (Term.Enu ["()"]) (Term.Efq)),
-    false⟩
-
-def «reader.Bool» : Def :=
-  ⟨"Bool",
-    Term.Typ (Term.Lab "Q2"),
-    Term.Sig
-      (Quan.Q1)
-      (Term.Enu ["False", "True"])
-      (Term.App (Quan.Q1) (Term.Ref "Bool.arms") (Term.Var 0)),
-    false⟩
-
 def «reader.Nat.arms» : Def :=
   ⟨"Nat.arms",
     Term.All (Quan.Q1) (Term.Enu ["Zero", "Succ"]) (Term.Typ (Term.Lab "Q2")),
@@ -5384,59 +5684,6 @@ def «reader.Nat» : Def :=
       (Quan.Q1)
       (Term.Enu ["Zero", "Succ"])
       (Term.App (Quan.Q1) (Term.Ref "Nat.arms") (Term.Var 0)),
-    false⟩
-
-def «reader.List.arms» : Def :=
-  ⟨"List.arms",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All
-        (Quan.Q0)
-        (Term.Typ (Term.Var 0))
-        (Term.All (Quan.Q1) (Term.Enu ["Nil", "Con"]) (Term.Typ (Term.Var 2)))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Mat
-          "Nil"
-          (Term.Enu ["()"])
-          (Term.Mat
-            "Con"
-            (Term.Sig
-              (Quan.Q1)
-              (Term.Var 0)
-              (Term.Sig
-                (Quan.Q1)
-                (Term.App
-                  (Quan.Q0)
-                  (Term.App (Quan.Q0) (Term.Ref "List") (Term.Var 2))
-                  (Term.Var 1))
-                (Term.Enu ["()"])))
-            (Term.Efq)))),
-    false⟩
-
-def «reader.List» : Def :=
-  ⟨"List",
-    Term.All
-      (Quan.Q0)
-      (Term.Enu ["Q0", "Q1", "Q2"])
-      (Term.All (Quan.Q0) (Term.Typ (Term.Var 0)) (Term.Typ (Term.Var 1))),
-    Term.Lam
-      (Quan.Q0)
-      (Term.Lam
-        (Quan.Q0)
-        (Term.Sig
-          (Quan.Q1)
-          (Term.Enu ["Nil", "Con"])
-          (Term.App
-            (Quan.Q1)
-            (Term.App
-              (Quan.Q0)
-              (Term.App (Quan.Q0) (Term.Ref "List.arms") (Term.Var 2))
-              (Term.Var 1))
-            (Term.Var 0)))),
     false⟩
 
 def reader : List Def :=
@@ -5477,23 +5724,20 @@ def reader : List Def :=
    «reader.Book.read.token»,
    «reader.Nat.double»,
    «reader.Word.to_nat»,
-   «reader.U32.to_nat»,
    «reader.Book.read.step»,
    «reader.Book.read.done»,
    «reader.Book.read.go»,
    «reader.Book.read»,
-   «reader.U32.arms»,
-   «reader.U32»,
+   «reader.Maybe.arms»,
+   «reader.Maybe»,
+   «reader.List.arms»,
+   «reader.List»,
+   «reader.Bool.arms»,
+   «reader.Bool»,
    «reader.Word.Nil.arms»,
    «reader.Word.Nil»,
    «reader.Word.Con.arms»,
    «reader.Word.Con»,
    «reader.Word»,
-   «reader.Maybe.arms»,
-   «reader.Maybe»,
-   «reader.Bool.arms»,
-   «reader.Bool»,
    «reader.Nat.arms»,
-   «reader.Nat»,
-   «reader.List.arms»,
-   «reader.List»]
+   «reader.Nat»]

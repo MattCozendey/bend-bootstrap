@@ -61,9 +61,9 @@ def Sh.loop.stmt() -> C.Cir.Stmt:
 # the depth and the root, and any values j for the others that it writes
 def Sh.R(+regs0: List<&2, U32>, +pend: U32, +stack: U32, +depth: U32, +root: U32, +j: List<&2, U32>) -> List<&2, U32>:
   D.Ups([D.Up{3n, pend}, D.Up{4n, T.tm.reg(j, 0n)}, D.Up{5n, T.tm.reg(j, 1n)}, D.Up{6n, T.tm.reg(j, 2n)},
-    D.Up{7n, T.tm.reg(j, 3n)}, D.Up{33n, T.tm.reg(j, 4n)}, D.Up{41n, T.tm.reg(j, 5n)}, D.Up{55n, stack},
-    D.Up{56n, T.tm.reg(j, 6n)}, D.Up{57n, depth}, D.Up{58n, root}, D.Up{59n, T.tm.reg(j, 7n)},
-    D.Up{60n, T.tm.reg(j, 8n)}, D.Up{62n, T.tm.reg(j, 9n)}, D.Up{63n, T.tm.reg(j, 10n)}], D.Rg.ex(64n, regs0, 0n))
+    D.Up{7n, T.tm.reg(j, 3n)}, D.Up{33n, T.tm.reg(j, 4n)}, D.Up{41n, T.tm.reg(j, 5n)}, D.Up{54n, stack},
+    D.Up{55n, T.tm.reg(j, 6n)}, D.Up{56n, depth}, D.Up{57n, root}, D.Up{58n, T.tm.reg(j, 7n)},
+    D.Up{59n, T.tm.reg(j, 8n)}, D.Up{61n, T.tm.reg(j, 9n)}, D.Up{62n, T.tm.reg(j, 10n)}], D.Rg.ex(63n, regs0, 0n))
 
 # The invariant
 # -------------
@@ -79,13 +79,13 @@ type Wk is Data:
 # terms img, the image K, first F, the start's garbage P0 and next N0, the
 # bound Bu and its room Wu, the roots rs and kept cells kc, the source's cell
 # x and term t, and the start's measure Wm0
-def Sh.WI(+a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32, +P0: List<&2, U32>, +N0: U32,
+def Sh.WI(+a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32, +P0: List<&2, U32>, +N0: U32,
   +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>, +kc: List<&2, D.Kc>, +x: U32, +t: C.Term, +Wm0: Nat, +m: C.Cir.Cells,
   +nx: U32, +frs: List<&2, W.Fr>, +P: List<&2, U32>, +Q: List<&2, U32>, +inc: Nat, +pend: U32, +stack: U32,
   +depth: U32, +root: U32) -> Data:
   +mo = {D.Mo.shift{U32.to_nat(a)} : D.Mo}
   +X = {List.append(&2, U32, P, Con{root, List.append(&2, U32, W.Ns(frs), E)}) : List<&2, U32>}
-  D.P2({U32.is_le(363, K) == True{} : Bool},
+  D.P2({U32.is_le(290, K) == True{} : Bool},
   D.P2({U32.is_lt(K, F) == True{} : Bool},
   D.P2({U32.is_le(F, nx) == True{} : Bool},
   D.P2({C.Cir.is_cell(root, K, F, nx) == True{} : Bool},
@@ -107,7 +107,7 @@ def Sh.WI(+a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32
     {W.Pz(Con{root, W.Ns(frs)}, P, m) == True{} : Bool})))))))))))))))))))
 
 # the invariant of a state, by its witness w, with the registers rg
-def Sh.WI.of(+regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Sh.WI.of(+regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>, +kc: List<&2, D.Kc>, +x: U32, +t: C.Term,
   +Wm0: Nat, w: Wk, +rg: List<&2, U32>, +m: C.Cir.Cells, +nx: U32) -> Data:
   match w:
@@ -126,11 +126,11 @@ def Wk.m(w: Wk) -> Nat:
 
 # a round of the loop: the invariant again, with a smaller measure, or out of
 # memory
-def Sh.body.ok(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32,
-  +F: U32, +L: U32, +I: List<&2, U32>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
+def Sh.body.ok(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32,
+  +F: U32, +L: U32, +I: List<&2, Word(8n)>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
   +kc: List<&2, D.Kc>, +x: U32, +t: C.Term, +Wm0: Nat, +m: C.Cir.Cells, +nx: U32, +pg: U32, +fr: W.Fr,
   +frs: List<&2, W.Fr>, +P: List<&2, U32>, +Q: List<&2, U32>, +inc: Nat, +pend: U32, +stack: U32, +depth: U32,
-  +root: U32, +j: List<&2, U32>, ha: {T.tm.reg(regs0, 61n) == a : U32},
+  +root: U32, +j: List<&2, U32>, ha: {T.tm.reg(regs0, 60n) == a : U32},
   wi: Sh.WI(a, ks, img, K, F, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, m, nx, Con{fr, frs}, P, Q, inc, pend, stack, depth, root)) ->
   D.Ok(C.Cir.exec(1n+f, Sh.body(), D.S(Sh.R(regs0, pend, stack, depth, root, j), m, nx, F, K, pg, L, I)), F, K, L, I,
     rg => ms => nx2 => pg2 => D.Ex(Wk, w => D.P2(Sh.WI.of(regs0, a, ks, img, K, F, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, w, rg, ms, nx2),
@@ -138,7 +138,7 @@ def Sh.body.ok(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U
   ?TODO
 
 # the loop's end: the frames are gone and the root's field 2 holds the copy
-def Sh.fin(+regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
+def Sh.fin(+regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32,
   +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>, +kc: List<&2, D.Kc>, +x: U32, +t: C.Term,
   +Wm0: Nat, +rg: List<&2, U32>, +m: C.Cir.Cells, +nx: U32) -> Data:
   D.Ex(Wk, w => D.P2(Sh.WI.of(regs0, a, ks, img, K, F, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, w, rg, m, nx),
@@ -148,7 +148,7 @@ def Sh.fin(+regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: L
 # --------
 
 # the stack register holds the top frame's cell, which is not 0
-def Sh.nz(+a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32, +F: U32, +P0: List<&2, U32>, +N0: U32,
+def Sh.nz(+a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32, +F: U32, +P0: List<&2, U32>, +N0: U32,
   +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>, +kc: List<&2, D.Kc>, +x: U32, +t: C.Term, +Wm0: Nat, +m: C.Cir.Cells,
   +nx: U32, fr: W.Fr, +frs: List<&2, W.Fr>, +P: List<&2, U32>, +Q: List<&2, U32>, +inc: Nat, +pend: U32, +stack: U32,
   +depth: U32, +root: U32,
@@ -180,16 +180,16 @@ def Sh.nz(+a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32
       K.U.nz(n, K, F, hkf, hle)
 
 # Sh.loop's claim
-def Sh.loop.goal(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32,
-  +F: U32, +L: U32, +I: List<&2, U32>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
+def Sh.loop.goal(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32,
+  +F: U32, +L: U32, +I: List<&2, Word(8n)>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
   +kc: List<&2, D.Kc>, +x: U32, +t: C.Term, +Wm0: Nat, +m: C.Cir.Cells, +nx: U32, +pg: U32, +pend: U32, +stack: U32,
   +depth: U32, +root: U32, +j: List<&2, U32>) -> Type:
   D.Ok(C.Cir.exec(1n+f, Sh.loop.stmt(), D.S(Sh.R(regs0, pend, stack, depth, root, j), m, nx, F, K, pg, L, I)), F, K, L, I,
     rg => ms => nx2 => pg2 => Sh.fin(regs0, a, ks, img, K, F, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, rg, ms, nx2))
 
 # the loop's end, once the frames are gone
-def Sh.loop.nil(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32,
-  +F: U32, +L: U32, +I: List<&2, U32>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
+def Sh.loop.nil(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32,
+  +F: U32, +L: U32, +I: List<&2, Word(8n)>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
   +kc: List<&2, D.Kc>, +x: U32, +t: C.Term, +Wm0: Nat, +m: C.Cir.Cells, +nx: U32, +pg: U32,
   +P: List<&2, U32>, +Q: List<&2, U32>, +inc: Nat, +pend: U32, +stack: U32, +depth: U32, +root: U32, +j: List<&2, U32>,
   +wi: Sh.WI(a, ks, img, K, F, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, m, nx, [], P, Q, inc, pend, stack, depth, root)) ->
@@ -213,8 +213,8 @@ def Sh.loop.nil(+f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, 
 
 # a round's outcome: the invariant again, with a smaller measure, so that the
 # fuel left bounds it; k continues the loop from there
-def Sh.loop.next(+g: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32,
-  +F: U32, +L: U32, +I: List<&2, U32>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
+def Sh.loop.next(+g: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32,
+  +F: U32, +L: U32, +I: List<&2, Word(8n)>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
   +kc: List<&2, D.Kc>, +x: U32, +t: C.Term, +Wm0: Nat, +rg: List<&2, U32>, +ms: C.Cir.Cells, +nx2: U32, +pg2: U32,
   +Wold: Nat, hf: {Nat.is_le(Wold, 1n+g) == True{} : Bool},
   q: D.Ex(Wk, w => D.P2(Sh.WI.of(regs0, a, ks, img, K, F, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, w, rg, ms, nx2),
@@ -236,11 +236,11 @@ def Sh.loop.next(+g: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2,
       k(frs, P, Q, inc, pend, stack, depth, root, j, K.Na.lt_le(Wold, W.Wm(frs), g, hlt, hf), wi)
 
 # the loop, from a state of the invariant whose measure is at most the fuel
-def Sh.loop(f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +K: U32,
-  +F: U32, +L: U32, +I: List<&2, U32>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
+def Sh.loop(f: Nat, +regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +K: U32,
+  +F: U32, +L: U32, +I: List<&2, Word(8n)>, +P0: List<&2, U32>, +N0: U32, +Bu: U32, +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>,
   +kc: List<&2, D.Kc>, +x: U32, +t: C.Term, +Wm0: Nat, +m: C.Cir.Cells, +nx: U32, +pg: U32, frs: List<&2, W.Fr>,
   +P: List<&2, U32>, +Q: List<&2, U32>, +inc: Nat, +pend: U32, +stack: U32, +depth: U32, +root: U32, +j: List<&2, U32>,
-  +ha: {T.tm.reg(regs0, 61n) == a : U32}, hf: {Nat.is_le(W.Wm(frs), f) == True{} : Bool},
+  +ha: {T.tm.reg(regs0, 60n) == a : U32}, hf: {Nat.is_le(W.Wm(frs), f) == True{} : Bool},
   +wi: Sh.WI(a, ks, img, K, F, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, m, nx, frs, P, Q, inc, pend, stack, depth, root)) ->
   Sh.loop.goal(f, regs0, a, ks, img, K, F, L, I, P0, N0, Bu, Wu, E, rs, kc, x, t, Wm0, m, nx, pg, pend, stack, depth, root, j):
   match f frs:
@@ -277,17 +277,17 @@ def Sh.fr0(+n0: U32, +x: U32, +t: C.Term) -> W.Fr:
 # M.copy.root, then the stack and the depth: the invariant holds of the root
 # frame, with the measure 1 + 2 × Sz(t)
 def Sh.start(+f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
-  +I: List<&2, U32>, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +P: List<&2, U32>, +Q: List<&2, U32>, +Bu: U32,
+  +I: List<&2, Word(8n)>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +P: List<&2, U32>, +Q: List<&2, U32>, +Bu: U32,
   +Wu: U32, +E: List<&2, U32>, +rs: List<&2, D.Rt>, +kc: List<&2, D.Kc>, +t: C.Term, +g: Nat, +a: U32, +B: C.Cir.Stmt,
   -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
   pre: D.Pre(regs, m, nx, F, K, ks, img, P, Q, E, Bu, Wu, rs, kc),
-  ht: {D.Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, 63n)) == Some{t} : Maybe<&2, C.Term>},
+  ht: {D.Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, 62n)) == Some{t} : Maybe<&2, C.Term>},
   hf: {D.Fit(t, a) == True{} : Bool},
   hw: {Nat.is_le(2n+Nat.double(D.Sz(t)), U32.to_nat(Wu)) == True{} : Bool},
   k: @ms: C.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> @P2: List<&2, U32> -> @Q2: List<&2, U32> -> @pend: U32 -> @n0: U32 ->
     @j: List<&2, U32> ->
-    Sh.WI(a, ks, img, K, F, P, nx, Bu, Wu, E, rs, kc, T.tm.reg(regs, 63n), t, 1n+Nat.double(D.Sz(t)), ms, nx2,
-      [Sh.fr0(n0, T.tm.reg(regs, 63n), t)], P2, Q2, 0n, pend, n0, 0, n0) ->
+    Sh.WI(a, ks, img, K, F, P, nx, Bu, Wu, E, rs, kc, T.tm.reg(regs, 62n), t, 1n+Nat.double(D.Sz(t)), ms, nx2,
+      [Sh.fr0(n0, T.tm.reg(regs, 62n), t)], P2, Q2, 0n, pend, n0, 0, n0) ->
     D.Ok(C.Cir.exec(1n+f, B, D.S(Sh.R(regs, pend, n0, 0, n0, j), ms, nx2, F, K, pg2, L, I)), F, K, L, I, R)) ->
   D.Ok(C.Cir.exec(1n+f, C.Cir.Stmt.seq{C.M.copy.root(C.R.sroot(), C.R.t2()), C.Cir.Stmt.seq{C.M.set(C.R.ss(), C.M.g(C.R.sroot())),
     C.Cir.Stmt.seq{C.M.set(C.R.scut(), C.M.c(0)), B}}}, D.S(regs, m, nx, F, K, pg, L, I)), F, K, L, I, R):
@@ -295,9 +295,9 @@ def Sh.start(+f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, 
 
 # M.copy.end: sres gets the copy from the root, whose cell goes to the pend list
 def Sh.end(+f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
-  +I: List<&2, U32>, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +P: List<&2, U32>, +Bu: U32, +Wu: U32, +E: List<&2, U32>,
+  +I: List<&2, Word(8n)>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +P: List<&2, U32>, +Bu: U32, +Wu: U32, +E: List<&2, U32>,
   +rs: List<&2, D.Rt>, +kc: List<&2, D.Kc>, +t: C.Term, +a: U32, +Wm0: Nat, +rg: List<&2, U32>, +ms: C.Cir.Cells, +nx2: U32,
-  +pg2: U32, fin: Sh.fin(regs, a, ks, img, K, F, P, nx, Bu, Wu, E, rs, kc, T.tm.reg(regs, 63n), t, Wm0, rg, ms, nx2)) ->
+  +pg2: U32, fin: Sh.fin(regs, a, ks, img, K, F, P, nx, Bu, Wu, E, rs, kc, T.tm.reg(regs, 62n), t, Wm0, rg, ms, nx2)) ->
   D.Ok(C.Cir.exec(1n+f, C.Cir.Stmt.seq{C.M.copy.end(C.R.sres(), C.R.sroot()), C.Cir.Stmt.nop{}}, D.S(rg, ms, nx2, F, K, pg2, L, I)),
     F, K, L, I, rg => ms => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(D.Mo.shift{U32.to_nat(a)}, t, regs, D.Sh.scratch(), C.R.sres(),
       ks, img, K, F, P, E, nx, Bu, Wu, rs, kc, w, rg, ms, nx3))):
@@ -314,7 +314,7 @@ def Sh.w0(+n0: U32, +x: U32, +t: C.Term) -> {Nat.is_le(W.Wm([Sh.fr0(n0, x, t)]),
 
 def D.Sh.ok(regs, m, nx, F, K, pg, L, I, ks, img, P, Q, Bu, Wu, E, rs, kc, t, g, a, pre, ht, ha, hf, hw):
   +W0 = {1n+Nat.double(D.Sz(t)) : Nat}
-  +x = {T.tm.reg(regs, 63n) : U32}
+  +x = {T.tm.reg(regs, 62n) : U32}
   +mo = {D.Mo.shift{U32.to_nat(a)} : D.Mo}
   +fin = {C.Cir.Stmt.seq{C.M.copy.end(C.R.sres(), C.R.sroot()), C.Cir.Stmt.nop{}} : C.Cir.Stmt}
   (1n+W0, Sh.start(W0, regs, m, nx, F, K, pg, L, I, ks, img, P, Q, Bu, Wu, E, rs, kc, t, g, a,

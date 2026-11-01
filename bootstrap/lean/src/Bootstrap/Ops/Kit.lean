@@ -146,19 +146,15 @@ theorem nat_succ : Form.nat (n + 1) = ctor "Succ" [Form.nat n] := rfl
 -- Arguments
 -- ---------
 
--- the labels of a cell (Bootstrap/Bytes.lean), taken from the cells: compiled
--- code compares two strings by pointer first, so a cell's labels, and those of
+-- the labels of a byte (Bootstrap/Bytes.lean), taken from the bytes: compiled
+-- code compares two strings by pointer first, so a byte's labels, and those of
 -- the words built here, compare at once
-def labU32 : String := match cell 1 with | Tup _ (Lab k) _ => k | _ => "U32"
-def labUnit : String := match cell 1 with | Tup _ _ (Tup _ _ (Lab k)) => k | _ => "()"
-def labWCon : String := match cell 1 with | Tup _ _ (Tup _ (Tup _ (Lab k) _) _) => k | _ => "WCon"
-def labTrue : String :=
-  match cell 1 with | Tup _ _ (Tup _ (Tup _ _ (Tup _ (Tup _ (Lab k) _) _)) _) => k | _ => "True"
-def labFalse : String :=
-  match cell 0 with | Tup _ _ (Tup _ (Tup _ _ (Tup _ (Tup _ (Lab k) _) _)) _) => k | _ => "False"
+def labWCon : String := match byte 1 with | Tup _ (Lab k) _ => k | _ => "WCon"
+def labUnit : String := match byte 1 with | Tup _ _ (Tup _ (Tup _ _ (Lab k)) _) => k | _ => "()"
+def labTrue : String := match byte 1 with | Tup _ _ (Tup _ (Tup _ (Lab k) _) _) => k | _ => "True"
+def labFalse : String := match byte 0 with | Tup _ _ (Tup _ (Tup _ (Lab k) _) _) => k | _ => "False"
 def labWNil : String := match bits 0 0 with | Tup _ (Lab k) _ => k | _ => "WNil"
 
-theorem labU32_eq : labU32 = "U32" := rfl
 theorem labUnit_eq : labUnit = "()" := rfl
 theorem labWCon_eq : labWCon = "WCon" := rfl
 theorem labTrue_eq : labTrue = "True" := rfl
@@ -198,7 +194,7 @@ theorem decW_eq (h : decW n w acc p = some v) : ∃ x, w = bits n x ∧ x < 2 ^ 
 
 -- the value of a U32 term
 def decU32 : @& Term → Option Nat
-  | Tup Q1 (Lab k) (Tup Q1 w (Lab u)) => if k = labU32 ∧ u = labUnit then decW 32 w 0 1 else none
+  | Tup Q1 (Lab k) (Tup Q1 w (Lab u)) => if k = "U32" ∧ u = labUnit then decW 32 w 0 1 else none
   | _ => none
 
 theorem decU32_eq (h : decU32 t = some v) : t = u32 v ∧ v < 2 ^ 32 := by
@@ -207,7 +203,7 @@ theorem decU32_eq (h : decU32 t = some v) : t = u32 v ∧ v < 2 ^ 32 := by
   next k w u =>
     split at h
     next hk =>
-      simp only [labU32_eq, labUnit_eq] at hk
+      simp only [labUnit_eq] at hk
       obtain ⟨rfl, rfl⟩ := hk
       obtain ⟨x, rfl, hx, rfl⟩ := decW_eq h
       simp only [Nat.zero_add, Nat.one_mul]
@@ -238,7 +234,7 @@ theorem decNat_eq (h : decNat t a = some m) : t = Form.nat (m - a) ∧ a ≤ m :
 def wnilT : Term := Tup Q1 (Lab labWNil) (Lab labUnit)
 def wconL : Term := Lab labWCon
 def unitL : Term := Lab labUnit
-def u32L : Term := Lab labU32
+def u32L : Term := Lab "U32"
 def trueB : Term := Tup Q1 (Lab labTrue) (Lab labUnit)
 def falseB : Term := Tup Q1 (Lab labFalse) (Lab labUnit)
 
@@ -268,16 +264,10 @@ theorem mkBits_eq : mkBits n v = bits n v := by
       rw [ih, bits_succ]
       split <;> simp_all [ctor, wconL, unitL, trueB, falseB, labWCon_eq, labUnit_eq, labTrue_eq, labFalse_eq]
 
--- a U32, with the 256 cells shared
-def mkU32 (v : Nat) : Term :=
-  if v < 256 then cell v.toUInt8 else Tup Q1 u32L (Tup Q1 (mkBits 32 v) unitL)
+-- a U32, with its parts shared
+def mkU32 (v : Nat) : Term := Tup Q1 u32L (Tup Q1 (mkBits 32 v) unitL)
 
 theorem mkU32_eq : mkU32 v = u32 v := by
-  unfold mkU32
-  split
-  next h =>
-    have : v.toUInt8.toNat = v := by simp [Nat.toUInt8, UInt8.toNat_ofNat]; omega
-    simp [cell, u32, this]
-  next => simp [mkBits_eq, u32, ctor, u32L, unitL, labU32_eq, labUnit_eq]
+  simp [mkU32, mkBits_eq, u32, ctor, u32L, unitL, labUnit_eq]
 
 end Ops

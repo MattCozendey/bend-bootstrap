@@ -141,19 +141,19 @@ def enc.from(-X: Data, xs: List<&2, X>) -> {C.Wasm.encode.len(X, xs) == U32.from
     case Con{_, rest}:
       Equal.cong(U32, U32, z => U32.inc(z), C.Wasm.encode.len(X, rest), U32.from_nat(List.length(&2, X, rest)), enc.from(X, rest))
 
-def L32.T(xs: List<&2, U32>, +n: U32, +v: U32) -> Data:
-  S.P2({v == Z.incn(List.length(&2, U32, xs), n) : U32}, {U32.to_nat(v) == Nat.add(List.length(&2, U32, xs), U32.to_nat(n)) : Nat})
+def L32.T(xs: List<&2, Word(8n)>, +n: U32, +v: U32) -> Data:
+  S.P2({v == Z.incn(List.length(&2, Word(8n), xs), n) : U32}, {U32.to_nat(v) == Nat.add(List.length(&2, Word(8n), xs), U32.to_nat(n)) : Nat})
 
-def L32.fin(+x: U32, +rest: List<&2, U32>, +n: U32, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+def L32.fin(+x: Word(8n), +rest: List<&2, Word(8n)>, +n: U32, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   eb: {U32.is_eq(n, 4294967295) == False{} : Bool}, pr: L32.T(rest, U32.inc(n), v)) -> L32.T(Con{x, rest}, n, v):
   (+e1, +e2) = pr
-  +q = List.length(&2, U32, rest)
+  +q = List.length(&2, Word(8n), rest)
   (e1, Equal.trans(Nat, U32.to_nat(v), Nat.add(q, U32.to_nat(U32.inc(n))), 1n+Nat.add(q, U32.to_nat(n)), e2,
     Equal.trans(Nat, Nat.add(q, U32.to_nat(U32.inc(n))), Nat.add(q, 1n+U32.to_nat(n)), 1n+Nat.add(q, U32.to_nat(n)),
       Equal.cong(Nat, Nat, z => Nat.add(q, z), U32.to_nat(U32.inc(n)), 1n+U32.to_nat(n), inc.ne1(n, W, hW, eb)),
       N.add_succ_r(q, U32.to_nat(n)))))
 
-def L32.if(b: Bool, +x: U32, +n: U32, +rest: List<&2, U32>, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+def L32.if(b: Bool, +x: Word(8n), +n: U32, +rest: List<&2, Word(8n)>, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   eb: {U32.is_eq(n, 4294967295) == b : Bool},
   e: {C.Wasm.length32.if(b, u => C.Wasm.length32.go(rest, U32.inc(n))) == Some{v} : Maybe<&2, U32>},
   ih: {C.Wasm.length32.go(rest, U32.inc(n)) == Some{v} : Maybe<&2, U32>} -> L32.T(rest, U32.inc(n), v)) -> L32.T(Con{x, rest}, n, v):
@@ -164,7 +164,7 @@ def L32.if(b: Bool, +x: U32, +n: U32, +rest: List<&2, U32>, +v: U32, +W: Nat, +h
       L32.fin(x, rest, n, v, W, hW, eb, ih(e))
 
 # the length that length32 counts from n
-def L32.go(xs: List<&2, U32>, +n: U32, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+def L32.go(xs: List<&2, Word(8n)>, +n: U32, +v: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   e: {C.Wasm.length32.go(xs, n) == Some{v} : Maybe<&2, U32>}) -> L32.T(xs, n, v):
   match xs:
     case Nil{}:

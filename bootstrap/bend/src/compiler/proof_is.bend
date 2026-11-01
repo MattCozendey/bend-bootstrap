@@ -136,21 +136,21 @@ def three.of(-k: C.Term -> C.Term -> C.Term -> C.Term, -r: Maybe<&2, C.Term>, -s
   %Equal.sym(Maybe<&2, C.Term>, u, Some{d}, eu) : {T.tm.three(k, Some{a}, Some{b}, _) == Some{k(a, b, d)} : Maybe<&2, C.Term>}
   {==}
 
-def named.of(-n: Maybe<&2, List<&2, U32>>, -k: List<&2, U32>, en: {n == Some{k} : Maybe<&2, List<&2, U32>>}) ->
+def named.of(-n: Maybe<&2, List<&2, Word(8n)>>, -k: List<&2, Word(8n)>, en: {n == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) ->
   {T.tm.named(n, j => C.Term.Lab{j}) == Some{C.Term.Lab{k}} : Maybe<&2, C.Term>}:
-  %Equal.sym(Maybe<&2, List<&2, U32>>, n, Some{k}, en) : {T.tm.named(_, j => C.Term.Lab{j}) == Some{C.Term.Lab{k}} : Maybe<&2, C.Term>}
+  %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, n, Some{k}, en) : {T.tm.named(_, j => C.Term.Lab{j}) == Some{C.Term.Lab{k}} : Maybe<&2, C.Term>}
   {==}
 
-def mat.of(-n: Maybe<&2, List<&2, U32>>, -r: Maybe<&2, C.Term>, -s: Maybe<&2, C.Term>, -k: List<&2, U32>, -a: C.Term, -b: C.Term,
-  en: {n == Some{k} : Maybe<&2, List<&2, U32>>}, er: {r == Some{a} : Maybe<&2, C.Term>}, es: {s == Some{b} : Maybe<&2, C.Term>}) ->
+def mat.of(-n: Maybe<&2, List<&2, Word(8n)>>, -r: Maybe<&2, C.Term>, -s: Maybe<&2, C.Term>, -k: List<&2, Word(8n)>, -a: C.Term, -b: C.Term,
+  en: {n == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, er: {r == Some{a} : Maybe<&2, C.Term>}, es: {s == Some{b} : Maybe<&2, C.Term>}) ->
   {T.tm.mat(n, r, s) == Some{C.Term.Mat{k, a, b}} : Maybe<&2, C.Term>}:
-  %Equal.sym(Maybe<&2, List<&2, U32>>, n, Some{k}, en) : {T.tm.mat(_, r, s) == Some{C.Term.Mat{k, a, b}} : Maybe<&2, C.Term>}
+  %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, n, Some{k}, en) : {T.tm.mat(_, r, s) == Some{C.Term.Mat{k, a, b}} : Maybe<&2, C.Term>}
   %Equal.sym(Maybe<&2, C.Term>, r, Some{a}, er) : {T.tm.mat(Some{k}, _, s) == Some{C.Term.Mat{k, a, b}} : Maybe<&2, C.Term>}
   %Equal.sym(Maybe<&2, C.Term>, s, Some{b}, es) : {T.tm.mat(Some{k}, Some{a}, _) == Some{C.Term.Mat{k, a, b}} : Maybe<&2, C.Term>}
   {==}
 
 # T.tm.of one level down, at the cell's tag tg
-def of.at(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32, +tg: U32,
+def of.at(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, +tg: U32,
   e: {PM.Tg(m, c) == tg : U32}) ->
   {T.tm.cell(U32.to_nat(tg), T.tm.quan(PM.Qn(m, c)), c, PM.Fd(2n, m, c), ks, img, u => T.tm.of(g, m, ks, img, PM.Fd(2n, m, c)),
     u => T.tm.of(g, m, ks, img, PM.Fd(3n, m, c)), u => T.tm.of(g, m, ks, img, PM.Fd(4n, m, c))) == T.tm.of(1n+g, m, ks, img, c) : Maybe<&2, C.Term>}:
@@ -163,7 +163,7 @@ def of.at(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2,
 
 # the cell c stands for t: T.tm.of reads t from it, with any fuel f that is at
 # least t's size
-def is.tm.at(+f: Nat, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def is.tm.at(+f: Nat, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, t: C.Term, +le: N.Le(C.Term.size(t), f), h: PM.Is(ds, m, im, fi, nx, ks, img, c, t)) ->
   {T.tm.of(f, m, ks, img, c) == Some{t} : Maybe<&2, C.Term>}:
   match f:
@@ -327,7 +327,7 @@ def is.tm.at(+f: Nat, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32,
             is.tm.at(g, ds, m, im, fi, nx, ks, img, PM.Fd(4n, m, c), w, le.e(C.Term.size(y), C.Term.size(z), C.Term.size(w), g, le), hw))
 
 # the cell c stands for t: T.tm.of reads t from it
-def is.tm(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def is.tm(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, +t: C.Term, h: PM.Is(ds, m, im, fi, nx, ks, img, c, t)) ->
   {T.tm.of(C.Term.size(t), m, ks, img, c) == Some{t} : Maybe<&2, C.Term>}:
   is.tm.at(C.Term.size(t), ds, m, im, fi, nx, ks, img, c, t, N.le_refl(C.Term.size(t)), h)
@@ -401,7 +401,7 @@ def rd.at(+g: Nat, -ds: List<&2, C.Def>, +m: C.Cir.Cells, +c: U32, +im: U32, +fi
 
 # the cell c stands for t: every cell that T.tm.of reads from it, with any
 # fuel f, is a cell (Nd)
-def is.rd.at(+f: Nat, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def is.rd.at(+f: Nat, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, t: C.Term, h: PM.Is(ds, m, im, fi, nx, ks, img, c, t)) ->
   {Rd(f, m, c, im, fi, nx) == True{} : Bool}:
   match f:
@@ -529,7 +529,7 @@ def is.rd.at(+f: Nat, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32,
             and.i(Rd(g, m, PM.Fd(2n, m, c), im, fi, nx), Bool.and(Rd(g, m, PM.Fd(3n, m, c), im, fi, nx), Rd(g, m, PM.Fd(4n, m, c), im, fi, nx)), is.rd.at(g, ds, m, im, fi, nx, ks, img, PM.Fd(2n, m, c), y, hy), and.i(Rd(g, m, PM.Fd(3n, m, c), im, fi, nx), Rd(g, m, PM.Fd(4n, m, c), im, fi, nx), is.rd.at(g, ds, m, im, fi, nx, ks, img, PM.Fd(3n, m, c), z, hz), is.rd.at(g, ds, m, im, fi, nx, ks, img, PM.Fd(4n, m, c), w, hw))))
 
 # the cell c stands for t: every cell that T.tm.of reads from it is a cell
-def is.rd(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def is.rd(+ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, +t: C.Term, h: PM.Is(ds, m, im, fi, nx, ks, img, c, t)) ->
   {Rd(C.Term.size(t), m, c, im, fi, nx) == True{} : Bool}:
   is.rd.at(C.Term.size(t), ds, m, im, fi, nx, ks, img, c, t, h)

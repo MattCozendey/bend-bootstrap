@@ -182,16 +182,16 @@ def f1.trans(+m: C.Cir.Cells, +m2: C.Cir.Cells, +m3: C.Cir.Cells, a: F1(m, m2), 
 
 # after a run from the registers regs on m and on v: the registers regs2,
 # cells m2 and v2 that agree but at zs and keep zs; m2 differs from m in
-# field 1 only; 64 registers, of which aq and am stay
+# field 1 only; 63 registers, of which aq and am stay
 def Rel2(+regs: List<&2, U32>, +regs2: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir.Cells, +m2: C.Cir.Cells, +v2: C.Cir.Cells,
   +zs: List<&2, U32>) -> Type:
-  Agr(m2, v2, zs) & (Kp(m, m2, zs) & (Kp(v, v2, zs) & (F1(m, m2) & ({List.length(&2, U32, regs2) == 64n : Nat} &
+  Agr(m2, v2, zs) & (Kp(m, m2, zs) & (Kp(v, v2, zs) & (F1(m, m2) & ({List.length(&2, U32, regs2) == 63n : Nat} &
     ({List.get(&2, U32, regs2, 6n) == List.get(&2, U32, regs, 6n) : Maybe<&2, U32>} &
      {List.get(&2, U32, regs2, 7n) == List.get(&2, U32, regs, 7n) : Maybe<&2, U32>})))))
 
 # s runs on m and on v to such states
 def Two(+f: Nat, +s: C.Cir.Stmt, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lim: U32, +inp: List<&2, U32>, +zs: List<&2, U32>) -> Type:
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +zs: List<&2, U32>) -> Type:
   Sigma<&1, &1, List<&2, U32>, regs2 => Sigma<&1, &1, C.Cir.Cells, m2 => Sigma<&1, &1, C.Cir.Cells, v2 =>
     {C.Cir.exec(f, s, X.X.st(regs, m, nx, fi, im, pg, lim, inp)) == C.Cir.Out.next{X.X.st(regs2, m2, nx, fi, im, pg, lim, inp)} : C.Cir.Out} &
     ({C.Cir.exec(f, s, X.X.st(regs, v, nx, fi, im, pg, lim, inp)) == C.Cir.Out.next{X.X.st(regs2, v2, nx, fi, im, pg, lim, inp)} : C.Cir.Out} &
@@ -199,7 +199,7 @@ def Two(+f: Nat, +s: C.Cir.Stmt, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Ci
 
 # a run that changes nothing
 def two.id(+f: Nat, +s: C.Cir.Stmt, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lim: U32, +inp: List<&2, U32>, +zs: List<&2, U32>, a: Agr(m, v, zs), +hl: {List.length(&2, U32, regs) == 64n : Nat},
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +zs: List<&2, U32>, a: Agr(m, v, zs), +hl: {List.length(&2, U32, regs) == 63n : Nat},
   em: {C.Cir.exec(f, s, X.X.st(regs, m, nx, fi, im, pg, lim, inp)) == C.Cir.Out.next{X.X.st(regs, m, nx, fi, im, pg, lim, inp)} : C.Cir.Out},
   ev: {C.Cir.exec(f, s, X.X.st(regs, v, nx, fi, im, pg, lim, inp)) == C.Cir.Out.next{X.X.st(regs, v, nx, fi, im, pg, lim, inp)} : C.Cir.Out}) ->
   Two(f, s, regs, m, v, nx, fi, im, pg, lim, inp, zs):
@@ -233,8 +233,8 @@ def tr.u32(-P: U32 -> Type, -a: U32, -b: U32, e: {a == b : U32}, h: P(a)) -> P(b
 # ---------
 
 def sim.dec.d(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lim: U32, +inp: List<&2, U32>, +zs: List<&2, U32>, +x: U32, +pend: U32,
-  +hl: {List.length(&2, U32, regs) == 64n : Nat}, +h4: {List.get(&2, U32, regs, 4n) == Some{x} : Maybe<&2, U32>},
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +zs: List<&2, U32>, +x: U32, +pend: U32,
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +h4: {List.get(&2, U32, regs, 4n) == Some{x} : Maybe<&2, U32>},
   +h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, a: Agr(m, v, zs),
   +hz: {U32.is_eq(x, 0) == False{} : Bool}, +hc: {C.Cir.is_cell(x, im, fi, nx) == True{} : Bool},
   +hm: {PM.Mem(zs, x) == False{} : Bool}, +ex: {C.Cir.Cells.get(m, x) == C.Cir.Cells.get(v, x) : C.Cir.Cell},
@@ -253,7 +253,7 @@ def sim.dec.d(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir
         C.Cir.Cells.get(v, x), C.Cir.Cells.get(m, x), Equal.sym(C.Cir.Cell, C.Cir.Cells.get(m, x), C.Cir.Cells.get(v, x), ex), ev0)
       (X.X.set(regs, 5n, d), (X.X.put(m, 1n, x, d), (X.X.put(v, 1n, x, d), (em, (ev,
         (agr.put(m, v, zs, 1n, x, d, a, hm), (kp.put(m, m, zs, 1n, x, d, kp.refl(m, zs), hm), (kp.put(v, v, zs, 1n, x, d, kp.refl(v, zs), hm),
-        (f1.put(m, x, d), (X.L.len(regs, 5n, d, 64n, hl), (L.keep(regs, 5n, 6n, d, {==}), L.keep(regs, 5n, 7n, d, {==}))))))))))))
+        (f1.put(m, x, d), (X.L.len(regs, 5n, d, 63n, hl), (L.keep(regs, 5n, 6n, d, {==}), L.keep(regs, 5n, 7n, d, {==}))))))))))))
     case True{}:
       +d = U32.sub(C.Cir.Cell.get(1n, C.Cir.Cells.get(m, x)), 1)
       +hsv = tr.cell(y => {U32.is_ne(U32.and(C.Cir.Cell.get(0n, y), 1024), 0) == False{} : Bool}, C.Cir.Cells.get(m, x), C.Cir.Cells.get(v, x), ex, hs)
@@ -274,15 +274,15 @@ def sim.dec.d(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir
         (kp.trans(m, m, X.X.put(m1, 1n, x, pend), zs, kp.refl(m, zs), kp.put(m, m1, zs, 1n, x, pend, k1, hm)),
         (kp.trans(v, v, X.X.put(v1, 1n, x, pend), zs, kp.refl(v, zs), kp.put(v, v1, zs, 1n, x, pend, j1, hm)),
         (f1.trans(m, m1, X.X.put(m1, 1n, x, pend), f1.put(m, x, d), f1.put(m1, x, pend)),
-        (X.L.len(r1, 3n, x, 64n, X.L.len(regs, 5n, d, 64n, hl)),
+        (X.L.len(r1, 3n, x, 63n, X.L.len(regs, 5n, d, 63n, hl)),
         (Equal.trans(Maybe<&2, U32>, List.get(&2, U32, X.X.set(r1, 3n, x), 6n), List.get(&2, U32, r1, 6n), List.get(&2, U32, regs, 6n),
            L.keep(r1, 3n, 6n, x, {==}), L.keep(regs, 5n, 6n, d, {==})),
          Equal.trans(Maybe<&2, U32>, List.get(&2, U32, X.X.set(r1, 3n, x), 7n), List.get(&2, U32, r1, 7n), List.get(&2, U32, regs, 7n),
            L.keep(r1, 3n, 7n, x, {==}), L.keep(regs, 5n, 7n, d, {==})))))))))))))
 
 def sim.dec.s(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lim: U32, +inp: List<&2, U32>, +zs: List<&2, U32>, +x: U32, +pend: U32,
-  +hl: {List.length(&2, U32, regs) == 64n : Nat}, +h4: {List.get(&2, U32, regs, 4n) == Some{x} : Maybe<&2, U32>},
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +zs: List<&2, U32>, +x: U32, +pend: U32,
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +h4: {List.get(&2, U32, regs, 4n) == Some{x} : Maybe<&2, U32>},
   +h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, a: Agr(m, v, zs),
   +hz: {U32.is_eq(x, 0) == False{} : Bool}, +hc: {C.Cir.is_cell(x, im, fi, nx) == True{} : Bool},
   +hm: {PM.Mem(zs, x) == False{} : Bool}, +ex: {C.Cir.Cells.get(m, x) == C.Cir.Cells.get(v, x) : C.Cir.Cell},
@@ -300,8 +300,8 @@ def sim.dec.s(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir
 
 # M.dec(dx) of the cell x in dx: 0, or a cell out of zs
 def sim.dec.z(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: C.Cir.Cells, +v: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lim: U32, +inp: List<&2, U32>, +zs: List<&2, U32>, +x: U32, +pend: U32,
-  +hl: {List.length(&2, U32, regs) == 64n : Nat}, +h4: {List.get(&2, U32, regs, 4n) == Some{x} : Maybe<&2, U32>},
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +zs: List<&2, U32>, +x: U32, +pend: U32,
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +h4: {List.get(&2, U32, regs, 4n) == Some{x} : Maybe<&2, U32>},
   +h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, a: Agr(m, v, zs),
   +hx: {Bool.or(U32.is_eq(x, 0), Bool.and(Bool.not(PM.Mem(zs, x)), C.Cir.is_cell(x, im, fi, nx))) == True{} : Bool},
   +eb: {U32.is_eq(x, 0) == b : Bool}) ->

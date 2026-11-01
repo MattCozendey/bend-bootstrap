@@ -355,8 +355,7 @@ def free.expr(e: C.Cir.Expr, +acc: List<&2, C.Wasm.Instr>, +h: Nat, +labels: Lis
     case C.Cir.Expr.field{+k, +c}:
       free.expr(c, C.Cir.code.at(Con{C.Wasm.Instr.load{U32.shln(U32.from_nat(k), 2n)}, acc}), h, labels)
     case C.Cir.Expr.byte{+i}:
-      free.expr(i, Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0},
-        Con{C.Cir.i.const(255), Con{C.Cir.i.op(C.Wasm.Op.and{}), acc}}}}}, h, labels)
+      free.expr(i, Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0}, acc}}}, h, labels)
     case C.Cir.Expr.size{}:
       {==}
 
@@ -640,8 +639,7 @@ def locs.expr(e: C.Cir.Expr, +acc: List<&2, C.Wasm.Instr>, +regs: Nat, +M: U32,
       locs.expr(c, C.Cir.code.at(Con{C.Wasm.Instr.load{U32.shln(U32.from_nat(k), 2n)}, acc}), regs, M,
         I.and.r(Nat.is_le(k, 4n), ok.expr(c, regs), ok), b)
     case C.Cir.Expr.byte{+i}:
-      locs.expr(i, Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0},
-        Con{C.Cir.i.const(255), Con{C.Cir.i.op(C.Wasm.Op.and{}), acc}}}}}, regs, M, ok, b)
+      locs.expr(i, Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0}, acc}}}, regs, M, ok, b)
     case C.Cir.Expr.size{}:
       {==}
 

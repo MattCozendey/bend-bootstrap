@@ -32,7 +32,7 @@ theorem run_bool : Read.run (Write.bool o ++ ys) s = Read.run ys (Read.item "boo
   cases o <;> simp [Write.bool, run_tok, Read.token]
 
 -- bytes, each put in front of a name's
-theorem run_cells {l acc : List UInt8} : Read.run (l.flatMap (Write.tok 6 ·) ++ ys) (Read.item "name" (bytes acc) :: s) =
+theorem run_bytes {l acc : List UInt8} : Read.run (l.flatMap (Write.tok 6 ·) ++ ys) (Read.item "name" (bytes acc) :: s) =
     Read.run ys (Read.item "name" (bytes (l.reverse ++ acc)) :: s) := by
   induction l generalizing acc with
   | nil => simp
@@ -43,7 +43,7 @@ theorem run_cells {l acc : List UInt8} : Read.run (l.flatMap (Write.tok 6 ·) ++
 
 -- a name pushes its item
 theorem run_name : Read.run (Write.name k ++ ys) s = Read.run ys (Read.item "name" (Form.name k) :: s) := by
-  have h := run_cells (l := k.toUTF8.toList.reverse) (acc := []) (ys := ys) (s := s)
+  have h := run_bytes (l := k.toUTF8.toList.reverse) (acc := []) (ys := ys) (s := s)
   simp only [List.reverse_reverse, List.append_nil] at h
   rw [Write.name, List.append_assoc, run_tok (by decide)]
   simpa [Read.token, Form.name, bytes, list] using h

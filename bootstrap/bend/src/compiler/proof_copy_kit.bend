@@ -289,7 +289,7 @@ def Cl.get_ne(+m: C.Cir.Cells, +j: U32, +i: U32, +c: C.Cir.Cell, h: {U32.is_eq(j
 
 # a write of r with the value v of e
 def X.set(+f: Nat, +r: Nat, +e: C.Cir.Expr, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32,
-  +L: U32, +I: List<&2, U32>, +v: U32, ev: {Some{v} == C.Cir.eval(e, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
+  +L: U32, +I: List<&2, Word(8n)>, +v: U32, ev: {Some{v} == C.Cir.eval(e, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
   hl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}) ->
   {C.Cir.exec(1n+f, C.Cir.Stmt.set{r, e}, D.S(regs, m, nx, F, K, pg, L, I)) ==
     C.Cir.Out.next{D.S(List.set(&2, U32, regs, r, v), m, nx, F, K, pg, L, I)} : C.Cir.Out}:
@@ -300,7 +300,7 @@ def X.set(+f: Nat, +r: Nat, +e: C.Cir.Expr, +regs: List<&2, U32>, +m: C.Cir.Cell
 
 # a store of the value x of v in field k of the cell i, the value of c
 def X.st(+f: Nat, +k: Nat, +c: C.Cir.Expr, +v: C.Cir.Expr, +regs: List<&2, U32>, +m: C.Cir.Cells, +nx: U32, +F: U32, +K: U32,
-  +pg: U32, +L: U32, +I: List<&2, U32>, +i: U32, +x: U32,
+  +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +i: U32, +x: U32,
   ec: {Some{i} == C.Cir.eval(c, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
   ev: {Some{x} == C.Cir.eval(v, D.S(regs, m, nx, F, K, pg, L, I)) : Maybe<&2, U32>},
   hc: {True{} == C.Cir.is_cell(i, K, F, nx) : Bool}) ->
@@ -357,20 +357,20 @@ def X.wh0(+f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +st: C.Cir.State,
 # --------
 
 # an outcome equal to one of which Ok holds
-def Ok.eq(-o1: C.Cir.Out, -o2: C.Cir.Out, -F: U32, -K: U32, -L: U32, -I: List<&2, U32>,
+def Ok.eq(-o1: C.Cir.Out, -o2: C.Cir.Out, -F: U32, -K: U32, -L: U32, -I: List<&2, Word(8n)>,
   -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, e: {o2 == o1 : C.Cir.Out}, h: D.Ok(o2, F, K, L, I, Q)) ->
   D.Ok(o1, F, K, L, I, Q):
   %e : D.Ok(_, F, K, L, I, Q)
   h
 
 # a state of which Q holds
-def Ok.next(+rg: List<&2, U32>, +ms: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, U32>,
+def Ok.next(+rg: List<&2, U32>, +ms: C.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>,
   -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, q: Q(rg, ms, nx, pg)) ->
   D.Ok(C.Cir.Out.next{D.S(rg, ms, nx, F, K, pg, L, I)}, F, K, L, I, Q):
   ({==}, q)
 
 # a state of which At holds, by its parts
-def Ok.at(st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, U32>, -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
+def Ok.at(st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
   -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -k: C.Cir.State -> C.Cir.Out, h: D.At(st, F, K, L, I, Q),
   g: @rg: List<&2, U32> -> @ms: C.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
   D.Ok(k(st), F, K, L, I, R):
@@ -381,7 +381,7 @@ def Ok.at(st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, U32>, -Q: Lis
       g(rg, ms, nx, pg, q)
 
 # a statement, then more
-def Ok.then(o: C.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, U32>, -k: C.Cir.State -> C.Cir.Out,
+def Ok.then(o: C.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -k: C.Cir.State -> C.Cir.Out,
   -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
   h: D.Ok(o, F, K, L, I, Q),
   g: @rg: List<&2, U32> -> @ms: C.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
@@ -399,7 +399,7 @@ def Ok.then(o: C.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, U32>, -k: C.Ci
       match h:
 
 # a then b
-def Ok.seq(+f: Nat, a: C.Cir.Stmt, +b: C.Cir.Stmt, st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, U32>,
+def Ok.seq(+f: Nat, a: C.Cir.Stmt, +b: C.Cir.Stmt, st: C.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
   -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
   h: D.Ok(C.Cir.exec(1n+f, a, st), F, K, L, I, Q),
   g: @rg: List<&2, U32> -> @ms: C.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) ->
@@ -408,7 +408,7 @@ def Ok.seq(+f: Nat, a: C.Cir.Stmt, +b: C.Cir.Stmt, st: C.Cir.State, +F: U32, +K:
   Ok.then(C.Cir.exec(1n+f, a, st), F, K, L, I, t => C.Cir.exec(1n+f, b, t), Q, R, h, g)
 
 # a round of a while, then the while again
-def Ok.loop(+f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +st: C.Cir.State, +x: U32, +F: U32, +K: U32, +L: U32, +I: List<&2, U32>,
+def Ok.loop(+f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +st: C.Cir.State, +x: U32, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
   -Q: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> C.Cir.Cells -> U32 -> U32 -> Type,
   ev: {Some{x} == C.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool},
   h: D.Ok(C.Cir.exec(1n+f, body, st), F, K, L, I, Q),

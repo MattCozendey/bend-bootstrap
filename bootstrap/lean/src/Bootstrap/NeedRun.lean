@@ -54,9 +54,9 @@ theorem _root_.NeedHolds.get (h : NeedHolds B) (hd : d ∈ needCopy := by simp [
     Book.get B d.k = some d := h.need d hd
 
 macro "nwalks" d:term : tactic =>
-  `(tactic| simp [$d:term, walk, list, ctor, bits, cell, bytes, bindsAt, Quan.live, Quan.fld, takes,
+  `(tactic| simp [$d:term, walk, list, ctor, bits, byte, bytes, bindsAt, Quan.live, Quan.fld, takes,
     Term.sub, Env.sub, Term.spine, Form.nat, Form.term, Form.quan, Form.bool, Form.some, Form.maybe, data,
-    dbits, dnat, dcell, dbytes, dname, dterm, ddefs])
+    dbits, dnat, dbytes, dname, dterm, ddefs])
 
 theorem add_run (h : Holds B) :
     Runs B (spine (Ref "Nat.add") [(Q1, Form.nat a), (Q1, Form.nat b)]) (Form.nat (a + b)) := by
@@ -109,7 +109,7 @@ theorem mul_run' (h : NeedHolds B) (rx : Runs B x (Form.nat a)) (ry : Runs B y (
 theorem nat_run : Runs B (Form.nat n) (Form.nat n) := .refl value_nat
 
 theorem length_run (h : NeedHolds B) :
-    Runs B (App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) (Ref "U32")) (bytes p)) (Form.nat p.length) := by
+    Runs B (App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) word8) (bytes p)) (Form.nat p.length) := by
   have hk := h.get (d := «needCopy.List.length»)
   induction p with
   | nil =>
@@ -119,7 +119,7 @@ theorem length_run (h : NeedHolds B) :
   | cons b p ih =>
     refine Kit.call (xs := [(Q0, _), (Q0, _), (Q1, _)]) hk (.cons (fun h => by simp [Quan.live] at h)
       (.cons (fun h => by simp [Quan.live] at h) (.cons (fun _ => value_bytes) .nil)))
-      (u := ctor "Succ" [App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) (Ref "U32")) (bytes p)])
+      (u := ctor "Succ" [App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) word8) (bytes p)])
       (by nwalks «needCopy.List.length») ?_
     exact ctor1 ih
 
@@ -247,13 +247,13 @@ theorem need_run (h : NeedHolds B) :
   have hk := h.get (d := «needCopy.Program.need»)
   refine Kit.call hk (.cons (fun _ => value_bytes) (.cons (fun _ => value_bytes) (.cons (fun _ => value_nat) .nil)))
     (u := App Q1 (App Q1 (Ref "Nat.add") (App Q2 (App Q1 (Ref "Nat.mul") (Form.nat 64))
-      (App Q1 (App Q1 (Ref "Nat.add") (App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) (Ref "U32"))
+      (App Q1 (App Q1 (Ref "Nat.add") (App Q1 (App Q0 (App Q0 (Ref "List.length") (Lab "Q2")) word8)
         (bytes (write bk)))) (spine (Ref "Program.largest") [(Q1, bytes (write bk)), (Q1, bytes i),
           (Q1, Form.nat n)]))))
       (App Q1 (App Q1 (Ref "Nat.add") (App Q2 (App Q1 (Ref "Nat.mul") (Form.nat 4096)) (Form.nat 4096)))
         (ctor "Zero" [])))
     (by simp [«needCopy.Program.need», walk, bindsAt, Quan.live, Quan.fld, takes, Term.sub, Env.sub,
-      Term.spine, ctor, data, dbytes, dnat, plain_nat.sub]) ?_
+      Term.spine, ctor, data, dbytes, dnat, plain_nat.sub, word8]) ?_
   have r := add_run' h.holds (mul_run' h (nat_run (n := 64)) (add_run' h.holds (length_run (p := write bk) h)
     (largest_run (bk := bk) (i := i) (n := n) h)))
     (add_run' h.holds (mul_run' h (nat_run (n := 4096)) (nat_run (n := 4096))) (nat_run (n := 0)))
@@ -315,7 +315,7 @@ theorem u32_is_le (h : NeedHolds B) :
       (Form.bool (compare (v % 2 ^ 32) (w % 2 ^ 32) != .gt)) := by
   have hk := h.get (d := «needCopy.U32.is_le»)
   have hl := h.get (d := «needCopy.Cmp.is_le»)
-  have hc : Book.get B "U32.cmp" = some «evalCopy.U32.cmp» := h.holds.eval «evalCopy.U32.cmp» (by simp [evalCopy])
+  have hc : Book.get B "U32.cmp" = some «needCopy.U32.cmp» := h.get (d := «needCopy.U32.cmp»)
   have vu : ∀ v, Value B (ctor "U32" [bits 32 v]) := fun _ => value_ctor (by simp [value_bits])
   refine Kit.call (xs := [(Q1, _), (Q1, _)]) hk (.cons (fun _ => vu v) (.cons (fun _ => vu w) .nil))
     (u := App Q1 (Ref "Cmp.is_le") (App Q1 (App Q1 (Ref "U32.cmp") (ctor "U32" [bits 32 v])) (ctor "U32" [bits 32 w])))
@@ -324,7 +324,7 @@ theorem u32_is_le (h : NeedHolds B) :
       (cmpForm (wc 32 v w)) :=
     Kit.call (xs := [(Q1, _), (Q1, _)]) hc (.cons (fun _ => vu v) (.cons (fun _ => vu w) .nil))
       (u := App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat 32)) (bits 32 v)) (bits 32 w))
-      (by simp [walk, «evalCopy.U32.cmp», ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Env.sub, Form.nat,
+      (by simp [walk, «needCopy.U32.cmp», ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Env.sub, Form.nat,
         data, dbits])
       (word_cmp h.holds.eval)
   rw [wc_compare] at rc
@@ -335,7 +335,7 @@ theorem memory_run (h : NeedHolds B) :
   have hk := h.get (d := «needCopy.Program.memory»)
   have hm := h.get (d := «needCopy.Wasm.min»)
   have hi := h.get (d := «needCopy.Wasm.min.if»)
-  have ht := h.holds.reader «reader.U32.to_nat» (by simp [reader])
+  have ht := h.get (d := «needCopy.U32.to_nat»)
   have vu : ∀ v, Value B (ctor "U32" [bits 32 v]) := fun _ => value_ctor (by simp [value_bits])
   have l : Runs B (Ref "U32.lit65536") (ctor "U32" [bits 32 65536]) := by
     have e : «needCopy.U32.lit65536».v = ctor "U32" [bits 32 65536] := by decide
@@ -379,10 +379,10 @@ theorem memory_run (h : NeedHolds B) :
   -- U32.to_nat
   have rt : Runs B (App Q1 (Ref "U32.to_nat") (App Q2 (App Q2 (Ref "Wasm.min") (Form.u32 m)) (Ref "U32.lit65536")))
       (Form.nat (min m.toNat 65536)) := by
-    refine Kit.run_x (Kit.part (xs := []) ht .nil (by simp [walk, «reader.U32.to_nat», takes])) rfl rmin ?_
+    refine Kit.run_x (Kit.part (xs := []) ht .nil (by simp [walk, «needCopy.U32.to_nat», takes])) rfl rmin ?_
     refine Kit.call (xs := [(Q1, _)]) ht (.cons (fun _ => vu _) .nil)
       (u := App Q1 (App Q1 (Ref "Word.to_nat") (Form.nat 32)) (bits 32 (min m.toNat 65536)))
-      (by simp [walk, «reader.U32.to_nat», ctor, takes, Quan.live, Quan.fld, sub, spine, bindsAt, Env.sub, Form.nat])
+      (by simp [walk, «needCopy.U32.to_nat», ctor, takes, Quan.live, Quan.fld, sub, spine, bindsAt, Env.sub, Form.nat])
       ?_
     have r := word_nat h.holds.reader (n := 32) (v := min m.toNat 65536)
     rwa [Nat.mod_eq_of_lt (by omega)] at r

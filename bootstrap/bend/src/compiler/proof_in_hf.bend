@@ -2,7 +2,7 @@
 # ==================================================================
 #
 # hf.first: from Start's equation first = Cir.first(k, 20 (k + 1) + len),
-# with 363 <= k < 2^26, the first cell is at least 345 (In.input.post's
+# with 290 <= k < 2^26, the first cell is at least 272 (In.input.post's
 # premise hF). Cir.first picks k + 1 when 20 (k + 1) >= end; else it is
 # (end - 1) / 20 + 1 with end > 20 (k + 1), so the quotient is past k.
 #
@@ -500,17 +500,17 @@ def hf.qmax(+Q: Nat, +Xn: Nat, +T: Nat, +Mx: Nat, h1: N.Le(PH.H.t20(Q), Xn), h2:
 # The first cell
 # --------------
 
-def hf.first.t(+k: U32, +first: U32, h363: N.Le(363n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
-  ef: {first == U32.inc(k) : U32}) -> N.Le(345n, U32.to_nat(first)):
+def hf.first.t(+k: U32, +first: U32, h290: N.Le(290n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
+  ef: {first == U32.inc(k) : U32}) -> N.Le(272n, U32.to_nat(first)):
   +e = Equal.trans(Nat, 1n+U32.to_nat(k), U32.to_nat(U32.inc(k)), U32.to_nat(first),
     Equal.sym(Nat, U32.to_nat(U32.inc(k)), 1n+U32.to_nat(k), hf.inc(k, hkM)),
     Equal.cong(U32, Nat, z => U32.to_nat(z), U32.inc(k), first, Equal.sym(U32, first, U32.inc(k), ef)))
-  N.le_rw_r(345n, 1n+U32.to_nat(k), U32.to_nat(first), e,
-    N.le_trans(345n, 363n, 1n+U32.to_nat(k), Unit{}, N.le_succ(363n, U32.to_nat(k), h363)))
+  N.le_rw_r(272n, 1n+U32.to_nat(k), U32.to_nat(first), e,
+    N.le_trans(272n, 290n, 1n+U32.to_nat(k), Unit{}, N.le_succ(290n, U32.to_nat(k), h290)))
 
-def hf.first.f(+k: U32, +E: U32, +first: U32, h363: N.Le(363n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
+def hf.first.f(+k: U32, +E: U32, +first: U32, h290: N.Le(290n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
   eb: {U32.is_ge(C.Cir.at(U32.inc(k)), E) == False{} : Bool},
-  ef: {first == U32.inc(U32.div(U32.sub(E, 1), 20)) : U32}) -> N.Le(345n, U32.to_nat(first)):
+  ef: {first == U32.inc(U32.div(U32.sub(E, 1), 20)) : U32}) -> N.Le(272n, U32.to_nat(first)):
   +n = U32.to_nat(k)
   +A = C.Cir.at(U32.inc(k))
   +hlt = PH.H.rel_nge(U32.cmp(A, E), U32.to_nat(A), U32.to_nat(E), N.U32.rel(A, E), eb)
@@ -538,24 +538,24 @@ def hf.first.f(+k: U32, +E: U32, +first: U32, h363: N.Le(363n, U32.to_nat(k)), h
   +eD = PI.U32.inc_nat(D, Equal.sym(Bool, U32.is_zero(U32.inc(D)), False{}, MO.nz(D, 4294967295, hmax)))
   +e = Equal.trans(Nat, 1n+Q, U32.to_nat(U32.inc(D)), U32.to_nat(first), Equal.sym(Nat, U32.to_nat(U32.inc(D)), 1n+Q, eD),
     Equal.cong(U32, Nat, z => U32.to_nat(z), U32.inc(D), first, Equal.sym(U32, first, U32.inc(D), ef)))
-  N.le_rw_r(345n, 1n+Q, U32.to_nat(first), e,
-    N.le_trans(345n, 363n, 1n+Q, Unit{}, N.le_trans(363n, n, 1n+Q, h363,
+  N.le_rw_r(272n, 1n+Q, U32.to_nat(first), e,
+    N.le_trans(272n, 290n, 1n+Q, Unit{}, N.le_trans(290n, n, 1n+Q, h290,
       N.le_trans(n, 1n+n, 1n+Q, N.le_succ(n, n, N.le_refl(n)), N.le_succ(1n+n, Q, hQ)))))
 
-def hf.first.of(b: Bool, +k: U32, +E: U32, +first: U32, h363: N.Le(363n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
+def hf.first.of(b: Bool, +k: U32, +E: U32, +first: U32, h290: N.Le(290n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
   eb: {U32.is_ge(C.Cir.at(U32.inc(k)), E) == b : Bool},
-  ef: {first == Bool.pick(U32, b, U32.inc(k), U32.inc(U32.div(U32.sub(E, 1), 20))) : U32}) -> N.Le(345n, U32.to_nat(first)):
+  ef: {first == Bool.pick(U32, b, U32.inc(k), U32.inc(U32.div(U32.sub(E, 1), 20))) : U32}) -> N.Le(272n, U32.to_nat(first)):
   match b:
     case True{}:
-      hf.first.t(k, first, h363, hkM, ef)
+      hf.first.t(k, first, h290, hkM, ef)
     case False{}:
-      hf.first.f(k, E, first, h363, hkM, eb, ef)
+      hf.first.f(k, E, first, h290, hkM, eb, ef)
 
-# the first cell, Cir.first(k, 20 (k + 1) + len), is at least 345, for
-# 363 <= k < 2^26
-def hf.first(+k: U32, +len: U32, +first: U32, h363: N.Le(363n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
-  ef: {first == C.Cir.first(k, U32.add(C.Cir.input.at(k), len)) : U32}) -> N.Le(345n, U32.to_nat(first)):
-  hf.first.of(U32.is_ge(C.Cir.at(U32.inc(k)), U32.add(C.Cir.input.at(k), len)), k, U32.add(C.Cir.input.at(k), len), first, h363, hkM, {==}, ef)
+# the first cell, Cir.first(k, 20 (k + 1) + len), is at least 272, for
+# 290 <= k < 2^26
+def hf.first(+k: U32, +len: U32, +first: U32, h290: N.Le(290n, U32.to_nat(k)), hkM: N.Le(1n+U32.to_nat(k), U32.to_nat(67108864)),
+  ef: {first == C.Cir.first(k, U32.add(C.Cir.input.at(k), len)) : U32}) -> N.Le(272n, U32.to_nat(first)):
+  hf.first.of(U32.is_ge(C.Cir.at(U32.inc(k)), U32.add(C.Cir.input.at(k), len)), k, U32.add(C.Cir.input.at(k), len), first, h290, hkM, {==}, ef)
 
 # The image's size
 # ----------------
@@ -568,7 +568,7 @@ def hf.enc_len(xs: List<&2, C.Cir.Cell>) -> {U32.from_nat(List.length(&2, C.Cir.
       Equal.cong(U32, U32, y => U32.inc(y), U32.from_nat(List.length(&2, C.Cir.Cell, r)), C.Wasm.encode.len(C.Cir.Cell, r), hf.enc_len(r))
 
 # the image of a book of fewer than 2^26 bytes has fewer than 2^26 cells
-def hf.hsm(+p: List<&2, U32>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
+def hf.hsm(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
   small: {C.Img.small(p, 0) == True{} : Bool}) -> N.Le(1n+List.length(&2, C.Cir.Cell, C.Img.cells(ds)), U32.to_nat(67108864)):
   MO.lt_le(List.length(&2, C.Cir.Cell, C.Img.cells(ds)), U32.to_nat(67108864), PG.img.small.nat(p, ds, rd, small))
 
@@ -583,13 +583,13 @@ def hf.k.nat(+ds: List<&2, C.Def>, +k: U32, ek: {k == C.Wasm.encode.len(C.Cir.Ce
         Equal.sym(U32, U32.from_nat(n), C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds)), hf.enc_len(C.Img.cells(ds))))),
     MO.tofrom(n, 67108864, N.weaken(n, U32.to_nat(67108864), hsm)))
 
-# 363 <= k
-def hf.k363(+ds: List<&2, C.Def>, +k: U32, ek: {k == C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds)) : U32},
-  hsm: N.Le(1n+List.length(&2, C.Cir.Cell, C.Img.cells(ds)), U32.to_nat(67108864))) -> N.Le(363n, U32.to_nat(k)):
-  N.le_rw_r(363n, Nat.add(363n, PG.Bl(ds, 0n)), U32.to_nat(k),
-    Equal.sym(Nat, U32.to_nat(k), Nat.add(363n, PG.Bl(ds, 0n)),
-      Equal.trans(Nat, U32.to_nat(k), List.length(&2, C.Cir.Cell, C.Img.cells(ds)), Nat.add(363n, PG.Bl(ds, 0n)), hf.k.nat(ds, k, ek, hsm), PG.cells_len(ds))),
-    N.le_add_r(363n, PG.Bl(ds, 0n)))
+# 290 <= k
+def hf.k290(+ds: List<&2, C.Def>, +k: U32, ek: {k == C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds)) : U32},
+  hsm: N.Le(1n+List.length(&2, C.Cir.Cell, C.Img.cells(ds)), U32.to_nat(67108864))) -> N.Le(290n, U32.to_nat(k)):
+  N.le_rw_r(290n, Nat.add(290n, PG.Bl(ds, 0n)), U32.to_nat(k),
+    Equal.sym(Nat, U32.to_nat(k), Nat.add(290n, PG.Bl(ds, 0n)),
+      Equal.trans(Nat, U32.to_nat(k), List.length(&2, C.Cir.Cell, C.Img.cells(ds)), Nat.add(290n, PG.Bl(ds, 0n)), hf.k.nat(ds, k, ek, hsm), PG.cells_len(ds))),
+    N.le_add_r(290n, PG.Bl(ds, 0n)))
 
 # k < 2^26
 def hf.kM(+ds: List<&2, C.Def>, +k: U32, ek: {k == C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds)) : U32},
@@ -599,9 +599,9 @@ def hf.kM(+ds: List<&2, C.Def>, +k: U32, ek: {k == C.Wasm.encode.len(C.Cir.Cell,
       Equal.sym(Nat, U32.to_nat(k), List.length(&2, C.Cir.Cell, C.Img.cells(ds)), hf.k.nat(ds, k, ek, hsm))), hsm)
 
 # hF: the first cell is past the table, from what Cir.result computed
-def hf.hF(+p: List<&2, U32>, +ds: List<&2, C.Def>, +k: U32, +len: U32, +first: U32,
+def hf.hF(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +k: U32, +len: U32, +first: U32,
   rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>}, small: {C.Img.small(p, 0) == True{} : Bool},
   +ek: {k == C.Wasm.encode.len(C.Cir.Cell, C.Img.cells(ds)) : U32},
-  ef: {first == C.Cir.first(k, U32.add(C.Cir.input.at(k), len)) : U32}) -> N.Le(345n, U32.to_nat(first)):
+  ef: {first == C.Cir.first(k, U32.add(C.Cir.input.at(k), len)) : U32}) -> N.Le(272n, U32.to_nat(first)):
   +hsm = hf.hsm(p, ds, rd, small)
-  hf.first(k, len, first, hf.k363(ds, k, ek, hsm), hf.kM(ds, k, ek, hsm), ef)
+  hf.first(k, len, first, hf.k290(ds, k, ek, hsm), hf.kM(ds, k, ek, hsm), ef)

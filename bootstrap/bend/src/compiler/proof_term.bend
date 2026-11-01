@@ -20,8 +20,8 @@ def tm.quan(+q: U32) -> C.Quan:
   Bool.pick(C.Quan, U32.is_eq(q, 0), C.Quan.Q0{}, Bool.pick(C.Quan, U32.is_eq(q, 1), C.Quan.Q1{}, C.Quan.Q2{}))
 
 # the name of the number i, in the image's list ks
-def tm.name(ks: List<&2, List<&2, U32>>, +i: U32) -> Maybe<&2, List<&2, U32>>:
-  List.get(&2, List<&2, U32>, ks, U32.to_nat(i))
+def tm.name(ks: List<&2, List<&2, Word(8n)>>, +i: U32) -> Maybe<&2, List<&2, Word(8n)>>:
+  List.get(&2, List<&2, Word(8n)>, ks, U32.to_nat(i))
 
 # the term at the cell c of the image img
 def tm.image(img: List<&2, C.Term>, +c: U32) -> Maybe<&2, C.Term>:
@@ -49,14 +49,14 @@ def tm.three(k: C.Term -> C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: M
     case _ _ _:
       None{}
 
-def tm.named(n: Maybe<&2, List<&2, U32>>, k: List<&2, U32> -> C.Term) -> Maybe<&2, C.Term>:
+def tm.named(n: Maybe<&2, List<&2, Word(8n)>>, k: List<&2, Word(8n)> -> C.Term) -> Maybe<&2, C.Term>:
   match n:
     case None{}:
       None{}
     case Some{x}:
       Some{k(x)}
 
-def tm.mat(n: Maybe<&2, List<&2, U32>>, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>) -> Maybe<&2, C.Term>:
+def tm.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>) -> Maybe<&2, C.Term>:
   match n r s:
     case Some{k} Some{h} Some{m}:
       Some{C.Term.Mat{k, h, m}}
@@ -66,7 +66,7 @@ def tm.mat(n: Maybe<&2, List<&2, U32>>, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Ter
 # the term of the cell c of the tag tag, the quantity q and field 2 f2; p2,
 # p3 and p4 read the terms of its parts, only where the tag has them; none
 # for a cell that is no term
-def tm.cell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, ks: List<&2, List<&2, U32>>, img: List<&2, C.Term>,
+def tm.cell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, ks: List<&2, List<&2, Word(8n)>>, img: List<&2, C.Term>,
   p2: Unit -> Maybe<&2, C.Term>, p3: Unit -> Maybe<&2, C.Term>, p4: Unit -> Maybe<&2, C.Term>) -> Maybe<&2, C.Term>:
   match tag:
     case 0n:
@@ -112,7 +112,7 @@ def tm.cell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, ks: List<&2, List<&2, U32>>
 
 # the term of the cell c of the cells m, read at most fuel levels deep; none
 # when the fuel ends first, or for a cell that is no term
-def tm.of(fuel: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32) ->
+def tm.of(fuel: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32) ->
   Maybe<&2, C.Term>:
   match fuel:
     case 0n:
@@ -166,7 +166,7 @@ def tm.plugs.if(top: Bool, t: C.Term, kind: Nat, +q: C.Quan, a: Maybe<&2, C.Term
 
 # the frames from the cell fr on (each links the next by field 1, the
 # innermost first; 0 ends them), with t in the innermost's hole
-def tm.plugs(fuel: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +fr: U32,
+def tm.plugs(fuel: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +fr: U32,
   t: C.Term) -> Maybe<&2, C.Term>:
   match fuel:
     case 0n:
@@ -184,7 +184,7 @@ def tm.reg(regs: List<&2, U32>, +r: Nat) -> U32:
 
 # the term of a state of the machine: its frames (from register sp) around
 # its focus (register focus)
-def tm.state(+fuel: Nat, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, st: C.Cir.State) ->
+def tm.state(+fuel: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, st: C.Cir.State) ->
   Maybe<&2, C.Term>:
   match st:
     case C.Cir.State{+regs, +cells, _, _, _, _, _, _, _, _}:
@@ -241,13 +241,13 @@ def tm.bodies(ds: List<&2, C.Def>) -> List<&2, C.Term>:
       tm.pre(v, tm.bodies(rest))
 
 # the terms of the image's cells, by place: the fixed cells (only the Ref of
-# main, cell 88, is a Ref or an Enu; the others never look here), then the
+# main, cell 15, is a Ref or an Enu; the others never look here), then the
 # nodes of the bodies, as Img.cells lays them out
 def tm.img(ds: List<&2, C.Def>) -> List<&2, C.Term>:
-  List.append(&2, C.Term, List.replicate(C.Term, 87n, C.Term.Efq{}),
+  List.append(&2, C.Term, List.replicate(C.Term, 14n, C.Term.Efq{}),
     Con{C.Term.Ref{C.Program.name.main()},
       List.append(&2, C.Term, List.replicate(C.Term, 275n, C.Term.Efq{}), tm.bodies(ds))})
 
 # the image's names: the machine's own, then the book's (Img.cells)
-def tm.names(ds: List<&2, C.Def>) -> List<&2, List<&2, U32>>:
+def tm.names(ds: List<&2, C.Def>) -> List<&2, List<&2, Word(8n)>>:
   C.Img.known(C.Img.names.defs(ds))

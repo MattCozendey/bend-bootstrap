@@ -40,10 +40,10 @@ theorem unbytes_eq : unbytes v = some bs → v = bytes bs := by
   all_goals intro h
   all_goals simp_all
   · subst h; rfl
-  rename_i w t v l _ hx hv _
+  rename_i w t v l hx _
   subst h
   rw [unbits_eq hx]
-  simp [bytes, list, cell, ctor, toUInt8_toNat hv]
+  simp [bytes, list, byte, ctor, toUInt8_toNat (Gives.unbits_lt hx)]
 
 -- in trusted.bend's book, renamed back to impl.bend's names, the copies hold
 theorem Trusted.holds (hB : Trusted B) : Holds (Rename.book impl B) := by

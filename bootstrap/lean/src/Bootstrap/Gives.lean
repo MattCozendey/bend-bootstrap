@@ -14,7 +14,7 @@ import Bootstrap.Copy.Program
 -- start and unbytes.
 
 open Quan Term
-open EvalCopy (wc cmpForm value_cmp word_cmp)
+open EvalCopy (wc cmpForm value_cmp word_cmp fromLit)
 
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 20000
@@ -33,7 +33,6 @@ theorem dname : data (Form.name k) = true := data_iff.2 data_bytes
 theorem dbytes : data (bytes bs) = true := data_iff.2 data_bytes
 theorem dnat : data (Form.nat n) = true := data_iff.2 data_nat
 theorem dbits : data (bits n v) = true := data_iff.2 data_bits
-theorem dcell : data (cell b) = true := data_iff.2 data_cell
 
 theorem _root_.Holds.get (h : Holds B) (hd : d ∈ programCopy := by simp [programCopy]) :
     Book.get B d.k = some d := h.program d hd
@@ -50,19 +49,18 @@ macro "name_bytes" : tactic => `(tactic| exact name_bytes rfl (by decide))
 theorem name_unit : Form.name "()" = bytes [40, 41] := by name_bytes
 theorem name_nil : Form.name "Nil" = bytes [78, 105, 108] := by name_bytes
 theorem name_con : Form.name "Con" = bytes [67, 111, 110] := by name_bytes
-theorem name_u32 : Form.name "U32" = bytes [85, 51, 50] := by name_bytes
 theorem name_wnil : Form.name "WNil" = bytes [87, 78, 105, 108] := by name_bytes
 theorem name_wcon : Form.name "WCon" = bytes [87, 67, 111, 110] := by name_bytes
 theorem name_true : Form.name "True" = bytes [84, 114, 117, 101] := by name_bytes
 theorem name_false : Form.name "False" = bytes [70, 97, 108, 115, 101] := by name_bytes
 theorem name_main : Form.name "main" = bytes [109, 97, 105, 110] := by name_bytes
 
--- a list literal of the refs ks
+-- a list literal of the bytes of the defs ks
 def litTerm : List String → Term
   | [] => ctor "Nil" []
-  | k :: ks => ctor "Con" [Ref k, litTerm ks]
+  | k :: ks => ctor "Con" [fromLit k, litTerm ks]
 
-theorem lits_run : (ps : List (String × UInt8)) → (∀ p ∈ ps, Runs B (Ref p.1) (cell p.2)) →
+theorem lits_run : (ps : List (String × UInt8)) → (∀ p ∈ ps, Runs B (fromLit p.1) (byte p.2)) →
     Runs B (litTerm (ps.map (·.1))) (bytes (ps.map (·.2)))
   | [], _ => .refl (value_ctor nofun)
   | p :: ps, h => by
@@ -84,12 +82,14 @@ theorem body_run' (hk : Book.get B k = some d) (r : Runs B d.v v) (ht : takes d.
   rw [walk_done (by rw [node_of (fun q f x e => hn q f x e)]; exact ht)]
   simp [Term.spine, env_nil, sub_var]
 
-theorem lit_run (hk : Book.get B d.k = some d) (hv : d.v = cell b) : Runs B (Ref d.k) (cell b) := by
-  have := body_run hk (hv ▸ value_cell) (by rw [hv]; rfl) (by rw [hv]; simp [cell, ctor])
-  rwa [hv] at this
+theorem lit_run (h : Holds B) (hk : Book.get B d.k = some d) (hv : d.v = ctor "U32" [bits 32 b.toNat]) :
+    Runs B (fromLit d.k) (byte b) := by
+  have := body_run hk (hv ▸ value_ctor (by simpa using value_bits)) (by rw [hv]; rfl) (by rw [hv]; simp [ctor])
+  rw [hv] at this
+  exact EvalCopy.from_u32_run h.eval this
 
 theorem name_run {ps : List (String × UInt8)} (h : Holds B) (hd : d ∈ programCopy) (hv : d.v = litTerm (ps.map (·.1)))
-    (hr : ∀ p ∈ ps, Runs B (Ref p.1) (cell p.2)) (hn : Form.name k = bytes (ps.map (·.2))) :
+    (hr : ∀ p ∈ ps, Runs B (fromLit p.1) (byte p.2)) (hn : Form.name k = bytes (ps.map (·.2))) :
     Runs B (Ref d.k) (Form.name k) := by
   rw [hn]
   refine body_run' (h.get hd) (hv ▸ lits_run ps hr) ?_ ?_
@@ -97,47 +97,40 @@ theorem name_run {ps : List (String × UInt8)} (h : Holds B) (hd : d ∈ program
   · rw [hv]; cases ps <;> simp [litTerm, ctor]
 
 macro "lit" d:term : tactic =>
-  `(tactic| exact lit_run (d := $d) (Holds.get (by assumption) (by simp [programCopy])) (by decide))
+  `(tactic| exact lit_run (d := $d) (by assumption) (Holds.get (by assumption) (by simp [programCopy])) (by decide))
 
 theorem names_run (h : Holds B) :
     Runs B (Ref "Program.name.unit") (Form.name "()") ∧
     Runs B (Ref "Program.name.nil") (Form.name "Nil") ∧
     Runs B (Ref "Program.name.con") (Form.name "Con") ∧
-    Runs B (Ref "Program.name.u32") (Form.name "U32") ∧
     Runs B (Ref "Program.name.wnil") (Form.name "WNil") ∧
     Runs B (Ref "Program.name.wcon") (Form.name "WCon") ∧
     Runs B (Ref "Program.name.true") (Form.name "True") ∧
     Runs B (Ref "Program.name.false") (Form.name "False") ∧
     Runs B (Ref "Program.name.main") (Form.name "main") := by
-  have l40 : Runs B (Ref "U32.lit40") (cell 40) := by lit «programCopy.U32.lit40»
-  have l41 : Runs B (Ref "U32.lit41") (cell 41) := by lit «programCopy.U32.lit41»
-  have l78 : Runs B (Ref "U32.lit78") (cell 78) := by lit «programCopy.U32.lit78»
-  have l105 : Runs B (Ref "U32.lit105") (cell 105) := by lit «programCopy.U32.lit105»
-  have l108 : Runs B (Ref "U32.lit108") (cell 108) := by lit «programCopy.U32.lit108»
-  have l67 : Runs B (Ref "U32.lit67") (cell 67) := by lit «programCopy.U32.lit67»
-  have l111 : Runs B (Ref "U32.lit111") (cell 111) := by lit «programCopy.U32.lit111»
-  have l110 : Runs B (Ref "U32.lit110") (cell 110) := by lit «programCopy.U32.lit110»
-  have l85 : Runs B (Ref "U32.lit85") (cell 85) := by lit «programCopy.U32.lit85»
-  have l51 : Runs B (Ref "U32.lit51") (cell 51) := by lit «programCopy.U32.lit51»
-  have l50 : Runs B (Ref "U32.lit50") (cell 50) := by
-    exact lit_run (h.eval «evalCopy.U32.lit50» (by simp [evalCopy])) (by decide)
-  have l87 : Runs B (Ref "U32.lit87") (cell 87) := by lit «programCopy.U32.lit87»
-  have l84 : Runs B (Ref "U32.lit84") (cell 84) := by lit «programCopy.U32.lit84»
-  have l114 : Runs B (Ref "U32.lit114") (cell 114) := by lit «programCopy.U32.lit114»
-  have l117 : Runs B (Ref "U32.lit117") (cell 117) := by lit «programCopy.U32.lit117»
-  have l101 : Runs B (Ref "U32.lit101") (cell 101) := by lit «programCopy.U32.lit101»
-  have l70 : Runs B (Ref "U32.lit70") (cell 70) := by lit «programCopy.U32.lit70»
-  have l97 : Runs B (Ref "U32.lit97") (cell 97) := by lit «programCopy.U32.lit97»
-  have l115 : Runs B (Ref "U32.lit115") (cell 115) := by lit «programCopy.U32.lit115»
-  have l109 : Runs B (Ref "U32.lit109") (cell 109) := by lit «programCopy.U32.lit109»
+  have l40 : Runs B (fromLit "U32.lit40") (byte 40) := by lit «programCopy.U32.lit40»
+  have l41 : Runs B (fromLit "U32.lit41") (byte 41) := by lit «programCopy.U32.lit41»
+  have l78 : Runs B (fromLit "U32.lit78") (byte 78) := by lit «programCopy.U32.lit78»
+  have l105 : Runs B (fromLit "U32.lit105") (byte 105) := by lit «programCopy.U32.lit105»
+  have l108 : Runs B (fromLit "U32.lit108") (byte 108) := by lit «programCopy.U32.lit108»
+  have l67 : Runs B (fromLit "U32.lit67") (byte 67) := by lit «programCopy.U32.lit67»
+  have l111 : Runs B (fromLit "U32.lit111") (byte 111) := by lit «programCopy.U32.lit111»
+  have l110 : Runs B (fromLit "U32.lit110") (byte 110) := by lit «programCopy.U32.lit110»
+  have l87 : Runs B (fromLit "U32.lit87") (byte 87) := by lit «programCopy.U32.lit87»
+  have l84 : Runs B (fromLit "U32.lit84") (byte 84) := by lit «programCopy.U32.lit84»
+  have l114 : Runs B (fromLit "U32.lit114") (byte 114) := by lit «programCopy.U32.lit114»
+  have l117 : Runs B (fromLit "U32.lit117") (byte 117) := by lit «programCopy.U32.lit117»
+  have l101 : Runs B (fromLit "U32.lit101") (byte 101) := by lit «programCopy.U32.lit101»
+  have l70 : Runs B (fromLit "U32.lit70") (byte 70) := by lit «programCopy.U32.lit70»
+  have l97 : Runs B (fromLit "U32.lit97") (byte 97) := by lit «programCopy.U32.lit97»
+  have l115 : Runs B (fromLit "U32.lit115") (byte 115) := by lit «programCopy.U32.lit115»
+  have l109 : Runs B (fromLit "U32.lit109") (byte 109) := by lit «programCopy.U32.lit109»
   exact ⟨name_run h (d := «programCopy.Program.name.unit») (by simp [programCopy]) (ps := [("U32.lit40", 40), ("U32.lit41", 41)]) rfl
       (by simp [l40, l41]) name_unit,
     name_run h (d := «programCopy.Program.name.nil») (by simp [programCopy]) (ps := [("U32.lit78", 78), ("U32.lit105", 105), ("U32.lit108", 108)]) rfl
       (by simp [l78, l105, l108]) name_nil,
     name_run h (d := «programCopy.Program.name.con») (by simp [programCopy]) (ps := [("U32.lit67", 67), ("U32.lit111", 111), ("U32.lit110", 110)]) rfl
       (by simp [l67, l111, l110]) name_con,
-    name_run h (d := «programCopy.Program.name.u32») (by simp [programCopy]) (ps := [("U32.lit85", 85), ("U32.lit51", 51), ("U32.lit50", 50)]) rfl
-      (by simp [l85, l51, l50]) name_u32,
     name_run h (d := «programCopy.Program.name.wnil») (by simp [programCopy]) (ps := [("U32.lit87", 87), ("U32.lit78", 78), ("U32.lit105", 105), ("U32.lit108", 108)]) rfl
       (by simp [l87, l78, l105, l108]) name_wnil,
     name_run h (d := «programCopy.Program.name.wcon») (by simp [programCopy]) (ps := [("U32.lit87", 87), ("U32.lit67", 67), ("U32.lit111", 111), ("U32.lit110", 110)]) rfl
@@ -192,8 +185,8 @@ theorem ctor_run {xs : List Term} (h : Holds B) (rk : Runs B K (Form.name k)) (r
   · simp [«programCopy.Program.ctor», walk, takes, bindsAt, Quan.live, Term.sub, Env.sub, Term.spine]; rfl
 
 macro "walks" d:term : tactic =>
-  `(tactic| simp [$d:term, walk, list, ctor, bits, cell, bytes, bindsAt, Quan.live, Quan.fld, takes,
-    Term.sub, Env.sub, Term.spine, Form.nat, data, dbits, dnat, dcell, dbytes])
+  `(tactic| simp [$d:term, walk, list, ctor, bits, byte, bytes, bindsAt, Quan.live, Quan.fld, takes,
+    Term.sub, Env.sub, Term.spine, Form.nat, data, dbits, dnat, dbytes])
 
 theorem bit_run (h : Holds B) (c : Prop) [Decidable c] :
     Runs B (App Q1 (Ref "Program.bit") (ctor (if c then "True" else "False") []))
@@ -202,11 +195,11 @@ theorem bit_run (h : Holds B) (c : Prop) [Decidable c] :
   by_cases hc : c
   · simp only [hc, ite_true]
     refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_ctor nofun) .nil) ?_
-      (ctor_run (xs := []) h (names_run h).2.2.2.2.2.2.1 ctor0)
+      (ctor_run (xs := []) h (names_run h).2.2.2.2.2.1 ctor0)
     walks «programCopy.Program.bit»
   · simp only [hc, ite_false]
     refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_ctor nofun) .nil) ?_
-      (ctor_run (xs := []) h (names_run h).2.2.2.2.2.2.2.1 ctor0)
+      (ctor_run (xs := []) h (names_run h).2.2.2.2.2.2.1 ctor0)
     walks «programCopy.Program.bit»
 
 theorem word_run (h : Holds B) :
@@ -216,75 +209,13 @@ theorem word_run (h : Holds B) :
   | zero =>
     show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
     refine Kit.call hk (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) .nil)) ?_
-      (ctor_run (xs := []) h (names_run h).2.2.2.2.1 ctor0)
+      (ctor_run (xs := []) h (names_run h).2.2.2.1 ctor0)
     walks «programCopy.Program.word»
   | succ n ih =>
     show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
     refine Kit.call hk (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) .nil)) ?_
-      (ctor_run (xs := [_, _]) h (names_run h).2.2.2.2.2.1 (ctor2 (bit_run h _) (ctor2 ih ctor0)))
+      (ctor_run (xs := [_, _]) h (names_run h).2.2.2.2.1 (ctor2 (bit_run h _) (ctor2 ih ctor0)))
     walks «programCopy.Program.word»
-
--- the bitwise and of the low n bits of v and w
-def andBits : Nat → Nat → Nat → Nat
-  | 0, _, _ => 0
-  | n + 1, v, w => (if v % 2 = 1 ∧ w % 2 = 1 then 1 else 0) + 2 * andBits n (v / 2) (w / 2)
-
-theorem bits_and : bits (n + 1) (andBits (n + 1) v w) =
-    ctor "WCon" [Form.bool (decide (v % 2 = 1) && decide (w % 2 = 1)), bits n (andBits n (v / 2) (w / 2))] := by
-  have h1 : andBits (n + 1) v w % 2 = 1 ↔ (v % 2 = 1 ∧ w % 2 = 1) := by
-    simp only [andBits]; split <;> omega
-  have h2 : andBits (n + 1) v w / 2 = andBits n (v / 2) (w / 2) := by
-    simp only [andBits]; split <;> omega
-  rw [bits, h2]
-  by_cases hv : v % 2 = 1 <;> by_cases hw : w % 2 = 1 <;> simp [hv, hw, Form.bool, h1]
-
-theorem form_bool (c : Prop) [Decidable c] : ctor (if c then "True" else "False") [] = Form.bool (decide c) := by
-  by_cases hc : c <;> simp [hc, Form.bool]
-
-theorem word_and_run (h : Holds B) :
-    Runs B (spine (Ref "Word.and") [(Q1, Form.nat n), (Q1, bits n v), (Q1, bits n w)])
-      (bits n (andBits n v w)) := by
-  have hk := h.get (d := «programCopy.Word.and»)
-  induction n generalizing v w with
-  | zero =>
-    refine Kit.call hk (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) (.cons (fun _ => value_bits) .nil))) ?_
-      ctor0
-    walks «programCopy.Word.and»
-  | succ n ih =>
-    rw [bits_and]
-    refine Kit.call hk (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) (.cons (fun _ => value_bits) .nil))) ?_
-      (ctor2 (EvalCopy.and_copy h.eval) ih)
-    walks «programCopy.Word.and»
-    constructor <;> split <;> simp_all [Form.bool, ctor]
-
-theorem u32_and_run (h : Holds B) (rx : Runs B x (ctor "U32" [bits 32 v])) (ry : Runs B y (ctor "U32" [bits 32 w])) :
-    Runs B (App Q1 (App Q1 (Ref "U32.and") x) y) (ctor "U32" [bits 32 (andBits 32 v w)]) := by
-  have hk := h.get (d := «programCopy.U32.and»)
-  show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
-  refine Kit.runs_call hk (.r rfl rx (.r rfl ry .nil)) ?_ ?_ (ctor1 (word_and_run h))
-  · intro m hm; simp at hm
-    rcases m with _ | _ | m <;> first | omega | walks «programCopy.U32.and»
-  · walks «programCopy.U32.and»
-
-theorem and_255 : ∀ b : Fin 256, andBits 32 b 255 = b := by decide
-
-theorem cell_run (h : Holds B) : Runs B (App Q1 (Ref "Program.cell") (cell b)) (Form.term (cell b)) := by
-  have hk := h.get (d := «programCopy.Program.cell»)
-  have hk' := h.get (d := «programCopy.Program.cell.of»)
-  have l255 : Runs B (Ref "U32.lit255") (cell 255) := by lit «programCopy.U32.lit255»
-  have ha := u32_and_run h (.refl value_cell) l255 (v := b.toNat) (w := (255 : UInt8).toNat)
-  have e : andBits 32 b.toNat (255 : UInt8).toNat = b.toNat := and_255 ⟨b.toNat, b.toNat_lt⟩
-  rw [e] at ha
-  refine Kit.call (xs := [(Q1, _)])
-    (u := App Q1 (Ref "Program.cell.of") (App Q1 (App Q1 (Ref "U32.and") (cell b)) (Ref "U32.lit255")))
-    hk (.cons (fun _ => value_cell) .nil) ?_ ?_
-  · walks «programCopy.Program.cell»
-  · show Runs B (spine (Ref _) [(Q1, _)]) _
-    refine Kit.runs_call hk' (.r rfl ha .nil) ?_ ?_
-      (ctor_run (xs := [_]) h (names_run h).2.2.2.1 (ctor2 (word_run h) ctor0))
-    · intro m hm; simp at hm
-      rcases m with _ | m <;> first | omega | walks «programCopy.Program.cell.of»
-    · walks «programCopy.Program.cell.of»
 
 theorem bytes_run (h : Holds B) : Runs B (App Q1 (Ref "Program.bytes") (bytes i)) (Form.term (bytes i)) := by
   have hk := h.get (d := «programCopy.Program.bytes»)
@@ -295,13 +226,13 @@ theorem bytes_run (h : Holds B) : Runs B (App Q1 (Ref "Program.bytes") (bytes i)
     walks «programCopy.Program.bytes»
   | cons b i ih =>
     refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_bytes) .nil) ?_
-      (ctor_run (xs := [_, _]) h (names_run h).2.2.1 (ctor2 (cell_run h) (ctor2 ih ctor0)))
+      (ctor_run (xs := [_, _]) h (names_run h).2.2.1 (ctor2 (word_run h) (ctor2 ih ctor0)))
     walks «programCopy.Program.bytes»
 
 theorem start_run (h : Holds B) : Runs B (App Q1 (Ref "Program.start") (bytes i)) (Form.term (start i)) := by
   have hk := h.get (d := «programCopy.Program.start»)
   refine Kit.call (xs := [(Q1, _)]) hk (.cons (fun _ => value_bytes) .nil) ?_
-    (ctor3 vq1 (ctor1 (names_run h).2.2.2.2.2.2.2.2) (bytes_run h))
+    (ctor3 vq1 (ctor1 (names_run h).2.2.2.2.2.2.2) (bytes_run h))
   walks «programCopy.Program.start»
 
 -- Comparisons
@@ -326,40 +257,5 @@ theorem wc_compare : wc n v w = compare (v % 2 ^ n) (w % 2 ^ n) := by
       · rw [Nat.compare_eq_eq] at hd; exact (Nat.compare_eq_eq.2 (by omega)).symm
       · rw [Nat.compare_eq_gt] at hd; exact (Nat.compare_eq_gt.2 (by omega)).symm
     · rw [Nat.compare_eq_gt] at hc; exact (Nat.compare_eq_gt.2 (by omega)).symm
-
--- U32.is_lt says whether a word is below another
-theorem u32_is_lt (h : Holds B) (ry : Runs B y (ctor "U32" [bits 32 w])) :
-    Runs B (App Q1 (App Q1 (Ref "U32.is_lt") (ctor "U32" [bits 32 v])) y)
-      (Form.bool (decide (v % 2 ^ 32 < w % 2 ^ 32))) := by
-  have hk := h.get (d := «programCopy.U32.is_lt»)
-  have hc : Book.get B "U32.cmp" = some «evalCopy.U32.cmp» := h.eval «evalCopy.U32.cmp» (by simp [evalCopy])
-  have hl : Book.get B "Cmp.is_lt" = some «evalCopy.Cmp.is_lt» := h.eval «evalCopy.Cmp.is_lt» (by simp [evalCopy])
-  show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
-  refine Kit.runs_call hk (.v rfl (value_ctor (by simp [value_bits])) (.r rfl ry .nil))
-    (u := App Q1 (Ref "Cmp.is_lt") (App Q1 (App Q1 (Ref "U32.cmp") (ctor "U32" [bits 32 v])) (ctor "U32" [bits 32 w])))
-    ?_ ?_ ?_
-  · intro m hm; simp at hm
-    rcases m with _ | _ | m <;> first | omega | walks «programCopy.U32.is_lt»
-  · walks «programCopy.U32.is_lt»
-  have rc : Runs B (App Q1 (App Q1 (Ref "U32.cmp") (ctor "U32" [bits 32 v])) (ctor "U32" [bits 32 w]))
-      (cmpForm (wc 32 v w)) :=
-    Kit.call (xs := [(Q1, _), (Q1, _)]) hc (.cons (fun _ => value_ctor (by simp [value_bits]))
-      (.cons (fun _ => value_ctor (by simp [value_bits])) .nil))
-      (u := App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat 32)) (bits 32 v)) (bits 32 w))
-      (by simp [walk, «evalCopy.U32.cmp», ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Env.sub, Form.nat, data, dbits])
-      (word_cmp h.eval)
-  refine Kit.run_x (Kit.part (xs := []) hl .nil (by simp [walk, «evalCopy.Cmp.is_lt», takes])) rfl rc ?_
-  rw [wc_compare]
-  have run_b (o : Ordering) (b : Bool) (hb : decide (v % 2 ^ 32 < w % 2 ^ 32) = b)
-      (hw : walk B «evalCopy.Cmp.is_lt».v [] [(Q1, cmpForm o)] = some (some (Form.bool b))) :
-      Runs B (App Q1 (Ref "Cmp.is_lt") (cmpForm o)) (Form.bool (decide (v % 2 ^ 32 < w % 2 ^ 32))) :=
-    hb ▸ Kit.call (xs := [(Q1, _)]) hl (.cons (fun _ => value_cmp) .nil) hw (.refl value_bool)
-  cases ho : compare (v % 2 ^ 32) (w % 2 ^ 32)
-  · rw [Nat.compare_eq_lt] at ho
-    exact run_b _ true (by simp [ho]) (by simp [walk, «evalCopy.Cmp.is_lt», cmpForm, ctor, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine, Form.bool])
-  · rw [Nat.compare_eq_eq] at ho
-    exact run_b _ false (by simp [ho]) (by simp [walk, «evalCopy.Cmp.is_lt», cmpForm, ctor, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine, Form.bool])
-  · rw [Nat.compare_eq_gt] at ho
-    exact run_b _ false (by simp; omega) (by simp [walk, «evalCopy.Cmp.is_lt», cmpForm, ctor, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine, Form.bool])
 
 end Gives

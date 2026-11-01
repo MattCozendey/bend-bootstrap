@@ -31,12 +31,12 @@ private theorem runs_handler (hk : Book.get B k = some d) (vl : Value B l)
 -- Book.read.token goes on to Book.read.token8 from the tag 8 on
 private theorem token_8 (h : Contains B reader) (vl : Value B l)
     (r : Runs B (App Q1 (App Q1 (Ref "Book.read.token8") (Form.nat n)) l) v) :
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat (n + 8))) l) (cell b)) v := by
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat (n + 8))) l) (byte b)) v := by
   have k1 : Book.get B "Book.read.token" = some «reader.Book.read.token» :=
     h «reader.Book.read.token» (by simp [reader])
   exact runs_walk (xs := [(Q1, _), (Q1, _), (Q1, _)]) k1
-      (.cons (fun _ => value_nat) (.cons (fun _ => vl) (.cons (fun _ => value_cell) .nil)))
-      (by simp [«reader.Book.read.token», Form.nat, cell, walk, ctor, bindsAt, Quan.live, takes,
+      (.cons (fun _ => value_nat) (.cons (fun _ => vl) (.cons (fun _ => value_byte) .nil)))
+      (by simp [«reader.Book.read.token», Form.nat, byte, walk, ctor, bindsAt, Quan.live, takes,
           Quan.fld, Term.sub, Env.sub, Term.spine]) r
 
 -- Book.read.token8 goes on to Book.read.token16 from 8 on
@@ -84,7 +84,7 @@ private theorem value_push (hx : ∀ y ∈ fs, Value B y) (hs : ∀ x ∈ s, Val
 
 theorem token_high : Contains B reader → 22 ≤ t → (∀ x ∈ s, Value B x) →
     Read.token t b s = some s' →
-    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (cell b))
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Book.read.token") (Form.nat t)) (list s)) (byte b))
       (Form.some (list s')) := by
   intro h ht hs e
   have vl := value_list hs

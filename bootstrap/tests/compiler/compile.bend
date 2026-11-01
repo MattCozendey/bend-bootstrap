@@ -3,5 +3,5 @@
 import Base
 import ../../bend/src/compiler/impl.bend as C
 
-def main(+p: List<&2, U32>) -> List<&2, U32>:
+def main(+p: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   C.Compiler.compile(p)

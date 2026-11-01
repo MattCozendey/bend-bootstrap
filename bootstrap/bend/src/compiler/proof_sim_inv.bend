@@ -41,6 +41,17 @@ def none.some(-y: U32, e: {None{} == Some{y} : Maybe<&2, U32>}) -> Empty:
   %Equal.sym(Maybe<&2, U32>, None{}, Some{y}, e) : is.some(_)
   Unit{}
 
+def is.some8(x: Maybe<&2, Word(8n)>) -> Data:
+  match x:
+    case None{}:
+      Empty
+    case Some{_}:
+      Unit
+
+def none.some8(-y: Word(8n), e: {None{} == Some{y} : Maybe<&2, Word(8n)>}) -> Empty:
+  %Equal.sym(Maybe<&2, Word(8n)>, None{}, Some{y}, e) : is.some8(_)
+  Unit{}
+
 # The configurations
 # ------------------
 
@@ -55,7 +66,7 @@ def Cfg(+code: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +stk: List<&
   C.Wasm.Step.next{C.Wasm.Frame{code, ls, 1n, stk, loc}, mem}
 
 def St(+rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32) -> C.Cir.State:
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32) -> C.Cir.State:
   C.Cir.State{rg, cl, nx, fi, im, pg, lm, inp, ou, on}
 
 # The views of the memory
@@ -86,7 +97,7 @@ def GC(q: Nat, +cl: C.Cir.Cells, +c: U32) -> List<&2, C.Cir.Cell>:
       Con{C.Cir.Cells.get(cl, c), GC(p, cl, U32.inc(c))}
 
 # q bytes from x
-def RB(q: Nat, +m: C.Wasm.Bytes, +x: U32) -> List<&2, U32>:
+def RB(q: Nat, +m: C.Wasm.Bytes, +x: U32) -> List<&2, Word(8n)>:
   match q:
     case 0n:
       Nil{}
@@ -103,15 +114,15 @@ def PB(+pg: U32) -> Nat:
 # what the state of a run of run holds, beside its locals: the input's
 # address a and length n, the cells, the input's bytes and the output's
 def Inv(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes) -> Data:
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes) -> Data:
   +NX = U32.to_nat(nx)
   +FI = U32.to_nat(fi)
   +K = U32.to_nat(im)
-  +L = List.length(&2, U32, inp)
-  S.P2(S.P2(S.P2({a == C.Cir.input.at(im) : U32}, {n == C.Wasm.encode.len(U32, inp) : U32}),
-            S.P2({RC(K, m, 1) == GC(K, cl, 1) : List<&2, C.Cir.Cell>}, {RB(L, m, a) == inp : List<&2, U32>})),
+  +L = List.length(&2, Word(8n), inp)
+  S.P2(S.P2(S.P2({a == C.Cir.input.at(im) : U32}, {n == C.Wasm.encode.len(Word(8n), inp) : U32}),
+            S.P2({RC(K, m, 1) == GC(K, cl, 1) : List<&2, C.Cir.Cell>}, {RB(L, m, a) == inp : List<&2, Word(8n)>})),
        S.P2(S.P2(N.Le(FI, NX), {RC(Nat.sub(NX, FI), m, fi) == GC(Nat.sub(NX, FI), cl, fi) : List<&2, C.Cir.Cell>}),
-            S.P2({RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, U32, ou) : List<&2, U32>},
+            S.P2({RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>},
               Bounds(P, G, a, nx, fi, im, pg, lm, inp, on))))
 
 # no cell, or the cells up to next fit in B bytes
@@ -135,12 +146,12 @@ def OF(o: Nat, +NX: Nat, +B: Nat) -> Data:
 # memory, and before the first cell of the machine; next at most P; the
 # cells and the output in the memory; the limit below G pages, and the pages
 # at most the limit
-def Bounds(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32, +inp: List<&2, U32>, +on: U32) -> Data:
+def Bounds(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32, +inp: List<&2, Word(8n)>, +on: U32) -> Data:
   +A = U32.to_nat(a)
   +NX = U32.to_nat(nx)
   +FI = U32.to_nat(fi)
   +K = U32.to_nat(im)
-  +E = Nat.add(A, List.length(&2, U32, inp))
+  +E = Nat.add(A, List.length(&2, Word(8n), inp))
   S.P2(S.P2(S.P2({A == PH.H.t20(1n+K) : Nat}, N.Le(1n+K, P)), S.P2(N.Le(E, PH.H.t20(P)), N.Le(E, PB(pg)))),
        S.P2(S.P2(N.Le(E, PH.H.t20(FI)), N.Le(NX, P)),
             S.P2(S.P2(CF(Nat.sub(NX, FI), NX, PB(pg)), OF(U32.to_nat(on), NX, PB(pg))),
@@ -150,7 +161,7 @@ def Bounds(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +l
 # -------------------------
 
 def inv.ea(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32,
-  -inp: List<&2, U32>, -ou: List<&2, U32>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  -inp: List<&2, Word(8n)>, -ou: List<&2, Word(8n)>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
   {a == C.Cir.input.at(im) : U32}:
   (h0, h1) = hI
   (h00, h01) = h0
@@ -158,7 +169,7 @@ def inv.ea(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: 
   ea
 
 def inv.book(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32,
-  -inp: List<&2, U32>, -ou: List<&2, U32>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  -inp: List<&2, Word(8n)>, -ou: List<&2, Word(8n)>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
   {RC(U32.to_nat(im), m, 1) == GC(U32.to_nat(im), cl, 1) : List<&2, C.Cir.Cell>}:
   (h0, h1) = hI
   (h00, h01) = h0
@@ -166,15 +177,15 @@ def inv.book(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi
   hb
 
 def inv.inp(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32,
-  -inp: List<&2, U32>, -ou: List<&2, U32>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
-  {RB(List.length(&2, U32, inp), m, a) == inp : List<&2, U32>}:
+  -inp: List<&2, Word(8n)>, -ou: List<&2, Word(8n)>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  {RB(List.length(&2, Word(8n), inp), m, a) == inp : List<&2, Word(8n)>}:
   (h0, h1) = hI
   (h00, h01) = h0
   (hb, hi) = h01
   hi
 
 def inv.fle(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32,
-  -inp: List<&2, U32>, -ou: List<&2, U32>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  -inp: List<&2, Word(8n)>, -ou: List<&2, Word(8n)>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
   N.Le(U32.to_nat(fi), U32.to_nat(nx)):
   (h0, h1) = hI
   (h10, h11) = h1
@@ -182,7 +193,7 @@ def inv.fle(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi:
   hf
 
 def inv.mach(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32,
-  -inp: List<&2, U32>, -ou: List<&2, U32>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  -inp: List<&2, Word(8n)>, -ou: List<&2, Word(8n)>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
   {RC(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) == GC(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), cl, fi) : List<&2, C.Cir.Cell>}:
   (h0, h1) = hI
   (h10, h11) = h1
@@ -190,15 +201,15 @@ def inv.mach(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi
   hm
 
 def inv.out(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32,
-  -inp: List<&2, U32>, -ou: List<&2, U32>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
-  {RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, U32, ou) : List<&2, U32>}:
+  -inp: List<&2, Word(8n)>, -ou: List<&2, Word(8n)>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  {RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}:
   (h0, h1) = hI
   (h10, h11) = h1
   (ho, hb) = h11
   ho
 
 def inv.bounds(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32,
-  -inp: List<&2, U32>, -ou: List<&2, U32>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  -inp: List<&2, Word(8n)>, -ou: List<&2, Word(8n)>, -on: U32, -m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
   Bounds(P, G, a, nx, fi, im, pg, lm, inp, on):
   (h0, h1) = hI
   (h10, h11) = h1
@@ -207,49 +218,49 @@ def inv.bounds(-P: Nat, -G: Nat, -a: U32, -n: U32, -cl: C.Cir.Cells, -nx: U32, -
 
 # The bounds, one by one
 
-def b.a(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
+def b.a(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> {U32.to_nat(a) == PH.H.t20(1n+U32.to_nat(im)) : Nat}:
   (x0, x1) = hB
   (x00, x01) = x0
   (y0, y1) = x00
   y0
 
-def b.k(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
+def b.k(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(1n+U32.to_nat(im), P):
   (x0, x1) = hB
   (x00, x01) = x0
   (y0, y1) = x00
   y1
 
-def b.e20(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
-  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(Nat.add(U32.to_nat(a), List.length(&2, U32, inp)), PH.H.t20(P)):
+def b.e20(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
+  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(Nat.add(U32.to_nat(a), List.length(&2, Word(8n), inp)), PH.H.t20(P)):
   (x0, x1) = hB
   (x00, x01) = x0
   (y0, y1) = x01
   y0
 
-def b.epb(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
-  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(Nat.add(U32.to_nat(a), List.length(&2, U32, inp)), PB(pg)):
+def b.epb(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
+  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(Nat.add(U32.to_nat(a), List.length(&2, Word(8n), inp)), PB(pg)):
   (x0, x1) = hB
   (x00, x01) = x0
   (y0, y1) = x01
   y1
 
-def b.efi(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
-  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(Nat.add(U32.to_nat(a), List.length(&2, U32, inp)), PH.H.t20(U32.to_nat(fi))):
+def b.efi(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
+  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(Nat.add(U32.to_nat(a), List.length(&2, Word(8n), inp)), PH.H.t20(U32.to_nat(fi))):
   (x0, x1) = hB
   (x10, x11) = x1
   (y0, y1) = x10
   y0
 
-def b.nx(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
+def b.nx(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(U32.to_nat(nx), P):
   (x0, x1) = hB
   (x10, x11) = x1
   (y0, y1) = x10
   y1
 
-def b.cf(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
+def b.cf(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> CF(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), U32.to_nat(nx), PB(pg)):
   (x0, x1) = hB
   (x10, x11) = x1
@@ -257,7 +268,7 @@ def b.cf(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm:
   (z0, z1) = y0
   z0
 
-def b.of(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
+def b.of(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> OF(U32.to_nat(on), U32.to_nat(nx), PB(pg)):
   (x0, x1) = hB
   (x10, x11) = x1
@@ -265,7 +276,7 @@ def b.of(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm:
   (z0, z1) = y0
   z1
 
-def b.lm(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
+def b.lm(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(1n+U32.to_nat(lm), G):
   (x0, x1) = hB
   (x10, x11) = x1
@@ -273,7 +284,7 @@ def b.lm(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm:
   (z0, z1) = y1
   z0
 
-def b.pg(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, U32>, -on: U32,
+def b.pg(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(U32.to_nat(pg), U32.to_nat(lm)):
   (x0, x1) = hB
   (x10, x11) = x1
@@ -312,23 +323,23 @@ def view.at(q: Nat, +m: C.Wasm.Bytes, +cl: C.Cir.Cells, +c: U32, j: Nat, h: N.Le
 
 # the byte j of a view
 def RB.get(q: Nat, +m: C.Wasm.Bytes, +c: U32, j: Nat, h: N.Le(1n+j, q)) ->
-  {List.get(&2, U32, RB(q, m, c), j) == Some{Y.R8(m, Z.incn(j, c))} : Maybe<&2, U32>}:
+  {List.get(&2, Word(8n), RB(q, m, c), j) == Some{Y.R8(m, Z.incn(j, c))} : Maybe<&2, Word(8n)>}:
   match q j:
     case 0n _:
-      Empty.absurd({List.get(&2, U32, RB(0n, m, c), j) == Some{Y.R8(m, Z.incn(j, c))} : Maybe<&2, U32>}, h)
+      Empty.absurd({List.get(&2, Word(8n), RB(0n, m, c), j) == Some{Y.R8(m, Z.incn(j, c))} : Maybe<&2, Word(8n)>}, h)
     case 1n+p 0n:
       {==}
     case 1n+p 1n+i:
       RB.get(p, m, U32.inc(c), i, h)
 
 # an element of a list is below its length
-def get.lt(l: List<&2, U32>, j: Nat, -b: U32, e: {List.get(&2, U32, l, j) == Some{b} : Maybe<&2, U32>}) ->
-  N.Le(1n+j, List.length(&2, U32, l)):
+def get.lt(l: List<&2, Word(8n)>, j: Nat, -b: Word(8n), e: {List.get(&2, Word(8n), l, j) == Some{b} : Maybe<&2, Word(8n)>}) ->
+  N.Le(1n+j, List.length(&2, Word(8n), l)):
   match l j:
     case Nil{} _:
-      Empty.absurd(N.Le(1n+j, 0n), none.some(b, e))
+      Empty.absurd(N.Le(1n+j, 0n), none.some8(b, e))
     case Con{h, +t} 0n:
-      N.le_zero(List.length(&2, U32, t))
+      N.le_zero(List.length(&2, Word(8n), t))
     case Con{h, t} 1n+i:
       get.lt(t, i, b, e)
 
@@ -394,7 +405,7 @@ def sub.lt(+f: Nat, +i: Nat, +x: Nat, h1: N.Le(f, i), h2: N.Le(1n+i, x)) -> N.Le
 # ----------------------------------
 
 def qf.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +i: U32, +e1: {Bool.and(Bool.not(U32.is_zero(i)), U32.is_le(i, im)) == b1 : Bool},
   +hc: {Bool.or(b1, Bool.and(U32.is_le(fi, i), U32.is_lt(i, nx))) == True{} : Bool}) ->
   {RCell(m, i) == C.Cir.Cells.get(cl, i) : C.Cir.Cell}:
@@ -429,7 +440,7 @@ def qf.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +
 # ---------------------
 
 # the memory is below 2^32
-def pb.lt(-P: Nat, +G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, +pg: U32, +lm: U32, -inp: List<&2, U32>, -on: U32,
+def pb.lt(-P: Nat, +G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, +pg: U32, +lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on), +W: Nat, hG: {N.D(16n, G) == W : Nat}) -> N.Le(1n+PB(pg), W):
   +PG = U32.to_nat(pg)
   +h1 = N.le_trans(1n+PG, 1n+U32.to_nat(lm), G, b.pg(P, G, a, nx, fi, im, pg, lm, inp, on, hB), b.lm(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
@@ -491,7 +502,7 @@ def in.cell(+P: Nat, +pg: U32, +i: U32, +k: Nat, +hk: {Nat.is_le(k, 4n) == True{
           Equal.sym(Nat, Nat.add(Nat.add(T, O), 4n), Nat.add(PH.H.t20(I), Nat.add(O, 4n)), s1), l3), hb)
 
 def qi.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat},
   +i: U32, +k: Nat, +hk: {Nat.is_le(k, 4n) == True{} : Bool},
@@ -507,9 +518,9 @@ def qi.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +
       +IK = Z.le.of(i, im, hle)
       +K = U32.to_nat(im)
       +A = U32.to_nat(a)
-      +E = Nat.add(A, List.length(&2, U32, inp))
+      +E = Nat.add(A, List.length(&2, Word(8n), inp))
       +h2 = N.le_rw_l(A, PH.H.t20(1n+K), PB(pg), b.a(P, G, a, nx, fi, im, pg, lm, inp, on, hB),
-        N.le_trans(A, E, PB(pg), N.le_add_r(A, List.length(&2, U32, inp)), b.epb(P, G, a, nx, fi, im, pg, lm, inp, on, hB)))
+        N.le_trans(A, E, PB(pg), N.le_add_r(A, List.length(&2, Word(8n), inp)), b.epb(P, G, a, nx, fi, im, pg, lm, inp, on, hB)))
       +hIP = N.le_trans(U32.to_nat(i), 1n+K, P, N.le_succ(U32.to_nat(i), K, IK), b.k(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
       in.cell(P, pg, i, k, hk, W, hW, hP, 1n+K, IK, h2, hIP, hb)
     case False{}:
@@ -531,7 +542,7 @@ def qi.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +
 
 # a field of a cell that the machine may use is inside the memory
 def q.field.in(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat},
   +i: U32, +k: Nat, +hc: {C.Cir.is_cell(i, im, fi, nx) == True{} : Bool}, +hk: {Nat.is_le(k, 4n) == True{} : Bool}) ->
@@ -541,7 +552,7 @@ def q.field.in(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +
 
 # a field of a cell that the machine may use holds what Cir says
 def q.field.val(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +i: U32, +k: Nat, hc: {C.Cir.is_cell(i, im, fi, nx) == True{} : Bool}, hk: {Nat.is_le(k, 4n) == True{} : Bool}) ->
   {Y.V32(m, U32.add(C.Cir.at(i), U32.shln(U32.from_nat(k), 2n))) == C.Cir.Cell.get(k, C.Cir.Cells.get(cl, i)) : U32}:
   Equal.trans(U32, Y.V32(m, U32.add(C.Cir.at(i), U32.shln(U32.from_nat(k), 2n))), C.Cir.Cell.get(k, RCell(m, i)),
@@ -552,15 +563,15 @@ def q.field.val(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, 
 
 # a byte of the input is inside the memory
 def q.byte.in(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat},
-  +x: U32, +b: U32, +hb: {List.get(&2, U32, inp, U32.to_nat(x)) == Some{b} : Maybe<&2, U32>}) ->
+  +x: U32, +b: Word(8n), +hb: {List.get(&2, Word(8n), inp, U32.to_nat(x)) == Some{b} : Maybe<&2, Word(8n)>}) ->
   {C.Wasm.inside(pg, U32.add(x, a), 0, 1) == True{} : Bool}:
   +hB = inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
   +X = U32.to_nat(x)
   +A = U32.to_nat(a)
-  +L = List.length(&2, U32, inp)
+  +L = List.length(&2, Word(8n), inp)
   +XA = Nat.add(X, A)
   +hL = get.lt(inp, X, b, hb)
   +t1 = N.le_rw_r(1n+XA, Nat.add(L, A), Nat.add(A, L), Z.add.comm(L, A), Z.le.add_r(1n+X, L, A, hL))
@@ -576,28 +587,29 @@ def q.byte.in(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +f
 
 # a byte of the input holds what Cir says
 def q.byte.val(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
-  +x: U32, +b: U32, +hb: {List.get(&2, U32, inp, U32.to_nat(x)) == Some{b} : Maybe<&2, U32>}) ->
-  {Y.R8(m, U32.add(U32.add(x, a), 0)) == b : U32}:
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +x: U32, +b: Word(8n), +hb: {List.get(&2, Word(8n), inp, U32.to_nat(x)) == Some{b} : Maybe<&2, Word(8n)>}) ->
+  {Y.R8(m, U32.add(U32.add(x, a), 0)) == b : Word(8n)}:
   +X = U32.to_nat(x)
-  +L = List.length(&2, U32, inp)
+  +L = List.length(&2, Word(8n), inp)
   +hL = get.lt(inp, X, b, hb)
-  +e1 = Equal.trans(Maybe<&2, U32>, Some{Y.R8(m, Z.incn(X, a))}, List.get(&2, U32, RB(L, m, a), X), Some{b},
-    Equal.sym(Maybe<&2, U32>, List.get(&2, U32, RB(L, m, a), X), Some{Y.R8(m, Z.incn(X, a))}, RB.get(L, m, a, X, hL)),
-    Equal.trans(Maybe<&2, U32>, List.get(&2, U32, RB(L, m, a), X), List.get(&2, U32, inp, X), Some{b},
-      Equal.cong(List<&2, U32>, Maybe<&2, U32>, l => List.get(&2, U32, l, X), RB(L, m, a), inp,
+  +e1 = Equal.trans(Maybe<&2, Word(8n)>, Some{Y.R8(m, Z.incn(X, a))}, List.get(&2, Word(8n), RB(L, m, a), X), Some{b},
+    Equal.sym(Maybe<&2, Word(8n)>, List.get(&2, Word(8n), RB(L, m, a), X), Some{Y.R8(m, Z.incn(X, a))}, RB.get(L, m, a, X, hL)),
+    Equal.trans(Maybe<&2, Word(8n)>, List.get(&2, Word(8n), RB(L, m, a), X), List.get(&2, Word(8n), inp, X), Some{b},
+      Equal.cong(List<&2, Word(8n)>, Maybe<&2, Word(8n)>, l => List.get(&2, Word(8n), l, X), RB(L, m, a), inp,
         inv.inp(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)), hb))
   +ex = Equal.trans(U32, U32.add(U32.add(x, a), 0), U32.add(x, a), Z.incn(X, a), Y.U32.add_zero(U32.add(x, a)),
     Equal.trans(U32, U32.add(x, a), U32.add(U32.from_nat(X), a), Z.incn(X, a),
       Equal.cong(U32, U32, z => U32.add(z, a), x, U32.from_nat(X), Equal.sym(U32, U32.from_nat(X), x, Z.from.to(x))),
       Equal.sym(U32, Z.incn(X, a), U32.add(U32.from_nat(X), a), Z.incn.add(X, a))))
-  Equal.trans(U32, Y.R8(m, U32.add(U32.add(x, a), 0)), Y.R8(m, Z.incn(X, a)), b,
-    Equal.cong(U32, U32, z => Y.R8(m, z), U32.add(U32.add(x, a), 0), Z.incn(X, a), ex), some.inj(Y.R8(m, Z.incn(X, a)), b, e1))
+  Equal.trans(Word(8n), Y.R8(m, U32.add(U32.add(x, a), 0)), Y.R8(m, Z.incn(X, a)), b,
+    Equal.cong(U32, Word(8n), z => Y.R8(m, z), U32.add(U32.add(x, a), 0), Z.incn(X, a), ex),
+    Equal.cong(Maybe<&2, Word(8n)>, Word(8n), z => Maybe.default(&2, Word(8n), z, Word.zero(8n)), Some{Y.R8(m, Z.incn(X, a))}, Some{b}, e1))
 
 # the input's length is n
 def q.size(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
-  {n == C.Wasm.encode.len(U32, inp) : U32}:
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, hI: Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m)) ->
+  {n == C.Wasm.encode.len(Word(8n), inp) : U32}:
   (h0, h1) = hI
   (h00, h01) = h0
   (ea, en) = h00

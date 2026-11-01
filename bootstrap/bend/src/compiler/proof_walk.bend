@@ -265,7 +265,7 @@ def Then(o: C.Cir.Out, -k: C.Cir.State -> C.Cir.Out, -P: C.Cir.State -> Type, -Q
       Unit{}
 
 def Sim.set.if(b: Bool, +regs: List<&2, U32>, +r: Nat, +x: U32, +cells: C.Cir.Cells, +next: U32, +first: U32, +image: U32, +pages: U32, +limit: U32,
-  +input: List<&2, U32>, +out: List<&2, U32>, +outn: U32, -Q: C.Cir.State -> Type, tr: Tr(b),
+  +input: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, -Q: C.Cir.State -> Type, tr: Tr(b),
   q: Q(C.Cir.State{List.set(&2, U32, regs, r, x), cells, next, first, image, pages, limit, input, out, outn})) ->
   Ok(C.Cir.exec.set.of(C.Cir.regs.set.if(b, regs, r, x), C.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Q):
   match b:
@@ -859,7 +859,7 @@ def TE.all(tag: Nat, -a2: Maybe<&2, C.Term>, -b2: Maybe<&2, C.Term>, -a3: Maybe<
       Unit{}
 
 # tm.cell with parts that give the same terms
-def TCell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>,
+def TCell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
   -p2: Unit -> Maybe<&2, C.Term>, -p3: Unit -> Maybe<&2, C.Term>, -p4: Unit -> Maybe<&2, C.Term>, -r2: Unit -> Maybe<&2, C.Term>, -r3: Unit -> Maybe<&2, C.Term>, -r4: Unit -> Maybe<&2, C.Term>,
   h: TE(tag, p2(Unit{}), r2(Unit{}), p3(Unit{}), r3(Unit{}), p4(Unit{}), r4(Unit{}))) ->
   {T.tm.cell(tag, q, c, f2, ks, img, p2, p3, p4) == T.tm.cell(tag, q, c, f2, ks, img, r2, r3, r4) : Maybe<&2, C.Term>}:
@@ -944,7 +944,7 @@ def TCell(tag: Nat, +q: C.Quan, +c: U32, +f2: U32, +ks: List<&2, List<&2, U32>>,
 
 # one level of tm.of, on two cell maps whose cell c has the same tag,
 # quantity and parts, and whose parts give the same terms
-def TOF(+g: Nat, +m: C.Cir.Cells, +m2: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32,
+def TOF(+g: Nat, +m: C.Cir.Cells, +m2: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32,
   et: {U32.and(C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), 63) == U32.and(C.Cir.Cell.get(0n, C.Cir.Cells.get(m2, c)), 63) : U32},
   eq: {U32.and(U32.shrn(C.Cir.Cell.get(0n, C.Cir.Cells.get(m, c)), 6n), 3) == U32.and(U32.shrn(C.Cir.Cell.get(0n, C.Cir.Cells.get(m2, c)), 6n), 3) : U32},
   e2: {C.Cir.Cell.get(2n, C.Cir.Cells.get(m, c)) == C.Cir.Cell.get(2n, C.Cir.Cells.get(m2, c)) : U32},
@@ -1041,7 +1041,7 @@ def Ag(+m: C.Cir.Cells, +d: U32, +x2: C.Cir.Cell, +ag: AgC(C.Cir.Cells.get(m, d)
   Ag.at(U32.is_eq(c, d), m, d, x2, ag, c, {==})
 
 # a set of a cell that keeps its tag, quantity and parts keeps every term
-def TFag(f: Nat, +m: C.Cir.Cells, +d: U32, +x2: C.Cir.Cell, +ag: AgC(C.Cir.Cells.get(m, d), x2), +ks: List<&2, List<&2, U32>>,
+def TFag(f: Nat, +m: C.Cir.Cells, +d: U32, +x2: C.Cir.Cell, +ag: AgC(C.Cir.Cells.get(m, d), x2), +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32) -> {T.tm.of(f, m, ks, img, c) == T.tm.of(f, C.Cir.Cells.set(m, d, x2), ks, img, c) : Maybe<&2, C.Term>}:
   match f:
     case 0n:
@@ -1069,7 +1069,7 @@ def AgC.set1(+x: C.Cir.Cell, +v: U32) -> AgC(x, C.Cir.Cell.set(1n, x, v)):
       AgC.refl(C.Cir.Cell{a, b, p, q, r})
 
 # a set of field 1 (a count or a link) keeps every term
-def TF1(f: Nat, +m: C.Cir.Cells, +d: U32, +v: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32) ->
+def TF1(f: Nat, +m: C.Cir.Cells, +d: U32, +v: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32) ->
   {T.tm.of(f, m, ks, img, c) == T.tm.of(f, Set1(m, d, v), ks, img, c) : Maybe<&2, C.Term>}:
   TFag(f, m, d, C.Cir.Cell.set(1n, C.Cir.Cells.get(m, d), v), AgC.set1(C.Cir.Cells.get(m, d), v), ks, img, c)
 
@@ -1182,7 +1182,7 @@ def SetF(+m: C.Cir.Cells, +d: U32, +fl: U32) -> C.Cir.Cells:
 
 # a flag outside the tag and the quantity keeps every term
 def TFl(f: Nat, +m: C.Cir.Cells, +d: U32, +fl: U32, h1: {U32.and(fl, 63) == 0 : U32}, h2: {U32.and(U32.shrn(fl, 6n), 3) == 0 : U32},
-  +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32) ->
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32) ->
   {T.tm.of(f, m, ks, img, c) == T.tm.of(f, SetF(m, d, fl), ks, img, c) : Maybe<&2, C.Term>}:
   +x = C.Cir.Cells.get(m, d)
   TFag(f, m, d, C.Cir.Cell.set(0n, x, U32.or(C.Cir.Cell.get(0n, x), fl)), AgC.flag(x, fl, h1, h2), ks, img, c)
@@ -1424,7 +1424,7 @@ def Mem.ne(+c: U32, +s: U32, +L: List<&2, U32>, +hm: {Mem(c, L) == True{} : Bool
     Equal.trans(Bool, True{}, Mem(c, L), Mem(s, L), Equal.sym(Bool, Mem(c, L), True{}, hm), ec), hs))
 
 # a set of a cell outside L keeps the term of a cell that reads only cells of L
-def TFo(f: Nat, +m: C.Cir.Cells, +s: U32, +x2: C.Cir.Cell, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>,
+def TFo(f: Nat, +m: C.Cir.Cells, +s: U32, +x2: C.Cir.Cell, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
   +L: List<&2, U32>, +c: U32, h: {RdIn(f, m, c, L) == True{} : Bool}, +hs: {Mem(s, L) == False{} : Bool}) ->
   {T.tm.of(f, m, ks, img, c) == T.tm.of(f, C.Cir.Cells.set(m, s, x2), ks, img, c) : Maybe<&2, C.Term>}:
   match f:
@@ -1582,7 +1582,7 @@ def WOk1.nk(+k: Bool, -r: Bool, h: {Bool.and(Bool.not(k), r) == True{} : Bool}) 
   Bo.not_t(k, Bo.and_l(Bool.not(k), r, h))
 
 # one write keeps the term of a cell that reads only cells of L
-def Do1.tm(w: Wr, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +L: List<&2, U32>, +K: List<&2, U32>,
+def Do1.tm(w: Wr, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +L: List<&2, U32>, +K: List<&2, U32>,
   +c: U32, o: {WOk1(w, L, K) == True{} : Bool}, h: {RdIn(f, m, c, L) == True{} : Bool}) ->
   {T.tm.of(f, m, ks, img, c) == T.tm.of(f, Do(m, w), ks, img, c) : Maybe<&2, C.Term>}:
   match w:
@@ -1618,7 +1618,7 @@ def W.rd(ws: List<&2, Wr>, +f: Nat, +m: C.Cir.Cells, +L: List<&2, U32>, +K: List
       Do1.rd(w, f, Apply(rest, m), L, K, c, Bo.and_l(WOk1(w, L, K), WOk(rest, L, K), ok2),
         W.rd(rest, f, m, L, K, c, Bo.and_r(WOk1(w, L, K), WOk(rest, L, K), ok2), h))
 
-def W.tm(ws: List<&2, Wr>, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +L: List<&2, U32>,
+def W.tm(ws: List<&2, Wr>, +f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +L: List<&2, U32>,
   +K: List<&2, U32>, +c: U32, ok: {WOk(ws, L, K) == True{} : Bool}, +h: {RdIn(f, m, c, L) == True{} : Bool}) ->
   {T.tm.of(f, m, ks, img, c) == T.tm.of(f, Apply(ws, m), ks, img, c) : Maybe<&2, C.Term>}:
   match ws:
@@ -1739,7 +1739,7 @@ def Pend(+rg: List<&2, U32>) -> U32:
 type AW is Data:
   AW{c: U32, p: U32, aq: U32, am: U32, dx: U32, dr: U32, ws: List<&2, Wr>, nx: U32, pg: U32}
 
-def AlPost.of(w: AW, +rg: List<&2, U32>, +r: Nat, +m: C.Cir.Cells, +fs: U32, +im: U32, +lim: U32, +inp: List<&2, U32>,
+def AlPost.of(w: AW, +rg: List<&2, U32>, +r: Nat, +m: C.Cir.Cells, +fs: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +L: List<&2, U32>, +K: List<&2, U32>, -CS: C.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type, st2: C.Cir.State) -> Type:
   match w:
     case AW{+c, +p, +aq, +am, +dx, +dr, +ws, +nx2, +pg2}:
@@ -1754,14 +1754,14 @@ def AlPost.of(w: AW, +rg: List<&2, U32>, +r: Nat, +m: C.Cir.Cells, +fs: U32, +im
       Sigma<&1, &1, {AllCell(Con{c, K}, im, fs, nx2) == True{} : Bool}, _ =>
       CS(Apply(ws, m), p, L, Con{c, K})>>>>>>>>>
 
-def AlPost(+rg: List<&2, U32>, +r: Nat, +m: C.Cir.Cells, +fs: U32, +im: U32, +lim: U32, +inp: List<&2, U32>,
+def AlPost(+rg: List<&2, U32>, +r: Nat, +m: C.Cir.Cells, +fs: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>,
   +L: List<&2, U32>, +K: List<&2, U32>, -CS: C.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type, st2: C.Cir.State) -> Type:
   &w: AW -> AlPost.of(w, rg, r, m, fs, im, lim, inp, L, K, CS, st2)
 
 # AH: an alloc from a state of which CS holds
 def AH(-CS: C.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type) -> Type:
   @F: Nat -> @r: Nat -> @rg: List<&2, U32> -> @m: C.Cir.Cells -> @nx: U32 -> @fs: U32 -> @im: U32 -> @pg: U32 -> @lim: U32 ->
-  @inp: List<&2, U32> -> @L: List<&2, U32> -> @K: List<&2, U32> ->
+  @inp: List<&2, Word(8n)> -> @L: List<&2, U32> -> @K: List<&2, U32> ->
   CS(m, Pend(rg), L, K) -> {AllCell(L, im, fs, nx) == True{} : Bool} -> {AllCell(K, im, fs, nx) == True{} : Bool} ->
   Ok(C.Cir.exec(F, C.M.alloc(r), C.Cir.State{rg, m, nx, fs, im, pg, lim, inp, [], 0}), st2 => AlPost(rg, r, m, fs, im, lim, inp, L, K, CS, st2))
 
@@ -1824,17 +1824,17 @@ def Sup.split(a: Nat, +b: Nat, -CS: C.Cir.Cells -> U32 -> List<&2, U32> -> List<
 # The registers
 # -------------
 
-# the 64 registers, as one value
-type R64 is Data:
-  R64{r0: U32, r1: U32, r2: U32, r3: U32, r4: U32, r5: U32, r6: U32, r7: U32, r8: U32, r9: U32, r10: U32, r11: U32, r12: U32, r13: U32, r14: U32, r15: U32, r16: U32, r17: U32, r18: U32, r19: U32, r20: U32, r21: U32, r22: U32, r23: U32, r24: U32, r25: U32, r26: U32, r27: U32, r28: U32, r29: U32, r30: U32, r31: U32, r32: U32, r33: U32, r34: U32, r35: U32, r36: U32, r37: U32, r38: U32, r39: U32, r40: U32, r41: U32, r42: U32, r43: U32, r44: U32, r45: U32, r46: U32, r47: U32, r48: U32, r49: U32, r50: U32, r51: U32, r52: U32, r53: U32, r54: U32, r55: U32, r56: U32, r57: U32, r58: U32, r59: U32, r60: U32, r61: U32, r62: U32, r63: U32}
+# the 63 registers, as one value
+type R63 is Data:
+  R63{r0: U32, r1: U32, r2: U32, r3: U32, r4: U32, r5: U32, r6: U32, r7: U32, r8: U32, r9: U32, r10: U32, r11: U32, r12: U32, r13: U32, r14: U32, r15: U32, r16: U32, r17: U32, r18: U32, r19: U32, r20: U32, r21: U32, r22: U32, r23: U32, r24: U32, r25: U32, r26: U32, r27: U32, r28: U32, r29: U32, r30: U32, r31: U32, r32: U32, r33: U32, r34: U32, r35: U32, r36: U32, r37: U32, r38: U32, r39: U32, r40: U32, r41: U32, r42: U32, r43: U32, r44: U32, r45: U32, r46: U32, r47: U32, r48: U32, r49: U32, r50: U32, r51: U32, r52: U32, r53: U32, r54: U32, r55: U32, r56: U32, r57: U32, r58: U32, r59: U32, r60: U32, r61: U32, r62: U32}
 
-def R64.list(r: R64) -> List<&2, U32>:
+def R63.list(r: R63) -> List<&2, U32>:
   match r:
-    case R64{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60, a61, a62, a63}:
-      [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60, a61, a62, a63]
+    case R63{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60, a61, a62}:
+      [a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60, a61, a62]
 
 # a state of a run: no output yet
-def St(rg: List<&2, U32>, m: C.Cir.Cells, nx: U32, fs: U32, im: U32, pg: U32, lim: U32, inp: List<&2, U32>) -> C.Cir.State:
+def St(rg: List<&2, U32>, m: C.Cir.Cells, nx: U32, fs: U32, im: U32, pg: U32, lim: U32, inp: List<&2, Word(8n)>) -> C.Cir.State:
   C.Cir.State{rg, m, nx, fs, im, pg, lim, inp, [], 0}
 
 # The data check
@@ -1869,7 +1869,7 @@ def DataB.of(r: Maybe<&2, C.Term>) -> Bool:
       C.Term.is_data(t)
 
 # the term of c, within f levels, is Data
-def DataB(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32) -> Bool:
+def DataB(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32) -> Bool:
   DataB.of(T.tm.of(f, m, ks, img, c))
 
 def DOk.tup(b: Bool, x: Bool, y: Bool) -> Bool:
@@ -1881,7 +1881,7 @@ def DOk.tup(b: Bool, x: Bool, y: Bool) -> Bool:
 
 # what the check needs of the cells it reaches from c: a flagged cell is
 # Data, a Ref's or an Enu's term is not, and so on in the parts of a pair
-def DOk(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32) -> Bool:
+def DOk(f: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32) -> Bool:
   match f:
     case 0n:
       True{}
@@ -1908,7 +1908,7 @@ def U.nat_eq(+a: U32, +b: U32, e: {U32.to_nat(a) == U32.to_nat(b) : Nat}) -> {U3
   U.nat_eq.c(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), e)
 
 # tm.of one level down, at the cell's tag n
-def TAn(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, +n: Nat,
+def TAn(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, +n: Nat,
   e: {U32.to_nat(Tg(m, y)) == n : Nat}) ->
   {T.tm.cell(n, T.tm.quan(Qb(m, y)), y, Fd(2n, m, y), ks, img, u => T.tm.of(g, m, ks, img, Fd(2n, m, y)), u => T.tm.of(g, m, ks, img, Fd(3n, m, y)), u => T.tm.of(g, m, ks, img, Fd(4n, m, y))) == T.tm.of(1n+g, m, ks, img, y) : Maybe<&2, C.Term>}:
   %Equal.sym(Nat, U32.to_nat(Tg(m, y)), n, e) : {T.tm.cell(n, T.tm.quan(Qb(m, y)), y, Fd(2n, m, y), ks, img, u => T.tm.of(g, m, ks, img, Fd(2n, m, y)), u => T.tm.of(g, m, ks, img, Fd(3n, m, y)), u => T.tm.of(g, m, ks, img, Fd(4n, m, y))) == T.tm.cell(_, T.tm.quan(Qb(m, y)), y, Fd(2n, m, y), ks, img, u => T.tm.of(g, m, ks, img, Fd(2n, m, y)), u => T.tm.of(g, m, ks, img, Fd(3n, m, y)), u => T.tm.of(g, m, ks, img, Fd(4n, m, y))) : Maybe<&2, C.Term>}
@@ -1924,7 +1924,7 @@ def none_some(-t: C.Term, e: {None{} == Some{t} : Maybe<&2, C.Term>}) -> Empty:
 def U.nat(+a: U32, +lit: U32, e: {a == lit : U32}) -> {U32.to_nat(a) == U32.to_nat(lit) : Nat}:
   Equal.cong(U32, Nat, z => U32.to_nat(z), a, lit, e)
 
-def D.lab.n(n: Maybe<&2, List<&2, U32>>, -t: C.Term, h: {T.tm.named(n, k => C.Term.Lab{k}) == Some{t} : Maybe<&2, C.Term>}) -> {C.Term.is_data(t) == True{} : Bool}:
+def D.lab.n(n: Maybe<&2, List<&2, Word(8n)>>, -t: C.Term, h: {T.tm.named(n, k => C.Term.Lab{k}) == Some{t} : Maybe<&2, C.Term>}) -> {C.Term.is_data(t) == True{} : Bool}:
   match n:
     case None{}:
       Empty.absurd({C.Term.is_data(t) == True{} : Bool}, none_some(t, h))
@@ -1933,13 +1933,13 @@ def D.lab.n(n: Maybe<&2, List<&2, U32>>, -t: C.Term, h: {T.tm.named(n, k => C.Te
       {==}
 
 # a cell of the tag of a label stands for Data
-def D.lab(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, e: {Tg(m, y) == 13 : U32},
+def D.lab(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, e: {Tg(m, y) == 13 : U32},
   -t: C.Term, h: {T.tm.of(1n+g, m, ks, img, y) == Some{t} : Maybe<&2, C.Term>}) -> {C.Term.is_data(t) == True{} : Bool}:
   D.lab.n(T.tm.name(ks, Fd(2n, m, y)), t, Equal.trans(Maybe<&2, C.Term>, T.tm.cell(13n, T.tm.quan(Qb(m, y)), y, Fd(2n, m, y), ks, img, u => T.tm.of(g, m, ks, img, Fd(2n, m, y)), u => T.tm.of(g, m, ks, img, Fd(3n, m, y)), u => T.tm.of(g, m, ks, img, Fd(4n, m, y))), T.tm.of(1n+g, m, ks, img, y), Some{t},
     TAn(g, m, ks, img, y, 13n, U.nat(Tg(m, y), 13, e)), h))
 
 # and so does one of the tag of Rfl
-def D.rfl(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, e: {Tg(m, y) == 17 : U32},
+def D.rfl(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, e: {Tg(m, y) == 17 : U32},
   -t: C.Term, h: {T.tm.of(1n+g, m, ks, img, y) == Some{t} : Maybe<&2, C.Term>}) -> {C.Term.is_data(t) == True{} : Bool}:
   +e2 = Some.inj(C.Term.Rfl{}, t, Equal.trans(Maybe<&2, C.Term>, T.tm.cell(17n, T.tm.quan(Qb(m, y)), y, Fd(2n, m, y), ks, img, u => T.tm.of(g, m, ks, img, Fd(2n, m, y)), u => T.tm.of(g, m, ks, img, Fd(3n, m, y)), u => T.tm.of(g, m, ks, img, Fd(4n, m, y))), T.tm.of(1n+g, m, ks, img, y), Some{t},
     TAn(g, m, ks, img, y, 17n, U.nat(Tg(m, y), 17, e)), h))
@@ -1947,7 +1947,7 @@ def D.rfl(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2,
   {==}
 
 # the parts of a pair, and the pair
-def TupR(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, t: C.Term) -> Data:
+def TupR(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, t: C.Term) -> Data:
   Sigma<&2, &2, C.Term, a => Sigma<&2, &2, C.Term, b =>
   Sigma<&2, &2, {T.tm.of(g, m, ks, img, Fd(2n, m, y)) == Some{a} : Maybe<&2, C.Term>}, _ =>
   Sigma<&2, &2, {T.tm.of(g, m, ks, img, Fd(3n, m, y)) == Some{b} : Maybe<&2, C.Term>}, _ =>
@@ -1967,7 +1967,7 @@ def D.tup.two(r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, +q: C.Quan, -t: C.Term
         Sigma<&2, &2, {s2 == Some{b} : Maybe<&2, C.Term>}, _ => {C.Term.Tup{q, a, b} == t : C.Term}>>>>, none_some(t, h))
 
 # a cell of the tag of a pair stands for the pair of its parts' terms
-def D.tup(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, e: {Tg(m, y) == 10 : U32},
+def D.tup(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, e: {Tg(m, y) == 10 : U32},
   -t: C.Term, h: {T.tm.of(1n+g, m, ks, img, y) == Some{t} : Maybe<&2, C.Term>}) -> TupR(g, m, ks, img, y, t):
   D.tup.two(T.tm.of(g, m, ks, img, Fd(2n, m, y)), T.tm.of(g, m, ks, img, Fd(3n, m, y)), T.tm.quan(Qb(m, y)), t,
     Equal.trans(Maybe<&2, C.Term>, T.tm.cell(10n, T.tm.quan(Qb(m, y)), y, Fd(2n, m, y), ks, img, u => T.tm.of(g, m, ks, img, Fd(2n, m, y)), u => T.tm.of(g, m, ks, img, Fd(3n, m, y)), u => T.tm.of(g, m, ks, img, Fd(4n, m, y))), T.tm.of(1n+g, m, ks, img, y), Some{t},
@@ -2004,7 +2004,7 @@ def ND.three(-k: C.Term -> C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, s: 
     case None{} s2 u2:
       {==}
 
-def ND.mat(n: Maybe<&2, List<&2, U32>>, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>) -> {DataB.of(T.tm.mat(n, r, s)) == False{} : Bool}:
+def ND.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>) -> {DataB.of(T.tm.mat(n, r, s)) == False{} : Bool}:
   match n r s:
     case Some{k} Some{h} Some{c}:
       {==}
@@ -2038,7 +2038,7 @@ def ND.img12.b(b: Bool, x: Bool, d: Bool, ex: {x == True{} : Bool}, im: {Bool.or
 
 # a cell of any other tag stands for no Data: the image's term of a Ref or an
 # Enu is none, as im says
-def DO.cell(n: Nat, +q: C.Quan, +y: U32, +f2: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>,
+def DO.cell(n: Nat, +q: C.Quan, +y: U32, +f2: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
   +p2: Maybe<&2, C.Term>, +p3: Maybe<&2, C.Term>, +p4: Maybe<&2, C.Term>, +T2: U32, d: Bool, +en: {U32.to_nat(T2) == n : Nat},
   n13: {U32.is_eq(T2, 13) == False{} : Bool}, n17: {U32.is_eq(T2, 17) == False{} : Bool}, n10: {U32.is_eq(T2, 10) == False{} : Bool},
   ed: {DataB.of(T.tm.cell(n, q, y, f2, ks, img, u => p2, u => p3, u => p4)) == d : Bool},
@@ -2086,7 +2086,7 @@ def DO.cell(n: Nat, +q: C.Quan, +y: U32, +f2: U32, +ks: List<&2, List<&2, U32>>,
       Equal.sym(Bool, False{}, d, ed)
 
 # a cell that the check finds no label, Rfl or pair stands for no Data
-def D.oth(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32,
+def D.oth(+g: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32,
   n13: {U32.is_eq(Tg(m, y), 13) == False{} : Bool}, n17: {U32.is_eq(Tg(m, y), 17) == False{} : Bool}, n10: {U32.is_eq(Tg(m, y), 10) == False{} : Bool},
   im: {Bool.or(Bool.not(Bool.or(U32.is_eq(Tg(m, y), 1), U32.is_eq(Tg(m, y), 12))), Bool.not(DataB(1n+g, m, ks, img, y))) == True{} : Bool}) ->
   {DataB(1n+g, m, ks, img, y) == False{} : Bool}:
@@ -2160,7 +2160,7 @@ def U.three(-k: C.Term -> C.Term -> C.Term -> C.Term, r: Maybe<&2, C.Term>, r2: 
     case None{} v w x y z:
       Empty.absurd({t1 == t2 : C.Term}, none_some(t1, h1))
 
-def U.mat(n: Maybe<&2, List<&2, U32>>, r: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t1: C.Term, -t2: C.Term,
+def U.mat(n: Maybe<&2, List<&2, Word(8n)>>, r: Maybe<&2, C.Term>, r2: Maybe<&2, C.Term>, s: Maybe<&2, C.Term>, s2: Maybe<&2, C.Term>, -t1: C.Term, -t2: C.Term,
   h1: {T.tm.mat(n, r, r2) == Some{t1} : Maybe<&2, C.Term>}, h2: {T.tm.mat(n, s, s2) == Some{t2} : Maybe<&2, C.Term>},
   i: @a: C.Term -> @b: C.Term -> {r == Some{a} : Maybe<&2, C.Term>} -> {s == Some{b} : Maybe<&2, C.Term>} -> {a == b : C.Term}, j: @a: C.Term -> @b: C.Term -> {r2 == Some{a} : Maybe<&2, C.Term>} -> {s2 == Some{b} : Maybe<&2, C.Term>} -> {a == b : C.Term}) -> {t1 == t2 : C.Term}:
   match n r r2 s s2:
@@ -2180,7 +2180,7 @@ def U.mat(n: Maybe<&2, List<&2, U32>>, r: Maybe<&2, C.Term>, r2: Maybe<&2, C.Ter
       Empty.absurd({t1 == t2 : C.Term}, none_some(t1, h1))
 
 # a cell's two terms, at two fuels, are one, when its parts' are
-def UCell(n: Nat, +q: C.Quan, +y: U32, +f2: U32, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>,
+def UCell(n: Nat, +q: C.Quan, +y: U32, +f2: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>,
   +r2: Maybe<&2, C.Term>, +r3: Maybe<&2, C.Term>, +r4: Maybe<&2, C.Term>, +s2: Maybe<&2, C.Term>, +s3: Maybe<&2, C.Term>, +s4: Maybe<&2, C.Term>, -t1: C.Term, -t2: C.Term,
   h1: {T.tm.cell(n, q, y, f2, ks, img, u => r2, u => r3, u => r4) == Some{t1} : Maybe<&2, C.Term>},
   h2: {T.tm.cell(n, q, y, f2, ks, img, u => s2, u => s3, u => s4) == Some{t2} : Maybe<&2, C.Term>},
@@ -2228,7 +2228,7 @@ def UCell(n: Nat, +q: C.Quan, +y: U32, +f2: U32, +ks: List<&2, List<&2, U32>>, +
       Empty.absurd({t1 == t2 : C.Term}, none_some(t1, h1))
 
 # a cell stands for one term, whatever the fuel
-def TUniq(f1: Nat, f2: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32, -t1: C.Term, -t2: C.Term,
+def TUniq(f1: Nat, f2: Nat, +m: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, -t1: C.Term, -t2: C.Term,
   h1: {T.tm.of(f1, m, ks, img, c) == Some{t1} : Maybe<&2, C.Term>}, h2: {T.tm.of(f2, m, ks, img, c) == Some{t2} : Maybe<&2, C.Term>}) -> {t1 == t2 : C.Term}:
   match f1 f2:
     case 0n _:
@@ -2303,7 +2303,7 @@ def AllND(N: List<&2, NE>) -> Bool:
 
 # a stack entry: its check cell, of header 44, holds y in field 2 and the
 # next entry's cell in field 1; y's term within f levels is t
-def EF(+m: C.Cir.Cells, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +L: List<&2, U32>, +K0: List<&2, U32>,
+def EF(+m: C.Cir.Cells, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +L: List<&2, U32>, +K0: List<&2, U32>,
   e: SE, +nxt: U32, +rest: List<&2, SE>) -> Data:
   match e:
     case SE{+s, +y, +f, +t}:
@@ -2318,7 +2318,7 @@ def EF(+m: C.Cir.Cells, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: Li
       Sigma<&2, &2, {RdIn(f, m0, y, L) == True{} : Bool}, _ =>
       {DOk(f, m0, ks, img, y) == True{} : Bool}>>>>>>>>>
 
-def Stk(+m: C.Cir.Cells, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +L: List<&2, U32>, +K0: List<&2, U32>,
+def Stk(+m: C.Cir.Cells, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +L: List<&2, U32>, +K0: List<&2, U32>,
   S: List<&2, SE>) -> Data:
   match S:
     case Nil{}:
@@ -2327,7 +2327,7 @@ def Stk(+m: C.Cir.Cells, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: L
       Sigma<&2, &2, EF(m, m0, ks, img, L, K0, e, Top(rest), rest), _ => Stk(m, m0, ks, img, L, K0, rest)>
 
 # a flagged cell's facts
-def NFF(+m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, N: List<&2, NE>) -> Data:
+def NFF(+m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, N: List<&2, NE>) -> Data:
   match N:
     case Nil{}:
       Unit
@@ -2681,11 +2681,11 @@ def NFOk.get(N: List<&2, U32>, +m0: C.Cir.Cells, +S: List<&2, SE>, +NC: List<&2,
         x => NFOk.get(rest, m0, S, NC, z, Bo.and_r(Cl(m0, a, S, NC), NFOk(m0, rest, S, NC), h2), x))
 
 # a flagged cell's facts, by its cell
-def NEx(+m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +z: U32) -> Data:
+def NEx(+m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +z: U32) -> Data:
   Sigma<&2, &2, Nat, f => Sigma<&2, &2, C.Term, t => Sigma<&2, &2, {T.tm.of(f, m0, ks, img, z) == Some{t} : Maybe<&2, C.Term>}, _ =>
     {DOk(f, m0, ks, img, z) == True{} : Bool}>>>
 
-def NFF.get.if(b: Bool, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +z: U32, +y: U32, +f: Nat, +t: C.Term,
+def NFF.get.if(b: Bool, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +z: U32, +y: U32, +f: Nat, +t: C.Term,
   +rest: List<&2, NE>, eb: {U32.is_eq(z, y) == b : Bool}, h1: {T.tm.of(f, m0, ks, img, y) == Some{t} : Maybe<&2, C.Term>},
   h2: {DOk(f, m0, ks, img, y) == True{} : Bool}, e: {Bool.or(b, Mem(z, NCs(rest))) == True{} : Bool},
   r: {Mem(z, NCs(rest)) == True{} : Bool} -> NEx(m0, ks, img, z)) -> NEx(m0, ks, img, z):
@@ -2696,7 +2696,7 @@ def NFF.get.if(b: Bool, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: Li
     case False{}:
       r(e)
 
-def NFF.get(N: List<&2, NE>, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +z: U32, nff: NFF(m0, ks, img, N),
+def NFF.get(N: List<&2, NE>, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +z: U32, nff: NFF(m0, ks, img, N),
   e: {Mem(z, NCs(N)) == True{} : Bool}) -> NEx(m0, ks, img, z):
   match N:
     case Nil{}:
@@ -2765,7 +2765,7 @@ def DOk.tup.r(b: Bool, +x: Bool, +y: Bool, eb: {b == True{} : Bool}, h: {DOk.tup
       tf({y == True{} : Bool}, eb)
 
 # DOk of a pair cell gives DOk of its parts
-def DOk.p2(+hh: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, +e10: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
+def DOk.p2(+hh: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, +e10: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
   h: {DOk(1n+hh, m0, ks, img, y) == True{} : Bool}) -> {DOk(hh, m0, ks, img, Fd(2n, m0, y)) == True{} : Bool}:
   +d = DataB(1n+hh, m0, ks, img, y)
   +t = Tg(m0, y)
@@ -2775,7 +2775,7 @@ def DOk.p2(+hh: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<
   +Y = DOk(hh, m0, ks, img, Fd(3n, m0, y))
   DOk.tup.l(U32.is_eq(t, 10), X, Y, e10, Bo.and_r(B, DOk.tup(U32.is_eq(t, 10), X, Y), Bo.and_r(A, Bool.and(B, DOk.tup(U32.is_eq(t, 10), X, Y)), h)))
 
-def DOk.p3(+hh: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, +e10: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
+def DOk.p3(+hh: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, +e10: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
   h: {DOk(1n+hh, m0, ks, img, y) == True{} : Bool}) -> {DOk(hh, m0, ks, img, Fd(3n, m0, y)) == True{} : Bool}:
   +d = DataB(1n+hh, m0, ks, img, y)
   +t = Tg(m0, y)
@@ -2798,7 +2798,7 @@ def DataB.some(x: Maybe<&2, C.Term>, -b: C.Term, hb: {x == Some{b} : Maybe<&2, C
     Equal.sym(Bool, DataB.of(x), C.Term.is_data(b), Equal.cong(Maybe<&2, C.Term>, Bool, z => DataB.of(z), x, Some{b}, hb)), ed)
 
 # a flagged cell whose DOk holds stands for Data
-def DOk.fl(f: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +c: U32, -b: C.Term, +hd: {DOk(f, m0, ks, img, c) == True{} : Bool},
+def DOk.fl(f: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +c: U32, -b: C.Term, +hd: {DOk(f, m0, ks, img, c) == True{} : Bool},
   +hf: {FlB(m0, c) == True{} : Bool}, hb: {T.tm.of(f, m0, ks, img, c) == Some{b} : Maybe<&2, C.Term>}) -> {C.Term.is_data(b) == True{} : Bool}:
   match f:
     case 0n:
@@ -2847,7 +2847,7 @@ def NFD.part(+m0: C.Cir.Cells, +c: U32, +NC: List<&2, U32>, -b: C.Term, sc: {Set
   fl: {FlB(m0, c) == True{} : Bool} -> {C.Term.is_data(b) == True{} : Bool}) -> {C.Term.is_data(b) == True{} : Bool}:
   Bo.or_case(Mem(c, NC), FlB(m0, c), {C.Term.is_data(b) == True{} : Bool}, sc, rec, fl)
 
-def NFD.fl3.tr(+hh: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32,
+def NFD.fl3.tr(+hh: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32,
   +dk: {DOk(hh, m0, ks, img, Fd(3n, m0, y)) == True{} : Bool}, +hf: {FlB(m0, Fd(3n, m0, y)) == True{} : Bool}, -ty: C.Term,
   tr: TupR(hh, m0, ks, img, y, ty), -b: C.Term, hb: {T.tm.of(g, m0, ks, img, Fd(3n, m0, y)) == Some{b} : Maybe<&2, C.Term>}) ->
   {C.Term.is_data(b) == True{} : Bool}:
@@ -2861,7 +2861,7 @@ def NFD.fl3.tr(+hh: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>
   %e : {C.Term.is_data(_) == True{} : Bool}
   DOk.fl(hh, m0, ks, img, Fd(3n, m0, y), by, dk, hf, hy)
 
-def NFD.fl3.go(fy: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32,
+def NFD.fl3.go(fy: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32,
   +e10b: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool}, -ty: C.Term, hty: {T.tm.of(fy, m0, ks, img, y) == Some{ty} : Maybe<&2, C.Term>},
   dky: {DOk(fy, m0, ks, img, y) == True{} : Bool}, +hf: {FlB(m0, Fd(3n, m0, y)) == True{} : Bool}, -b: C.Term,
   hb: {T.tm.of(g, m0, ks, img, Fd(3n, m0, y)) == Some{b} : Maybe<&2, C.Term>}) -> {C.Term.is_data(b) == True{} : Bool}:
@@ -2873,7 +2873,7 @@ def NFD.fl3.go(fy: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>,
         D.tup(hh, m0, ks, img, y, U.eq_t(Tg(m0, y), 10, e10b), ty, hty), b, hb)
 
 # a part, flagged before the check, of a flagged pair stands for Data
-def NFD.fl3(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, +e10b: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
+def NFD.fl3(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, +e10b: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
   ex: NEx(m0, ks, img, y), +hf: {FlB(m0, Fd(3n, m0, y)) == True{} : Bool}, -b: C.Term,
   hb: {T.tm.of(g, m0, ks, img, Fd(3n, m0, y)) == Some{b} : Maybe<&2, C.Term>}) -> {C.Term.is_data(b) == True{} : Bool}:
   (fy, r1) = ex
@@ -2881,7 +2881,7 @@ def NFD.fl3(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<
   (hty, dky) = r2
   NFD.fl3.go(fy, g, m0, ks, img, y, e10b, ty, hty, dky, hf, b, hb)
 
-def NFD.fl2.tr(+hh: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32,
+def NFD.fl2.tr(+hh: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32,
   +dk: {DOk(hh, m0, ks, img, Fd(2n, m0, y)) == True{} : Bool}, +hf: {FlB(m0, Fd(2n, m0, y)) == True{} : Bool}, -ty: C.Term,
   tr: TupR(hh, m0, ks, img, y, ty), -b: C.Term, hb: {T.tm.of(g, m0, ks, img, Fd(2n, m0, y)) == Some{b} : Maybe<&2, C.Term>}) ->
   {C.Term.is_data(b) == True{} : Bool}:
@@ -2895,7 +2895,7 @@ def NFD.fl2.tr(+hh: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>
   %e : {C.Term.is_data(_) == True{} : Bool}
   DOk.fl(hh, m0, ks, img, Fd(2n, m0, y), by, dk, hf, hy)
 
-def NFD.fl2.go(fy: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32,
+def NFD.fl2.go(fy: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32,
   +e10b: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool}, -ty: C.Term, hty: {T.tm.of(fy, m0, ks, img, y) == Some{ty} : Maybe<&2, C.Term>},
   dky: {DOk(fy, m0, ks, img, y) == True{} : Bool}, +hf: {FlB(m0, Fd(2n, m0, y)) == True{} : Bool}, -b: C.Term,
   hb: {T.tm.of(g, m0, ks, img, Fd(2n, m0, y)) == Some{b} : Maybe<&2, C.Term>}) -> {C.Term.is_data(b) == True{} : Bool}:
@@ -2907,7 +2907,7 @@ def NFD.fl2.go(fy: Nat, +g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>,
         D.tup(hh, m0, ks, img, y, U.eq_t(Tg(m0, y), 10, e10b), ty, hty), b, hb)
 
 # a part, flagged before the check, of a flagged pair stands for Data
-def NFD.fl2(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +y: U32, +e10b: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
+def NFD.fl2(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +y: U32, +e10b: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
   ex: NEx(m0, ks, img, y), +hf: {FlB(m0, Fd(2n, m0, y)) == True{} : Bool}, -b: C.Term,
   hb: {T.tm.of(g, m0, ks, img, Fd(2n, m0, y)) == Some{b} : Maybe<&2, C.Term>}) -> {C.Term.is_data(b) == True{} : Bool}:
   (fy, r1) = ex
@@ -2926,7 +2926,7 @@ def NFD.qa(bq: Bool, +qb: U32, eq: {U32.is_eq(qb, 0) == bq : Bool}, s2: Bool, s2
     case False{}:
       Bo.or_r(Bool.not(C.Quan.live(T.tm.quan(qb))), C.Term.is_data(a), ka(s2o))
 
-def NFD.tup2(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +N: List<&2, NE>, +nff: NFF(m0, ks, img, N),
+def NFD.tup2(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +N: List<&2, NE>, +nff: NFF(m0, ks, img, N),
   +y: U32, -t: C.Term, +hm: {Mem(y, NCs(N)) == True{} : Bool}, +e10b: {U32.is_eq(Tg(m0, y), 10) == True{} : Bool},
   s3: {Setl(m0, Fd(3n, m0, y), Nil{}, NCs(N)) == True{} : Bool},
   s2o: {Bool.or(U32.is_eq(Qb(m0, y), 0), Setl(m0, Fd(2n, m0, y), Nil{}, NCs(N))) == True{} : Bool}, tr: TupR(g, m0, ks, img, y, t),
@@ -2950,7 +2950,7 @@ def NFD.tup2(+g: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List
       z => NFD.fl3(g, m0, ks, img, y, e10b, NFF.get(N, m0, ks, img, y, nff, hm), z, b, hb2)))
 
 # once the stack is empty, every cell that the check flagged stands for Data
-def NFD(f: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +N: List<&2, NE>, +nff: NFF(m0, ks, img, N),
+def NFD(f: Nat, +m0: C.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +N: List<&2, NE>, +nff: NFF(m0, ks, img, N),
   +nok: {NFOk(m0, NCs(N), Nil{}, NCs(N)) == True{} : Bool}, +y: U32, -t: C.Term, +hm: {Mem(y, NCs(N)) == True{} : Bool},
   +h: {T.tm.of(f, m0, ks, img, y) == Some{t} : Maybe<&2, C.Term>}) -> {C.Term.is_data(t) == True{} : Bool}:
   match f:

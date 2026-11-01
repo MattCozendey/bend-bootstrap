@@ -24,7 +24,7 @@ def add_comm(+a: Nat, +b: Nat) -> {Nat.add(a, b) == Nat.add(b, a) : Nat}:
 # Is gives okn: each node is a cell (Nd), a Ref's or an Enu's image is its
 # term, a label holds the number of its name (Nm), and a pair's parts are
 # such nodes too
-def is.okn(t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, U32>>,
+def is.okn(t: C.Term, +ds: List<&2, C.Def>, +m: C.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, C.Term>, +c: U32, +h: MA.Is(ds, m, im, fi, nx, ks, img, c, t)) ->
   {O.okn(C.Term.size(t), m, ks, img, c, im, fi, nx) == True{} : Bool}:
   match t:
@@ -249,30 +249,30 @@ def map.done(+st: C.Cir.State, h: Sigma<&2, &2, Nat, F => O.EndsO(C.Cir.exec(F, 
 # out.post of proof_mach.bend: in mode 1 with no frame, from the focus' cell
 # of the value v, for any fuel f, M.out halts as OutH says, runs out of
 # memory, or runs out of fuel. htm is is.tm (proof_is.bend) at foc and v.
-def out.post(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +foc: U32,
-  +pend: U32, +rest: MA.R60, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, U32>,
-  +v: C.Term, +ks2: List<&2, List<&2, U32>>,
+def out.post(+f: Nat, +ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +foc: U32,
+  +pend: U32, +rest: MA.R59, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +v: C.Term, +ks2: List<&2, List<&2, Word(8n)>>,
   +hv: MA.Is(ds, m, im, fi, nx, ks, img, foc, v),
-  +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, U32>>},
+  +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +htm: {T.tm.of(C.Term.size(v), m, ks, img, foc) == Some{v} : Maybe<&2, C.Term>}) ->
   MA.Post(False{}, C.Cir.exec(f, C.M.out(), MA.S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)), st => Empty,
     s => st2 => MA.OutH(v, s, st2)):
   match rest:
-    case MA.R60{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62, +r63}:
+    case MA.R59{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62}:
       map.post(C.Cir.exec(f, C.M.out(), MA.S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)), v,
-        O.out.post.of(C.Term.size(v), f, MA.RG(foc, 1, 0, pend, MA.R60.list(rest)), m, nx, fi, im, pg, lim, inp, foc, ks, ks2, img, v,
+        O.out.post.of(C.Term.size(v), f, MA.RG(foc, 1, 0, pend, MA.R59.list(rest)), m, nx, fi, im, pg, lim, inp, foc, ks, ks2, img, v,
           {==}, {==}, htm, hk, is.okn(v, ds, m, im, fi, nx, ks, img, foc, hv)))
 
 # out.done of proof_mach.bend: with some fuel, M.out ends
-def out.done(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, U32>>, +img: List<&2, C.Term>, +foc: U32,
-  +pend: U32, +rest: MA.R60, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, U32>,
-  +v: C.Term, +ks2: List<&2, List<&2, U32>>,
+def out.done(+ds: List<&2, C.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, C.Term>, +foc: U32,
+  +pend: U32, +rest: MA.R59, +m: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +v: C.Term, +ks2: List<&2, List<&2, Word(8n)>>,
   +hv: MA.Is(ds, m, im, fi, nx, ks, img, foc, v),
-  +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, U32>>},
+  +hk: {ks == C.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +htm: {T.tm.of(C.Term.size(v), m, ks, img, foc) == Some{v} : Maybe<&2, C.Term>}) ->
   MA.Ex(Nat, f => MA.Ends(C.Cir.exec(f, C.M.out(), MA.S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)))):
   match rest:
-    case MA.R60{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62, +r63}:
+    case MA.R59{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62}:
       map.done(MA.S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp),
-        O.out.done.of(C.Term.size(v), MA.RG(foc, 1, 0, pend, MA.R60.list(rest)), m, nx, fi, im, pg, lim, inp, Nil{}, 0, foc, ks, ks2, img, v,
+        O.out.done.of(C.Term.size(v), MA.RG(foc, 1, 0, pend, MA.R59.list(rest)), m, nx, fi, im, pg, lim, inp, Nil{}, 0, foc, ks, ks2, img, v,
           {==}, {==}, htm, hk, is.okn(v, ds, m, im, fi, nx, ks, img, foc, hv)))

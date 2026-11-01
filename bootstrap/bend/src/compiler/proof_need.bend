@@ -514,28 +514,28 @@ def zero_add(+x: Nat) -> {Nat.add(U32.to_nat(0), x) == x : Nat}:
 
 # one step of Img.small, for any limit M, by the branch of U32.is_eq(n, M)
 def small.step(
-  b: Bool, +n: U32, +M: U32, +h: U32, +rest: List<&2, U32>,
+  b: Bool, +n: U32, +M: U32, +h: Word(8n), +rest: List<&2, Word(8n)>,
   eb: {U32.is_eq(n, M) == b : Bool},
   e: {C.Img.small.if(b, u => C.Img.small(rest, U32.inc(n))) == False{} : Bool},
   ih: {C.Img.small(rest, U32.inc(n)) == False{} : Bool} ->
-    Le(1n+U32.to_nat(M), Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, U32, rest)))
-) -> Le(1n+U32.to_nat(M), Nat.add(U32.to_nat(n), List.length(&2, U32, Con{h, rest}))):
+    Le(1n+U32.to_nat(M), Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, Word(8n), rest)))
+) -> Le(1n+U32.to_nat(M), Nat.add(U32.to_nat(n), List.length(&2, Word(8n), Con{h, rest}))):
   match b:
     case True{}:
       +nm = rel_eq(U32.cmp(n, M), U32.to_nat(n), U32.to_nat(M), U32.rel(n, M), toT(U32.is_eq(n, M), eb))
-      %Equal.sym(Nat, U32.to_nat(n), U32.to_nat(M), nm) : Le(1n+U32.to_nat(M), Nat.add(_, 1n+List.length(&2, U32, rest)))
-      lt_add(U32.to_nat(M), List.length(&2, U32, rest))
+      %Equal.sym(Nat, U32.to_nat(n), U32.to_nat(M), nm) : Le(1n+U32.to_nat(M), Nat.add(_, 1n+List.length(&2, Word(8n), rest)))
+      lt_add(U32.to_nat(M), List.length(&2, Word(8n), rest))
     case False{}:
-      %Equal.sym(Nat, Nat.add(U32.to_nat(n), 1n+List.length(&2, U32, rest)), 1n+Nat.add(U32.to_nat(n), List.length(&2, U32, rest)), add_succ_r(U32.to_nat(n), List.length(&2, U32, rest))) : Le(1n+U32.to_nat(M), _)
-      le_trans(1n+U32.to_nat(M), Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, U32, rest)), 1n+Nat.add(U32.to_nat(n), List.length(&2, U32, rest)), ih(e),
-        add_mono(U32.to_nat(U32.inc(n)), 1n+U32.to_nat(n), List.length(&2, U32, rest), List.length(&2, U32, rest), U32.inc_le(n), le_refl(List.length(&2, U32, rest))))
+      %Equal.sym(Nat, Nat.add(U32.to_nat(n), 1n+List.length(&2, Word(8n), rest)), 1n+Nat.add(U32.to_nat(n), List.length(&2, Word(8n), rest)), add_succ_r(U32.to_nat(n), List.length(&2, Word(8n), rest))) : Le(1n+U32.to_nat(M), _)
+      le_trans(1n+U32.to_nat(M), Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, Word(8n), rest)), 1n+Nat.add(U32.to_nat(n), List.length(&2, Word(8n), rest)), ih(e),
+        add_mono(U32.to_nat(U32.inc(n)), 1n+U32.to_nat(n), List.length(&2, Word(8n), rest), List.length(&2, Word(8n), rest), U32.inc_le(n), le_refl(List.length(&2, Word(8n), rest))))
 
 # Img.small(xs, n) false: n + |xs| > 67108863
-def small.len(xs: List<&2, U32>, +n: U32, e: {C.Img.small(xs, n) == False{} : Bool}) ->
-  Le(1n+U32.to_nat(67108863), Nat.add(U32.to_nat(n), List.length(&2, U32, xs))):
+def small.len(xs: List<&2, Word(8n)>, +n: U32, e: {C.Img.small(xs, n) == False{} : Bool}) ->
+  Le(1n+U32.to_nat(67108863), Nat.add(U32.to_nat(n), List.length(&2, Word(8n), xs))):
   match xs:
     case Nil{}:
-      Empty.absurd(Le(1n+U32.to_nat(67108863), Nat.add(U32.to_nat(n), List.length(&2, U32, Nil{}))), true_ne_false(e))
+      Empty.absurd(Le(1n+U32.to_nat(67108863), Nat.add(U32.to_nat(n), List.length(&2, Word(8n), Nil{}))), true_ne_false(e))
     case Con{+h, +rest}:
       small.step(U32.is_eq(n, 67108863), n, 67108863, h, rest, {==}, e, e2 => small.len(rest, U32.inc(n), e2))
 
@@ -635,28 +635,28 @@ def memory_le(+m: U32) -> Le(C.Program.memory(m), D(32n, 1n)):
 # --------
 
 # 64 × |p| + 1 <= the need of p
-def need_ge(+p: List<&2, U32>, +s: Nat) ->
-  Le(1n+Nat.mul(64n, List.length(&2, U32, p)), Nat.add(Nat.mul(64n, Nat.add(List.length(&2, U32, p), s)), 16777216n)):
-  +l = List.length(&2, U32, p)
+def need_ge(+p: List<&2, Word(8n)>, +s: Nat) ->
+  Le(1n+Nat.mul(64n, List.length(&2, Word(8n), p)), Nat.add(Nat.mul(64n, Nat.add(List.length(&2, Word(8n), p), s)), 16777216n)):
+  +l = List.length(&2, Word(8n), p)
   +x = Nat.mul(64n, l)
   le_trans(1n+x, Nat.add(x, 1n), Nat.add(Nat.mul(64n, Nat.add(l, s)), 16777216n), le_succ_add(x),
     add_mono(x, Nat.mul(64n, Nat.add(l, s)), 1n, 16777216n, mul_mono_r(64n, l, Nat.add(l, s), le_add_r(l, s)), le_one()))
 
 # a small-failing book: 2^32 <= 64 × |p|
-def len_ge(+p: List<&2, U32>, small: {C.Img.small(p, 0) == False{} : Bool}) ->
-  Le(D(32n, 1n), Nat.mul(64n, List.length(&2, U32, p))):
-  +l = List.length(&2, U32, p)
+def len_ge(+p: List<&2, Word(8n)>, small: {C.Img.small(p, 0) == False{} : Bool}) ->
+  Le(D(32n, 1n), Nat.mul(64n, List.length(&2, Word(8n), p))):
+  +l = List.length(&2, Word(8n), p)
   +h1 = le_rw_r(1n+U32.to_nat(67108863), Nat.add(U32.to_nat(0), l), l, zero_add(l), small.len(p, 0, small))
   +h2 = le_rw_l(1n+U32.to_nat(67108863), D(26n, 1n), l, val_M(), h1)
   le_rw_l(Nat.mul(64n, D(26n, 1n)), D(32n, 1n), Nat.mul(64n, l), mul_64(), mul_mono_r(64n, D(26n, 1n), l, h2))
 
 # a book of 2^26 bytes or more needs more memory than a module can have
 def need.big.proof(
-  +p: List<&2, U32>, +i: List<&2, U32>, +n: Nat, +m: U32,
+  +p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +m: U32,
   small: {C.Img.small(p, 0) == False{} : Bool},
   big: {Nat.is_le(C.Program.need(p, i, n), C.Program.memory(m)) == True{} : Bool}
 ) -> Empty:
-  +x = Nat.mul(64n, List.length(&2, U32, p))
+  +x = Nat.mul(64n, List.length(&2, Word(8n), p))
   +need = C.Program.need(p, i, n)
   +mem = C.Program.memory(m)
   +hn = {need_ge(p, C.Program.largest(p, i, n)) : Le(1n+x, need)}

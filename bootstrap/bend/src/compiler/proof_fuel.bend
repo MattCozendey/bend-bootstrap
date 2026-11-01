@@ -269,7 +269,7 @@ def found.bound(fm: Maybe<&2, C.Wasm.Func>, +k: Nat, +args: List<&2, U32>, +mem:
         case C.Wasm.Func{+p, +q, +n, +body}:
           arity.bound(Nat.is_eq(p, List.length(&2, U32, args)), C.Wasm.Func{p, q, n, body}, k, args, mem, module)
 
-def invoke.more(+k: Nat, +g: Nat, inst: C.Wasm.Instance, +name: List<&2, U32>, +args: List<&2, U32>) ->
+def invoke.more(+k: Nat, +g: Nat, inst: C.Wasm.Instance, +name: List<&2, Word(8n)>, +args: List<&2, U32>) ->
   IM(C.Wasm.invoke(k, inst, name, args), C.Wasm.invoke(Nat.add(k, g), inst, name, args)):
   match inst:
     case C.Wasm.Instance{module, +mem}:
@@ -277,7 +277,7 @@ def invoke.more(+k: Nat, +g: Nat, inst: C.Wasm.Instance, +name: List<&2, U32>, +
         case C.Wasm.Module{+fs, +memory, +es, +seg}:
           found.more(C.Wasm.export.func(fs, es, name), k, g, args, mem, C.Wasm.Module{fs, memory, es, seg})
 
-def invoke.bound(+k: Nat, inst: C.Wasm.Instance, +name: List<&2, U32>, +args: List<&2, U32>) ->
+def invoke.bound(+k: Nat, inst: C.Wasm.Instance, +name: List<&2, Word(8n)>, +args: List<&2, U32>) ->
   IB(k, C.Wasm.invoke(k, inst, name, args)):
   match inst:
     case C.Wasm.Instance{module, +mem}:
@@ -311,7 +311,7 @@ def written.more(ok: Bool, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +a: U32, +n
     case False{}:
       {==}
 
-def input.more(+f: Nat, +g: Nat, inst: C.Wasm.Instance, +a: U32, +n: U32, +i: List<&2, U32>) ->
+def input.more(+f: Nat, +g: Nat, inst: C.Wasm.Instance, +a: U32, +n: U32, +i: List<&2, Word(8n)>) ->
   OM(C.Wasm.run.input(f, inst, a, n, i), C.Wasm.run.input(Nat.add(f, g), inst, a, n, i)):
   match inst:
     case C.Wasm.Instance{+module, mem}:
@@ -320,7 +320,7 @@ def input.more(+f: Nat, +g: Nat, inst: C.Wasm.Instance, +a: U32, +n: U32, +i: Li
           written.more(C.Wasm.fits(p, a, n), f, g,
             C.Wasm.Instance{module, C.Wasm.Memory{p, lim, C.Wasm.write.bytes(i, a, bytes)}}, a, n)
 
-def alloced.if.more(full: Bool, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +a: U32, +n: U32, +i: List<&2, U32>) ->
+def alloced.if.more(full: Bool, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +a: U32, +n: U32, +i: List<&2, Word(8n)>) ->
   OM(C.Wasm.run.alloced.if(full, f, inst, a, n, i), C.Wasm.run.alloced.if(full, Nat.add(f, g), inst, a, n, i)):
   match full:
     case True{}:
@@ -328,7 +328,7 @@ def alloced.if.more(full: Bool, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +a: U3
     case False{}:
       input.more(f, g, inst, a, n, i)
 
-def alloced.more(+f: Nat, +g: Nat, r: C.Wasm.Invoked, -s: C.Wasm.Invoked, h: IM(r, s), hb: IB(f, r), +k: U32, +i: List<&2, U32>) ->
+def alloced.more(+f: Nat, +g: Nat, r: C.Wasm.Invoked, -s: C.Wasm.Invoked, h: IM(r, s), hb: IB(f, r), +k: U32, +i: List<&2, Word(8n)>) ->
   OM(C.Wasm.run.alloced(r, f, k, i), C.Wasm.run.alloced(s, Nat.add(f, g), k, i)):
   match r:
     case C.Wasm.Invoked.values{vs, +inst, +used}:
@@ -350,7 +350,7 @@ def alloced.more(+f: Nat, +g: Nat, r: C.Wasm.Invoked, -s: C.Wasm.Invoked, h: IM(
       %h : OM(C.Wasm.run.alloced(C.Wasm.Invoked.unsupported{}, f, k, i), C.Wasm.run.alloced(_, Nat.add(f, g), k, i))
       {==}
 
-def sized.more(n: Maybe<&2, U32>, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +i: List<&2, U32>) ->
+def sized.more(n: Maybe<&2, U32>, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +i: List<&2, Word(8n)>) ->
   OM(C.Wasm.run.sized(n, f, inst, i), C.Wasm.run.sized(n, Nat.add(f, g), inst, i)):
   match n:
     case None{}:
@@ -359,7 +359,7 @@ def sized.more(n: Maybe<&2, U32>, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +i: 
       alloced.more(f, g, C.Wasm.invoke(f, inst, C.Wasm.name.alloc(), [k]), C.Wasm.invoke(Nat.add(f, g), inst, C.Wasm.name.alloc(), [k]),
         invoke.more(f, g, inst, C.Wasm.name.alloc(), [k]), invoke.bound(f, inst, C.Wasm.name.alloc(), [k]), k, i)
 
-def instance.more(ok: Bool, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +i: List<&2, U32>) ->
+def instance.more(ok: Bool, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +i: List<&2, Word(8n)>) ->
   OM(C.Wasm.run.instance(ok, f, inst, i), C.Wasm.run.instance(ok, Nat.add(f, g), inst, i)):
   match ok:
     case True{}:
@@ -367,7 +367,7 @@ def instance.more(ok: Bool, +f: Nat, +g: Nat, +inst: C.Wasm.Instance, +i: List<&
     case False{}:
       {==}
 
-def made.more(+f: Nat, +g: Nat, made: C.Wasm.Made, +i: List<&2, U32>) ->
+def made.more(+f: Nat, +g: Nat, made: C.Wasm.Made, +i: List<&2, Word(8n)>) ->
   OM(C.Wasm.run.made(f, made, i), C.Wasm.run.made(Nat.add(f, g), made, i)):
   match made:
     case C.Wasm.Made.instance{+inst}:
@@ -379,7 +379,7 @@ def made.more(+f: Nat, +g: Nat, made: C.Wasm.Made, +i: List<&2, U32>) ->
     case C.Wasm.Made.trap{}:
       {==}
 
-def run.om(+f: Nat, +g: Nat, +w: List<&2, U32>, +i: List<&2, U32>, +m: U32) ->
+def run.om(+f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32) ->
   OM(C.Wasm.run(f, w, i, m), C.Wasm.run(Nat.add(f, g), w, i, m)):
   made.more(f, g, C.Wasm.instantiate(w, m), i)
 
@@ -406,7 +406,7 @@ def OM.use(x: C.Wasm.Outcome, -b: C.Wasm.Outcome, nd: {done(x) == True{} : Bool}
       Empty.absurd({b == C.Wasm.Outcome.not_done{} : C.Wasm.Outcome}, PN.false_ne_true(nd))
 
 # more fuel never changes an outcome that is not not_done
-def run.more(+f: Nat, +g: Nat, +w: List<&2, U32>, +i: List<&2, U32>, +m: U32, +x: C.Wasm.Outcome,
+def run.more(+f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +x: C.Wasm.Outcome,
   nd: {done(x) == True{} : Bool},
   e: {C.Wasm.run(f, w, i, m) == x : C.Wasm.Outcome}
 ) -> {C.Wasm.run(Nat.add(f, g), w, i, m) == x : C.Wasm.Outcome}:

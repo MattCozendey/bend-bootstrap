@@ -1,5 +1,46 @@
 import Base
 
+# Bytes
+# =====
+#
+# A byte is a Word(8n), its lowest bit first (PLAN, DEFINITION #3). Where the
+# WASM spec reads a byte as a number, the copy of WASM takes its value
+# (Byte.to_u32); where it writes a number as a byte, its low byte
+# (Byte.from_u32), as load8_u and store8 do (spec 4.4.7).
+
+# the low n bits of a word of n + m bits
+def Word.low(n: Nat, m: Nat, w: Word(Nat.add(n, m))) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          WCon{b, Word.low(p, m, t)}
+
+# the word w of n bits, then m bits 0
+def Word.pad(n: Nat, m: Nat, w: Word(n)) -> Word(Nat.add(n, m)):
+  match n:
+    case 0n:
+      Word.zero(m)
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          WCon{b, Word.pad(p, m, t)}
+
+# the low byte of x
+def Byte.from_u32(x: U32) -> Word(8n):
+  match x:
+    case U32{w}:
+      Word.low(8n, 24n, w)
+
+# the value of the byte b
+def Byte.to_u32(b: Word(8n)) -> U32:
+  U32{Word.pad(8n, 24n, b)}
+
+def Byte.is_eq(a: Word(8n), b: Word(8n)) -> Bool:
+  Cmp.is_eq(Word.cmp(8n, a, b))
+
 # Book
 # ====
 #
@@ -17,7 +58,7 @@ type Quan is Data:
 
 type Term is Data:
   Term.Var{i: Nat}
-  Term.Ref{k: List<&2, U32>}
+  Term.Ref{k: List<&2, Word(8n)>}
   Term.Ann{x: Term, T: Term}
   Term.Let{q: Quan, v: Term, f: Term}
   Term.Typ{q: Term}
@@ -28,23 +69,23 @@ type Term is Data:
   Term.Sig{q: Quan, A: Term, B: Term}
   Term.Tup{q: Quan, a: Term, b: Term}
   Term.Prj{h: Term}
-  Term.Enu{ks: List<&2, List<&2, U32>>}
-  Term.Lab{k: List<&2, U32>}
-  Term.Mat{k: List<&2, U32>, h: Term, m: Term}
+  Term.Enu{ks: List<&2, List<&2, Word(8n)>>}
+  Term.Lab{k: List<&2, Word(8n)>}
+  Term.Mat{k: List<&2, Word(8n)>, h: Term, m: Term}
   Term.Efq{}
   Term.Eql{a: Term, b: Term, T: Term}
   Term.Rfl{}
   Term.Rwt{e: Term, P: Term, f: Term}
 
 type Def is Data:
-  Def{k: List<&2, U32>, T: Term, v: Term, o: Bool}
+  Def{k: List<&2, Word(8n)>, T: Term, v: Term, o: Bool}
 
 # what the reader's stack holds
 type Item is Data:
   Item.quan{q: Quan}
   Item.nat{n: Nat}
-  Item.name{k: List<&2, U32>}
-  Item.names{ks: List<&2, List<&2, U32>>}
+  Item.name{k: List<&2, Word(8n)>}
+  Item.names{ks: List<&2, List<&2, Word(8n)>>}
   Item.bool{b: Bool}
   Item.term{t: Term}
   Item.def{d: Def}
@@ -53,7 +94,7 @@ type Item is Data:
 # Reader
 # ------
 #
-# The bytes are tokens of two cells, a tag and an argument, in postfix order: a
+# The bytes are tokens of two bytes, a tag and an argument, in postfix order: a
 # token pushes an item, or pops the fields of a constructor and pushes the
 # constructor. Only a name's byte (tag 6) uses its argument. The tags:
 #   0 1 2 Q0 Q1 Q2, 3 4 Nat zero and succ, 5 6 a name's nil and byte,
@@ -68,7 +109,7 @@ def Book.read.succ(st: List<&2, Item>) -> Maybe<List<&2, Item>>:
     case _:
       None{}
 
-def Book.read.byte(st: List<&2, Item>, b: U32) -> Maybe<List<&2, Item>>:
+def Book.read.byte(st: List<&2, Item>, b: Word(8n)) -> Maybe<List<&2, Item>>:
   match st:
     case Con{Item.name{k}, rest}:
       Some{Con{Item.name{Con{b, k}}, rest}}
@@ -290,7 +331,7 @@ def Book.read.token8(n: Nat, st: List<&2, Item>) -> Maybe<List<&2, Item>>:
       Book.read.token16(p, st)
 
 # the token of tag n, with its argument b
-def Book.read.token(n: Nat, st: List<&2, Item>, b: U32) -> Maybe<List<&2, Item>>:
+def Book.read.token(n: Nat, st: List<&2, Item>, b: Word(8n)) -> Maybe<List<&2, Item>>:
   match n:
     case 0n:
       Some{Con{Item.quan{Quan.Q0{}}, st}}
@@ -311,12 +352,12 @@ def Book.read.token(n: Nat, st: List<&2, Item>, b: U32) -> Maybe<List<&2, Item>>
     case 8n+p:
       Book.read.token8(p, st)
 
-def Book.read.step(st: Maybe<List<&2, Item>>, tag: U32, b: U32) -> Maybe<List<&2, Item>>:
+def Book.read.step(st: Maybe<List<&2, Item>>, tag: Word(8n), b: Word(8n)) -> Maybe<List<&2, Item>>:
   match st:
     case None{}:
       None{}
     case Some{s}:
-      Book.read.token(U32.to_nat(tag), s, b)
+      Book.read.token(Word.to_nat(8n, tag), s, b)
 
 def Book.read.done(st: Maybe<List<&2, Item>>) -> Maybe<List<&2, Def>>:
   match st:
@@ -325,7 +366,7 @@ def Book.read.done(st: Maybe<List<&2, Item>>) -> Maybe<List<&2, Def>>:
     case _:
       None{}
 
-def Book.read.go(xs: List<&2, U32>, st: Maybe<List<&2, Item>>) -> Maybe<List<&2, Def>>:
+def Book.read.go(xs: List<&2, Word(8n)>, st: Maybe<List<&2, Item>>) -> Maybe<List<&2, Def>>:
   match xs:
     case Nil{}:
       Book.read.done(st)
@@ -334,7 +375,7 @@ def Book.read.go(xs: List<&2, U32>, st: Maybe<List<&2, Item>>) -> Maybe<List<&2,
     case Con{tag, Con{b, rest}}:
       Book.read.go(rest, Book.read.step(st, tag, b))
 
-def Book.read(xs: List<&2, U32>) -> Maybe<List<&2, Def>>:
+def Book.read(xs: List<&2, Word(8n)>) -> Maybe<List<&2, Def>>:
   Book.read.go(xs, Some{Nil{}})
 
 # Eval
@@ -380,12 +421,12 @@ def Quan.fld(r: Quan, q: Quan) -> Quan:
     case Quan.Q2{}:
       Quan.Q2{}
 
-def Name.is_eq(a: List<&2, U32>, b: List<&2, U32>) -> Bool:
+def Name.is_eq(a: List<&2, Word(8n)>, b: List<&2, Word(8n)>) -> Bool:
   match a b:
     case Nil{} Nil{}:
       True{}
     case Con{x, xs} Con{y, ys}:
-      U32.is_eq(x, y) && Name.is_eq(xs, ys)
+      Byte.is_eq(x, y) && Name.is_eq(xs, ys)
     case _ _:
       False{}
 
@@ -608,7 +649,7 @@ def Book.get.if(is_k: Bool, d: Def, r: Maybe<Def>) -> Maybe<Def>:
       r
 
 # the first def of the name k
-def Book.get(ds: List<&2, Def>, +k: List<&2, U32>) -> Maybe<Def>:
+def Book.get(ds: List<&2, Def>, +k: List<&2, Word(8n)>) -> Maybe<Def>:
   match ds:
     case Nil{}:
       None{}
@@ -770,18 +811,20 @@ def Quan.read.if(is_q: Bool, q: Quan, r: Maybe<Quan>) -> Maybe<Quan>:
     case False{}:
       r
 
-# the quantity that a label names: Q0, Q1 or Q2
-def Quan.read(+k: List<&2, U32>) -> Maybe<Quan>:
-  Quan.read.if(Name.is_eq(k, [81, 48]), Quan.Q0{}, Quan.read.if(Name.is_eq(k, [81, 49]), Quan.Q1{}, Quan.read.if(Name.is_eq(k, [81, 50]), Quan.Q2{}, None{})))
-
-def Quan.name(q: Quan) -> List<&2, U32>:
+def Quan.name(q: Quan) -> List<&2, Word(8n)>:
   match q:
     case Quan.Q0{}:
-      [81, 48]
+      [Byte.from_u32(81), Byte.from_u32(48)]
     case Quan.Q1{}:
-      [81, 49]
+      [Byte.from_u32(81), Byte.from_u32(49)]
     case Quan.Q2{}:
-      [81, 50]
+      [Byte.from_u32(81), Byte.from_u32(50)]
+
+# the quantity that a label names: Q0, Q1 or Q2
+def Quan.read(+k: List<&2, Word(8n)>) -> Maybe<Quan>:
+  Quan.read.if(Name.is_eq(k, Quan.name(Quan.Q0{})), Quan.Q0{},
+    Quan.read.if(Name.is_eq(k, Quan.name(Quan.Q1{})), Quan.Q1{},
+      Quan.read.if(Name.is_eq(k, Quan.name(Quan.Q2{})), Quan.Q2{}, None{})))
 
 # the least of two quantities: 2 below none, and 0 below all
 def Quan.min(p: Quan, q: Quan) -> Quan:
@@ -974,7 +1017,7 @@ def Eval.steps(n: Nat, ds: List<&2, Def>, t: Term) -> Maybe<Term>:
 
 # how a run ends (W5)
 type Wasm.Outcome is Data:
-  Wasm.Outcome.result{bytes: List<&2, U32>}
+  Wasm.Outcome.result{bytes: List<&2, Word(8n)>}
   Wasm.Outcome.out_of_memory{}
   Wasm.Outcome.no_result{}
   Wasm.Outcome.unsupported{}
@@ -1028,8 +1071,8 @@ type Wasm.Func is Data:
 
 # an export: of a function, by its index, or of the memory
 type Wasm.Export is Data:
-  Wasm.Export.func{name: List<&2, U32>, index: U32}
-  Wasm.Export.memory{name: List<&2, U32>}
+  Wasm.Export.func{name: List<&2, Word(8n)>, index: U32}
+  Wasm.Export.memory{name: List<&2, Word(8n)>}
 
 # the limits of the memory, in pages
 type Wasm.Limits is Data:
@@ -1037,7 +1080,7 @@ type Wasm.Limits is Data:
 
 # an active data segment of the memory: where it starts, and its bytes
 type Wasm.Segment is Data:
-  Wasm.Segment{offset: U32, bytes: List<&2, U32>}
+  Wasm.Segment{offset: U32, bytes: List<&2, Word(8n)>}
 
 # a module of the subset (W3)
 type Wasm.Module is Data:
@@ -1056,10 +1099,10 @@ type Wasm.Module is Data:
 
 # a decoded value and the bytes after it
 type Wasm.Decoded<-A: Data> is Data:
-  Wasm.Decoded{x: A, rest: List<&2, U32>}
+  Wasm.Decoded{x: A, rest: List<&2, Word(8n)>}
 
 # x, when ok holds
-def Wasm.decode.keep(-A: Data, ok: Bool, x: A, rest: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<A>>:
+def Wasm.decode.keep(-A: Data, ok: Bool, x: A, rest: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<A>>:
   match ok:
     case True{}:
       Some{Wasm.Decoded{x, rest}}
@@ -1068,7 +1111,7 @@ def Wasm.decode.keep(-A: Data, ok: Bool, x: A, rest: List<&2, U32>) -> Maybe<&2,
 
 # a last byte is below 2^7; after a byte that goes on, more decodes the rest
 def Wasm.decode.leb.if(
-  last: Bool, ok: Bool, x: U32, rest: List<&2, U32>, more: List<&2, U32> -> Maybe<&2, Wasm.Decoded<U32>>
+  last: Bool, ok: Bool, x: U32, rest: List<&2, Word(8n)>, more: List<&2, Word(8n)> -> Maybe<&2, Wasm.Decoded<U32>>
 ) -> Maybe<&2, Wasm.Decoded<U32>>:
   match last:
     case True{}:
@@ -1087,15 +1130,17 @@ def Wasm.decode.leb.more(+b: U32, m: Maybe<&2, Wasm.Decoded<U32>>) -> Maybe<&2, 
 # uN, an unsigned LEB128 number of at most n bits (spec 5.1):
 #   a byte n < 2^7 with n < 2^N is n; a byte n >= 2^7 with N > 7, then
 #   m of u(N-7), is 2^7 * m + (n - 2^7)
-def Wasm.decode.uleb(n: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<U32>>:
+def Wasm.decode.uleb(n: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
   match n bs:
     case _ Nil{}:
       None{}
-    case 8n+p Con{+b, rest}:
-      Wasm.decode.leb.if(U32.is_lt(b, 128), True{}, b, rest,
-        r => Wasm.decode.leb.more(b, Wasm.decode.uleb(1n+p, r)))
-    case +k Con{+b, rest}:
-      Wasm.decode.leb.if(U32.is_lt(b, 128), U32.is_lt(b, U32.shln(1, k)), b, rest, r => None{})
+    case 8n+p Con{b, rest}:
+      +v = Byte.to_u32(b)
+      Wasm.decode.leb.if(U32.is_lt(v, 128), True{}, v, rest,
+        r => Wasm.decode.leb.more(v, Wasm.decode.uleb(1n+p, r)))
+    case +k Con{b, rest}:
+      +v = Byte.to_u32(b)
+      Wasm.decode.leb.if(U32.is_lt(v, 128), U32.is_lt(v, U32.shln(1, k)), v, rest, r => None{})
 
 # a last byte of a signed number of n <= 7 bits: n < 2^6 with n < 2^(N-1)
 # is n; 2^6 <= n < 2^7 with n >= 2^7 - 2^(N-1) is n - 2^7
@@ -1117,27 +1162,30 @@ def Wasm.decode.sleb.sign(+b: U32) -> U32:
 # sN, a signed LEB128 number of at most n bits, as its 32 bits (spec 5.1):
 #   the last byte is as in sleb.last; a byte n >= 2^7 with N > 7, then i of
 #   s(N-7), is 2^7 * i + (n - 2^7)
-def Wasm.decode.sleb(n: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<U32>>:
+def Wasm.decode.sleb(n: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
   match n bs:
     case _ Nil{}:
       None{}
-    case 8n+p Con{+b, rest}:
-      Wasm.decode.leb.if(U32.is_lt(b, 128), True{}, Wasm.decode.sleb.sign(b), rest,
-        r => Wasm.decode.leb.more(b, Wasm.decode.sleb(1n+p, r)))
-    case +k Con{+b, rest}:
-      Wasm.decode.leb.if(U32.is_lt(b, 128), Wasm.decode.sleb.last(k, b), Wasm.decode.sleb.sign(b),
+    case 8n+p Con{b, rest}:
+      +v = Byte.to_u32(b)
+      Wasm.decode.leb.if(U32.is_lt(v, 128), True{}, Wasm.decode.sleb.sign(v), rest,
+        r => Wasm.decode.leb.more(v, Wasm.decode.sleb(1n+p, r)))
+    case +k Con{b, rest}:
+      +v = Byte.to_u32(b)
+      Wasm.decode.leb.if(U32.is_lt(v, 128), Wasm.decode.sleb.last(k, v), Wasm.decode.sleb.sign(v),
         rest, r => None{})
 
-def Wasm.decode.u32(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<U32>>:
+def Wasm.decode.u32(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
   Wasm.decode.uleb(32n, bs)
 
-# the byte b, exactly
-def Wasm.decode.byte(+b: U32, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<U32>>:
+# the byte of the value b, exactly
+def Wasm.decode.byte(+b: U32, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
   match bs:
     case Nil{}:
       None{}
-    case Con{+c, rest}:
-      Wasm.decode.keep(U32, U32.is_eq(b, c), c, rest)
+    case Con{c, rest}:
+      +v = Byte.to_u32(c)
+      Wasm.decode.keep(U32, U32.is_eq(b, v), v, rest)
 
 # the number of bytes, as a U32 when it fits
 def Wasm.length32.if(full: Bool, more: Unit -> Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -1147,19 +1195,19 @@ def Wasm.length32.if(full: Bool, more: Unit -> Maybe<&2, U32>) -> Maybe<&2, U32>
     case False{}:
       more(Unit{})
 
-def Wasm.length32.go(xs: List<&2, U32>, +n: U32) -> Maybe<&2, U32>:
+def Wasm.length32.go(xs: List<&2, Word(8n)>, +n: U32) -> Maybe<&2, U32>:
   match xs:
     case Nil{}:
       Some{n}
     case Con{_, rest}:
       Wasm.length32.if(U32.is_eq(n, 4294967295), u => Wasm.length32.go(rest, U32.inc(n)))
 
-def Wasm.length32(xs: List<&2, U32>) -> Maybe<&2, U32>:
+def Wasm.length32(xs: List<&2, Word(8n)>) -> Maybe<&2, U32>:
   Wasm.length32.go(xs, 0)
 
 # the value of m and the bytes after it, then f of them
 def Wasm.decode.bind(
-  -A: Data, -B: Data, m: Maybe<&2, Wasm.Decoded<A>>, f: A -> List<&2, U32> -> Maybe<&2, Wasm.Decoded<B>>
+  -A: Data, -B: Data, m: Maybe<&2, Wasm.Decoded<A>>, f: A -> List<&2, Word(8n)> -> Maybe<&2, Wasm.Decoded<B>>
 ) -> Maybe<&2, Wasm.Decoded<B>>:
   match m:
     case None{}:
@@ -1184,7 +1232,7 @@ def Wasm.decode.done(-A: Data, m: Maybe<&2, Wasm.Decoded<A>>) -> Maybe<&2, A>:
       None{}
 
 # the value of m, when it takes all of its bytes, then the bytes after
-def Wasm.decode.whole(-A: Data, m: Maybe<&2, Wasm.Decoded<A>>, after: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<A>>:
+def Wasm.decode.whole(-A: Data, m: Maybe<&2, Wasm.Decoded<A>>, after: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<A>>:
   match m:
     case Some{Wasm.Decoded{x, Nil{}}}:
       Some{Wasm.Decoded{x, after}}
@@ -1199,14 +1247,14 @@ def Wasm.has.if(zero: Bool, more: Unit -> Bool) -> Bool:
       more(Unit{})
 
 # xs holds at least n bytes
-def Wasm.has(xs: List<&2, U32>, +n: U32) -> Bool:
+def Wasm.has(xs: List<&2, Word(8n)>, +n: U32) -> Bool:
   match xs:
     case Nil{}:
       U32.is_zero(n)
     case Con{_, rest}:
       Wasm.has.if(U32.is_zero(n), u => Wasm.has(rest, U32.sub(n, 1)))
 
-def Wasm.decode.count.if(ok: Bool, n: U32, rest: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Nat>>:
+def Wasm.decode.count.if(ok: Bool, n: U32, rest: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Nat>>:
   match ok:
     case True{}:
       Some{Wasm.Decoded{U32.to_nat(n), rest}}
@@ -1216,12 +1264,12 @@ def Wasm.decode.count.if(ok: Bool, n: U32, rest: List<&2, U32>) -> Maybe<&2, Was
 # the length of a vector (spec 5.1: list), which counts items of a byte or
 # more, so no more than the bytes after it; only then is it made a Nat, as a
 # larger one could take as many steps to make as it counts
-def Wasm.decode.count(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Nat>>:
+def Wasm.decode.count(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Nat>>:
   Wasm.decode.bind(U32, Nat, Wasm.decode.u32(bs), +n => +r =>
     Wasm.decode.count.if(Wasm.has(r, n), n, r))
 
 # n bytes
-def Wasm.decode.take(n: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<List<&2, U32>>>:
+def Wasm.decode.take(n: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<List<&2, Word(8n)>>>:
   match n:
     case 0n:
       Some{Wasm.Decoded{Nil{}, bs}}
@@ -1230,11 +1278,11 @@ def Wasm.decode.take(n: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<List<&
         case Nil{}:
           None{}
         case Con{b, rest}:
-          Wasm.decode.cons(U32, b, Wasm.decode.take(p, rest))
+          Wasm.decode.cons(Word(8n), b, Wasm.decode.take(p, rest))
 
 # n items, each decoded by d
 def Wasm.decode.items(
-  ~A: Data, ~d: List<&2, U32> -> Maybe<&2, Wasm.Decoded<A>>, n: Nat, bs: List<&2, U32>
+  ~A: Data, ~d: List<&2, Word(8n)> -> Maybe<&2, Wasm.Decoded<A>>, n: Nat, bs: List<&2, Word(8n)>
 ) -> Maybe<&2, Wasm.Decoded<List<&2, A>>>:
   match n:
     case 0n:
@@ -1244,49 +1292,49 @@ def Wasm.decode.items(
 
 # a vector of items, each decoded by d
 def Wasm.decode.vec(
-  ~A: Data, ~d: List<&2, U32> -> Maybe<&2, Wasm.Decoded<A>>, bs: List<&2, U32>
+  ~A: Data, ~d: List<&2, Word(8n)> -> Maybe<&2, Wasm.Decoded<A>>, bs: List<&2, Word(8n)>
 ) -> Maybe<&2, Wasm.Decoded<List<&2, A>>>:
   Wasm.decode.bind(Nat, List<&2, A>, Wasm.decode.count(bs), n => r => Wasm.decode.items(~A, ~d, n, r))
 
 # vec(byte)
-def Wasm.decode.bytes(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<List<&2, U32>>>:
-  Wasm.decode.bind(Nat, List<&2, U32>, Wasm.decode.count(bs), n => r => Wasm.decode.take(n, r))
+def Wasm.decode.bytes(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<List<&2, Word(8n)>>>:
+  Wasm.decode.bind(Nat, List<&2, Word(8n)>, Wasm.decode.count(bs), n => r => Wasm.decode.take(n, r))
 
 # every byte is ASCII
-def Wasm.is_ascii(xs: List<&2, U32>) -> Bool:
+def Wasm.is_ascii(xs: List<&2, Word(8n)>) -> Bool:
   match xs:
     case Nil{}:
       True{}
     case Con{b, rest}:
-      U32.is_lt(b, 128) && Wasm.is_ascii(rest)
+      U32.is_lt(Byte.to_u32(b), 128) && Wasm.is_ascii(rest)
 
 # a name (spec 5.1); the subset takes ASCII names only, which are UTF-8
-def Wasm.decode.name(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<List<&2, U32>>>:
-  Wasm.decode.bind(List<&2, U32>, List<&2, U32>, Wasm.decode.bytes(bs), +xs => r =>
-    Wasm.decode.keep(List<&2, U32>, Wasm.is_ascii(xs), xs, r))
+def Wasm.decode.name(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<List<&2, Word(8n)>>>:
+  Wasm.decode.bind(List<&2, Word(8n)>, List<&2, Word(8n)>, Wasm.decode.bytes(bs), +xs => r =>
+    Wasm.decode.keep(List<&2, Word(8n)>, Wasm.is_ascii(xs), xs, r))
 
 # every byte is 0x7F, the value type i32
-def Wasm.is_i32s(xs: List<&2, U32>) -> Bool:
+def Wasm.is_i32s(xs: List<&2, Word(8n)>) -> Bool:
   match xs:
     case Nil{}:
       True{}
     case Con{b, rest}:
-      U32.is_eq(b, 127) && Wasm.is_i32s(rest)
+      U32.is_eq(Byte.to_u32(b), 127) && Wasm.is_i32s(rest)
 
 # a result type (spec 5.2): a vector of value types, all i32 (W2); its length
-def Wasm.decode.i32s(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Nat>>:
-  Wasm.decode.bind(List<&2, U32>, Nat, Wasm.decode.bytes(bs), +xs => r =>
-    Wasm.decode.keep(Nat, Wasm.is_i32s(xs), List.length(&2, U32, xs), r))
+def Wasm.decode.i32s(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Nat>>:
+  Wasm.decode.bind(List<&2, Word(8n)>, Nat, Wasm.decode.bytes(bs), +xs => r =>
+    Wasm.decode.keep(Nat, Wasm.is_i32s(xs), List.length(&2, Word(8n), xs), r))
 
 # a function type (spec 5.2): 0x60, then its parameters' and results' types
-def Wasm.decode.functype(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Type>>:
+def Wasm.decode.functype(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Type>>:
   Wasm.decode.bind(U32, Wasm.Type, Wasm.decode.byte(96, bs), t => r =>
     Wasm.decode.bind(Nat, Wasm.Type, Wasm.decode.i32s(r), p => r2 =>
       Wasm.decode.bind(Nat, Wasm.Type, Wasm.decode.i32s(r2), q => r3 =>
         Some{Wasm.Decoded{Wasm.Type{p, q}, r3}})))
 
 # the limits after their flag: 0 for a minimum, 1 for a minimum and maximum
-def Wasm.decode.limits.of(flag: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Limits>>:
+def Wasm.decode.limits.of(flag: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Limits>>:
   match flag:
     case 0n:
       Wasm.decode.bind(U32, Wasm.Limits, Wasm.decode.u32(bs), n => r =>
@@ -1299,15 +1347,15 @@ def Wasm.decode.limits.of(flag: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decode
       None{}
 
 # a memory type (spec 5.2): its limits, of a memory of 32-bit addresses
-def Wasm.decode.limits(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Limits>>:
+def Wasm.decode.limits(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Limits>>:
   match bs:
     case Nil{}:
       None{}
     case Con{flag, rest}:
-      Wasm.decode.limits.of(U32.to_nat(flag), rest)
+      Wasm.decode.limits.of(Word.to_nat(8n, flag), rest)
 
 def Wasm.decode.export.kind(
-  kind: Nat, name: List<&2, U32>, bs: List<&2, U32>
+  kind: Nat, name: List<&2, Word(8n)>, bs: List<&2, Word(8n)>
 ) -> Maybe<&2, Wasm.Decoded<Wasm.Export>>:
   match kind:
     case 0n:
@@ -1320,16 +1368,16 @@ def Wasm.decode.export.kind(
       None{}
 
 # an export's description: 0x00 and a function index, or 0x02 and memory 0
-def Wasm.decode.export.of(name: List<&2, U32>, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Export>>:
+def Wasm.decode.export.of(name: List<&2, Word(8n)>, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Export>>:
   match bs:
     case Nil{}:
       None{}
     case Con{kind, rest}:
-      Wasm.decode.export.kind(U32.to_nat(kind), name, rest)
+      Wasm.decode.export.kind(Word.to_nat(8n, kind), name, rest)
 
 # an export (spec 5.4): a name and a description
-def Wasm.decode.export(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Export>>:
-  Wasm.decode.bind(List<&2, U32>, Wasm.Export, Wasm.decode.name(bs), n => r => Wasm.decode.export.of(n, r))
+def Wasm.decode.export(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Export>>:
+  Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Export, Wasm.decode.name(bs), n => r => Wasm.decode.export.of(n, r))
 
 # the head of an instruction: an instruction, the start of a block or a loop,
 # or the end of a block
@@ -1338,25 +1386,25 @@ type Wasm.Token is Data:
   Wasm.Token.start{loop: Bool}
   Wasm.Token.end{}
 
-def Wasm.decode.as(x: Wasm.Instr, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.as(x: Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Some{Wasm.Decoded{Wasm.Token.instr{x}, bs}}
 
 # an instruction with a u32 immediate, which k turns into the instruction
-def Wasm.decode.index(k: U32 -> Wasm.Instr, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.index(k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(bs), i => r => Wasm.decode.as(k(i), r))
 
 # the start of a block or a loop (spec 5.3): its block type, which must be
 # 0x40 (no values, W2)
-def Wasm.decode.block(loop: Bool, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.block(loop: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.byte(64, bs), t => r =>
     Some{Wasm.Decoded{Wasm.Token.start{loop}, r}})
 
 # br_table (spec 5.3): a vector of labels, then the default label
-def Wasm.decode.table(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.table(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(List<&2, U32>, Wasm.Token, Wasm.decode.vec(~U32, ~Wasm.decode.u32, bs), ls => r =>
     Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(r), l => r2 => Wasm.decode.as(Wasm.Instr.br_table{ls, l}, r2)))
 
-def Wasm.decode.memarg.if(ok: Bool, k: U32 -> Wasm.Instr, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.memarg.if(ok: Bool, k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   match ok:
     case True{}:
       Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(bs), o => r => Wasm.decode.as(k(o), r))
@@ -1366,19 +1414,19 @@ def Wasm.decode.memarg.if(ok: Bool, k: U32 -> Wasm.Instr, bs: List<&2, U32>) -> 
 # a load or store (spec 5.3): its alignment, as a power of 2 no more than
 # max (the access's width; spec 3.4), then its offset; an alignment of 2^6
 # or more names another memory, outside the subset
-def Wasm.decode.memarg(max: U32, k: U32 -> Wasm.Instr, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.memarg(max: U32, k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(bs), a => r => Wasm.decode.memarg.if(U32.is_le(a, max), k, r))
 
 # memory.size or memory.grow: memory 0, as the one byte 0x00 of 1.0
-def Wasm.decode.memory(x: Wasm.Instr, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.memory(x: Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.byte(0, bs), z => r => Wasm.decode.as(x, r))
 
 # i32.const (spec 5.3): a signed 32-bit LEB128 number
-def Wasm.decode.const(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.const(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.sleb(32n, bs), n => r => Wasm.decode.as(Wasm.Instr.const{n}, r))
 
 # the head of the instruction of opcode op (spec 5.3), with its immediates
-def Wasm.decode.token(op: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+def Wasm.decode.token(op: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   match op:
     case 2n:
       Wasm.decode.block(False{}, bs)
@@ -1458,8 +1506,8 @@ def Wasm.decode.closed(loop: Bool, body: List<&2, Wasm.Instr>) -> Wasm.Instr:
 def Wasm.decode.instrs.end(
   st: List<&2, Wasm.Open>,
   xs: List<&2, Wasm.Instr>,
-  r: List<&2, U32>,
-  more: List<&2, U32> -> List<&2, Wasm.Instr> -> List<&2, Wasm.Open> -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>
+  r: List<&2, Word(8n)>,
+  more: List<&2, Word(8n)> -> List<&2, Wasm.Instr> -> List<&2, Wasm.Open> -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>
 ) -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>:
   match st:
     case Nil{}:
@@ -1473,7 +1521,7 @@ def Wasm.decode.instrs.then(
   t: Maybe<&2, Wasm.Decoded<Wasm.Token>>,
   xs: List<&2, Wasm.Instr>,
   st: List<&2, Wasm.Open>,
-  more: List<&2, U32> -> List<&2, Wasm.Instr> -> List<&2, Wasm.Open> -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>
+  more: List<&2, Word(8n)> -> List<&2, Wasm.Instr> -> List<&2, Wasm.Open> -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>
 ) -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>:
   match t:
     case None{}:
@@ -1490,7 +1538,7 @@ def Wasm.decode.instrs.then(
 # hold the instructions and open blocks so far. Each head takes a byte or
 # more, so fuel of the bytes' length always suffices.
 def Wasm.decode.instrs.go(
-  fuel: Nat, bs: List<&2, U32>, xs: List<&2, Wasm.Instr>, st: List<&2, Wasm.Open>
+  fuel: Nat, bs: List<&2, Word(8n)>, xs: List<&2, Wasm.Instr>, st: List<&2, Wasm.Open>
 ) -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>:
   match fuel bs:
     case 0n _:
@@ -1498,10 +1546,10 @@ def Wasm.decode.instrs.go(
     case 1n+p Nil{}:
       None{}
     case 1n+p Con{op, rest}:
-      Wasm.decode.instrs.then(Wasm.decode.token(U32.to_nat(op), rest), xs, st,
+      Wasm.decode.instrs.then(Wasm.decode.token(Word.to_nat(8n, op), rest), xs, st,
         r => ys => st2 => Wasm.decode.instrs.go(p, r, ys, st2))
 
-def Wasm.decode.instrs(fuel: Nat, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>:
+def Wasm.decode.instrs(fuel: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<List<&2, Wasm.Instr>>>:
   Wasm.decode.instrs.go(fuel, bs, Nil{}, Nil{})
 
 # a function's code
@@ -1509,7 +1557,7 @@ type Wasm.Code is Data:
   Wasm.Code{locals: Nat, body: List<&2, Wasm.Instr>}
 
 # a group of locals (spec 5.4): their number, then their type, i32
-def Wasm.decode.local(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<U32>>:
+def Wasm.decode.local(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
   Wasm.decode.bind(U32, U32, Wasm.decode.u32(bs), n => r =>
     Wasm.decode.bind(U32, U32, Wasm.decode.byte(127, r), t => r2 => Some{Wasm.Decoded{n, r2}}))
 
@@ -1531,34 +1579,34 @@ def Wasm.locals.sum(ns: List<&2, U32>, +acc: U32) -> Maybe<&2, U32>:
       Wasm.locals.if(U32.is_le(n, 50000) && U32.is_le(s, 50000), u => Wasm.locals.sum(rest, s))
 
 def Wasm.decode.func.body(
-  n: Maybe<&2, U32>, +bs: List<&2, U32>
+  n: Maybe<&2, U32>, +bs: List<&2, Word(8n)>
 ) -> Maybe<&2, Wasm.Decoded<Wasm.Code>>:
   match n:
     case None{}:
       None{}
     case Some{k}:
-      Wasm.decode.bind(List<&2, Wasm.Instr>, Wasm.Code, Wasm.decode.instrs(1n+List.length(&2, U32, bs), bs), b => r =>
+      Wasm.decode.bind(List<&2, Wasm.Instr>, Wasm.Code, Wasm.decode.instrs(1n+List.length(&2, Word(8n), bs), bs), b => r =>
         Some{Wasm.Decoded{Wasm.Code{U32.to_nat(k), b}, r}})
 
 # a function's code (spec 5.4): its groups of locals, then its body
-def Wasm.decode.func(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Code>>:
+def Wasm.decode.func(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Code>>:
   Wasm.decode.bind(List<&2, U32>, Wasm.Code, Wasm.decode.vec(~U32, ~Wasm.decode.local, bs), ns => r =>
     Wasm.decode.func.body(Wasm.locals.sum(ns, 0), r))
 
 # an entry of the code section (spec 5.4): its size, then exactly that many
 # bytes of code
-def Wasm.decode.code(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Code>>:
+def Wasm.decode.code(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Code>>:
   Wasm.decode.bind(Nat, Wasm.Code, Wasm.decode.count(bs), n => r =>
-    Wasm.decode.bind(List<&2, U32>, Wasm.Code, Wasm.decode.take(n, r), c => r2 =>
+    Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Code, Wasm.decode.take(n, r), c => r2 =>
       Wasm.decode.whole(Wasm.Code, Wasm.decode.func(c), r2)))
 
-def Wasm.decode.data.if(ok: Bool, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
+def Wasm.decode.data.if(ok: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
   match ok:
     case True{}:
       Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.byte(65, bs), c => r =>
         Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.sleb(32n, r), k => r2 =>
           Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.byte(11, r2), e => r3 =>
-            Wasm.decode.bind(List<&2, U32>, Wasm.Segment, Wasm.decode.bytes(r3), b => r4 =>
+            Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Segment, Wasm.decode.bytes(r3), b => r4 =>
               Some{Wasm.Decoded{Wasm.Segment{k, b}, r4}}))))
     case False{}:
       None{}
@@ -1566,21 +1614,21 @@ def Wasm.decode.data.if(ok: Bool, bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<W
 # a data segment (spec 5.4): 0, an active one of memory 0, then its offset,
 # which in the subset is the constant expression i32.const n end, then its
 # bytes
-def Wasm.decode.data(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
+def Wasm.decode.data(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
   Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.u32(bs), flag => r => Wasm.decode.data.if(U32.is_zero(flag), r))
 
 # a section (spec 5.4): its id, its size, then exactly that many bytes
 type Wasm.Section is Data:
-  Wasm.Section{id: U32, content: List<&2, U32>}
+  Wasm.Section{id: U32, content: List<&2, Word(8n)>}
 
-def Wasm.decode.section(bs: List<&2, U32>) -> Maybe<&2, Wasm.Decoded<Wasm.Section>>:
+def Wasm.decode.section(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Section>>:
   match bs:
     case Nil{}:
       None{}
     case Con{id, rest}:
       Wasm.decode.bind(Nat, Wasm.Section, Wasm.decode.count(rest), n => r =>
-        Wasm.decode.bind(List<&2, U32>, Wasm.Section, Wasm.decode.take(n, r), c => r2 =>
-          Some{Wasm.Decoded{Wasm.Section{id, c}, r2}}))
+        Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Section, Wasm.decode.take(n, r), c => r2 =>
+          Some{Wasm.Decoded{Wasm.Section{Byte.to_u32(id), c}, r2}}))
 
 def Wasm.decode.sections.cons(x: Wasm.Section, m: Maybe<&2, List<&2, Wasm.Section>>) -> Maybe<&2, List<&2, Wasm.Section>>:
   match m:
@@ -1590,7 +1638,7 @@ def Wasm.decode.sections.cons(x: Wasm.Section, m: Maybe<&2, List<&2, Wasm.Sectio
       Some{Con{x, xs}}
 
 def Wasm.decode.sections.got(
-  m: Maybe<&2, Wasm.Decoded<Wasm.Section>>, more: List<&2, U32> -> Maybe<&2, List<&2, Wasm.Section>>
+  m: Maybe<&2, Wasm.Decoded<Wasm.Section>>, more: List<&2, Word(8n)> -> Maybe<&2, List<&2, Wasm.Section>>
 ) -> Maybe<&2, List<&2, Wasm.Section>>:
   match m:
     case None{}:
@@ -1600,7 +1648,7 @@ def Wasm.decode.sections.got(
 
 # the sections up to the end of the bytes; each takes 2 bytes or more, so
 # fuel of the bytes' length always suffices
-def Wasm.decode.sections(fuel: Nat, bs: List<&2, U32>) -> Maybe<&2, List<&2, Wasm.Section>>:
+def Wasm.decode.sections(fuel: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, List<&2, Wasm.Section>>:
   match fuel bs:
     case _ Nil{}:
       Some{Nil{}}
@@ -1623,8 +1671,8 @@ def Wasm.sections.is_ordered(ss: List<&2, Wasm.Section>, +last: U32) -> Bool:
       Wasm.section.is_known(id) && U32.is_gt(id, last) && Wasm.sections.is_ordered(rest, id)
 
 def Wasm.sections.find.if(
-  hit: Bool, c: List<&2, U32>, more: Unit -> Maybe<&2, List<&2, U32>>
-) -> Maybe<&2, List<&2, U32>>:
+  hit: Bool, c: List<&2, Word(8n)>, more: Unit -> Maybe<&2, List<&2, Word(8n)>>
+) -> Maybe<&2, List<&2, Word(8n)>>:
   match hit:
     case True{}:
       Some{c}
@@ -1632,7 +1680,7 @@ def Wasm.sections.find.if(
       more(Unit{})
 
 # the content of the section of the id, if any
-def Wasm.sections.find(ss: List<&2, Wasm.Section>, +id: U32) -> Maybe<&2, List<&2, U32>>:
+def Wasm.sections.find(ss: List<&2, Wasm.Section>, +id: U32) -> Maybe<&2, List<&2, Word(8n)>>:
   match ss:
     case Nil{}:
       None{}
@@ -1641,7 +1689,7 @@ def Wasm.sections.find(ss: List<&2, Wasm.Section>, +id: U32) -> Maybe<&2, List<&
 
 # the items of a section (spec 5.4), its whole content; none without it
 def Wasm.decode.part(
-  ~A: Data, ~d: List<&2, U32> -> Maybe<&2, Wasm.Decoded<A>>, c: Maybe<&2, List<&2, U32>>
+  ~A: Data, ~d: List<&2, Word(8n)> -> Maybe<&2, Wasm.Decoded<A>>, c: Maybe<&2, List<&2, Word(8n)>>
 ) -> Maybe<&2, List<&2, A>>:
   match c:
     case None{}:
@@ -1730,23 +1778,23 @@ def Wasm.decode.module.sections(m: Maybe<&2, List<&2, Wasm.Section>>) -> Maybe<&
       Wasm.decode.module.if(Wasm.sections.is_ordered(ss, 0), ss)
 
 # the sections after a right header
-def Wasm.decode.sections.if(ok: Bool, +rest: List<&2, U32>) -> Maybe<&2, List<&2, Wasm.Section>>:
+def Wasm.decode.sections.if(ok: Bool, +rest: List<&2, Word(8n)>) -> Maybe<&2, List<&2, Wasm.Section>>:
   match ok:
     case True{}:
-      Wasm.decode.sections(List.length(&2, U32, rest), rest)
+      Wasm.decode.sections(List.length(&2, Word(8n), rest), rest)
     case False{}:
       None{}
 
-def Wasm.decode.module.header(m: Maybe<&2, Wasm.Decoded<List<&2, U32>>>) -> Maybe<&2, Wasm.Module>:
+def Wasm.decode.module.header(m: Maybe<&2, Wasm.Decoded<List<&2, Word(8n)>>>) -> Maybe<&2, Wasm.Module>:
   match m:
     case None{}:
       None{}
     case Some{Wasm.Decoded{h, +rest}}:
       Wasm.decode.module.sections(
-        Wasm.decode.sections.if(Name.is_eq(h, [0, 97, 115, 109, 1, 0, 0, 0]), rest))
+        Wasm.decode.sections.if(Name.is_eq(h, [Byte.from_u32(0), Byte.from_u32(97), Byte.from_u32(115), Byte.from_u32(109), Byte.from_u32(1), Byte.from_u32(0), Byte.from_u32(0), Byte.from_u32(0)]), rest))
 
 # a module (spec 5.4): the magic \0asm, version 1, then its sections
-def Wasm.decode.module(bs: List<&2, U32>) -> Maybe<&2, Wasm.Module>:
+def Wasm.decode.module(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Module>:
   Wasm.decode.module.header(Wasm.decode.take(8n, bs))
 
 # Validation
@@ -1924,7 +1972,7 @@ def Wasm.valid.memory(m: Maybe<&2, Wasm.Limits>) -> Bool:
     case Some{Wasm.Limits{+min, max}}:
       U32.is_le(min, 65536) && Wasm.valid.max(min, max)
 
-def Wasm.export.name(e: Wasm.Export) -> List<&2, U32>:
+def Wasm.export.name(e: Wasm.Export) -> List<&2, Word(8n)>:
   match e:
     case Wasm.Export.func{n, _}:
       n
@@ -1932,7 +1980,7 @@ def Wasm.export.name(e: Wasm.Export) -> List<&2, U32>:
       n
 
 # no export of es is named n
-def Wasm.valid.is_new(+n: List<&2, U32>, es: List<&2, Wasm.Export>) -> Bool:
+def Wasm.valid.is_new(+n: List<&2, Word(8n)>, es: List<&2, Wasm.Export>) -> Bool:
   match es:
     case Nil{}:
       True{}
@@ -1976,34 +2024,34 @@ def Wasm.valid.module(m: Wasm.Module) -> Bool:
 # first; zero stands for bytes that are all 0
 type Wasm.Bytes is Data:
   Wasm.Bytes.zero{}
-  Wasm.Bytes.byte{b: U32}
+  Wasm.Bytes.byte{b: Word(8n)}
   Wasm.Bytes.node{lo: Wasm.Bytes, hi: Wasm.Bytes}
 
-# a byte read, and the bytes that it was read from
-type Wasm.Peek is Data:
-  Wasm.Peek{b: U32, m: Wasm.Bytes}
+# a value read, and the bytes that it was read from
+type Wasm.Peek<-A: Data> is Data:
+  Wasm.Peek{v: A, m: Wasm.Bytes}
 
-def Wasm.Bytes.peek.lo(r: Wasm.Peek, hi: Wasm.Bytes) -> Wasm.Peek:
+def Wasm.Bytes.peek.lo(r: Wasm.Peek<Word(8n)>, hi: Wasm.Bytes) -> Wasm.Peek<Word(8n)>:
   match r:
     case Wasm.Peek{b, lo}:
       Wasm.Peek{b, Wasm.Bytes.node{lo, hi}}
 
-def Wasm.Bytes.peek.hi(lo: Wasm.Bytes, r: Wasm.Peek) -> Wasm.Peek:
+def Wasm.Bytes.peek.hi(lo: Wasm.Bytes, r: Wasm.Peek<Word(8n)>) -> Wasm.Peek<Word(8n)>:
   match r:
     case Wasm.Peek{b, hi}:
       Wasm.Peek{b, Wasm.Bytes.node{lo, hi}}
 
 # the byte at the address of the n bits w, and the bytes again
-def Wasm.Bytes.peek(n: Nat, w: Word(n), m: Wasm.Bytes) -> Wasm.Peek:
+def Wasm.Bytes.peek(n: Nat, w: Word(n), m: Wasm.Bytes) -> Wasm.Peek<Word(8n)>:
   match n:
     case 0n:
       match m:
         case Wasm.Bytes.byte{+b}:
           Wasm.Peek{b, Wasm.Bytes.byte{b}}
         case Wasm.Bytes.zero{}:
-          Wasm.Peek{0, Wasm.Bytes.zero{}}
+          Wasm.Peek{Word.zero(8n), Wasm.Bytes.zero{}}
         case Wasm.Bytes.node{lo, hi}:
-          Wasm.Peek{0, Wasm.Bytes.node{lo, hi}}
+          Wasm.Peek{Word.zero(8n), Wasm.Bytes.node{lo, hi}}
     case 1n+p:
       match w:
         case WCon{bit, t}:
@@ -2013,20 +2061,20 @@ def Wasm.Bytes.peek(n: Nat, w: Word(n), m: Wasm.Bytes) -> Wasm.Peek:
                 case Wasm.Bytes.node{lo, hi}:
                   Wasm.Bytes.peek.lo(Wasm.Bytes.peek(p, t, lo), hi)
                 case Wasm.Bytes.zero{}:
-                  Wasm.Peek{0, Wasm.Bytes.zero{}}
+                  Wasm.Peek{Word.zero(8n), Wasm.Bytes.zero{}}
                 case Wasm.Bytes.byte{b}:
-                  Wasm.Peek{0, Wasm.Bytes.byte{b}}
+                  Wasm.Peek{Word.zero(8n), Wasm.Bytes.byte{b}}
             case True{}:
               match m:
                 case Wasm.Bytes.node{lo, hi}:
                   Wasm.Bytes.peek.hi(lo, Wasm.Bytes.peek(p, t, hi))
                 case Wasm.Bytes.zero{}:
-                  Wasm.Peek{0, Wasm.Bytes.zero{}}
+                  Wasm.Peek{Word.zero(8n), Wasm.Bytes.zero{}}
                 case Wasm.Bytes.byte{b}:
-                  Wasm.Peek{0, Wasm.Bytes.byte{b}}
+                  Wasm.Peek{Word.zero(8n), Wasm.Bytes.byte{b}}
 
 # the bytes with b at the address of the n bits w
-def Wasm.Bytes.set(n: Nat, w: Word(n), m: Wasm.Bytes, b: U32) -> Wasm.Bytes:
+def Wasm.Bytes.set(n: Nat, w: Word(n), m: Wasm.Bytes, b: Word(8n)) -> Wasm.Bytes:
   match n:
     case 0n:
       Wasm.Bytes.byte{b}
@@ -2047,54 +2095,60 @@ def Wasm.Bytes.set(n: Nat, w: Word(n), m: Wasm.Bytes, b: U32) -> Wasm.Bytes:
                 case _:
                   Wasm.Bytes.node{Wasm.Bytes.zero{}, Wasm.Bytes.set(p, t, Wasm.Bytes.zero{}, b)}
 
-def Wasm.read8(m: Wasm.Bytes, a: U32) -> Wasm.Peek:
+def Wasm.read8(m: Wasm.Bytes, a: U32) -> Wasm.Peek<Word(8n)>:
   match a:
     case U32{w}:
       Wasm.Bytes.peek(32n, w, m)
 
-def Wasm.write8(m: Wasm.Bytes, a: U32, b: U32) -> Wasm.Bytes:
+# a byte read, as its value: load8_u extends it with 0 bits (spec 4.4.7)
+def Wasm.peek.value(r: Wasm.Peek<Word(8n)>) -> Wasm.Peek<U32>:
+  match r:
+    case Wasm.Peek{b, m}:
+      Wasm.Peek{Byte.to_u32(b), m}
+
+def Wasm.write8(m: Wasm.Bytes, a: U32, b: Word(8n)) -> Wasm.Bytes:
   match a:
     case U32{w}:
       Wasm.Bytes.set(32n, w, m, b)
 
-def Wasm.read32.b3(v: U32, r: Wasm.Peek) -> Wasm.Peek:
+def Wasm.read32.b3(v: U32, r: Wasm.Peek<Word(8n)>) -> Wasm.Peek<U32>:
   match r:
     case Wasm.Peek{b, m}:
-      Wasm.Peek{U32.or(v, U32.shln(b, 24n)), m}
+      Wasm.Peek{U32.or(v, U32.shln(Byte.to_u32(b), 24n)), m}
 
-def Wasm.read32.b2(v: U32, r: Wasm.Peek, +a: U32) -> Wasm.Peek:
+def Wasm.read32.b2(v: U32, r: Wasm.Peek<Word(8n)>, +a: U32) -> Wasm.Peek<U32>:
   match r:
     case Wasm.Peek{b, m}:
-      Wasm.read32.b3(U32.or(v, U32.shln(b, 16n)), Wasm.read8(m, U32.add(a, 3)))
+      Wasm.read32.b3(U32.or(v, U32.shln(Byte.to_u32(b), 16n)), Wasm.read8(m, U32.add(a, 3)))
 
-def Wasm.read32.b1(v: U32, r: Wasm.Peek, +a: U32) -> Wasm.Peek:
+def Wasm.read32.b1(v: U32, r: Wasm.Peek<Word(8n)>, +a: U32) -> Wasm.Peek<U32>:
   match r:
     case Wasm.Peek{b, m}:
-      Wasm.read32.b2(U32.or(v, U32.shln(b, 8n)), Wasm.read8(m, U32.add(a, 2)), a)
+      Wasm.read32.b2(U32.or(v, U32.shln(Byte.to_u32(b), 8n)), Wasm.read8(m, U32.add(a, 2)), a)
 
-def Wasm.read32.b0(r: Wasm.Peek, +a: U32) -> Wasm.Peek:
+def Wasm.read32.b0(r: Wasm.Peek<Word(8n)>, +a: U32) -> Wasm.Peek<U32>:
   match r:
     case Wasm.Peek{b, m}:
-      Wasm.read32.b1(b, Wasm.read8(m, U32.add(a, 1)), a)
+      Wasm.read32.b1(Byte.to_u32(b), Wasm.read8(m, U32.add(a, 1)), a)
 
 # the 4 bytes from a, lowest first (spec 4.4.7: little-endian), and the bytes
-def Wasm.read32(m: Wasm.Bytes, +a: U32) -> Wasm.Peek:
+def Wasm.read32(m: Wasm.Bytes, +a: U32) -> Wasm.Peek<U32>:
   Wasm.read32.b0(Wasm.read8(m, a), a)
 
 def Wasm.write32(m: Wasm.Bytes, +a: U32, +v: U32) -> Wasm.Bytes:
   Wasm.write8(
     Wasm.write8(
-      Wasm.write8(Wasm.write8(m, a, U32.and(v, 255)), U32.add(a, 1), U32.and(U32.shrn(v, 8n), 255)),
-      U32.add(a, 2), U32.and(U32.shrn(v, 16n), 255)),
-    U32.add(a, 3), U32.shrn(v, 24n))
+      Wasm.write8(Wasm.write8(m, a, Byte.from_u32(v)), U32.add(a, 1), Byte.from_u32(U32.shrn(v, 8n))),
+      U32.add(a, 2), Byte.from_u32(U32.shrn(v, 16n))),
+    U32.add(a, 3), Byte.from_u32(U32.shrn(v, 24n)))
 
-def Wasm.read.bytes.of(r: Wasm.Peek, more: Wasm.Bytes -> List<&2, U32>) -> List<&2, U32>:
+def Wasm.read.bytes.of(r: Wasm.Peek<Word(8n)>, more: Wasm.Bytes -> List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match r:
     case Wasm.Peek{b, m}:
       Con{b, more(m)}
 
 # the n bytes from a
-def Wasm.read.bytes(n: Nat, m: Wasm.Bytes, +a: U32) -> List<&2, U32>:
+def Wasm.read.bytes(n: Nat, m: Wasm.Bytes, +a: U32) -> List<&2, Word(8n)>:
   match n:
     case 0n:
       Nil{}
@@ -2102,7 +2156,7 @@ def Wasm.read.bytes(n: Nat, m: Wasm.Bytes, +a: U32) -> List<&2, U32>:
       Wasm.read.bytes.of(Wasm.read8(m, a), m2 => Wasm.read.bytes(p, m2, U32.inc(a)))
 
 # the bytes xs, written from a on
-def Wasm.write.bytes(xs: List<&2, U32>, +a: U32, m: Wasm.Bytes) -> Wasm.Bytes:
+def Wasm.write.bytes(xs: List<&2, Word(8n)>, +a: U32, m: Wasm.Bytes) -> Wasm.Bytes:
   match xs:
     case Nil{}:
       m
@@ -2265,15 +2319,15 @@ def Wasm.step.eqz(
     case Nil{}:
       Wasm.Step.trap{mem}
 
-def Wasm.load.of(wide: Bool, m: Wasm.Bytes, a: U32) -> Wasm.Peek:
+def Wasm.load.of(wide: Bool, m: Wasm.Bytes, a: U32) -> Wasm.Peek<U32>:
   match wide:
     case True{}:
       Wasm.read32(m, a)
     case False{}:
-      Wasm.read8(m, a)
+      Wasm.peek.value(Wasm.read8(m, a))
 
 def Wasm.step.peeked(
-  r: Wasm.Peek, p: U32, lim: U32, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat,
+  r: Wasm.Peek<U32>, p: U32, lim: U32, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat,
   s: List<&2, U32>, locals: List<&2, U32>
 ) -> Wasm.Step:
   match r:
@@ -2312,7 +2366,7 @@ def Wasm.store.of(wide: Bool, m: Wasm.Bytes, a: U32, v: U32) -> Wasm.Bytes:
     case True{}:
       Wasm.write32(m, a, v)
     case False{}:
-      Wasm.write8(m, a, U32.and(v, 255))
+      Wasm.write8(m, a, Byte.from_u32(v))
 
 def Wasm.step.stored(
   ok: Bool, wide: Bool, ea: U32, v: U32, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>,
@@ -2622,7 +2676,7 @@ def Wasm.instantiate.decoded(m: Maybe<&2, Wasm.Module>, +lim: U32) -> Wasm.Made:
       Wasm.instantiate.valid(Wasm.valid.module(module), module, lim)
 
 # an instance of the module of the bytes w, with at most m pages of memory
-def Wasm.instantiate(w: List<&2, U32>, m: U32) -> Wasm.Made:
+def Wasm.instantiate(w: List<&2, Word(8n)>, m: U32) -> Wasm.Made:
   Wasm.instantiate.decoded(Wasm.decode.module(w), m)
 
 def Wasm.export.find.if(hit: Bool, i: U32, more: Unit -> Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -2633,7 +2687,7 @@ def Wasm.export.find.if(hit: Bool, i: U32, more: Unit -> Maybe<&2, U32>) -> Mayb
       more(Unit{})
 
 # the index of the function exported as name
-def Wasm.export.find(es: List<&2, Wasm.Export>, +name: List<&2, U32>) -> Maybe<&2, U32>:
+def Wasm.export.find(es: List<&2, Wasm.Export>, +name: List<&2, Word(8n)>) -> Maybe<&2, U32>:
   match es:
     case Nil{}:
       None{}
@@ -2643,7 +2697,7 @@ def Wasm.export.find(es: List<&2, Wasm.Export>, +name: List<&2, U32>) -> Maybe<&
       Wasm.export.find(rest, name)
 
 # the memory is exported as name
-def Wasm.export.has_memory(es: List<&2, Wasm.Export>, +name: List<&2, U32>) -> Bool:
+def Wasm.export.has_memory(es: List<&2, Wasm.Export>, +name: List<&2, Word(8n)>) -> Bool:
   match es:
     case Nil{}:
       False{}
@@ -2668,7 +2722,7 @@ def Wasm.func.at(fs: List<&2, Wasm.Func>, +i: U32) -> Maybe<&2, Wasm.Func>:
       Wasm.func.at.if(U32.is_zero(i), f, u => Wasm.func.at(rest, U32.sub(i, 1)))
 
 # the function exported as name, if any
-def Wasm.export.func(+fs: List<&2, Wasm.Func>, es: List<&2, Wasm.Export>, name: List<&2, U32>) -> Maybe<&2, Wasm.Func>:
+def Wasm.export.func(+fs: List<&2, Wasm.Func>, es: List<&2, Wasm.Export>, name: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Func>:
   Maybe.bind(&2, U32, Wasm.Func, Wasm.export.find(es, name), i => Wasm.func.at(fs, i))
 
 # the function has p parameters and q results
@@ -2717,7 +2771,7 @@ def Wasm.invoke.found(
 
 # a call of the function exported as name, with the arguments in order, in at
 # most fuel steps; unsupported when no such function takes as many arguments
-def Wasm.invoke(fuel: Nat, inst: Wasm.Instance, name: List<&2, U32>, args: List<&2, U32>) -> Wasm.Invoked:
+def Wasm.invoke(fuel: Nat, inst: Wasm.Instance, name: List<&2, Word(8n)>, args: List<&2, U32>) -> Wasm.Invoked:
   match inst:
     case Wasm.Instance{module, mem}:
       match module:
@@ -2737,14 +2791,14 @@ def Wasm.invoke(fuel: Nat, inst: Wasm.Instance, name: List<&2, U32>, args: List<
 # most f steps in all.
 
 # the names that the host uses, as ASCII bytes
-def Wasm.name.memory() -> List<&2, U32>:
-  [109, 101, 109, 111, 114, 121]
+def Wasm.name.memory() -> List<&2, Word(8n)>:
+  [Byte.from_u32(109), Byte.from_u32(101), Byte.from_u32(109), Byte.from_u32(111), Byte.from_u32(114), Byte.from_u32(121)]
 
-def Wasm.name.alloc() -> List<&2, U32>:
-  [97, 108, 108, 111, 99]
+def Wasm.name.alloc() -> List<&2, Word(8n)>:
+  [Byte.from_u32(97), Byte.from_u32(108), Byte.from_u32(108), Byte.from_u32(111), Byte.from_u32(99)]
 
-def Wasm.name.run() -> List<&2, U32>:
-  [114, 117, 110]
+def Wasm.name.run() -> List<&2, Word(8n)>:
+  [Byte.from_u32(114), Byte.from_u32(117), Byte.from_u32(110)]
 
 def Wasm.run.output.if(ok: Bool, bytes: Wasm.Bytes, a: U32, n: U32) -> Wasm.Outcome:
   match ok:
@@ -2753,12 +2807,12 @@ def Wasm.run.output.if(ok: Bool, bytes: Wasm.Bytes, a: U32, n: U32) -> Wasm.Outc
     case False{}:
       Wasm.Outcome.trap{}
 
-def Wasm.run.output.n(+p: U32, +a: U32, r: Wasm.Peek) -> Wasm.Outcome:
+def Wasm.run.output.n(+p: U32, +a: U32, r: Wasm.Peek<U32>) -> Wasm.Outcome:
   match r:
     case Wasm.Peek{+n, bytes}:
       Wasm.run.output.if(Wasm.fits(p, a, n), bytes, a, n)
 
-def Wasm.run.output.a(+p: U32, r: Wasm.Peek) -> Wasm.Outcome:
+def Wasm.run.output.a(+p: U32, r: Wasm.Peek<U32>) -> Wasm.Outcome:
   match r:
     case Wasm.Peek{a, bytes}:
       Wasm.run.output.n(p, a, Wasm.read32(bytes, 4))
@@ -2809,7 +2863,7 @@ def Wasm.run.written(ok: Bool, f: Nat, inst: Wasm.Instance, a: U32, n: U32) -> W
       Wasm.Outcome.trap{}
 
 # the input written from the address a, when its n bytes fit
-def Wasm.run.input(f: Nat, inst: Wasm.Instance, +a: U32, +n: U32, i: List<&2, U32>) -> Wasm.Outcome:
+def Wasm.run.input(f: Nat, inst: Wasm.Instance, +a: U32, +n: U32, i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match inst:
     case Wasm.Instance{module, mem}:
       match mem:
@@ -2817,7 +2871,7 @@ def Wasm.run.input(f: Nat, inst: Wasm.Instance, +a: U32, +n: U32, i: List<&2, U3
           Wasm.run.written(Wasm.fits(p, a, n), f,
             Wasm.Instance{module, Wasm.Memory{p, lim, Wasm.write.bytes(i, a, bytes)}}, a, n)
 
-def Wasm.run.alloced.if(full: Bool, f: Nat, inst: Wasm.Instance, a: U32, n: U32, i: List<&2, U32>) -> Wasm.Outcome:
+def Wasm.run.alloced.if(full: Bool, f: Nat, inst: Wasm.Instance, a: U32, n: U32, i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match full:
     case True{}:
       Wasm.Outcome.out_of_memory{}
@@ -2826,7 +2880,7 @@ def Wasm.run.alloced.if(full: Bool, f: Nat, inst: Wasm.Instance, a: U32, n: U32,
 
 # what alloc gave: the input's address, or -1 for out of memory; run then
 # has the steps that alloc left
-def Wasm.run.alloced(r: Wasm.Invoked, f: Nat, n: U32, i: List<&2, U32>) -> Wasm.Outcome:
+def Wasm.run.alloced(r: Wasm.Invoked, f: Nat, n: U32, i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match r:
     case Wasm.Invoked.values{Con{+a, _}, inst, used}:
       Wasm.run.alloced.if(U32.is_eq(a, 4294967295), Nat.sub(f, used), inst, a, n, i)
@@ -2840,7 +2894,7 @@ def Wasm.run.alloced(r: Wasm.Invoked, f: Nat, n: U32, i: List<&2, U32>) -> Wasm.
       Wasm.Outcome.trap{}
 
 # the input's length: an input of 2^32 bytes or more cannot fit in memory
-def Wasm.run.sized(n: Maybe<&2, U32>, +f: Nat, inst: Wasm.Instance, i: List<&2, U32>) -> Wasm.Outcome:
+def Wasm.run.sized(n: Maybe<&2, U32>, +f: Nat, inst: Wasm.Instance, i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match n:
     case None{}:
       Wasm.Outcome.out_of_memory{}
@@ -2855,14 +2909,14 @@ def Wasm.run.is_host(inst: Wasm.Instance) -> Bool:
         Wasm.func.is_type(Wasm.export.func(fs, es, Wasm.name.alloc()), 1n, 1n) &&
         Wasm.func.is_type(Wasm.export.func(fs, es, Wasm.name.run()), 2n, 1n)
 
-def Wasm.run.instance(ok: Bool, f: Nat, inst: Wasm.Instance, +i: List<&2, U32>) -> Wasm.Outcome:
+def Wasm.run.instance(ok: Bool, f: Nat, inst: Wasm.Instance, +i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match ok:
     case True{}:
       Wasm.run.sized(Wasm.length32(i), f, inst, i)
     case False{}:
       Wasm.Outcome.unsupported{}
 
-def Wasm.run.made(f: Nat, made: Wasm.Made, i: List<&2, U32>) -> Wasm.Outcome:
+def Wasm.run.made(f: Nat, made: Wasm.Made, i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match made:
     case Wasm.Made.instance{+inst}:
       Wasm.run.instance(Wasm.run.is_host(inst), f, inst, i)
@@ -2875,7 +2929,7 @@ def Wasm.run.made(f: Nat, made: Wasm.Made, i: List<&2, U32>) -> Wasm.Outcome:
 
 # a run (W5) of the module of the bytes w on the input bytes i, in at most f
 # steps of its functions, with at most m pages (64 KiB each) of memory
-def Wasm.run(f: Nat, w: List<&2, U32>, i: List<&2, U32>, m: U32) -> Wasm.Outcome:
+def Wasm.run(f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, m: U32) -> Wasm.Outcome:
   Wasm.run.made(f, Wasm.instantiate(w, m), i)
 
 # Program
@@ -2887,32 +2941,29 @@ def Wasm.run(f: Nat, w: List<&2, U32>, i: List<&2, U32>, m: U32) -> Wasm.Outcome
 # Program.lean, so that step 3 can join them.
 
 # the names of the constructors of a list of bytes, as `bend -o` writes them
-def Program.name.unit() -> List<&2, U32>:
-  [40, 41]
+def Program.name.unit() -> List<&2, Word(8n)>:
+  [Byte.from_u32(40), Byte.from_u32(41)]
 
-def Program.name.nil() -> List<&2, U32>:
-  [78, 105, 108]
+def Program.name.nil() -> List<&2, Word(8n)>:
+  [Byte.from_u32(78), Byte.from_u32(105), Byte.from_u32(108)]
 
-def Program.name.con() -> List<&2, U32>:
-  [67, 111, 110]
+def Program.name.con() -> List<&2, Word(8n)>:
+  [Byte.from_u32(67), Byte.from_u32(111), Byte.from_u32(110)]
 
-def Program.name.u32() -> List<&2, U32>:
-  [85, 51, 50]
+def Program.name.wnil() -> List<&2, Word(8n)>:
+  [Byte.from_u32(87), Byte.from_u32(78), Byte.from_u32(105), Byte.from_u32(108)]
 
-def Program.name.wnil() -> List<&2, U32>:
-  [87, 78, 105, 108]
+def Program.name.wcon() -> List<&2, Word(8n)>:
+  [Byte.from_u32(87), Byte.from_u32(67), Byte.from_u32(111), Byte.from_u32(110)]
 
-def Program.name.wcon() -> List<&2, U32>:
-  [87, 67, 111, 110]
+def Program.name.true() -> List<&2, Word(8n)>:
+  [Byte.from_u32(84), Byte.from_u32(114), Byte.from_u32(117), Byte.from_u32(101)]
 
-def Program.name.true() -> List<&2, U32>:
-  [84, 114, 117, 101]
+def Program.name.false() -> List<&2, Word(8n)>:
+  [Byte.from_u32(70), Byte.from_u32(97), Byte.from_u32(108), Byte.from_u32(115), Byte.from_u32(101)]
 
-def Program.name.false() -> List<&2, U32>:
-  [70, 97, 108, 115, 101]
-
-def Program.name.main() -> List<&2, U32>:
-  [109, 97, 105, 110]
+def Program.name.main() -> List<&2, Word(8n)>:
+  [Byte.from_u32(109), Byte.from_u32(97), Byte.from_u32(105), Byte.from_u32(110)]
 
 # the fields of a constructor: each paired at quantity 1 with the rest, and ()
 # at the end
@@ -2924,7 +2975,7 @@ def Program.fields(fs: List<&2, Term>) -> Term:
       Term.Tup{Quan.Q1{}, f, Program.fields(rest)}
 
 # the constructor k with the fields fs, as `bend -o` writes a value
-def Program.ctor(k: List<&2, U32>, fs: List<&2, Term>) -> Term:
+def Program.ctor(k: List<&2, Word(8n)>, fs: List<&2, Term>) -> Term:
   Term.Tup{Quan.Q1{}, Term.Lab{k}, Program.fields(fs)}
 
 def Program.bit(b: Bool) -> Term:
@@ -2944,26 +2995,16 @@ def Program.word(n: Nat, w: Word(n)) -> Term:
         case WCon{b, t}:
           Program.ctor(Program.name.wcon(), [Program.bit(b), Program.word(p, t)])
 
-def Program.cell.of(c: U32) -> Term:
-  match c:
-    case U32{w}:
-      Program.ctor(Program.name.u32(), [Program.word(32n, w)])
-
-# a byte of the input, as Base's U32: an element of the input is its low byte,
-# as a host that writes bytes writes it
-def Program.cell(b: U32) -> Term:
-  Program.cell.of(U32.and(b, 255))
-
-# a list of bytes, as Base's List<&2, U32>
-def Program.bytes(i: List<&2, U32>) -> Term:
+# a list of bytes, as Base's List<&2, Word(8n)>
+def Program.bytes(i: List<&2, Word(8n)>) -> Term:
   match i:
     case Nil{}:
       Program.ctor(Program.name.nil(), [])
     case Con{b, rest}:
-      Program.ctor(Program.name.con(), [Program.cell(b), Program.bytes(rest)])
+      Program.ctor(Program.name.con(), [Program.word(8n, b), Program.bytes(rest)])
 
 # the start of a run: main, applied once at quantity 1 to the input's bytes
-def Program.start(i: List<&2, U32>) -> Term:
+def Program.start(i: List<&2, Word(8n)>) -> Term:
   Term.App{Quan.Q1{}, Term.Ref{Program.name.main()}, Program.bytes(i)}
 
 def Program.unbit.if(is_true: Bool, is_false: Bool) -> Maybe<&2, Bool>:
@@ -2976,7 +3017,7 @@ def Program.unbit.if(is_true: Bool, is_false: Bool) -> Maybe<&2, Bool>:
       None{}
 
 # the Bool of a constructor's name
-def Program.unbit(+k: List<&2, U32>) -> Maybe<&2, Bool>:
+def Program.unbit(+k: List<&2, Word(8n)>) -> Maybe<&2, Bool>:
   Program.unbit.if(Name.is_eq(k, Program.name.true()), Name.is_eq(k, Program.name.false()))
 
 def Program.unword.nil(ok: Bool) -> Maybe<&2, Word(0n)>:
@@ -3013,45 +3054,34 @@ def Program.unword(n: Nat, t: Term) -> Maybe<&2, Word(n)>:
         case _:
           None{}
 
-def Program.unbytes.nil(ok: Bool) -> Maybe<&2, List<&2, U32>>:
+def Program.unbytes.nil(ok: Bool) -> Maybe<&2, List<&2, Word(8n)>>:
   match ok:
     case True{}:
       Some{Nil{}}
     case False{}:
       None{}
 
-def Program.unbytes.byte(lt: Bool, v: U32, bs: List<&2, U32>) -> Maybe<&2, List<&2, U32>>:
-  match lt:
-    case True{}:
-      Some{Con{v, bs}}
-    case False{}:
-      None{}
-
-def Program.unbytes.con(ok: Bool, w: Maybe<&2, Word(32n)>, bs: Maybe<&2, List<&2, U32>>) ->
-  Maybe<&2, List<&2, U32>>:
+def Program.unbytes.con(ok: Bool, w: Maybe<&2, Word(8n)>, bs: Maybe<&2, List<&2, Word(8n)>>) ->
+  Maybe<&2, List<&2, Word(8n)>>:
   match ok w bs:
-    case True{} Some{+x} Some{rest}:
-      Program.unbytes.byte(U32.is_lt(U32{x}, 256), U32{x}, rest)
+    case True{} Some{x} Some{rest}:
+      Some{Con{x, rest}}
     case _ _ _:
       None{}
 
-# the list of bytes that Program.bytes gives the term of, each below 256;
-# nothing for any other term
-def Program.unbytes(t: Term) -> Maybe<&2, List<&2, U32>>:
+# the list of bytes that Program.bytes gives the term of; nothing for any
+# other term
+def Program.unbytes(t: Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match t:
     case Term.Tup{Quan.Q1{}, Term.Lab{+k}, Term.Lab{+u}}:
       Program.unbytes.nil(Name.is_eq(k, Program.name.nil()) && Name.is_eq(u, Program.name.unit()))
-    case Term.Tup{Quan.Q1{}, Term.Lab{+k},
-        Term.Tup{Quan.Q1{}, Term.Tup{Quan.Q1{}, Term.Lab{+c}, Term.Tup{Quan.Q1{}, w, Term.Lab{+u1}}},
-          Term.Tup{Quan.Q1{}, rest, Term.Lab{+u2}}}}:
-      Program.unbytes.con(
-        Name.is_eq(k, Program.name.con()) && Name.is_eq(c, Program.name.u32()) &&
-          Name.is_eq(u1, Program.name.unit()) && Name.is_eq(u2, Program.name.unit()),
-        Program.unword(32n, w), Program.unbytes(rest))
+    case Term.Tup{Quan.Q1{}, Term.Lab{+k}, Term.Tup{Quan.Q1{}, w, Term.Tup{Quan.Q1{}, rest, Term.Lab{+u}}}}:
+      Program.unbytes.con(Name.is_eq(k, Program.name.con()) && Name.is_eq(u, Program.name.unit()),
+        Program.unword(8n, w), Program.unbytes(rest))
     case _:
       None{}
 
-def Program.result.if(ok: Bool, v: Term) -> Maybe<&2, List<&2, U32>>:
+def Program.result.if(ok: Bool, v: Term) -> Maybe<&2, List<&2, Word(8n)>>:
   match ok:
     case True{}:
       Program.unbytes(v)
@@ -3059,14 +3089,14 @@ def Program.result.if(ok: Bool, v: Term) -> Maybe<&2, List<&2, U32>>:
       None{}
 
 # the bytes at the end r of a run, when it is a value that is a list of bytes
-def Program.result(ds: List<&2, Def>, r: Maybe<Term>) -> Maybe<&2, List<&2, U32>>:
+def Program.result(ds: List<&2, Def>, r: Maybe<Term>) -> Maybe<&2, List<&2, Word(8n)>>:
   match r:
     case None{}:
       None{}
     case Some{+v}:
       Program.result.if(Eval.vals(ds, v, False{}), v)
 
-def Program.gives.of(r: Maybe<List<&2, Def>>, i: List<&2, U32>, n: Nat) -> Maybe<&2, List<&2, U32>>:
+def Program.gives.of(r: Maybe<List<&2, Def>>, i: List<&2, Word(8n)>, n: Nat) -> Maybe<&2, List<&2, Word(8n)>>:
   match r:
     case None{}:
       None{}
@@ -3076,7 +3106,7 @@ def Program.gives.of(r: Maybe<List<&2, Def>>, i: List<&2, U32>, n: Nat) -> Maybe
 # INVARIANTS #3: what the program of the book bytes p (INVARIANTS #5) gives on
 # the input i after exactly n steps of Eval: the list of bytes of the value that
 # it reaches, or nothing
-def Program.gives(p: List<&2, U32>, i: List<&2, U32>, n: Nat) -> Maybe<&2, List<&2, U32>>:
+def Program.gives(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Maybe<&2, List<&2, Word(8n)>>:
   Program.gives.of(Book.read(p), i, n)
 
 # the nodes of a term
@@ -3137,7 +3167,7 @@ def Program.largest.go(n: Nat, +ds: List<&2, Def>, +t: Term) -> Nat:
     case 1n+m:
       Nat.max(Term.size(t), Program.largest.next(Eval.step(ds, t), u => Program.largest.go(m, ds, u)))
 
-def Program.largest.of(r: Maybe<List<&2, Def>>, i: List<&2, U32>, n: Nat) -> Nat:
+def Program.largest.of(r: Maybe<List<&2, Def>>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   match r:
     case None{}:
       0n
@@ -3146,12 +3176,12 @@ def Program.largest.of(r: Maybe<List<&2, Def>>, i: List<&2, U32>, n: Nat) -> Nat
 
 # S of INVARIANTS #4: the most nodes of a term that the run on the input i
 # reaches within n steps; the input is in the first term
-def Program.largest(p: List<&2, U32>, i: List<&2, U32>, n: Nat) -> Nat:
+def Program.largest(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Program.largest.of(Book.read(p), i, n)
 
 # F of INVARIANTS #4 (C1, approved): 64 × (|p| + S) + 2^24 bytes
-def Program.need(+p: List<&2, U32>, i: List<&2, U32>, n: Nat) -> Nat:
-  Nat.add(Nat.mul(64n, Nat.add(List.length(&2, U32, p), Program.largest(p, i, n))), 16777216n)
+def Program.need(+p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
+  Nat.add(Nat.mul(64n, Nat.add(List.length(&2, Word(8n), p), Program.largest(p, i, n))), 16777216n)
 
 # the bytes of m pages of 2^16 bytes, up to 2^16 pages: as much as a memory of
 # 32-bit addresses can have
@@ -3171,14 +3201,14 @@ def Program.memory(m: U32) -> Nat:
 #
 # The bytes of a module of the subset, as Wasm.decode.module reads them.
 
-def Wasm.encode.leb.if(last: Bool, b: U32, more: Unit -> List<&2, U32>) -> List<&2, U32>:
+def Wasm.encode.leb.if(last: Bool, b: U32, more: Unit -> List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match last:
     case True{}:
-      [b]
+      [Byte.from_u32(b)]
     case False{}:
-      Con{U32.or(b, 128), more(Unit{})}
+      Con{Byte.from_u32(U32.or(b, 128)), more(Unit{})}
 
-def Wasm.encode.uleb.go(fuel: Nat, +v: U32) -> List<&2, U32>:
+def Wasm.encode.uleb.go(fuel: Nat, +v: U32) -> List<&2, Word(8n)>:
   match fuel:
     case 0n:
       []
@@ -3187,7 +3217,7 @@ def Wasm.encode.uleb.go(fuel: Nat, +v: U32) -> List<&2, U32>:
       Wasm.encode.leb.if(U32.is_zero(r), U32.and(v, 127), u => Wasm.encode.uleb.go(f, r))
 
 # a U32 as unsigned LEB128 (spec 5.2.2): seven bits a byte, the lowest first
-def Wasm.encode.uleb(v: U32) -> List<&2, U32>:
+def Wasm.encode.uleb(v: U32) -> List<&2, Word(8n)>:
   Wasm.encode.uleb.go(5n, v)
 
 # the bits that an arithmetic shift right by 7 brings in at the top
@@ -3198,7 +3228,7 @@ def Wasm.encode.sign(neg: Bool) -> U32:
     case False{}:
       0
 
-def Wasm.encode.sleb.go(fuel: Nat, +v: U32) -> List<&2, U32>:
+def Wasm.encode.sleb.go(fuel: Nat, +v: U32) -> List<&2, Word(8n)>:
   match fuel:
     case 0n:
       []
@@ -3210,7 +3240,7 @@ def Wasm.encode.sleb.go(fuel: Nat, +v: U32) -> List<&2, U32>:
         u => Wasm.encode.sleb.go(f, r))
 
 # a U32 as signed 32-bit LEB128 (spec 5.2.2), of its two's complement value
-def Wasm.encode.sleb(v: U32) -> List<&2, U32>:
+def Wasm.encode.sleb(v: U32) -> List<&2, Word(8n)>:
   Wasm.encode.sleb.go(5n, v)
 
 # the number of items of a list
@@ -3222,20 +3252,20 @@ def Wasm.encode.len(-A: Data, xs: List<&2, A>) -> U32:
       U32.inc(Wasm.encode.len(A, rest))
 
 # a vector (spec 5.1.3): the number n of its items, then their bytes
-def Wasm.encode.vec(n: U32, items: List<&2, U32>) -> List<&2, U32>:
-  List.append(&2, U32, Wasm.encode.uleb(n), items)
+def Wasm.encode.vec(n: U32, items: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
+  List.append(&2, Word(8n), Wasm.encode.uleb(n), items)
 
 # bytes after their number: a vector of bytes or a name (spec 5.1.3, 5.2.4)
-def Wasm.encode.sized(+c: List<&2, U32>) -> List<&2, U32>:
-  Wasm.encode.vec(Wasm.encode.len(U32, c), c)
+def Wasm.encode.sized(+c: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
+  Wasm.encode.vec(Wasm.encode.len(Word(8n), c), c)
 
 # the labels of a br_table, then the bytes acc
-def Wasm.encode.labels(ls: List<&2, U32>, acc: List<&2, U32>) -> List<&2, U32>:
+def Wasm.encode.labels(ls: List<&2, U32>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match ls:
     case Nil{}:
       acc
     case Con{l, rest}:
-      List.append(&2, U32, Wasm.encode.uleb(l), Wasm.encode.labels(rest, acc))
+      List.append(&2, Word(8n), Wasm.encode.uleb(l), Wasm.encode.labels(rest, acc))
 
 def Wasm.encode.opcode(o: Wasm.Op) -> U32:
   match o:
@@ -3265,12 +3295,12 @@ def Wasm.encode.opcode(o: Wasm.Op) -> U32:
       79
 
 # an opcode and its immediate, then the bytes acc
-def Wasm.encode.with(op: U32, imm: List<&2, U32>, acc: List<&2, U32>) -> List<&2, U32>:
-  Con{op, List.append(&2, U32, imm, acc)}
+def Wasm.encode.with(op: U32, imm: List<&2, Word(8n)>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
+  Con{Byte.from_u32(op), List.append(&2, Word(8n), imm, acc)}
 
 # the instructions xs (spec 5.4), then the bytes acc; a load or a store names
 # the natural alignment of its width
-def Wasm.encode.instrs(xs: List<&2, Wasm.Instr>, acc: List<&2, U32>) -> List<&2, U32>:
+def Wasm.encode.instrs(xs: List<&2, Wasm.Instr>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match xs:
     case Nil{}:
       acc
@@ -3285,138 +3315,140 @@ def Wasm.encode.instrs(xs: List<&2, Wasm.Instr>, acc: List<&2, U32>) -> List<&2,
         case Wasm.Instr.local_tee{i}:
           Wasm.encode.with(34, Wasm.encode.uleb(i), Wasm.encode.instrs(rest, acc))
         case Wasm.Instr.op{o}:
-          Con{Wasm.encode.opcode(o), Wasm.encode.instrs(rest, acc)}
+          Con{Byte.from_u32(Wasm.encode.opcode(o)), Wasm.encode.instrs(rest, acc)}
         case Wasm.Instr.eqz{}:
-          Con{69, Wasm.encode.instrs(rest, acc)}
+          Con{Byte.from_u32(69), Wasm.encode.instrs(rest, acc)}
         case Wasm.Instr.load{o}:
-          Wasm.encode.with(40, Con{2, Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
+          Wasm.encode.with(40, Con{Byte.from_u32(2), Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
         case Wasm.Instr.load8_u{o}:
-          Wasm.encode.with(45, Con{0, Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
+          Wasm.encode.with(45, Con{Byte.from_u32(0), Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
         case Wasm.Instr.store{o}:
-          Wasm.encode.with(54, Con{2, Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
+          Wasm.encode.with(54, Con{Byte.from_u32(2), Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
         case Wasm.Instr.store8{o}:
-          Wasm.encode.with(58, Con{0, Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
+          Wasm.encode.with(58, Con{Byte.from_u32(0), Wasm.encode.uleb(o)}, Wasm.encode.instrs(rest, acc))
         case Wasm.Instr.memory_size{}:
-          Con{63, Con{0, Wasm.encode.instrs(rest, acc)}}
+          Con{Byte.from_u32(63), Con{Byte.from_u32(0), Wasm.encode.instrs(rest, acc)}}
         case Wasm.Instr.memory_grow{}:
-          Con{64, Con{0, Wasm.encode.instrs(rest, acc)}}
+          Con{Byte.from_u32(64), Con{Byte.from_u32(0), Wasm.encode.instrs(rest, acc)}}
         case Wasm.Instr.block{body}:
-          Con{2, Con{64, Wasm.encode.instrs(body, Con{11, Wasm.encode.instrs(rest, acc)})}}
+          Con{Byte.from_u32(2), Con{Byte.from_u32(64), Wasm.encode.instrs(body, Con{Byte.from_u32(11), Wasm.encode.instrs(rest, acc)})}}
         case Wasm.Instr.loop{body}:
-          Con{3, Con{64, Wasm.encode.instrs(body, Con{11, Wasm.encode.instrs(rest, acc)})}}
+          Con{Byte.from_u32(3), Con{Byte.from_u32(64), Wasm.encode.instrs(body, Con{Byte.from_u32(11), Wasm.encode.instrs(rest, acc)})}}
         case Wasm.Instr.br{l}:
           Wasm.encode.with(12, Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))
         case Wasm.Instr.br_if{l}:
           Wasm.encode.with(13, Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))
         case Wasm.Instr.br_table{+ls, l}:
           Wasm.encode.with(14, Wasm.encode.uleb(Wasm.encode.len(U32, ls)),
-            Wasm.encode.labels(ls, List.append(&2, U32, Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))))
+            Wasm.encode.labels(ls, List.append(&2, Word(8n), Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))))
 
 # the value type i32, n times
-def Wasm.encode.i32s(n: Nat) -> List<&2, U32>:
+def Wasm.encode.i32s(n: Nat) -> List<&2, Word(8n)>:
   match n:
     case 0n:
       []
     case 1n+p:
-      Con{127, Wasm.encode.i32s(p)}
+      Con{Byte.from_u32(127), Wasm.encode.i32s(p)}
 
 # a function's type (spec 5.3.6): 0x60, then its parameters and results
-def Wasm.encode.functype(f: Wasm.Func) -> List<&2, U32>:
+def Wasm.encode.functype(f: Wasm.Func) -> List<&2, Word(8n)>:
   match f:
     case Wasm.Func{p, q, _, _}:
-      Con{96, List.append(&2, U32, Wasm.encode.sized(Wasm.encode.i32s(p)), Wasm.encode.sized(Wasm.encode.i32s(q)))}
+      Con{Byte.from_u32(96), List.append(&2, Word(8n), Wasm.encode.sized(Wasm.encode.i32s(p)), Wasm.encode.sized(Wasm.encode.i32s(q)))}
 
-def Wasm.encode.functypes(fs: List<&2, Wasm.Func>) -> List<&2, U32>:
+def Wasm.encode.functypes(fs: List<&2, Wasm.Func>) -> List<&2, Word(8n)>:
   match fs:
     case Nil{}:
       []
     case Con{f, rest}:
-      List.append(&2, U32, Wasm.encode.functype(f), Wasm.encode.functypes(rest))
+      List.append(&2, Word(8n), Wasm.encode.functype(f), Wasm.encode.functypes(rest))
 
 # the function section: function i has type i
-def Wasm.encode.indices(fs: List<&2, Wasm.Func>, +i: U32) -> List<&2, U32>:
+def Wasm.encode.indices(fs: List<&2, Wasm.Func>, +i: U32) -> List<&2, Word(8n)>:
   match fs:
     case Nil{}:
       []
     case Con{_, rest}:
-      List.append(&2, U32, Wasm.encode.uleb(i), Wasm.encode.indices(rest, U32.inc(i)))
+      List.append(&2, Word(8n), Wasm.encode.uleb(i), Wasm.encode.indices(rest, U32.inc(i)))
 
 # a function's locals after its parameters (spec 5.5.13): one group of n
 # locals of i32, or none
-def Wasm.encode.locals(+n: Nat) -> List<&2, U32>:
+def Wasm.encode.locals(+n: Nat) -> List<&2, Word(8n)>:
   match n:
     case 0n:
-      [0]
+      [Byte.from_u32(0)]
     case 1n+_:
-      Con{1, List.append(&2, U32, Wasm.encode.uleb(U32.from_nat(n)), [127])}
+      Con{Byte.from_u32(1), List.append(&2, Word(8n), Wasm.encode.uleb(U32.from_nat(n)), [Byte.from_u32(127)])}
 
 # a function's code (spec 5.5.13): its size, its locals, its body and its end
-def Wasm.encode.code(f: Wasm.Func) -> List<&2, U32>:
+def Wasm.encode.code(f: Wasm.Func) -> List<&2, Word(8n)>:
   match f:
     case Wasm.Func{_, _, n, body}:
-      Wasm.encode.sized(List.append(&2, U32, Wasm.encode.locals(n), Wasm.encode.instrs(body, [11])))
+      Wasm.encode.sized(List.append(&2, Word(8n), Wasm.encode.locals(n), Wasm.encode.instrs(body, [Byte.from_u32(11)])))
 
-def Wasm.encode.codes(fs: List<&2, Wasm.Func>) -> List<&2, U32>:
+def Wasm.encode.codes(fs: List<&2, Wasm.Func>) -> List<&2, Word(8n)>:
   match fs:
     case Nil{}:
       []
     case Con{f, rest}:
-      List.append(&2, U32, Wasm.encode.code(f), Wasm.encode.codes(rest))
+      List.append(&2, Word(8n), Wasm.encode.code(f), Wasm.encode.codes(rest))
 
 # an export (spec 5.5.10): its name, then 0 and a function index, or 2 and
 # memory 0
-def Wasm.encode.export(e: Wasm.Export) -> List<&2, U32>:
+def Wasm.encode.export(e: Wasm.Export) -> List<&2, Word(8n)>:
   match e:
     case Wasm.Export.func{name, i}:
-      List.append(&2, U32, Wasm.encode.sized(name), Con{0, Wasm.encode.uleb(i)})
+      List.append(&2, Word(8n), Wasm.encode.sized(name), Con{Byte.from_u32(0), Wasm.encode.uleb(i)})
     case Wasm.Export.memory{name}:
-      List.append(&2, U32, Wasm.encode.sized(name), [2, 0])
+      List.append(&2, Word(8n), Wasm.encode.sized(name), [Byte.from_u32(2), Byte.from_u32(0)])
 
-def Wasm.encode.exports(es: List<&2, Wasm.Export>) -> List<&2, U32>:
+def Wasm.encode.exports(es: List<&2, Wasm.Export>) -> List<&2, Word(8n)>:
   match es:
     case Nil{}:
       []
     case Con{e, rest}:
-      List.append(&2, U32, Wasm.encode.export(e), Wasm.encode.exports(rest))
+      List.append(&2, Word(8n), Wasm.encode.export(e), Wasm.encode.exports(rest))
 
 # a memory's limits (spec 5.3.7): 0 and a minimum, or 1, a minimum and a
 # maximum
-def Wasm.encode.limits(l: Wasm.Limits) -> List<&2, U32>:
+def Wasm.encode.limits(l: Wasm.Limits) -> List<&2, Word(8n)>:
   match l:
     case Wasm.Limits{min, None{}}:
-      Con{0, Wasm.encode.uleb(min)}
+      Con{Byte.from_u32(0), Wasm.encode.uleb(min)}
     case Wasm.Limits{min, Some{max}}:
-      Con{1, List.append(&2, U32, Wasm.encode.uleb(min), Wasm.encode.uleb(max))}
+      Con{Byte.from_u32(1), List.append(&2, Word(8n), Wasm.encode.uleb(min), Wasm.encode.uleb(max))}
 
 # a section (spec 5.5.2): its id, its size and its content c; then the bytes
 # acc
-def Wasm.encode.section(id: U32, c: List<&2, U32>, acc: List<&2, U32>) -> List<&2, U32>:
-  Con{id, List.append(&2, U32, Wasm.encode.sized(c), acc)}
+def Wasm.encode.section(id: U32, c: List<&2, Word(8n)>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
+  Con{Byte.from_u32(id), List.append(&2, Word(8n), Wasm.encode.sized(c), acc)}
 
 # the memory section, when there is a memory
-def Wasm.encode.memory(m: Maybe<&2, Wasm.Limits>, acc: List<&2, U32>) -> List<&2, U32>:
+def Wasm.encode.memory(m: Maybe<&2, Wasm.Limits>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match m:
     case None{}:
       acc
     case Some{l}:
-      Wasm.encode.section(5, Con{1, Wasm.encode.limits(l)}, acc)
+      Wasm.encode.section(5, Con{Byte.from_u32(1), Wasm.encode.limits(l)}, acc)
 
 # the data section, when there is a segment: 0, an active segment of memory
 # 0, its offset as the constant expression i32.const n end, then its bytes
-def Wasm.encode.data(d: Maybe<&2, Wasm.Segment>) -> List<&2, U32>:
+def Wasm.encode.data(d: Maybe<&2, Wasm.Segment>) -> List<&2, Word(8n)>:
   match d:
     case None{}:
       []
     case Some{Wasm.Segment{o, bs}}:
-      Wasm.encode.section(11, Con{1, Con{0, Con{65, List.append(&2, U32, Wasm.encode.sleb(o), Con{11, Wasm.encode.sized(bs)})}}}, [])
+      Wasm.encode.section(11, Con{Byte.from_u32(1), Con{Byte.from_u32(0), Con{Byte.from_u32(65),
+        List.append(&2, Word(8n), Wasm.encode.sleb(o), Con{Byte.from_u32(11), Wasm.encode.sized(bs)})}}}, [])
 
 # a module of the subset (spec 5.5.15): the magic \0asm, version 1, then its
 # sections in the order of their ids; function i has type i
-def Wasm.encode(m: Wasm.Module) -> List<&2, U32>:
+def Wasm.encode(m: Wasm.Module) -> List<&2, Word(8n)>:
   match m:
     case Wasm.Module{+fs, mem, +es, d}:
       +n = Wasm.encode.len(Wasm.Func, fs)
-      Con{0, Con{97, Con{115, Con{109, Con{1, Con{0, Con{0, Con{0,
+      Con{Byte.from_u32(0), Con{Byte.from_u32(97), Con{Byte.from_u32(115), Con{Byte.from_u32(109),
+      Con{Byte.from_u32(1), Con{Byte.from_u32(0), Con{Byte.from_u32(0), Con{Byte.from_u32(0),
         Wasm.encode.section(1, Wasm.encode.vec(n, Wasm.encode.functypes(fs)),
           Wasm.encode.section(3, Wasm.encode.vec(n, Wasm.encode.indices(fs, 0)),
             Wasm.encode.memory(mem,
@@ -3553,7 +3585,7 @@ type Cir.Stmt is Data:
 type Cir.State is Data:
   Cir.State{
     regs: List<&2, U32>, cells: Cir.Cells, next: U32, first: U32, image: U32,
-    pages: U32, limit: U32, input: List<&2, U32>, out: List<&2, U32>, outn: U32}
+    pages: U32, limit: U32, input: List<&2, Word(8n)>, out: List<&2, Word(8n)>, outn: U32}
 
 # how a statement ends: after it, with the state; halted, with a status; out
 # of memory; with an access that the module could not make in the same way;
@@ -3598,32 +3630,32 @@ def Cir.eval.field(k: Nat, c: Maybe<&2, U32>, st: Cir.State) -> Maybe<&2, U32>:
     case None{} _:
       None{}
 
-def Cir.eval.byte.of(b: Maybe<&2, U32>) -> Maybe<&2, U32>:
+def Cir.eval.byte.of(b: Maybe<&2, Word(8n)>) -> Maybe<&2, U32>:
   match b:
     case Some{x}:
-      Some{U32.and(x, 255)}
+      Some{Byte.to_u32(x)}
     case None{}:
       None{}
 
-# the input's byte i: the low byte of its element i
-def Cir.eval.byte(i: Maybe<&2, U32>, input: List<&2, U32>) -> Maybe<&2, U32>:
+# the value of the input's byte i
+def Cir.eval.byte(i: Maybe<&2, U32>, input: List<&2, Word(8n)>) -> Maybe<&2, U32>:
   match i:
     case Some{x}:
-      Cir.eval.byte.of(List.get(&2, U32, input, U32.to_nat(x)))
+      Cir.eval.byte.of(List.get(&2, Word(8n), input, U32.to_nat(x)))
     case None{}:
       None{}
 
 def Cir.eval.size(st: Cir.State) -> Maybe<&2, U32>:
   match st:
     case Cir.State{_, _, _, _, _, _, _, input, _, _}:
-      Some{Wasm.encode.len(U32, input)}
+      Some{Wasm.encode.len(Word(8n), input)}
 
 def Cir.eval.get(r: Nat, st: Cir.State) -> Maybe<&2, U32>:
   match st:
     case Cir.State{regs, _, _, _, _, _, _, _, _, _}:
       List.get(&2, U32, regs, r)
 
-def Cir.eval.input(st: Cir.State) -> List<&2, U32>:
+def Cir.eval.input(st: Cir.State) -> List<&2, Word(8n)>:
   match st:
     case Cir.State{_, _, _, _, _, _, _, input, _, _}:
       input
@@ -3744,7 +3776,7 @@ def Cir.exec.alloc(r: Nat, +st: Cir.State) -> Cir.Out:
 def Cir.exec.emit.of(pages: Maybe<&2, U32>, v: U32, st: Cir.State) -> Cir.Out:
   match pages st:
     case Some{p} Cir.State{regs, cells, next, first, image, _, limit, input, out, outn}:
-      Cir.Out.next{Cir.State{regs, cells, next, first, image, p, limit, input, Con{U32.and(v, 255), out}, U32.inc(outn)}}
+      Cir.Out.next{Cir.State{regs, cells, next, first, image, p, limit, input, Con{Byte.from_u32(v), out}, U32.inc(outn)}}
     case None{} _:
       Cir.Out.out_of_memory{}
 
@@ -3755,7 +3787,7 @@ def Cir.exec.emit.if(ok: Bool, +b: U32, v: U32, +st: Cir.State) -> Cir.Out:
     case False{} _:
       Cir.Out.out_of_memory{}
 
-# the byte v (its low 8 bits) goes at the end of the output, which lies after
+# the low byte of v goes at the end of the output, which lies after
 # the cells, at byte 20 × next; out of memory when the memory cannot grow to
 # hold it
 def Cir.exec.emit(v: Maybe<&2, U32>, +st: Cir.State) -> Cir.Out:
@@ -3883,8 +3915,7 @@ def Cir.code.expr(e: Cir.Expr, acc: List<&2, Wasm.Instr>) -> List<&2, Wasm.Instr
     case Cir.Expr.field{k, c}:
       Cir.code.expr(c, Cir.code.at(Con{Wasm.Instr.load{U32.shln(U32.from_nat(k), 2n)}, acc}))
     case Cir.Expr.byte{i}:
-      Cir.code.expr(i, Con{Cir.i.get(0), Con{Cir.i.op(Wasm.Op.add{}), Con{Wasm.Instr.load8_u{0},
-        Con{Cir.i.const(255), Con{Cir.i.op(Wasm.Op.and{}), acc}}}}})
+      Cir.code.expr(i, Con{Cir.i.get(0), Con{Cir.i.op(Wasm.Op.add{}), Con{Wasm.Instr.load8_u{0}, acc}}})
     case Cir.Expr.size{}:
       Con{Cir.i.get(1), acc}
 
@@ -4023,12 +4054,12 @@ def Cir.pages(b: U32) -> U32:
   U32.inc(U32.shrn(U32.sub(b, 1), 16n))
 
 # the bytes of the word w, the lowest first; then acc
-def Cir.word.bytes(+w: U32, acc: List<&2, U32>) -> List<&2, U32>:
-  Con{U32.and(w, 255), Con{U32.and(U32.shrn(w, 8n), 255), Con{U32.and(U32.shrn(w, 16n), 255),
-    Con{U32.shrn(w, 24n), acc}}}}
+def Cir.word.bytes(+w: U32, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
+  Con{Byte.from_u32(w), Con{Byte.from_u32(U32.shrn(w, 8n)), Con{Byte.from_u32(U32.shrn(w, 16n)),
+    Con{Byte.from_u32(U32.shrn(w, 24n)), acc}}}}
 
 # the bytes of the cells, 20 for each: its fields in order
-def Cir.bytes(cs: List<&2, Cir.Cell>) -> List<&2, U32>:
+def Cir.bytes(cs: List<&2, Cir.Cell>) -> List<&2, Word(8n)>:
   match cs:
     case Nil{}:
       Nil{}
@@ -4063,10 +4094,10 @@ def Cir.load(cs: List<&2, Cir.Cell>, +i: U32, m: Cir.Cells) -> Cir.Cells:
     case Con{c, rest}:
       Cir.load(rest, U32.inc(i), Cir.Cells.set(m, i, c))
 
-def Cir.ended.halt(zero: Bool, one: Bool, two: Bool, out: List<&2, U32>) -> Wasm.Outcome:
+def Cir.ended.halt(zero: Bool, one: Bool, two: Bool, out: List<&2, Word(8n)>) -> Wasm.Outcome:
   match zero one two:
     case True{} _ _:
-      Wasm.Outcome.result{List.reverse(&2, U32, out)}
+      Wasm.Outcome.result{List.reverse(&2, Word(8n), out)}
     case False{} True{} _:
       Wasm.Outcome.out_of_memory{}
     case False{} False{} True{}:
@@ -4120,7 +4151,7 @@ def Cir.alloc.pages(+k: U32, +n: U32, +p: U32, +lim: U32) -> Maybe<&2, U32>:
   Cir.alloc.end(U32.is_lt(end, a) || U32.is_gt(end, 4294967280), end, p, lim)
 
 def Cir.result.alloced(r: Maybe<&2, U32>, fuel: Nat, prog: Cir.Stmt, +regs: Nat, cells: List<&2, Cir.Cell>,
-  +k: U32, +end: U32, +lim: U32, i: List<&2, U32>) -> Wasm.Outcome:
+  +k: U32, +end: U32, +lim: U32, i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match r:
     case None{}:
       Wasm.Outcome.out_of_memory{}
@@ -4130,7 +4161,7 @@ def Cir.result.alloced(r: Maybe<&2, U32>, fuel: Nat, prog: Cir.Stmt, +regs: Nat,
         List.replicate(U32, regs, 0), Cir.load(cells, 1, Cir.Cells.none{}), first, first, k, p, lim, i, Nil{}, 0}))
 
 def Cir.result.sized(n: Maybe<&2, U32>, fuel: Nat, prog: Cir.Stmt, +regs: Nat, cells: List<&2, Cir.Cell>,
-  +k: U32, +p: U32, +lim: U32, +i: List<&2, U32>) -> Wasm.Outcome:
+  +k: U32, +p: U32, +lim: U32, +i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match n:
     case None{}:
       Wasm.Outcome.out_of_memory{}
@@ -4139,7 +4170,7 @@ def Cir.result.sized(n: Maybe<&2, U32>, fuel: Nat, prog: Cir.Stmt, +regs: Nat, c
         U32.add(Cir.input.at(k), len), lim, i)
 
 def Cir.result.memory(ok: Bool, fuel: Nat, prog: Cir.Stmt, +regs: Nat, cells: List<&2, Cir.Cell>, +k: U32,
-  +p: U32, +lim: U32, +i: List<&2, U32>) -> Wasm.Outcome:
+  +p: U32, +lim: U32, +i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match ok:
     case False{}:
       Wasm.Outcome.out_of_memory{}
@@ -4148,7 +4179,7 @@ def Cir.result.memory(ok: Bool, fuel: Nat, prog: Cir.Stmt, +regs: Nat, cells: Li
 
 # what a run of the module of Cir.module(prog, regs, cells) on the input i
 # with at most m pages gives, by Cir.exec with the fuel
-def Cir.result(fuel: Nat, prog: Cir.Stmt, +regs: Nat, +cells: List<&2, Cir.Cell>, +i: List<&2, U32>, +m: U32) ->
+def Cir.result(fuel: Nat, prog: Cir.Stmt, +regs: Nat, +cells: List<&2, Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32) ->
   Wasm.Outcome:
   +k = Wasm.encode.len(Cir.Cell, cells)
   +p = Cir.pages(Cir.input.at(k))
@@ -4411,41 +4442,38 @@ def R.il() -> Nat:
 def R.iu() -> Nat:
   52n
 
-def R.iw() -> Nat:
+def R.ij() -> Nat:
   53n
 
-def R.ij() -> Nat:
+def R.ss() -> Nat:
   54n
 
-def R.ss() -> Nat:
+def R.ssrc() -> Nat:
   55n
 
-def R.ssrc() -> Nat:
+def R.scut() -> Nat:
   56n
 
-def R.scut() -> Nat:
+def R.sroot() -> Nat:
   57n
 
-def R.sroot() -> Nat:
+def R.sk() -> Nat:
   58n
 
-def R.sk() -> Nat:
+def R.snew() -> Nat:
   59n
 
-def R.snew() -> Nat:
+def R.samt() -> Nat:
   60n
 
-def R.samt() -> Nat:
+def R.t1() -> Nat:
   61n
 
-def R.t1() -> Nat:
+def R.t2() -> Nat:
   62n
 
-def R.t2() -> Nat:
-  63n
-
 def Mach.regs() -> Nat:
-  64n
+  63n
 
 # the tags of the formers, in the kernel's order
 
@@ -4553,44 +4581,40 @@ def F.fv_max() -> U32:
   524287
 
 # the cells that the image holds first (Mach.image): the labels of the names
-# 0 to 10, then constant terms, the cache of the input's bytes, and a table
+# 0 to 9, then constant terms, the cache of the input's bytes, and a table
 # by tag
 
 def I.lab(id: U32) -> U32:
   U32.inc(id)
 
 def I.nil() -> U32:
-  12
+  11
 
 def I.true() -> U32:
-  13
+  12
 
 def I.false() -> U32:
-  14
+  13
 
 def I.wnil() -> U32:
-  15
-
-# the word of 24 False bits, then WNil: 24 levels of 3 cells
-def I.z24() -> U32:
-  16
+  14
 
 def I.ref_main() -> U32:
-  88
+  15
 
 def I.cache() -> U32:
-  89
+  16
 
 # by tag t, the cell I.table() + t holds the mask of its pointers in field 2
 # (1 for field 2, 2 for 3, 4 for 4), the binders above each in field 3 (2
 # bits each, the field 2's lowest) and 1 in field 4 when a term of the tag is
 # a value by its form
 def I.table() -> U32:
-  345
+  272
 
 # the first cell of the book's defs
 def I.book() -> U32:
-  364
+  291
 
 # the names that the machine knows, by number
 
@@ -4603,32 +4627,29 @@ def N.nil() -> U32:
 def N.con() -> U32:
   2
 
-def N.u32() -> U32:
+def N.wnil() -> U32:
   3
 
-def N.wnil() -> U32:
+def N.wcon() -> U32:
   4
 
-def N.wcon() -> U32:
+def N.true() -> U32:
   5
 
-def N.true() -> U32:
+def N.false() -> U32:
   6
 
-def N.false() -> U32:
+def N.q0() -> U32:
   7
 
-def N.q0() -> U32:
+def N.q1() -> U32:
   8
 
-def N.q1() -> U32:
+def N.q2() -> U32:
   9
 
-def N.q2() -> U32:
-  10
-
 def N.main() -> U32:
-  11
+  10
 
 # the parts of a cell
 
@@ -5379,12 +5400,12 @@ def M.out.bit() -> Cir.Stmt:
         M.when(M.eq(M.g(R.t2()), M.c(N.true())),
           M.set(R.ov(), M.or(M.g(R.ov()), M.shl(M.c(1), M.g(R.oi()))))))]))))
 
-# the word of 32 bits in register ow, the lowest first, into ov
-def M.out.word() -> Cir.Stmt:
+# the byte in register ow, its 8 bits the lowest first, into ov
+def M.out.byte() -> Cir.Stmt:
   M.do([
     M.set(R.ov(), M.c(0)),
     M.set(R.oi(), M.c(0)),
-    M.while(M.lt(M.g(R.oi()), M.c(32)),
+    M.while(M.lt(M.g(R.oi()), M.c(8)),
       M.need(M.pair(R.ow()), M.need(M.is_lab(M.f(2n, M.g(R.ow())), N.wcon()), M.do([
         M.set(R.ow(), M.f(3n, M.g(R.ow()))),
         M.need(M.pair(R.ow()), M.do([
@@ -5407,12 +5428,8 @@ def M.out.con() -> Cir.Stmt:
       M.set(R.oc(), M.f(3n, M.g(R.oc()))),
       M.need(M.pair(R.oc()), M.need(M.last(R.oc()), M.do([
         M.set(R.oc(), M.f(2n, M.g(R.oc()))),
-        M.need(M.pair(R.ow()), M.need(M.is_lab(M.f(2n, M.g(R.ow())), N.u32()), M.do([
-          M.set(R.ow(), M.f(3n, M.g(R.ow()))),
-          M.need(M.pair(R.ow()), M.need(M.last(R.ow()), M.do([
-            M.set(R.ow(), M.f(2n, M.g(R.ow()))),
-            M.out.word(),
-            M.need(M.lt(M.g(R.ov()), M.c(256)), Cir.Stmt.emit{M.g(R.ov())})])))])))])))]))])
+        M.out.byte(),
+        Cir.Stmt.emit{M.g(R.ov())}])))]))])
 
 # mode 1 with no frame: the run ends with the bytes of the value, when it is a
 # list of bytes (Program.unbytes); else with no result
@@ -5460,8 +5477,8 @@ def M.h.data() -> U32:
   842
 
 # the start of the run (Program.start): main, applied at quantity 1 to the
-# list of the input's bytes, built from its last. A byte's U32 is made once,
-# into the cache, and never freed: 8 bits over the image's 24 False bits
+# list of the input's bytes, built from its last. A byte is made once, into
+# the cache, and never freed: its 8 bits over the image's WNil
 def M.input() -> Cir.Stmt:
   M.do([
     M.set(R.il(), M.c(I.nil())),
@@ -5471,17 +5488,15 @@ def M.input() -> Cir.Stmt:
       M.set(R.ib(), Cir.Expr.byte{M.g(R.ii())}),
       M.set(R.iu(), M.f(2n, M.add(M.c(I.cache()), M.g(R.ib())))),
       M.when(M.eq(M.g(R.iu()), M.c(0)), M.do([
-        M.set(R.iw(), M.c(I.z24())),
+        M.set(R.iu(), M.c(I.wnil())),
         M.set(R.ij(), M.c(8)),
         M.while(M.ne(M.g(R.ij()), M.c(0)), M.do([
           M.set(R.ij(), M.sub(M.g(R.ij()), M.c(1))),
-          M.make(R.t1(), M.c(M.h.static()), M.g(R.iw()), M.c(I.lab(N.unit())), M.c(0)),
+          M.make(R.t1(), M.c(M.h.static()), M.g(R.iu()), M.c(I.lab(N.unit())), M.c(0)),
           M.make(R.t2(), M.c(M.h.static()),
             M.pick(M.and(M.shr(M.g(R.ib()), M.g(R.ij())), M.c(1)), M.c(I.true()), M.c(I.false())),
             M.g(R.t1()), M.c(0)),
-          M.make(R.iw(), M.c(M.h.static()), M.c(I.lab(N.wcon())), M.g(R.t2()), M.c(0))])),
-        M.make(R.t1(), M.c(M.h.static()), M.g(R.iw()), M.c(I.lab(N.unit())), M.c(0)),
-        M.make(R.iu(), M.c(M.h.static()), M.c(I.lab(N.u32())), M.g(R.t1()), M.c(0)),
+          M.make(R.iu(), M.c(M.h.static()), M.c(I.lab(N.wcon())), M.g(R.t2()), M.c(0))])),
         M.st(2n, M.add(M.c(I.cache()), M.g(R.ib())), M.g(R.iu()))])),
       M.make(R.t1(), M.c(M.h.data()), M.g(R.il()), M.c(I.lab(N.unit())), M.c(0)),
       M.make(R.t2(), M.c(M.h.data()), M.g(R.iu()), M.g(R.t1()), M.c(0)),
@@ -5499,7 +5514,7 @@ def Mach.code() -> Cir.Stmt:
 # -----
 #
 # The cells that the module's memory holds from cell 1 (Mach.code's I.*):
-# the labels of the names 0 to 10, constant terms, the cache of the input's
+# the labels of the names 0 to 9, constant terms, the cache of the input's
 # bytes, the table by tag, then the bodies of the book's defs, each a tree of
 # cells in pre-order. Each cell of the image is STATIC: no count frees it. A
 # Ref holds the body of the first def of its name, as Book.get finds it, or
@@ -5508,7 +5523,7 @@ def Mach.code() -> Cir.Stmt:
 
 # a def's name and the first cell of its body
 type Img.Def is Data:
-  Img.Def{k: List<&2, U32>, at: U32}
+  Img.Def{k: List<&2, Word(8n)>, at: U32}
 
 # the five fields of a cell, then acc
 def Img.cell(f0: U32, f2: U32, f3: U32, f4: U32, acc: List<&2, Cir.Cell>) -> List<&2, Cir.Cell>:
@@ -5639,7 +5654,7 @@ def Img.ref.if(b: Bool, +at: U32, more: Unit -> U32) -> U32:
       more(Unit{})
 
 # the body of the first def of the name k, or 0 when there is none
-def Img.ref(es: List<&2, Img.Def>, +k: List<&2, U32>) -> U32:
+def Img.ref(es: List<&2, Img.Def>, +k: List<&2, Word(8n)>) -> U32:
   match es:
     case Nil{}:
       0
@@ -5647,7 +5662,7 @@ def Img.ref(es: List<&2, Img.Def>, +k: List<&2, U32>) -> U32:
       Img.ref.if(Name.is_eq(n, k), at, u => Img.ref(rest, k))
 
 # the number of the name k: the place of its first copy in ks, from i
-def Img.id(ks: List<&2, List<&2, U32>>, +k: List<&2, U32>, +i: U32) -> U32:
+def Img.id(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +i: U32) -> U32:
   match ks:
     case Nil{}:
       i
@@ -5655,7 +5670,7 @@ def Img.id(ks: List<&2, List<&2, U32>>, +k: List<&2, U32>, +i: U32) -> U32:
       Img.ref.if(Name.is_eq(n, k), i, u => Img.id(rest, k, U32.inc(i)))
 
 # the cells of the term t from the cell at, then acc
-def Img.term(t: Term, +ks: List<&2, List<&2, U32>>, +es: List<&2, Img.Def>, +at: U32, acc: List<&2, Cir.Cell>) ->
+def Img.term(t: Term, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Img.Def>, +at: U32, acc: List<&2, Cir.Cell>) ->
   List<&2, Cir.Cell>:
   match t:
     case Term.Var{+i}:
@@ -5735,7 +5750,7 @@ def Img.term(t: Term, +ks: List<&2, List<&2, U32>>, +es: List<&2, Img.Def>, +at:
         Img.term(e, ks, es, a, Img.term(P, ks, es, b, Img.term(f, ks, es, c, acc))))
 
 # the names of the labels and λ-matches of t, then acc
-def Img.names(t: Term, acc: List<&2, List<&2, U32>>) -> List<&2, List<&2, U32>>:
+def Img.names(t: Term, acc: List<&2, List<&2, Word(8n)>>) -> List<&2, List<&2, Word(8n)>>:
   match t:
     case Term.Var{_}:
       acc
@@ -5777,7 +5792,7 @@ def Img.names(t: Term, acc: List<&2, List<&2, U32>>) -> List<&2, List<&2, U32>>:
       Img.names(e, Img.names(P, Img.names(f, acc)))
 
 # the names of the bodies of ds
-def Img.names.defs(ds: List<&2, Def>) -> List<&2, List<&2, U32>>:
+def Img.names.defs(ds: List<&2, Def>) -> List<&2, List<&2, Word(8n)>>:
   match ds:
     case Nil{}:
       Nil{}
@@ -5785,11 +5800,10 @@ def Img.names.defs(ds: List<&2, Def>) -> List<&2, List<&2, U32>>:
       Img.names(v, Img.names.defs(rest))
 
 # the names that the machine knows (N.*), in front of the book's
-def Img.known(ks: List<&2, List<&2, U32>>) -> List<&2, List<&2, U32>>:
-  Con{Program.name.unit(), Con{Program.name.nil(), Con{Program.name.con(), Con{Program.name.u32(),
-    Con{Program.name.wnil(), Con{Program.name.wcon(), Con{Program.name.true(), Con{Program.name.false(),
-    Con{Quan.name(Quan.Q0{}), Con{Quan.name(Quan.Q1{}), Con{Quan.name(Quan.Q2{}), Con{Program.name.main(),
-    ks}}}}}}}}}}}}
+def Img.known(ks: List<&2, List<&2, Word(8n)>>) -> List<&2, List<&2, Word(8n)>>:
+  Con{Program.name.unit(), Con{Program.name.nil(), Con{Program.name.con(), Con{Program.name.wnil(),
+    Con{Program.name.wcon(), Con{Program.name.true(), Con{Program.name.false(), Con{Quan.name(Quan.Q0{}),
+    Con{Quan.name(Quan.Q1{}), Con{Quan.name(Quan.Q2{}), Con{Program.name.main(), ks}}}}}}}}}}}
 
 # each def's name and the first cell of its body, from the cell at
 def Img.defs(ds: List<&2, Def>, +at: U32) -> List<&2, Img.Def>:
@@ -5800,7 +5814,7 @@ def Img.defs(ds: List<&2, Def>, +at: U32) -> List<&2, Img.Def>:
       Con{Img.Def{k, at}, Img.defs(rest, U32.add(at, Img.size(v)))}
 
 # the cells of the bodies of ds, from the cell at, then acc
-def Img.bodies(ds: List<&2, Def>, +ks: List<&2, List<&2, U32>>, +es: List<&2, Img.Def>, +at: U32) ->
+def Img.bodies(ds: List<&2, Def>, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Img.Def>, +at: U32) ->
   List<&2, Cir.Cell>:
   match ds:
     case Nil{}:
@@ -5820,16 +5834,6 @@ def Img.labels(n: Nat, +i: U32, acc: List<&2, Cir.Cell>) -> List<&2, Cir.Cell>:
 def Img.pair(a: U32, b: U32, acc: List<&2, Cir.Cell>) -> List<&2, Cir.Cell>:
   Img.cell(1866, a, b, 0, acc)
 
-# n levels of a word of False bits, from the cell at, then WNil; left is n
-def Img.zeros24(n: Nat, +left: U32, +at: U32, acc: List<&2, Cir.Cell>) -> List<&2, Cir.Cell>:
-  match n:
-    case 0n:
-      acc
-    case 1n+m:
-      Img.pair(I.lab(N.wcon()), U32.inc(at), Img.pair(I.false(), U32.add(at, 2),
-        Img.pair(Bool.pick(U32, U32.is_eq(left, 1), I.wnil(), U32.add(at, 3)), I.lab(N.unit()),
-          Img.zeros24(m, U32.sub(left, 1), U32.add(at, 3), acc))))
-
 # n cells of zeros
 def Img.blank(n: Nat, acc: List<&2, Cir.Cell>) -> List<&2, Cir.Cell>:
   match n:
@@ -5847,14 +5851,13 @@ def Img.table(acc: List<&2, Cir.Cell>) -> List<&2, Cir.Cell>:
   Img.cell(0, 0, 0, 1, Img.cell(0, 0, 0, 1, Img.cell(0, 6, 0, 1, Img.cell(0, 0, 0, 1,
   Img.cell(0, 7, 0, 1, Img.cell(0, 0, 0, 1, Img.cell(0, 7, 8, 0, acc)))))))))))))))))))
 
-# cells 1 to 363 (I.*), with main's body at the cell main, then acc
+# cells 1 to 290 (I.*), with main's body at the cell main, then acc
 def Img.prefix(main: U32, acc: List<&2, Cir.Cell>) -> List<&2, Cir.Cell>:
-  Img.labels(11n, 0,
+  Img.labels(10n, 0,
     Img.pair(I.lab(N.nil()), I.lab(N.unit()), Img.pair(I.lab(N.true()), I.lab(N.unit()),
     Img.pair(I.lab(N.false()), I.lab(N.unit()), Img.pair(I.lab(N.wnil()), I.lab(N.unit()),
-    Img.zeros24(24n, 24, I.z24(),
       Img.cell(1025, main, N.main(), 0,
-        Img.blank(256n, Img.table(acc)))))))))
+        Img.blank(256n, Img.table(acc))))))))
 
 # the cells of the image of the book ds
 def Img.cells(+ds: List<&2, Def>) -> List<&2, Cir.Cell>:
@@ -5871,7 +5874,7 @@ def Img.small.if(full: Bool, more: Unit -> Bool) -> Bool:
 
 # the book's bytes are fewer than 2^26 from the n-th: enough for its numbers to
 # fit in a U32, and more than a memory of 2^32 bytes can hold with them
-def Img.small(xs: List<&2, U32>, +n: U32) -> Bool:
+def Img.small(xs: List<&2, Word(8n)>, +n: U32) -> Bool:
   match xs:
     case Nil{}:
       True{}
@@ -5882,17 +5885,17 @@ def Img.small(xs: List<&2, U32>, +n: U32) -> Bool:
 # -------
 
 # a module whose run ends at once with the status s
-def Compiler.halt(s: U32) -> List<&2, U32>:
+def Compiler.halt(s: U32) -> List<&2, Word(8n)>:
   Wasm.encode(Cir.module(Cir.Stmt.halt{s}, 0n, []))
 
 # the module of the machine with the image's cells
-def Compiler.module(cells: List<&2, Cir.Cell>) -> List<&2, U32>:
+def Compiler.module(cells: List<&2, Cir.Cell>) -> List<&2, Word(8n)>:
   Wasm.encode(Cir.module(Mach.code(), Mach.regs(), cells))
 
 # the module of the book that Book.read reads, r, by the cases of the
 # compiler; machine makes the machine's module of an image
-def Compiler.compile.of(machine: List<&2, Cir.Cell> -> List<&2, U32>, small: Bool, r: Maybe<List<&2, Def>>) ->
-  List<&2, U32>:
+def Compiler.compile.of(machine: List<&2, Cir.Cell> -> List<&2, Word(8n)>, small: Bool, r: Maybe<List<&2, Def>>) ->
+  List<&2, Word(8n)>:
   match small r:
     case False{} _:
       Compiler.halt(1)
@@ -5905,5 +5908,5 @@ def Compiler.compile.of(machine: List<&2, Cir.Cell> -> List<&2, U32>, small: Boo
 # the bytes p (INVARIANTS #5). A book of 2^26 bytes or more needs more memory
 # than a module can have: its module runs out of memory at once. Bytes that
 # are no book give a module that gives no result
-def Compiler.compile(+p: List<&2, U32>) -> List<&2, U32>:
+def Compiler.compile(+p: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   Compiler.compile.of(Compiler.module, Img.small(p, 0), Book.read(p))

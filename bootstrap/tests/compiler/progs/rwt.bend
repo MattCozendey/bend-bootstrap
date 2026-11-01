@@ -4,13 +4,13 @@ import Base
 def two() -> {Nat.add(1n, 1n) == 2n : Nat}:
   {==}
 
-def first(xs: List<&2, U32>) -> List<&2, U32>:
+def first(xs: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match xs:
     case Nil{}:
       Nil{}
     case Con{x, _}:
-      [{x : U32}]
+      [{x : Word(8n)}]
 
-def main(i: List<&2, U32>) -> List<&2, U32>:
-  %two() : List<&2, U32>
+def main(i: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
+  %two() : List<&2, Word(8n)>
   first(i)

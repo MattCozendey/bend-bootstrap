@@ -7,7 +7,7 @@ import Bootstrap.Copy.Eval
 --
 -- The Bend values that the theorems of Compiler.lean pass to a law: a Nat, a
 -- list of bytes, a U32. They are closed, live, renamed as themselves, and
--- typed at Base's Nat, List<&2, U32> and U32 in a book that holds Base's
+-- typed at Base's Nat, List<&2, Word(8n)> and U32 in a book that holds Base's
 -- defs of those types; and a value of type Nat is the form of a Nat.
 
 open Quan Term
@@ -36,9 +36,7 @@ theorem plain_bits : Plain (bits n v) := by
   | zero => exact plain_ctor nofun
   | succ n ih => exact plain_ctor (by simpa using ⟨plain_ctor nofun, ih⟩)
 
-theorem plain_cell : Plain (cell b) := plain_ctor (by simpa using plain_bits)
-
-theorem plain_bytes : Plain (bytes bs) := plain_list (by simpa using fun _ _ => plain_cell)
+theorem plain_bytes : Plain (bytes bs) := plain_list (by simpa [byte] using fun _ _ => plain_bits)
 
 theorem plain_nat : Plain (Form.nat n) := by
   induction n with
@@ -125,12 +123,10 @@ theorem impl_ctor (hk : impl k = k) : Rename.term impl (ctor k fs) = ctor k (fs.
   | zero => simp [bits, impl_ctor]
   | succ n ih => by_cases h : v % 2 = 1 <;> simp [bits, impl_ctor, ih, h]
 
-@[simp] theorem impl_cell : Rename.term impl (cell b) = cell b := by simp [cell, impl_ctor]
-
 @[simp] theorem impl_bytes : Rename.term impl (bytes bs) = bytes bs := by
   induction bs with
   | nil => simp [bytes, list, impl_ctor]
-  | cons b bs ih => simp only [bytes, List.map_cons, list] at *; simp [impl_ctor, ih]
+  | cons b bs ih => simp only [bytes, List.map_cons, list] at *; simp [impl_ctor, ih, byte]
 
 @[simp] theorem impl_nat : Rename.term impl (Form.nat n) = Form.nat n := by
   induction n with
@@ -152,11 +148,14 @@ def baseTypes : List Def :=
    «evalCopy.Word.Con», «evalCopy.Word.Con.arms», «evalCopy.Bool», «evalCopy.Bool.arms»,
    «evalCopy.Maybe», «evalCopy.Maybe.arms»]
 
--- Base's List<&2, U32>
-def listU32 : Term := App Q0 (App Q0 (Ref "List") (Lab "Q2")) (Ref "U32")
+-- Base's Word(8n)
+def word8 : Term := App Q1 (Ref "Word") (Form.nat 8)
 
--- Base's Maybe<&2, List<&2, U32>>
-def maybeList : Term := App Q0 (App Q0 (Ref "Maybe") (Lab "Q2")) listU32
+-- Base's List<&2, Word(8n)>
+def listBytes : Term := App Q0 (App Q0 (Ref "List") (Lab "Q2")) word8
+
+-- Base's Maybe<&2, List<&2, Word(8n)>>
+def maybeList : Term := App Q0 (App Q0 (Ref "Maybe") (Lab "Q2")) listBytes
 
 section typing
 
@@ -249,14 +248,14 @@ theorem typed_u32 (hT : Contains B baseTypes) (cl : Book.Closed B) :
   · exact .step (.app (delta hT cl «evalCopy.U32.arms») par_refl) (.step (.hit par_refl) .refl)
 
 theorem typed_bytes (hT : Contains B baseTypes) (cl : Book.Closed B) :
-    Typed B [] (bytes bs) listU32 := by
-  have hl : Pars B listU32 (Sig Q1 (Enu ["Nil", "Con"])
-      (App Q1 (App Q0 (App Q0 (Ref "List.arms") (Lab "Q2")) (Ref "U32")) (Var 0))) := by
+    Typed B [] (bytes bs) listBytes := by
+  have hl : Pars B listBytes (Sig Q1 (Enu ["Nil", "Con"])
+      (App Q1 (App Q0 (App Q0 (Ref "List.arms") (Lab "Q2")) word8) (Var 0))) := by
     refine .step (.app (.app (delta hT cl «evalCopy.List») par_refl) par_refl) ?_
     refine .step (.app (.beta par_refl par_refl) par_refl) ?_
-    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
     refine .step (.beta par_refl par_refl) ?_
-    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, plain_nat.ren, plain_nat.sub]
     exact .refl
   induction bs with
   | nil =>
@@ -266,38 +265,39 @@ theorem typed_bytes (hT : Contains B baseTypes) (cl : Book.Closed B) :
     refine .step (.app (.app (.app (delta hT cl «evalCopy.List.arms») par_refl) par_refl) par_refl) ?_
     refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
     refine .step (.app (.beta par_refl par_refl) par_refl) ?_
-    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
     exact .step (.hit par_refl) .refl
   | cons b bs ih =>
     refine tup1 (.lab (by simp)) ?_ hl
     simp only [Term.inst, Term.sub, Subst.one]
-    refine tup1 (Bt := Sig Q1 (App Q0 (App Q0 (Ref "List") (Lab "Q2")) (Ref "U32")) (Enu ["()"]))
-      (typed_u32 hT cl) ?_ ?_
-    · simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+    refine tup1 (Bt := Sig Q1 (App Q0 (App Q0 (Ref "List") (Lab "Q2")) word8) (Enu ["()"]))
+      (typed_bits hT cl) ?_ ?_
+    · simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
       refine tup1 (Bt := Enu ["()"]) ih (lab1 (ks := ["()"]) (by simp) ?_) .refl
       simp only [Term.inst, Term.sub]; exact .refl
     · refine .step (.app (.app (.app (delta hT cl «evalCopy.List.arms») par_refl) par_refl) par_refl) ?_
       refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
       refine .step (.app (.beta par_refl par_refl) par_refl) ?_
-      simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+      simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, word8, plain_nat.ren, plain_nat.sub]
       refine .step (.miss (by decide) par_refl) ?_
       exact .step (.hit par_refl) .refl
 
 theorem typed_u32' (hT : Contains B baseTypes) (cl : Book.Closed B) :
     Typed B [] (Form.u32 m) (Ref "U32") := typed_u32 hT cl
 
-theorem typed_listU32 (hT : Contains B baseTypes) : Typed B [] listU32 T2 := by
+theorem typed_listBytes (hT : Contains B baseTypes) (cl : Book.Closed B) : Typed B [] listBytes T2 := by
   have h1 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalCopy.List»)
-  have h2 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalCopy.U32»)
+  have h2 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalCopy.Word»)
   rw [sub_var] at h1 h2
-  have := Typed.app (Typed.app h1 (.lab (k := "Q2") (by simp))) h2
-  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, listU32, «evalCopy.List»,
-    «evalCopy.U32»] using this
+  have h3 := Typed.app h2 (typed_nat hT cl (n := 8))
+  have := Typed.app (Typed.app h1 (.lab (k := "Q2") (by simp))) h3
+  simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, listBytes, word8, «evalCopy.List»,
+    «evalCopy.Word»] using this
 
-theorem typed_maybeList (hT : Contains B baseTypes) : Typed B [] maybeList T2 := by
+theorem typed_maybeList (hT : Contains B baseTypes) (cl : Book.Closed B) : Typed B [] maybeList T2 := by
   have h1 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalCopy.Maybe»)
   rw [sub_var] at h1
-  have := Typed.app (Typed.app h1 (.lab (k := "Q2") (by simp))) (typed_listU32 hT)
+  have := Typed.app (Typed.app h1 (.lab (k := "Q2") (by simp))) (typed_listBytes hT cl)
   simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, maybeList, «evalCopy.Maybe»] using this
 
 end typing

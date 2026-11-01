@@ -15,9 +15,9 @@ set_option maxRecDepth 20000
 namespace Gives
 
 macro "walks'" d:term : tactic =>
-  `(tactic| simp [$d:term, walk, list, ctor, bits, cell, bytes, bindsAt, Quan.live, Quan.fld, takes,
+  `(tactic| simp [$d:term, walk, list, ctor, bits, byte, bytes, bindsAt, Quan.live, Quan.fld, takes,
     Term.sub, Env.sub, Term.spine, Form.nat, Form.term, Form.quan, Form.bool, Form.some, Form.maybe, data,
-    dbits, dnat, dcell, dbytes, dname, dterm])
+    dbits, dnat, dbytes, dname, dterm])
 
 theorem value_is_eq (h : Holds B) : Value B (App Q1 (Ref "Name.is_eq") (Form.name a)) := by
   have hk : Book.get B "Name.is_eq" = some «evalCopy.Name.is_eq» :=
@@ -58,8 +58,8 @@ theorem unbit_run (h : Holds B) :
       (Ref "Program.name.true"))) (App Q1 (App Q1 (Ref "Name.is_eq") (Form.name k)) (Ref "Program.name.false")))
     (by walks' «programCopy.Program.unbit») ?_
   show Runs B (spine (Ref _) [(Q1, _), (Q1, _)]) _
-  refine Kit.runs_call hi (.r rfl (is_eq_run h (names_run h).2.2.2.2.2.2.1)
-    (.r rfl (is_eq_run h (names_run h).2.2.2.2.2.2.2.1) .nil)) ?_ ?_ (.refl (value_maybe' (fun _ => value_bool)))
+  refine Kit.runs_call hi (.r rfl (is_eq_run h (names_run h).2.2.2.2.2.1)
+    (.r rfl (is_eq_run h (names_run h).2.2.2.2.2.2.1) .nil)) ?_ ?_ (.refl (value_maybe' (fun _ => value_bool)))
   · intro m hm; simp at hm
     rcases m with _ | _ | m <;> first | omega | (cases (k == "True") <;> walks' «programCopy.Program.unbit.if»)
   · by_cases h1 : k = "True"
@@ -155,7 +155,7 @@ theorem unword_run (h : Holds B) :
       (App Q1 (App Q1 (Ref "Name.is_eq") (Form.name u)) (Ref "Program.name.unit"))))
       (by walks' «programCopy.Program.unword») ?_
     refine Kit.run_x (Kit.part (xs := []) hn .nil (by walks' «programCopy.Program.unword.nil»)) rfl
-      (and_run h (is_eq_run h (names_run h).2.2.2.2.1) (is_eq_run h (names_run h).1)) ?_
+      (and_run h (is_eq_run h (names_run h).2.2.2.1) (is_eq_run h (names_run h).1)) ?_
     rw [unbits_nil]
     by_cases h1 : k = "WNil" <;> by_cases h2 : u = "()" <;>
       exact Kit.call (xs := [(Q1, _)]) hn (.cons (fun _ => value_bool) .nil)
@@ -191,7 +191,7 @@ theorem unword_run (h : Holds B) :
       (App Q2 (Ref "Program.unbit") (Form.name bt))) (App Q1 (App Q1 (Ref "Program.unword") (Form.nat n)) (Form.term w')))
       (by walks' «programCopy.Program.unword») ?_
     show Runs B (spine (Ref "Program.unword.con") [(Q0, _), (Q1, _), (Q1, _), (Q1, _)]) _
-    refine Kit.runs_args hc (.d rfl (.r rfl (and_run h (and_run h (is_eq_run h (names_run h).2.2.2.2.2.1)
+    refine Kit.runs_args hc (.d rfl (.r rfl (and_run h (and_run h (is_eq_run h (names_run h).2.2.2.2.1)
       (is_eq_run h (names_run h).1)) (is_eq_run h (names_run h).1)) (.r rfl (unbit_run h) (.r rfl ih .nil))))
       (unword_con_part h) (Kit.runs_eq (unword_con_run h) ?_)
     rw [unbits_con]
@@ -202,18 +202,17 @@ theorem unword_run (h : Holds B) :
 theorem unbytes_nil' : unbytes (Tup Q1 (Lab k) (Lab u)) = if k = "Nil" ∧ u = "()" then some [] else none := by
   by_cases h1 : k = "Nil" <;> by_cases h2 : u = "()" <;> simp_all [unbytes]
 
--- the list of bytes that a cell and a list of bytes make
+-- the list of bytes that a byte and a list of bytes make
 def bytesOf (ok : Bool) (ow : Option Nat) (ob : Option (List UInt8)) : Option (List UInt8) :=
   if ok then
     match ow, ob with
-    | some v, some bs => if v < 256 then some (v.toUInt8 :: bs) else none
+    | some v, some bs => some (v.toUInt8 :: bs)
     | _, _ => none
   else none
 
-theorem unbytes_con' : unbytes (Tup Q1 (Lab k) (Tup Q1 (Tup Q1 (Lab c) (Tup Q1 w (Lab u1))) (Tup Q1 t (Lab u2)))) =
-    bytesOf (k == "Con" && c == "U32" && u1 == "()" && u2 == "()") (unbits 32 w) (unbytes t) := by
-  by_cases h1 : k = "Con" <;> by_cases h2 : c = "U32" <;> by_cases h3 : u1 = "()" <;> by_cases h4 : u2 = "()" <;>
-    simp_all [unbytes, bytesOf] <;> rfl
+theorem unbytes_con' : unbytes (Tup Q1 (Lab k) (Tup Q1 w (Tup Q1 t (Lab u)))) =
+    bytesOf (k == "Con" && u == "()") (unbits 8 w) (unbytes t) := by
+  by_cases h1 : k = "Con" <;> by_cases h2 : u = "()" <;> simp_all [unbytes, bytesOf] <;> rfl
 
 theorem unbits_lt : unbits n w = some v → v < 2 ^ n := by
   fun_induction unbits n w generalizing v
@@ -227,62 +226,25 @@ theorem unbits_lt : unbits n w = some v → v < 2 ^ n := by
 
 theorem value_mbytes : Value B (Form.maybe bytes o) := value_maybe' (fun _ => value_bytes)
 
-theorem unbytes_con_run (h : Holds B) (hw : ∀ v, ow = some v → v < 2 ^ 32) :
-    Runs B (spine (Ref "Program.unbytes.con") [(Q1, Form.bool ok), (Q1, Form.maybe (bits 32) ow),
+theorem unbytes_con_run (h : Holds B) (hw : ∀ v, ow = some v → v < 2 ^ 8) :
+    Runs B (spine (Ref "Program.unbytes.con") [(Q1, Form.bool ok), (Q1, Form.maybe (bits 8) ow),
       (Q1, Form.maybe bytes ob)]) (Form.maybe bytes (bytesOf ok ow ob)) := by
   have hc := h.get (d := «programCopy.Program.unbytes.con»)
-  have hb := h.get (d := «programCopy.Program.unbytes.byte»)
-  have l256 : Runs B (Ref "U32.lit256") (ctor "U32" [bits 32 256]) := by
-    have e : «programCopy.U32.lit256».v = ctor "U32" [bits 32 256] := by decide
-    have := body_run (h.get (d := «programCopy.U32.lit256»)) (e ▸ value_ctor (by simp [value_bits]))
-      (by rw [e]; rfl) (by rw [e]; simp [ctor])
-    rwa [e] at this
-  have vs : Values B [(Q1, Form.bool ok), (Q1, Form.maybe (bits 32) ow), (Q1, Form.maybe bytes ob)] :=
+  have vs : Values B [(Q1, Form.bool ok), (Q1, Form.maybe (bits 8) ow), (Q1, Form.maybe bytes ob)] :=
     .cons (fun _ => value_bool) (.cons (fun _ => value_mbits) (.cons (fun _ => value_mbytes) .nil))
-  cases ok
-  · refine Kit.call hc vs (u := ctor "None" []) ?_ ctor0
-    rcases ow with _ | v <;> rcases ob with _ | bs <;>
-      simp [«programCopy.Program.unbytes.con», walk, list, ctor, bindsAt,
-        Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes]
-  rcases ow with _ | v
-  · refine Kit.call hc vs (u := ctor "None" []) ?_ ctor0
-    rcases ob with _ | bs <;>
-      simp [«programCopy.Program.unbytes.con», walk, list, ctor, bindsAt,
-        Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes]
-  rcases ob with _ | bs
-  · refine Kit.call hc vs (u := ctor "None" []) ?_ (Kit.runs_eq ctor0 (by simp [bytesOf, Form.maybe]))
-    simp [«programCopy.Program.unbytes.con», walk, list, ctor, bindsAt,
-        Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes]
-  have hv := hw v rfl
-  refine Kit.call hc vs (u := App Q1 (App Q1 (App Q1 (Ref "Program.unbytes.byte")
-    (App Q1 (App Q1 (Ref "U32.is_lt") (ctor "U32" [bits 32 v])) (Ref "U32.lit256"))) (ctor "U32" [bits 32 v])) (bytes bs))
-    ?_ ?_
-  · simp [«programCopy.Program.unbytes.con», walk, list, ctor, bindsAt,
-        Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes]
-  have rl := u32_is_lt h l256 (v := v)
-  have e1 : v % 2 ^ 32 = v := Nat.mod_eq_of_lt hv
-  rw [e1] at rl
-  show Runs B (spine (Ref _) [(Q1, _), (Q1, _), (Q1, _)]) _
-  refine Kit.runs_args hb (.r rfl rl (.v rfl (value_ctor (by simp [value_bits])) (.v rfl value_bytes .nil))) ?_ ?_
-  · intro m hm; simp at hm
-    by_cases hl : v < 256 <;>
-    rcases m with _ | _ | _ | m <;> first | omega |
-      simp [hl, «programCopy.Program.unbytes.byte», walk, list, ctor, bindsAt,
-        Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes]
-  · by_cases hl : v < 256
-    · refine Kit.call hb (.cons (fun _ => value_bool) (.cons (fun _ => value_ctor (by simp [value_bits]))
-        (.cons (fun _ => value_bytes) .nil))) ?_ (.refl value_mbytes)
-      have e2 : v.toUInt8.toNat = v := toUInt8_toNat hl
-      simp [hl, bytesOf, e2, cell, «programCopy.Program.unbytes.byte», walk, list, ctor, bindsAt,
-        Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes, bytes]
-    · refine Kit.call hb (.cons (fun _ => value_bool) (.cons (fun _ => value_ctor (by simp [value_bits]))
-        (.cons (fun _ => value_bytes) .nil))) ?_ (.refl value_mbytes)
-      simp [hl, bytesOf, «programCopy.Program.unbytes.byte», walk, list, ctor, bindsAt,
-        Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes]
+  refine Kit.call hc vs ?_ (.refl value_mbytes)
+  cases ok <;> rcases ow with _ | v <;> rcases ob with _ | bs
+  case true.some.some =>
+    have e : v.toUInt8.toNat = v := toUInt8_toNat (hw v rfl)
+    simp [e, bytesOf, «programCopy.Program.unbytes.con», walk, list, ctor, byte, bindsAt,
+      Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits,
+      dbytes, bytes]
+  all_goals simp [bytesOf, «programCopy.Program.unbytes.con», walk, list, ctor, bindsAt,
+    Quan.live, Quan.fld, takes, Term.sub, Env.sub, Term.spine, Form.bool, Form.some, Form.maybe, data, dbits, dbytes]
 
 theorem unbytes_con_part (h : Holds B) : ∀ m < 3,
     walk B «programCopy.Program.unbytes.con».v [] (List.take m [(Q1, Form.bool ok),
-      (Q1, Form.maybe (bits 32) ow), (Q1, Form.maybe bytes ob)]) = some none := by
+      (Q1, Form.maybe (bits 8) ow), (Q1, Form.maybe bytes ob)]) = some none := by
   intro m hm
   cases ok <;> rcases ow with _ | v <;> rcases ob with _ | bs <;>
     rcases m with _ | _ | _ | m <;> first | omega |
@@ -317,36 +279,23 @@ private theorem unbytes_lt (h : Holds B) : ∀ s v, sizeOf v < s →
   rename_i k
   cases b <;> nb
   · -- the con shape
-    rename_i q c d
+    rename_i q w d
     cases q <;> nb
-    cases c <;> nb
-    rename_i q e f
-    cases q <;> nb
-    cases e <;> nb
-    rename_i cu
-    cases f <;> nb
-    rename_i q w g
-    cases q <;> nb
-    cases g <;> nb
-    rename_i u1
     cases d <;> nb
     rename_i q t r
     cases q <;> nb
     cases r <;> nb
-    rename_i u2
+    rename_i u
     refine Kit.call hk (.cons (fun _ => value_term) .nil) (u := App Q1 (App Q1 (App Q1 (Ref "Program.unbytes.con")
-      (App Q1 (App Q1 (Ref "Bool.and") (App Q1 (App Q1 (Ref "Bool.and") (App Q1 (App Q1 (Ref "Bool.and")
+      (App Q1 (App Q1 (Ref "Bool.and")
         (App Q1 (App Q1 (Ref "Name.is_eq") (Form.name k)) (Ref "Program.name.con")))
-        (App Q1 (App Q1 (Ref "Name.is_eq") (Form.name cu)) (Ref "Program.name.u32"))))
-        (App Q1 (App Q1 (Ref "Name.is_eq") (Form.name u1)) (Ref "Program.name.unit"))))
-        (App Q1 (App Q1 (Ref "Name.is_eq") (Form.name u2)) (Ref "Program.name.unit"))))
-      (App Q1 (App Q1 (Ref "Program.unword") (Form.nat 32)) (Form.term w)))
+        (App Q1 (App Q1 (Ref "Name.is_eq") (Form.name u)) (Ref "Program.name.unit"))))
+      (App Q1 (App Q1 (Ref "Program.unword") (Form.nat 8)) (Form.term w)))
       (App Q1 (Ref "Program.unbytes") (Form.term t)))
       (by walks' «programCopy.Program.unbytes») ?_
     show Runs B (spine (Ref "Program.unbytes.con") [(Q1, _), (Q1, _), (Q1, _)]) _
     have ht : sizeOf t < s := by simp at hs; omega
-    refine Kit.runs_args hc (.r rfl (and_run h (and_run h (and_run h (is_eq_run h (names_run h).2.2.1)
-      (is_eq_run h (names_run h).2.2.2.1)) (is_eq_run h (names_run h).1)) (is_eq_run h (names_run h).1))
+    refine Kit.runs_args hc (.r rfl (and_run h (is_eq_run h (names_run h).2.2.1) (is_eq_run h (names_run h).1))
       (.r rfl (unword_run h) (.r rfl (ih t ht) .nil)))
       (unbytes_con_part h) (Kit.runs_eq (unbytes_con_run h (fun v hv => unbits_lt hv)) ?_)
     rw [unbytes_con']

@@ -54,10 +54,10 @@ def Cf(+X: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +a: U32, +n: U32
 # the outcome that the host reads at the end of run, for the status s0: what
 # Cir.ended says, unless the output is empty and the cells end past the
 # memory of pg pages (the host's check of the output's place then fails)
-def HaltOK(+s0: U32, +nx: U32, +pg: U32, +ou: List<&2, U32>, +mem: C.Wasm.Memory) -> Data:
+def HaltOK(+s0: U32, +nx: U32, +pg: U32, +ou: List<&2, Word(8n)>, +mem: C.Wasm.Memory) -> Data:
   Either<&2, &2, {C.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mem) ==
     C.Cir.ended.halt(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), ou) : C.Wasm.Outcome},
-    S.P2({ou == Nil{} : List<&2, U32>}, N.Le(1n+Q.PB(pg), PH.H.t20(U32.to_nat(nx))))>
+    S.P2({ou == Nil{} : List<&2, Word(8n)>}, N.Le(1n+Q.PB(pg), PH.H.t20(U32.to_nat(nx))))>
 
 def SPost.next(st2: C.Cir.State, +X: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +K: List<&2, C.Wasm.Instr>, +ls1: List<&2, C.Wasm.Label>,
   +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +m: C.Wasm.Bytes,
@@ -156,7 +156,7 @@ def post.then(o1: C.Cir.Out, more: C.Cir.State -> C.Cir.Out, +X: List<&2, C.Wasm
   +K1: List<&2, C.Wasm.Instr>, +ls1: List<&2, C.Wasm.Label>, +K: List<&2, C.Wasm.Instr>, +ls2: List<&2, C.Wasm.Label>, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, +P: Nat, +G: Nat,
   p: SPost(o1, X, ls, K1, ls1, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G),
   kont: @rg2: List<&2, U32> -> @cl2: C.Cir.Cells -> @nx2: U32 -> @fi2: U32 -> @im2: U32 -> @pg2: U32 -> @lm2: U32 ->
-    @inp2: List<&2, U32> -> @ou2: List<&2, U32> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: C.Wasm.Bytes ->
+    @inp2: List<&2, Word(8n)> -> @ou2: List<&2, Word(8n)> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: C.Wasm.Bytes ->
     Q.Inv(P, G, a, n, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2, m2) ->
     SPost(more(C.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), K1, ls1, K, ls2, a, n, t2, nd2, ad2, rg2, nx2, on2, pg2, lm2, m2, P, G)) ->
   SPost(C.Cir.exec.then(o1, more), X, ls, K, ls2, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
@@ -213,7 +213,7 @@ def dep(s: C.Cir.Stmt) -> Nat:
 # store{k, c, v}, when c gives the cell i and v the value x: the cell is one
 # that the machine may use (b)
 def store.if(b: Bool, +k: Nat, +c: C.Cir.Expr, +v: C.Cir.Expr, +i: U32, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lm: U32, +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +pg: U32, +lm: U32, +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)),
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
   +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
@@ -256,7 +256,7 @@ def store.if(b: Bool, +k: Nat, +c: C.Cir.Expr, +v: C.Cir.Expr, +i: U32, +x: U32,
 
 # store{k, c, v}, by the values of c and v
 def store.of(mc: Maybe<&2, U32>, mv: Maybe<&2, U32>, +k: Nat, +c: C.Cir.Expr, +v: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +pg: U32, +lm: U32, +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +pg: U32, +lm: U32, +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)),
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
   +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
@@ -277,7 +277,7 @@ def store.of(mc: Maybe<&2, U32>, mv: Maybe<&2, U32>, +k: Nat, +c: C.Cir.Expr, +v
 
 # store{k, c, v}
 def sim.store(+k: Nat, +c: C.Cir.Expr, +v: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -295,7 +295,7 @@ def sim.store(+k: Nat, +c: C.Cir.Expr, +v: C.Cir.Expr, +rg: List<&2, U32>, +cl: 
 # alloc{r}, once the memory holds the cell next in p2 pages: register r gets
 # it, when there is a register r (b4)
 def alloc.reg(b4: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +p2: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)),
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
   +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
@@ -347,7 +347,7 @@ def alloc.AB(+r: Nat, +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.
 
 # alloc{r} whose memory must grow: within the limit (b3), or out of memory
 def alloc.grow(b3: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -384,7 +384,7 @@ def alloc.grow(b3: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32
 
 # alloc{r}: the memory holds the cell next already (b2), or must grow
 def alloc.room(b2: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -413,7 +413,7 @@ def alloc.room(b2: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32
 
 # alloc{r}: next below 214748364 (b1), or out of memory
 def alloc.lt(b1: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -434,7 +434,7 @@ def alloc.lt(b1: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, 
 
 # alloc{r}: no output yet (b0), or a trap
 def alloc.on(b0: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -454,7 +454,7 @@ def alloc.on(b0: Bool, +r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, 
 
 # alloc{r}
 def sim.alloc(+r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -468,7 +468,7 @@ def sim.alloc(+r: Nat, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32,
 
 # emit{v}, once the memory holds the byte in p2 pages: the byte goes out
 def emit.fin(+v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +p2: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)),
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
   +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
@@ -478,7 +478,7 @@ def emit.fin(+v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx:
   +pre: {PH.H.steps(N0, Cf(C.Cir.code.stmt(C.Cir.Stmt.emit{v}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)) ==
     Q.Cfg(A.ex2(v, K), ls, [], Q.Loc(a, n, 2, nx, on, nx, A.nce(nx, on), A.eb(nx, on), rg), C.Wasm.Memory{p2, lm, m}) : C.Wasm.Step},
   +hpp: N.Le(U32.to_nat(A.nce(nx, on)), U32.to_nat(p2)), +hp: N.Le(U32.to_nat(pg), U32.to_nat(p2)), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lm))) ->
-  SPost(C.Cir.Out.next{C.Cir.State{rg, cl, nx, fi, im, p2, lm, inp, Con{U32.and(x, 255), ou}, U32.inc(on)}},
+  SPost(C.Cir.Out.next{C.Cir.State{rg, cl, nx, fi, im, p2, lm, inp, Con{C.Byte.from_u32(x), ou}, U32.inc(on)}},
     C.Cir.code.stmt(C.Cir.Stmt.emit{v}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
   +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
   +hI2 = A.inv.pg(P, G, a, n, cl, nx, fi, im, pg, p2, lm, inp, ou, on, m, hI, hp, hpl)
@@ -490,7 +490,7 @@ def emit.fin(+v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx:
       A.eval.pg(v, rg, cl, nx, fi, im, pg, p2, lm, inp, ou, on)), ev)
   +eE = A.emit.E5(v, K, ls, rg, cl, nx, fi, im, p2, lm, inp, ou, on, x, ev2, R, MX, okv, hR, P, G, a, n, nx, A.nce(nx, on), m, hI2, W, hW, hP, hG, hroom, hb)
   +b = A.eb(nx, on)
-  +y = U32.and(x, 255)
+  +y = C.Byte.from_u32(x)
   +tv = E.tmpE(v, nx, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on))
   +C0 = Cf(C.Cir.code.stmt(C.Cir.Stmt.emit{v}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
   +CD = Q.Cfg(A.ex2(v, K), ls, [], Q.Loc(a, n, 2, nx, on, nx, A.nce(nx, on), b, rg), C.Wasm.Memory{p2, lm, m})
@@ -522,7 +522,7 @@ def emit.AB(+v: C.Cir.Expr, +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C
 
 # emit{v} whose memory must grow: within the limit (b3), or out of memory
 def emit.grow(b3: Bool, +v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -559,7 +559,7 @@ def emit.grow(b3: Bool, +v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.
 
 # emit{v}: the memory holds the byte already (b2), or must grow
 def emit.room(b2: Bool, +v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -588,7 +588,7 @@ def emit.room(b2: Bool, +v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.
 
 # emit{v}: the byte's place fits (cc), or out of memory
 def emit.ok(cc: Bool, +v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -615,7 +615,7 @@ def emit.ok(cc: Bool, +v: C.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: C.Cir.Ce
 
 # emit{v}, by the value of v
 def emit.of0(mv: Maybe<&2, U32>, +v: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -634,7 +634,7 @@ def emit.of0(mv: Maybe<&2, U32>, +v: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.
 
 # emit{v}
 def sim.emit(+v: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -663,7 +663,7 @@ def exit.steps(+j: Nat, +ls2: List<&2, C.Wasm.Label>, +hj: {List.drop(&2, C.Wasm
   {==}
 
 # a status other than 0 needs no output
-def status.nz(b1: Bool, b2: Bool, +mem: C.Wasm.Memory, +ou: List<&2, U32>) ->
+def status.nz(b1: Bool, b2: Bool, +mem: C.Wasm.Memory, +ou: List<&2, Word(8n)>) ->
   {C.Wasm.run.status(False{}, b1, b2, mem) == C.Cir.ended.halt(False{}, b1, b2, ou) : C.Wasm.Outcome}:
   match b1 b2:
     case True{} _:
@@ -674,38 +674,38 @@ def status.nz(b1: Bool, b2: Bool, +mem: C.Wasm.Memory, +ou: List<&2, U32>) ->
       {==}
 
 # the host reads the output, at 20 × next, of on bytes
-def hok.fin(+pg: U32, +lm: U32, +m2: C.Wasm.Bytes, +A0: U32, +on: U32, +ou: List<&2, U32>,
+def hok.fin(+pg: U32, +lm: U32, +m2: C.Wasm.Bytes, +A0: U32, +on: U32, +ou: List<&2, Word(8n)>,
   f8: {C.Wasm.fits(pg, 0, 8) == True{} : Bool}, v0: {Y.V32(m2, 0) == A0 : U32}, v4: {Y.V32(m2, 4) == on : U32},
-  fo: {C.Wasm.fits(pg, A0, on) == True{} : Bool}, rb: {Q.RB(U32.to_nat(on), m2, A0) == List.reverse(&2, U32, ou) : List<&2, U32>}) ->
-  {C.Wasm.run.output(C.Wasm.Memory{pg, lm, m2}) == C.Wasm.Outcome.result{List.reverse(&2, U32, ou)} : C.Wasm.Outcome}:
+  fo: {C.Wasm.fits(pg, A0, on) == True{} : Bool}, rb: {Q.RB(U32.to_nat(on), m2, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}) ->
+  {C.Wasm.run.output(C.Wasm.Memory{pg, lm, m2}) == C.Wasm.Outcome.result{List.reverse(&2, Word(8n), ou)} : C.Wasm.Outcome}:
   Equal.trans(C.Wasm.Outcome, C.Wasm.run.output(C.Wasm.Memory{pg, lm, m2}), C.Wasm.Outcome.result{C.Wasm.read.bytes(U32.to_nat(on), m2, A0)},
-    C.Wasm.Outcome.result{List.reverse(&2, U32, ou)}, F.out.ok(pg, lm, m2, A0, on, f8, v0, v4, fo),
-    Equal.cong(List<&2, U32>, C.Wasm.Outcome, l => C.Wasm.Outcome.result{l}, C.Wasm.read.bytes(U32.to_nat(on), m2, A0), List.reverse(&2, U32, ou),
-      Equal.trans(List<&2, U32>, C.Wasm.read.bytes(U32.to_nat(on), m2, A0), Q.RB(U32.to_nat(on), m2, A0), List.reverse(&2, U32, ou),
+    C.Wasm.Outcome.result{List.reverse(&2, Word(8n), ou)}, F.out.ok(pg, lm, m2, A0, on, f8, v0, v4, fo),
+    Equal.cong(List<&2, Word(8n)>, C.Wasm.Outcome, l => C.Wasm.Outcome.result{l}, C.Wasm.read.bytes(U32.to_nat(on), m2, A0), List.reverse(&2, Word(8n), ou),
+      Equal.trans(List<&2, Word(8n)>, C.Wasm.read.bytes(U32.to_nat(on), m2, A0), Q.RB(U32.to_nat(on), m2, A0), List.reverse(&2, Word(8n), ou),
         F.rb.read(U32.to_nat(on), m2, A0), rb)))
 
 # the output after the writes of its place at bytes 0 to 7
-def hok.rb(+m: C.Wasm.Bytes, +A0: U32, +on: U32, +X: Nat, +ex: {U32.to_nat(A0) == X : Nat}, +ou: List<&2, U32>,
+def hok.rb(+m: C.Wasm.Bytes, +A0: U32, +on: U32, +X: Nat, +ex: {U32.to_nat(A0) == X : Nat}, +ou: List<&2, Word(8n)>,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +h8: N.Le(8n, X), +hx: N.Le(1n+Nat.add(U32.to_nat(on), X), W),
-  ro: {Q.RB(U32.to_nat(on), m, A0) == List.reverse(&2, U32, ou) : List<&2, U32>}) ->
-  {Q.RB(U32.to_nat(on), C.Wasm.write32(C.Wasm.write32(m, 0, A0), 4, on), A0) == List.reverse(&2, U32, ou) : List<&2, U32>}:
+  ro: {Q.RB(U32.to_nat(on), m, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}) ->
+  {Q.RB(U32.to_nat(on), C.Wasm.write32(C.Wasm.write32(m, 0, A0), 4, on), A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}:
   +m1 = C.Wasm.write32(m, 0, A0)
   +ON = U32.to_nat(on)
   +h16 = F.w16(P, hP, W, hW)
-  Equal.trans(List<&2, U32>, Q.RB(ON, C.Wasm.write32(m1, 4, on), A0), Q.RB(ON, m1, A0), List.reverse(&2, U32, ou),
+  Equal.trans(List<&2, Word(8n)>, Q.RB(ON, C.Wasm.write32(m1, 4, on), A0), Q.RB(ON, m1, A0), List.reverse(&2, Word(8n), ou),
     F.RB.w32(ON, m1, 4, on, A0, X, ex, W, hW, N.le_trans(8n, 16n, W, Unit{}, h16), hx, Inr{h8}),
-    Equal.trans(List<&2, U32>, Q.RB(ON, m1, A0), Q.RB(ON, m, A0), List.reverse(&2, U32, ou),
+    Equal.trans(List<&2, Word(8n)>, Q.RB(ON, m1, A0), Q.RB(ON, m, A0), List.reverse(&2, Word(8n), ou),
       F.RB.w32(ON, m, 0, A0, A0, X, ex, W, hW, N.le_trans(4n, 16n, W, Unit{}, h16), hx, Inr{N.le_trans(4n, 8n, X, Unit{}, h8)}), ro))
 
 # no output: the host reads it when the cells end within the memory
-def hok.z(b: Bool, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, +nx: U32, +on: U32, +ou: List<&2, U32>, +X: Nat,
+def hok.z(b: Bool, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, +nx: U32, +on: U32, +ou: List<&2, Word(8n)>, +X: Nat,
   +ex: {U32.to_nat(C.Cir.at(nx)) == X : Nat}, +eX: {X == PH.H.t20(U32.to_nat(nx)) : Nat}, +eb: {Nat.is_le(X, Q.PB(pg)) == b : Bool},
   +eon: {U32.to_nat(on) == 0n : Nat}, +f8: {C.Wasm.fits(pg, 0, 8) == True{} : Bool},
   +v0: {Y.V32(C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on), 0) == C.Cir.at(nx) : U32},
   +v4: {Y.V32(C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on), 4) == on : U32},
-  +h20: N.Le(20n, X), +rb: {Q.RB(U32.to_nat(on), C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on), C.Cir.at(nx)) == List.reverse(&2, U32, ou) : List<&2, U32>},
-  +ro: {Q.RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, U32, ou) : List<&2, U32>}) ->
+  +h20: N.Le(20n, X), +rb: {Q.RB(U32.to_nat(on), C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on), C.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>},
+  +ro: {Q.RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}) ->
   HaltOK(0, nx, pg, ou, C.Wasm.Memory{pg, lm, C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on)}):
   match b:
     case True{}:
@@ -719,18 +719,18 @@ def hok.z(b: Bool, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, +nx: U32, +on: U32, +ou
       Inl{hok.fin(pg, lm, m2, A0, on, ou, f8, v0, v4, fo, rb)}
     case False{}:
       +A0 = C.Cir.at(nx)
-      +ro0 = {(%eon : {Q.RB(_, m, A0) == List.reverse(&2, U32, ou) : List<&2, U32>}; ro) :
-        {Q.RB(0n, m, A0) == List.reverse(&2, U32, ou) : List<&2, U32>}}
+      +ro0 = {(%eon : {Q.RB(_, m, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}; ro) :
+        {Q.RB(0n, m, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}}
       Inr{(F.rev.nil(ou, ro0), N.le_rw_r(1n+Q.PB(pg), X, PH.H.t20(U32.to_nat(nx)), eX, F.nle.lt(X, Q.PB(pg), eb)))}
 
 # the output of on bytes: the host reads it, unless it is empty and the cells
 # end past the memory
-def hok.on(ON: Nat, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, +nx: U32, +on: U32, +ou: List<&2, U32>, +X: Nat,
+def hok.on(ON: Nat, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, +nx: U32, +on: U32, +ou: List<&2, Word(8n)>, +X: Nat,
   +ex: {U32.to_nat(C.Cir.at(nx)) == X : Nat}, +eX: {X == PH.H.t20(U32.to_nat(nx)) : Nat}, +eon: {U32.to_nat(on) == ON : Nat},
   +f8: {C.Wasm.fits(pg, 0, 8) == True{} : Bool},
   +v0: {Y.V32(C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on), 0) == C.Cir.at(nx) : U32},
   +v4: {Y.V32(C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on), 4) == on : U32},
-  +h20: N.Le(20n, X), +ro: {Q.RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, U32, ou) : List<&2, U32>},
+  +h20: N.Le(20n, X), +ro: {Q.RB(U32.to_nat(on), m, C.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>},
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hxw: N.Le(1n+X, W), +hb: N.Le(1n+Q.PB(pg), W), +hof: Q.OF(ON, U32.to_nat(nx), Q.PB(pg))) ->
   HaltOK(0, nx, pg, ou, C.Wasm.Memory{pg, lm, C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on)}):
@@ -759,7 +759,7 @@ def hok.on(ON: Nat, +pg: U32, +lm: U32, +m: C.Wasm.Bytes, +nx: U32, +on: U32, +o
 # a halt with the status 0: the host reads the output, as Cir says, unless
 # it is empty and the cells end past the memory
 def haltok0(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat}) ->
   HaltOK(0, nx, pg, ou, C.Wasm.Memory{pg, lm, C.Wasm.write32(C.Wasm.write32(m, 0, C.Cir.at(nx)), 4, on)}):
@@ -781,7 +781,7 @@ def haltok0(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi:
 
 # halt{s0}, by the code of its result (z = s0 is 0)
 def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +MD: U32, +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
   +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
@@ -843,7 +843,7 @@ def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +f
 
 # halt{s}
 def sim.halt(+s0: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -980,7 +980,7 @@ def dep.if.e(+d: Nat, +x: Nat, +y: Nat, +MD: U32, h: N.Le(Nat.add(d, 2n+Nat.add(
 # -------------------------
 
 def set.if(b: Bool, +r: Nat, +v: U32, +e: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -1002,7 +1002,7 @@ def set.if(b: Bool, +r: Nat, +v: U32, +e: C.Cir.Expr, +rg: List<&2, U32>, +cl: C
       Unit{}
 
 def set.of(mv: Maybe<&2, U32>, +r: Nat, +e: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -1021,7 +1021,7 @@ def set.of(mv: Maybe<&2, U32>, +r: Nat, +e: C.Cir.Expr, +rg: List<&2, U32>, +cl:
         reg.nat(r, R, MX, I.and.l(Nat.is_lt(r, R), V.ok.expr(e, R), ok), hR))
 
 def if.z(z: Bool, +fuel: Nat, +c: C.Cir.Expr, +te: C.Cir.Stmt, +ee: C.Cir.Stmt, +vc: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -1058,7 +1058,7 @@ def if.z(z: Bool, +fuel: Nat, +c: C.Cir.Expr, +te: C.Cir.Stmt, +ee: C.Cir.Stmt, 
         1n, t2 => nd2 => ad2 => rg2 => nx2 => on2 => pg2 => lm2 => m2 => {==}, pe)
 
 def if.of(mv: Maybe<&2, U32>, +fuel: Nat, +c: C.Cir.Expr, +te: C.Cir.Stmt, +ee: C.Cir.Stmt, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -1140,7 +1140,7 @@ def post.skip(o: C.Cir.Out, +c: C.Cir.Expr, +body: C.Cir.Stmt, +d: Nat, +K: List
       Unit{}
 
 def while.z(z: Bool, +f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +vc: U32, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -1152,7 +1152,7 @@ def while.z(z: Bool, +f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +vc: U32, +rg: 
     Q.Cfg(Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}}, Con{C.Wasm.Label{Some{C.Cir.code.expr(c, Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}})}, [], 0n}, Con{C.Wasm.Label{None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), C.Wasm.Memory{pg, lm, m}) : C.Wasm.Step},
   pb: SPost(C.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}]), Con{C.Wasm.Label{Some{C.Cir.code.expr(c, Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}})}, [], 0n}, Con{C.Wasm.Label{None{}, K, 0n}, ls}}, [C.Wasm.Instr.br{0}], Con{C.Wasm.Label{Some{C.Cir.code.expr(c, Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}})}, [], 0n}, Con{C.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
   kont: @rg2: List<&2, U32> -> @cl2: C.Cir.Cells -> @nx2: U32 -> @fi2: U32 -> @im2: U32 -> @pg2: U32 -> @lm2: U32 ->
-    @inp2: List<&2, U32> -> @ou2: List<&2, U32> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: C.Wasm.Bytes ->
+    @inp2: List<&2, Word(8n)> -> @ou2: List<&2, Word(8n)> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: C.Wasm.Bytes ->
     Q.Inv(P, G, a, n, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2, m2) ->
     SPost(C.Cir.exec(f, C.Cir.Stmt.while{c, body}, C.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), [C.Wasm.Instr.br{0}], Con{C.Wasm.Label{Some{C.Cir.code.expr(c, Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}})}, [], 0n}, Con{C.Wasm.Label{None{}, K, 0n}, ls}}, K, ls,
       a, n, t2, nd2, ad2, rg2, nx2, on2, pg2, lm2, m2, P, G)) ->
@@ -1180,7 +1180,7 @@ def while.z(z: Bool, +f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +vc: U32, +rg: 
           K, ls, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G, pb, kont))
 
 def while.of(mv: Maybe<&2, U32>, +f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,
@@ -1190,7 +1190,7 @@ def while.of(mv: Maybe<&2, U32>, +f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +rg
   +okc: {V.ok.expr(c, R) == True{} : Bool}, ev: {C.Cir.eval(c, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)) == mv : Maybe<&2, U32>},
   pb: SPost(C.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}]), Con{C.Wasm.Label{Some{C.Cir.code.expr(c, Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}})}, [], 0n}, Con{C.Wasm.Label{None{}, K, 0n}, ls}}, [C.Wasm.Instr.br{0}], Con{C.Wasm.Label{Some{C.Cir.code.expr(c, Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}})}, [], 0n}, Con{C.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
   kont: @rg2: List<&2, U32> -> @cl2: C.Cir.Cells -> @nx2: U32 -> @fi2: U32 -> @im2: U32 -> @pg2: U32 -> @lm2: U32 ->
-    @inp2: List<&2, U32> -> @ou2: List<&2, U32> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: C.Wasm.Bytes ->
+    @inp2: List<&2, Word(8n)> -> @ou2: List<&2, Word(8n)> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: C.Wasm.Bytes ->
     Q.Inv(P, G, a, n, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2, m2) ->
     SPost(C.Cir.exec(f, C.Cir.Stmt.while{c, body}, C.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), [C.Wasm.Instr.br{0}], Con{C.Wasm.Label{Some{C.Cir.code.expr(c, Con{C.Wasm.Instr.eqz{}, Con{C.Wasm.Instr.br_if{1}, C.Cir.code.stmt(body, 2n+d, [C.Wasm.Instr.br{0}])}})}, [], 0n}, Con{C.Wasm.Label{None{}, K, 0n}, ls}}, K, ls,
       a, n, t2, nd2, ad2, rg2, nx2, on2, pg2, lm2, m2, P, G)) ->
@@ -1211,7 +1211,7 @@ def while.of(mv: Maybe<&2, U32>, +f: Nat, +c: C.Cir.Expr, +body: C.Cir.Stmt, +rg
 # the code does what Cir.exec says (SPost), when every register of s is
 # below R (ok) and its branches out of run below MD (hd)
 def sim.stmt(+fuel: Nat, s: C.Cir.Stmt, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32,
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32,
   +d: Nat, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +hL: {List.drop(&2, C.Wasm.Label, ls, d) == [RL()] : List<&2, C.Wasm.Label>},
   +R: Nat, +MX: U32, +hR: N.Le(8n+R, U32.to_nat(MX)), +MD: U32,
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +m: C.Wasm.Bytes,

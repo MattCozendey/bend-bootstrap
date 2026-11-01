@@ -176,34 +176,28 @@ theorem word_cmp (h : Contains B evalCopy) :
           (by simp [walk, «evalCopy.Word.cmp.fin», ctor, cmpForm, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine])
           (by simp only [wc, ho]; exact .refl value_cmp)
 
--- U32.is_eq says whether two cells are equal
-private theorem u32_is_eq (h : Contains B evalCopy) :
-    Runs B (App Q1 (App Q1 (Ref "U32.is_eq") (cell x)) (cell y)) (Form.bool (x == y)) := by
-  have hk : Book.get B "U32.is_eq" = some «evalCopy.U32.is_eq» := h «evalCopy.U32.is_eq» (by simp [evalCopy])
-  have hc : Book.get B "U32.cmp" = some «evalCopy.U32.cmp» := h «evalCopy.U32.cmp» (by simp [evalCopy])
+-- Byte.is_eq says whether two bytes are equal
+private theorem byte_is_eq (h : Contains B evalCopy) :
+    Runs B (App Q1 (App Q1 (Ref "Byte.is_eq") (byte x)) (byte y)) (Form.bool (x == y)) := by
+  have hk : Book.get B "Byte.is_eq" = some «evalCopy.Byte.is_eq» := h «evalCopy.Byte.is_eq» (by simp [evalCopy])
   have he : Book.get B "Cmp.is_eq" = some «evalCopy.Cmp.is_eq» := h «evalCopy.Cmp.is_eq» (by simp [evalCopy])
-  have vs : Values B [(Q1, cell x), (Q1, cell y)] :=
-    .cons (fun _ => value_cell) (.cons (fun _ => value_cell) .nil)
+  have vs : Values B [(Q1, byte x), (Q1, byte y)] :=
+    .cons (fun _ => value_byte) (.cons (fun _ => value_byte) .nil)
   refine run_call (xs := [(Q1, _), (Q1, _)]) hk vs
-    (u := App Q1 (Ref "Cmp.is_eq") (App Q1 (App Q1 (Ref "U32.cmp") (cell x)) (cell y)))
-    (by simp [walk, «evalCopy.U32.is_eq», takes, bindsAt, data_iff.2 data_cell, Quan.live, sub, spine, Env.sub]) ?_
-  have rc : Runs B (App Q1 (App Q1 (Ref "U32.cmp") (cell x)) (cell y))
-      (cmpForm (wc 32 x.toNat y.toNat)) :=
-    run_call (xs := [(Q1, _), (Q1, _)]) hc vs
-      (u := App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat 32)) (bits 32 x.toNat)) (bits 32 y.toNat))
-      (by simp [walk, «evalCopy.U32.cmp», cell, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Env.sub, Form.nat])
-      (word_cmp h)
-  have hxy : (x == y) = (wc 32 x.toNat y.toNat == .eq) := by
-    have hx : x.toNat % 2 ^ 32 = x.toNat := Nat.mod_eq_of_lt (by have := x.toNat_lt; omega)
-    have hy : y.toNat % 2 ^ 32 = y.toNat := Nat.mod_eq_of_lt (by have := y.toNat_lt; omega)
-    have := wc_eq (n := 32) (v := x.toNat) (w := y.toNat)
-    rw [hx, hy] at this
+    (u := App Q1 (Ref "Cmp.is_eq") (App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat 8)) (byte x)) (byte y)))
+    (by simp [walk, «evalCopy.Byte.is_eq», takes, bindsAt, data_iff.2 data_byte, Quan.live, sub, spine, Env.sub,
+      Form.nat, ctor]) ?_
+  have rc : Runs B (App Q1 (App Q1 (App Q1 (Ref "Word.cmp") (Form.nat 8)) (byte x)) (byte y))
+      (cmpForm (wc 8 x.toNat y.toNat)) := word_cmp h
+  have hxy : (x == y) = (wc 8 x.toNat y.toNat == .eq) := by
+    have := wc_eq (n := 8) (v := x.toNat) (w := y.toNat)
+    rw [Nat.mod_eq_of_lt x.toNat_lt, Nat.mod_eq_of_lt y.toNat_lt] at this
     rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq, this, UInt8.toNat_inj]
   rw [hxy]
   refine run_x (value_part (xs := []) he .nil (by simp [walk, «evalCopy.Cmp.is_eq», takes])) rfl rc ?_
-  cases wc 32 x.toNat y.toNat <;>
+  cases wc 8 x.toNat y.toNat <;>
   exact run_call (xs := [(Q1, _)]) he (.cons (fun _ => value_cmp) .nil)
-    (by simp [walk, «evalCopy.Cmp.is_eq», cmpForm, ctor, takes, bindsAt, data, Quan.live, Quan.fld, sub, spine, Form.bool])
+    (by simp [walk, «evalCopy.Cmp.is_eq», cmpForm, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Form.bool])
     (.refl value_bool)
 
 -- Bool.and on its first Bool waits for the second
@@ -224,22 +218,22 @@ private theorem name_is_eq_bytes (h : Contains B evalCopy) :
   | nil =>
     cases ys <;>
     exact run_call (xs := [(Q1, _), (Q1, _)]) hk vs
-      (by simp [walk, «evalCopy.Name.is_eq», bytes, list, cell, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Form.bool])
+      (by simp [walk, «evalCopy.Name.is_eq», bytes, list, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Form.bool])
       (.refl value_bool)
   | cons x xs ih =>
     cases ys with
     | nil =>
       exact run_call (xs := [(Q1, _), (Q1, _)]) hk vs
-        (by simp [walk, «evalCopy.Name.is_eq», bytes, list, cell, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Form.bool])
+        (by simp [walk, «evalCopy.Name.is_eq», bytes, list, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Form.bool])
         (.refl value_bool)
     | cons y ys =>
       refine run_call (xs := [(Q1, _), (Q1, _)]) hk vs
-        (u := App Q1 (App Q1 (Ref "Bool.and") (App Q1 (App Q1 (Ref "U32.is_eq") (cell x)) (cell y)))
+        (u := App Q1 (App Q1 (Ref "Bool.and") (App Q1 (App Q1 (Ref "Byte.is_eq") (byte x)) (byte y)))
           (App Q1 (App Q1 (Ref "Name.is_eq") (bytes xs)) (bytes ys)))
         (by simp [walk, «evalCopy.Name.is_eq», bytes, list, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Env.sub]) ?_
       rw [List.cons_beq_cons]
       refine run_f (run_x (value_part (xs := []) ha .nil (by simp [walk, «evalCopy.Bool.and», takes]))
-        rfl (u32_is_eq h) (.refl (value_and h))) ?_
+        rfl (byte_is_eq h) (.refl (value_and h))) ?_
       exact run_x (value_and h) rfl
         (ih (.cons (fun _ => value_bytes) (.cons (fun _ => value_bytes) .nil))) (and_copy h)
 
@@ -349,14 +343,55 @@ private theorem name_q : Form.name "Q0" = bytes [81, 48] ∧ Form.name "Q1" = by
       List.utf8Encode, List.toList_data_toByteArray]
     decide
 
--- a def of the copy with no λ runs to its cell
-private theorem lit_cell (h : Contains B evalCopy) (hd : d ∈ evalCopy)
-    (w : walk B d.v [] [] = some (some (cell c))) : Runs B (Ref d.k) (cell c) :=
-  run_call (xs := []) (h d hd) .nil w (.refl value_cell)
+-- Word.low gives the low n bits of a word of n + m bits
+private theorem word_low (h : Contains B evalCopy) :
+    Runs B (App Q1 (App Q1 (App Q1 (Ref "Word.low") (Form.nat n)) (Form.nat m)) (bits (n + m) v))
+      (bits n v) := by
+  have hk : Book.get B "Word.low" = some «evalCopy.Word.low» := h «evalCopy.Word.low» (by simp [evalCopy])
+  have vs : Values B [(Q1, Form.nat n), (Q1, Form.nat m), (Q1, bits (n + m) v)] :=
+    .cons (fun _ => value_nat) (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) .nil))
+  induction n generalizing v with
+  | zero =>
+    exact run_call (xs := [(Q1, _), (Q1, _), (Q1, _)]) hk vs
+      (by simp [walk, «evalCopy.Word.low», Form.nat, bits, ctor, takes, Quan.live, Quan.fld, sub, spine, bindsAt])
+      (.refl value_bits)
+  | succ n ih =>
+    rw [show n + 1 + m = n + m + 1 by omega] at vs ⊢
+    refine run_call (xs := [(Q1, _), (Q1, _), (Q1, _)]) hk vs
+      (u := ctor "WCon" [bitForm v,
+        App Q1 (App Q1 (App Q1 (Ref "Word.low") (Form.nat n)) (Form.nat m)) (bits (n + m) (v / 2))])
+      (by simp [walk, «evalCopy.Word.low», Form.nat, bits, ctor, takes, Quan.live, Quan.fld, sub, spine, bindsAt,
+        Env.sub, data_iff.2 data_nat, data_iff.2 data_bits]) ?_
+    simp only [bits, ctor, List.foldr]
+    exact run_tup (.refl .lab) (run_tup (.refl (.tup (fun _ => .lab) .lab))
+      (run_tup (ih (.cons (fun _ => value_nat) (.cons (fun _ => value_nat) (.cons (fun _ => value_bits) .nil))))
+        (.refl .lab)))
 
--- a list literal of two cells runs to its bytes
-private theorem lit_run (r1 : Runs B (Ref k1) (cell c1)) (r2 : Runs B (Ref k2) (cell c2)) :
-    Runs B (Tup Q1 (Lab "Con") (Tup Q1 (Ref k1) (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 (Ref k2)
+-- Byte.from_u32 gives the low byte of a U32
+theorem from_u32_run (h : Contains B evalCopy) (r : Runs B x (ctor "U32" [bits 32 v])) :
+    Runs B (App Q1 (Ref "Byte.from_u32") x) (bits 8 v) := by
+  have hk : Book.get B "Byte.from_u32" = some «evalCopy.Byte.from_u32» :=
+    h «evalCopy.Byte.from_u32» (by simp [evalCopy])
+  have vu : Value B (ctor "U32" [bits 32 v]) := value_ctor (by simpa using value_bits)
+  refine run_x (value_part (xs := []) hk .nil (by simp [walk, «evalCopy.Byte.from_u32», takes])) rfl r ?_
+  exact run_call (xs := [(Q1, _)]) hk (.cons (fun _ => vu) .nil)
+    (u := App Q1 (App Q1 (App Q1 (Ref "Word.low") (Form.nat 8)) (Form.nat 24)) (bits (8 + 24) v))
+    (by simp [walk, «evalCopy.Byte.from_u32», Form.nat, ctor, takes, Quan.live, Quan.fld, sub, spine, bindsAt,
+      Env.sub, data_iff.2 data_bits])
+    (word_low h)
+
+-- Byte.from_u32 on the def k
+abbrev fromLit (k : String) : Term := App Q1 (Ref "Byte.from_u32") (Ref k)
+
+-- the byte of a def of the copy whose term is the U32 c
+private theorem lit_byte (h : Contains B evalCopy) (hd : d ∈ evalCopy)
+    (w : walk B d.v [] [] = some (some (ctor "U32" [bits 32 c]))) :
+    Runs B (fromLit d.k) (bits 8 c) :=
+  from_u32_run h (run_call (xs := []) (h d hd) .nil w (.refl (value_ctor (by simpa using value_bits))))
+
+-- a list literal of two bytes runs to its bytes
+private theorem lit_run (r1 : Runs B x1 (byte c1)) (r2 : Runs B x2 (byte c2)) :
+    Runs B (Tup Q1 (Lab "Con") (Tup Q1 x1 (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 x2
       (Tup Q1 (Tup Q1 (Lab "Nil") (Lab "()")) (Lab "()")))) (Lab "()")))) (bytes [c1, c2]) := by
   simp only [bytes, List.map, list, ctor, List.foldr]
   exact run_tup (.refl .lab) (run_tup r1 (run_tup (run_tup (.refl .lab) (run_tup r2
@@ -364,20 +399,20 @@ private theorem lit_run (r1 : Runs B (Ref k1) (cell c1)) (r2 : Runs B (Ref k2) (
 
 -- the list literals of Q0, Q1 and Q2 run to their names
 private theorem lits (h : Contains B evalCopy) :
-    Runs B (Tup Q1 (Lab "Con") (Tup Q1 (Ref "U32.lit81") (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 (Ref "U32.lit48")
+    Runs B (Tup Q1 (Lab "Con") (Tup Q1 (fromLit "U32.lit81") (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 (fromLit "U32.lit48")
       (Tup Q1 (Tup Q1 (Lab "Nil") (Lab "()")) (Lab "()")))) (Lab "()")))) (Form.name "Q0") ∧
-    Runs B (Tup Q1 (Lab "Con") (Tup Q1 (Ref "U32.lit81") (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 (Ref "U32.lit49")
+    Runs B (Tup Q1 (Lab "Con") (Tup Q1 (fromLit "U32.lit81") (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 (fromLit "U32.lit49")
       (Tup Q1 (Tup Q1 (Lab "Nil") (Lab "()")) (Lab "()")))) (Lab "()")))) (Form.name "Q1") ∧
-    Runs B (Tup Q1 (Lab "Con") (Tup Q1 (Ref "U32.lit81") (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 (Ref "U32.lit50")
+    Runs B (Tup Q1 (Lab "Con") (Tup Q1 (fromLit "U32.lit81") (Tup Q1 (Tup Q1 (Lab "Con") (Tup Q1 (fromLit "U32.lit50")
       (Tup Q1 (Tup Q1 (Lab "Nil") (Lab "()")) (Lab "()")))) (Lab "()")))) (Form.name "Q2") := by
-  have l81 : Runs B (Ref "U32.lit81") (cell 81) := lit_cell (d := «evalCopy.U32.lit81») h
-    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit81», takes, sub, spine, cell, bits, ctor])
-  have l48 : Runs B (Ref "U32.lit48") (cell 48) := lit_cell (d := «evalCopy.U32.lit48») h
-    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit48», takes, sub, spine, cell, bits, ctor])
-  have l49 : Runs B (Ref "U32.lit49") (cell 49) := lit_cell (d := «evalCopy.U32.lit49») h
-    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit49», takes, sub, spine, cell, bits, ctor])
-  have l50 : Runs B (Ref "U32.lit50") (cell 50) := lit_cell (d := «evalCopy.U32.lit50») h
-    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit50», takes, sub, spine, cell, bits, ctor])
+  have l81 : Runs B (fromLit "U32.lit81") (byte 81) := lit_byte (d := «evalCopy.U32.lit81») h
+    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit81», takes, sub, spine, bits, ctor])
+  have l48 : Runs B (fromLit "U32.lit48") (byte 48) := lit_byte (d := «evalCopy.U32.lit48») h
+    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit48», takes, sub, spine, bits, ctor])
+  have l49 : Runs B (fromLit "U32.lit49") (byte 49) := lit_byte (d := «evalCopy.U32.lit49») h
+    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit49», takes, sub, spine, bits, ctor])
+  have l50 : Runs B (fromLit "U32.lit50") (byte 50) := lit_byte (d := «evalCopy.U32.lit50») h
+    (by simp [evalCopy]) (by simp [walk, «evalCopy.U32.lit50», takes, sub, spine, bits, ctor])
   rw [name_q.1, name_q.2.1, name_q.2.2]
   exact ⟨lit_run l81 l48, lit_run l81 l49, lit_run l81 l50⟩
 
@@ -411,12 +446,27 @@ private theorem read_if (h : Contains B evalCopy) (r1 : Runs B x (Form.bool b))
       (by simp [walk, «evalCopy.Quan.read.if», Form.bool, Form.some, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Env.sub])
       (.refl (value_maybe (f := Form.quan) (o := some q) (fun _ => value_quan)))
 
+-- Quan.name gives the label of a quantity
+private theorem qname_run (h : Contains B evalCopy) (r : Runs B x (Form.quan q)) :
+    Runs B (App Q1 (Ref "Quan.name") x) (Form.name (qname q)) := by
+  have hk : Book.get B "Quan.name" = some «evalCopy.Quan.name» := h «evalCopy.Quan.name» (by simp [evalCopy])
+  obtain ⟨l0, l1, l2⟩ := lits h
+  cases q
+  · exact run1 hk rfl r (by simp [walk, «evalCopy.Quan.name», takes])
+      (by simp [walk, «evalCopy.Quan.name», Form.quan, ctor, takes, Quan.live, Quan.fld, sub, spine]) l0
+  · exact run1 hk rfl r (by simp [walk, «evalCopy.Quan.name», takes])
+      (by simp [walk, «evalCopy.Quan.name», Form.quan, ctor, takes, Quan.live, Quan.fld, sub, spine]) l1
+  · exact run1 hk rfl r (by simp [walk, «evalCopy.Quan.name», takes])
+      (by simp [walk, «evalCopy.Quan.name», Form.quan, ctor, takes, Quan.live, Quan.fld, sub, spine]) l2
+
 -- Quan.read reads a label
 private theorem read_run (h : Contains B evalCopy) :
     Runs B (App Q2 (Ref "Quan.read") (Form.name k)) (Form.maybe Form.quan (readQ k)) := by
   have hk : Book.get B "Quan.read" = some «evalCopy.Quan.read» := h «evalCopy.Quan.read» (by simp [evalCopy])
   have dn : data (Form.name k) = true := data_iff.2 data_bytes
-  obtain ⟨l0, l1, l2⟩ := lits h
+  have l0 := qname_run (q := Q0) h (.refl value_quan)
+  have l1 := qname_run (q := Q1) h (.refl value_quan)
+  have l2 := qname_run (q := Q2) h (.refl value_quan)
   refine run_call (xs := [(Q2, _)]) hk (.cons (fun _ => value_bytes) .nil)
     (by simp [walk, «evalCopy.Quan.read», takes, bindsAt, dn, Quan.live, sub, spine, Env.sub]; rfl) ?_
   unfold readQ
@@ -434,19 +484,6 @@ private theorem min_run (h : Contains B evalCopy) :
     (.cons (fun _ => value_quan) (.cons (fun _ => value_quan) .nil))
     (by simp [walk, «evalCopy.Quan.min», Form.quan, qmn, ctor, takes, bindsAt, Quan.live, Quan.fld, sub, spine, Env.sub])
     (.refl value_quan)
-
--- Quan.name gives the label of a quantity
-private theorem qname_run (h : Contains B evalCopy) (r : Runs B x (Form.quan q)) :
-    Runs B (App Q1 (Ref "Quan.name") x) (Form.name (qname q)) := by
-  have hk : Book.get B "Quan.name" = some «evalCopy.Quan.name» := h «evalCopy.Quan.name» (by simp [evalCopy])
-  obtain ⟨l0, l1, l2⟩ := lits h
-  cases q
-  · exact run1 hk rfl r (by simp [walk, «evalCopy.Quan.name», takes])
-      (by simp [walk, «evalCopy.Quan.name», Form.quan, ctor, takes, Quan.live, Quan.fld, sub, spine]) l0
-  · exact run1 hk rfl r (by simp [walk, «evalCopy.Quan.name», takes])
-      (by simp [walk, «evalCopy.Quan.name», Form.quan, ctor, takes, Quan.live, Quan.fld, sub, spine]) l1
-  · exact run1 hk rfl r (by simp [walk, «evalCopy.Quan.name», takes])
-      (by simp [walk, «evalCopy.Quan.name», Form.quan, ctor, takes, Quan.live, Quan.fld, sub, spine]) l2
 
 -- Eval.meet.of gives the meet of two read labels
 private theorem meet_of_run (h : Contains B evalCopy) (r1 : Runs B x (Form.maybe Form.quan o1))
