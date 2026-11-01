@@ -9,7 +9,7 @@ import ../wasm/impl.bend as Wa
 #
 # What a program gives on its input (AGENTS.md 3.3.3, 3.3.4), and the memory
 # that the laws of 3.6.1 (compiler/spec.bend) grant it (3.3.10, 3.9.1.4). The terms mirror
-# lean/src/Bootstrap/DataForm/Bytes.lean, and Program.gives mirrors Gives in
+# src/lean/src/Bootstrap/DataForm/Bytes.lean, and Program.gives mirrors Gives in
 # Interpreter/Program.lean, so that the theorem of 3.6.6 can join them.
 
 # the names of the constructors of a list of bytes, as `bend -o` writes them

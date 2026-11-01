@@ -1,6 +1,6 @@
 import Bootstrap.DataForm.Book
 
--- Made by scripts/Defs.lean from the `bend -o` output of src/main.bend (while compiler/proof.bend has open TODOs, bend -o refuses it: this is the same lowering, bend2/safe.ts, of the book that bend2 checked, by tools/lower.ts, with each hole read as its own def; no def or type copied here names one).
+-- Made by scripts/Defs.lean from the `bend -o` output of src/main.bend (while compiler/proof.bend has open TODOs, bend -o refuses it: this is the same lowering, bend2/safe.ts, of the book that bend2 checked, by src/tools/lower.ts, with each hole read as its own def; no def or type copied here names one).
 -- Do not edit it.
 
 open Quan Term

@@ -1,6 +1,6 @@
 import bendtt
 
--- Made by scripts/Version.lean from the `bend -o` output of src/main.bend (tools/lower.ts),
+-- Made by scripts/Version.lean from the `bend -o` output of src/main.bend (src/tools/lower.ts),
 -- for the roots Book.read, and the defs that they need. Do not edit it.
 
 open Quan Term

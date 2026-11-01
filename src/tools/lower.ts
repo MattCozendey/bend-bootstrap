@@ -5,13 +5,13 @@
 // file whose book bend2 checks but for its holes (?TODO): each hole is read as
 // a call of its own def, so that the defs that name a hole stay in the output.
 // Only the defs with a hole, and the proofs that call them, differ from what
-// `bend -o` will write once the holes are filled; lean/scripts/Defs.lean writes Lean versions of
-// from it only defs and types that name no hole (lean/src/Bootstrap/Generated/Trusted.lean).
+// `bend -o` will write once the holes are filled; src/lean/scripts/Defs.lean writes Lean versions of
+// from it only defs and types that name no hole (src/lean/src/Bootstrap/Generated/Trusted.lean).
 //
 //   cd src && bun ../tools/lower.ts main.bend out.bendtt
 
-import * as Bend from "../bend/bend2/bend.ts";
-import * as Safe from "../bend/bend2/safe.ts";
+import * as Bend from "../../bend/bend2/bend.ts";
+import * as Safe from "../../bend/bend2/safe.ts";
 
 const [file, out] = process.argv.slice(2);
 const book = Bend.book_nil();

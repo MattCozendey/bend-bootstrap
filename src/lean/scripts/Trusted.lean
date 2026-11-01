@@ -14,7 +14,7 @@ import Bootstrap.Joining.OrLaw
 --   BOOK=main.bendtt lake lean scripts/Trusted.lean
 --
 -- (While compiler/proof.bend has open TODOs, `bend -o` refuses main.bend;
--- scripts/lower.ts writes the same lowering with each hole read as its own
+-- src/tools/lower.ts writes the same lowering with each hole read as its own
 -- def, which changes no def or type that Trusted names.)
 
 def same (a b : Def) : Bool := a.k == b.k && a.T == b.T && a.v == b.v && a.o == b.o

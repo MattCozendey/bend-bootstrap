@@ -9,7 +9,7 @@ package bootstrap
 
 -- the kernel, bend/bend2/bendtt.lean, read in place and unchanged
 lean_lib Kernel where
-  srcDir := "../bend/bend2"
+  srcDir := "../../bend/bend2"
   roots := #[`bendtt]
   precompileModules := true
 

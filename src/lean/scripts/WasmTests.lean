@@ -11,7 +11,7 @@ import Bootstrap.Shared.Script
 -- plan trusts (src/Bootstrap/Interpreter/Run.lean), not by the TypeScript compiler.
 --
 --   bend src/wasm/impl.bend -o <file.bendtt>
---   BOOK=<file.bendtt> TESTS=../src/wasm/tests/bin ONLY=<test>,... \
+--   BOOK=<file.bendtt> TESTS=../wasm/tests/bin ONLY=<test>,... \
 --     OUT=<file.log> lake lean scripts/WasmTests.lean
 --
 -- It runs each command of a binary script (spec interpreter README: Binary

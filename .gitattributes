@@ -1,4 +1,2 @@
-# every file of src/, lean/ and tools/ has LF line endings, in the repo and on checkout
+# every file of src/ has LF line endings, in the repo and on checkout
 src/** text=auto eol=lf
-lean/** text=auto eol=lf
-tools/** text=auto eol=lf

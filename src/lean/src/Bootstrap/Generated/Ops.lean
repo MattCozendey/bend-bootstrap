@@ -1,6 +1,6 @@
 import Bootstrap.DataForm.Book
 
--- Made by scripts/Defs.lean from the `bend -o` output of bootstrap/tests/compiler/compile.bend.
+-- Made by scripts/Defs.lean from the `bend -o` output of src/compiler/tests/compile.bend.
 -- Do not edit it.
 
 open Quan Term

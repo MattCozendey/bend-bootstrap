@@ -7,7 +7,7 @@ import ../book/impl.bend as Bk
 #
 # A version of the kernel's Eval: Eval.steps(n, ds, t) gives the term that t
 # reaches after exactly n steps, in the book of the defs ds (AGENTS.md 3.6.3). It
-# follows step of lean/src/Bootstrap/Shared/Interp.lean case for
+# follows step of src/lean/src/Bootstrap/Shared/Interp.lean case for
 # case, and works out each part that a case may need before it picks one.
 
 # an argument of a spine, at its quantity

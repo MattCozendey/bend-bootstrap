@@ -84,7 +84,7 @@ const getBend = (file: string, out: string) => ({
 // `lake lean scripts/<script>.lean` in the Lean project, with these variables
 const getLake = (script: string, vars: Record<string, string>) => ({
   cmd: ["lake", "lean", `scripts/${script}.lean`],
-  cwd: join(REPO, "lean"),
+  cwd: join(REPO, "src", "lean"),
   env: { ...LAKE_ENV, ...vars },
 });
 

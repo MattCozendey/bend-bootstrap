@@ -1,6 +1,6 @@
 import Bootstrap.DataForm.Book
 
--- Made by scripts/Defs.lean from the `bend -o` output of src/main.bend (tools/lower.ts).
+-- Made by scripts/Defs.lean from the `bend -o` output of src/main.bend (src/tools/lower.ts).
 -- Do not edit it.
 
 open Quan Term
