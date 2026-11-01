@@ -96,7 +96,7 @@ The kernel says nothing about these; they are ours (some borrowed from the TypeS
   3.2.1.3 - bit: `(.False, ())` is 0, `(.True, ())` is 1.
 3.2.2 - Data form: how a kernel term or Book is written as a Bend value. Each term or Book has exactly one data form (the data form is a Lean function, not a `partial def`), and no two share one (a Lean theorem proves it). 3.4.2 and 3.4.5 compare Lean and Bend through it.
 3.2.3 - Start term: a run of a program on an input starts at `(main input)`, that is `App Q1 (Ref "main") input`. Why: the kernel has no entry point.
-3.2.4 - Term size: the size of a term is its number of nodes: each constructor of the kernel's `Term` is one node; a name is one node. Why: the compiled code stores each name once, and `Eval` only copies names, never makes them.
+3.2.4 - Term size: the size of a term is its number of nodes: each constructor of the kernel's `Term` is one node; a name is one node. Why: `Eval` never makes a name; it only copies names from the program, and the program's size (3.2.5) already counts each name's bytes.
 3.2.5 - Program size: the size (3.2.4) of the program's data form (3.2.2). Why: the data form writes each name as its bytes and each `Var` index as a unary number, so long names and huge indices count; a plain node count misses both.
 
 ### 3.3 Goals
@@ -150,7 +150,7 @@ Everything in a target's entry is ours.
   3.8.1.1 - WHY: IT IS SMALL AND HAS AN OFFICIAL FORMAL SPEC. NATIVE MACHINE CODE HAS NO COMPACT FORMAL SPEC, AND C'S MEANING IS HUGE AND FULL OF UNDEFINED BEHAVIOR.
   3.8.1.2 - MEANING: Our Bend version of WASM's meaning: only the part of WASM that our compiler uses, its binary format included.
   3.8.1.3 - TRUSTED: A WASM engine follows the WASM spec. Our Bend version of WASM's meaning is reviewed against the WASM spec and tested with the spec's official test suite. It is not proven, because we know of no Lean or Bend version of the spec. This is a named exception to 3.6.3.
-  3.8.1.4 - MEMORY (3.4.4): F = 64 × (THE PROGRAM'S SIZE + THE SIZE OF THE LARGEST TERM (3.4.4)) + 2^24 BYTES. THE COMPILED CODE MUST REUSE MEMORY: IT FREES EVERY CELL THAT CAN NO LONGER BE REACHED. ONLY THE PROGRAM'S IMAGE AND THE INPUT'S BYTE CACHE (AT MOST 6144 CELLS) ARE NEVER FREED. THE TARGET CAN HAVE AT MOST 4 GiB (32-BIT ADDRESSES).
+  3.8.1.4 - MEMORY (3.4.4): F = 64 × (THE PROGRAM'S SIZE + THE SIZE OF THE LARGEST TERM (3.4.4)) + 2^24 BYTES. THE COMPILED CODE MUST REUSE MEMORY: IT FREES EVERY CELL THAT CAN NO LONGER BE REACHED. ONLY THE PROGRAM'S IMAGE AND THE INPUT'S BYTE CACHE (AT MOST 6144 CELLS) ARE NEVER FREED. EACH NAME IS STORED ONCE; A COPY OF A TERM REFERS TO IT, SO COPIES DON'T REPEAT A NAME'S BYTES. THE TARGET CAN HAVE AT MOST 4 GiB (32-BIT ADDRESSES).
   3.8.1.5 - STACK: THE COMPILED CODE KEEPS ITS STACK IN WASM MEMORY, NOT ON THE ENGINE'S CALL STACK. THE WASM SPEC LETS AN ENGINE STOP A PROGRAM WHEN THE ENGINE'S CALL STACK RUNS OUT, SO MEMORY MUST BE THE ONLY RESOURCE LIMIT (3.4.4).
   3.8.1.6 - STEP: We must write a LEAN VERSION OF THE OFFICIAL WASM SEMANTICS of the subset that our compiler uses, TRANSLATED BY A PROGRAM FROM THE SPEC'S OWN FORMAL SOURCE (SpecTec), and a LEAN PROOF that our Bend version of WASM gives what it gives. This is because our Bend version is only reviewed and tested (3.8.1.3). With this proof we trust the spec's SpecTec source and the translator instead. The official tests stay, for historical reasons.
 
