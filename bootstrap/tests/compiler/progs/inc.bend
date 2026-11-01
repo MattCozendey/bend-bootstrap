@@ -1,12 +1,12 @@
-# each byte plus 1: U32 arithmetic, bit by bit
+# each byte plus 1: Word(8n) arithmetic, bit by bit
 import Base
 
-def incs(xs: List<&2, U32>) -> List<&2, U32>:
+def incs(xs: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match xs:
     case Nil{}:
       Nil{}
     case Con{x, rest}:
-      Con{U32.and(U32.add(x, 1), 255), incs(rest)}
+      Con{Word.inc(8n, x), incs(rest)}
 
-def main(i: List<&2, U32>) -> List<&2, U32>:
+def main(i: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   incs(i)

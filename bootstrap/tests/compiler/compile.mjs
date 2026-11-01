@@ -22,10 +22,13 @@ if (isMainThread) {
   worker.on("exit", (code) => process.exit(code));
 } else {
   const { default: m } = await import(pathToFileURL(js).href);
+  // a byte as Base's Word(8n): its 8 bits, the lowest first, each a JS boolean
+  const toWord = (b, n) => (n === 0 ? { $: "WNil" } : { $: "WCon", head: (b & 1) === 1, tail: toWord(b >> 1, n - 1) });
+  const fromWord = (w) => (w.$ === "WNil" ? 0 : (w.head ? 1 : 0) | (fromWord(w.tail) << 1));
   const bytes = readFileSync(book);
   let list = { $: "Nil" };
-  for (let k = bytes.length - 1; k >= 0; k--) list = { $: "Con", head: bytes[k], tail: list };
+  for (let k = bytes.length - 1; k >= 0; k--) list = { $: "Con", head: toWord(bytes[k], 8), tail: list };
   const wasm = [];
-  for (let r = m.main(list); r.$ === "Con"; r = r.tail) wasm.push(r.head);
+  for (let r = m.main(list); r.$ === "Con"; r = r.tail) wasm.push(fromWord(r.head));
   writeFileSync(out, Uint8Array.from(wasm));
 }
