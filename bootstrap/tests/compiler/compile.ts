@@ -1,7 +1,8 @@
 // Runs Compiler.compile on the bytes of a book with the JS that `bend -o` writes for compile.bend:
 // a fast run of our compiler, for the tests, by a runtime that we do not trust (run.ts checks it
 // against the Lean interpreter when TRUSTED is set). That JS recurses on lists, so run.ts runs this
-// file with a large stack.
+// file with a large stack. Speed is a priority in this file (AGENTS.md 2.5.1): it reads the
+// compiler's output with a mutating loop, because the ways without mutation are quadratic.
 //
 //   bun compile.ts <compile.mjs of bend -o> <book> <module.wasm>
 
@@ -13,7 +14,7 @@ import { getArgs } from "../shared.ts";
 
 // types
 
-// the list of bytes of AGENTS.md 3.2.1
+// the list of bytes of AGENTS.md 3.3.1
 type List<T> =
   | { readonly $: "Nil" }
   | { readonly $: "Con"; readonly head: T; readonly tail: List<T> };
