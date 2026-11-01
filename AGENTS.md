@@ -58,7 +58,7 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see 2.4.3
 
 2.4.1 - I don't expect you to run bend(the untrusted one) for this project at all, but if you do; you must know that before you build or test, you must run `bend version` in the shell that you build in. As of 2026-11-01, Bend does not run natively on Windows. Use WSL(note: Even with WSL, parallel code won't run on the GPU).
 2.4.2 - Do not change, update or rebuild the Bend submodule.
-2.4.3 - Since we are bootstrapping, the current UNTRUSTED TypeScript compiler and the Bend guide are only reference guides for ideas: don't assume things from them necessarily apply to us and our decisions. Section 3 reigns. Things like import dont seem to exist in the kernel for example so are out of scope and not needed for a bootstrap even if ir means a single huge file. Don't use any bend linter(they assume untrusted code)
+2.4.3 - Since we are bootstrapping, the current UNTRUSTED TypeScript compiler and the Bend guide are only reference guides for ideas: don't assume things from them necessarily apply to us and our decisions. Section 3 reigns. Imports don't exist in the kernel: `bend -o` resolves the imports of our `.bend` source into one flat Book (3.4.4), so our source may use them, and our compiler never sees one (3.3.5). Don't use any bend linter(they assume untrusted code)
   
 ### 2.5 TypeScript
 
@@ -83,11 +83,11 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see 2.4.3
 
 3.1.1 - Kernel: `bend/bend2/bendtt.lean`: Unchanged and the source of truth.
 3.1.2 - Bend: the language that the kernel gives a meaning to. Its code is a Book, as the kernel's `Book.parse` gives it. Its meaning is the kernel's `Eval`. Nothing more, nothing less. `.bend` text is a way to write Bend, through `bend -o`.
-3.1.3 - Program: a Book with a def named `main` (no `main`: fail). `main` takes a list of bytes and gives a list of bytes, as values of these shapes (what `bend -o` gives for `base.bend`'s `List<Word(8)>`):
+3.1.3 - (OURS) Program: a Book with a def named `main` (no `main`: fail). `main` takes a list of bytes and gives a list of bytes, as values of these shapes (what `bend -o` gives for `base.bend`'s `List<Word(8)>`):
   3.1.3.1 - list: `(.Nil, ())`, or `(.Con, (byte, (list, ())))`.
   3.1.3.2 - byte: 8 bits, lowest first: `(.WCon, (bit, (rest, ())))` 8 times, then `(.WNil, ())`.
   3.1.3.3 - bit: `(.False, ())` is 0, `(.True, ())` is 1.
-3.1.4 - Data form: how a kernel term or Book is written as a Bend value. Each term or Book has exactly one data form (the data form is a Lean function, not a `partial def`), and no two share one (a Lean theorem proves it). 3.3.2 and 3.3.5 compare Lean and Bend through it.
+3.1.4 - (OURS) Data form: how a kernel term or Book is written as a Bend value. Each term or Book has exactly one data form (the data form is a Lean function, not a `partial def`), and no two share one (a Lean theorem proves it). 3.3.2 and 3.3.5 compare Lean and Bend through it.
 
 ### 3.2 Goals
 
@@ -103,8 +103,8 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see 2.4.3
 
 3.3.1 - FOR EVERY PROGRAM, NOT ONLY THE ONES THAT THE KERNEL ACCEPTS (SO WE NEED NO BEND VERSION OF THE CHECKER): IF THE COMPILED PROGRAM, RUN BY ITS TARGET'S MEANING (ITS BEND VERSION: 3.7), GIVES A RESULT, IT IS THE RESULT THAT `Eval` GIVES (`Eval` GIVES AT MOST ONE RESULT, AFTER ONE NUMBER OF STEPS: A LEAN THEOREM PROVES IT). IF `Eval` GIVES A RESULT, THE COMPILED PROGRAM GIVES IT OR RUNS OUT OF MEMORY; WITH ENOUGH MEMORY (3.3.4), IT ALWAYS GIVES IT. SO OUR COMPILER DOES NOT CHECK TYPES: A PROGRAM THAT THE KERNEL REJECTS MAY RUN FOREVER OR GET STUCK, AND ITS OWN LAWS HOLD ONLY AFTER `--verdict` ACCEPTS IT.
 3.3.2 - THE BEND VERSION OF `Eval`, WHICH THE LAWS OF 3.6.4 USE, GIVES WHAT THE REAL ONE GIVES (EACH TERM AS ITS DATA FORM: 3.1.4), AFTER THE SAME NUMBER OF STEPS, IN BOTH DIRECTIONS (NO EXTRA RESULT, NO MISSING RESULT). A LEAN THEOREM PROVES IT.
-3.3.3 - A RUN OF A PROGRAM (3.1.3) STARTS AT `(main input)`, THAT IS `App Q1 (Ref "main") input`. THE LIST OF BYTES THAT IT GIVES IS ITS RESULT, AND 3.3.1 HOLDS FOR EVERY INPUT. IF `Eval`'S FINAL VALUE IS NOT A LIST OF BYTES, BOTH SIDES COUNT AS "NO RESULT".
-3.3.4 - "ENOUGH MEMORY": EACH TARGET'S LAW FIXES A FORMULA F OF MEASURES THAT `Eval` FIXES: THE PROGRAM'S SIZE, THE SIZE OF THE LARGEST TERM THAT `Eval` REACHES BEFORE IT GIVES THE RESULT (THE INPUT IS IN THE FIRST TERM), AND THE NUMBER OF STEPS. THE SIZE OF A TERM IS ITS NUMBER OF NODES: EACH CONSTRUCTOR OF THE KERNEL'S `Term` IS ONE NODE; A NAME IS ONE NODE. WITH AT LEAST F BYTES, THE COMPILED PROGRAM GIVES THE RESULT. THE COMPILER CAN'T CHOOSE F. A TARGET MAY ADD A STRONGER F LATER, NEXT TO ITS FIRST ONE. WHEN F IS MORE THAN THE TARGET CAN HAVE, THE LAW PROMISES NOTHING FOR THAT RUN.
+3.3.3 - (OURS) A RUN OF A PROGRAM (3.1.3) STARTS AT `(main input)`, THAT IS `App Q1 (Ref "main") input`. THE LIST OF BYTES THAT IT GIVES IS ITS RESULT, AND 3.3.1 HOLDS FOR EVERY INPUT. IF `Eval`'S FINAL VALUE IS NOT A LIST OF BYTES, BOTH SIDES COUNT AS "NO RESULT".
+3.3.4 - "ENOUGH MEMORY": EACH TARGET'S LAW FIXES A FORMULA F OF MEASURES THAT `Eval` FIXES: THE PROGRAM'S SIZE (THE SUM OF THE SIZES OF THE TYPES AND BODIES OF ITS DEFS), THE SIZE OF THE LARGEST TERM THAT `Eval` REACHES BEFORE IT GIVES THE RESULT (THE INPUT IS IN THE FIRST TERM), AND THE NUMBER OF STEPS. (OURS) THE SIZE OF A TERM IS ITS NUMBER OF NODES: EACH CONSTRUCTOR OF THE KERNEL'S `Term` IS ONE NODE; A NAME IS ONE NODE. WITH AT LEAST F BYTES, THE COMPILED PROGRAM GIVES THE RESULT. THE COMPILER CAN'T CHOOSE F. A TARGET MAY ADD A STRONGER F LATER, NEXT TO ITS FIRST ONE. WHEN F IS MORE THAN THE TARGET CAN HAVE, THE LAW PROMISES NOTHING FOR THAT RUN.
 3.3.5 - OUR COMPILER DOES NOT READ .bendtt TEXT. ITS INPUT IS THE BOOK THAT THE KERNEL'S OWN PARSER (`Book.parse`) GIVES FOR THAT TEXT, WRITTEN AS A LIST OF BYTES (3.1.3) BY THE LEAN WRITER (NOT A `partial def`). FOR EVERY BOOK, THE BEND READER, WHICH THE LAWS OF 3.6.4 USE, GIVES BACK EXACTLY THAT BOOK'S DATA FORM (3.1.4) FROM THE BYTES THAT THE LEAN WRITER WRITES FOR IT. A LEAN THEOREM PROVES IT.
 
 ### 3.4 Trusted
@@ -112,7 +112,7 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see 2.4.3
 3.4.1 - Lean itself.
 3.4.2 - The LEAN-VALIDATED, PROVEN-SOUND kernel (3.1.1) is the definition of Bend. What it says a program computes IS what the program actually computes. IT IS FIXED: WE CANNOT TOUCH IT IN ANY WAY WHATSOEVER.
 3.4.3 - From 3.4.2 follows that every proof in a Bend program that `--verdict` accepts is true (`--verdict` runs the kernel)
-3.4.4 - The .bendtt text produced from a .bend file via `bend -o` means what said .bend file says.
+3.4.4 - The .bendtt text produced from a .bend file via `bend -o` means what said .bend file says. This is a named exception to 3.5.1, only so that the laws we read in `.bend` are the laws that `--verdict` proves.
 3.4.5 - What each target's entry in 3.7 trusts.
 
 ### 3.5 Untrusted
@@ -138,11 +138,12 @@ Follow the `bend2` and the `experimental-bend-spec` skills SKEPTICALLY(see 2.4.3
   3.7.1.1 - WHY: IT IS SMALL AND HAS AN OFFICIAL FORMAL SPEC. NATIVE MACHINE CODE HAS NO COMPACT FORMAL SPEC, AND C'S MEANING IS HUGE AND FULL OF UNDEFINED BEHAVIOR.
   3.7.1.2 - MEANING: Our Bend version of WASM's meaning: only the part of WASM that our compiler uses, its binary format included.
   3.7.1.3 - TRUSTED: A WASM engine follows the WASM spec. Our Bend version of WASM's meaning is reviewed against the WASM spec and tested with the spec's official test suite. It is not proven, because we know of no Lean or Bend version of the spec. This is a named exception to 3.5.3.
-  3.7.1.4 - MEMORY (3.3.4): F = 64 × (THE PROGRAM'S SIZE IN BYTES + THE SIZE OF THE LARGEST TERM (3.3.4)) + 2^24 BYTES. SO THE COMPILED CODE MUST REUSE MEMORY: IT FREES WHAT A STEP USES UP, AS BEND IS AFFINE. THE TARGET CAN HAVE AT MOST 4 GiB (32-BIT ADDRESSES).
-  3.7.1.5 - STACK: THE COMPILED CODE KEEPS ITS STACK IN WASM MEMORY, NOT ON THE ENGINE'S CALL STACK. THE WASM SPEC LETS AN ENGINE STOP A PROGRAM WHEN THE ENGINE'S CALL STACK RUNS OUT, SO MEMORY MUST BE THE ONLY RESOURCE LIMIT (3.3.4).
+  3.7.1.4 - MEMORY (3.3.4): (OURS) F = 64 × (THE PROGRAM'S SIZE + THE SIZE OF THE LARGEST TERM (3.3.4)) + 2^24 BYTES. (OURS, NOT THE KERNEL'S) THE COMPILED CODE MUST REUSE MEMORY: IT FREES WHAT NO LATER STEP CAN USE. THE TARGET CAN HAVE AT MOST 4 GiB (32-BIT ADDRESSES).
+  3.7.1.5 - STACK: (OURS) THE COMPILED CODE KEEPS ITS STACK IN WASM MEMORY, NOT ON THE ENGINE'S CALL STACK. THE WASM SPEC LETS AN ENGINE STOP A PROGRAM WHEN THE ENGINE'S CALL STACK RUNS OUT, SO MEMORY MUST BE THE ONLY RESOURCE LIMIT (3.3.4).
   3.7.1.6 - STEP: We must write a LEAN VERSION OF THE OFFICIAL WASM SEMANTICS of the subset that our compiler uses, TRANSLATED BY A PROGRAM FROM THE SPEC'S OWN FORMAL SOURCE (SpecTec), and a LEAN PROOF that our Bend version of WASM gives what it gives. This is because our Bend version is only reviewed and tested (3.7.1.3). With this proof we trust the spec's SpecTec source and the translator instead. The official tests stay, for historical reasons.
 
 ### 3.8 Notes
 
 3.8.1 - PROOF QUALITY DOESN'T MATTER UNLESS PROOFS ARE SO SLOW THEY BLOCK. PROOFS DON'T TAKE PART IN REVIEW SWEEPS UNLESS I TELL YOU TO. LAWS AND THEOREMS (BEND AND LEAN), AND THE DEFINITIONS THEY USE, ON THE OTHER HAND, SHOULD ALWAYS BE DOUBLE-QUESTIONED TO ENSURE THEY REALLY REALLY MATCH MY INTENT; THEN THE LAWS AND THEOREMS ARE PROVEN. THIS DOES NOT MEAN OVERDO LAWS. WE WANT ENOUGH LAWS FOR THE COMPILER TO BE EXACTLY AS SAFE AS IT NEEDS TO BE, NOT MORE NOT LESS.
 3.8.2 - EFFECTS LATER: MODEL THEM AS PURE DATA (`main` GIVES REQUESTS, A HOST ANSWERS), SO `Eval` STILL GIVES THEM A MEANING.
+3.8.3 - The kernel decides only syntax, `Eval` and the check (3.1.2). Every other choice in this section is ours (some borrowed from the TypeScript compiler or the Bend guide), and is marked (OURS).
