@@ -2851,8 +2851,9 @@ def InputDone(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n
 #      count), the input's |i| bytes after them, then 20 × Peak bytes of
 #      cells, then the output's bytes, |o| <= S: in all at most
 #      20 × (291 + |p| / 2) + |i| + 20 × (3 × S + 2^16) + |o|, which is at
-#      most 64 × (|p| + S) + 2^24 = Program.need (|i| <= S, as the input is
-#      in the first term); so Cir.result's alloc, every Cir alloc
+#      most 64 × (Program.size(p) + S) + 2^24 = Program.need (|p| <=
+#      Program.size(p): proof_need's size.ge; |i| <= S, as the input is in
+#      the first term); so Cir.result's alloc, every Cir alloc
 #      (Cir.room) and every emit find their pages (round.room), and
 #      next < 214748364 since need <= 2^32;
 #   3. then loop.done's out-of-memory cases are empty, and its Good is a

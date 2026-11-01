@@ -3,8 +3,11 @@
 #
 # A book of 2^26 bytes or more needs more memory than a module can have:
 #
-#   need   = 64 × (|p| + S) + 2^24 >= 64 × 2^26 + 1 = 2^32 + 1
+#   need   = 64 × (size + S) + 2^24 >= 64 × |p| + 1 >= 2^32 + 1
 #   memory = 65536 × min(m, 65536)  <= 2^16 × 2^16  = 2^32
+#
+# where size, the program's size, is at least |p| for a book that Book.read
+# reads (size.ge).
 #
 # The big numbers stay symbolic: 2^k is D(k, 1n), and the literals meet it
 # only through lemmas about the words of their bits, so the checker never
@@ -631,16 +634,1444 @@ def memory_le(+m: U32) -> Le(C.Program.memory(m), D(32n, 1n)):
     le_rw_r(Nat.mul(t, y), Nat.mul(t, t), D(32n, 1n), sq_65536(), mul_mono_r(t, y, t, hy)))
   bridge(m, D(32n, 1n), le_rw_l(Nat.mul(65536n, y), Nat.add(y, Nat.mul(65535n, y)), D(32n, 1n), mul_succ(65535n, y), h))
 
+# The program's size
+# ------------------
+#
+# A book that Book.read reads from p has at least |p| nodes in its data form
+# (C.Program.size): each token of 2 bytes makes a constructor or a list cell
+# of 3 nodes or more, and the reader discards nothing. G counts 2 for each
+# token that built a value, plus a: the stack's G grows by 2 a token (the top
+# item holds the rest), and a value's G is at most its nodes, plus a.
+
+# (a + b) + c = a + (b + c)
+def add_assoc(+a: Nat, +b: Nat, +c: Nat) -> {Nat.add(Nat.add(a, b), c) == Nat.add(a, Nat.add(b, c)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_assoc(p, b, c) : {1n+Nat.add(Nat.add(p, b), c) == 1n+_ : Nat}
+      {==}
+
+# a + (b + c) = b + (a + c)
+def add_swap(+a: Nat, +b: Nat, +c: Nat) -> {Nat.add(a, Nat.add(b, c)) == Nat.add(b, Nat.add(a, c)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %Equal.sym(Nat, Nat.add(b, 1n+Nat.add(p, c)), 1n+Nat.add(b, Nat.add(p, c)), add_succ_r(b, Nat.add(p, c))) : {1n+Nat.add(p, Nat.add(b, c)) == _ : Nat}
+      %add_swap(p, b, c) : {1n+Nat.add(p, Nat.add(b, c)) == 1n+_ : Nat}
+      {==}
+
+# b + (c + a) = (c + b) + a
+def add_comm3(+b: Nat, +c: Nat, +a: Nat) -> {Nat.add(b, Nat.add(c, a)) == Nat.add(Nat.add(c, b), a) : Nat}:
+  Equal.trans(Nat, Nat.add(b, Nat.add(c, a)), Nat.add(c, Nat.add(b, a)), Nat.add(Nat.add(c, b), a),
+    add_swap(b, c, a), Equal.sym(Nat, Nat.add(Nat.add(c, b), a), Nat.add(c, Nat.add(b, a)), add_assoc(c, b, a)))
+
+# ((f1 + f2) + f3) + a = (f1 + (f2 + f3)) + a
+def assoc_l(+f1: Nat, +f2: Nat, +f3: Nat, +a: Nat) ->
+  {Nat.add(Nat.add(Nat.add(f1, f2), f3), a) == Nat.add(Nat.add(f1, Nat.add(f2, f3)), a) : Nat}:
+  %add_assoc(f1, f2, f3) : {Nat.add(Nat.add(Nat.add(f1, f2), f3), a) == Nat.add(_, a) : Nat}
+  {==}
+
+# 2 + (a + l) = a + (2 + l)
+def add_two(+a: Nat, +l: Nat) -> {2n+Nat.add(a, l) == Nat.add(a, 2n+l) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_two(p, l) : {3n+Nat.add(p, l) == 1n+_ : Nat}
+      {==}
+
+# x + x = 2x
+def add_self(+x: Nat) -> {Nat.add(x, x) == Nat.double(x) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      %Equal.sym(Nat, Nat.add(p, 1n+p), 1n+Nat.add(p, p), add_succ_r(p, p)) : {1n+_ == Nat.double(1n+p) : Nat}
+      %add_self(p) : {2n+Nat.add(p, p) == 2n+_ : Nat}
+      {==}
+
+# u <= z gives u <= k + z
+def le_plus(+k: Nat, +u: Nat, +z: Nat, h: Le(u, z)) -> Le(u, Nat.add(k, z)):
+  le_trans(u, z, Nat.add(k, z), h, le_add_l(k, z))
+
+# 2l <= (2 + k) × l
+def dbl_mul(+k: Nat, +l: Nat) -> Le(Nat.double(l), Nat.mul(2n+k, l)):
+  le_rw_l(Nat.add(l, l), Nat.double(l), Nat.mul(2n+k, l), add_self(l),
+    add_mono(l, l, l, Nat.mul(1n+k, l), le_refl(l), le_add_r(l, Nat.mul(k, l))))
+
+# u <= fx + y and y <= fy + a give u <= (fx + fy) + a
+def chain2(+u: Nat, +y: Nat, +fx: Nat, +fy: Nat, +a: Nat, hx: Le(u, Nat.add(fx, y)), hy: Le(y, Nat.add(fy, a))) ->
+  Le(u, Nat.add(Nat.add(fx, fy), a)):
+  le_trans(u, Nat.add(fx, y), Nat.add(Nat.add(fx, fy), a), hx,
+    le_rw_r(Nat.add(fx, y), Nat.add(fx, Nat.add(fy, a)), Nat.add(Nat.add(fx, fy), a),
+      Equal.sym(Nat, Nat.add(Nat.add(fx, fy), a), Nat.add(fx, Nat.add(fy, a)), add_assoc(fx, fy, a)),
+      add_mono(fx, fx, y, Nat.add(fy, a), le_refl(fx), hy)))
+
+# u <= fo + y and y <= fn + a give u <= (fn + fo) + a
+def chainr(+u: Nat, +y: Nat, +fo: Nat, +fn: Nat, +a: Nat, hx: Le(u, Nat.add(fo, y)), hy: Le(y, Nat.add(fn, a))) ->
+  Le(u, Nat.add(Nat.add(fn, fo), a)):
+  le_trans(u, Nat.add(fo, y), Nat.add(Nat.add(fn, fo), a), hx,
+    le_rw_r(Nat.add(fo, y), Nat.add(fo, Nat.add(fn, a)), Nat.add(Nat.add(fn, fo), a), add_comm3(fo, fn, a),
+      add_mono(fo, fo, y, Nat.add(fn, a), le_refl(fo), hy)))
+
+# chainr with 2 more in the addend of y
+def chainq(+u: Nat, +y: Nat, +fo: Nat, +fn: Nat, +a: Nat, hx: Le(u, Nat.add(fo, y)), hy: Le(y, Nat.add(fn, 2n+a))) ->
+  Le(u, 2n+Nat.add(Nat.add(fn, fo), a)):
+  le_rw_r(u, Nat.add(Nat.add(fn, fo), 2n+a), 2n+Nat.add(Nat.add(fn, fo), a),
+    Equal.sym(Nat, 2n+Nat.add(Nat.add(fn, fo), a), Nat.add(Nat.add(fn, fo), 2n+a), add_two(Nat.add(fn, fo), a)),
+    chainr(u, y, fo, fn, 2n+a, hx, hy))
+
+# three in a row: u over y over z
+def chain3(+u: Nat, +y: Nat, +z: Nat, +f1: Nat, +f2: Nat, +f3: Nat, +a: Nat,
+  h3: Le(u, Nat.add(f3, y)), h2: Le(y, Nat.add(f2, z)), h1: Le(z, Nat.add(f1, a))) ->
+  Le(u, Nat.add(Nat.add(f1, Nat.add(f2, f3)), a)):
+  le_rw_r(u, Nat.add(Nat.add(Nat.add(f1, f2), f3), a), Nat.add(Nat.add(f1, Nat.add(f2, f3)), a), assoc_l(f1, f2, f3, a),
+    chainr(u, y, f3, Nat.add(f1, f2), a, h3, chainr(y, z, f2, f1, a, h2, h1)))
+
+# G of a Nat, plus a
+def Gn(i: Nat, a: Nat) -> Nat:
+  match i:
+    case 0n:
+      2n+a
+    case 1n+q:
+      2n+Gn(q, a)
+
+# G of a name, plus a
+def Gk(k: List<&2, Word(8n)>, a: Nat) -> Nat:
+  match k:
+    case Nil{}:
+      2n+a
+    case Con{_, rest}:
+      2n+Gk(rest, a)
+
+# G of names, plus a
+def Gks(ks: List<&2, List<&2, Word(8n)>>, a: Nat) -> Nat:
+  match ks:
+    case Nil{}:
+      2n+a
+    case Con{k, rest}:
+      2n+Gk(k, Gks(rest, a))
+
+# G of a term, plus a: its last field outermost, as the reader pops it
+def Gt(t: C.Term, a: Nat) -> Nat:
+  match t:
+    case C.Term.Var{x1}:
+      2n+Gn(x1, a)
+    case C.Term.Ref{x1}:
+      2n+Gk(x1, a)
+    case C.Term.Ann{x1, x2}:
+      2n+Gt(x2, Gt(x1, a))
+    case C.Term.Let{_, x1, x2}:
+      2n+Gt(x2, Gt(x1, 2n+a))
+    case C.Term.Typ{x1}:
+      2n+Gt(x1, a)
+    case C.Term.Min{x1, x2}:
+      2n+Gt(x2, Gt(x1, a))
+    case C.Term.All{_, x1, x2}:
+      2n+Gt(x2, Gt(x1, 2n+a))
+    case C.Term.Lam{_, x1}:
+      2n+Gt(x1, 2n+a)
+    case C.Term.App{_, x1, x2}:
+      2n+Gt(x2, Gt(x1, 2n+a))
+    case C.Term.Sig{_, x1, x2}:
+      2n+Gt(x2, Gt(x1, 2n+a))
+    case C.Term.Tup{_, x1, x2}:
+      2n+Gt(x2, Gt(x1, 2n+a))
+    case C.Term.Prj{x1}:
+      2n+Gt(x1, a)
+    case C.Term.Enu{x1}:
+      2n+Gks(x1, a)
+    case C.Term.Lab{x1}:
+      2n+Gk(x1, a)
+    case C.Term.Mat{x1, x2, x3}:
+      2n+Gt(x3, Gt(x2, Gk(x1, a)))
+    case C.Term.Efq{}:
+      2n+a
+    case C.Term.Eql{x1, x2, x3}:
+      2n+Gt(x3, Gt(x2, Gt(x1, a)))
+    case C.Term.Rfl{}:
+      2n+a
+    case C.Term.Rwt{x1, x2, x3}:
+      2n+Gt(x3, Gt(x2, Gt(x1, a)))
+
+# G of a def, plus a
+def Gdef(d: C.Def, a: Nat) -> Nat:
+  match d:
+    case C.Def{k, ty, v, _}:
+      4n+Gt(v, Gt(ty, Gk(k, a)))
+
+# G of defs, plus a
+def Gd(ds: List<&2, C.Def>, a: Nat) -> Nat:
+  match ds:
+    case Nil{}:
+      2n+a
+    case Con{d, rest}:
+      2n+Gdef(d, Gd(rest, a))
+
+# G of an item, plus a
+def Gi(it: C.Item, a: Nat) -> Nat:
+  match it:
+    case C.Item.quan{_}:
+      2n+a
+    case C.Item.nat{i}:
+      Gn(i, a)
+    case C.Item.name{k}:
+      Gk(k, a)
+    case C.Item.names{ks}:
+      Gks(ks, a)
+    case C.Item.bool{_}:
+      2n+a
+    case C.Item.term{t}:
+      Gt(t, a)
+    case C.Item.def{d}:
+      Gdef(d, a)
+    case C.Item.defs{ds}:
+      Gd(ds, a)
+
+# G of a stack, plus a: the top item outermost
+def Gs(st: List<&2, C.Item>, a: Nat) -> Nat:
+  match st:
+    case Nil{}:
+      a
+    case Con{it, rest}:
+      Gi(it, Gs(rest, a))
+
+# G of a reader's state
+def Gm(st: Maybe<List<&2, C.Item>>) -> Nat:
+  match st:
+    case None{}:
+      0n
+    case Some{s}:
+      Gs(s, 0n)
+
+# a token's result: none, or a stack of G 2 more than w
+def Ge(r: Maybe<List<&2, C.Item>>, w: Nat) -> Type:
+  match r:
+    case None{}:
+      Unit
+    case Some{s}:
+      Le(2n+w, Gs(s, 0n))
+
+# Each token adds 2 to G
+# ---------------------
+
+def succ.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.succ(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.nat{1n+x1}, rest}, 0n))
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def byte.ge(s0: List<&2, C.Item>, b: Word(8n)) -> Ge(C.Book.read.byte(s0, b), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.name{Con{b, x1}}, rest}, 0n))
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def names.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.names(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{+x2}, +rest}:
+          le_refl(Gs(Con{C.Item.names{Con{x1, x2}}, rest}, 0n))
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{_}, _}:
+          Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def defs.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.defs(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{_}, _}:
+          Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{+x2}, +rest}:
+          le_refl(Gs(Con{C.Item.defs{Con{x1, x2}}, rest}, 0n))
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def def.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.def(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{_}, _}:
+              Unit{}
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{+x3}, +s3}:
+              match s3:
+                case Nil{}:
+                  Unit{}
+                case Con{C.Item.quan{_}, _}:
+                  Unit{}
+                case Con{C.Item.nat{_}, _}:
+                  Unit{}
+                case Con{C.Item.name{+x4}, +rest}:
+                  le_refl(Gs(Con{C.Item.def{C.Def{x4, x3, x2, x1}}, rest}, 0n))
+                case Con{C.Item.names{_}, _}:
+                  Unit{}
+                case Con{C.Item.bool{_}, _}:
+                  Unit{}
+                case Con{C.Item.term{_}, _}:
+                  Unit{}
+                case Con{C.Item.def{_}, _}:
+                  Unit{}
+                case Con{C.Item.defs{_}, _}:
+                  Unit{}
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def var.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.var(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.term{C.Term.Var{x1}}, rest}, 0n))
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def ref.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.ref(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.term{C.Term.Ref{x1}}, rest}, 0n))
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def ann.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.ann(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +rest}:
+          le_refl(Gs(Con{C.Item.term{C.Term.Ann{x2, x1}}, rest}, 0n))
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def let.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.let(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.Let{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{_}, _}:
+              Unit{}
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def typ.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.typ(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.term{C.Term.Typ{x1}}, rest}, 0n))
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def min.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.min(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +rest}:
+          le_refl(Gs(Con{C.Item.term{C.Term.Min{x2, x1}}, rest}, 0n))
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def all.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.all(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.All{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{_}, _}:
+              Unit{}
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def lam.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.lam(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{+x2}, +rest}:
+          le_refl(Gs(Con{C.Item.term{C.Term.Lam{x2, x1}}, rest}, 0n))
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{_}, _}:
+          Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def app.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.app(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.App{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{_}, _}:
+              Unit{}
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def sig.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.sig(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.Sig{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{_}, _}:
+              Unit{}
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def tup.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.tup(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.Tup{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{_}, _}:
+              Unit{}
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def prj.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.prj(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.term{C.Term.Prj{x1}}, rest}, 0n))
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def enu.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.enu(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.term{C.Term.Enu{x1}}, rest}, 0n))
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def lab.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.lab(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{+x1}, +rest}:
+      le_refl(Gs(Con{C.Item.term{C.Term.Lab{x1}}, rest}, 0n))
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{_}, _}:
+      Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def mat.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.mat(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{_}, _}:
+              Unit{}
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.Mat{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{_}, _}:
+              Unit{}
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def eql.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.eql(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{_}, _}:
+              Unit{}
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.Eql{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def rwt.ge(s0: List<&2, C.Item>) -> Ge(C.Book.read.rwt(s0), Gs(s0, 0n)):
+  match s0:
+    case Nil{}:
+      Unit{}
+    case Con{C.Item.quan{_}, _}:
+      Unit{}
+    case Con{C.Item.nat{_}, _}:
+      Unit{}
+    case Con{C.Item.name{_}, _}:
+      Unit{}
+    case Con{C.Item.names{_}, _}:
+      Unit{}
+    case Con{C.Item.bool{_}, _}:
+      Unit{}
+    case Con{C.Item.term{+x1}, +s1}:
+      match s1:
+        case Nil{}:
+          Unit{}
+        case Con{C.Item.quan{_}, _}:
+          Unit{}
+        case Con{C.Item.nat{_}, _}:
+          Unit{}
+        case Con{C.Item.name{_}, _}:
+          Unit{}
+        case Con{C.Item.names{_}, _}:
+          Unit{}
+        case Con{C.Item.bool{_}, _}:
+          Unit{}
+        case Con{C.Item.term{+x2}, +s2}:
+          match s2:
+            case Nil{}:
+              Unit{}
+            case Con{C.Item.quan{_}, _}:
+              Unit{}
+            case Con{C.Item.nat{_}, _}:
+              Unit{}
+            case Con{C.Item.name{_}, _}:
+              Unit{}
+            case Con{C.Item.names{_}, _}:
+              Unit{}
+            case Con{C.Item.bool{_}, _}:
+              Unit{}
+            case Con{C.Item.term{+x3}, +rest}:
+              le_refl(Gs(Con{C.Item.term{C.Term.Rwt{x3, x2, x1}}, rest}, 0n))
+            case Con{C.Item.def{_}, _}:
+              Unit{}
+            case Con{C.Item.defs{_}, _}:
+              Unit{}
+        case Con{C.Item.def{_}, _}:
+          Unit{}
+        case Con{C.Item.defs{_}, _}:
+          Unit{}
+    case Con{C.Item.def{_}, _}:
+      Unit{}
+    case Con{C.Item.defs{_}, _}:
+      Unit{}
+
+def token32.ge(n: Nat, +st: List<&2, C.Item>) -> Ge(C.Book.read.token32(n, st), Gs(st, 0n)):
+  match n:
+    case 0n:
+      rwt.ge(st)
+    case 1n+_:
+      Unit{}
+
+def token24.ge(n: Nat, +st: List<&2, C.Item>) -> Ge(C.Book.read.token24(n, st), Gs(st, 0n)):
+  match n:
+    case 0n:
+      tup.ge(st)
+    case 1n:
+      prj.ge(st)
+    case 2n:
+      enu.ge(st)
+    case 3n:
+      lab.ge(st)
+    case 4n:
+      mat.ge(st)
+    case 5n:
+      le_refl(2n+Gs(st, 0n))
+    case 6n:
+      eql.ge(st)
+    case 7n:
+      le_refl(2n+Gs(st, 0n))
+    case 8n+p:
+      token32.ge(p, st)
+
+def token16.ge(n: Nat, +st: List<&2, C.Item>) -> Ge(C.Book.read.token16(n, st), Gs(st, 0n)):
+  match n:
+    case 0n:
+      ann.ge(st)
+    case 1n:
+      let.ge(st)
+    case 2n:
+      typ.ge(st)
+    case 3n:
+      min.ge(st)
+    case 4n:
+      all.ge(st)
+    case 5n:
+      lam.ge(st)
+    case 6n:
+      app.ge(st)
+    case 7n:
+      sig.ge(st)
+    case 8n+p:
+      token24.ge(p, st)
+
+def token8.ge(n: Nat, +st: List<&2, C.Item>) -> Ge(C.Book.read.token8(n, st), Gs(st, 0n)):
+  match n:
+    case 0n:
+      names.ge(st)
+    case 1n:
+      le_refl(2n+Gs(st, 0n))
+    case 2n:
+      le_refl(2n+Gs(st, 0n))
+    case 3n:
+      le_refl(2n+Gs(st, 0n))
+    case 4n:
+      defs.ge(st)
+    case 5n:
+      def.ge(st)
+    case 6n:
+      var.ge(st)
+    case 7n:
+      ref.ge(st)
+    case 8n+p:
+      token16.ge(p, st)
+
+def token.ge(n: Nat, +st: List<&2, C.Item>, b: Word(8n)) -> Ge(C.Book.read.token(n, st, b), Gs(st, 0n)):
+  match n:
+    case 0n:
+      le_refl(2n+Gs(st, 0n))
+    case 1n:
+      le_refl(2n+Gs(st, 0n))
+    case 2n:
+      le_refl(2n+Gs(st, 0n))
+    case 3n:
+      le_refl(2n+Gs(st, 0n))
+    case 4n:
+      succ.ge(st)
+    case 5n:
+      le_refl(2n+Gs(st, 0n))
+    case 6n:
+      byte.ge(st, b)
+    case 7n:
+      le_refl(2n+Gs(st, 0n))
+    case 8n+p:
+      token8.ge(p, st)
+
+# Reading a book
+# --------------
+
+# None is not Some
+def IsNone(m: Maybe<List<&2, C.Def>>) -> Type:
+  match m:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+def none_ne_some(-ds: List<&2, C.Def>, e: {None{} == Some{ds} : Maybe<List<&2, C.Def>>}) -> Empty:
+  %e : IsNone(_)
+  Unit{}
+
+# a reader that failed reads no book
+def go.none(xs: List<&2, Word(8n)>, +ds: List<&2, C.Def>, e: {C.Book.read.go(xs, None{}) == Some{ds} : Maybe<List<&2, C.Def>>}) -> Empty:
+  match xs:
+    case Nil{}:
+      none_ne_some(ds, e)
+    case Con{_, Nil{}}:
+      none_ne_some(ds, e)
+    case Con{_, Con{_, +rest}}:
+      go.none(rest, ds, e)
+
+# G of a read book
+def Vd(m: Maybe<List<&2, C.Def>>) -> Nat:
+  match m:
+    case None{}:
+      0n
+    case Some{ds}:
+      Gd(ds, 0n)
+
+# the end of the reading: the book's G is the stack's
+def done.ge(st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>, e: {C.Book.read.done(st) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
+  Le(Gm(st), Gd(ds, 0n)):
+  match st:
+    case None{}:
+      Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+    case Some{s}:
+      match s:
+        case Nil{}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.quan{_}, _}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.nat{_}, _}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.name{_}, _}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.names{_}, _}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.bool{_}, _}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.term{_}, _}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.def{_}, _}:
+          Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+        case Con{C.Item.defs{+ds0}, t}:
+          match t:
+            case Nil{}:
+              %e : Le(Gd(ds0, 0n), Vd(_))
+              le_refl(Gd(ds0, 0n))
+            case Con{_, _}:
+              Empty.absurd(Le(Gm(st), Gd(ds, 0n)), none_ne_some(ds, e))
+
+# one token of the reading: 2 bytes, and 2 more G
+def next.ge(r: Maybe<List<&2, C.Item>>, +rest: List<&2, Word(8n)>, +w: Nat, +ds: List<&2, C.Def>,
+  g: Ge(r, w),
+  ih: Le(Nat.add(List.length(&2, Word(8n), rest), Gm(r)), Gd(ds, 0n)),
+  e: {C.Book.read.go(rest, r) == Some{ds} : Maybe<List<&2, C.Def>>}
+) -> Le(2n+Nat.add(List.length(&2, Word(8n), rest), w), Gd(ds, 0n)):
+  match r:
+    case None{}:
+      Empty.absurd(Le(2n+Nat.add(List.length(&2, Word(8n), rest), w), Gd(ds, 0n)), go.none(rest, ds, e))
+    case Some{+s}:
+      +l = List.length(&2, Word(8n), rest)
+      +h = le_trans(Nat.add(l, 2n+w), Nat.add(l, Gs(s, 0n)), Gd(ds, 0n), add_mono(l, l, 2n+w, Gs(s, 0n), le_refl(l), g), ih)
+      le_rw_l(Nat.add(l, 2n+w), 2n+Nat.add(l, w), Gd(ds, 0n), Equal.sym(Nat, 2n+Nat.add(l, w), Nat.add(l, 2n+w), add_two(l, w)), h)
+
+# the reading: the bytes left plus the stack's G are at most the book's G
+def go.ge(xs: List<&2, Word(8n)>, st: Maybe<List<&2, C.Item>>, +ds: List<&2, C.Def>,
+  +e: {C.Book.read.go(xs, st) == Some{ds} : Maybe<List<&2, C.Def>>}
+) -> Le(Nat.add(List.length(&2, Word(8n), xs), Gm(st)), Gd(ds, 0n)):
+  match xs:
+    case Nil{}:
+      done.ge(st, ds, e)
+    case Con{_, Nil{}}:
+      Empty.absurd(Le(Nat.add(1n, Gm(st)), Gd(ds, 0n)), none_ne_some(ds, e))
+    case Con{+tag, Con{+b, +rest}}:
+      match st:
+        case None{}:
+          Empty.absurd(Le(Nat.add(2n+List.length(&2, Word(8n), rest), Gm(st)), Gd(ds, 0n)), go.none(rest, ds, e))
+        case Some{+s}:
+          next.ge(C.Book.read.token(Word.to_nat(8n, tag), s, b), rest, Gs(s, 0n), ds, token.ge(Word.to_nat(8n, tag), s, b),
+            go.ge(rest, C.Book.read.token(Word.to_nat(8n, tag), s, b), ds, e), e)
+
+# a book read from p has a G of at least |p|
+def read.ge(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
+  Le(List.length(&2, Word(8n), p), Gd(ds, 0n)):
+  +l = List.length(&2, Word(8n), p)
+  le_rw_l(Nat.add(l, 0n), l, Gd(ds, 0n), add_zero(l), go.ge(p, Some{Nil{}}, ds, rd))
+
+# G is at most the nodes
+# ----------------------
+
+def gn.dbl(i: Nat, +a: Nat) -> Le(Gn(i, a), 2n+Nat.add(Nat.double(i), a)):
+  match i:
+    case 0n:
+      le_refl(2n+a)
+    case 1n+q:
+      gn.dbl(q, a)
+
+def gn.le(+i: Nat, +a: Nat) -> Le(Gn(i, a), Nat.add(C.Form.size.nat(i), a)):
+  le_trans(Gn(i, a), 2n+Nat.add(Nat.double(i), a), Nat.add(C.Form.size.nat(i), a), gn.dbl(i, a),
+    le_succ(Nat.add(Nat.double(i), a), Nat.add(Nat.mul(4n, i), a),
+      add_mono(Nat.double(i), Nat.mul(4n, i), a, a, dbl_mul(2n, i), le_refl(a))))
+
+def gk.dbl(k: List<&2, Word(8n)>, +a: Nat) -> Le(Gk(k, a), 2n+Nat.add(Nat.double(List.length(&2, Word(8n), k)), a)):
+  match k:
+    case Nil{}:
+      le_refl(2n+a)
+    case Con{_, +rest}:
+      gk.dbl(rest, a)
+
+def gk.le(+k: List<&2, Word(8n)>, +a: Nat) -> Le(Gk(k, a), Nat.add(C.Form.size.name(k), a)):
+  +l = List.length(&2, Word(8n), k)
+  le_trans(Gk(k, a), 2n+Nat.add(Nat.double(l), a), Nat.add(C.Form.size.name(k), a), gk.dbl(k, a),
+    le_succ(Nat.add(Nat.double(l), a), Nat.add(Nat.mul(72n, l), a),
+      add_mono(Nat.double(l), Nat.mul(72n, l), a, a, dbl_mul(70n, l), le_refl(a))))
+
+def gks.le(ks: List<&2, List<&2, Word(8n)>>, +a: Nat) -> Le(Gks(ks, a), Nat.add(C.Form.size.names(ks), a)):
+  match ks:
+    case Nil{}:
+      le_succ(a, a, le_refl(a))
+    case Con{+k, +rest}:
+      le_plus(3n, Gk(k, Gks(rest, a)), Nat.add(Nat.add(C.Form.size.name(k), C.Form.size.names(rest)), a),
+        chain2(Gk(k, Gks(rest, a)), Gks(rest, a), C.Form.size.name(k), C.Form.size.names(rest), a, gk.le(k, Gks(rest, a)), gks.le(rest, a)))
+
+def gt.le(t: C.Term, +a: Nat) -> Le(Gt(t, a), Nat.add(C.Form.size.term(t), a)):
+  match t:
+    case C.Term.Var{+x1}:
+      le_plus(2n, Gn(x1, a), Nat.add(C.Form.size.nat(x1), a), gn.le(x1, a))
+    case C.Term.Ref{+x1}:
+      le_plus(2n, Gk(x1, a), Nat.add(C.Form.size.name(x1), a), gk.le(x1, a))
+    case C.Term.Ann{+x1, +x2}:
+      le_plus(3n, Gt(x2, Gt(x1, a)), Nat.add(Nat.add(C.Form.size.term(x1), C.Form.size.term(x2)), a),
+        chainr(Gt(x2, Gt(x1, a)), Gt(x1, a), C.Form.size.term(x2), C.Form.size.term(x1), a, gt.le(x2, Gt(x1, a)), gt.le(x1, a)))
+    case C.Term.Let{_, +x1, +x2}:
+      le_plus(5n, Gt(x2, Gt(x1, 2n+a)), 2n+Nat.add(Nat.add(C.Form.size.term(x1), C.Form.size.term(x2)), a),
+        chainq(Gt(x2, Gt(x1, 2n+a)), Gt(x1, 2n+a), C.Form.size.term(x2), C.Form.size.term(x1), a, gt.le(x2, Gt(x1, 2n+a)), gt.le(x1, 2n+a)))
+    case C.Term.Typ{+x1}:
+      le_plus(2n, Gt(x1, a), Nat.add(C.Form.size.term(x1), a), gt.le(x1, a))
+    case C.Term.Min{+x1, +x2}:
+      le_plus(3n, Gt(x2, Gt(x1, a)), Nat.add(Nat.add(C.Form.size.term(x1), C.Form.size.term(x2)), a),
+        chainr(Gt(x2, Gt(x1, a)), Gt(x1, a), C.Form.size.term(x2), C.Form.size.term(x1), a, gt.le(x2, Gt(x1, a)), gt.le(x1, a)))
+    case C.Term.All{_, +x1, +x2}:
+      le_plus(5n, Gt(x2, Gt(x1, 2n+a)), 2n+Nat.add(Nat.add(C.Form.size.term(x1), C.Form.size.term(x2)), a),
+        chainq(Gt(x2, Gt(x1, 2n+a)), Gt(x1, 2n+a), C.Form.size.term(x2), C.Form.size.term(x1), a, gt.le(x2, Gt(x1, 2n+a)), gt.le(x1, 2n+a)))
+    case C.Term.Lam{_, +x1}:
+      le_plus(4n, Gt(x1, 2n+a), 2n+Nat.add(C.Form.size.term(x1), a),
+        le_rw_r(Gt(x1, 2n+a), Nat.add(C.Form.size.term(x1), 2n+a), 2n+Nat.add(C.Form.size.term(x1), a),
+          Equal.sym(Nat, 2n+Nat.add(C.Form.size.term(x1), a), Nat.add(C.Form.size.term(x1), 2n+a), add_two(C.Form.size.term(x1), a)),
+          gt.le(x1, 2n+a)))
+    case C.Term.App{_, +x1, +x2}:
+      le_plus(5n, Gt(x2, Gt(x1, 2n+a)), 2n+Nat.add(Nat.add(C.Form.size.term(x1), C.Form.size.term(x2)), a),
+        chainq(Gt(x2, Gt(x1, 2n+a)), Gt(x1, 2n+a), C.Form.size.term(x2), C.Form.size.term(x1), a, gt.le(x2, Gt(x1, 2n+a)), gt.le(x1, 2n+a)))
+    case C.Term.Sig{_, +x1, +x2}:
+      le_plus(5n, Gt(x2, Gt(x1, 2n+a)), 2n+Nat.add(Nat.add(C.Form.size.term(x1), C.Form.size.term(x2)), a),
+        chainq(Gt(x2, Gt(x1, 2n+a)), Gt(x1, 2n+a), C.Form.size.term(x2), C.Form.size.term(x1), a, gt.le(x2, Gt(x1, 2n+a)), gt.le(x1, 2n+a)))
+    case C.Term.Tup{_, +x1, +x2}:
+      le_plus(5n, Gt(x2, Gt(x1, 2n+a)), 2n+Nat.add(Nat.add(C.Form.size.term(x1), C.Form.size.term(x2)), a),
+        chainq(Gt(x2, Gt(x1, 2n+a)), Gt(x1, 2n+a), C.Form.size.term(x2), C.Form.size.term(x1), a, gt.le(x2, Gt(x1, 2n+a)), gt.le(x1, 2n+a)))
+    case C.Term.Prj{+x1}:
+      le_plus(2n, Gt(x1, a), Nat.add(C.Form.size.term(x1), a), gt.le(x1, a))
+    case C.Term.Enu{+x1}:
+      le_plus(2n, Gks(x1, a), Nat.add(C.Form.size.names(x1), a), gks.le(x1, a))
+    case C.Term.Lab{+x1}:
+      le_plus(2n, Gk(x1, a), Nat.add(C.Form.size.name(x1), a), gk.le(x1, a))
+    case C.Term.Mat{+x1, +x2, +x3}:
+      le_plus(4n, Gt(x3, Gt(x2, Gk(x1, a))), Nat.add(Nat.add(C.Form.size.name(x1), Nat.add(C.Form.size.term(x2), C.Form.size.term(x3))), a),
+        chain3(Gt(x3, Gt(x2, Gk(x1, a))), Gt(x2, Gk(x1, a)), Gk(x1, a), C.Form.size.name(x1), C.Form.size.term(x2), C.Form.size.term(x3), a,
+          gt.le(x3, Gt(x2, Gk(x1, a))), gt.le(x2, Gk(x1, a)), gk.le(x1, a)))
+    case C.Term.Efq{}:
+      le_succ(a, a, le_refl(a))
+    case C.Term.Eql{+x1, +x2, +x3}:
+      le_plus(4n, Gt(x3, Gt(x2, Gt(x1, a))), Nat.add(Nat.add(C.Form.size.term(x1), Nat.add(C.Form.size.term(x2), C.Form.size.term(x3))), a),
+        chain3(Gt(x3, Gt(x2, Gt(x1, a))), Gt(x2, Gt(x1, a)), Gt(x1, a), C.Form.size.term(x1), C.Form.size.term(x2), C.Form.size.term(x3), a,
+          gt.le(x3, Gt(x2, Gt(x1, a))), gt.le(x2, Gt(x1, a)), gt.le(x1, a)))
+    case C.Term.Rfl{}:
+      le_succ(a, a, le_refl(a))
+    case C.Term.Rwt{+x1, +x2, +x3}:
+      le_plus(4n, Gt(x3, Gt(x2, Gt(x1, a))), Nat.add(Nat.add(C.Form.size.term(x1), Nat.add(C.Form.size.term(x2), C.Form.size.term(x3))), a),
+        chain3(Gt(x3, Gt(x2, Gt(x1, a))), Gt(x2, Gt(x1, a)), Gt(x1, a), C.Form.size.term(x1), C.Form.size.term(x2), C.Form.size.term(x3), a,
+          gt.le(x3, Gt(x2, Gt(x1, a))), gt.le(x2, Gt(x1, a)), gt.le(x1, a)))
+
+def gd.le(ds: List<&2, C.Def>, +a: Nat) -> Le(Gd(ds, a), Nat.add(C.Form.size.defs(ds), a)):
+  match ds:
+    case Nil{}:
+      le_succ(a, a, le_refl(a))
+    case Con{C.Def{+k, +ty, +v, _}, +rest}:
+      +r = Gd(rest, a)
+      +u = Gt(v, Gt(ty, Gk(k, r)))
+      +d3 = Nat.add(C.Form.size.name(k), Nat.add(C.Form.size.term(ty), C.Form.size.term(v)))
+      +h = chain3(u, Gt(ty, Gk(k, r)), Gk(k, r), C.Form.size.name(k), C.Form.size.term(ty), C.Form.size.term(v), r,
+        gt.le(v, Gt(ty, Gk(k, r))), gt.le(ty, Gk(k, r)), gk.le(k, r))
+      le_plus(9n, u, Nat.add(Nat.add(d3, C.Form.size.defs(rest)), a), chain2(u, r, d3, C.Form.size.defs(rest), a, h, gd.le(rest, a)))
+
+# the program's size of a book that Book.read reads
+def size.eq(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
+  {C.Form.size.defs(ds) == C.Program.size(p) : Nat}:
+  %Equal.sym(Maybe<List<&2, C.Def>>, C.Book.read(p), Some{ds}, rd) : {C.Form.size.defs(ds) == C.Program.size.of(_) : Nat}
+  {==}
+
+# the bytes of a book are at most its program's size
+def size.ge(+p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>}) ->
+  Le(List.length(&2, Word(8n), p), C.Program.size(p)):
+  +l = List.length(&2, Word(8n), p)
+  +f = C.Form.size.defs(ds)
+  le_rw_r(l, f, C.Program.size(p), size.eq(p, ds, rd),
+    le_trans(l, Gd(ds, 0n), f, read.ge(p, ds, rd), le_rw_r(Gd(ds, 0n), Nat.add(f, 0n), f, add_zero(f), gd.le(ds, 0n))))
+
 # The need
 # --------
 
-# 64 × |p| + 1 <= the need of p
-def need_ge(+p: List<&2, Word(8n)>, +s: Nat) ->
-  Le(1n+Nat.mul(64n, List.length(&2, Word(8n), p)), Nat.add(Nat.mul(64n, Nat.add(List.length(&2, Word(8n), p), s)), 16777216n)):
-  +l = List.length(&2, Word(8n), p)
-  +x = Nat.mul(64n, l)
-  le_trans(1n+x, Nat.add(x, 1n), Nat.add(Nat.mul(64n, Nat.add(l, s)), 16777216n), le_succ_add(x),
-    add_mono(x, Nat.mul(64n, Nat.add(l, s)), 1n, 16777216n, mul_mono_r(64n, l, Nat.add(l, s), le_add_r(l, s)), le_one()))
+# 64 × z + 1 <= 64 × (z + s) + 2^24
+def need_ge(+z: Nat, +s: Nat) ->
+  Le(1n+Nat.mul(64n, z), Nat.add(Nat.mul(64n, Nat.add(z, s)), 16777216n)):
+  +x = Nat.mul(64n, z)
+  le_trans(1n+x, Nat.add(x, 1n), Nat.add(Nat.mul(64n, Nat.add(z, s)), 16777216n), le_succ_add(x),
+    add_mono(x, Nat.mul(64n, Nat.add(z, s)), 1n, 16777216n, mul_mono_r(64n, z, Nat.add(z, s), le_add_r(z, s)), le_one()))
 
 # a small-failing book: 2^32 <= 64 × |p|
 def len_ge(+p: List<&2, Word(8n)>, small: {C.Img.small(p, 0) == False{} : Bool}) ->
@@ -652,15 +2083,20 @@ def len_ge(+p: List<&2, Word(8n)>, small: {C.Img.small(p, 0) == False{} : Bool})
 
 # a book of 2^26 bytes or more needs more memory than a module can have
 def need.big.proof(
-  +p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +m: U32,
+  +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +n: Nat, +m: U32,
+  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
   small: {C.Img.small(p, 0) == False{} : Bool},
   big: {Nat.is_le(C.Program.need(p, i, n), C.Program.memory(m)) == True{} : Bool}
 ) -> Empty:
-  +x = Nat.mul(64n, List.length(&2, Word(8n), p))
+  +l = List.length(&2, Word(8n), p)
+  +z = C.Program.size(p)
+  +x = Nat.mul(64n, z)
   +need = C.Program.need(p, i, n)
   +mem = C.Program.memory(m)
-  +hn = {need_ge(p, C.Program.largest(p, i, n)) : Le(1n+x, need)}
+  +hn = {need_ge(z, C.Program.largest(p, i, n)) : Le(1n+x, need)}
+  +hz = mul_mono_r(64n, l, z, size.ge(p, ds, rd))
   not_succ_le(x,
     le_trans(1n+x, need, x, hn,
       le_trans(need, mem, x, toLe(need, mem, big),
-        le_trans(mem, D(32n, 1n), x, memory_le(m), len_ge(p, small)))))
+        le_trans(mem, D(32n, 1n), x, memory_le(m),
+          le_trans(D(32n, 1n), Nat.mul(64n, l), x, len_ge(p, small), hz)))))

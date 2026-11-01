@@ -3184,9 +3184,95 @@ def Program.largest.of(r: Maybe<List<&2, Def>>, i: List<&2, Word(8n)>, n: Nat) -
 def Program.largest(p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
   Program.largest.of(Book.read(p), i, n)
 
-# F of AGENTS.md 3.7.1.4: 64 × (|p| + S) + 2^24 bytes
+# The nodes of a value's data form (AGENTS.md 3.1.4), as `bend -o` writes it: a
+# constructor k{f1, .., fn} is (.k, (f1, (.., (fn, ())))), 3 + n nodes with
+# the nodes s of its fields
+def Form.size.ctor(n: Nat, s: Nat) -> Nat:
+  Nat.add(3n+n, s)
+
+# a Nat: Zero, then a Succ for each unit
+def Form.size.nat(n: Nat) -> Nat:
+  Nat.add(3n, Nat.mul(4n, n))
+
+# a name: Nil, then a Con of a byte (67 nodes: 8 levels of WCon and a bit,
+# then WNil) for each byte
+def Form.size.name(k: List<&2, Word(8n)>) -> Nat:
+  Nat.add(3n, Nat.mul(72n, List.length(&2, Word(8n), k)))
+
+def Form.size.names(ks: List<&2, List<&2, Word(8n)>>) -> Nat:
+  match ks:
+    case Nil{}:
+      3n
+    case Con{k, rest}:
+      5n+Nat.add(Form.size.name(k), Form.size.names(rest))
+
+# a term; a quantity has 3 nodes
+def Form.size.term(t: Term) -> Nat:
+  match t:
+    case Term.Var{i}:
+      Form.size.ctor(1n, Form.size.nat(i))
+    case Term.Ref{k}:
+      Form.size.ctor(1n, Form.size.name(k))
+    case Term.Ann{x, T}:
+      Form.size.ctor(2n, Nat.add(Form.size.term(x), Form.size.term(T)))
+    case Term.Let{_, v, f}:
+      Form.size.ctor(3n, 3n+Nat.add(Form.size.term(v), Form.size.term(f)))
+    case Term.Typ{q}:
+      Form.size.ctor(1n, Form.size.term(q))
+    case Term.Min{a, b}:
+      Form.size.ctor(2n, Nat.add(Form.size.term(a), Form.size.term(b)))
+    case Term.All{_, A, B}:
+      Form.size.ctor(3n, 3n+Nat.add(Form.size.term(A), Form.size.term(B)))
+    case Term.Lam{_, f}:
+      Form.size.ctor(2n, 3n+Form.size.term(f))
+    case Term.App{_, f, x}:
+      Form.size.ctor(3n, 3n+Nat.add(Form.size.term(f), Form.size.term(x)))
+    case Term.Sig{_, A, B}:
+      Form.size.ctor(3n, 3n+Nat.add(Form.size.term(A), Form.size.term(B)))
+    case Term.Tup{_, a, b}:
+      Form.size.ctor(3n, 3n+Nat.add(Form.size.term(a), Form.size.term(b)))
+    case Term.Prj{h}:
+      Form.size.ctor(1n, Form.size.term(h))
+    case Term.Enu{ks}:
+      Form.size.ctor(1n, Form.size.names(ks))
+    case Term.Lab{k}:
+      Form.size.ctor(1n, Form.size.name(k))
+    case Term.Mat{k, h, m}:
+      Form.size.ctor(3n, Nat.add(Form.size.name(k), Nat.add(Form.size.term(h), Form.size.term(m))))
+    case Term.Efq{}:
+      3n
+    case Term.Eql{a, b, T}:
+      Form.size.ctor(3n, Nat.add(Form.size.term(a), Nat.add(Form.size.term(b), Form.size.term(T))))
+    case Term.Rfl{}:
+      3n
+    case Term.Rwt{e, P, f}:
+      Form.size.ctor(3n, Nat.add(Form.size.term(e), Nat.add(Form.size.term(P), Form.size.term(f))))
+
+# a list of defs; a Bool has 3 nodes
+def Form.size.defs(ds: List<&2, Def>) -> Nat:
+  match ds:
+    case Nil{}:
+      3n
+    case Con{Def{k, T, v, _}, rest}:
+      5n+Nat.add(Form.size.ctor(4n, 3n+Nat.add(Form.size.name(k), Nat.add(Form.size.term(T), Form.size.term(v)))),
+        Form.size.defs(rest))
+
+def Program.size.of(r: Maybe<List<&2, Def>>) -> Nat:
+  match r:
+    case None{}:
+      0n
+    case Some{ds}:
+      Form.size.defs(ds)
+
+# the program's size of AGENTS.md 3.3.4: the nodes of the data form of the book
+# of the bytes p; 0 when they are no book
+def Program.size(p: List<&2, Word(8n)>) -> Nat:
+  Program.size.of(Book.read(p))
+
+# F of AGENTS.md 3.7.1.4: 64 × (the program's size + the largest term) + 2^24
+# bytes
 def Program.need(+p: List<&2, Word(8n)>, i: List<&2, Word(8n)>, n: Nat) -> Nat:
-  Nat.add(Nat.mul(64n, Nat.add(List.length(&2, Word(8n), p), Program.largest(p, i, n))), 16777216n)
+  Nat.add(Nat.mul(64n, Nat.add(Program.size(p), Program.largest(p, i, n))), 16777216n)
 
 # the bytes of m pages of 2^16 bytes, up to 2^16 pages: as much as a memory of
 # 32-bit addresses can have
@@ -4208,7 +4294,9 @@ def Cir.result(fuel: Nat, prog: Cir.Stmt, +regs: Nat, +cells: List<&2, Cir.Cell>
 # a λ copies its code, with pointers to its arguments: a part whose free
 # variables the copy does not reach is shared, not copied. A cell whose count
 # drops to 0 goes to a list of cells to reuse, and its parts lose a pointer
-# when the cell is reused.
+# when the cell is reused. As cells form no cycle, every cell that can no
+# longer be reached is freed so (AGENTS.md 3.7.1.4); only the image and the
+# cache of the input's bytes are STATIC, never freed.
 
 # building Cir
 
@@ -5876,8 +5964,10 @@ def Img.small.if(full: Bool, more: Unit -> Bool) -> Bool:
     case False{}:
       more(Unit{})
 
-# the book's bytes are fewer than 2^26 from the n-th: enough for its numbers to
-# fit in a U32, and more than a memory of 2^32 bytes can hold with them
+# the book's bytes are fewer than 2^26 from the n-th: enough for its numbers
+# (cells, names, variables) to fit in a U32. Each token of 2 bytes adds 3 nodes
+# or more to the book's data form, so a book of more bytes has a size above
+# 2^26, and F above 2^32 bytes: more than a module can have
 def Img.small(xs: List<&2, Word(8n)>, +n: U32) -> Bool:
   match xs:
     case Nil{}:
@@ -5910,7 +6000,7 @@ def Compiler.compile.of(machine: List<&2, Cir.Cell> -> List<&2, Word(8n)>, small
 
 # the compiler of AGENTS.md 3.6.4: the bytes of the module of the program whose
 # book has the bytes p (3.3.5). A book of 2^26 bytes or more needs more memory
-# than a module can have: its module runs out of memory at once. Bytes that
+# than a module can have (Img.small): its module runs out of memory at once. Bytes that
 # are no book give a module that gives no result
 def Compiler.compile(+p: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   Compiler.compile.of(Compiler.module, Img.small(p, 0), Book.read(p))

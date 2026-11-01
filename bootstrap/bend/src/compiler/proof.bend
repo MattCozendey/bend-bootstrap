@@ -71,11 +71,12 @@ def img.small(
 
 # a book of 2^26 bytes or more needs more memory than a module can have
 def need.big(
-  +p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +m: U32,
+  +p: List<&2, Word(8n)>, +ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +n: Nat, +m: U32,
+  rd: {C.Book.read(p) == Some{ds} : Maybe<List<&2, C.Def>>},
   small: {C.Img.small(p, 0) == False{} : Bool},
   big: {Nat.is_le(C.Program.need(p, i, n), C.Program.memory(m)) == True{} : Bool}
 ) -> Empty:
-  PN.need.big.proof(p, i, n, m, small, big)
+  PN.need.big.proof(p, ds, i, n, m, rd, small, big)
 
 # B: the machine never makes an access that its module could not make the
 # same way
@@ -256,8 +257,8 @@ def nof.of(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2,
 def S.no_other_failure(p, i, n, o, m, e):
   nof.of(p, i, n, o, m, C.Img.small(p, 0), C.Book.read(p))({==}, {==}, e)
 
-# enough_memory: a book of 2^26 bytes or more asks more memory than a module
-# can have; for one that the compiler reads, B then A
+# enough_memory: a book of 2^26 bytes or more that Book.read reads asks more
+# memory than a module can have; for one that the compiler reads, B then A
 def em.result(+ds: List<&2, C.Def>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
   s: &f:Nat -> {C.Wasm.run(f, C.Compiler.module(C.Img.cells(ds)), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome}) ->
   &f:Nat -> {C.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, True{}, Some{ds}), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome}:
@@ -279,10 +280,14 @@ def em.of(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, 
   {Nat.is_le(C.Program.need(p, i, n), C.Program.memory(m)) == True{} : Bool} ->
   &f:Nat -> {C.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, small, r), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome}:
   match small r:
-    case False{} _:
+    case False{} None{}:
       es => er => e => big => Empty.absurd(
         &f:Nat -> {C.Wasm.run(f, C.Compiler.halt(1), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome},
-        need.big(p, i, n, m, es, big))
+        gives.none(o, e))
+    case False{} Some{+ds}:
+      es => er => e => big => Empty.absurd(
+        &f:Nat -> {C.Wasm.run(f, C.Compiler.halt(1), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome},
+        need.big(p, ds, i, n, m, er, es, big))
     case True{} None{}:
       es => er => e => big => Empty.absurd(
         &f:Nat -> {C.Wasm.run(f, C.Compiler.halt(2), i, m) == C.Wasm.Outcome.result{o} : C.Wasm.Outcome},
