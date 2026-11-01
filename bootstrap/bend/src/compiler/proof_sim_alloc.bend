@@ -317,7 +317,7 @@ def RB.z5(+q: Nat, +m: C.Wasm.Bytes, +i: U32, +x: U32, +Xn: Nat, +ex: {U32.to_na
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hi: N.Le(1n+U32.to_nat(i), P), +hx: N.Le(1n+Nat.add(q, Xn), W),
   +s: Either<&2, &2, N.Le(Nat.add(q, Xn), PH.H.t20(U32.to_nat(i))), N.Le(20n+PH.H.t20(U32.to_nat(i)), Xn)>) ->
-  {Q.RB(q, z5(m, i), x) == Q.RB(q, m, x) : List<&2, U32>}:
+  {Q.RB(q, z5(m, i), x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
   +I = U32.to_nat(i)
   +m1 = C.Wasm.write32(m, Q.at.f(i, 0n), 0)
   +m2 = C.Wasm.write32(m1, Q.at.f(i, 1n), 0)
@@ -328,7 +328,7 @@ def RB.z5(+q: Nat, +m: C.Wasm.Bytes, +i: U32, +x: U32, +Xn: Nat, +ex: {U32.to_na
   +A2 = Q.at.f(i, 2n)
   +A3 = Q.at.f(i, 3n)
   +A4 = Q.at.f(i, 4n)
-  -V = List<&2, U32>
+  -V = List<&2, Word(8n)>
   Equal.trans(V, Q.RB(q, z5(m, i), x), Q.RB(q, m4, x), Q.RB(q, m, x),
     F.RB.w32(q, m4, A4, 0, x, Xn, ex, W, hW, F.fld.room(i, 4n, P, hP, W, hW, hi, Unit{}), hx,
       z5.sepb(q, Xn, I, U32.to_nat(A4), F.O(4n), F.fld.nat(i, 4n, P, hP, W, hW, hi, Unit{}), Unit{}, s)),
@@ -412,7 +412,7 @@ def sub.succ.l(+x: Nat, +f: Nat, h: N.Le(f, x)) -> {Nat.sub(1n+x, f) == 1n+Nat.s
 # the relation after a new cell, the cell next: the memory may have grown to
 # p2 pages, which hold the cell
 def inv.alloc(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +p2: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +hon: {U32.to_nat(on) == 0n : Nat}, +hnx: N.Le(1n+U32.to_nat(nx), P),
   +hroom: N.Le(PH.H.t20(1n+U32.to_nat(nx)), Q.PB(p2)), +hp: N.Le(U32.to_nat(pg), U32.to_nat(p2)),
@@ -423,7 +423,7 @@ def inv.alloc(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +f
   +NX = U32.to_nat(nx)
   +FI = U32.to_nat(fi)
   +A = U32.to_nat(a)
-  +L = List.length(&2, U32, inp)
+  +L = List.length(&2, Word(8n), inp)
   +cl2 = C.Cir.Cells.set(cl, nx, C.Cir.Cell.zero())
   +m5 = z5(m, nx)
   +fle = Q.inv.fle(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
@@ -441,7 +441,7 @@ def inv.alloc(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +f
     Equal.trans(List<&2, C.Cir.Cell>, Q.RC(K, m, 1), Q.GC(K, cl, 1), Q.GC(K, cl2, 1),
       Q.inv.book(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI),
       Equal.sym(List<&2, C.Cir.Cell>, Q.GC(K, cl2, 1), Q.GC(K, cl, 1), GC.other(K, cl, nx, C.Cir.Cell.zero(), 1, 1n, {==}, P, hP, W, hW, hcb, hbx))))
-  +inp2 = Equal.trans(List<&2, U32>, Q.RB(L, m5, a), Q.RB(L, m, a), inp,
+  +inp2 = Equal.trans(List<&2, Word(8n)>, Q.RB(L, m5, a), Q.RB(L, m, a), inp,
     RB.z5(L, m, nx, a, A, {==}, P, hP, W, hW, hnx, F.b.inw(P, G, a, nx, fi, im, pg, lm, inp, on, hP, W, hW, hB),
       Inl{N.le_rw_l(Nat.add(A, L), Nat.add(L, A), PH.H.t20(NX), Z.add.comm(A, L), hEF)}),
     Q.inv.inp(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI))
@@ -455,11 +455,11 @@ def inv.alloc(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +f
   +mach2 = {(%Equal.sym(Nat, U32.to_nat(U32.inc(nx)), 1n+NX, enx1) :
       {Q.RC(Nat.sub(_, FI), m5, fi) == Q.GC(Nat.sub(_, FI), cl2, fi) : List<&2, C.Cir.Cell>}; mach1) :
     {Q.RC(Nat.sub(U32.to_nat(U32.inc(nx)), FI), m5, fi) == Q.GC(Nat.sub(U32.to_nat(U32.inc(nx)), FI), cl2, fi) : List<&2, C.Cir.Cell>}}
-  +out0 = {(%hon : {Q.RB(_, m, C.Cir.at(nx)) == List.reverse(&2, U32, ou) : List<&2, U32>};
+  +out0 = {(%hon : {Q.RB(_, m, C.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>};
       Q.inv.out(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)) :
-    {Q.RB(0n, m, C.Cir.at(nx)) == List.reverse(&2, U32, ou) : List<&2, U32>}}
-  +out2 = {(%Equal.sym(Nat, U32.to_nat(on), 0n, hon) : {Q.RB(_, m5, C.Cir.at(U32.inc(nx))) == List.reverse(&2, U32, ou) : List<&2, U32>}; out0) :
-    {Q.RB(U32.to_nat(on), m5, C.Cir.at(U32.inc(nx))) == List.reverse(&2, U32, ou) : List<&2, U32>}}
+    {Q.RB(0n, m, C.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}}
+  +out2 = {(%Equal.sym(Nat, U32.to_nat(on), 0n, hon) : {Q.RB(_, m5, C.Cir.at(U32.inc(nx))) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}; out0) :
+    {Q.RB(U32.to_nat(on), m5, C.Cir.at(U32.inc(nx))) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}}
   +cf1 = {(%Equal.sym(Nat, Nat.sub(1n+NX, FI), 1n+Nat.sub(NX, FI), esub) : Q.CF(_, 1n+NX, Q.PB(p2)); hroom) : Q.CF(Nat.sub(1n+NX, FI), 1n+NX, Q.PB(p2))}
   +cf2 = {(%Equal.sym(Nat, U32.to_nat(U32.inc(nx)), 1n+NX, enx1) : Q.CF(Nat.sub(_, FI), _, Q.PB(p2)); cf1) :
     Q.CF(Nat.sub(U32.to_nat(U32.inc(nx)), FI), U32.to_nat(U32.inc(nx)), Q.PB(p2))}
@@ -916,7 +916,7 @@ def reg.nat(+r: Nat, +R: Nat, +MX: U32, ok: {Nat.is_lt(r, R) == True{} : Bool}, 
 
 # a field does not read the pages
 def field.pg(+k: Nat, z: Maybe<&2, U32>, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +p2: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32) ->
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32) ->
   {C.Cir.eval.field(k, z, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)) == C.Cir.eval.field(k, z, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on)) : Maybe<&2, U32>}:
   match z:
     case None{}:
@@ -926,7 +926,7 @@ def field.pg(+k: Nat, z: Maybe<&2, U32>, +rg: List<&2, U32>, +cl: C.Cir.Cells, +
 
 # an expression does not read the pages
 def eval.pg(e: C.Cir.Expr, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +p2: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32) ->
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32) ->
   {C.Cir.eval(e, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)) == C.Cir.eval(e, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on)) : Maybe<&2, U32>}:
   match e:
     case C.Cir.Expr.const{x}:
@@ -973,7 +973,7 @@ def OF.mono(o: Nat, +NX: Nat, +B1: Nat, +B2: Nat, h: Q.OF(o, NX, B1), hb: N.Le(B
 
 # the relation holds with more pages, within the limit
 def inv.pg(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +p2: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +hp: N.Le(U32.to_nat(pg), U32.to_nat(p2)), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lm))) ->
   Q.Inv(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m):
   +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
@@ -981,7 +981,7 @@ def inv.pg(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: 
   +hD = M.D_mono(16n, U32.to_nat(pg), U32.to_nat(p2), hp)
   +hB2 = {(((Q.b.a(P, G, a, nx, fi, im, pg, lm, inp, on, hB), Q.b.k(P, G, a, nx, fi, im, pg, lm, inp, on, hB)),
       (Q.b.e20(P, G, a, nx, fi, im, pg, lm, inp, on, hB),
-       N.le_trans(Nat.add(U32.to_nat(a), List.length(&2, U32, inp)), Q.PB(pg), Q.PB(p2), Q.b.epb(P, G, a, nx, fi, im, pg, lm, inp, on, hB), hD))),
+       N.le_trans(Nat.add(U32.to_nat(a), List.length(&2, Word(8n), inp)), Q.PB(pg), Q.PB(p2), Q.b.epb(P, G, a, nx, fi, im, pg, lm, inp, on, hB), hD))),
      ((Q.b.efi(P, G, a, nx, fi, im, pg, lm, inp, on, hB), Q.b.nx(P, G, a, nx, fi, im, pg, lm, inp, on, hB)),
       ((CF.mono(Nat.sub(NX, U32.to_nat(fi)), NX, Q.PB(pg), Q.PB(p2), Q.b.cf(P, G, a, nx, fi, im, pg, lm, inp, on, hB), hD),
         OF.mono(U32.to_nat(on), NX, Q.PB(pg), Q.PB(p2), Q.b.of(P, G, a, nx, fi, im, pg, lm, inp, on, hB), hD)),
@@ -993,52 +993,52 @@ def inv.pg(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: 
     (Q.inv.out(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI), hB2)))
 
 # q + 1 bytes from x: the q bytes, then the byte q after x
-def RB.snoc(q: Nat, +m: C.Wasm.Bytes, +x: U32) -> {Q.RB(1n+q, m, x) == List.append(&2, U32, Q.RB(q, m, x), [Y.R8(m, Z.incn(q, x))]) : List<&2, U32>}:
+def RB.snoc(q: Nat, +m: C.Wasm.Bytes, +x: U32) -> {Q.RB(1n+q, m, x) == List.append(&2, Word(8n), Q.RB(q, m, x), [Y.R8(m, Z.incn(q, x))]) : List<&2, Word(8n)>}:
   match q:
     case 0n:
       {==}
     case 1n+p:
-      F.cons.cong(U32, Y.R8(m, x), Y.R8(m, x), Q.RB(1n+p, m, U32.inc(x)), List.append(&2, U32, Q.RB(p, m, U32.inc(x)), [Y.R8(m, Z.incn(p, U32.inc(x)))]),
+      F.cons.cong(Word(8n), Y.R8(m, x), Y.R8(m, x), Q.RB(1n+p, m, U32.inc(x)), List.append(&2, Word(8n), Q.RB(p, m, U32.inc(x)), [Y.R8(m, Z.incn(p, U32.inc(x)))]),
         {==}, RB.snoc(p, m, U32.inc(x)))
 
 # the reverse, from an accumulator
-def revgo.app(xs: List<&2, U32>, +acc: List<&2, U32>) ->
-  {List.reverse.go(&2, U32, xs, acc) == List.append(&2, U32, List.reverse.go(&2, U32, xs, []), acc) : List<&2, U32>}:
+def revgo.app(xs: List<&2, Word(8n)>, +acc: List<&2, Word(8n)>) ->
+  {List.reverse.go(&2, Word(8n), xs, acc) == List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), xs, []), acc) : List<&2, Word(8n)>}:
   match xs:
     case Nil{}:
       {==}
     case Con{+h, +t}:
-      Equal.trans(List<&2, U32>, List.reverse.go(&2, U32, t, Con{h, acc}), List.append(&2, U32, List.reverse.go(&2, U32, t, []), Con{h, acc}),
-        List.append(&2, U32, List.reverse.go(&2, U32, t, [h]), acc), revgo.app(t, Con{h, acc}),
-        Equal.trans(List<&2, U32>, List.append(&2, U32, List.reverse.go(&2, U32, t, []), Con{h, acc}),
-          List.append(&2, U32, List.append(&2, U32, List.reverse.go(&2, U32, t, []), [h]), acc), List.append(&2, U32, List.reverse.go(&2, U32, t, [h]), acc),
-          Equal.sym(List<&2, U32>, List.append(&2, U32, List.append(&2, U32, List.reverse.go(&2, U32, t, []), [h]), acc),
-            List.append(&2, U32, List.reverse.go(&2, U32, t, []), Con{h, acc}), M.app.assoc(List.reverse.go(&2, U32, t, []), [h], acc)),
-          Equal.cong(List<&2, U32>, List<&2, U32>, z => List.append(&2, U32, z, acc), List.append(&2, U32, List.reverse.go(&2, U32, t, []), [h]),
-            List.reverse.go(&2, U32, t, [h]), Equal.sym(List<&2, U32>, List.reverse.go(&2, U32, t, [h]), List.append(&2, U32, List.reverse.go(&2, U32, t, []), [h]),
+      Equal.trans(List<&2, Word(8n)>, List.reverse.go(&2, Word(8n), t, Con{h, acc}), List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, []), Con{h, acc}),
+        List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, [h]), acc), revgo.app(t, Con{h, acc}),
+        Equal.trans(List<&2, Word(8n)>, List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, []), Con{h, acc}),
+          List.append(&2, Word(8n), List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, []), [h]), acc), List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, [h]), acc),
+          Equal.sym(List<&2, Word(8n)>, List.append(&2, Word(8n), List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, []), [h]), acc),
+            List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, []), Con{h, acc}), M.app.assoc(Word(8n), List.reverse.go(&2, Word(8n), t, []), [h], acc)),
+          Equal.cong(List<&2, Word(8n)>, List<&2, Word(8n)>, z => List.append(&2, Word(8n), z, acc), List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, []), [h]),
+            List.reverse.go(&2, Word(8n), t, [h]), Equal.sym(List<&2, Word(8n)>, List.reverse.go(&2, Word(8n), t, [h]), List.append(&2, Word(8n), List.reverse.go(&2, Word(8n), t, []), [h]),
               revgo.app(t, [h])))))
 
-def rev.cons(+y: U32, +ou: List<&2, U32>) -> {List.reverse(&2, U32, Con{y, ou}) == List.append(&2, U32, List.reverse(&2, U32, ou), [y]) : List<&2, U32>}:
+def rev.cons(+y: Word(8n), +ou: List<&2, Word(8n)>) -> {List.reverse(&2, Word(8n), Con{y, ou}) == List.append(&2, Word(8n), List.reverse(&2, Word(8n), ou), [y]) : List<&2, Word(8n)>}:
   revgo.app(ou, [y])
 
 # the byte of output at 20 × next + outn: the relation holds with it
 def inv.emit(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +p2: U32, +lm: U32,
-  +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
+  +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: C.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +x: U32, +hp: N.Le(U32.to_nat(pg), U32.to_nat(p2)), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lm)),
   +hroom: N.Le(1n+U32.to_nat(U32.add(C.Cir.at(nx), on)), Q.PB(p2))) ->
-  Q.Inv(P, G, a, n, cl, nx, fi, im, p2, lm, inp, Con{U32.and(x, 255), ou}, U32.inc(on),
-    C.Wasm.write8(m, U32.add(C.Cir.at(nx), on), U32.and(x, 255))):
+  Q.Inv(P, G, a, n, cl, nx, fi, im, p2, lm, inp, Con{C.Byte.from_u32(x), ou}, U32.inc(on),
+    C.Wasm.write8(m, U32.add(C.Cir.at(nx), on), C.Byte.from_u32(x))):
   +hI2 = inv.pg(P, G, a, n, cl, nx, fi, im, pg, p2, lm, inp, ou, on, m, hI, hp, hpl)
   +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m, hI2)
   +b = U32.add(C.Cir.at(nx), on)
-  +y = U32.and(x, 255)
+  +y = C.Byte.from_u32(x)
   +m2 = C.Wasm.write8(m, b, y)
   +K = U32.to_nat(im)
   +NX = U32.to_nat(nx)
   +FI = U32.to_nat(fi)
   +A = U32.to_nat(a)
-  +L = List.length(&2, U32, inp)
+  +L = List.length(&2, Word(8n), inp)
   +ON = U32.to_nat(on)
   +X = PH.H.t20(NX)
   +B = U32.to_nat(b)
@@ -1060,7 +1060,7 @@ def inv.emit(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi
     N.le_trans(PH.H.t20(1n+K), X, B, h1K, hXB))
   +book = Equal.trans(List<&2, C.Cir.Cell>, Q.RC(K, m2, 1), Q.RC(K, m, 1), Q.GC(K, cl, 1),
     F.RC.w8(K, m, b, y, 1, 1n, {==}, P, hP, W, hW, hcb, Inl{hbs}), Q.inv.book(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m, hI2))
-  +inp2 = Equal.trans(List<&2, U32>, Q.RB(L, m2, a), Q.RB(L, m, a), inp,
+  +inp2 = Equal.trans(List<&2, Word(8n)>, Q.RB(L, m2, a), Q.RB(L, m, a), inp,
     F.RB.w8(L, m, b, y, a, A, {==}, W, hW, F.b.inw(P, G, a, nx, fi, im, p2, lm, inp, on, hP, W, hW, hB),
       Inl{N.le_trans(Nat.add(L, A), X, B, N.le_rw_l(Nat.add(A, L), Nat.add(L, A), X, Z.add.comm(A, L), hEF), hXB)}),
     Q.inv.inp(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m, hI2))
@@ -1076,21 +1076,21 @@ def inv.emit(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: C.Cir.Cells, +nx: U32, +fi
   +ebi = Equal.trans(U32, Z.incn(ON, C.Cir.at(nx)), U32.add(U32.from_nat(ON), C.Cir.at(nx)), b, Z.incn.add(ON, C.Cir.at(nx)),
     Equal.trans(U32, U32.add(U32.from_nat(ON), C.Cir.at(nx)), U32.add(on, C.Cir.at(nx)), b,
       Equal.cong(U32, U32, z => U32.add(z, C.Cir.at(nx)), U32.from_nat(ON), on, Z.from.to(on)), U32.add_comm(on, C.Cir.at(nx))))
-  +ey = Equal.trans(U32, Y.R8(m2, Z.incn(ON, C.Cir.at(nx))), Y.R8(m2, b), y, Equal.cong(U32, U32, z => Y.R8(m2, z), Z.incn(ON, C.Cir.at(nx)), b, ebi), Y.R8.same(m, b, y))
-  +rbo = Equal.trans(List<&2, U32>, Q.RB(ON, m2, C.Cir.at(nx)), Q.RB(ON, m, C.Cir.at(nx)), List.reverse(&2, U32, ou),
+  +ey = Equal.trans(Word(8n), Y.R8(m2, Z.incn(ON, C.Cir.at(nx))), Y.R8(m2, b), y, Equal.cong(U32, Word(8n), z => Y.R8(m2, z), Z.incn(ON, C.Cir.at(nx)), b, ebi), Y.R8.same(m, b, y))
+  +rbo = Equal.trans(List<&2, Word(8n)>, Q.RB(ON, m2, C.Cir.at(nx)), Q.RB(ON, m, C.Cir.at(nx)), List.reverse(&2, Word(8n), ou),
     F.RB.w8(ON, m, b, y, C.Cir.at(nx), X, ex, W, hW, hwo, Inl{N.le_rw_r(Nat.add(ON, X), Nat.add(X, ON), B, Equal.sym(Nat, B, Nat.add(X, ON), eb), N.le_rw_l(Nat.add(X, ON), Nat.add(ON, X), Nat.add(X, ON), Z.add.comm(X, ON), N.le_refl(Nat.add(X, ON))))}),
     Q.inv.out(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m, hI2))
-  +out1 = Equal.trans(List<&2, U32>, Q.RB(1n+ON, m2, C.Cir.at(nx)), List.append(&2, U32, Q.RB(ON, m2, C.Cir.at(nx)), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]),
-    List.reverse(&2, U32, Con{y, ou}), RB.snoc(ON, m2, C.Cir.at(nx)),
-    Equal.trans(List<&2, U32>, List.append(&2, U32, Q.RB(ON, m2, C.Cir.at(nx)), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]),
-      List.append(&2, U32, List.reverse(&2, U32, ou), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]), List.reverse(&2, U32, Con{y, ou}),
-      Equal.cong(List<&2, U32>, List<&2, U32>, z => List.append(&2, U32, z, [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]), Q.RB(ON, m2, C.Cir.at(nx)), List.reverse(&2, U32, ou), rbo),
-      Equal.trans(List<&2, U32>, List.append(&2, U32, List.reverse(&2, U32, ou), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]), List.append(&2, U32, List.reverse(&2, U32, ou), [y]),
-        List.reverse(&2, U32, Con{y, ou}),
-        Equal.cong(U32, List<&2, U32>, w => List.append(&2, U32, List.reverse(&2, U32, ou), [w]), Y.R8(m2, Z.incn(ON, C.Cir.at(nx))), y, ey),
-        Equal.sym(List<&2, U32>, List.reverse(&2, U32, Con{y, ou}), List.append(&2, U32, List.reverse(&2, U32, ou), [y]), rev.cons(y, ou)))))
-  +out2 = {(%Equal.sym(Nat, U32.to_nat(U32.inc(on)), 1n+ON, eon1) : {Q.RB(_, m2, C.Cir.at(nx)) == List.reverse(&2, U32, Con{y, ou}) : List<&2, U32>}; out1) :
-    {Q.RB(U32.to_nat(U32.inc(on)), m2, C.Cir.at(nx)) == List.reverse(&2, U32, Con{y, ou}) : List<&2, U32>}}
+  +out1 = Equal.trans(List<&2, Word(8n)>, Q.RB(1n+ON, m2, C.Cir.at(nx)), List.append(&2, Word(8n), Q.RB(ON, m2, C.Cir.at(nx)), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]),
+    List.reverse(&2, Word(8n), Con{y, ou}), RB.snoc(ON, m2, C.Cir.at(nx)),
+    Equal.trans(List<&2, Word(8n)>, List.append(&2, Word(8n), Q.RB(ON, m2, C.Cir.at(nx)), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]),
+      List.append(&2, Word(8n), List.reverse(&2, Word(8n), ou), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]), List.reverse(&2, Word(8n), Con{y, ou}),
+      Equal.cong(List<&2, Word(8n)>, List<&2, Word(8n)>, z => List.append(&2, Word(8n), z, [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]), Q.RB(ON, m2, C.Cir.at(nx)), List.reverse(&2, Word(8n), ou), rbo),
+      Equal.trans(List<&2, Word(8n)>, List.append(&2, Word(8n), List.reverse(&2, Word(8n), ou), [Y.R8(m2, Z.incn(ON, C.Cir.at(nx)))]), List.append(&2, Word(8n), List.reverse(&2, Word(8n), ou), [y]),
+        List.reverse(&2, Word(8n), Con{y, ou}),
+        Equal.cong(Word(8n), List<&2, Word(8n)>, w => List.append(&2, Word(8n), List.reverse(&2, Word(8n), ou), [w]), Y.R8(m2, Z.incn(ON, C.Cir.at(nx))), y, ey),
+        Equal.sym(List<&2, Word(8n)>, List.reverse(&2, Word(8n), Con{y, ou}), List.append(&2, Word(8n), List.reverse(&2, Word(8n), ou), [y]), rev.cons(y, ou)))))
+  +out2 = {(%Equal.sym(Nat, U32.to_nat(U32.inc(on)), 1n+ON, eon1) : {Q.RB(_, m2, C.Cir.at(nx)) == List.reverse(&2, Word(8n), Con{y, ou}) : List<&2, Word(8n)>}; out1) :
+    {Q.RB(U32.to_nat(U32.inc(on)), m2, C.Cir.at(nx)) == List.reverse(&2, Word(8n), Con{y, ou}) : List<&2, Word(8n)>}}
   +of1 = N.le_rw_l(1n+B, Nat.add(X, 1n+ON), Q.PB(p2),
     Equal.trans(Nat, 1n+B, 1n+Nat.add(X, ON), Nat.add(X, 1n+ON), Equal.cong(Nat, Nat, z => 1n+z, B, Nat.add(X, ON), eb),
       Equal.sym(Nat, Nat.add(X, 1n+ON), 1n+Nat.add(X, ON), N.add_succ_r(X, ON))), hroom)
@@ -1191,7 +1191,7 @@ def room.e(+nx: U32, +on: U32, +p2: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
     M.D_mono(16n, U32.to_nat(nce(nx, on)), U32.to_nat(p2), hp))
 
 # the byte's place, exactly
-def eb.nat(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32, +inp: List<&2, U32>, +on: U32,
+def eb.nat(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32, +inp: List<&2, Word(8n)>, +on: U32,
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +hB: Q.Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(1n+U32.to_nat(eb(nx, on)), W):
   +X = PH.H.t20(U32.to_nat(nx))
@@ -1207,7 +1207,7 @@ def eb.nat(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +l
 
 # the byte out, and outn one more
 def emit.E5(+v: C.Cir.Expr, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Label>, +rg: List<&2, U32>, +cl: C.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
-  +p2: U32, +lm: U32, +inp: List<&2, U32>, +ou: List<&2, U32>, +on: U32, +x: U32,
+  +p2: U32, +lm: U32, +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +x: U32,
   +ev: {C.Cir.eval(v, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on)) == Some{x} : Maybe<&2, U32>},
   +R: Nat, +MX: U32, +okv: {V.ok.expr(v, R) == True{} : Bool}, +hR: N.Le(8n+R, U32.to_nat(MX)),
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +N0: U32, +m: C.Wasm.Bytes,
@@ -1216,7 +1216,7 @@ def emit.E5(+v: C.Cir.Expr, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Lab
   +hroom: N.Le(1n+U32.to_nat(eb(nx, on)), Q.PB(p2)), +hb: N.Le(1n+Q.PB(p2), W)) ->
   {PH.H.steps(Nat.add(1n, Nat.add(E.cost(v), 5n)), Q.Cfg(ex2(v, K), ls, [], Q.Loc(a, n, 2, nx, on, t, N0, eb(nx, on), rg), C.Wasm.Memory{p2, lm, m})) ==
     Q.Cfg(K, ls, [], Q.Loc(a, n, 2, nx, U32.add(on, 1), E.tmpE(v, t, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on)), N0, eb(nx, on), rg),
-      C.Wasm.Memory{p2, lm, C.Wasm.write8(m, U32.add(eb(nx, on), 0), U32.and(x, 255))}) : C.Wasm.Step}:
+      C.Wasm.Memory{p2, lm, C.Wasm.write8(m, U32.add(eb(nx, on), 0), C.Byte.from_u32(x))}) : C.Wasm.Step}:
   +b = eb(nx, on)
   +B = U32.to_nat(b)
   +M2 = {C.Wasm.Memory{p2, lm, m} : C.Wasm.Memory}
@@ -1225,7 +1225,7 @@ def emit.E5(+v: C.Cir.Expr, +K: List<&2, C.Wasm.Instr>, +ls: List<&2, C.Wasm.Lab
   +tv = E.tmpE(v, t, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on))
   +L2 = Q.Loc(a, n, 2, nx, on, t, N0, b, rg)
   +L3 = Q.Loc(a, n, 2, nx, on, tv, N0, b, rg)
-  +m3 = C.Wasm.write8(m, U32.add(b, 0), U32.and(x, 255))
+  +m3 = C.Wasm.write8(m, U32.add(b, 0), C.Byte.from_u32(x))
   +C0 = Q.Cfg(ex2(v, K), ls, [], L2, M2)
   +C1 = Q.Cfg(C.Cir.code.expr(v, KS), ls, [b], L2, M2)
   +C2 = Q.Cfg(KS, ls, [x, b], L3, M2)

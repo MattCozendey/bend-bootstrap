@@ -85,31 +85,31 @@ def ib(xs: List<&2, C.Wasm.Instr>) -> Nat:
 # Bytes of instructions
 # ----------------------
 
-def len.u(+v: U32) -> N.Le(List.length(&2, U32, C.Wasm.encode.uleb(v)), 5n):
+def len.u(+v: U32) -> N.Le(List.length(&2, Word(8n), C.Wasm.encode.uleb(v)), 5n):
   M.ulen(5n, v)
 
-def len.s(+v: U32) -> N.Le(List.length(&2, U32, C.Wasm.encode.sleb(v)), 5n):
-  N.toLe(List.length(&2, U32, C.Wasm.encode.sleb(v)), 5n, PH.H.len_go(5n, v))
+def len.s(+v: U32) -> N.Le(List.length(&2, Word(8n), C.Wasm.encode.sleb(v)), 5n):
+  N.toLe(List.length(&2, Word(8n), C.Wasm.encode.sleb(v)), 5n, PH.H.len_go(5n, v))
 
 # an opcode, an immediate of at most 6 bytes, then R
-def with.len(+op: U32, +imm: List<&2, U32>, +R: List<&2, U32>, +X: Nat, h: N.Le(List.length(&2, U32, imm), 6n),
-  ih: N.Le(List.length(&2, U32, R), X)) -> N.Le(List.length(&2, U32, C.Wasm.encode.with(op, imm, R)), 7n+X):
-  N.le_rw_l(Nat.add(List.length(&2, U32, imm), List.length(&2, U32, R)), List.length(&2, U32, List.append(&2, U32, imm, R)), 6n+X,
-    Equal.sym(Nat, List.length(&2, U32, List.append(&2, U32, imm, R)), Nat.add(List.length(&2, U32, imm), List.length(&2, U32, R)), M.len.app(imm, R)),
-    N.add_mono(List.length(&2, U32, imm), 6n, List.length(&2, U32, R), X, h, ih))
+def with.len(+op: U32, +imm: List<&2, Word(8n)>, +R: List<&2, Word(8n)>, +X: Nat, h: N.Le(List.length(&2, Word(8n), imm), 6n),
+  ih: N.Le(List.length(&2, Word(8n), R), X)) -> N.Le(List.length(&2, Word(8n), C.Wasm.encode.with(op, imm, R)), 7n+X):
+  N.le_rw_l(Nat.add(List.length(&2, Word(8n), imm), List.length(&2, Word(8n), R)), List.length(&2, Word(8n), List.append(&2, Word(8n), imm, R)), 6n+X,
+    Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), imm, R)), Nat.add(List.length(&2, Word(8n), imm), List.length(&2, Word(8n), R)), M.len.app(Word(8n), imm, R)),
+    N.add_mono(List.length(&2, Word(8n), imm), 6n, List.length(&2, Word(8n), R), X, h, ih))
 
 # the labels of a br_table
-def labels.len(ls: List<&2, U32>, +acc: List<&2, U32>, +X: Nat, ih: N.Le(List.length(&2, U32, acc), X)) ->
-  N.Le(List.length(&2, U32, C.Wasm.encode.labels(ls, acc)), Nat.add(ib.tab(ls), X)):
+def labels.len(ls: List<&2, U32>, +acc: List<&2, Word(8n)>, +X: Nat, ih: N.Le(List.length(&2, Word(8n), acc), X)) ->
+  N.Le(List.length(&2, Word(8n), C.Wasm.encode.labels(ls, acc)), Nat.add(ib.tab(ls), X)):
   match ls:
     case Nil{}:
       ih
     case Con{+l, +r}:
-      N.le_rw_l(Nat.add(List.length(&2, U32, C.Wasm.encode.uleb(l)), List.length(&2, U32, C.Wasm.encode.labels(r, acc))),
-        List.length(&2, U32, List.append(&2, U32, C.Wasm.encode.uleb(l), C.Wasm.encode.labels(r, acc))), 5n+Nat.add(ib.tab(r), X),
-        Equal.sym(Nat, List.length(&2, U32, List.append(&2, U32, C.Wasm.encode.uleb(l), C.Wasm.encode.labels(r, acc))),
-          Nat.add(List.length(&2, U32, C.Wasm.encode.uleb(l)), List.length(&2, U32, C.Wasm.encode.labels(r, acc))), M.len.app(C.Wasm.encode.uleb(l), C.Wasm.encode.labels(r, acc))),
-        N.add_mono(List.length(&2, U32, C.Wasm.encode.uleb(l)), 5n, List.length(&2, U32, C.Wasm.encode.labels(r, acc)), Nat.add(ib.tab(r), X), len.u(l),
+      N.le_rw_l(Nat.add(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), List.length(&2, Word(8n), C.Wasm.encode.labels(r, acc))),
+        List.length(&2, Word(8n), List.append(&2, Word(8n), C.Wasm.encode.uleb(l), C.Wasm.encode.labels(r, acc))), 5n+Nat.add(ib.tab(r), X),
+        Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), C.Wasm.encode.uleb(l), C.Wasm.encode.labels(r, acc))),
+          Nat.add(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), List.length(&2, Word(8n), C.Wasm.encode.labels(r, acc))), M.len.app(Word(8n), C.Wasm.encode.uleb(l), C.Wasm.encode.labels(r, acc))),
+        N.add_mono(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), 5n, List.length(&2, Word(8n), C.Wasm.encode.labels(r, acc)), Nat.add(ib.tab(r), X), len.u(l),
           labels.len(r, acc, X, ih)))
 
 # a + (k + x) = k + (a + x)
@@ -117,15 +117,15 @@ def shk(+a: Nat, +k: Nat, +x: Nat) -> {Nat.add(a, Nat.add(k, x)) == Nat.add(k, N
   PH.H.add_k(a, k, x)
 
 # the bytes of a block of the body b, then R: 3 more than the body's bound
-def blk.len(+body: List<&2, C.Wasm.Instr>, +R: List<&2, U32>, +X: Nat, ih: N.Le(List.length(&2, U32, R), X),
-  hb: N.Le(List.length(&2, U32, C.Wasm.encode.instrs(body, Con{11, R})), Nat.add(ib(body), 1n+List.length(&2, U32, R)))) ->
-  N.Le(2n+List.length(&2, U32, C.Wasm.encode.instrs(body, Con{11, R})), 3n+Nat.add(ib(body), X)):
-  N.le_trans(2n+List.length(&2, U32, C.Wasm.encode.instrs(body, Con{11, R})), 2n+Nat.add(ib(body), 1n+List.length(&2, U32, R)),
+def blk.len(+body: List<&2, C.Wasm.Instr>, +R: List<&2, Word(8n)>, +X: Nat, ih: N.Le(List.length(&2, Word(8n), R), X),
+  hb: N.Le(List.length(&2, Word(8n), C.Wasm.encode.instrs(body, Con{C.Byte.from_u32(11), R})), Nat.add(ib(body), 1n+List.length(&2, Word(8n), R)))) ->
+  N.Le(2n+List.length(&2, Word(8n), C.Wasm.encode.instrs(body, Con{C.Byte.from_u32(11), R})), 3n+Nat.add(ib(body), X)):
+  N.le_trans(2n+List.length(&2, Word(8n), C.Wasm.encode.instrs(body, Con{C.Byte.from_u32(11), R})), 2n+Nat.add(ib(body), 1n+List.length(&2, Word(8n), R)),
     3n+Nat.add(ib(body), X), hb,
-    N.le_rw_l(3n+Nat.add(ib(body), List.length(&2, U32, R)), 2n+Nat.add(ib(body), 1n+List.length(&2, U32, R)), 3n+Nat.add(ib(body), X),
-      Equal.sym(Nat, 2n+Nat.add(ib(body), 1n+List.length(&2, U32, R)), 3n+Nat.add(ib(body), List.length(&2, U32, R)),
-        Equal.cong(Nat, Nat, z => 2n+z, Nat.add(ib(body), 1n+List.length(&2, U32, R)), 1n+Nat.add(ib(body), List.length(&2, U32, R)), N.add_succ_r(ib(body), List.length(&2, U32, R)))),
-      N.add_mono(ib(body), ib(body), List.length(&2, U32, R), X, N.le_refl(ib(body)), ih)))
+    N.le_rw_l(3n+Nat.add(ib(body), List.length(&2, Word(8n), R)), 2n+Nat.add(ib(body), 1n+List.length(&2, Word(8n), R)), 3n+Nat.add(ib(body), X),
+      Equal.sym(Nat, 2n+Nat.add(ib(body), 1n+List.length(&2, Word(8n), R)), 3n+Nat.add(ib(body), List.length(&2, Word(8n), R)),
+        Equal.cong(Nat, Nat, z => 2n+z, Nat.add(ib(body), 1n+List.length(&2, Word(8n), R)), 1n+Nat.add(ib(body), List.length(&2, Word(8n), R)), N.add_succ_r(ib(body), List.length(&2, Word(8n), R)))),
+      N.add_mono(ib(body), ib(body), List.length(&2, Word(8n), R), X, N.le_refl(ib(body)), ih)))
 
 # reassociate the bound of a block
 def blk.as(+Y: Nat, +a: Nat, +b: Nat, +c: Nat, h: N.Le(Y, 3n+Nat.add(a, Nat.add(b, c)))) -> N.Le(Y, 3n+Nat.add(Nat.add(a, b), c)):
@@ -137,71 +137,71 @@ def tab.as(+Y: Nat, +a: Nat, +b: Nat, +c: Nat, h: N.Le(Y, 12n+Nat.add(a, Nat.add
     Equal.cong(Nat, Nat, z => 12n+z, Nat.add(a, Nat.add(b, c)), Nat.add(Nat.add(a, b), c), Equal.sym(Nat, Nat.add(Nat.add(a, b), c), Nat.add(a, Nat.add(b, c)), Z.add.assoc(a, b, c))), h)
 
 # the bytes of the instructions xs, then acc: at most ib(xs) + |acc|
-def ib.len(xs: List<&2, C.Wasm.Instr>, +acc: List<&2, U32>) ->
-  N.Le(List.length(&2, U32, C.Wasm.encode.instrs(xs, acc)), Nat.add(ib(xs), List.length(&2, U32, acc))):
+def ib.len(xs: List<&2, C.Wasm.Instr>, +acc: List<&2, Word(8n)>) ->
+  N.Le(List.length(&2, Word(8n), C.Wasm.encode.instrs(xs, acc)), Nat.add(ib(xs), List.length(&2, Word(8n), acc))):
   match xs:
     case Nil{}:
-      N.le_refl(List.length(&2, U32, acc))
+      N.le_refl(List.length(&2, Word(8n), acc))
     case Con{x, +rest}:
       match x:
         case C.Wasm.Instr.const{+n}:
-          with.len(65, C.Wasm.encode.sleb(n), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)),
-            N.le_trans(List.length(&2, U32, C.Wasm.encode.sleb(n)), 5n, 6n, len.s(n), Unit{}), ib.len(rest, acc))
+          with.len(65, C.Wasm.encode.sleb(n), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)),
+            N.le_trans(List.length(&2, Word(8n), C.Wasm.encode.sleb(n)), 5n, 6n, len.s(n), Unit{}), ib.len(rest, acc))
         case C.Wasm.Instr.local_get{+i}:
-          with.len(32, C.Wasm.encode.uleb(i), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)),
-            N.le_trans(List.length(&2, U32, C.Wasm.encode.uleb(i)), 5n, 6n, len.u(i), Unit{}), ib.len(rest, acc))
+          with.len(32, C.Wasm.encode.uleb(i), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)),
+            N.le_trans(List.length(&2, Word(8n), C.Wasm.encode.uleb(i)), 5n, 6n, len.u(i), Unit{}), ib.len(rest, acc))
         case C.Wasm.Instr.local_set{+i}:
-          with.len(33, C.Wasm.encode.uleb(i), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)),
-            N.le_trans(List.length(&2, U32, C.Wasm.encode.uleb(i)), 5n, 6n, len.u(i), Unit{}), ib.len(rest, acc))
+          with.len(33, C.Wasm.encode.uleb(i), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)),
+            N.le_trans(List.length(&2, Word(8n), C.Wasm.encode.uleb(i)), 5n, 6n, len.u(i), Unit{}), ib.len(rest, acc))
         case C.Wasm.Instr.local_tee{+i}:
-          with.len(34, C.Wasm.encode.uleb(i), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)),
-            N.le_trans(List.length(&2, U32, C.Wasm.encode.uleb(i)), 5n, 6n, len.u(i), Unit{}), ib.len(rest, acc))
+          with.len(34, C.Wasm.encode.uleb(i), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)),
+            N.le_trans(List.length(&2, Word(8n), C.Wasm.encode.uleb(i)), 5n, 6n, len.u(i), Unit{}), ib.len(rest, acc))
         case C.Wasm.Instr.op{o}:
-          +X = Nat.add(ib(rest), List.length(&2, U32, acc))
-          N.le_trans(1n+List.length(&2, U32, C.Wasm.encode.instrs(rest, acc)), 1n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(1n, 7n, X, Unit{}))
+          +X = Nat.add(ib(rest), List.length(&2, Word(8n), acc))
+          N.le_trans(1n+List.length(&2, Word(8n), C.Wasm.encode.instrs(rest, acc)), 1n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(1n, 7n, X, Unit{}))
         case C.Wasm.Instr.eqz{}:
-          +X = Nat.add(ib(rest), List.length(&2, U32, acc))
-          N.le_trans(1n+List.length(&2, U32, C.Wasm.encode.instrs(rest, acc)), 1n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(1n, 7n, X, Unit{}))
+          +X = Nat.add(ib(rest), List.length(&2, Word(8n), acc))
+          N.le_trans(1n+List.length(&2, Word(8n), C.Wasm.encode.instrs(rest, acc)), 1n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(1n, 7n, X, Unit{}))
         case C.Wasm.Instr.load{+o}:
-          with.len(40, Con{2, C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)), len.u(o), ib.len(rest, acc))
+          with.len(40, Con{C.Byte.from_u32(2), C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)), len.u(o), ib.len(rest, acc))
         case C.Wasm.Instr.load8_u{+o}:
-          with.len(45, Con{0, C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)), len.u(o), ib.len(rest, acc))
+          with.len(45, Con{C.Byte.from_u32(0), C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)), len.u(o), ib.len(rest, acc))
         case C.Wasm.Instr.store{+o}:
-          with.len(54, Con{2, C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)), len.u(o), ib.len(rest, acc))
+          with.len(54, Con{C.Byte.from_u32(2), C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)), len.u(o), ib.len(rest, acc))
         case C.Wasm.Instr.store8{+o}:
-          with.len(58, Con{0, C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)), len.u(o), ib.len(rest, acc))
+          with.len(58, Con{C.Byte.from_u32(0), C.Wasm.encode.uleb(o)}, C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)), len.u(o), ib.len(rest, acc))
         case C.Wasm.Instr.memory_size{}:
-          +X = Nat.add(ib(rest), List.length(&2, U32, acc))
-          N.le_trans(2n+List.length(&2, U32, C.Wasm.encode.instrs(rest, acc)), 2n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(2n, 7n, X, Unit{}))
+          +X = Nat.add(ib(rest), List.length(&2, Word(8n), acc))
+          N.le_trans(2n+List.length(&2, Word(8n), C.Wasm.encode.instrs(rest, acc)), 2n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(2n, 7n, X, Unit{}))
         case C.Wasm.Instr.memory_grow{}:
-          +X = Nat.add(ib(rest), List.length(&2, U32, acc))
-          N.le_trans(2n+List.length(&2, U32, C.Wasm.encode.instrs(rest, acc)), 2n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(2n, 7n, X, Unit{}))
+          +X = Nat.add(ib(rest), List.length(&2, Word(8n), acc))
+          N.le_trans(2n+List.length(&2, Word(8n), C.Wasm.encode.instrs(rest, acc)), 2n+X, 7n+X, ib.len(rest, acc), Z.le.add_r(2n, 7n, X, Unit{}))
         case C.Wasm.Instr.block{+body}:
           +R = C.Wasm.encode.instrs(rest, acc)
-          blk.as(2n+List.length(&2, U32, C.Wasm.encode.instrs(body, Con{11, R})), ib(body), ib(rest), List.length(&2, U32, acc),
-            blk.len(body, R, Nat.add(ib(rest), List.length(&2, U32, acc)), ib.len(rest, acc), ib.len(body, Con{11, R})))
+          blk.as(2n+List.length(&2, Word(8n), C.Wasm.encode.instrs(body, Con{C.Byte.from_u32(11), R})), ib(body), ib(rest), List.length(&2, Word(8n), acc),
+            blk.len(body, R, Nat.add(ib(rest), List.length(&2, Word(8n), acc)), ib.len(rest, acc), ib.len(body, Con{C.Byte.from_u32(11), R})))
         case C.Wasm.Instr.loop{+body}:
           +R = C.Wasm.encode.instrs(rest, acc)
-          blk.as(2n+List.length(&2, U32, C.Wasm.encode.instrs(body, Con{11, R})), ib(body), ib(rest), List.length(&2, U32, acc),
-            blk.len(body, R, Nat.add(ib(rest), List.length(&2, U32, acc)), ib.len(rest, acc), ib.len(body, Con{11, R})))
+          blk.as(2n+List.length(&2, Word(8n), C.Wasm.encode.instrs(body, Con{C.Byte.from_u32(11), R})), ib(body), ib(rest), List.length(&2, Word(8n), acc),
+            blk.len(body, R, Nat.add(ib(rest), List.length(&2, Word(8n), acc)), ib.len(rest, acc), ib.len(body, Con{C.Byte.from_u32(11), R})))
         case C.Wasm.Instr.br{+l}:
-          with.len(12, C.Wasm.encode.uleb(l), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)),
-            N.le_trans(List.length(&2, U32, C.Wasm.encode.uleb(l)), 5n, 6n, len.u(l), Unit{}), ib.len(rest, acc))
+          with.len(12, C.Wasm.encode.uleb(l), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)),
+            N.le_trans(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), 5n, 6n, len.u(l), Unit{}), ib.len(rest, acc))
         case C.Wasm.Instr.br_if{+l}:
-          with.len(13, C.Wasm.encode.uleb(l), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, U32, acc)),
-            N.le_trans(List.length(&2, U32, C.Wasm.encode.uleb(l)), 5n, 6n, len.u(l), Unit{}), ib.len(rest, acc))
+          with.len(13, C.Wasm.encode.uleb(l), C.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)),
+            N.le_trans(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), 5n, 6n, len.u(l), Unit{}), ib.len(rest, acc))
         case C.Wasm.Instr.br_table{+ls, +l}:
           +R = C.Wasm.encode.instrs(rest, acc)
-          +X = Nat.add(ib(rest), List.length(&2, U32, acc))
-          +T0 = List.append(&2, U32, C.Wasm.encode.uleb(l), R)
-          +hT0 = N.le_rw_l(Nat.add(List.length(&2, U32, C.Wasm.encode.uleb(l)), List.length(&2, U32, R)), List.length(&2, U32, T0), 5n+X,
-            Equal.sym(Nat, List.length(&2, U32, T0), Nat.add(List.length(&2, U32, C.Wasm.encode.uleb(l)), List.length(&2, U32, R)), M.len.app(C.Wasm.encode.uleb(l), R)),
-            N.add_mono(List.length(&2, U32, C.Wasm.encode.uleb(l)), 5n, List.length(&2, U32, R), X, len.u(l), ib.len(rest, acc)))
+          +X = Nat.add(ib(rest), List.length(&2, Word(8n), acc))
+          +T0 = List.append(&2, Word(8n), C.Wasm.encode.uleb(l), R)
+          +hT0 = N.le_rw_l(Nat.add(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), List.length(&2, Word(8n), R)), List.length(&2, Word(8n), T0), 5n+X,
+            Equal.sym(Nat, List.length(&2, Word(8n), T0), Nat.add(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), List.length(&2, Word(8n), R)), M.len.app(Word(8n), C.Wasm.encode.uleb(l), R)),
+            N.add_mono(List.length(&2, Word(8n), C.Wasm.encode.uleb(l)), 5n, List.length(&2, Word(8n), R), X, len.u(l), ib.len(rest, acc)))
           +hall = with.len(14, C.Wasm.encode.uleb(C.Wasm.encode.len(U32, ls)), C.Wasm.encode.labels(ls, T0), Nat.add(ib.tab(ls), 5n+X),
-            N.le_trans(List.length(&2, U32, C.Wasm.encode.uleb(C.Wasm.encode.len(U32, ls))), 5n, 6n, len.u(C.Wasm.encode.len(U32, ls)), Unit{}),
+            N.le_trans(List.length(&2, Word(8n), C.Wasm.encode.uleb(C.Wasm.encode.len(U32, ls))), 5n, 6n, len.u(C.Wasm.encode.len(U32, ls)), Unit{}),
             labels.len(ls, T0, 5n+X, hT0))
-          +Y = List.length(&2, U32, C.Wasm.encode.with(14, C.Wasm.encode.uleb(C.Wasm.encode.len(U32, ls)), C.Wasm.encode.labels(ls, T0)))
-          tab.as(Y, ib.tab(ls), ib(rest), List.length(&2, U32, acc),
+          +Y = List.length(&2, Word(8n), C.Wasm.encode.with(14, C.Wasm.encode.uleb(C.Wasm.encode.len(U32, ls)), C.Wasm.encode.labels(ls, T0)))
+          tab.as(Y, ib.tab(ls), ib(rest), List.length(&2, Word(8n), acc),
             N.le_rw_r(Y, 7n+Nat.add(5n, Nat.add(ib.tab(ls), X)), 12n+Nat.add(ib.tab(ls), X), {==},
               N.le_rw_r(Y, 7n+Nat.add(ib.tab(ls), 5n+X), 7n+Nat.add(5n, Nat.add(ib.tab(ls), X)),
                 Equal.cong(Nat, Nat, z => 7n+z, Nat.add(ib.tab(ls), 5n+X), Nat.add(5n, Nat.add(ib.tab(ls), X)), shk(ib.tab(ls), 5n, X)), hall)))
@@ -309,10 +309,9 @@ def cb.expr(e: C.Cir.Expr, +acc: List<&2, C.Wasm.Instr>) -> B(ib(C.Cir.code.expr
       B.chain(ib(C.Cir.code.expr(c, Ac)), 56n+ib(acc), NE(c), 1n, ib(acc), cb.expr(c, Ac),
         B.one(56n, 56n+ib(acc), ib(acc), N.le_refl(56n+ib(acc)), Unit{}))
     case C.Cir.Expr.byte{+i}:
-      +Ab = {Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0},
-        Con{C.Cir.i.const(255), Con{C.Cir.i.op(C.Wasm.Op.and{}), acc}}}}} : List<&2, C.Wasm.Instr>}
-      B.chain(ib(C.Cir.code.expr(i, Ab)), 35n+ib(acc), NE(i), 1n, ib(acc), cb.expr(i, Ab),
-        B.one(35n, 35n+ib(acc), ib(acc), N.le_refl(35n+ib(acc)), Unit{}))
+      +Ab = {Con{C.Cir.i.get(0), Con{C.Cir.i.op(C.Wasm.Op.add{}), Con{C.Wasm.Instr.load8_u{0}, acc}}} : List<&2, C.Wasm.Instr>}
+      B.chain(ib(C.Cir.code.expr(i, Ab)), 21n+ib(acc), NE(i), 1n, ib(acc), cb.expr(i, Ab),
+        B.one(21n, 21n+ib(acc), ib(acc), N.le_refl(21n+ib(acc)), Unit{}))
     case C.Cir.Expr.size{}:
       B.one(7n, 7n+ib(acc), ib(acc), N.le_refl(7n+ib(acc)), Unit{})
 
@@ -404,45 +403,45 @@ def add.self(+x: Nat) -> {Nat.add(x, x) == Nat.double(x) : Nat}:
         Equal.cong(Nat, Nat, z => 2n+z, Nat.add(p, p), Nat.double(p), add.self(p)))
 
 # the locals of a function: at most 7 bytes
-def loc.len(+n: Nat) -> N.Le(List.length(&2, U32, C.Wasm.encode.locals(n)), 7n):
+def loc.len(+n: Nat) -> N.Le(List.length(&2, Word(8n), C.Wasm.encode.locals(n)), 7n):
   match n:
     case 0n:
       Unit{}
     case 1n+q:
       +u = C.Wasm.encode.uleb(U32.from_nat(1n+q))
-      N.le_rw_l(Nat.add(List.length(&2, U32, u), 1n), List.length(&2, U32, List.append(&2, U32, u, [127])), 6n,
-        Equal.sym(Nat, List.length(&2, U32, List.append(&2, U32, u, [127])), Nat.add(List.length(&2, U32, u), 1n), M.len.app(u, [127])),
-        N.add_mono(List.length(&2, U32, u), 5n, 1n, 1n, len.u(U32.from_nat(1n+q)), N.le_refl(1n)))
+      N.le_rw_l(Nat.add(List.length(&2, Word(8n), u), 1n), List.length(&2, Word(8n), List.append(&2, Word(8n), u, [C.Byte.from_u32(127)])), 6n,
+        Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), u, [C.Byte.from_u32(127)])), Nat.add(List.length(&2, Word(8n), u), 1n), M.len.app(Word(8n), u, [C.Byte.from_u32(127)])),
+        N.add_mono(List.length(&2, Word(8n), u), 5n, 1n, 1n, len.u(U32.from_nat(1n+q)), N.le_refl(1n)))
 
 # a function's code: at most 13 bytes more than the bound of its body
-def code.len(f: C.Wasm.Func) -> N.Le(List.length(&2, U32, C.Wasm.encode.code(f)), 12n+Nat.add(ib(M.body(f)), 1n)):
+def code.len(f: C.Wasm.Func) -> N.Le(List.length(&2, Word(8n), C.Wasm.encode.code(f)), 12n+Nat.add(ib(M.body(f)), 1n)):
   match f:
     case C.Wasm.Func{+a, +b, +n, +body}:
       +lo = C.Wasm.encode.locals(n)
-      +bs = C.Wasm.encode.instrs(body, [11])
-      +c = List.append(&2, U32, lo, bs)
-      +u = C.Wasm.encode.uleb(C.Wasm.encode.len(U32, c))
-      +hc = N.le_rw_l(Nat.add(List.length(&2, U32, lo), List.length(&2, U32, bs)), List.length(&2, U32, c), 7n+Nat.add(ib(body), 1n),
-        Equal.sym(Nat, List.length(&2, U32, c), Nat.add(List.length(&2, U32, lo), List.length(&2, U32, bs)), M.len.app(lo, bs)),
-        N.add_mono(List.length(&2, U32, lo), 7n, List.length(&2, U32, bs), Nat.add(ib(body), 1n), loc.len(n), ib.len(body, [11])))
-      N.le_rw_l(Nat.add(List.length(&2, U32, u), List.length(&2, U32, c)), List.length(&2, U32, List.append(&2, U32, u, c)), 12n+Nat.add(ib(body), 1n),
-        Equal.sym(Nat, List.length(&2, U32, List.append(&2, U32, u, c)), Nat.add(List.length(&2, U32, u), List.length(&2, U32, c)), M.len.app(u, c)),
-        N.add_mono(List.length(&2, U32, u), 5n, List.length(&2, U32, c), 7n+Nat.add(ib(body), 1n), len.u(C.Wasm.encode.len(U32, c)), hc))
+      +bs = C.Wasm.encode.instrs(body, [C.Byte.from_u32(11)])
+      +c = List.append(&2, Word(8n), lo, bs)
+      +u = C.Wasm.encode.uleb(C.Wasm.encode.len(Word(8n), c))
+      +hc = N.le_rw_l(Nat.add(List.length(&2, Word(8n), lo), List.length(&2, Word(8n), bs)), List.length(&2, Word(8n), c), 7n+Nat.add(ib(body), 1n),
+        Equal.sym(Nat, List.length(&2, Word(8n), c), Nat.add(List.length(&2, Word(8n), lo), List.length(&2, Word(8n), bs)), M.len.app(Word(8n), lo, bs)),
+        N.add_mono(List.length(&2, Word(8n), lo), 7n, List.length(&2, Word(8n), bs), Nat.add(ib(body), 1n), loc.len(n), ib.len(body, [C.Byte.from_u32(11)])))
+      N.le_rw_l(Nat.add(List.length(&2, Word(8n), u), List.length(&2, Word(8n), c)), List.length(&2, Word(8n), List.append(&2, Word(8n), u, c)), 12n+Nat.add(ib(body), 1n),
+        Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), u, c)), Nat.add(List.length(&2, Word(8n), u), List.length(&2, Word(8n), c)), M.len.app(Word(8n), u, c)),
+        N.add_mono(List.length(&2, Word(8n), u), 5n, List.length(&2, Word(8n), c), 7n+Nat.add(ib(body), 1n), len.u(C.Wasm.encode.len(Word(8n), c)), hc))
 
 # the codes of two functions
-def codes.len(+f1: C.Wasm.Func, +f2: C.Wasm.Func) -> N.Le(List.length(&2, U32, C.Wasm.encode.codes([f1, f2])),
+def codes.len(+f1: C.Wasm.Func, +f2: C.Wasm.Func) -> N.Le(List.length(&2, Word(8n), C.Wasm.encode.codes([f1, f2])),
   Nat.add(12n+Nat.add(ib(M.body(f1)), 1n), Nat.add(12n+Nat.add(ib(M.body(f2)), 1n), 0n))):
   +c1 = C.Wasm.encode.code(f1)
   +c2 = C.Wasm.encode.code(f2)
   +b1 = {12n+Nat.add(ib(M.body(f1)), 1n) : Nat}
   +b2 = {12n+Nat.add(ib(M.body(f2)), 1n) : Nat}
-  +t = List.append(&2, U32, c2, [])
-  N.le_rw_l(Nat.add(List.length(&2, U32, c1), List.length(&2, U32, t)), List.length(&2, U32, List.append(&2, U32, c1, t)), Nat.add(b1, Nat.add(b2, 0n)),
-    Equal.sym(Nat, List.length(&2, U32, List.append(&2, U32, c1, t)), Nat.add(List.length(&2, U32, c1), List.length(&2, U32, t)), M.len.app(c1, t)),
-    N.add_mono(List.length(&2, U32, c1), b1, List.length(&2, U32, t), Nat.add(b2, 0n), code.len(f1),
-      N.le_rw_l(Nat.add(List.length(&2, U32, c2), 0n), List.length(&2, U32, t), Nat.add(b2, 0n),
-        Equal.sym(Nat, List.length(&2, U32, t), Nat.add(List.length(&2, U32, c2), 0n), M.len.app(c2, [])),
-        N.add_mono(List.length(&2, U32, c2), b2, 0n, 0n, code.len(f2), N.le_refl(0n)))))
+  +t = List.append(&2, Word(8n), c2, [])
+  N.le_rw_l(Nat.add(List.length(&2, Word(8n), c1), List.length(&2, Word(8n), t)), List.length(&2, Word(8n), List.append(&2, Word(8n), c1, t)), Nat.add(b1, Nat.add(b2, 0n)),
+    Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), c1, t)), Nat.add(List.length(&2, Word(8n), c1), List.length(&2, Word(8n), t)), M.len.app(Word(8n), c1, t)),
+    N.add_mono(List.length(&2, Word(8n), c1), b1, List.length(&2, Word(8n), t), Nat.add(b2, 0n), code.len(f1),
+      N.le_rw_l(Nat.add(List.length(&2, Word(8n), c2), 0n), List.length(&2, Word(8n), t), Nat.add(b2, 0n),
+        Equal.sym(Nat, List.length(&2, Word(8n), t), Nat.add(List.length(&2, Word(8n), c2), 0n), M.len.app(Word(8n), c2, [])),
+        N.add_mono(List.length(&2, Word(8n), c2), b2, 0n, 0n, code.len(f2), N.le_refl(0n)))))
 
 # the bounds of the bodies of alloc and run add up to 468 more than I
 def tot(+I: Nat) -> N.Le(Nat.add(12n+Nat.add(258n, 1n), Nat.add(12n+Nat.add(177n+Nat.add(I, 7n), 1n), 0n)), 468n+I):
@@ -461,9 +460,9 @@ def fin.le(+I: Nat, +X: Nat, hI: N.Le(I, X), hc: N.Le(470n, X)) -> N.Le(470n+I, 
 # the word M = 2^32 - 1
 def prog.size(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, vM: {1n+U32.to_nat(M) == N.D(32n, 1n) : Nat},
   hN: N.Le(NS(prog), N.D(16n, 1n))) ->
-  N.Le(1n+List.length(&2, U32, C.Wasm.encode.codes([C.Cir.alloc(k), C.Cir.run(prog, regs, k)])), U32.to_nat(M)):
+  N.Le(1n+List.length(&2, Word(8n), C.Wasm.encode.codes([C.Cir.alloc(k), C.Cir.run(prog, regs, k)])), U32.to_nat(M)):
   +I = ib(C.Cir.code.stmt(prog, 0n, []))
-  +S = List.length(&2, U32, C.Wasm.encode.codes([C.Cir.alloc(k), C.Cir.run(prog, regs, k)]))
+  +S = List.length(&2, Word(8n), C.Wasm.encode.codes([C.Cir.alloc(k), C.Cir.run(prog, regs, k)]))
   +hS = N.le_trans(S, Nat.add(12n+Nat.add(258n, 1n), Nat.add(12n+Nat.add(177n+Nat.add(I, 7n), 1n), 0n)), 468n+I,
     codes.len(C.Cir.alloc(k), C.Cir.run(prog, regs, k)), tot(I))
   +X = N.D(25n, 1n)
@@ -481,7 +480,7 @@ def prog.size(+prog: C.Cir.Stmt, +regs: Nat, +k: U32, +M: U32, vM: {1n+U32.to_na
 
 # the code section of the machine's module, for any cells
 def mach.size(+cells: List<&2, C.Cir.Cell>) ->
-  N.Le(1n+List.length(&2, U32, C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)),
+  N.Le(1n+List.length(&2, Word(8n), C.Wasm.encode.codes([C.Cir.alloc(C.Wasm.encode.len(C.Cir.Cell, cells)),
     C.Cir.run(C.Mach.code(), C.Mach.regs(), C.Wasm.encode.len(C.Cir.Cell, cells))])), U32.to_nat(4294967295)):
   prog.size(C.Mach.code(), C.Mach.regs(), C.Wasm.encode.len(C.Cir.Cell, cells), 4294967295, M.val_MAX(), mach.nodes())
 
