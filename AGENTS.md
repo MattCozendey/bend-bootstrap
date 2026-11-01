@@ -296,3 +296,7 @@ The entries:
   hash of the interpreter's code, the book, the input and the fuel. The cache is for development
   only: it is a file that anyone can change, so it is not trusted (3.7). The run of 3.8.7 must run
   fresh (`FRESH=1`), and so must any run whose answer we use as proof.
+
+### 3.2 Milestones
+
+1 - **WE HAVE A BEND INTERPRETER, WRITTEN FULLY IN LEAN**
