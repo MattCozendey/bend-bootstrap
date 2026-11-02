@@ -379,19 +379,11 @@ def made.more(+f: Nat, +g: Nat, made: Wa.Wasm.Made, +i: List<&2, Word(8n)>) ->
     case Wa.Wasm.Made.trap{}:
       {==}
 
-def fits.more(ok: Bool, +f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>) ->
-  OM(Wa.Wasm.run.fits(ok, f, w, i, m, gs), Wa.Wasm.run.fits(ok, Nat.add(f, g), w, i, m, gs)):
-  match ok:
-    case True{}:
-      made.more(f, g, Wa.Wasm.instantiate(w, m, gs), i)
-    case False{}:
-      {==}
-
 def run.om(+f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, eng: Wa.Wasm.Engine) ->
   OM(Wa.Wasm.run(f, w, i, eng), Wa.Wasm.run(Nat.add(f, g), w, i, eng)):
   match eng:
-    case Wa.Wasm.Engine{+m, +gs, +size}:
-      fits.more(Nat.is_le(List.length(&2, Word(8n), w), size), f, g, w, i, m, gs)
+    case Wa.Wasm.Engine{+m, +gs}:
+      made.more(f, g, Wa.Wasm.instantiate(w, m, gs), i)
 
 # The lemma
 # ---------

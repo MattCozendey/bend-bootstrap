@@ -10,17 +10,14 @@
 # i32.const of s with the round trip of leb_round_trip.bend (H.go_const); so the
 # module decodes to H.mod(s, False), when s is not 0.
 #
-# Both hold on any engine (Wasm.Engine): one that does not take the module
-# gives out_of_memory at once (H.nr.fits, H.oom.fits).
-#
 # halt.no_result: every run of run gives [s], traps or runs out of fuel
 # (H.loop, by induction on a bound of the fuel; H.ext steps a call), so the
 # host never reads a result.
 #
 # halt.oom: with the fuel 64 + 10 + 16 × (n + 1) + 18, alloc gives -1 or the
 # input's address 20 with room for it (H.A.al1 to H.A.al5, by the cases of
-# its branches and of the engine's answer to its grow), and the first loop
-# ends (H.loopO): a round that goes on has
+# its branches and of the engine's answer to its grow, on any engine), and
+# the first loop ends (H.loopO): a round that goes on has
 # 20 × next < a + n <= 2^32 - 16 = 20 × 214748364, so next < 214748364 and
 # 20 × (next + 1) is exact. The arithmetic of words is over n bits, so that
 # no proof computes 2^32.
@@ -529,23 +526,15 @@ def H.nr.mem(b: Bool, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool},
     case False{}:
       Unit{}
 
-# the module that halts at once with s, not 0, when the engine takes it
-def H.nr.fits(b: Bool, +f: Nat, +s: U32, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, +ns: {U32.is_eq(s, 0) == False{} : Bool}) ->
-  H.NR(Wa.Wasm.run.fits(b, f, C.Compiler.halt(s), i, m, gs)):
-  match b:
-    case True{}:
-      %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(s)), Some{H.mod(s, False{})}, H.decoded(s, ns)) :
-        H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m, gs), i))
-      H.nr.mem(U32.is_le(1, m), f, s, ns, m, gs, i)
-    case False{}:
-      Unit{}
-
-# the module that halts at once with s, not 0, gives no result
+# the module that halts at once with s, not 0, gives no result, on any
+# engine
 def H.nr.run(+f: Nat, +s: U32, +i: List<&2, Word(8n)>, eng: Wa.Wasm.Engine, +ns: {U32.is_eq(s, 0) == False{} : Bool}) ->
   H.NR(Wa.Wasm.run(f, C.Compiler.halt(s), i, eng)):
   match eng:
-    case Wa.Wasm.Engine{+m, +gs, +size}:
-      H.nr.fits(Nat.is_le(List.length(&2, Word(8n), C.Compiler.halt(s)), size), f, s, i, m, gs, ns)
+    case Wa.Wasm.Engine{+m, +gs}:
+      %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(s)), Some{H.mod(s, False{})}, H.decoded(s, ns)) :
+        H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m, gs), i))
+      H.nr.mem(U32.is_le(1, m), f, s, ns, m, gs, i)
 
 # The lemmas
 # ----------
@@ -1809,20 +1798,12 @@ def H.oom.mem(b: Bool, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>) ->
     case True{}:
       H.oom.len(Wa.Wasm.length32(i), i, m, gs)
 
-# the module that halts at once with the status 1, when the engine takes it
-def H.oom.fits(b: Bool, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>) ->
-  &f:Nat -> {Wa.Wasm.run.fits(b, f, C.Compiler.halt(1), i, m, gs) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
-  match b:
-    case True{}:
-      %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(1)), Some{H.mod(1, False{})}, H.decoded(1, {==})) :
-        &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m, gs), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
-      H.oom.mem(U32.is_le(1, m), i, m, gs)
-    case False{}:
-      (0n, {==})
-
-# a module that halts at once with the status 1 runs out of memory
+# a module that halts at once with the status 1 runs out of memory, on any
+# engine
 def halt.oom.proof(+i: List<&2, Word(8n)>, eng: Wa.Wasm.Engine) ->
   &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   match eng:
-    case Wa.Wasm.Engine{+m, +gs, +size}:
-      H.oom.fits(Nat.is_le(List.length(&2, Word(8n), C.Compiler.halt(1)), size), i, m, gs)
+    case Wa.Wasm.Engine{+m, +gs}:
+      %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(1)), Some{H.mod(1, False{})}, H.decoded(1, {==})) :
+        &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m, gs), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
+      H.oom.mem(U32.is_le(1, m), i, m, gs)

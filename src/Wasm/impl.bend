@@ -8,8 +8,8 @@ import ../Shared/shared.bend as Sd
 # WebAssembly core spec defines it.
 # Wasm.run(f, w, i, e) runs the module of the bytes w on the input bytes i,
 # in at most f steps, on the engine e (Host), which decides what the spec
-# leaves open: the most pages (of 64 KiB) of memory, the grows that it
-# refuses, and the largest module that it takes. A module
+# leaves open: the most pages (of 64 KiB) of memory, and the grows that it
+# refuses. A module
 # outside the subset gives unsupported and does not run. The subset is in
 # every version of the spec (1.0, 2.0, 3.0); where they decode a number with
 # more bits, the model reads the 32 bits of 1.0, so it accepts only what
@@ -1877,22 +1877,14 @@ def Wasm.run.made(f: Nat, made: Wasm.Made, i: List<&2, Word(8n)>) -> Wasm.Outcom
       Wasm.Outcome.trap{}
 
 # what an engine decides that the spec leaves open: the most pages that it
-# gives a memory; its answers to grows within that limit, in order (False
-# refuses one; past the list, it grants each); and the largest module, in
-# bytes, that it takes (a larger one gives out_of_memory)
+# gives a memory, and its answers to grows within that limit, in order
+# (False refuses one; past the list, it grants each)
 type Wasm.Engine is Data:
-  Wasm.Engine{pages: U32, grows: List<&2, Bool>, size: Nat}
-
-def Wasm.run.fits(ok: Bool, f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, m: U32, gs: List<&2, Bool>) -> Wasm.Outcome:
-  match ok:
-    case True{}:
-      Wasm.run.made(f, Wasm.instantiate(w, m, gs), i)
-    case False{}:
-      Wasm.Outcome.out_of_memory{}
+  Wasm.Engine{pages: U32, grows: List<&2, Bool>}
 
 # a run of the module of the bytes w on the input bytes i, in at most f
 # steps of its functions, on the engine e
-def Wasm.run(f: Nat, +w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, e: Wasm.Engine) -> Wasm.Outcome:
+def Wasm.run(f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, e: Wasm.Engine) -> Wasm.Outcome:
   match e:
-    case Wasm.Engine{m, gs, size}:
-      Wasm.run.fits(Nat.is_le(List.length(&2, Word(8n), w), size), f, w, i, m, gs)
+    case Wasm.Engine{m, gs}:
+      Wasm.run.made(f, Wasm.instantiate(w, m, gs), i)

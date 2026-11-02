@@ -18,9 +18,8 @@ import Shared.Script
 -- program's book (src/Book/scripts/Write.lean): Compiler.compile makes the
 -- module of it, which the job writes to <output>.wasm. Then the job writes to
 -- the output the outcome of Wasm.run on the module and the input, with 2^22
--- steps, on an engine of 2^16 pages that refuses no grow and takes modules of
--- up to 2^30 bytes (bun's limit): its name (Wasm.Outcome), and for a result,
--- a second line of its bytes in hex.
+-- steps, on an engine of 2^16 pages that refuses no grow: its name
+-- (Wasm.Outcome), and for a result, a second line of its bytes in hex.
 
 open Quan Term
 
@@ -34,15 +33,12 @@ def outcome : Term → String × Option (List UInt8)
 def hex (bs : List UInt8) : String :=
   String.join (bs.map fun b => String.ofList ((Nat.toDigits 16 (b.toNat + 256)).drop 1))
 
--- 2^k, as Nat.double applied k times, which the run unfolds as it needs
-def pow2 (k : Nat) : Term := (List.range k).foldl (fun t _ => App Q1 (Ref "Nat.double") t) (Form.nat 1)
+-- 2^22, enough for the compiled programs of agree.ts, as Nat.double applied 22
+-- times, which the run unfolds as it needs
+def fuel : Term := (List.range 22).foldl (fun t _ => App Q1 (Ref "Nat.double") t) (Form.nat 1)
 
--- 2^22 steps, enough for the compiled programs of agree.ts
-def fuel : Term := pow2 22
-
--- the engine: 2^16 pages, no answers (each grow within them granted), and
--- modules of up to 2^30 bytes
-def engine : Term := ctor "Wasm_2f_impl.Wasm.Engine" [ctor "U32" [bits 32 65536], ctor "Nil" [], pow2 30]
+-- the engine: 2^16 pages, and no answers: it grants each grow within them
+def engine : Term := ctor "Wasm_2f_impl.Wasm.Engine" [ctor "U32" [bits 32 65536], ctor "Nil" []]
 
 def main' : IO Unit := do
   let B ← Script.book
@@ -57,7 +53,7 @@ def main' : IO Unit := do
         pure ws
       else pure (← IO.FS.readBinFile module).toList
     let i := (← IO.FS.readBinFile input).toList
-    let run := App Q1 (App Q1 (App Q2 (App Q1 (Ref "Wasm_2f_impl.Wasm.run") fuel) (bytes w)) (bytes i)) engine
+    let run := App Q1 (App Q1 (App Q1 (App Q1 (Ref "Wasm_2f_impl.Wasm.run") fuel) (bytes w)) (bytes i)) engine
     let (v, _) := steps B 40000000000 run 0
     let (name, bs) := outcome v
     IO.FS.writeFile out (name ++ "\n" ++ (bs.map hex).getD "" ++ "\n")

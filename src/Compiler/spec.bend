@@ -39,17 +39,15 @@ law no_other_failure:
     {Wa.Wasm.run(f, C.Compiler.compile(p), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
 
 # LAW (AGENTS.md 3.6.1.3), enough memory: with the memory that
-# Program.need asks, on an engine that grants each grow within m pages and
-# takes the module, the compiled program gives the result that Eval gives
+# Program.need asks, on an engine that grants each grow within m pages, the
+# compiled program gives the result that Eval gives
 law enough_memory:
   for +p: List<&2, Word(8n)>
   for +i: List<&2, Word(8n)>
   for +n: Nat
   for +o: List<&2, Word(8n)>
   for +m: U32
-  for +L: Nat
   for e: {Pg.Program.gives(p, i, n) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}
   for big: {Nat.is_le(Pg.Program.need(p, i, n), Pg.Program.memory(m)) == True{} : Bool}
-  for fits: {Nat.is_le(List.length(&2, Word(8n), C.Compiler.compile(p)), L) == True{} : Bool}
   exs f: Nat
-  {Wa.Wasm.run(f, C.Compiler.compile(p), i, Wa.Wasm.Engine{m, [], L}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+  {Wa.Wasm.run(f, C.Compiler.compile(p), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}

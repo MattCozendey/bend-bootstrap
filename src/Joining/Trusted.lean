@@ -41,15 +41,15 @@ structure Trusted (B : Book) : Prop where
 -- The terms of the theorems
 -- -------------------------
 
--- Wasm.Engine{m, gs, L}: an engine that gives a memory at most m pages, answers
--- gs to its grows, and takes modules of at most L bytes
-def engineOf (m : UInt32) (gs : List Bool) (L : Nat) : Term :=
-  ctor (impl "Wasm.Engine") [Form.u32 m, Form.bools gs, Form.nat L]
+-- Wasm.Engine{m, gs}: an engine that gives a memory at most m pages, and
+-- answers gs to its grows
+def engineOf (m : UInt32) (gs : List Bool) : Term :=
+  ctor (impl "Wasm.Engine") [Form.u32 m, Form.bools gs]
 
 -- the Bend version of WASM (Wasm/impl.bend's Wasm.run), run with the fuel f on the
--- module w, the input i and the engine Wasm.Engine{m, gs, L}
-def wasmRun (f : Nat) (w i : List UInt8) (m : UInt32) (gs : List Bool) (L : Nat) : Term :=
-  spine (Ref (impl "Wasm.run")) [(Q1, Form.nat f), (Q2, bytes w), (Q1, bytes i), (Q1, engineOf m gs L)]
+-- module w, the input i and the engine Wasm.Engine{m, gs}
+def wasmRun (f : Nat) (w i : List UInt8) (m : UInt32) (gs : List Bool) : Term :=
+  spine (Ref (impl "Wasm.run")) [(Q1, Form.nat f), (Q1, bytes w), (Q1, bytes i), (Q1, engineOf m gs)]
 
 -- Wasm.Outcome.result{o}
 def resultOf (o : List UInt8) : Term := ctor (impl "Wasm.Outcome.result") [bytes o]
@@ -67,10 +67,10 @@ def outOfMemory : Term := ctor (impl "Wasm.Outcome.out_of_memory") []
 @[simp] theorem ren_u32 : Term.ren r (Form.u32 m) = Form.u32 m := plain_u32.ren
 @[simp] theorem sub_u32 : Term.sub s (Form.u32 m) = Form.u32 m := plain_u32.sub
 
-theorem plain_engine : Plain (engineOf m gs L) := plain_ctor (by simp [plain_u32, plain_bools, plain_nat])
+theorem plain_engine : Plain (engineOf m gs) := plain_ctor (by simp [plain_u32, plain_bools])
 
-@[simp] theorem ren_engine : Term.ren r (engineOf m gs L) = engineOf m gs L := plain_engine.ren
-@[simp] theorem sub_engine : Term.sub s (engineOf m gs L) = engineOf m gs L := plain_engine.sub
+@[simp] theorem ren_engine : Term.ren r (engineOf m gs) = engineOf m gs := plain_engine.ren
+@[simp] theorem sub_engine : Term.sub s (engineOf m gs) = engineOf m gs := plain_engine.sub
 
 -- a def of the versions, under its name in main.bend's book
 theorem Trusted.get (hB : Trusted B) (hd : d ∈ evalVersion ++ reader ++ programVersion ++ needVersion ++ trustedVersion) :
@@ -115,7 +115,7 @@ theorem Trusted.law {l : String × Term} (hB : Trusted B) (hl : l ∈ _root_.law
 
 -- an engine is a value of Wasm.Engine
 theorem typed_engine (hB : Trusted B) (cl : Book.Closed B) :
-    Typed B [] (engineOf m gs L) (Ref (impl "Wasm.Engine")) := by
+    Typed B [] (engineOf m gs) (Ref (impl "Wasm.Engine")) := by
   have hT := hB.types
   have hE := hB.get (d := «trustedVersion.Wasm.Engine») (by simp [trustedVersion])
   have hA := hB.get (d := «trustedVersion.Wasm.Engine.arms») (by simp [trustedVersion])
@@ -125,10 +125,8 @@ theorem typed_engine (hB : Trusted B) (cl : Book.Closed B) :
   refine typed_pair (A := Enu [impl "Wasm.Engine"]) (Bt := App Q1 (Ref (impl "Wasm.Engine.arms")) (Var 0))
     (.lab (by simp)) ?_ (.step (.delta hE (cl _ _ hE)) .refl)
   simp only [Term.inst, Term.sub, Subst.one]
-  refine typed_pair (A := Ref "U32") (Bt := Sig Q1 listBools (Sig Q1 (Ref "Nat") (Enu ["()"]))) (typed_u32' hT cl) ?_ ?_
+  refine typed_pair (A := Ref "U32") (Bt := Sig Q1 listBools (Enu ["()"])) (typed_u32' hT cl) ?_ ?_
   · simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, listBools]
-    refine typed_pair (Bt := Sig Q1 (Ref "Nat") (Enu ["()"])) (typed_bools hT cl) ?_ .refl
-    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
-    refine typed_pair (Bt := Enu ["()"]) (typed_nat hT cl) (typed_label (ks := ["()"]) (by simp) ?_) .refl
+    refine typed_pair (Bt := Enu ["()"]) (typed_bools hT cl) (typed_label (ks := ["()"]) (by simp) ?_) .refl
     simp only [Term.inst, Term.sub]; exact .refl
   · exact .step (.app (.delta hA (cl _ _ hA)) par_refl) (.step (.hit par_refl) .refl)
