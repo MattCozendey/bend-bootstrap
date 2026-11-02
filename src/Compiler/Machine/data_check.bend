@@ -1741,6 +1741,125 @@ def rl.at(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
       PM.release.post(0n, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, z, xs, zs, hs, hac, hz, ht, hf, hm,
         hfs, hl, hc, hp)))
 
+# The flag DATA
+# -------------
+
+# is_eq is symmetric
+def u32.ne.sym.at(c: Bool, +a: U32, +b: U32, ec: {U32.is_eq(b, a) == c : Bool}, h: {U32.is_eq(a, b) == False{} : Bool}) ->
+  {c == False{} : Bool}:
+  match c:
+    case False{}:
+      {==}
+    case True{}:
+      Empty.absurd({True{} == False{} : Bool}, PM.u32.ne(a, b, h, Equal.sym(U32, b, a, PM.u32.eq(b, a, ec))))
+
+def u32.ne.sym(+a: U32, +b: U32, h: {U32.is_eq(a, b) == False{} : Bool}) -> {U32.is_eq(b, a) == False{} : Bool}:
+  u32.ne.sym.at(U32.is_eq(b, a), a, b, {==}, h)
+
+# field 0 of a cell after a store of field 0
+def cs00(c: Cr.Cir.Cell, +v: U32) -> {Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(0n, c, v)) == v : U32}:
+  match c:
+    case Cr.Cir.Cell{a, b, x, y, z}:
+      {==}
+
+# the flagged cell y keeps fields 2 and 3, and field 0 gains DATA: y joins ns
+def fv.flag.y(+m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +y: U32, +ns: List<&2, U32>, f: FV(m0, m, y, ns), hy: {PM.Mem(ns, y) == False{} : Bool}) ->
+  FV(m0, X.X.put(m, 0n, y, U32.or(PM.Fd(0n, m, y), 512)), y, Con{y, ns}):
+  (f0, fc) = f
+  (f2, f3) = fc
+  +V = U32.or(PM.Fd(0n, m, y), 512)
+  +C = Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, y), V)
+  +M = Cr.Cir.Cells.set(m, y, C)
+  +gs = X.Ce.get_set(m, y, C)
+  +A = U32.or(PM.Fd(0n, m0, y), 512)
+  +B = PM.Fd(0n, m0, y)
+  +e0 = Equal.trans(U32, PM.Fd(0n, M, y), Cr.Cir.Cell.get(0n, C), V,
+    Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(0n, w), Cr.Cir.Cells.get(M, y), C, gs), cs00(Cr.Cir.Cells.get(m, y), V))
+  +e1 = Equal.cong(U32, U32, w => U32.or(w, 512), PM.Fd(0n, m, y), F0(m0, y, ns), f0)
+  +e2 = Equal.cong(Bool, U32, b => U32.or(Bool.pick(U32, b, A, B), 512), PM.Mem(ns, y), False{}, hy)
+  +e3 = Equal.cong(Bool, U32, b => Bool.pick(U32, Bool.or(b, PM.Mem(ns, y)), A, B), True{}, U32.is_eq(y, y),
+    Equal.sym(Bool, U32.is_eq(y, y), True{}, PM.u32.refl(y)))
+  (Equal.trans(U32, PM.Fd(0n, M, y), V, F0(m0, y, Con{y, ns}), e0,
+     Equal.trans(U32, V, U32.or(F0(m0, y, ns), 512), F0(m0, y, Con{y, ns}), e1, Equal.trans(U32, U32.or(F0(m0, y, ns), 512), A, F0(m0, y, Con{y, ns}), e2, e3))),
+   (Equal.trans(U32, PM.Fd(2n, M, y), PM.Fd(2n, m, y), PM.Fd(2n, m0, y),
+      Equal.trans(U32, PM.Fd(2n, M, y), Cr.Cir.Cell.get(2n, C), PM.Fd(2n, m, y),
+        Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(2n, w), Cr.Cir.Cells.get(M, y), C, gs), s0.f2(Cr.Cir.Cells.get(m, y), V)), f2),
+    Equal.trans(U32, PM.Fd(3n, M, y), PM.Fd(3n, m, y), PM.Fd(3n, m0, y),
+      Equal.trans(U32, PM.Fd(3n, M, y), Cr.Cir.Cell.get(3n, C), PM.Fd(3n, m, y),
+        Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(3n, w), Cr.Cir.Cells.get(M, y), C, gs), s0.f3(Cr.Cir.Cells.get(m, y), V)), f3)))
+
+def fv.flag.of(+m0: Cr.Cir.Cells, +M: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, +y: U32, ey: {U32.is_eq(y, x) == False{} : Bool},
+  h: FV(m0, M, x, ns)) -> FV(m0, M, x, Con{y, ns}):
+  (h0, hc) = h
+  (Equal.trans(U32, PM.Fd(0n, M, x), F0(m0, x, ns), F0(m0, x, Con{y, ns}), h0,
+     Equal.cong(Bool, U32, b => Bool.pick(U32, Bool.or(b, PM.Mem(ns, x)), U32.or(PM.Fd(0n, m0, x), 512), PM.Fd(0n, m0, x)), False{},
+       U32.is_eq(y, x), Equal.sym(Bool, U32.is_eq(y, x), False{}, ey))), hc)
+
+# another cell of the tree keeps all it had
+def fv.flag.ne(+m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, +y: U32, +eb: {U32.is_eq(x, y) == False{} : Bool},
+  f: FV(m0, m, x, ns)) -> FV(m0, X.X.put(m, 0n, y, U32.or(PM.Fd(0n, m, y), 512)), x, Con{y, ns}):
+  +V = U32.or(PM.Fd(0n, m, y), 512)
+  +C = Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, y), V)
+  +M = Cr.Cir.Cells.set(m, y, C)
+  fv.flag.of(m0, M, x, ns, y, u32.ne.sym(x, y, eb), fv.ff(m0, m, M, x, ns, f, ff.go(m, y, C, x, eb)))
+
+def fv.flag(b: Bool, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, +y: U32, eb: {U32.is_eq(x, y) == b : Bool},
+  f: FV(m0, m, x, ns), hy: {PM.Mem(ns, y) == False{} : Bool}) -> FV(m0, X.X.put(m, 0n, y, U32.or(PM.Fd(0n, m, y), 512)), x, Con{y, ns}):
+  match b:
+    case True{}:
+      +e = PM.u32.eq(x, y, eb)
+      (%Equal.sym(U32, x, y, e) : FV(m0, X.X.put(m, 0n, y, U32.or(PM.Fd(0n, m, y), 512)), _, Con{y, ns});
+        fv.flag.y(m0, m, y, ns, (%e : FV(m0, m, _, ns); f), hy))
+    case False{}:
+      fv.flag.ne(m0, m, x, ns, y, eb, f)
+
+# the flag DATA at a cell y out of ns keeps v's tree, with y in ns
+def kv.flag(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, +y: U32, k: KV(v, m0, m, x, ns),
+  +hy: {PM.Mem(ns, y) == False{} : Bool}) -> KV(v, m0, X.X.put(m, 0n, y, U32.or(PM.Fd(0n, m, y), 512)), x, Con{y, ns}):
+  match v:
+    case Bk.Term.Tup{+q, +a, +b}:
+      (f, r) = k
+      (ka, kb) = r
+      (fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, f, hy),
+        (kv.flag(a, m0, m, PM.Fd(2n, m0, x), ns, y, ka, hy), kv.flag(b, m0, m, PM.Fd(3n, m0, x), ns, y, kb, hy)))
+
+    case Bk.Term.Var{+o0}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Ref{+o0}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Ann{+o0, +o1}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Typ{+o0}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Min{+o0, +o1}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.All{+o0, +o1, +o2}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Lam{+o0, +o1}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.App{+o0, +o1, +o2}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Prj{+o0}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Enu{+o0}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Lab{+o0}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Efq{}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Rfl{}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
