@@ -11,6 +11,7 @@
 
 import Base
 import ../../Book/impl.bend as Bk
+import ../../Eval/impl.bend as El
 import ../../Program/impl.bend as Pg
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
@@ -917,6 +918,614 @@ def fvs.eq(xs: List<&2, Bk.Term>, +n: Nat, -b: Nat, e: {n == b : Nat}, +h: {D.Te
 # copy.post's bound on the locals is Cp.ok's
 def fvs.b31(xs: List<&2, Bk.Term>, +h: {D.Terms.below(xs, U32.to_nat(2147483648)) == True{} : Bool}) -> S.Fvs(xs, N.D(31n, 1n)):
   fvs.eq(xs, U32.to_nat(2147483648), N.D(31n, 1n), val.b31(Unit{}), h)
+
+# The counts
+# ----------
+#
+# HS counts each term cell's pointers exactly (Cnt), with at most 64 roots;
+# Pre asks a count of at most 64 more than the own cells' pointers (Cb).
+
+# a Bool whose truth holds is True
+def of.t(+b: Bool, +t: N.T(b)) -> {b == True{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      Empty.absurd({False{} == True{} : Bool}, t)
+
+# not x < y gives y <= x
+def nlt.le(+x: U32, +y: U32, +h: {U32.is_lt(x, y) == False{} : Bool}) -> {U32.is_le(y, x) == True{} : Bool}:
+  CK.U.le_t(y, x, CK.nlt.of(U32.cmp(x, y), U32.to_nat(x), U32.to_nat(y), N.U32.rel(x, y), h))
+
+# a sum the other way
+def add.comm(+a: Nat, +b: Nat) -> {Nat.add(a, b) == Nat.add(b, a) : Nat}:
+  match a:
+    case 0n:
+      Equal.sym(Nat, Nat.add(b, 0n), b, N.add_zero(b))
+    case 1n+(+p):
+      Equal.trans(Nat, 1n+Nat.add(p, b), 1n+Nat.add(b, p), Nat.add(b, 1n+p), Equal.cong(Nat, Nat, k => 1n+k, Nat.add(p, b), Nat.add(b, p), add.comm(p, b)),
+        Equal.sym(Nat, Nat.add(b, 1n+p), 1n+Nat.add(b, p), N.add_succ_r(b, p)))
+
+# a Bool's number is at most 1
+def of.le1(+b: Bool) -> N.Le(D.Nat.of(b), 1n):
+  match b:
+    case True{}:
+      Unit{}
+    case False{}:
+      Unit{}
+
+# the roots that are c are at most the roots
+def rcl.le(+rs: List<&2, U32>, +c: U32) -> N.Le(D.RcL(rs, c), List.length(&2, U32, rs)):
+  match rs:
+    case Nil{}:
+      Unit{}
+    case Con{+r, +rest}:
+      N.add_mono(D.Nat.of(U32.is_eq(r, c)), 1n, D.RcL(rest, c), List.length(&2, U32, rest), of.le1(U32.is_eq(r, c)), rcl.le(rest, c))
+
+# the roots' cells are as many as the roots
+def cells.len(+os: List<&2, D.Rt>) -> {List.length(&2, U32, D.Rt.cells(os)) == List.length(&2, D.Rt, os) : Nat}:
+  match os:
+    case Nil{}:
+      {==}
+    case Con{D.Rt{c, u}, +rest}:
+      Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, U32, D.Rt.cells(rest)), List.length(&2, D.Rt, rest), cells.len(rest))
+
+# a count that is the pointers, the own cells' and at most 64 roots', is at
+# most the own cells' and 64
+def cnt.le(+k: Nat, +p: Nat, +r: Nat, +e: {Nat.is_eq(k, Nat.add(p, r)) == True{} : Bool}, +hr: N.Le(r, 64n)) ->
+  {Nat.is_le(k, Nat.add(64n, p)) == True{} : Bool}:
+  %Equal.sym(Nat, k, Nat.add(p, r), nat.eq(k, Nat.add(p, r), e)) : {Nat.is_le(_, Nat.add(64n, p)) == True{} : Bool}
+  of.t(Nat.is_le(Nat.add(p, r), Nat.add(64n, p)), N.le_rw_r(Nat.add(p, r), Nat.add(p, 64n), Nat.add(64n, p), add.comm(p, 64n),
+    N.add_mono(p, p, r, 64n, N.le_refl(p), hr)))
+
+# one cell: each case of Cnt is one of Cb
+def cb.at(+a: Bool, +b: Bool, +c: Bool, +d: Bool, +a2: Bool, +b2: Bool, +c2: Bool, +d2: Bool,
+  +h: {Bool.or(a, Bool.or(b, Bool.or(c, d))) == True{} : Bool}, fa: {a == True{} : Bool} -> {a2 == True{} : Bool},
+  fb: {b == True{} : Bool} -> {b2 == True{} : Bool}, fc: {c == True{} : Bool} -> {c2 == True{} : Bool},
+  fd: {d == True{} : Bool} -> {d2 == True{} : Bool}) -> {Bool.or(Bool.or(a2, Bool.or(b2, c2)), d2) == True{} : Bool}:
+  match a:
+    case True{}:
+      CK.Bo.or_il(Bool.or(a2, Bool.or(b2, c2)), d2, CK.Bo.or_il(a2, Bool.or(b2, c2), fa({==})))
+    case False{}:
+      match b:
+        case True{}:
+          CK.Bo.or_il(Bool.or(a2, Bool.or(b2, c2)), d2, CK.Bo.or_ir(a2, Bool.or(b2, c2), CK.Bo.or_il(b2, c2, fb({==}))))
+        case False{}:
+          match c:
+            case True{}:
+              CK.Bo.or_il(Bool.or(a2, Bool.or(b2, c2)), d2, CK.Bo.or_ir(a2, Bool.or(b2, c2), CK.Bo.or_ir(b2, c2, fc({==}))))
+            case False{}:
+              CK.Bo.or_ir(Bool.or(a2, Bool.or(b2, c2)), d2, fd(h))
+
+# HS's exact counts, with at most 64 roots, give Pre's bound on them
+def cnt.cb(+n: Nat, +m: Cr.Cir.Cells, +c: U32, +N0: Nat, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>,
+  +h: {D.Cnt(n, m, c, N0, fi, ps, rs) == True{} : Bool}, +hr: N.Le(List.length(&2, U32, rs), 64n)) ->
+  {S.Cb(n, m, c, ps, fi, N0) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +at = Bool.or(Bool.not(U32.is_lt(D.Tg(m, c), 19)), Bool.or(D.Fl(m, c, 1024), Bool.or(D.Mem(ps, c),
+        Nat.is_eq(U32.to_nat(D.Fd(1n, m, c)), D.Ptr(N0, m, fi, ps, rs, c)))))
+      +bt = Bool.or(Bool.or(U32.is_le(19, U32.and(S.Fd(0n, m, c), 63)), Bool.or(S.Stc(m, c), S.Has(ps, c))),
+        Nat.is_le(U32.to_nat(S.Fd(1n, m, c)), Nat.add(64n, S.Pc(N0, m, ps, fi, c))))
+      +rl = N.le_trans(D.RcL(rs, c), List.length(&2, U32, rs), 64n, rcl.le(rs, c), hr)
+      CK.Bo.and_i(bt, S.Cb(p, m, U32.inc(c), ps, fi, N0),
+        cb.at(Bool.not(U32.is_lt(D.Tg(m, c), 19)), D.Fl(m, c, 1024), D.Mem(ps, c), Nat.is_eq(U32.to_nat(D.Fd(1n, m, c)), D.Ptr(N0, m, fi, ps, rs, c)),
+          U32.is_le(19, U32.and(S.Fd(0n, m, c), 63)), S.Stc(m, c), S.Has(ps, c), Nat.is_le(U32.to_nat(S.Fd(1n, m, c)), Nat.add(64n, S.Pc(N0, m, ps, fi, c))),
+          CK.Bo.and_l(at, D.Cnt(p, m, U32.inc(c), N0, fi, ps, rs), h),
+          e => nlt.le(D.Tg(m, c), 19, CK.Bo.not_t(U32.is_lt(D.Tg(m, c), 19), e)),
+          e => e,
+          e => Equal.trans(Bool, S.Has(ps, c), D.Mem(ps, c), True{}, Equal.sym(Bool, D.Mem(ps, c), S.Has(ps, c), mem.has(ps, c)), e),
+          e => (%pc.eq(N0, m, ps, fi, c) :
+            {Nat.is_le(U32.to_nat(D.Fd(1n, m, c)), Nat.add(64n, _)) == True{} : Bool};
+            cnt.le(U32.to_nat(D.Fd(1n, m, c)), D.Pc(N0, m, ps, fi, c), D.RcL(rs, c), e, rl))),
+        cnt.cb(p, m, U32.inc(c), N0, fi, ps, rs, CK.Bo.and_r(at, D.Cnt(p, m, U32.inc(c), N0, fi, ps, rs), h), hr))
+
+# The pend list
+# -------------
+
+# HS's pend list is AL's chain
+def chain.of(+ps: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +h: D.Chain(ps, m, p)) -> {S.Chain(ps, m, p) == True{} : Bool}:
+  match ps:
+    case Nil{}:
+      zero.ok(p, h)
+    case Con{+x, +rest}:
+      (e1, r1) = h
+      (e2, h2) = r1
+      CK.Bo.and_i(U32.is_eq(p, x), Bool.and(Bool.not(U32.is_zero(x)), S.Chain(rest, m, S.Fd(1n, m, x))),
+        (%Equal.sym(U32, p, x, e1) : {U32.is_eq(_, x) == True{} : Bool}; CK.U.eq_refl(x)),
+        CK.Bo.and_i(Bool.not(U32.is_zero(x)), S.Chain(rest, m, S.Fd(1n, m, x)), CK.Bo.not_i(U32.is_zero(x), e2),
+          chain.of(rest, m, D.Fd(1n, m, x), h2)))
+
+# a chain from p is the only one
+def chain.det(+xs: List<&2, U32>, +ys: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +hx: D.Chain(xs, m, p), +hy: D.Chain(ys, m, p)) ->
+  {xs == ys : List<&2, U32>}:
+  match xs ys:
+    case Nil{} Nil{}:
+      {==}
+    case Nil{} Con{+y, +yr}:
+      (ey, ry) = hy
+      (ez, hy2) = ry
+      CK.Bo.tf({Nil{} == Con{y, yr} : List<&2, U32>}, Equal.trans(Bool, False{}, U32.is_eq(y, 0), True{}, Equal.sym(Bool, U32.is_eq(y, 0), False{}, ez),
+        (%Equal.trans(U32, y, p, 0, Equal.sym(U32, p, y, ey), hx) : {U32.is_eq(y, _) == True{} : Bool}; CK.U.eq_refl(y))))
+    case Con{+x, +xr} Nil{}:
+      (ex, rx) = hx
+      (ez, hx2) = rx
+      CK.Bo.tf({Con{x, xr} == Nil{} : List<&2, U32>}, Equal.trans(Bool, False{}, U32.is_eq(x, 0), True{}, Equal.sym(Bool, U32.is_eq(x, 0), False{}, ez),
+        (%Equal.trans(U32, x, p, 0, Equal.sym(U32, p, x, ex), hy) : {U32.is_eq(x, _) == True{} : Bool}; CK.U.eq_refl(x))))
+    case Con{+x, +xr} Con{+y, +yr}:
+      (ex, rx) = hx
+      (ezx, hx2) = rx
+      (ey, ry) = hy
+      (ezy, hy2) = ry
+      +exy = Equal.trans(U32, x, p, y, Equal.sym(U32, p, x, ex), ey)
+      +er = chain.det(xr, yr, m, D.Fd(1n, m, x), hx2, (%Equal.sym(U32, x, y, exy) : D.Chain(yr, m, D.Fd(1n, m, _)); hy2))
+      %exy : {Con{x, xr} == Con{_, yr} : List<&2, U32>}
+      %er : {Con{x, xr} == Con{x, _} : List<&2, U32>}
+      {==}
+
+def chain.at.r(+rest: List<&2, U32>, +m: Cr.Cir.Cells, +x: U32,
+  +r: D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, rest))))) ->
+  D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), 1n+List.length(&2, U32, rest)))):
+  (+ys, rr) = r
+  (hc, hl) = rr
+  (ys, (hc, N.le_succ(List.length(&2, U32, ys), List.length(&2, U32, rest), hl)))
+
+# the place of x in a chain from p: the rest from there is a chain from x, at most as long
+def chain.at.b(+b: Bool, +y: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +x: U32, +eb: {U32.is_eq(y, x) == b : Bool},
+  +h: D.Chain(Con{y, rest}, m, p), +hx: {Bool.or(b, S.Has(rest, x)) == True{} : Bool},
+  k: {S.Has(rest, x) == True{} : Bool} -> D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, rest))))) ->
+  D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), 1n+List.length(&2, U32, rest)))):
+  match b:
+    case True{}:
+      (h1, h2) = h
+      (Con{y, rest}, ((Equal.sym(U32, y, x, CK.U.eq(y, x, eb)), h2), N.le_refl(1n+List.length(&2, U32, rest))))
+    case False{}:
+      chain.at.r(rest, m, x, k(hx))
+
+def chain.at(+xs: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +x: U32, +h: D.Chain(xs, m, p), +hx: {S.Has(xs, x) == True{} : Bool}) ->
+  D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, xs)))):
+  match xs:
+    case Nil{}:
+      CK.Bo.tf(D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), 0n))), hx)
+    case Con{+y, +rest}:
+      (h1, h2) = h
+      (h3, h4) = h2
+      chain.at.b(U32.is_eq(y, x), y, rest, m, p, x, {==}, h, hx, e => chain.at(rest, m, D.Fd(1n, m, y), x, h4, e))
+
+# a chain from x, at most as long as rest, is not x then rest
+def chain.loop(+x: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells,
+  +r: D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, rest)))),
+  hx: D.Chain(Con{x, rest}, m, x)) -> {True{} == False{} : Bool}:
+  (+ys, rr) = r
+  (hc, hl) = rr
+  +e = chain.det(ys, Con{x, rest}, m, x, hc, hx)
+  Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(List.length(&2, U32, rest),
+    (%e : N.Le(List.length(&2, U32, _), List.length(&2, U32, rest)); hl)))
+
+# the head of a chain is not in its rest: else the rest from there would be the chain, and longer than itself
+def chain.out(+b: Bool, +x: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +eb: {S.Has(rest, x) == b : Bool},
+  +h: D.Chain(Con{x, rest}, m, p)) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      (h1, h2) = h
+      (h3, h4) = h2
+      chain.loop(x, rest, m, chain.at(rest, m, D.Fd(1n, m, x), x, h4, eb), (%h1 : D.Chain(Con{x, rest}, m, _); h))
+
+# a chain holds each cell once
+def chain.nodup(+xs: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +h: D.Chain(xs, m, p)) -> {S.Nodup(xs) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      (h1, h2) = h
+      (h3, h4) = h2
+      CK.Bo.and_i(Bool.not(S.Has(rest, x)), S.Nodup(rest), CK.Bo.not_i(S.Has(rest, x), chain.out(S.Has(rest, x), x, rest, m, p, {==}, h)),
+        chain.nodup(rest, m, D.Fd(1n, m, x), h4))
+
+# The locals
+# ----------
+
+# the K.arg cells of the chain from a
+def Ag.links(+xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32) -> List<&2, U32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{_, +rest}:
+      Con{a, Ag.links(rest, m, D.Fd(1n, m, a))}
+
+# the chain of K.args is a chain, of the machine's own cells
+def ag.chain(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32,
+  +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs)) -> D.Chain(Ag.links(xs, m, a), m, a):
+  match xs:
+    case Nil{}:
+      h
+    case Con{El.Arg{+q, +x}, +rest}:
+      (e0, r0) = h
+      (e1, r1) = r0
+      (e2, r2) = r1
+      (e3, r3) = r2
+      (e4, r4) = r3
+      (e5, r5) = r4
+      (e6, r6) = r5
+      (e7, r7) = r6
+      (e8, r8) = r7
+      (e9, r9) = r8
+      (e10, r10) = r9
+      (e11, h2) = r10
+      ({==}, (e0, ag.chain(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, D.Fd(1n, m, a), h2)))
+
+def ag.lt(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32,
+  +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs)) -> {S.All.lt(Ag.links(xs, m, a), nx) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{El.Arg{+q, +x}, +rest}:
+      (e0, r0) = h
+      (e1, r1) = r0
+      (e2, r2) = r1
+      (e3, r3) = r2
+      (e4, r4) = r3
+      (e5, r5) = r4
+      (e6, r6) = r5
+      (e7, r7) = r6
+      (e8, r8) = r7
+      (e9, r9) = r8
+      (e10, r10) = r9
+      (e11, h2) = r10
+      CK.Bo.and_i(U32.is_lt(a, nx), S.All.lt(Ag.links(rest, m, D.Fd(1n, m, a)), nx), CK.Bo.and_r(U32.is_le(fi, a), U32.is_lt(a, nx), e2),
+        ag.lt(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, D.Fd(1n, m, a), h2))
+
+def links.len(+xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32) -> {List.length(&2, U32, Ag.links(xs, m, a)) == List.length(&2, El.Arg, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{_, +rest}:
+      Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, U32, Ag.links(rest, m, D.Fd(1n, m, a))), List.length(&2, El.Arg, rest),
+        links.len(rest, m, D.Fd(1n, m, a)))
+
+def terms.len(+xs: List<&2, El.Arg>) -> {List.length(&2, Bk.Term, D.Arg.terms(xs)) == List.length(&2, El.Arg, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{El.Arg{_, x}, +rest}:
+      Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, Bk.Term, D.Arg.terms(rest)), List.length(&2, El.Arg, rest), terms.len(rest))
+
+# Distinct numbers below n are at most n
+# --------------------------------------
+
+def Has.n(+xs: List<&2, Nat>, +k: Nat) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case Con{+x, rest}:
+      Bool.or(Nat.is_eq(x, k), Has.n(rest, k))
+
+def Nodup.n(+xs: List<&2, Nat>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, +rest}:
+      Bool.and(Bool.not(Has.n(rest, x)), Nodup.n(rest))
+
+def Lt.n(+xs: List<&2, Nat>, +n: Nat) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Nat.is_lt(x, n), Lt.n(rest, n))
+
+# xs but the numbers k
+def Del.n(+xs: List<&2, Nat>, +k: Nat) -> List<&2, Nat>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{+x, +rest}:
+      Bool.pick(List<&2, Nat>, Nat.is_eq(x, k), Del.n(rest, k), Con{x, Del.n(rest, k)})
+
+# x < 1 + p and x is not p: x < p
+def lt.pred(+x: Nat, +p: Nat, +h1: {Nat.is_lt(x, 1n+p) == True{} : Bool}, +h2: {Nat.is_eq(x, p) == False{} : Bool}) ->
+  {Nat.is_lt(x, p) == True{} : Bool}:
+  match x p:
+    case 0n 0n:
+      CK.Bo.ft({Nat.is_lt(0n, 0n) == True{} : Bool}, h2)
+    case 0n 1n+pp:
+      {==}
+    case 1n+xp 0n:
+      CT.Tz.lt0.no(xp, {Nat.is_lt(1n+xp, 0n) == True{} : Bool}, h1)
+    case 1n+xp 1n+pp:
+      lt.pred(xp, pp, h1, h2)
+
+def del.lt.b(+b: Bool, +x: Nat, +p: Nat, +rest: List<&2, Nat>, +eb: {Nat.is_eq(x, p) == b : Bool}, +hx: {Nat.is_lt(x, 1n+p) == True{} : Bool},
+  +hr: {Lt.n(Del.n(rest, p), p) == True{} : Bool}) -> {Lt.n(Bool.pick(List<&2, Nat>, b, Del.n(rest, p), Con{x, Del.n(rest, p)}), p) == True{} : Bool}:
+  match b:
+    case True{}:
+      hr
+    case False{}:
+      CK.Bo.and_i(Nat.is_lt(x, p), Lt.n(Del.n(rest, p), p), lt.pred(x, p, hx, eb), hr)
+
+# the numbers of xs below 1 + p but p are below p
+def del.lt(+xs: List<&2, Nat>, +p: Nat, +h: {Lt.n(xs, 1n+p) == True{} : Bool}) -> {Lt.n(Del.n(xs, p), p) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      del.lt.b(Nat.is_eq(x, p), x, p, rest, {==}, CK.Bo.and_l(Nat.is_lt(x, 1n+p), Lt.n(rest, 1n+p), h),
+        del.lt(rest, p, CK.Bo.and_r(Nat.is_lt(x, 1n+p), Lt.n(rest, 1n+p), h)))
+
+def del.has.c(+a: Bool, +d: Bool, +r: Bool, +h: {Bool.or(a, d) == True{} : Bool}, hr: {d == True{} : Bool} -> {r == True{} : Bool}) ->
+  {Bool.or(a, r) == True{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      hr(h)
+
+def del.has.b(+b: Bool, +x: Nat, +p: Nat, +k: Nat, +rest: List<&2, Nat>,
+  hr: {Has.n(Del.n(rest, p), k) == True{} : Bool} -> {Has.n(rest, k) == True{} : Bool},
+  h: {Has.n(Bool.pick(List<&2, Nat>, b, Del.n(rest, p), Con{x, Del.n(rest, p)}), k) == True{} : Bool}) ->
+  {Bool.or(Nat.is_eq(x, k), Has.n(rest, k)) == True{} : Bool}:
+  match b:
+    case True{}:
+      CK.Bo.or_ir(Nat.is_eq(x, k), Has.n(rest, k), hr(h))
+    case False{}:
+      del.has.c(Nat.is_eq(x, k), Has.n(Del.n(rest, p), k), Has.n(rest, k), h, hr)
+
+# a number of xs but the numbers p is one of xs
+def del.has(+xs: List<&2, Nat>, +p: Nat, +k: Nat, +h: {Has.n(Del.n(xs, p), k) == True{} : Bool}) -> {Has.n(xs, k) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      h
+    case Con{+x, +rest}:
+      del.has.b(Nat.is_eq(x, p), x, p, k, rest, e => del.has(rest, p, k, e), h)
+
+def not.has.b(+b: Bool, +xs: List<&2, Nat>, +p: Nat, +k: Nat, +eb: {Has.n(Del.n(xs, p), k) == b : Bool}, +h: {Has.n(xs, k) == False{} : Bool}) ->
+  {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      CK.Bo.tf({True{} == False{} : Bool}, Equal.trans(Bool, False{}, Has.n(xs, k), True{}, Equal.sym(Bool, Has.n(xs, k), False{}, h),
+        del.has(xs, p, k, eb)))
+
+def not.has(+xs: List<&2, Nat>, +p: Nat, +k: Nat, +h: {Has.n(xs, k) == False{} : Bool}) -> {Has.n(Del.n(xs, p), k) == False{} : Bool}:
+  not.has.b(Has.n(Del.n(xs, p), k), xs, p, k, {==}, h)
+
+def del.nd.b(+b: Bool, +x: Nat, +p: Nat, +rest: List<&2, Nat>, +hx: {Has.n(rest, x) == False{} : Bool}, +hr: {Nodup.n(Del.n(rest, p)) == True{} : Bool}) ->
+  {Nodup.n(Bool.pick(List<&2, Nat>, b, Del.n(rest, p), Con{x, Del.n(rest, p)})) == True{} : Bool}:
+  match b:
+    case True{}:
+      hr
+    case False{}:
+      CK.Bo.and_i(Bool.not(Has.n(Del.n(rest, p), x)), Nodup.n(Del.n(rest, p)), CK.Bo.not_i(Has.n(Del.n(rest, p), x), not.has(rest, p, x, hx)), hr)
+
+# xs but the numbers p hold each number once
+def del.nd(+xs: List<&2, Nat>, +p: Nat, +h: {Nodup.n(xs) == True{} : Bool}) -> {Nodup.n(Del.n(xs, p)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      del.nd.b(Nat.is_eq(x, p), x, p, rest, CK.Bo.not_t(Has.n(rest, x), CK.Bo.and_l(Bool.not(Has.n(rest, x)), Nodup.n(rest), h)),
+        del.nd(rest, p, CK.Bo.and_r(Bool.not(Has.n(rest, x)), Nodup.n(rest), h)))
+
+def heap.or.r(+a: Bool, +b: Bool, +h: {Bool.or(a, b) == False{} : Bool}) -> {b == False{} : Bool}:
+  match a:
+    case True{}:
+      CK.Bo.ft({b == False{} : Bool}, h)
+    case False{}:
+      h
+
+def del.none.b(+b: Bool, +x: Nat, +p: Nat, +rest: List<&2, Nat>, +eb: {Nat.is_eq(x, p) == b : Bool}, +h: {Bool.or(b, Has.n(rest, p)) == False{} : Bool},
+  +hr: {List.length(&2, Nat, Del.n(rest, p)) == List.length(&2, Nat, rest) : Nat}) ->
+  {List.length(&2, Nat, Bool.pick(List<&2, Nat>, b, Del.n(rest, p), Con{x, Del.n(rest, p)})) == 1n+List.length(&2, Nat, rest) : Nat}:
+  match b:
+    case True{}:
+      CK.Bo.ft({List.length(&2, Nat, Del.n(rest, p)) == 1n+List.length(&2, Nat, rest) : Nat}, h)
+    case False{}:
+      Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, Nat, Del.n(rest, p)), List.length(&2, Nat, rest), hr)
+
+# with no p in xs, xs but the numbers p is xs
+def del.none(+xs: List<&2, Nat>, +p: Nat, +h: {Has.n(xs, p) == False{} : Bool}) -> {List.length(&2, Nat, Del.n(xs, p)) == List.length(&2, Nat, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      del.none.b(Nat.is_eq(x, p), x, p, rest, {==}, h, del.none(rest, p, heap.or.r(Nat.is_eq(x, p), Has.n(rest, p), h)))
+
+def del.len.b(+b: Bool, +x: Nat, +p: Nat, +rest: List<&2, Nat>, +eb: {Nat.is_eq(x, p) == b : Bool}, +hx: {Has.n(rest, x) == False{} : Bool},
+  +hr: N.Le(List.length(&2, Nat, rest), 1n+List.length(&2, Nat, Del.n(rest, p)))) ->
+  N.Le(1n+List.length(&2, Nat, rest), 1n+List.length(&2, Nat, Bool.pick(List<&2, Nat>, b, Del.n(rest, p), Con{x, Del.n(rest, p)}))):
+  match b:
+    case True{}:
+      +e = nat.eq(x, p, eb)
+      N.le_rw_r(1n+List.length(&2, Nat, rest), 1n+List.length(&2, Nat, rest), 1n+List.length(&2, Nat, Del.n(rest, p)),
+        Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, Nat, rest), List.length(&2, Nat, Del.n(rest, p)),
+          Equal.sym(Nat, List.length(&2, Nat, Del.n(rest, p)), List.length(&2, Nat, rest),
+            del.none(rest, p, (%e : {Has.n(rest, _) == False{} : Bool}; hx)))),
+        N.le_refl(1n+List.length(&2, Nat, rest)))
+    case False{}:
+      hr
+
+# p is at most once in xs: xs is at most 1 + xs but p
+def del.len(+xs: List<&2, Nat>, +p: Nat, +h: {Nodup.n(xs) == True{} : Bool}) -> N.Le(List.length(&2, Nat, xs), 1n+List.length(&2, Nat, Del.n(xs, p))):
+  match xs:
+    case Nil{}:
+      Unit{}
+    case Con{+x, +rest}:
+      del.len.b(Nat.is_eq(x, p), x, p, rest, {==}, CK.Bo.not_t(Has.n(rest, x), CK.Bo.and_l(Bool.not(Has.n(rest, x)), Nodup.n(rest), h)),
+        del.len(rest, p, CK.Bo.and_r(Bool.not(Has.n(rest, x)), Nodup.n(rest), h)))
+
+# distinct numbers below n are at most n
+def ph(+n: Nat, +xs: List<&2, Nat>, +hd: {Nodup.n(xs) == True{} : Bool}, +hl: {Lt.n(xs, n) == True{} : Bool}) -> N.Le(List.length(&2, Nat, xs), n):
+  match n:
+    case 0n:
+      match xs:
+        case Nil{}:
+          Unit{}
+        case Con{+x, +rest}:
+          CT.Tz.lt0.no(x, N.Le(1n+List.length(&2, Nat, rest), 0n), CK.Bo.and_l(Nat.is_lt(x, 0n), Lt.n(rest, 0n), hl))
+    case 1n+(+p):
+      N.le_trans(List.length(&2, Nat, xs), 1n+List.length(&2, Nat, Del.n(xs, p)), 1n+p, del.len(xs, p, hd),
+        ph(p, Del.n(xs, p), del.nd(xs, p, hd), del.lt(xs, p, hl)))
+
+# The cells as numbers
+# --------------------
+
+def Nats(+xs: List<&2, U32>) -> List<&2, Nat>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{+x, rest}:
+      Con{U32.to_nat(x), Nats(rest)}
+
+def nats.len(+xs: List<&2, U32>) -> {List.length(&2, Nat, Nats(xs)) == List.length(&2, U32, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      Equal.cong(Nat, Nat, k => 1n+k, List.length(&2, Nat, Nats(rest)), List.length(&2, U32, rest), nats.len(rest))
+
+# both false: the disjunction is false
+def or.ff(+a: Bool, -b: Bool, +ha: {a == False{} : Bool}, +hb: {b == False{} : Bool}) -> {Bool.or(a, b) == False{} : Bool}:
+  %Equal.sym(Bool, a, False{}, ha) : {Bool.or(_, b) == False{} : Bool}
+  hb
+
+def of.or.l(+a: Bool, +b: Bool, +h: {Bool.or(a, b) == False{} : Bool}) -> {a == False{} : Bool}:
+  match a:
+    case True{}:
+      CK.Bo.ft({True{} == False{} : Bool}, h)
+    case False{}:
+      {==}
+
+def nats.ne.b(+b: Bool, +y: U32, +x: U32, +eb: {Nat.is_eq(U32.to_nat(y), U32.to_nat(x)) == b : Bool}, +h: {U32.is_eq(y, x) == False{} : Bool}) ->
+  {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      CK.Bo.tf({True{} == False{} : Bool}, Equal.trans(Bool, False{}, U32.is_eq(y, x), True{}, Equal.sym(Bool, U32.is_eq(y, x), False{}, h),
+        D.u.nat.eq(y, x, nat.eq(U32.to_nat(y), U32.to_nat(x), eb))))
+
+# a cell not in xs: its number not in their numbers
+def nats.has(+xs: List<&2, U32>, +x: U32, +h: {S.Has(xs, x) == False{} : Bool}) -> {Has.n(Nats(xs), U32.to_nat(x)) == False{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      or.ff(Nat.is_eq(U32.to_nat(y), U32.to_nat(x)), Has.n(Nats(rest), U32.to_nat(x)),
+        nats.ne.b(Nat.is_eq(U32.to_nat(y), U32.to_nat(x)), y, x, {==}, of.or.l(U32.is_eq(y, x), S.Has(rest, x), h)),
+        nats.has(rest, x, heap.or.r(U32.is_eq(y, x), S.Has(rest, x), h)))
+
+def nats.nd(+xs: List<&2, U32>, +h: {S.Nodup(xs) == True{} : Bool}) -> {Nodup.n(Nats(xs)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      CK.Bo.and_i(Bool.not(Has.n(Nats(rest), U32.to_nat(x))), Nodup.n(Nats(rest)),
+        CK.Bo.not_i(Has.n(Nats(rest), U32.to_nat(x)), nats.has(rest, x, CK.Bo.not_t(S.Has(rest, x), CK.Bo.and_l(Bool.not(S.Has(rest, x)), S.Nodup(rest), h)))),
+        nats.nd(rest, CK.Bo.and_r(Bool.not(S.Has(rest, x)), S.Nodup(rest), h)))
+
+# 1 + a <= b: a < b
+def le.lt(+a: Nat, +b: Nat, +h: N.Le(1n+a, b)) -> {Nat.is_lt(a, b) == True{} : Bool}:
+  match a b:
+    case 0n 0n:
+      Empty.absurd({Nat.is_lt(0n, 0n) == True{} : Bool}, h)
+    case 0n 1n+bp:
+      {==}
+    case 1n+ap 0n:
+      Empty.absurd({Nat.is_lt(1n+ap, 0n) == True{} : Bool}, h)
+    case 1n+ap 1n+bp:
+      le.lt(ap, bp, h)
+
+def nats.lt(+xs: List<&2, U32>, +N0: U32, +h: {S.All.lt(xs, N0) == True{} : Bool}) -> {Lt.n(Nats(xs), U32.to_nat(N0)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      CK.Bo.and_i(Nat.is_lt(U32.to_nat(x), U32.to_nat(N0)), Lt.n(Nats(rest), U32.to_nat(N0)),
+        le.lt(U32.to_nat(x), U32.to_nat(N0), CK.U.lt(x, N0, CK.Bo.and_l(U32.is_lt(x, N0), S.All.lt(rest, N0), h))),
+        nats.lt(rest, N0, CK.Bo.and_r(U32.is_lt(x, N0), S.All.lt(rest, N0), h)))
+
+# the number of n, as a U32, is n, when n is at most a U32's
+def to.from(+n: Nat, +M: U32, +h: N.Le(n, U32.to_nat(M))) -> {U32.to_nat(U32.from_nat(n)) == n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +ih = to.from(p, M, N.weaken(p, U32.to_nat(M), h))
+      +h2 : N.Le(1n+U32.to_nat(U32.from_nat(p)), U32.to_nat(M)) = (%Equal.sym(Nat, U32.to_nat(U32.from_nat(p)), p, ih) : N.Le(1n+_, U32.to_nat(M)); h)
+      Equal.trans(Nat, U32.to_nat(U32.inc(U32.from_nat(p))), 1n+U32.to_nat(U32.from_nat(p)), 1n+p, D.u.inc(U32.from_nat(p), M, h2),
+        Equal.cong(Nat, Nat, k => 1n+k, U32.to_nat(U32.from_nat(p)), p, ih))
+
+# the locals are at most the cells before next: their K.args are distinct cells below next
+def ag.len(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32,
+  +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs)) -> N.Le(List.length(&2, El.Arg, xs), U32.to_nat(nx)):
+  +ls = Ag.links(xs, m, a)
+  +b = ph(U32.to_nat(nx), Nats(ls), nats.nd(ls, chain.nodup(ls, m, a, ag.chain(xs, ds, m, im, fi, nx, ks, img, ps, os, vs, a, h))),
+    nats.lt(ls, nx, ag.lt(xs, ds, m, im, fi, nx, ks, img, ps, os, vs, a, h)))
+  %Equal.trans(Nat, List.length(&2, Nat, Nats(ls)), List.length(&2, U32, ls), List.length(&2, El.Arg, xs), nats.len(ls), links.len(xs, m, a)) :
+    N.Le(_, U32.to_nat(nx))
+  b
+
+# register clen holds the locals' number: Cp.ok's hl
+def clen.ok(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32,
+  +regs: List<&2, U32>, +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs),
+  +hn: {List.get(&2, U32, regs, 37n) == Some{U32.from_nat(List.length(&2, El.Arg, xs))} : Maybe<&2, U32>}) ->
+  {U32.to_nat(T.tm.reg(regs, 37n)) == List.length(&2, Bk.Term, D.Arg.terms(xs)) : Nat}:
+  %Equal.sym(Maybe<&2, U32>, List.get(&2, U32, regs, 37n), Some{U32.from_nat(List.length(&2, El.Arg, xs))}, hn) :
+    {U32.to_nat(Maybe.default(&2, U32, _, 0)) == List.length(&2, Bk.Term, D.Arg.terms(xs)) : Nat}
+  %Equal.sym(Nat, List.length(&2, Bk.Term, D.Arg.terms(xs)), List.length(&2, El.Arg, xs), terms.len(xs)) :
+    {U32.to_nat(U32.from_nat(List.length(&2, El.Arg, xs))) == _ : Nat}
+  to.from(List.length(&2, El.Arg, xs), nx, ag.len(xs, ds, m, im, fi, nx, ks, img, ps, os, vs, a, h))
+
+# a K.arg's tag, 41, is the machine's own kind
+def tag.karg(+m: Cr.Cir.Cells, +a: U32, +e: {D.Tg(m, a) == 41 : U32}) -> {Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, a), 63))) == True{} : Bool}:
+  %Equal.sym(U32, D.Tg(m, a), 41, e) : {Nat.is_le(19n, U32.to_nat(_)) == True{} : Bool}
+  {==}
+
+# the K.args and their terms that the run may read
+def Env.rx(+xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32, +X: List<&2, U32>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{El.Arg{_, x}, +rest}:
+      Bool.and(Rx(X, a), Bool.and(Rx.all(x, m, D.Fd(2n, m, a), X), Env.rx(rest, m, D.Fd(1n, m, a), X)))
+
+# the chain of K.args (Ag) is Env's list of the locals, when the run may read them
+def ag.env(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32,
+  +X: List<&2, U32>, +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs), +hx: {Env.rx(xs, m, a, X) == True{} : Bool}) ->
+  S.Env(m, ks, img, im, fi, X, nx, a, D.Arg.terms(xs)):
+  match xs:
+    case Nil{}:
+      Unit{}
+    case Con{El.Arg{+q, +x}, +rest}:
+      (e0, r0) = h
+      (e1, r1) = r0
+      (e2, r2) = r1
+      (e3, r3) = r2
+      (e4, r4) = r3
+      (e5, r5) = r4
+      (e6, r6) = r5
+      (e7, r7) = r6
+      (e8, r8) = r7
+      (e9, r9) = r8
+      (e10, r10) = r9
+      (e11, h2) = r10
+      +rr = CK.Bo.and_r(Rx(X, a), Bool.and(Rx.all(x, m, D.Fd(2n, m, a), X), Env.rx(rest, m, D.Fd(1n, m, a), X)), hx)
+      (CK.Bo.and_i(Cr.Cir.is_cell(a, im, fi, nx), Rx(X, a), e1, CK.Bo.and_l(Rx(X, a), Bool.and(Rx.all(x, m, D.Fd(2n, m, a), X), Env.rx(rest, m, D.Fd(1n, m, a), X)), hx)),
+       (tag.karg(m, a, e5),
+       ((Pg.Term.size(x), tm.is.at(Pg.Term.size(x), True{}, ds, m, im, fi, nx, ks, img, X, D.Fd(2n, m, a), x, N.le_refl(Pg.Term.size(x)), e9,
+          CK.Bo.and_l(Rx.all(x, m, D.Fd(2n, m, a), X), Env.rx(rest, m, D.Fd(1n, m, a), X), rr))),
+        ag.env(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, D.Fd(1n, m, a), X, h2,
+          CK.Bo.and_r(Rx.all(x, m, D.Fd(2n, m, a), X), Env.rx(rest, m, D.Fd(1n, m, a), X), rr)))))
 
 # The laws
 # --------
