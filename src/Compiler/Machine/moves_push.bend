@@ -1579,22 +1579,27 @@ def img.lo(+dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, 
     case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, r}}}}}}:
       r
 
-# Cell.set of field 1 keeps field 0
-def cell.f0(c: Cr.Cir.Cell, +v: U32) -> {Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, c, v)) == Cr.Cir.Cell.get(0n, c) : U32}:
-  match c:
-    case Cr.Cir.Cell{_, _, _, _, _}:
-      {==}
+# the last root's term is a node of the frame's terms' roots: its IsK
+def rts.foc.go(L: List<&2, D.Rt>, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +xc: U32, +vf: Bk.Term, +foc: U32, +F: Bk.Term,
+  h: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, L, [D.Rt{xc, vf}, D.Rt{foc, F}]))) -> D.IsK(dk, ds, m, im, fi, nx, ks, img, foc, F):
+  match L:
+    case Nil{}:
+      match h:
+        case Tuple{_, Tuple{i, _}}:
+          i
+    case Con{D.Rt{+c, +u}, +rest}:
+      match h:
+        case Tuple{_, r}:
+          rts.foc.go(rest, dk, ds, m, im, fi, nx, ks, img, xc, vf, foc, F, r)
 
-# a cell stays a cell when next grows
-def cell.grow(+c: U32, +im: U32, +fi: U32, +nx: U32, +nx2: U32, hc: {Cr.Cir.is_cell(c, im, fi, nx) == True{} : Bool},
-  hle: {U32.is_le(nx, nx2) == True{} : Bool}) -> {Cr.Cir.is_cell(c, im, fi, nx2) == True{} : Bool}:
-  D.or.cases(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, im)), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)),
-    {Cr.Cir.is_cell(c, im, fi, nx2) == True{} : Bool}, hc,
-    e => D.or.l(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, im)), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx2)), e),
-    +e => D.or.r(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, im)), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx2)),
-      D.and.i(U32.is_le(fi, c), U32.is_lt(c, nx2), D.and.l(U32.is_le(fi, c), U32.is_lt(c, nx), e),
-        u.lt_t(c, nx2, N.le_trans(1n+U32.to_nat(c), U32.to_nat(nx), U32.to_nat(nx2),
-          D.u.lt(c, nx, D.and.r(U32.is_le(fi, c), U32.is_lt(c, nx), e)), D.u.le(nx, nx2, hle))))))
+def rts.foc(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +yc: U32, +va: Bk.Term, +L: List<&2, D.Rt>, +xc: U32, +vf: Bk.Term, +foc: U32, +F: Bk.Term,
+  h: D.RtsK(dk, ds, m, im, fi, nx, ks, img, Con{D.Rt{yc, va}, List.append(&2, D.Rt, L, [D.Rt{xc, vf}, D.Rt{foc, F}])})) ->
+  D.IsK(dk, ds, m, im, fi, nx, ks, img, foc, F):
+  match h:
+    case Tuple{_, r}:
+      rts.foc.go(L, dk, ds, m, im, fi, nx, ks, img, xc, vf, foc, F, r)
 
 # what alloc.post gives for the frame's cell (register fr)
 def AlQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
@@ -1629,18 +1634,6 @@ def PushQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
     D.P2({Bool.or(U32.is_eq(nx3, nx), Bool.and(D.Pend.none(ps), U32.is_eq(nx3, U32.inc(nx)))) == True{} : Bool},
     D.P2(D.HS(ds, ks, img, m3, nx3, fi, im, [D.Rt{xc, vf}, D.Rt{foc, F}], Nil{}, Con{D.AF{kind, q, False{}, va, vb}, fs}, z, pend3, ps3),
       D.AccK(True{}, ds, ks, img, m3, nx3, fi, im, [D.Rt{xc, vf}, D.Rt{foc, F}], Nil{}, z, Con{D.AF{kind, q, False{}, va, vb}, fs}, ps3, zs3)))))))))))))))
-
-# the field 0 of a cell that M.alloc keeps
-def keep.f0(+m: Cr.Cir.Cells, +m1: Cr.Cir.Cells, +ps: List<&2, U32>, +foc: U32,
-  h: D.P2({Cr.Cir.Cells.get(m1, foc) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, foc), D.Fd(1n, m1, foc)) : Cr.Cir.Cell},
-    {Bool.or(Bool.and(U32.is_lt(D.Tg(m, foc), 19), D.Taken(ps, m, foc)), U32.is_eq(D.Fd(1n, m1, foc), D.Fd(1n, m, foc))) == True{} : Bool})) ->
-  {D.Fd(0n, m1, foc) == D.Fd(0n, m, foc) : U32}:
-  match h:
-    case Tuple{e, _}:
-      Equal.trans(U32, D.Fd(0n, m1, foc), Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, foc), D.Fd(1n, m1, foc))), D.Fd(0n, m, foc),
-        Equal.cong(Cr.Cir.Cell, U32, c => Cr.Cir.Cell.get(0n, c), Cr.Cir.Cells.get(m1, foc),
-          Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, foc), D.Fd(1n, m1, foc)), e),
-        cell.f0(Cr.Cir.Cells.get(m, foc), D.Fd(1n, m1, foc)))
 
 # the state after M.push, from store.post's heap
 def push.fin(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
@@ -1687,14 +1680,13 @@ def push.k2(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   +h8: {List.get(&2, U32, regs, 8n) == Some{foc} : Maybe<&2, U32>}, +h2: {List.get(&2, U32, regs, 2n) == Some{sp} : Maybe<&2, U32>},
   +h12: {List.get(&2, U32, regs, 12n) == Some{yc} : Maybe<&2, U32>},
   eh: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> {List.get(&2, U32, regs2, 8n) == Some{foc} : Maybe<&2, U32>} ->
-    {D.Fd(0n, m2, foc) == D.Fd(0n, m, foc) : U32} -> {Cr.Cir.is_cell(foc, im, fi, nx2) == True{} : Bool} ->
+    D.IsK(True{}, ds, m2, im, fi, nx2, ks, img, foc, F) ->
     {Cr.Cir.eval(hexp, Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0}) == Some{hv} : Maybe<&2, U32>},
   eb: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> {List.get(&2, U32, regs2, 13n) == List.get(&2, U32, regs, 13n) : Maybe<&2, U32>} ->
     {Cr.Cir.eval(bexp, Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0}) == Some{bv} : Maybe<&2, U32>},
   +htg: {D.TgW(hv) == D.FK.tag(kind) : U32}, +hrest: D.P2({D.QnW(hv) == Mc.Img.quan(q) : U32},
     D.P2({D.FlW(hv, 1024) == False{} : Bool}, {D.FlW(hv, 2048) == False{} : Bool})),
-  +hfoc: {Cr.Cir.is_cell(foc, im, fi, nx) == True{} : Bool}, +hnp: {D.Mem(ps, foc) == False{} : Bool},
-  +hfn: {U32.is_eq(foc, nx) == False{} : Bool}, +st1: Cr.Cir.State,
+  +st1: Cr.Cir.State,
   hparts: D.P2({List.length(&2, U32, D.St.regs(st1)) == 63n : Nat}, D.Kept(regs, D.St.regs(st1), [1n, 2n, 8n, 11n, 12n, 13n])),
   +hsame: D.Same(regs, fi, im, lim, inp, [1n, 2n, 8n, 11n, 12n, 13n], st1), +z: U32, +pend2: U32, +ps2: List<&2, U32>,
   +h16: D.Reg(st1, 16n, z), +h3b: D.Reg(st1, 3n, pend2), +hzero: {Cr.Cir.Cells.get(D.St.cells(st1), z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
@@ -1709,7 +1701,7 @@ def push.k2(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   +s5: D.Heap(D.St.cells(st1), D.St.next(st1), fi, im, D.Rt.cells(Con{D.Rt{yc, va}, List.append(&2, D.Rt, UB(kind, bv, vb), [D.Rt{xc, vf}, D.Rt{foc, F}])}), pend2, ps2),
   +io: D.ImgOKK(True{}, ds, ks, img, D.St.cells(st1), im, fi, D.St.next(st1)), +zs2: List<&2, D.Rt>,
   +hac2: D.AccK(True{}, ds, ks, img, D.St.cells(st1), D.St.next(st1), fi, im, Con{D.Rt{yc, va}, List.append(&2, D.Rt, UB(kind, bv, vb), [D.Rt{xc, vf}, D.Rt{foc, F}])}, Con{D.TmpE{z, Nil{}}, Nil{}}, sp, fs, ps2, zs2),
-  +hle: {U32.is_le(nx, D.St.next(st1)) == True{} : Bool}, +hf0: {D.Fd(0n, D.St.cells(st1), foc) == D.Fd(0n, m, foc) : U32}) ->
+  +hle: {U32.is_le(nx, D.St.next(st1)) == True{} : Bool}) ->
   D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(Mc.M.push(hexp, Mc.M.g(Mc.R.y()), bexp)), st1), st3 => PushQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st3), s => st2 => Empty, B, lim):
   match hparts:
     case Tuple{+hl1, Tuple{+k1, Tuple{+k2, Tuple{+k8, Tuple{+k11, Tuple{+k12, Tuple{+k13, _}}}}}}}:
@@ -1721,7 +1713,7 @@ def push.k2(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
           +g = h16
           +hc = own.cell(fi, nx1, im, z, hown)
           +h8b = Equal.trans(Maybe<&2, U32>, List.get(&2, U32, regs1, 8n), List.get(&2, U32, regs, 8n), Some{foc}, k8, h8)
-          +ehv = eh(regs1, m1, nx1, pg1, h8b, hf0, cell.grow(foc, im, fi, nx, nx1, hfoc, hle))
+          +ehv = eh(regs1, m1, nx1, pg1, h8b, rts.foc(True{}, ds, m1, im, fi, nx1, ks, img, yc, va, UB(kind, bv, vb), xc, vf, foc, F, s1))
           +t1 = X.X.store(t0, 0n, z, hv)
           +t2 = X.X.store(t1, 1n, z, sp)
           +t3 = X.X.store(t2, 2n, z, yc)
@@ -1771,19 +1763,18 @@ def push.k(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +i
   +h8: {List.get(&2, U32, regs, 8n) == Some{foc} : Maybe<&2, U32>}, +h2: {List.get(&2, U32, regs, 2n) == Some{sp} : Maybe<&2, U32>},
   +h12: {List.get(&2, U32, regs, 12n) == Some{yc} : Maybe<&2, U32>},
   eh: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> {List.get(&2, U32, regs2, 8n) == Some{foc} : Maybe<&2, U32>} ->
-    {D.Fd(0n, m2, foc) == D.Fd(0n, m, foc) : U32} -> {Cr.Cir.is_cell(foc, im, fi, nx2) == True{} : Bool} ->
+    D.IsK(True{}, ds, m2, im, fi, nx2, ks, img, foc, F) ->
     {Cr.Cir.eval(hexp, Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0}) == Some{hv} : Maybe<&2, U32>},
   eb: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> {List.get(&2, U32, regs2, 13n) == List.get(&2, U32, regs, 13n) : Maybe<&2, U32>} ->
     {Cr.Cir.eval(bexp, Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0}) == Some{bv} : Maybe<&2, U32>},
-  +hok: HdOK(hv, kind, q), +hfoc: {Cr.Cir.is_cell(foc, im, fi, nx) == True{} : Bool}, +hnp: {D.Mem(ps, foc) == False{} : Bool},
-  +hfn: {U32.is_eq(foc, nx) == False{} : Bool}, +st1: Cr.Cir.State, qa: AlQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st1)) ->
+  +hok: HdOK(hv, kind, q), +st1: Cr.Cir.State, qa: AlQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st1)) ->
   D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(Mc.M.push(hexp, Mc.M.g(Mc.R.y()), bexp)), st1), st3 => PushQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st3), s => st2 => Empty, B, lim):
   match hok:
     case Tuple{+htg, hrest}:
       match qa:
-        case Tuple{Tuple{+hsame, Tuple{+z, Tuple{+pend2, Tuple{+ps2, Tuple{+h16, Tuple{+h3b, Tuple{+hzero, Tuple{+hown, Tuple{+hmz, Tuple{_, Tuple{+hnx, Tuple{_, Tuple{_, Tuple{+hptr, Tuple{Tuple{+s1, Tuple{+s2, Tuple{+s3, Tuple{+s4, Tuple{+s5, io}}}}}, Tuple{+zs2, hac2}}}}}}}}}}}}}}}}, Tuple{+hle, hfr}}:
-          push.k2(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, hexp, bexp, B, h8, h2, h12, eh, eb, htg, hrest, hfoc, hnp, hfn, st1, same.parts(regs, fi, im, lim, inp, [1n, 2n, 8n, 11n, 12n, 13n], st1, hsame), hsame,
-            z, pend2, ps2, h16, h3b, hzero, hown, hmz, hnx, hptr, s1, s2, s3, s4, s5, io, zs2, hac2, hle, keep.f0(m, D.St.cells(st1), ps, foc, hfr(foc, hnp, hfn)))
+        case Tuple{Tuple{+hsame, Tuple{+z, Tuple{+pend2, Tuple{+ps2, Tuple{+h16, Tuple{+h3b, Tuple{+hzero, Tuple{+hown, Tuple{+hmz, Tuple{_, Tuple{+hnx, Tuple{_, Tuple{_, Tuple{+hptr, Tuple{Tuple{+s1, Tuple{+s2, Tuple{+s3, Tuple{+s4, Tuple{+s5, io}}}}}, Tuple{+zs2, hac2}}}}}}}}}}}}}}}}, Tuple{+hle, _}}:
+          push.k2(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, hexp, bexp, B, h8, h2, h12, eh, eb, htg, hrest, st1, same.parts(regs, fi, im, lim, inp, [1n, 2n, 8n, 11n, 12n, 13n], st1, hsame), hsame,
+            z, pend2, ps2, h16, h3b, hzero, hown, hmz, hnx, hptr, s1, s2, s3, s4, s5, io, zs2, hac2, hle)
 
 
 # Nat order kit
@@ -1987,17 +1978,16 @@ def tail.mv(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   +h8: {List.get(&2, U32, regs, 8n) == Some{foc} : Maybe<&2, U32>}, +h11: {List.get(&2, U32, regs, 11n) == Some{xc} : Maybe<&2, U32>},
   +h12: {List.get(&2, U32, regs, 12n) == Some{yc} : Maybe<&2, U32>},
   eh: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> {List.get(&2, U32, regs2, 8n) == Some{foc} : Maybe<&2, U32>} ->
-    {D.Fd(0n, m2, foc) == D.Fd(0n, m, foc) : U32} -> {Cr.Cir.is_cell(foc, im, fi, nx2) == True{} : Bool} ->
+    D.IsK(True{}, ds, m2, im, fi, nx2, ks, img, foc, F) ->
     {Cr.Cir.eval(hexp, Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0}) == Some{hv} : Maybe<&2, U32>},
   eb: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> {List.get(&2, U32, regs2, 13n) == List.get(&2, U32, regs, 13n) : Maybe<&2, U32>} ->
     {Cr.Cir.eval(bexp, Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0}) == Some{bv} : Maybe<&2, U32>},
-  +hok: HdOK(hv, kind, q), +hfoc: {Cr.Cir.is_cell(foc, im, fi, nx) == True{} : Bool}, +hnp: {D.Mem(ps, foc) == False{} : Bool},
-  +hfn: {U32.is_eq(foc, nx) == False{} : Bool}) ->
+  +hok: HdOK(hv, kind, q)) ->
   D.PostB(False{}, Cr.Cir.exec(f, Cr.Cir.Stmt.seq{Mc.M.push(hexp, Mc.M.g(Mc.R.y()), bexp), Cr.Cir.Stmt.seq{Mc.M.dec(Mc.R.c()), Cr.Cir.Stmt.seq{Mc.M.set(Mc.R.focus(), Mc.M.g(Mc.R.x())), Cr.Cir.Stmt.nop{}}}}, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}), s => K.MV.next(ds, ks, img, st0, t, w, s), s => st2 => D.HR(ds, t, s, st2), B, lim):
   D.postb.seq(f, False{}, Mc.M.push(hexp, Mc.M.g(Mc.R.y()), bexp), Cr.Cir.Stmt.seq{Mc.M.dec(Mc.R.c()), Cr.Cir.Stmt.seq{Mc.M.set(Mc.R.focus(), Mc.M.g(Mc.R.x())), Cr.Cir.Stmt.nop{}}}, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}, st3 => PushQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st3), s => K.MV.next(ds, ks, img, st0, t, w, s), s => st2 => Empty, s => st2 => D.HR(ds, t, s, st2), B, lim,
     D.postb.seq(f, False{}, Mc.M.alloc(16n), X.sel.b(Mc.M.push(hexp, Mc.M.g(Mc.R.y()), bexp)), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}, st2 => AlQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st2), st3 => PushQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st3), s => st2 => Empty, s => st2 => Empty, B, lim,
       alloc.run(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, pg, pend, zs, B, hroom, hs, hac, hl, h3), s => st2 => e => e,
-      +st1 => qa => push.k(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, hexp, bexp, B, h8, h2, h12, eh, eb, hok, hfoc, hnp, hfn, st1, qa)),
+      +st1 => qa => push.k(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, hexp, bexp, B, h8, h2, h12, eh, eb, hok, st1, qa)),
     s => st2 => e => Empty.absurd(D.HR(ds, t, s, st2), e),
     +st3 => pq => dec.k(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, bv, vb, kind, q, hv, fs, sp, ps, st0, t, w, B, hmc, hnd, et2, ew2, afs2, h1, h11, h8, st3, pq))
 
