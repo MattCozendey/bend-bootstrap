@@ -760,6 +760,756 @@ def postb.no(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State ->
     case Cr.Cir.Out.not_done{}:
       h
 
+# The heap's parts
+# ----------------
+
+def hsk.held(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, PM.Rt>, -bs: List<&2, PM.Rt>, -fs: List<&2, PM.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> PM.Held(m, os, bs):
+  match h:
+    case Tuple{_, Tuple{_, Tuple{hh, _}}}:
+      hh
+
+def hsk.heap(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, PM.Rt>, -bs: List<&2, PM.Rt>, -fs: List<&2, PM.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> PM.Heap(m, nx, fi, im, PM.Rt.cells(os), pend, ps):
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{hp, _}}}}}:
+      hp
+
+def hsk.img(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, PM.Rt>, -bs: List<&2, PM.Rt>, -fs: List<&2, PM.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> PM.ImgOKK(dk, ds, ks, img, m, im, fi, nx):
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, hi}}}}}:
+      hi
+
+def hsk.bs(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, PM.Rt>, -bs: List<&2, PM.Rt>, -fs: List<&2, PM.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> PM.RtsK(dk, ds, m, im, fi, nx, ks, img, bs):
+  match h:
+    case Tuple{_, Tuple{hb, _}}:
+      hb
+
+def heap.chain(-m: Cr.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -rs: List<&2, U32>, -pend: U32, -ps: List<&2, U32>,
+  h: PM.Heap(m, nx, fi, im, rs, pend, ps)) -> PM.Chain(ps, m, pend):
+  match h:
+    case Tuple{hc, _}:
+      hc
+
+def heap.fin(-m: Cr.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -rs: List<&2, U32>, -pend: U32, -ps: List<&2, U32>,
+  h: PM.Heap(m, nx, fi, im, rs, pend, ps)) -> {U32.is_le(fi, nx) == True{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, hf}}}}}:
+      hf
+
+# a pend list from 0 is empty
+def chain.none(ps: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, h: PM.Chain(ps, m, p), hz: {U32.is_eq(p, 0) == True{} : Bool}) ->
+  {PM.Pend.none(ps) == True{} : Bool}:
+  match ps:
+    case Nil{}:
+      {==}
+    case Con{+x, rest}:
+      (hx, r1) = h
+      (hn, r2) = r1
+      Empty.absurd({PM.Pend.none(Con{x, rest}) == True{} : Bool},
+        N.true_ne_false(Equal.trans(Bool, True{}, U32.is_eq(x, 0), False{},
+          Equal.sym(Bool, U32.is_eq(x, 0), True{}, (%hx : {U32.is_eq(_, 0) == True{} : Bool}; hz)), hn)))
+
+# a pending cell (not STATIC, no pointer) is not held
+def hd.np.no(+p: U32, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +rs: List<&2, U32>,
+  hs: {PM.Fl(m, p, 1024) == False{} : Bool}, hp0: {PM.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, p) == 0n : Nat},
+  hd: {PM.Hd(m, nx, fi, ps, rs, p) == True{} : Bool}) -> Empty:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  N.false_ne_true((%hs : {Bool.or(_, Nat.is_lt(0n, 0n)) == True{} : Bool};
+    (%hp0 : {Bool.or(PM.Fl(m, p, 1024), Nat.is_lt(0n, _)) == True{} : Bool}; hd)))
+
+def hd.np.at(b: Bool, +p: U32, +rest: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +rs: List<&2, U32>, +x: U32,
+  eb: {U32.is_eq(p, x) == b : Bool}, hs: {PM.Fl(m, p, 1024) == False{} : Bool},
+  hp0: {PM.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, p) == 0n : Nat},
+  hd: {PM.Hd(m, nx, fi, ps, rs, x) == True{} : Bool}, hr: {PM.Mem(rest, x) == False{} : Bool}) ->
+  {Bool.or(b, PM.Mem(rest, x)) == False{} : Bool}:
+  match b:
+    case False{}:
+      hr
+    case True{}:
+      Empty.absurd({Bool.or(True{}, PM.Mem(rest, x)) == False{} : Bool},
+        hd.np.no(p, ps, m, nx, fi, rs, hs, hp0, (%Equal.sym(U32, p, x, PM.u32.eq(p, x, eb)) : {PM.Hd(m, nx, fi, ps, rs, _) == True{} : Bool}; hd)))
+
+# a held cell (STATIC or with a pointer) is in no pend list
+def hd.np(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +rs: List<&2, U32>, +x: U32,
+  h: PM.PendOK(qs, ps, m, fi, nx, rs), +hd: {PM.Hd(m, nx, fi, ps, rs, x) == True{} : Bool}) -> {PM.Mem(qs, x) == False{} : Bool}:
+  match qs:
+    case Nil{}:
+      {==}
+    case Con{+p, +rest}:
+      (ho, r1) = h
+      (hs, r2) = r1
+      (ht, r3) = r2
+      (hp0, r4) = r3
+      hd.np.at(U32.is_eq(p, x), p, rest, ps, m, nx, fi, rs, x, {==}, hs, hp0, hd, hd.np(rest, ps, m, nx, fi, rs, x, r4, hd))
+
+
+# Cells of v's tree
+# ----------------
+
+# a term's cell is a node of it
+def node.self(t: Bk.Term, +m: Cr.Cir.Cells, +r: U32) -> {PM.Node(t, m, r, r) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+o0}:
+      PM.u32.refl(r)
+    case Bk.Term.Ref{+o0}:
+      PM.u32.refl(r)
+    case Bk.Term.Ann{+y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), PM.Node(z, m, PM.Fd(3n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.Let{+q, +y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), PM.Node(z, m, PM.Fd(3n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.Typ{+y}:
+      PM.or.l(U32.is_eq(r, r), PM.Node(y, m, PM.Fd(2n, m, r), r), PM.u32.refl(r))
+    case Bk.Term.Min{+y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), PM.Node(z, m, PM.Fd(3n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.All{+q, +y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), PM.Node(z, m, PM.Fd(3n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.Lam{+q, +y}:
+      PM.or.l(U32.is_eq(r, r), PM.Node(y, m, PM.Fd(2n, m, r), r), PM.u32.refl(r))
+    case Bk.Term.App{+q, +y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), PM.Node(z, m, PM.Fd(3n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.Sig{+q, +y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), PM.Node(z, m, PM.Fd(3n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.Tup{+q, +y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), PM.Node(z, m, PM.Fd(3n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.Prj{+y}:
+      PM.or.l(U32.is_eq(r, r), PM.Node(y, m, PM.Fd(2n, m, r), r), PM.u32.refl(r))
+    case Bk.Term.Enu{+o0}:
+      PM.u32.refl(r)
+    case Bk.Term.Lab{+o0}:
+      PM.u32.refl(r)
+    case Bk.Term.Mat{+k, +y, +z}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(3n, m, r), r), PM.Node(z, m, PM.Fd(4n, m, r), r)), PM.u32.refl(r))
+    case Bk.Term.Efq{}:
+      PM.u32.refl(r)
+    case Bk.Term.Eql{+y, +z, +w}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), Bool.or(PM.Node(z, m, PM.Fd(3n, m, r), r), PM.Node(w, m, PM.Fd(4n, m, r), r))), PM.u32.refl(r))
+    case Bk.Term.Rfl{}:
+      PM.u32.refl(r)
+    case Bk.Term.Rwt{+y, +z, +w}:
+      PM.or.l(U32.is_eq(r, r), Bool.or(PM.Node(y, m, PM.Fd(2n, m, r), r), Bool.or(PM.Node(z, m, PM.Fd(3n, m, r), r), PM.Node(w, m, PM.Fd(4n, m, r), r))), PM.u32.refl(r))
+
+# the cell at a path of v's cell is a node of v
+def path.node(p: List<&2, Bool>, v: Bk.Term, +m: Cr.Cir.Cells, +c: U32, -u: Bk.Term, e: {Sub(p, v) == Some{u} : Maybe<&2, Bk.Term>}) ->
+  {PM.Node(v, m, c, Cl(m, p, c)) == True{} : Bool}:
+  match p v:
+    case Nil{} +x:
+      node.self(x, m, c)
+    case Con{True{}, +rest} Bk.Term.Tup{+q, +a, +b}:
+      +y = Cl(m, rest, PM.Fd(2n, m, c))
+      sub.l(El.Quan.live(q), rest, a, u, {PM.Node(Bk.Term.Tup{q, a, b}, m, c, y) == True{} : Bool}, e,
+        el => e2 => PM.or.r(U32.is_eq(c, y), Bool.or(PM.Node(a, m, PM.Fd(2n, m, c), y), PM.Node(b, m, PM.Fd(3n, m, c), y)),
+          PM.or.l(PM.Node(a, m, PM.Fd(2n, m, c), y), PM.Node(b, m, PM.Fd(3n, m, c), y), path.node(rest, a, m, PM.Fd(2n, m, c), u, e2))))
+    case Con{False{}, +rest} Bk.Term.Tup{+q, +a, +b}:
+      +y = Cl(m, rest, PM.Fd(3n, m, c))
+      PM.or.r(U32.is_eq(c, y), Bool.or(PM.Node(a, m, PM.Fd(2n, m, c), y), PM.Node(b, m, PM.Fd(3n, m, c), y)),
+        PM.or.r(PM.Node(a, m, PM.Fd(2n, m, c), y), PM.Node(b, m, PM.Fd(3n, m, c), y), path.node(rest, b, m, PM.Fd(3n, m, c), u, e)))
+    case Con{d, rest} Bk.Term.Var{+o0}:
+      Empty.absurd({PM.Node(Bk.Term.Var{o0}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Ref{+o0}:
+      Empty.absurd({PM.Node(Bk.Term.Ref{o0}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Ann{+o0, +o1}:
+      Empty.absurd({PM.Node(Bk.Term.Ann{o0, o1}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Let{+o0, +o1, +o2}:
+      Empty.absurd({PM.Node(Bk.Term.Let{o0, o1, o2}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Typ{+o0}:
+      Empty.absurd({PM.Node(Bk.Term.Typ{o0}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Min{+o0, +o1}:
+      Empty.absurd({PM.Node(Bk.Term.Min{o0, o1}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.All{+o0, +o1, +o2}:
+      Empty.absurd({PM.Node(Bk.Term.All{o0, o1, o2}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Lam{+o0, +o1}:
+      Empty.absurd({PM.Node(Bk.Term.Lam{o0, o1}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.App{+o0, +o1, +o2}:
+      Empty.absurd({PM.Node(Bk.Term.App{o0, o1, o2}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Sig{+o0, +o1, +o2}:
+      Empty.absurd({PM.Node(Bk.Term.Sig{o0, o1, o2}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Prj{+o0}:
+      Empty.absurd({PM.Node(Bk.Term.Prj{o0}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Enu{+o0}:
+      Empty.absurd({PM.Node(Bk.Term.Enu{o0}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Lab{+o0}:
+      Empty.absurd({PM.Node(Bk.Term.Lab{o0}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Mat{+o0, +o1, +o2}:
+      Empty.absurd({PM.Node(Bk.Term.Mat{o0, o1, o2}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Efq{}:
+      Empty.absurd({PM.Node(Bk.Term.Efq{}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Eql{+o0, +o1, +o2}:
+      Empty.absurd({PM.Node(Bk.Term.Eql{o0, o1, o2}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Rfl{}:
+      Empty.absurd({PM.Node(Bk.Term.Rfl{}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Rwt{+o0, +o1, +o2}:
+      Empty.absurd({PM.Node(Bk.Term.Rwt{o0, o1, o2}, m, c, Cl(m, Con{d, rest}, c)) == True{} : Bool}, mt.ne(u, e))
+
+# the cells of v's tree are STATIC or have a pointer, when v's cell is
+def path.hd(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
+  +fi: U32, +im: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +p: List<&2, Bool>, +v: Bk.Term, +c: U32, -u: Bk.Term,
+  tbl: PM.Tbl(m, im, fi, nx), h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, c, v), hc: {PM.Hd(m, nx, fi, ps, rs, c) == True{} : Bool},
+  e: {Sub(p, v) == Some{u} : Maybe<&2, Bk.Term>}) -> {PM.Hd(m, nx, fi, ps, rs, Cl(m, p, c)) == True{} : Bool}:
+  PM.node.ptr(v, dk, ds, m, im, fi, nx, ks, img, ps, rs, tbl, c, Cl(m, p, c), h, hc, path.node(p, v, m, c, u, e))
+
+# the first borrowed cell is held, and stands for its term
+def held.hd(-m: Cr.Cir.Cells, -os: List<&2, PM.Rt>, -c: U32, -v: Bk.Term, -bs: List<&2, PM.Rt>, h: PM.Held(m, os, Con{PM.Rt{c, v}, bs})) ->
+  {Bool.or(PM.Fl(m, c, 1024), PM.Nodes(os, m, c)) == True{} : Bool}:
+  match h:
+    case Tuple{hn, _}:
+      hn
+
+def rtsk.hd(-dk: Bool, -ds: List<&2, Bk.Def>, -m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, -ks: List<&2, List<&2, Word(8n)>>,
+  -img: List<&2, Bk.Term>, -c: U32, -v: Bk.Term, -bs: List<&2, PM.Rt>, h: PM.RtsK(dk, ds, m, im, fi, nx, ks, img, Con{PM.Rt{c, v}, bs})) ->
+  PM.IsK(dk, ds, m, im, fi, nx, ks, img, c, v):
+  match h:
+    case Tuple{hv, _}:
+      hv
+
+# the cells of the tree of a borrowed v are held
+def vh.hd(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
+  +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
+  +c: U32, +v: Bk.Term, +p: List<&2, Bool>, -u: Bk.Term,
+  +hs: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps), e: {Sub(p, v) == Some{u} : Maybe<&2, Bk.Term>}) ->
+  {PM.Hd(m, nx, fi, ps, PM.Rt.cells(os), Cl(m, p, c)) == True{} : Bool}:
+  +hn = held.hd(m, os, c, v, bs, hsk.held(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps, hs))
+  +hv = rtsk.hd(dk, ds, m, im, fi, nx, ks, img, c, v, bs, hsk.bs(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps, hs))
+  +tbl = PM.img.tbl(dk, ds, ks, img, m, im, fi, nx, hsk.img(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps, hs))
+  path.hd(dk, ds, ks, img, m, nx, fi, im, ps, PM.Rt.cells(os), p, v, c, u, tbl, hv,
+    PM.held.ptr(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps, c, hs, hn), e)
+
+
+# The frame of v's tree
+# ---------------------
+#
+# The check reads, of each cell of v's tree (through pairs, from c, at the
+# fields that the cells m0 give where the check begins), field 0 and fields 2
+# and 3. Each store of the run keeps them, but the flag DATA, which the check
+# sets on the cells ns: KV, by structure on v (a fact on every cell must be
+# Data: a function could be used once).
+
+# field 0 of the cell x of v's tree: as at the start, with DATA if x is in ns
+def F0(+m0: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>) -> U32:
+  Bool.pick(U32, PM.Mem(ns, x), U32.or(PM.Fd(0n, m0, x), 512), PM.Fd(0n, m0, x))
+
+# the cell x keeps in m what the check reads of it in m0
+def FV(+m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>) -> Data:
+  PM.P2({PM.Fd(0n, m, x) == F0(m0, x, ns) : U32}, FC(m0, m, x))
+
+def KV(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>) -> Data:
+  match v:
+    case Bk.Term.Tup{_, a, b}:
+      PM.P2(FV(m0, m, x, ns), PM.P2(KV(a, m0, m, PM.Fd(2n, m0, x), ns), KV(b, m0, m, PM.Fd(3n, m0, x), ns)))
+    case Bk.Term.Var{_}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Ref{_}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Ann{_, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Let{_, _, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Typ{_}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Min{_, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.All{_, _, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Lam{_, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.App{_, _, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Sig{_, _, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Prj{_}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Enu{_}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Lab{_}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Mat{_, _, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Efq{}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Eql{_, _, _}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Rfl{}:
+      FV(m0, m, x, ns)
+    case Bk.Term.Rwt{_, _, _}:
+      FV(m0, m, x, ns)
+
+# fields 0, 2 and 3 of each cell of v's tree kept from m to m2
+def FT(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +x: U32) -> Data:
+  match v:
+    case Bk.Term.Tup{_, a, b}:
+      PM.P2(FF(m, m2, x), PM.P2(FT(a, m0, m, m2, PM.Fd(2n, m0, x)), FT(b, m0, m, m2, PM.Fd(3n, m0, x))))
+    case Bk.Term.Var{_}:
+      FF(m, m2, x)
+    case Bk.Term.Ref{_}:
+      FF(m, m2, x)
+    case Bk.Term.Ann{_, _}:
+      FF(m, m2, x)
+    case Bk.Term.Let{_, _, _}:
+      FF(m, m2, x)
+    case Bk.Term.Typ{_}:
+      FF(m, m2, x)
+    case Bk.Term.Min{_, _}:
+      FF(m, m2, x)
+    case Bk.Term.All{_, _, _}:
+      FF(m, m2, x)
+    case Bk.Term.Lam{_, _}:
+      FF(m, m2, x)
+    case Bk.Term.App{_, _, _}:
+      FF(m, m2, x)
+    case Bk.Term.Sig{_, _, _}:
+      FF(m, m2, x)
+    case Bk.Term.Prj{_}:
+      FF(m, m2, x)
+    case Bk.Term.Enu{_}:
+      FF(m, m2, x)
+    case Bk.Term.Lab{_}:
+      FF(m, m2, x)
+    case Bk.Term.Mat{_, _, _}:
+      FF(m, m2, x)
+    case Bk.Term.Efq{}:
+      FF(m, m2, x)
+    case Bk.Term.Eql{_, _, _}:
+      FF(m, m2, x)
+    case Bk.Term.Rfl{}:
+      FF(m, m2, x)
+    case Bk.Term.Rwt{_, _, _}:
+      FF(m, m2, x)
+
+# no cell of v's tree is z
+def TN(v: Bk.Term, +m0: Cr.Cir.Cells, +x: U32, +z: U32) -> Bool:
+  match v:
+    case Bk.Term.Tup{_, a, b}:
+      Bool.and(Bool.not(U32.is_eq(x, z)), Bool.and(TN(a, m0, PM.Fd(2n, m0, x), z), TN(b, m0, PM.Fd(3n, m0, x), z)))
+    case Bk.Term.Var{_}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Ref{_}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Ann{_, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Let{_, _, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Typ{_}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Min{_, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.All{_, _, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Lam{_, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.App{_, _, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Sig{_, _, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Prj{_}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Enu{_}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Lab{_}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Mat{_, _, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Efq{}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Eql{_, _, _}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Rfl{}:
+      Bool.not(U32.is_eq(x, z))
+    case Bk.Term.Rwt{_, _, _}:
+      Bool.not(U32.is_eq(x, z))
+
+# the frame at the root
+def kv.top(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, k: KV(v, m0, m, x, ns)) -> FV(m0, m, x, ns):
+  match v:
+    case Bk.Term.Tup{+q, +a, +b}:
+      (f, _) = k
+      f
+    case Bk.Term.Var{+o0}:
+      k
+    case Bk.Term.Ref{+o0}:
+      k
+    case Bk.Term.Ann{+o0, +o1}:
+      k
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      k
+    case Bk.Term.Typ{+o0}:
+      k
+    case Bk.Term.Min{+o0, +o1}:
+      k
+    case Bk.Term.All{+o0, +o1, +o2}:
+      k
+    case Bk.Term.Lam{+o0, +o1}:
+      k
+    case Bk.Term.App{+o0, +o1, +o2}:
+      k
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      k
+    case Bk.Term.Prj{+o0}:
+      k
+    case Bk.Term.Enu{+o0}:
+      k
+    case Bk.Term.Lab{+o0}:
+      k
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      k
+    case Bk.Term.Efq{}:
+      k
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      k
+    case Bk.Term.Rfl{}:
+      k
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      k
+
+# the frame at the cell of a path
+def kv.at(p: List<&2, Bool>, v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, -u: Bk.Term,
+  k: KV(v, m0, m, x, ns), e: {Sub(p, v) == Some{u} : Maybe<&2, Bk.Term>}) -> FV(m0, m, Cl(m0, p, x), ns):
+  match p v:
+    case Nil{} +y:
+      kv.top(y, m0, m, x, ns, k)
+    case Con{True{}, +rest} Bk.Term.Tup{+q, +a, +b}:
+      (_, r) = k
+      (ka, _) = r
+      sub.l(El.Quan.live(q), rest, a, u, FV(m0, m, Cl(m0, rest, PM.Fd(2n, m0, x)), ns), e,
+        el => e2 => kv.at(rest, a, m0, m, PM.Fd(2n, m0, x), ns, u, ka, e2))
+    case Con{False{}, +rest} Bk.Term.Tup{+q, +a, +b}:
+      (_, r) = k
+      (_, kb) = r
+      kv.at(rest, b, m0, m, PM.Fd(3n, m0, x), ns, u, kb, e)
+    case Con{d, rest} Bk.Term.Var{+o0}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Ref{+o0}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Ann{+o0, +o1}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Let{+o0, +o1, +o2}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Typ{+o0}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Min{+o0, +o1}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.All{+o0, +o1, +o2}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Lam{+o0, +o1}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.App{+o0, +o1, +o2}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Sig{+o0, +o1, +o2}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Prj{+o0}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Enu{+o0}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Lab{+o0}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Mat{+o0, +o1, +o2}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Efq{}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Eql{+o0, +o1, +o2}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Rfl{}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Rwt{+o0, +o1, +o2}:
+      Empty.absurd(FV(m0, m, Cl(m0, Con{d, rest}, x), ns), mt.ne(u, e))
+
+# a path reaches the same cell in m as in m0
+def cl.keep(p: List<&2, Bool>, v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, -u: Bk.Term,
+  k: KV(v, m0, m, x, ns), e: {Sub(p, v) == Some{u} : Maybe<&2, Bk.Term>}) -> {Cl(m, p, x) == Cl(m0, p, x) : U32}:
+  match p v:
+    case Nil{} +y:
+      {==}
+    case Con{True{}, +rest} Bk.Term.Tup{+q, +a, +b}:
+      (f, r) = k
+      (_, fc) = f
+      (e2c, _) = fc
+      (ka, _) = r
+      %Equal.sym(U32, PM.Fd(2n, m, x), PM.Fd(2n, m0, x), e2c) : {Cl(m, rest, _) == Cl(m0, rest, PM.Fd(2n, m0, x)) : U32}
+      sub.l(El.Quan.live(q), rest, a, u, {Cl(m, rest, PM.Fd(2n, m0, x)) == Cl(m0, rest, PM.Fd(2n, m0, x)) : U32}, e,
+        el => e2 => cl.keep(rest, a, m0, m, PM.Fd(2n, m0, x), ns, u, ka, e2))
+    case Con{False{}, +rest} Bk.Term.Tup{+q, +a, +b}:
+      (f, r) = k
+      (_, fc) = f
+      (_, e3c) = fc
+      (_, kb) = r
+      %Equal.sym(U32, PM.Fd(3n, m, x), PM.Fd(3n, m0, x), e3c) : {Cl(m, rest, _) == Cl(m0, rest, PM.Fd(3n, m0, x)) : U32}
+      cl.keep(rest, b, m0, m, PM.Fd(3n, m0, x), ns, u, kb, e)
+    case Con{d, rest} Bk.Term.Var{+o0}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Ref{+o0}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Ann{+o0, +o1}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Let{+o0, +o1, +o2}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Typ{+o0}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Min{+o0, +o1}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.All{+o0, +o1, +o2}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Lam{+o0, +o1}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.App{+o0, +o1, +o2}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Sig{+o0, +o1, +o2}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Prj{+o0}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Enu{+o0}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Lab{+o0}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Mat{+o0, +o1, +o2}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Efq{}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Eql{+o0, +o1, +o2}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Rfl{}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+    case Con{d, rest} Bk.Term.Rwt{+o0, +o1, +o2}:
+      Empty.absurd({Cl(m, Con{d, rest}, x) == Cl(m0, Con{d, rest}, x) : U32}, mt.ne(u, e))
+
+# the frame from m to m2 extends one from m0 to m
+def fv.ff(+m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, f: FV(m0, m, x, ns), g: FF(m, m2, x)) ->
+  FV(m0, m2, x, ns):
+  (f0, fc) = f
+  (f2, f3) = fc
+  (g0, gc) = g
+  (g2, g3) = gc
+  (Equal.trans(U32, PM.Fd(0n, m2, x), PM.Fd(0n, m, x), F0(m0, x, ns), g0, f0),
+   (Equal.trans(U32, PM.Fd(2n, m2, x), PM.Fd(2n, m, x), PM.Fd(2n, m0, x), g2, f2),
+    Equal.trans(U32, PM.Fd(3n, m2, x), PM.Fd(3n, m, x), PM.Fd(3n, m0, x), g3, f3)))
+
+def kv.ft(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +x: U32, +ns: List<&2, U32>, k: KV(v, m0, m, x, ns),
+  g: FT(v, m0, m, m2, x)) -> KV(v, m0, m2, x, ns):
+  match v:
+    case Bk.Term.Tup{+q, +a, +b}:
+      (f, r) = k
+      (ka, kb) = r
+      (gf, gr) = g
+      (ga, gb) = gr
+      (fv.ff(m0, m, m2, x, ns, f, gf), (kv.ft(a, m0, m, m2, PM.Fd(2n, m0, x), ns, ka, ga), kv.ft(b, m0, m, m2, PM.Fd(3n, m0, x), ns, kb, gb)))
+    case Bk.Term.Var{+o0}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Ref{+o0}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Ann{+o0, +o1}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Typ{+o0}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Min{+o0, +o1}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.All{+o0, +o1, +o2}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Lam{+o0, +o1}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.App{+o0, +o1, +o2}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Prj{+o0}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Enu{+o0}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Lab{+o0}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Efq{}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Rfl{}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      fv.ff(m0, m, m2, x, ns, k, g)
+
+# writes of field 1 keep v's tree
+def ft.put1(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +ws: List<&2, PM.W1>, +x: U32) -> FT(v, m0, m, PM.Put1(ws, m), x):
+  match v:
+    case Bk.Term.Tup{+q, +a, +b}:
+      (ff.put1s(ws, m, x), (ft.put1(a, m0, m, ws, PM.Fd(2n, m0, x)), ft.put1(b, m0, m, ws, PM.Fd(3n, m0, x))))
+    case Bk.Term.Var{+o0}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Ref{+o0}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Ann{+o0, +o1}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Typ{+o0}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Min{+o0, +o1}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.All{+o0, +o1, +o2}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Lam{+o0, +o1}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.App{+o0, +o1, +o2}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Prj{+o0}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Enu{+o0}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Lab{+o0}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Efq{}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Rfl{}:
+      ff.put1s(ws, m, x)
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      ff.put1s(ws, m, x)
+
+# so does a store of field 1
+def ft.f1(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +z: U32, +w: U32, +x: U32) -> FT(v, m0, m, X.X.put(m, 1n, z, w), x):
+  match v:
+    case Bk.Term.Tup{+q, +a, +b}:
+      (ff.put1(m, z, w, x), (ft.f1(a, m0, m, z, w, PM.Fd(2n, m0, x)), ft.f1(b, m0, m, z, w, PM.Fd(3n, m0, x))))
+    case Bk.Term.Var{+o0}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Ref{+o0}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Ann{+o0, +o1}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Typ{+o0}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Min{+o0, +o1}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.All{+o0, +o1, +o2}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Lam{+o0, +o1}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.App{+o0, +o1, +o2}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Prj{+o0}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Enu{+o0}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Lab{+o0}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Efq{}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Rfl{}:
+      ff.put1(m, z, w, x)
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      ff.put1(m, z, w, x)
+
+# a store at a cell z that is none of v's tree keeps it
+def ft.st(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +z: U32, +y: Cr.Cir.Cell, +x: U32, +h: {TN(v, m0, x, z) == True{} : Bool}) ->
+  FT(v, m0, m, Cr.Cir.Cells.set(m, z, y), x):
+  match v:
+    case Bk.Term.Tup{+q, +a, +b}:
+      +hx = PM.not.t(U32.is_eq(x, z), PM.and.l(Bool.not(U32.is_eq(x, z)), Bool.and(TN(a, m0, PM.Fd(2n, m0, x), z), TN(b, m0, PM.Fd(3n, m0, x), z)), h))
+      +hr = PM.and.r(Bool.not(U32.is_eq(x, z)), Bool.and(TN(a, m0, PM.Fd(2n, m0, x), z), TN(b, m0, PM.Fd(3n, m0, x), z)), h)
+      (ff.go(m, z, y, x, hx), (ft.st(a, m0, m, z, y, PM.Fd(2n, m0, x), PM.and.l(TN(a, m0, PM.Fd(2n, m0, x), z), TN(b, m0, PM.Fd(3n, m0, x), z), hr)),
+        ft.st(b, m0, m, z, y, PM.Fd(3n, m0, x), PM.and.r(TN(a, m0, PM.Fd(2n, m0, x), z), TN(b, m0, PM.Fd(3n, m0, x), z), hr))))
+    case Bk.Term.Var{+o0}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Ref{+o0}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Ann{+o0, +o1}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Typ{+o0}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Min{+o0, +o1}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.All{+o0, +o1, +o2}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Lam{+o0, +o1}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.App{+o0, +o1, +o2}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Prj{+o0}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Enu{+o0}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Lab{+o0}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Efq{}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Rfl{}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      ff.go(m, z, y, x, PM.not.t(U32.is_eq(x, z), h))
+
+# two frames in turn
+def ft.trans(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +m1: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +x: U32,
+  a: FT(v, m0, m1, m2, x), b: FT(v, m0, m, m1, x)) -> FT(v, m0, m, m2, x):
+  match v:
+    case Bk.Term.Tup{+q, +p, +r}:
+      (af, ar) = a
+      (ap, aq) = ar
+      (bf, br) = b
+      (bp, bq) = br
+      (ff.trans(m, m1, m2, x, af, bf), (ft.trans(p, m0, m, m1, m2, PM.Fd(2n, m0, x), ap, bp), ft.trans(r, m0, m, m1, m2, PM.Fd(3n, m0, x), aq, bq)))
+    case Bk.Term.Var{+o0}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Ref{+o0}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Ann{+o0, +o1}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Typ{+o0}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Min{+o0, +o1}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.All{+o0, +o1, +o2}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Lam{+o0, +o1}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.App{+o0, +o1, +o2}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Prj{+o0}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Enu{+o0}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Lab{+o0}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Efq{}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Rfl{}:
+      ff.trans(m, m1, m2, x, a, b)
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      ff.trans(m, m1, m2, x, a, b)
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
