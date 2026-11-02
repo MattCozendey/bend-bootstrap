@@ -10,10 +10,8 @@ import ../Shared/shared.bend as Sd
 # in at most f steps, on the engine e (Host), which decides what the spec
 # leaves open: the most pages (of 64 KiB) of memory, and the grows that it
 # refuses. A module
-# outside the subset gives unsupported and does not run. The subset is in
-# the versions 2.0 and 3.0 of the spec; where 3.0 decodes a number with more
-# bits, the model reads the 32 bits of 2.0, so it accepts only what both
-# versions accept, and it runs that as both do.
+# outside the subset gives unsupported and does not run. The model is of
+# the version 3.0 of the spec, with the narrowings of AGENTS.md 3.9.1.2.
 
 # Types
 # -----
@@ -372,6 +370,11 @@ def Wasm.decode.limits(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Li
     Wasm.decode.bind(U32, Wasm.Limits, Wasm.decode.u32(r), n => r2 =>
       Some{Wasm.Decoded{Wasm.Limits{n}, r2}}))
 
+# a memory index (spec 5.1), a u32, which in the subset must be 0: its one
+# memory
+def Wasm.decode.memidx(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
+  Wasm.decode.bind(U32, U32, Wasm.decode.u32(bs), +x => r => Wasm.decode.keep(U32, U32.is_zero(x), x, r))
+
 def Wasm.decode.export.kind(
   kind: Nat, name: List<&2, Word(8n)>, bs: List<&2, Word(8n)>
 ) -> Maybe<&2, Wasm.Decoded<Wasm.Export>>:
@@ -380,8 +383,8 @@ def Wasm.decode.export.kind(
       Wasm.decode.bind(U32, Wasm.Export, Wasm.decode.u32(bs), i => r =>
         Some{Wasm.Decoded{Wasm.Export.func{name, i}, r}})
     case 2n:
-      Wasm.decode.bind(U32, Wasm.Export, Wasm.decode.u32(bs), +i => r =>
-        Wasm.decode.keep(Wasm.Export, U32.is_zero(i), Wasm.Export.memory{name}, r))
+      Wasm.decode.bind(U32, Wasm.Export, Wasm.decode.memidx(bs), i => r =>
+        Some{Wasm.Decoded{Wasm.Export.memory{name}, r}})
     case _:
       None{}
 
@@ -447,15 +450,29 @@ def Wasm.decode.memarg.if(ok: Bool, k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>
     case False{}:
       None{}
 
-# a load or store (spec 5.3): its alignment, as a power of 2 no more than
-# max (the access's width; spec 3.4), then its offset; an alignment of 2^6
-# or more names another memory, outside the subset
-def Wasm.decode.memarg(max: U32, k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
-  Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(bs), a => r => Wasm.decode.memarg.if(U32.is_le(a, max), k, r))
+# the alignment of a load or store, by the flags n of its memarg (spec 5.3):
+# below 2^6, n, of memory 0; from 2^6 to 2^7, n - 2^6, of the memory index
+# that follows. Flags of 2^7 or more are malformed
+def Wasm.decode.align(low: Bool, flagged: Bool, n: U32, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
+  match low flagged:
+    case True{} _:
+      Some{Wasm.Decoded{n, bs}}
+    case False{} True{}:
+      Wasm.decode.bind(U32, U32, Wasm.decode.memidx(bs), x => r => Some{Wasm.Decoded{U32.sub(n, 64), r}})
+    case False{} False{}:
+      None{}
 
-# memory.size or memory.grow: memory 0, as the one byte 0x00 of 1.0
+# a load or store (spec 5.3): its memarg's flags, which give its alignment,
+# as a power of 2 no more than max (the access's width; spec 3.4), and its
+# memory; then its offset
+def Wasm.decode.memarg(max: U32, k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
+  Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(bs), +n => r =>
+    Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.align(U32.is_lt(n, 64), U32.is_lt(n, 128), n, r), a => r2 =>
+      Wasm.decode.memarg.if(U32.is_le(a, max), k, r2)))
+
+# memory.size or memory.grow (spec 5.3): its memory index
 def Wasm.decode.memory(x: Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
-  Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.byte(0, bs), z => r => Wasm.decode.as(x, r))
+  Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.memidx(bs), z => r => Wasm.decode.as(x, r))
 
 # i32.const (spec 5.3): a signed 32-bit LEB128 number
 def Wasm.decode.const(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
@@ -634,16 +651,14 @@ def Wasm.decode.code(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Code
     Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Code, Wasm.decode.take(n, r), c => r2 =>
       Wasm.decode.whole(Wasm.Code, Wasm.decode.func(c), r2)))
 
-def Wasm.decode.data.if(ok: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
-  match ok:
-    case True{}:
-      Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.byte(65, bs), c => r =>
-        Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.sleb(32n, r), k => r2 =>
-          Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.byte(11, r2), e => r3 =>
-            Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Segment, Wasm.decode.bytes(r3), b => r4 =>
-              Some{Wasm.Decoded{Wasm.Segment{k, b}, r4}}))))
-    case False{}:
-      None{}
+# an active data segment after its memory (spec 5.4): its offset, which in
+# the subset is the constant expression i32.const n end, then its bytes
+def Wasm.decode.data.active(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
+  Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.byte(65, bs), c => r =>
+    Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.sleb(32n, r), k => r2 =>
+      Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.byte(11, r2), e => r3 =>
+        Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Segment, Wasm.decode.bytes(r3), b => r4 =>
+          Some{Wasm.Decoded{Wasm.Segment{k, b}, r4}}))))
 
 # the memory of an active data segment, by its flag (spec 5.4): 0, of memory
 # 0; 2, of the memory index that follows. Another flag (1 is a passive
@@ -653,17 +668,16 @@ def Wasm.decode.data.memory(zero: Bool, two: Bool, bs: List<&2, Word(8n)>) -> Ma
     case True{} _:
       Some{Wasm.Decoded{0, bs}}
     case False{} True{}:
-      Wasm.decode.u32(bs)
+      Wasm.decode.memidx(bs)
     case False{} False{}:
       None{}
 
-# a data segment (spec 5.4): its flag and its memory, which in the subset is
-# memory 0, then its offset, which in the subset is the constant expression
-# i32.const n end, then its bytes
+# a data segment (spec 5.4): its flag and its memory, then the rest of an
+# active segment
 def Wasm.decode.data(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
   Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.u32(bs), +flag => r =>
-    Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.data.memory(U32.is_zero(flag), U32.is_eq(flag, 2), r), +x => r2 =>
-      Wasm.decode.data.if(U32.is_zero(x), r2)))
+    Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.data.memory(U32.is_zero(flag), U32.is_eq(flag, 2), r), x => r2 =>
+      Wasm.decode.data.active(r2)))
 
 # a section (spec 5.4): its id, its size, then exactly that many bytes
 type Wasm.Section is Data:
