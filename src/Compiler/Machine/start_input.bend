@@ -34,6 +34,7 @@ import ../Cir/module_round_trip.bend as PM
 import ../Cir/instrs_round_trip.bend as PI
 import ../img_small.bend as PG
 import ./definitions.bend as D
+import ./first_cell_past_table.bend as FC
 
 # Cells
 # -----
@@ -230,6 +231,290 @@ def In.seq(+f: Nat, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, st: Cr.Cir.State, +regs: Li
   In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), R):
   In.then(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), s => In.Is(s, regs, m, next, F, K, L, I, X), R, h,
     s => e => In.at(s, regs, m, next, F, K, L, I, X, R, t => Cr.Cir.exec(1n+f, b, t), e, g))
+
+# The budget
+# ----------
+#
+# An alloc at the cell next fails when next is past 214748364, or when
+# Cir.room finds no page for the cell's last byte, 20 next + 19: either way
+# the limit has fewer than 20 (next + 1) bytes (In.oomb, In.oomf). So a run
+# whose allocs take cells below Bc runs out of memory only when the limit
+# has fewer than 20 Bc bytes (In.oom, In.Ok's out-of-memory case).
+
+# out of memory, below the budget of Bc cells
+def In.oom(+L: U32, +Bc: Nat) -> Type:
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, Bc))
+
+# k (1 + p) = k + k p
+def In.mul_succ_r(k: Nat, +p: Nat) -> {Nat.mul(k, 1n+p) == Nat.add(k, Nat.mul(k, p)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+j):
+      %Equal.sym(Nat, Nat.mul(j, 1n+p), Nat.add(j, Nat.mul(j, p)), In.mul_succ_r(j, p)) : {Nat.add(1n+p, _) == Nat.add(1n+j, Nat.mul(1n+j, p)) : Nat}
+      Equal.cong(Nat, Nat, z => 1n+z, Nat.add(p, Nat.add(j, Nat.mul(j, p))), Nat.add(j, Nat.add(p, Nat.mul(j, p))), N.add_swap(p, j, Nat.mul(j, p)))
+
+# 20 x, as the cells' bytes count it and as hw.t20 does
+def In.mul20(x: Nat) -> {Nat.mul(20n, x) == FC.hw.t20(x) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      %Equal.sym(Nat, Nat.mul(20n, 1n+p), Nat.add(20n, Nat.mul(20n, p)), In.mul_succ_r(20n, p)) : {_ == FC.hw.t20(1n+p) : Nat}
+      %Equal.sym(Nat, Nat.mul(20n, p), FC.hw.t20(p), In.mul20(p)) : {Nat.add(20n, _) == FC.hw.t20(1n+p) : Nat}
+      {==}
+
+# 2^k x grows with x
+def In.D_mono(k: Nat, +x: Nat, +y: Nat, h: N.Le(x, y)) -> N.Le(N.D(k, x), N.D(k, y)):
+  match k:
+    case 0n:
+      h
+    case 1n+(+q):
+      N.double_mono(N.D(q, x), N.D(q, y), In.D_mono(q, x, y, h))
+
+# 2^k (2 x) = 2 (2^k x)
+def In.D_double(k: Nat, +x: Nat) -> {N.D(k, Nat.double(x)) == Nat.double(N.D(k, x)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+q):
+      Equal.cong(Nat, Nat, z => Nat.double(z), N.D(q, Nat.double(x)), Nat.double(N.D(q, x)), In.D_double(q, x))
+
+# Big numbers meet only in equations, spelled as their types state them:
+# bend2 computes a comparison of two types that differ by a def or a beta
+# step, and the double of a big literal overflows its stack.
+
+# 2^k x = hw.W(k), for x = 1
+def In.W.eq(+k: Nat, -x: Nat, ex: {x == FC.hw.bn(True{}) : Nat}) -> {N.D(k, x) == FC.hw.W(k) : Nat}:
+  %Equal.sym(Nat, x, FC.hw.bn(True{}), ex) : {N.D(k, _) == FC.hw.W(k) : Nat}
+  {==}
+
+# 2^16 K = 2^32, for K = 2^16
+def In.w32.eq(+K: U32, eK: {U32.to_nat(K) == N.D(16n, 1n) : Nat}) -> {N.D(16n, U32.to_nat(K)) == FC.hw.W(32n) : Nat}:
+  %Equal.sym(Nat, U32.to_nat(K), N.D(16n, 1n), eK) : {N.D(16n, _) == FC.hw.W(32n) : Nat}
+  Equal.trans(Nat, N.D(16n, N.D(16n, 1n)), N.D(32n, 1n), FC.hw.W(32n), N.D_add(16n, 16n, 32n, 1n, {==}), In.W.eq(32n, 1n, {==}))
+
+# the bytes of a limit, unfolded
+def In.lim.unf(+L: U32) -> {D.Lim.bytes(L) == N.D(16n, U32.to_nat(Wa.Wasm.min(L, 65536))) : Nat}:
+  {==}
+
+# the minimum of L and K is at most K
+def In.min.le2(+L: U32, +K: U32) -> N.Le(U32.to_nat(Wa.Wasm.min(L, K)), U32.to_nat(K)):
+  N.min.case(U32.is_le(L, K), L, K, {==})
+
+# the bytes of a limit are at most 2^16 65536
+def In.lim.le16(+L: U32) -> N.Le(D.Lim.bytes(L), N.D(16n, U32.to_nat(65536))):
+  %Equal.sym(Nat, D.Lim.bytes(L), N.D(16n, U32.to_nat(Wa.Wasm.min(L, 65536))), In.lim.unf(L)) : N.Le(_, N.D(16n, U32.to_nat(65536)))
+  In.D_mono(16n, U32.to_nat(Wa.Wasm.min(L, 65536)), U32.to_nat(65536), In.min.le2(L, 65536))
+
+# the bytes of a limit are at most 2^32
+def In.lim.le(+L: U32) -> N.Le(D.Lim.bytes(L), FC.hw.W(32n)):
+  N.le_rw_r(D.Lim.bytes(L), N.D(16n, U32.to_nat(65536)), FC.hw.W(32n), In.w32.eq(65536, N.val_65536()), In.lim.le16(L))
+
+# a <= b gives 1 + a <= 1 + b
+def In.le_succ2(-a: Nat, -b: Nat, h: N.Le(a, b)) -> N.Le(1n+a, 1n+b):
+  h
+
+# a comparison: below, or not below
+def In.lt.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_lt(c) == True{} : Bool}) -> N.Le(1n+x, y):
+  match c:
+    case LT{}:
+      r
+    case EQ{}:
+      Empty.absurd(N.Le(1n+x, y), N.false_ne_true(e))
+    case GT{}:
+      Empty.absurd(N.Le(1n+x, y), N.false_ne_true(e))
+
+def In.nlt.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_lt(c) == False{} : Bool}) -> N.Le(y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(N.Le(y, x), N.true_ne_false(e))
+    case EQ{}:
+      %r : N.Le(_, x)
+      N.le_refl(x)
+    case GT{}:
+      N.weaken(y, x, r)
+
+def In.nle.lt(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_le(c) == False{} : Bool}) -> N.Le(1n+y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(N.Le(1n+y, x), N.true_ne_false(e))
+    case EQ{}:
+      Empty.absurd(N.Le(1n+y, x), N.true_ne_false(e))
+    case GT{}:
+      r
+
+# The literal 214748364
+# ---------------------
+#
+# Copied from Compiler/Cir/simulation_alloc_emit.bend (it imports
+# Compiler/Cir/halt.bend, the whole compiler), over a variable x.
+
+def In.q4(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      0n
+    case 1n+q:
+      4n+In.q4(q)
+
+# n bits of 0x0CCC...C with j nibbles of 12 at the bottom, its lowest bit
+# first; the index is n itself, so that the word of 32 bits is a Word(32n)
+def In.wb(n: Nat, j: Nat) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n:
+      WCon{False{}, WNil{}}
+    case 2n:
+      WCon{False{}, WCon{False{}, WNil{}}}
+    case 3n:
+      WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}
+    case 4n+p:
+      match j:
+        case 0n:
+          WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, In.wb(p, 0n)}}}}
+        case 1n+q:
+          WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, In.wb(p, q)}}}}
+
+def In.wb.val(j: Nat, +n: Nat, e: {n == 4n+In.q4(j) : Nat}) -> {Word.to_nat(n, In.wb(n, j)) == FC.hw.pat(j) : Nat}:
+  match j:
+    case 0n:
+      %Equal.sym(Nat, n, 4n, e) : {Word.to_nat(_, In.wb(_, 0n)) == FC.hw.pat(0n) : Nat}
+      {==}
+    case 1n+(+q):
+      %Equal.sym(Nat, n, 4n+In.q4(1n+q), e) : {Word.to_nat(_, In.wb(_, 1n+q)) == FC.hw.pat(1n+q) : Nat}
+      %Equal.sym(Nat, Word.to_nat(In.q4(1n+q), In.wb(In.q4(1n+q), q)), FC.hw.pat(q), In.wb.val(q, In.q4(1n+q), {==})) :
+        {Nat.double(Nat.double(1n+Nat.double(1n+Nat.double(_)))) == Nat.add(12n, N.D(4n, FC.hw.pat(q))) : Nat}
+      {==}
+
+# x = 214748364 = pat(7)
+def In.lit.pat(+x: U32, e: {x == 214748364 : U32}) -> {U32.to_nat(x) == FC.hw.pat(7n) : Nat}:
+  %Equal.trans(U32, U32{In.wb(32n, 7n)}, 214748364, x, {==}, Equal.sym(U32, x, 214748364, e)) : {U32.to_nat(_) == FC.hw.pat(7n) : Nat}
+  Equal.trans(Nat, U32.to_nat(U32{In.wb(32n, 7n)}), Word.to_nat(32n, In.wb(32n, 7n)), FC.hw.pat(7n), N.u32_to_nat(In.wb(32n, 7n)),
+    In.wb.val(7n, 32n, {==}))
+
+# A failed alloc
+# --------------
+
+# next past P, with 2^4 + 20 P = 2^32: the limit has fewer than 20 (next + 1) bytes
+def In.oomb.of(+nx: Nat, +L: U32, +P: Nat, hP: {Nat.add(FC.hw.W(4n), FC.hw.t20(P)) == FC.hw.W(32n) : Nat}, hpn: N.Le(P, nx)) ->
+  N.Le(1n+D.Lim.bytes(L), FC.hw.t20(1n+nx)):
+  +b = {(%hP : N.Le(1n+_, 20n+FC.hw.t20(P)); N.le_add_l(3n, FC.hw.t20(P))) : N.Le(1n+FC.hw.W(32n), 20n+FC.hw.t20(P))}
+  N.le_trans(1n+D.Lim.bytes(L), 1n+FC.hw.W(32n), FC.hw.t20(1n+nx), In.le_succ2(D.Lim.bytes(L), FC.hw.W(32n), In.lim.le(L)),
+    N.le_trans(1n+FC.hw.W(32n), 20n+FC.hw.t20(P), FC.hw.t20(1n+nx), b, FC.hw.t20_mono(1n+P, 1n+nx, hpn)))
+
+# next past 214748364
+def In.oomb(+next: U32, +L: U32, eb: {U32.is_lt(next, 214748364) == False{} : Bool}) ->
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(next))):
+  +hpn = N.le_rw_l(U32.to_nat(214748364), FC.hw.pat(7n), U32.to_nat(next), In.lit.pat(214748364, {==}),
+    In.nlt.le(U32.cmp(next, 214748364), U32.to_nat(next), U32.to_nat(214748364), N.U32.rel(next, 214748364), eb))
+  %Equal.sym(Nat, Nat.mul(20n, 1n+U32.to_nat(next)), FC.hw.t20(1n+U32.to_nat(next)), In.mul20(1n+U32.to_nat(next))) :
+    N.Le(1n+D.Lim.bytes(L), _)
+  In.oomb.of(U32.to_nat(next), L, FC.hw.pat(7n), FC.hw.hP(7n, 32n, {==}), hpn)
+
+# a Maybe that holds a value
+def In.isS(x: Maybe<&2, U32>) -> Type:
+  match x:
+    case None{}:
+      Empty
+    case Some{_}:
+      Unit
+
+def In.sn(-x: U32, e: {Some{x} == None{} : Maybe<&2, U32>}) -> Empty:
+  %e : In.isS(_)
+  Unit{}
+
+def In.room.if.none(a: Bool, b: Bool, -p: U32, -nd: U32, e: {Cr.Cir.room.if(a, b, p, nd) == None{} : Maybe<&2, U32>}) -> {b == False{} : Bool}:
+  match a b:
+    case True{} _:
+      Empty.absurd({b == False{} : Bool}, In.sn(p, e))
+    case False{} True{}:
+      Empty.absurd({True{} == False{} : Bool}, In.sn(nd, e))
+    case False{} False{}:
+      {==}
+
+# Cir.room finds none only when the limit does not hold need
+def In.room.none(+b: U32, +p: U32, +lim: U32, e: {Cr.Cir.room(b, p, lim) == None{} : Maybe<&2, U32>}) ->
+  {U32.is_le(U32.inc(U32.shrn(b, 16n)), lim) == False{} : Bool}:
+  In.room.if.none(U32.is_le(U32.inc(U32.shrn(b, 16n)), p), U32.is_le(U32.inc(U32.shrn(b, 16n)), lim), p, U32.inc(U32.shrn(b, 16n)), e)
+
+# the bits of w with a 0 on top have its value
+def In.pad.val(n: Nat, +w: Word(n)) -> {Word.to_nat(1n+n, Word.shr.pad(n, w)) == Word.to_nat(n, w) : Nat}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+(+p):
+      match w:
+        case WCon{False{}, +t}:
+          Equal.cong(Nat, Nat, z => Nat.double(z), Word.to_nat(1n+p, Word.shr.pad(p, t)), Word.to_nat(p, t), In.pad.val(p, t))
+        case WCon{True{}, +t}:
+          Equal.cong(Nat, Nat, z => 1n+Nat.double(z), Word.to_nat(1n+p, Word.shr.pad(p, t)), Word.to_nat(p, t), In.pad.val(p, t))
+
+# 2 (x >> 1) <= x
+def In.shr.le(x: U32) -> N.Le(Nat.double(U32.to_nat(U32.shr(x))), U32.to_nat(x)):
+  match x:
+    case U32{w}:
+      match w:
+        case WCon{False{}, +t}:
+          %Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), In.pad.val(31n, t)) :
+            N.Le(Nat.double(_), Nat.double(Word.to_nat(31n, t)))
+          N.le_refl(Nat.double(Word.to_nat(31n, t)))
+        case WCon{True{}, +t}:
+          %Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), In.pad.val(31n, t)) :
+            N.Le(Nat.double(_), 1n+Nat.double(Word.to_nat(31n, t)))
+          N.le_succ(Nat.double(Word.to_nat(31n, t)), Nat.double(Word.to_nat(31n, t)), N.le_refl(Nat.double(Word.to_nat(31n, t))))
+
+# 2^k (x >> k) <= x
+def In.shrn.le(k: Nat, +x: U32) -> N.Le(N.D(k, U32.to_nat(U32.shrn(x, k))), U32.to_nat(x)):
+  match k:
+    case 0n:
+      N.le_refl(U32.to_nat(x))
+    case 1n+(+q):
+      %In.D_double(q, U32.to_nat(U32.shr(U32.shrn(x, q)))) : N.Le(_, U32.to_nat(x))
+      N.le_trans(N.D(q, Nat.double(U32.to_nat(U32.shr(U32.shrn(x, q))))), N.D(q, U32.to_nat(U32.shrn(x, q))), U32.to_nat(x),
+        In.D_mono(q, Nat.double(U32.to_nat(U32.shr(U32.shrn(x, q)))), U32.to_nat(U32.shrn(x, q)), In.shr.le(U32.shrn(x, q))),
+        In.shrn.le(q, x))
+
+# the minimum of L and k is at most L
+def In.min.le(b: Bool, +L: U32, +k: U32, e: {U32.is_le(L, k) == b : Bool}) -> N.Le(U32.to_nat(Wa.Wasm.min.if(b, L, k)), U32.to_nat(L)):
+  match b:
+    case True{}:
+      N.le_refl(U32.to_nat(L))
+    case False{}:
+      N.weaken(U32.to_nat(k), U32.to_nat(L), In.nle.lt(U32.cmp(L, k), U32.to_nat(L), U32.to_nat(k), N.U32.rel(L, k), e))
+
+# a sum of words is at most the sum of their values
+def In.add.le(+a: U32, +b: U32) -> N.Le(U32.to_nat(U32.add(a, b)), Nat.add(U32.to_nat(a), U32.to_nat(b))):
+  match a b:
+    case U32{+x} U32{+y}:
+      +V = Word.to_nat(32n, Word.add(32n, x, y))
+      +Dc = N.D(32n, FC.hw.bn(FC.hw.cout(32n, x, y, False{})))
+      N.le_rw_r(V, Nat.add(V, Dc), Nat.add(Word.to_nat(32n, x), Word.to_nat(32n, y)), FC.hw.adc(32n, x, y, False{}), N.le_add_r(V, Dc))
+
+# no page for the cell next's last byte: the limit has fewer than 20 (next + 1) bytes
+def In.oomf(+next: U32, +pg: U32, +L: U32, hn: {U32.is_lt(next, 214748364) == True{} : Bool},
+  e: {Cr.Cir.room(U32.add(Cr.Cir.at(next), 19), pg, L) == None{} : Maybe<&2, U32>}) ->
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(next))):
+  +b = U32.add(Cr.Cir.at(next), 19)
+  +s = U32.shrn(b, 16n)
+  +tn = U32.to_nat(next)
+  +h1 = In.nle.lt(U32.cmp(U32.inc(s), L), U32.to_nat(U32.inc(s)), U32.to_nat(L), N.U32.rel(U32.inc(s), L), In.room.none(b, pg, L, e))
+  +h2 = N.le_trans(1n+U32.to_nat(L), U32.to_nat(U32.inc(s)), 1n+U32.to_nat(s), h1, N.U32.inc_le(s))
+  +h3 = N.le_rw_l(N.D(16n, U32.to_nat(Wa.Wasm.min(L, 65536))), D.Lim.bytes(L), N.D(16n, U32.to_nat(L)),
+    Equal.sym(Nat, D.Lim.bytes(L), N.D(16n, U32.to_nat(Wa.Wasm.min(L, 65536))), In.lim.unf(L)),
+    In.D_mono(16n, U32.to_nat(Wa.Wasm.min(L, 65536)), U32.to_nat(L), In.min.le(U32.is_le(L, 65536), L, 65536, {==})))
+  +h4 = N.le_trans(D.Lim.bytes(L), N.D(16n, U32.to_nat(L)), N.D(16n, U32.to_nat(s)), h3, In.D_mono(16n, U32.to_nat(L), U32.to_nat(s), h2))
+  +h5 = N.le_trans(D.Lim.bytes(L), N.D(16n, U32.to_nat(s)), U32.to_nat(b), h4, In.shrn.le(16n, b))
+  +hx = N.le_rw_r(tn, U32.to_nat(214748364), FC.hw.pat(7n), In.lit.pat(214748364, {==}),
+    N.weaken(tn, U32.to_nat(214748364), In.lt.le(U32.cmp(next, 214748364), tn, U32.to_nat(214748364), N.U32.rel(next, 214748364), hn)))
+  +ea = FC.hf.at.val(next, FC.hw.pat(7n), FC.hw.hP(7n, 32n, {==}), hx)
+  +h6 = N.le_rw_r(U32.to_nat(b), Nat.add(U32.to_nat(Cr.Cir.at(next)), 19n), Nat.add(FC.hw.t20(tn), 19n),
+    Equal.cong(Nat, Nat, z => Nat.add(z, 19n), U32.to_nat(Cr.Cir.at(next)), FC.hw.t20(tn), ea), In.add.le(Cr.Cir.at(next), 19))
+  +h7 = N.le_rw_r(U32.to_nat(b), Nat.add(FC.hw.t20(tn), 19n), Nat.add(19n, FC.hw.t20(tn)), FC.hf.add.comm(FC.hw.t20(tn), 19n), h6)
+  %Equal.sym(Nat, Nat.mul(20n, 1n+tn), FC.hw.t20(1n+tn), In.mul20(1n+tn)) : N.Le(1n+D.Lim.bytes(L), _)
+  N.le_trans(D.Lim.bytes(L), U32.to_nat(b), 19n+FC.hw.t20(tn), h5, h7)
 
 # Allocation
 # ----------
@@ -4012,13 +4297,6 @@ def In.inc0(n: U32) -> {U32.is_eq(n, 4294967295) == U32.is_zero(U32.inc(n)) : Bo
   match n:
     case U32{w}:
       Wd.inc0(32n, w)
-
-def In.isS(x: Maybe<&2, U32>) -> Type:
-  match x:
-    case None{}:
-      Empty
-    case Some{_}:
-      Unit
 
 def In.ns(-v: U32, e: {None{} == Some{v} : Maybe<&2, U32>}) -> Empty:
   %Equal.sym(Maybe<&2, U32>, None{}, Some{v}, e) : In.isS(_)
