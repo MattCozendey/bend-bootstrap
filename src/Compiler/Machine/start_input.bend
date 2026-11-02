@@ -637,42 +637,505 @@ def In.up(f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +h: {True{} == In
           T.tm.cell(tag, Bk.Quan.Q0{}, c, f2, [], [], u => None{}, u => None{}, u => None{}) : Maybe<&2, Bk.Term>},
           {True{} == In.rds.cell(tag, u => In.rds(p, m, F, 1n+N, f2), u => In.rds(p, m, F, 1n+N, f3)) : Bool}, r))
 
+# The nodes of a term
+# --------------------
+
+# every node of t at the cell r, as Node walks them, is a cell that may be
+# read, within the fuel f (as In.rds): no set of a cell that may not be read
+# changes the nodes (In.nfr)
+def In.nrd(f: Nat, t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +F: U32, +N: Nat) -> Bool:
+  match f:
+    case 0n:
+      False{}
+    case 1n+(+p):
+      match t:
+        case Bk.Term.Var{_}:
+          In.rd(r, F, N)
+        case Bk.Term.Ref{_}:
+          In.rd(r, F, N)
+        case Bk.Term.Ann{y, z}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N)))
+        case Bk.Term.Let{_, v, g}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N)))
+        case Bk.Term.Typ{y}:
+          Bool.and(In.rd(r, F, N), In.nrd(p, y, m, D.Fd(2n, m, r), F, N))
+        case Bk.Term.Min{a, b}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)))
+        case Bk.Term.All{_, a, b}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)))
+        case Bk.Term.Lam{_, g}:
+          Bool.and(In.rd(r, F, N), In.nrd(p, g, m, D.Fd(2n, m, r), F, N))
+        case Bk.Term.App{_, g, y}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N)))
+        case Bk.Term.Sig{_, a, b}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)))
+        case Bk.Term.Tup{_, a, b}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)))
+        case Bk.Term.Prj{h}:
+          Bool.and(In.rd(r, F, N), In.nrd(p, h, m, D.Fd(2n, m, r), F, N))
+        case Bk.Term.Enu{_}:
+          In.rd(r, F, N)
+        case Bk.Term.Lab{_}:
+          In.rd(r, F, N)
+        case Bk.Term.Mat{_, h, o}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N)))
+        case Bk.Term.Efq{}:
+          In.rd(r, F, N)
+        case Bk.Term.Eql{a, b, y}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N))))
+        case Bk.Term.Rfl{}:
+          In.rd(r, F, N)
+        case Bk.Term.Rwt{w, y, g}:
+          Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N))))
+
+# a field of a cell other than i, once i is set
+def In.fd.fr(+k: Nat, +m: Cr.Cir.Cells, +r: U32, +i: U32, +x: Cr.Cir.Cell, ne: {r == i : U32} -> Empty) ->
+  {D.Fd(k, m, r) == D.Fd(k, Cr.Cir.Cells.set(m, i, x), r) : U32}:
+  Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(k, y), Cr.Cir.Cells.get(m, r), Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, x), r), Cl.get_other(m, r, i, x, ne))
+
+# the nodes of t at r, and Node, are the same once a cell that may not be
+# read is set
+def In.nfr(f: Nat, t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +c: U32, +i: U32, +x: Cr.Cir.Cell, +F: U32, +N: Nat,
+  +hn: {True{} == In.nrd(f, t, m, r, F, N) : Bool}, +hi: {False{} == In.rd(i, F, N) : Bool}) ->
+  In.P({True{} == In.nrd(f, t, Cr.Cir.Cells.set(m, i, x), r, F, N) : Bool}, {D.Node(t, m, r, c) == D.Node(t, Cr.Cir.Cells.set(m, i, x), r, c) : Bool}):
+  match f:
+    case 0n:
+      Bo.ft(In.P({True{} == In.nrd(0n, t, Cr.Cir.Cells.set(m, i, x), r, F, N) : Bool}, {D.Node(t, m, r, c) == D.Node(t, Cr.Cir.Cells.set(m, i, x), r, c) : Bool}), hn)
+    case 1n+(+p):
+      match t:
+        case Bk.Term.Var{_}:
+          (hn, {==})
+        case Bk.Term.Ref{_}:
+          (hn, {==})
+        case Bk.Term.Ann{+y, +z}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N)), hn)
+          +hy = Bo.and_l(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N), hp)
+          +ry = Bo.and_r(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N), hp)
+          +qy = In.nfr(p, y, m, D.Fd(2n, m, r), c, i, x, F, N, hy, hi)
+          +qz = In.nfr(p, z, m, D.Fd(3n, m, r), c, i, x, F, N, ry, hi)
+          +ny = In.p1({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(2n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qy)
+          +ey = In.p2({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(2n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qy)
+          +nz = In.p1({True{} == In.nrd(p, z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(z, m, D.Fd(3n, m, r), c) == D.Node(z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qz)
+          +ez = In.p2({True{} == In.nrd(p, z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(z, m, D.Fd(3n, m, r), c) == D.Node(z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qz)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(y, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, z, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), D.Node(z, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), ny, nz)), (%ey : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(z, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c))) : Bool}; %ez : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.Let{_, +v, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N)), hn)
+          +hv = Bo.and_l(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N), hp)
+          +rv = Bo.and_r(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N), hp)
+          +qv = In.nfr(p, v, m, D.Fd(2n, m, r), c, i, x, F, N, hv, hi)
+          +qg = In.nfr(p, g, m, D.Fd(3n, m, r), c, i, x, F, N, rv, hi)
+          +nv = In.p1({True{} == In.nrd(p, v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(v, m, D.Fd(2n, m, r), c) == D.Node(v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qv)
+          +ev = In.p2({True{} == In.nrd(p, v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(v, m, D.Fd(2n, m, r), c) == D.Node(v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qv)
+          +ng = In.p1({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(3n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qg)
+          +eg = In.p2({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(3n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qg)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, v, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(g, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(v, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(g, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), D.Node(g, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, v, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), nv, ng)), (%ev : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(g, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c))) : Bool}; %eg : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(g, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.Typ{+y}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, y, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, y, m, D.Fd(2n, m, r), F, N), hn)
+          +qy = In.nfr(p, y, m, D.Fd(2n, m, r), c, i, x, F, N, hp, hi)
+          +ny = In.p1({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(2n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qy)
+          +ey = In.p2({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(2n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qy)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), _, F, N)) : Bool}, {Bool.or(U32.is_eq(r, c), D.Node(y, m, D.Fd(2n, m, r), c)) == Bool.or(U32.is_eq(r, c), D.Node(y, Cr.Cir.Cells.set(m, i, x), _, c)) : Bool})
+          (Bo.and_i(In.rd(r, F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), hr, ny), (%ey : {Bool.or(U32.is_eq(r, c), D.Node(y, m, D.Fd(2n, m, r), c)) == Bool.or(U32.is_eq(r, c), _) : Bool}; {==}))
+        case Bk.Term.Min{+a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +qa = In.nfr(p, a, m, D.Fd(2n, m, r), c, i, x, F, N, ha, hi)
+          +qb = In.nfr(p, b, m, D.Fd(3n, m, r), c, i, x, F, N, ra, hi)
+          +na = In.p1({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +ea = In.p2({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +nb = In.p1({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          +eb = In.p2({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), D.Node(b, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), na, nb)), (%ea : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c))) : Bool}; %eb : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.All{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +qa = In.nfr(p, a, m, D.Fd(2n, m, r), c, i, x, F, N, ha, hi)
+          +qb = In.nfr(p, b, m, D.Fd(3n, m, r), c, i, x, F, N, ra, hi)
+          +na = In.p1({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +ea = In.p2({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +nb = In.p1({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          +eb = In.p2({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), D.Node(b, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), na, nb)), (%ea : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c))) : Bool}; %eb : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.Lam{_, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, g, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, g, m, D.Fd(2n, m, r), F, N), hn)
+          +qg = In.nfr(p, g, m, D.Fd(2n, m, r), c, i, x, F, N, hp, hi)
+          +ng = In.p1({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(2n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qg)
+          +eg = In.p2({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(2n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qg)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), _, F, N)) : Bool}, {Bool.or(U32.is_eq(r, c), D.Node(g, m, D.Fd(2n, m, r), c)) == Bool.or(U32.is_eq(r, c), D.Node(g, Cr.Cir.Cells.set(m, i, x), _, c)) : Bool})
+          (Bo.and_i(In.rd(r, F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), hr, ng), (%eg : {Bool.or(U32.is_eq(r, c), D.Node(g, m, D.Fd(2n, m, r), c)) == Bool.or(U32.is_eq(r, c), _) : Bool}; {==}))
+        case Bk.Term.App{_, +g, +y}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N)), hn)
+          +hg = Bo.and_l(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N), hp)
+          +rg = Bo.and_r(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N), hp)
+          +qg = In.nfr(p, g, m, D.Fd(2n, m, r), c, i, x, F, N, hg, hi)
+          +qy = In.nfr(p, y, m, D.Fd(3n, m, r), c, i, x, F, N, rg, hi)
+          +ng = In.p1({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(2n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qg)
+          +eg = In.p2({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(2n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qg)
+          +ny = In.p1({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(3n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qy)
+          +ey = In.p2({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(3n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qy)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(g, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(g, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(g, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), D.Node(y, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), ng, ny)), (%eg : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(g, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c))) : Bool}; %ey : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(g, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(g, m, D.Fd(2n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.Sig{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +qa = In.nfr(p, a, m, D.Fd(2n, m, r), c, i, x, F, N, ha, hi)
+          +qb = In.nfr(p, b, m, D.Fd(3n, m, r), c, i, x, F, N, ra, hi)
+          +na = In.p1({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +ea = In.p2({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +nb = In.p1({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          +eb = In.p2({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), D.Node(b, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), na, nb)), (%ea : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c))) : Bool}; %eb : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.Tup{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +qa = In.nfr(p, a, m, D.Fd(2n, m, r), c, i, x, F, N, ha, hi)
+          +qb = In.nfr(p, b, m, D.Fd(3n, m, r), c, i, x, F, N, ra, hi)
+          +na = In.p1({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +ea = In.p2({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +nb = In.p1({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          +eb = In.p2({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), D.Node(b, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), na, nb)), (%ea : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c))) : Bool}; %eb : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.Prj{+h}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, h, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, h, m, D.Fd(2n, m, r), F, N), hn)
+          +qh = In.nfr(p, h, m, D.Fd(2n, m, r), c, i, x, F, N, hp, hi)
+          +nh = In.p1({True{} == In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(h, m, D.Fd(2n, m, r), c) == D.Node(h, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qh)
+          +eh = In.p2({True{} == In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(h, m, D.Fd(2n, m, r), c) == D.Node(h, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qh)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), _, F, N)) : Bool}, {Bool.or(U32.is_eq(r, c), D.Node(h, m, D.Fd(2n, m, r), c)) == Bool.or(U32.is_eq(r, c), D.Node(h, Cr.Cir.Cells.set(m, i, x), _, c)) : Bool})
+          (Bo.and_i(In.rd(r, F, N), In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), hr, nh), (%eh : {Bool.or(U32.is_eq(r, c), D.Node(h, m, D.Fd(2n, m, r), c)) == Bool.or(U32.is_eq(r, c), _) : Bool}; {==}))
+        case Bk.Term.Enu{_}:
+          (hn, {==})
+        case Bk.Term.Lab{_}:
+          (hn, {==})
+        case Bk.Term.Mat{_, +h, +o}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N)), hn)
+          +hh = Bo.and_l(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N), hp)
+          +rh = Bo.and_r(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N), hp)
+          +qh = In.nfr(p, h, m, D.Fd(3n, m, r), c, i, x, F, N, hh, hi)
+          +qo = In.nfr(p, o, m, D.Fd(4n, m, r), c, i, x, F, N, rh, hi)
+          +nh = In.p1({True{} == In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(h, m, D.Fd(3n, m, r), c) == D.Node(h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qh)
+          +eh = In.p2({True{} == In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(h, m, D.Fd(3n, m, r), c) == D.Node(h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qh)
+          +no = In.p1({True{} == In.nrd(p, o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N) : Bool}, {D.Node(o, m, D.Fd(4n, m, r), c) == D.Node(o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c) : Bool}, qo)
+          +eo = In.p2({True{} == In.nrd(p, o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N) : Bool}, {D.Node(o, m, D.Fd(4n, m, r), c) == D.Node(o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c) : Bool}, qo)
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(h, m, D.Fd(3n, m, r), c), D.Node(o, m, D.Fd(4n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(h, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), c))) : Bool})
+          %In.fd.fr(4n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, o, Cr.Cir.Cells.set(m, i, x), _, F, N))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(h, m, D.Fd(3n, m, r), c), D.Node(o, m, D.Fd(4n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c), D.Node(o, Cr.Cir.Cells.set(m, i, x), _, c))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N)), hr, Bo.and_i(In.nrd(p, h, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N), nh, no)), (%eh : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(h, m, D.Fd(3n, m, r), c), D.Node(o, m, D.Fd(4n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(_, D.Node(o, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c))) : Bool}; %eo : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(h, m, D.Fd(3n, m, r), c), D.Node(o, m, D.Fd(4n, m, r), c))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(h, m, D.Fd(3n, m, r), c), _)) : Bool}; {==}))
+        case Bk.Term.Efq{}:
+          (hn, {==})
+        case Bk.Term.Eql{+a, +b, +y}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N))), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N))), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N)), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N)), hp)
+          +hb = Bo.and_l(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N), ra)
+          +rb = Bo.and_r(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N), ra)
+          +qa = In.nfr(p, a, m, D.Fd(2n, m, r), c, i, x, F, N, ha, hi)
+          +qb = In.nfr(p, b, m, D.Fd(3n, m, r), c, i, x, F, N, hb, hi)
+          +qy = In.nfr(p, y, m, D.Fd(4n, m, r), c, i, x, F, N, rb, hi)
+          +na = In.p1({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +ea = In.p2({True{} == In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(a, m, D.Fd(2n, m, r), c) == D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qa)
+          +nb = In.p1({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          +eb = In.p2({True{} == In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(b, m, D.Fd(3n, m, r), c) == D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qb)
+          +ny = In.p1({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(4n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c) : Bool}, qy)
+          +ey = In.p2({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(4n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c) : Bool}, qy)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), _, F, N), Bool.and(In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), F, N)))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), _, c), Bool.or(D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c), D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), c)))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), F, N)))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), Bool.or(D.Node(b, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), c)))) : Bool})
+          %In.fd.fr(4n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), _, F, N)))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), Bool.or(D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c), D.Node(y, Cr.Cir.Cells.set(m, i, x), _, c)))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N))), hr, Bo.and_i(In.nrd(p, a, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N)), na, Bo.and_i(In.nrd(p, b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N), nb, ny))), (%ea : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(_, Bool.or(D.Node(b, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c), D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c)))) : Bool}; %eb : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(_, D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c)))) : Bool}; %ey : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), _))) : Bool}; {==}))
+        case Bk.Term.Rfl{}:
+          (hn, {==})
+        case Bk.Term.Rwt{+w, +y, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N))), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N))), hn)
+          +hw = Bo.and_l(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N)), hp)
+          +rw = Bo.and_r(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N)), hp)
+          +hy = Bo.and_l(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N), rw)
+          +ry = Bo.and_r(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N), rw)
+          +qw = In.nfr(p, w, m, D.Fd(2n, m, r), c, i, x, F, N, hw, hi)
+          +qy = In.nfr(p, y, m, D.Fd(3n, m, r), c, i, x, F, N, hy, hi)
+          +qg = In.nfr(p, g, m, D.Fd(4n, m, r), c, i, x, F, N, ry, hi)
+          +nw = In.p1({True{} == In.nrd(p, w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(w, m, D.Fd(2n, m, r), c) == D.Node(w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qw)
+          +ew = In.p2({True{} == In.nrd(p, w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N) : Bool}, {D.Node(w, m, D.Fd(2n, m, r), c) == D.Node(w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c) : Bool}, qw)
+          +ny = In.p1({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(3n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qy)
+          +ey = In.p2({True{} == In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N) : Bool}, {D.Node(y, m, D.Fd(3n, m, r), c) == D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c) : Bool}, qy)
+          +ng = In.p1({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(4n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c) : Bool}, qg)
+          +eg = In.p2({True{} == In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N) : Bool}, {D.Node(g, m, D.Fd(4n, m, r), c) == D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c) : Bool}, qg)
+          %In.fd.fr(2n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, w, Cr.Cir.Cells.set(m, i, x), _, F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), F, N)))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(g, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, Cr.Cir.Cells.set(m, i, x), _, c), Bool.or(D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, Cr.Cir.Cells.set(m, i, x), r), c), D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), c)))) : Bool})
+          %In.fd.fr(3n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), _, F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), F, N)))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(g, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), Bool.or(D.Node(y, Cr.Cir.Cells.set(m, i, x), _, c), D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, Cr.Cir.Cells.set(m, i, x), r), c)))) : Bool})
+          %In.fd.fr(4n, m, r, i, x, e => In.ne(r, i, F, N, hr, hi, e)) : In.P({True{} == Bool.and(In.rd(r, F, N), Bool.and(In.nrd(p, w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), _, F, N)))) : Bool}, {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(g, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), c), Bool.or(D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c), D.Node(g, Cr.Cir.Cells.set(m, i, x), _, c)))) : Bool})
+          (Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(p, w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N))), hr, Bo.and_i(In.nrd(p, w, Cr.Cir.Cells.set(m, i, x), D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N)), nw, Bo.and_i(In.nrd(p, y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), F, N), In.nrd(p, g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), F, N), ny, ng))), (%ew : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(g, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(_, Bool.or(D.Node(y, Cr.Cir.Cells.set(m, i, x), D.Fd(3n, m, r), c), D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c)))) : Bool}; %ey : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(g, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(_, D.Node(g, Cr.Cir.Cells.set(m, i, x), D.Fd(4n, m, r), c)))) : Bool}; %eg : {Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(g, m, D.Fd(4n, m, r), c)))) == Bool.or(U32.is_eq(r, c), Bool.or(D.Node(w, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), _))) : Bool}; {==}))
+
+# the nodes of t at r may still be read once one more cell is taken
+def In.nup(f: Nat, t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +F: U32, +N: Nat, +hn: {True{} == In.nrd(f, t, m, r, F, N) : Bool}) ->
+  {True{} == In.nrd(f, t, m, r, F, 1n+N) : Bool}:
+  match f:
+    case 0n:
+      hn
+    case 1n+(+p):
+      match t:
+        case Bk.Term.Var{_}:
+          In.rd_up(r, F, N, hn)
+        case Bk.Term.Ref{_}:
+          In.rd_up(r, F, N, hn)
+        case Bk.Term.Ann{+y, +z}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N)), hn)
+          +hy = Bo.and_l(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N), hp)
+          +ry = Bo.and_r(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, z, m, D.Fd(3n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, y, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, z, m, D.Fd(3n, m, r), F, 1n+N), In.nup(p, y, m, D.Fd(2n, m, r), F, N, hy), In.nup(p, z, m, D.Fd(3n, m, r), F, N, ry)))
+        case Bk.Term.Let{_, +v, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N)), hn)
+          +hv = Bo.and_l(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N), hp)
+          +rv = Bo.and_r(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, g, m, D.Fd(3n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, v, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, g, m, D.Fd(3n, m, r), F, 1n+N), In.nup(p, v, m, D.Fd(2n, m, r), F, N, hv), In.nup(p, g, m, D.Fd(3n, m, r), F, N, rv)))
+        case Bk.Term.Typ{+y}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, y, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, y, m, D.Fd(2n, m, r), F, N), hn)
+          Bo.and_i(In.rd(r, F, 1n+N), In.nrd(p, y, m, D.Fd(2n, m, r), F, 1n+N), In.rd_up(r, F, N, hr), In.nup(p, y, m, D.Fd(2n, m, r), F, N, hp))
+        case Bk.Term.Min{+a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N), In.nup(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nup(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.All{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N), In.nup(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nup(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.Lam{_, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, g, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, g, m, D.Fd(2n, m, r), F, N), hn)
+          Bo.and_i(In.rd(r, F, 1n+N), In.nrd(p, g, m, D.Fd(2n, m, r), F, 1n+N), In.rd_up(r, F, N, hr), In.nup(p, g, m, D.Fd(2n, m, r), F, N, hp))
+        case Bk.Term.App{_, +g, +y}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N)), hn)
+          +hg = Bo.and_l(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N), hp)
+          +rg = Bo.and_r(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, y, m, D.Fd(3n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, g, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, y, m, D.Fd(3n, m, r), F, 1n+N), In.nup(p, g, m, D.Fd(2n, m, r), F, N, hg), In.nup(p, y, m, D.Fd(3n, m, r), F, N, rg)))
+        case Bk.Term.Sig{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N), In.nup(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nup(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.Tup{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N), In.nup(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nup(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.Prj{+h}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, h, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, h, m, D.Fd(2n, m, r), F, N), hn)
+          Bo.and_i(In.rd(r, F, 1n+N), In.nrd(p, h, m, D.Fd(2n, m, r), F, 1n+N), In.rd_up(r, F, N, hr), In.nup(p, h, m, D.Fd(2n, m, r), F, N, hp))
+        case Bk.Term.Enu{_}:
+          In.rd_up(r, F, N, hn)
+        case Bk.Term.Lab{_}:
+          In.rd_up(r, F, N, hn)
+        case Bk.Term.Mat{_, +h, +o}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N)), hn)
+          +hh = Bo.and_l(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N), hp)
+          +rh = Bo.and_r(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, o, m, D.Fd(4n, m, r), F, 1n+N)), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, h, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, o, m, D.Fd(4n, m, r), F, 1n+N), In.nup(p, h, m, D.Fd(3n, m, r), F, N, hh), In.nup(p, o, m, D.Fd(4n, m, r), F, N, rh)))
+        case Bk.Term.Efq{}:
+          In.rd_up(r, F, N, hn)
+        case Bk.Term.Eql{+a, +b, +y}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N))), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N))), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N)), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N)), hp)
+          +hb = Bo.and_l(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N), ra)
+          +rb = Bo.and_r(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N), ra)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, y, m, D.Fd(4n, m, r), F, 1n+N))), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, a, m, D.Fd(2n, m, r), F, 1n+N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, y, m, D.Fd(4n, m, r), F, 1n+N)), In.nup(p, a, m, D.Fd(2n, m, r), F, N, ha), Bo.and_i(In.nrd(p, b, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, y, m, D.Fd(4n, m, r), F, 1n+N), In.nup(p, b, m, D.Fd(3n, m, r), F, N, hb), In.nup(p, y, m, D.Fd(4n, m, r), F, N, rb))))
+        case Bk.Term.Rfl{}:
+          In.rd_up(r, F, N, hn)
+        case Bk.Term.Rwt{+w, +y, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N))), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N))), hn)
+          +hw = Bo.and_l(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N)), hp)
+          +rw = Bo.and_r(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N)), hp)
+          +hy = Bo.and_l(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N), rw)
+          +ry = Bo.and_r(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N), rw)
+          Bo.and_i(In.rd(r, F, 1n+N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, 1n+N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, g, m, D.Fd(4n, m, r), F, 1n+N))), In.rd_up(r, F, N, hr), Bo.and_i(In.nrd(p, w, m, D.Fd(2n, m, r), F, 1n+N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, g, m, D.Fd(4n, m, r), F, 1n+N)), In.nup(p, w, m, D.Fd(2n, m, r), F, N, hw), Bo.and_i(In.nrd(p, y, m, D.Fd(3n, m, r), F, 1n+N), In.nrd(p, g, m, D.Fd(4n, m, r), F, 1n+N), In.nup(p, y, m, D.Fd(3n, m, r), F, N, hy), In.nup(p, g, m, D.Fd(4n, m, r), F, N, ry))))
+
+# and with one more unit of fuel
+def In.nmono(f: Nat, t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +F: U32, +N: Nat, +hn: {True{} == In.nrd(f, t, m, r, F, N) : Bool}) ->
+  {True{} == In.nrd(1n+f, t, m, r, F, N) : Bool}:
+  match f:
+    case 0n:
+      Bo.ft({True{} == In.nrd(1n, t, m, r, F, N) : Bool}, hn)
+    case 1n+(+p):
+      match t:
+        case Bk.Term.Var{_}:
+          hn
+        case Bk.Term.Ref{_}:
+          hn
+        case Bk.Term.Ann{+y, +z}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N)), hn)
+          +hy = Bo.and_l(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N), hp)
+          +ry = Bo.and_r(In.nrd(p, y, m, D.Fd(2n, m, r), F, N), In.nrd(p, z, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, y, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, z, m, D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, y, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, z, m, D.Fd(3n, m, r), F, N), In.nmono(p, y, m, D.Fd(2n, m, r), F, N, hy), In.nmono(p, z, m, D.Fd(3n, m, r), F, N, ry)))
+        case Bk.Term.Let{_, +v, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N)), hn)
+          +hv = Bo.and_l(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N), hp)
+          +rv = Bo.and_r(In.nrd(p, v, m, D.Fd(2n, m, r), F, N), In.nrd(p, g, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, v, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, g, m, D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, v, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, g, m, D.Fd(3n, m, r), F, N), In.nmono(p, v, m, D.Fd(2n, m, r), F, N, hv), In.nmono(p, g, m, D.Fd(3n, m, r), F, N, rv)))
+        case Bk.Term.Typ{+y}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, y, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, y, m, D.Fd(2n, m, r), F, N), hn)
+          Bo.and_i(In.rd(r, F, N), In.nrd(1n+p, y, m, D.Fd(2n, m, r), F, N), hr, In.nmono(p, y, m, D.Fd(2n, m, r), F, N, hp))
+        case Bk.Term.Min{+a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N), In.nmono(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nmono(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.All{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N), In.nmono(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nmono(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.Lam{_, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, g, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, g, m, D.Fd(2n, m, r), F, N), hn)
+          Bo.and_i(In.rd(r, F, N), In.nrd(1n+p, g, m, D.Fd(2n, m, r), F, N), hr, In.nmono(p, g, m, D.Fd(2n, m, r), F, N, hp))
+        case Bk.Term.App{_, +g, +y}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N)), hn)
+          +hg = Bo.and_l(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N), hp)
+          +rg = Bo.and_r(In.nrd(p, g, m, D.Fd(2n, m, r), F, N), In.nrd(p, y, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, g, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, y, m, D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, g, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, y, m, D.Fd(3n, m, r), F, N), In.nmono(p, g, m, D.Fd(2n, m, r), F, N, hg), In.nmono(p, y, m, D.Fd(3n, m, r), F, N, rg)))
+        case Bk.Term.Sig{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N), In.nmono(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nmono(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.Tup{_, +a, +b}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N)), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), In.nrd(p, b, m, D.Fd(3n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N), In.nmono(p, a, m, D.Fd(2n, m, r), F, N, ha), In.nmono(p, b, m, D.Fd(3n, m, r), F, N, ra)))
+        case Bk.Term.Prj{+h}:
+          +hr = Bo.and_l(In.rd(r, F, N), In.nrd(p, h, m, D.Fd(2n, m, r), F, N), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), In.nrd(p, h, m, D.Fd(2n, m, r), F, N), hn)
+          Bo.and_i(In.rd(r, F, N), In.nrd(1n+p, h, m, D.Fd(2n, m, r), F, N), hr, In.nmono(p, h, m, D.Fd(2n, m, r), F, N, hp))
+        case Bk.Term.Enu{_}:
+          hn
+        case Bk.Term.Lab{_}:
+          hn
+        case Bk.Term.Mat{_, +h, +o}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N)), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N)), hn)
+          +hh = Bo.and_l(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N), hp)
+          +rh = Bo.and_r(In.nrd(p, h, m, D.Fd(3n, m, r), F, N), In.nrd(p, o, m, D.Fd(4n, m, r), F, N), hp)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, h, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, o, m, D.Fd(4n, m, r), F, N)), hr, Bo.and_i(In.nrd(1n+p, h, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, o, m, D.Fd(4n, m, r), F, N), In.nmono(p, h, m, D.Fd(3n, m, r), F, N, hh), In.nmono(p, o, m, D.Fd(4n, m, r), F, N, rh)))
+        case Bk.Term.Efq{}:
+          hn
+        case Bk.Term.Eql{+a, +b, +y}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N))), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N))), hn)
+          +ha = Bo.and_l(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N)), hp)
+          +ra = Bo.and_r(In.nrd(p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N)), hp)
+          +hb = Bo.and_l(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N), ra)
+          +rb = Bo.and_r(In.nrd(p, b, m, D.Fd(3n, m, r), F, N), In.nrd(p, y, m, D.Fd(4n, m, r), F, N), ra)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, y, m, D.Fd(4n, m, r), F, N))), hr, Bo.and_i(In.nrd(1n+p, a, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, y, m, D.Fd(4n, m, r), F, N)), In.nmono(p, a, m, D.Fd(2n, m, r), F, N, ha), Bo.and_i(In.nrd(1n+p, b, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, y, m, D.Fd(4n, m, r), F, N), In.nmono(p, b, m, D.Fd(3n, m, r), F, N, hb), In.nmono(p, y, m, D.Fd(4n, m, r), F, N, rb))))
+        case Bk.Term.Rfl{}:
+          hn
+        case Bk.Term.Rwt{+w, +y, +g}:
+          +hr = Bo.and_l(In.rd(r, F, N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N))), hn)
+          +hp = Bo.and_r(In.rd(r, F, N), Bool.and(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N))), hn)
+          +hw = Bo.and_l(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N)), hp)
+          +rw = Bo.and_r(In.nrd(p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N)), hp)
+          +hy = Bo.and_l(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N), rw)
+          +ry = Bo.and_r(In.nrd(p, y, m, D.Fd(3n, m, r), F, N), In.nrd(p, g, m, D.Fd(4n, m, r), F, N), rw)
+          Bo.and_i(In.rd(r, F, N), Bool.and(In.nrd(1n+p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(1n+p, y, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, g, m, D.Fd(4n, m, r), F, N))), hr, Bo.and_i(In.nrd(1n+p, w, m, D.Fd(2n, m, r), F, N), Bool.and(In.nrd(1n+p, y, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, g, m, D.Fd(4n, m, r), F, N)), In.nmono(p, w, m, D.Fd(2n, m, r), F, N, hw), Bo.and_i(In.nrd(1n+p, y, m, D.Fd(3n, m, r), F, N), In.nrd(1n+p, g, m, D.Fd(4n, m, r), F, N), In.nmono(p, y, m, D.Fd(3n, m, r), F, N, hy), In.nmono(p, g, m, D.Fd(4n, m, r), F, N, ry))))
+
+
 # Terms of cells
 # --------------
 
 # the cell c of the cells m stands for t with the fuel f, reading only cells
-# that may be read (F and N bound the machine's own)
+# that may be read (F and N bound the machine's own), and so are t's nodes
 def In.St(f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>) -> Data:
-  In.P({Some{t} == T.tm.of(f, m, ks, img, c) : Maybe<&2, Bk.Term>}, {True{} == In.rds(f, m, F, N, c) : Bool})
+  In.P({Some{t} == T.tm.of(f, m, ks, img, c) : Maybe<&2, Bk.Term>},
+    In.P({True{} == In.rds(f, m, F, N, c) : Bool}, {True{} == In.nrd(f, t, m, c, F, N) : Bool}))
+
+# the nodes' part of St
+def St.nrd(-f: Nat, -m: Cr.Cir.Cells, -F: U32, -N: Nat, -c: U32, -t: Bk.Term, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
+  s: In.St(f, m, F, N, c, t, ks, img)) -> {True{} == In.nrd(f, t, m, c, F, N) : Bool}:
+  (e, rn) = s
+  (r, n) = rn
+  n
 
 # a cell that may not be read is set
 def St.fr(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +i: U32, +x: Cr.Cir.Cell, +hi: {False{} == In.rd(i, F, N) : Bool}, s: In.St(f, m, F, N, c, t, ks, img)) ->
   In.St(f, Cr.Cir.Cells.set(m, i, x), F, N, c, t, ks, img):
-  (e, r) = s
+  (e, rn) = s
+  (r, n) = rn
   +q = In.fr(f, m, F, N, c, i, x, ks, img, r, hi)
   (Equal.trans(Maybe<&2, Bk.Term>, Some{t}, T.tm.of(f, m, ks, img, c), T.tm.of(f, Cr.Cir.Cells.set(m, i, x), ks, img, c), e,
     In.p1({T.tm.of(f, m, ks, img, c) == T.tm.of(f, Cr.Cir.Cells.set(m, i, x), ks, img, c) : Maybe<&2, Bk.Term>},
       {True{} == In.rds(f, Cr.Cir.Cells.set(m, i, x), F, N, c) : Bool}, q)),
-   In.p2({T.tm.of(f, m, ks, img, c) == T.tm.of(f, Cr.Cir.Cells.set(m, i, x), ks, img, c) : Maybe<&2, Bk.Term>},
-      {True{} == In.rds(f, Cr.Cir.Cells.set(m, i, x), F, N, c) : Bool}, q))
+   (In.p2({T.tm.of(f, m, ks, img, c) == T.tm.of(f, Cr.Cir.Cells.set(m, i, x), ks, img, c) : Maybe<&2, Bk.Term>},
+      {True{} == In.rds(f, Cr.Cir.Cells.set(m, i, x), F, N, c) : Bool}, q),
+    In.p1({True{} == In.nrd(f, t, Cr.Cir.Cells.set(m, i, x), c, F, N) : Bool}, {D.Node(t, m, c, c) == D.Node(t, Cr.Cir.Cells.set(m, i, x), c, c) : Bool},
+      In.nfr(f, t, m, c, c, i, x, F, N, n, hi))))
 
 # one more cell is taken
 def St.up(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   s: In.St(f, m, F, N, c, t, ks, img)) -> In.St(f, m, F, 1n+N, c, t, ks, img):
-  (e, r) = s
-  (e, In.up(f, m, F, N, c, r))
+  (e, rn) = s
+  (r, n) = rn
+  (e, (In.up(f, m, F, N, c, r), In.nup(f, t, m, c, F, N, n)))
 
 # one more unit of fuel
 def St.mono(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   s: In.St(f, m, F, N, c, t, ks, img)) -> In.St(1n+f, m, F, N, c, t, ks, img):
-  (e, r) = s
+  (e, rn) = s
+  (r, n) = rn
   +q = In.mono(f, m, F, N, c, ks, img, r)
   (Equal.trans(Maybe<&2, Bk.Term>, Some{t}, T.tm.of(f, m, ks, img, c), T.tm.of(1n+f, m, ks, img, c), e,
     In.p1({T.tm.of(f, m, ks, img, c) == T.tm.of(1n+f, m, ks, img, c) : Maybe<&2, Bk.Term>},
       {True{} == In.rds(1n+f, m, F, N, c) : Bool}, q)),
-   In.p2({T.tm.of(f, m, ks, img, c) == T.tm.of(1n+f, m, ks, img, c) : Maybe<&2, Bk.Term>},
-      {True{} == In.rds(1n+f, m, F, N, c) : Bool}, q))
+   (In.p2({T.tm.of(f, m, ks, img, c) == T.tm.of(1n+f, m, ks, img, c) : Maybe<&2, Bk.Term>},
+      {True{} == In.rds(1n+f, m, F, N, c) : Bool}, q), In.nmono(f, t, m, c, F, N, n)))
 
 # more fuel
 def St.add(d: Nat, +f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
@@ -708,8 +1171,9 @@ def In.St.after(+f: Nat, +ms: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +cl: Cr.C
   In.P({Some{t} == T.tm.cell(U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, cl), 63)), T.tm.quan(U32.and(U32.shrn(Cr.Cir.Cell.get(0n, cl), 6n), 3)), c,
       Cr.Cir.Cell.get(2n, cl), ks, img, u => T.tm.of(f, ms, ks, img, Cr.Cir.Cell.get(2n, cl)), u => T.tm.of(f, ms, ks, img, Cr.Cir.Cell.get(3n, cl)),
       u => T.tm.of(f, ms, ks, img, Cr.Cir.Cell.get(4n, cl))) : Maybe<&2, Bk.Term>},
-    {True{} == Bool.and(In.rd(c, F, N), In.rds.cell(U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, cl), 63)),
-      u => In.rds(f, ms, F, N, Cr.Cir.Cell.get(2n, cl)), u => In.rds(f, ms, F, N, Cr.Cir.Cell.get(3n, cl)))) : Bool})
+    In.P({True{} == Bool.and(In.rd(c, F, N), In.rds.cell(U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, cl), 63)),
+      u => In.rds(f, ms, F, N, Cr.Cir.Cell.get(2n, cl)), u => In.rds(f, ms, F, N, Cr.Cir.Cell.get(3n, cl)))) : Bool},
+      {True{} == In.nrd(1n+f, t, ms, c, F, N) : Bool}))
 
 # a cell of two parts, at the quantity 1 (Tup, App), with its parts' terms
 def In.two.go(+hd: U32, +f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U32, +t: Bk.Term, +tp: Bk.Term, +tq: Bk.Term,
@@ -721,22 +1185,23 @@ def In.two.go(+hd: U32, +f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p
   hr: {True{} == In.rd(i, F, 1n+N) : Bool},
   et: {Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => Some{tp}, u => Some{tq},
     u => T.tm.of(f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), ks, img, 0)) : Maybe<&2, Bk.Term>},
-  er: {True{} == In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{}) : Bool}) ->
+  er: {True{} == In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{}) : Bool},
+  en: {True{} == In.nrd(1n+f, t, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), i, F, 1n+N) : Bool}) ->
   In.St(1n+f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), F, 1n+N, i, t, ks, img):
   +ms = Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0})
   %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(ms, i), Cr.Cir.Cell{hd, 1, p, q, 0}, Cl.get_set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0})) :
     In.St.after(f, ms, F, 1n+N, i, _, t, ks, img)
   %ep : In.P({Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => _, u => T.tm.of(f, ms, ks, img, q), u => T.tm.of(f, ms, ks, img, 0)) : Maybe<&2, Bk.Term>},
-      {True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => In.rds(f, ms, F, 1n+N, p), u => In.rds(f, ms, F, 1n+N, q))) : Bool})
+      In.P({True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => In.rds(f, ms, F, 1n+N, p), u => In.rds(f, ms, F, 1n+N, q))) : Bool}, {True{} == In.nrd(1n+f, t, ms, i, F, 1n+N) : Bool}))
   %eq : In.P({Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => Some{tp}, u => _, u => T.tm.of(f, ms, ks, img, 0)) : Maybe<&2, Bk.Term>},
-      {True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => In.rds(f, ms, F, 1n+N, p), u => In.rds(f, ms, F, 1n+N, q))) : Bool})
+      In.P({True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => In.rds(f, ms, F, 1n+N, p), u => In.rds(f, ms, F, 1n+N, q))) : Bool}, {True{} == In.nrd(1n+f, t, ms, i, F, 1n+N) : Bool}))
   %rp : In.P({Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => Some{tp}, u => Some{tq}, u => T.tm.of(f, ms, ks, img, 0)) : Maybe<&2, Bk.Term>},
-      {True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => _, u => In.rds(f, ms, F, 1n+N, q))) : Bool})
+      In.P({True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => _, u => In.rds(f, ms, F, 1n+N, q))) : Bool}, {True{} == In.nrd(1n+f, t, ms, i, F, 1n+N) : Bool}))
   %rq : In.P({Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => Some{tp}, u => Some{tq}, u => T.tm.of(f, ms, ks, img, 0)) : Maybe<&2, Bk.Term>},
-      {True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => _)) : Bool})
+      In.P({True{} == Bool.and(In.rd(i, F, 1n+N), In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => _)) : Bool}, {True{} == In.nrd(1n+f, t, ms, i, F, 1n+N) : Bool}))
   %hr : In.P({Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => Some{tp}, u => Some{tq}, u => T.tm.of(f, ms, ks, img, 0)) : Maybe<&2, Bk.Term>},
-      {True{} == Bool.and(_, In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{})) : Bool})
-  (et, er)
+      In.P({True{} == Bool.and(_, In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{})) : Bool}, {True{} == In.nrd(1n+f, t, ms, i, F, 1n+N) : Bool}))
+  (et, (er, en))
 
 def In.two.of(+hd: U32, +f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U32, +t: Bk.Term, +tp: Bk.Term, +tq: Bk.Term,
   +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
@@ -745,11 +1210,14 @@ def In.two.of(+hd: U32, +f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p
   hr: {True{} == In.rd(i, F, 1n+N) : Bool},
   et: {Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => Some{tp}, u => Some{tq},
     u => T.tm.of(f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), ks, img, 0)) : Maybe<&2, Bk.Term>},
-  er: {True{} == In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{}) : Bool}) ->
+  er: {True{} == In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{}) : Bool},
+  en: {True{} == In.nrd(1n+f, t, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), i, F, 1n+N) : Bool}) ->
   In.St(1n+f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), F, 1n+N, i, t, ks, img):
-  (ep, rp) = sp
-  (eq, rq) = sq
-  In.two.go(hd, f, m, F, N, i, p, q, t, tp, tq, ks, img, ep, rp, eq, rq, hr, et, er)
+  (ep, rnp) = sp
+  (rp, np) = rnp
+  (eq, rnq) = sq
+  (rq, nq) = rnq
+  In.two.go(hd, f, m, F, N, i, p, q, t, tp, tq, ks, img, ep, rp, eq, rq, hr, et, er, en)
 
 # a new cell i of two parts p and q (Tup or App at the quantity 1), which
 # stand for tp and tq
@@ -759,13 +1227,38 @@ def In.two(+hd: U32, +f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U
   +hi: {False{} == In.rd(i, F, N) : Bool}, hr: {True{} == In.rd(i, F, 1n+N) : Bool},
   et: {Some{t} == T.tm.cell(U32.to_nat(U32.and(hd, 63)), T.tm.quan(U32.and(U32.shrn(hd, 6n), 3)), i, p, ks, img, u => Some{tp}, u => Some{tq},
     u => T.tm.of(f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), ks, img, 0)) : Maybe<&2, Bk.Term>},
-  er: {True{} == In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{}) : Bool}) ->
+  er: {True{} == In.rds.cell(U32.to_nat(U32.and(hd, 63)), u => True{}, u => True{}) : Bool},
+  en: {True{} == In.nrd(1n+f, t, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), i, F, 1n+N) : Bool}) ->
   In.St(1n+f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), F, 1n+N, i, t, ks, img):
   +x = {Cr.Cir.Cell{hd, 1, p, q, 0} : Cr.Cir.Cell}
   +ms = Cr.Cir.Cells.set(m, i, x)
   In.two.of(hd, f, m, F, N, i, p, q, t, tp, tq, ks, img,
     St.up(f, ms, F, N, p, tp, ks, img, St.fr(f, m, F, N, p, tp, ks, img, i, x, hi, sp)),
-    St.up(f, ms, F, N, q, tq, ks, img, St.fr(f, m, F, N, q, tq, ks, img, i, x, hi, sq)), hr, et, er)
+    St.up(f, ms, F, N, q, tq, ks, img, St.fr(f, m, F, N, q, tq, ks, img, i, x, hi, sq)), hr, et, er, en)
+
+# the nodes of a new cell i of the Tup of the parts p and q
+def In.nrd.tup(+f: Nat, +hd: U32, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U32, +q0: Bk.Quan, +tp: Bk.Term, +tq: Bk.Term,
+  hr: {True{} == In.rd(i, F, 1n+N) : Bool},
+  np: {True{} == In.nrd(f, tp, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), p, F, 1n+N) : Bool},
+  nq: {True{} == In.nrd(f, tq, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), q, F, 1n+N) : Bool}) ->
+  {True{} == In.nrd(1n+f, Bk.Term.Tup{q0, tp, tq}, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), i, F, 1n+N) : Bool}:
+  +ms = Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0})
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(ms, i), Cr.Cir.Cell{hd, 1, p, q, 0}, Cl.get_set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0})) :
+    {True{} == Bool.and(In.rd(i, F, 1n+N), Bool.and(In.nrd(f, tp, ms, Cr.Cir.Cell.get(2n, _), F, 1n+N), In.nrd(f, tq, ms, Cr.Cir.Cell.get(3n, _), F, 1n+N))) : Bool}
+  Bo.and_i(In.rd(i, F, 1n+N), Bool.and(In.nrd(f, tp, ms, p, F, 1n+N), In.nrd(f, tq, ms, q, F, 1n+N)), hr,
+    Bo.and_i(In.nrd(f, tp, ms, p, F, 1n+N), In.nrd(f, tq, ms, q, F, 1n+N), np, nq))
+
+# the nodes of a new cell i of the App of the parts p and q
+def In.nrd.app(+f: Nat, +hd: U32, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U32, +q0: Bk.Quan, +tp: Bk.Term, +tq: Bk.Term,
+  hr: {True{} == In.rd(i, F, 1n+N) : Bool},
+  np: {True{} == In.nrd(f, tp, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), p, F, 1n+N) : Bool},
+  nq: {True{} == In.nrd(f, tq, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), q, F, 1n+N) : Bool}) ->
+  {True{} == In.nrd(1n+f, Bk.Term.App{q0, tp, tq}, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0}), i, F, 1n+N) : Bool}:
+  +ms = Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0})
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(ms, i), Cr.Cir.Cell{hd, 1, p, q, 0}, Cl.get_set(m, i, Cr.Cir.Cell{hd, 1, p, q, 0})) :
+    {True{} == Bool.and(In.rd(i, F, 1n+N), Bool.and(In.nrd(f, tp, ms, Cr.Cir.Cell.get(2n, _), F, 1n+N), In.nrd(f, tq, ms, Cr.Cir.Cell.get(3n, _), F, 1n+N))) : Bool}
+  Bo.and_i(In.rd(i, F, 1n+N), Bool.and(In.nrd(f, tp, ms, p, F, 1n+N), In.nrd(f, tq, ms, q, F, 1n+N)), hr,
+    Bo.and_i(In.nrd(f, tp, ms, p, F, 1n+N), In.nrd(f, tq, ms, q, F, 1n+N), np, nq))
 
 # the pairs that the machine makes: STATIC (1866) or not (842)
 def In.hd(st: Bool) -> U32:
@@ -777,21 +1270,33 @@ def In.hd(st: Bool) -> U32:
 
 def In.tup(st: Bool, +f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U32, +tp: Bk.Term, +tq: Bk.Term,
   +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  sp: In.St(f, m, F, N, p, tp, ks, img), sq: In.St(f, m, F, N, q, tq, ks, img),
-  +hi: {False{} == In.rd(i, F, N) : Bool}, hr: {True{} == In.rd(i, F, 1n+N) : Bool}) ->
+  +sp: In.St(f, m, F, N, p, tp, ks, img), +sq: In.St(f, m, F, N, q, tq, ks, img),
+  +hi: {False{} == In.rd(i, F, N) : Bool}, +hr: {True{} == In.rd(i, F, 1n+N) : Bool}) ->
   In.St(1n+f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{In.hd(st), 1, p, q, 0}), F, 1n+N, i, Bk.Term.Tup{Bk.Quan.Q1{}, tp, tq}, ks, img):
   match st:
     case True{}:
-      In.two(1866, f, m, F, N, i, p, q, Bk.Term.Tup{Bk.Quan.Q1{}, tp, tq}, tp, tq, ks, img, sp, sq, hi, hr, {==}, {==})
+      +ms = Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{1866, 1, p, q, 0})
+      In.two(1866, f, m, F, N, i, p, q, Bk.Term.Tup{Bk.Quan.Q1{}, tp, tq}, tp, tq, ks, img, sp, sq, hi, hr, {==}, {==},
+        In.nrd.tup(f, 1866, m, F, N, i, p, q, Bk.Quan.Q1{}, tp, tq, hr,
+          St.nrd(f, ms, F, 1n+N, p, tp, ks, img, St.up(f, ms, F, N, p, tp, ks, img, St.fr(f, m, F, N, p, tp, ks, img, i, Cr.Cir.Cell{1866, 1, p, q, 0}, hi, sp))),
+          St.nrd(f, ms, F, 1n+N, q, tq, ks, img, St.up(f, ms, F, N, q, tq, ks, img, St.fr(f, m, F, N, q, tq, ks, img, i, Cr.Cir.Cell{1866, 1, p, q, 0}, hi, sq)))))
     case False{}:
-      In.two(842, f, m, F, N, i, p, q, Bk.Term.Tup{Bk.Quan.Q1{}, tp, tq}, tp, tq, ks, img, sp, sq, hi, hr, {==}, {==})
+      +ms = Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{842, 1, p, q, 0})
+      In.two(842, f, m, F, N, i, p, q, Bk.Term.Tup{Bk.Quan.Q1{}, tp, tq}, tp, tq, ks, img, sp, sq, hi, hr, {==}, {==},
+        In.nrd.tup(f, 842, m, F, N, i, p, q, Bk.Quan.Q1{}, tp, tq, hr,
+          St.nrd(f, ms, F, 1n+N, p, tp, ks, img, St.up(f, ms, F, N, p, tp, ks, img, St.fr(f, m, F, N, p, tp, ks, img, i, Cr.Cir.Cell{842, 1, p, q, 0}, hi, sp))),
+          St.nrd(f, ms, F, 1n+N, q, tq, ks, img, St.up(f, ms, F, N, q, tq, ks, img, St.fr(f, m, F, N, q, tq, ks, img, i, Cr.Cir.Cell{842, 1, p, q, 0}, hi, sq)))))
 
 def In.app(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U32, +tp: Bk.Term, +tq: Bk.Term,
   +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  sp: In.St(f, m, F, N, p, tp, ks, img), sq: In.St(f, m, F, N, q, tq, ks, img),
-  +hi: {False{} == In.rd(i, F, N) : Bool}, hr: {True{} == In.rd(i, F, 1n+N) : Bool}) ->
+  +sp: In.St(f, m, F, N, p, tp, ks, img), +sq: In.St(f, m, F, N, q, tq, ks, img),
+  +hi: {False{} == In.rd(i, F, N) : Bool}, +hr: {True{} == In.rd(i, F, 1n+N) : Bool}) ->
   In.St(1n+f, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{72, 1, p, q, 0}), F, 1n+N, i, Bk.Term.App{Bk.Quan.Q1{}, tp, tq}, ks, img):
-  In.two(72, f, m, F, N, i, p, q, Bk.Term.App{Bk.Quan.Q1{}, tp, tq}, tp, tq, ks, img, sp, sq, hi, hr, {==}, {==})
+  +ms = Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{72, 1, p, q, 0})
+  In.two(72, f, m, F, N, i, p, q, Bk.Term.App{Bk.Quan.Q1{}, tp, tq}, tp, tq, ks, img, sp, sq, hi, hr, {==}, {==},
+    In.nrd.app(f, 72, m, F, N, i, p, q, Bk.Quan.Q1{}, tp, tq, hr,
+      St.nrd(f, ms, F, 1n+N, p, tp, ks, img, St.up(f, ms, F, N, p, tp, ks, img, St.fr(f, m, F, N, p, tp, ks, img, i, Cr.Cir.Cell{72, 1, p, q, 0}, hi, sp))),
+      St.nrd(f, ms, F, 1n+N, q, tq, ks, img, St.up(f, ms, F, N, q, tq, ks, img, St.fr(f, m, F, N, q, tq, ks, img, i, Cr.Cir.Cell{72, 1, p, q, 0}, hi, sq)))))
 
 # The cache
 # ---------
@@ -2889,7 +3394,8 @@ def In.inp.end(+f: Nat, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U
       (next, (ib, (il, (iu, (ij, (t1, (t2, (Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), (U32.inc(next), (1n+N, (pg3,
         ({==}, (In.state(fl, next, ib, il, iu, ij, t1, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), U32.inc(next), F, K, pg3, L, I,
                  ks, img, Pg.Program.start(I), In.p1({Some{Pg.Program.start(I)} == T.tm.of(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), ks, img, next) : Maybe<&2, Bk.Term>},
-                   {True{} == In.rds(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), F, 1n+N, next) : Bool}, sf)),
+                   In.P({True{} == In.rds(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), F, 1n+N, next) : Bool},
+                     {True{} == In.nrd(1n+fl, Pg.Program.start(I), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), next, F, 1n+N) : Bool}), sf)),
          (sf, (Fa.step(m, next, N, F, f0, fc, ks, img, Cr.Cir.Cell{72, 1, 15, il, 0}, lt3, hF, fa),
           (Fr.step(m0, m, F, next, Cr.Cir.Cell{72, 1, 15, il, 0}, hF, Fa.lF(m, next, N, F, f0, fc, ks, img, fa), fr), hN)))))))))))))))))))
 
@@ -3046,7 +3552,7 @@ def In.m271(+main: U32) -> Cr.Cir.Cells:
 
 # the image's cells that the machine points to, with the fuel 80
 def Im.m15(+main: U32, +F: U32, +N: Nat, +ds: List<&2, Bk.Def>) -> In.Im(80n, In.m15(main), F, N, T.tm.names(ds), T.tm.img(ds)):
-  (({==}, {==}), (({==}, {==}), (({==}, {==}), (({==}, {==}), (({==}, {==}), (({==}, {==}), (({==}, {==}), ({==}, {==}))))))))
+  (({==}, ({==}, {==})), (({==}, ({==}, {==})), (({==}, ({==}, {==})), (({==}, ({==}, {==})), (({==}, ({==}, {==})), (({==}, ({==}, {==})), (({==}, ({==}, {==})), ({==}, ({==}, {==})))))))))
 
 # Loads
 # -----
