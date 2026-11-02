@@ -240,10 +240,26 @@ def moduleOf : List Sexp → Option (Option String × List UInt8)
     if n.startsWith "$" then (ss.mapM strOf).map fun bs => (some n, bs.flatten) else none
   | _ => none
 
+-- the names in (module instance $i? $d?): the instance's, and the definition's
+def instanceNames : List Sexp → Option String × Option String
+  | [.atom i, .atom d] => (some i, some d)
+  | [.atom i] => (some i, none)
+  | _ => (none, none)
+
 def instOf (c : Cfg) (w : List UInt8) (p : List (List UInt8)) : Inst :=
   match instantiate c w with
   | .inst i => .ok i p
   | _ => .none
+
+-- (assert_trap (module ...) _): the module of the bytes w traps when it is
+-- instantiated
+def St.assertTrap (s : St) (c : Cfg) (e : Sexp) : Option (List UInt8) → St
+  | none => s.unsup
+  | some w =>
+    match instantiate c w with
+    | .trap => s.passed
+    | .unsupported => s.unsup
+    | _ => s.failed "did not trap at instantiation" e
 
 -- the instance and the export that an action, (invoke $i? "name" consts*),
 -- names
@@ -292,10 +308,7 @@ def command (c : Cfg) (pures : Nat → List (List UInt8)) (k : Nat) (s : St) (e 
     | some (n, w) => { s with defs := (n, w, pures k) :: s.defs }
     | none => s
   | .list (.atom "module" :: .atom "instance" :: rest) =>
-    let (n, d) := match rest with
-      | [.atom i, .atom d] => (some i, some d)
-      | [.atom i] => (some i, none)
-      | _ => (none, none)
+    let (n, d) := instanceNames rest
     match s.defn d with
     | some (w, p) => s.add n (instOf c w p)
     | none => s.add n .none
@@ -323,14 +336,10 @@ def command (c : Cfg) (pures : Nat → List (List UInt8)) (k : Nat) (s : St) (e 
       | .not_done => s.notdone
       | .unsupported => s.unsup
       | .stuck => s.failed "stuck" e
+  | .list [.atom "assert_trap", .list (.atom "module" :: .atom "instance" :: rest), _] =>
+    s.assertTrap c e ((s.defn (instanceNames rest).2).map (·.1))
   | .list [.atom "assert_trap", .list (.atom "module" :: rest), _] =>
-    match moduleOf rest with
-    | none => s.unsup
-    | some (_, w) =>
-      match instantiate c w with
-      | .trap => s.passed
-      | .unsupported => s.unsup
-      | _ => s.failed "did not trap at instantiation" e
+    s.assertTrap c e ((moduleOf rest).map (·.2))
   | .list [.atom "assert_trap", a, _] =>
     match action c s a with
     | none => s.unsup
@@ -393,9 +402,10 @@ def main' : IO Unit := do
   let dir ← Script.env "TESTS"
   let only := (← IO.getEnv "ONLY").map (·.splitOn ",")
   let h ← IO.FS.Handle.mk (← Script.env "OUT") .write
-  -- the model's fuel per invocation, and its memory limit: 2^16 pages, the
-  -- spec's own limit for 32-bit memories
-  let c : Cfg := { B, fuel := Form.nat 100000, limit := u32 65536 }
+  -- the model's fuel per invocation, enough for a loop over a page's 2^16
+  -- bytes (memory_grow.wast), and its memory limit: 2^16 pages, the spec's own
+  -- limit for 32-bit memories
+  let c : Cfg := { B, fuel := Form.nat 2000000, limit := u32 65536 }
   let files := ((← System.FilePath.readDir dir).map (·.path.toString)).qsort (· < ·) |>.toList.filter fun p =>
     p.endsWith ".bin.wast" && (only.map fun ks => ks.any fun k => p.endsWith s!"/{k}.bin.wast").getD true
   let mut total : St := {}

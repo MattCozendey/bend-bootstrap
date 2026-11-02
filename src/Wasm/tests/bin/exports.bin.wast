@@ -171,57 +171,25 @@
   )
   "duplicate export name"
 )
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\85\80\80\80\00\01\01\61\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\89\80\80\80\00\02\01\61\03\00\01"
-  "\62\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\8b\80\80\80\00\02\7f"
-  "\00\41\00\0b\7f\00\41\00\0b\07\89\80\80\80\00\02"
-  "\01\61\03\00\01\62\03\01"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\85\80\80\80\00\01\01\61\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\85\80\80\80\00\01\01\61\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\85\80\80\80\00\01\01\61\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\85\80\80\80\00\01\01\61\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\85\80\80\80\00\01\01\61\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\00\0b\07\85\80\80\80\00\01\01\61\03\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition $Global binary
-  "\00\61\73\6d\01\00\00\00\06\86\80\80\80\00\01\7f"
-  "\00\41\2a\0b\07\85\80\80\80\00\01\01\65\03\00"
-)
+(module definition $Global binary "\00\61\73\6d\01\00\00\00")
 (module instance $Global $Global)
 (assert_return (get "e") (i32.const 0x2a))
 (assert_return (get $Global "e") (i32.const 0x2a))
@@ -292,82 +260,35 @@
   )
   "duplicate export name"
 )
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\89\80\80\80\00\02\01\61\01\00\01\62\01"
-  "\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\87\80\80\80\00\02\70"
-  "\00\00\70\00\00\07\89\80\80\80\00\02\01\61\01\00"
-  "\01\62\01\01"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\85\80\80\80\00\01\70"
-  "\01\00\01\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\85\80\80\80\00\01\70"
-  "\01\00\01\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\85\80\80\80\00\01\70"
-  "\01\00\01\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\85\80\80\80\00\01\70"
-  "\01\00\01\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\85\80\80\80\00\01\70"
-  "\01\00\01\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\84\80\80\80\00\01\70"
-  "\00\00\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\04\85\80\80\80\00\01\70"
-  "\01\00\01\07\85\80\80\80\00\01\01\61\01\00"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00")
 (module instance)
 (assert_invalid
   (module binary "\00\61\73\6d\01\00\00\00\07\85\80\80\80\00\01\01" "\61\01\00")

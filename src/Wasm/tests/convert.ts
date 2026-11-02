@@ -4,7 +4,8 @@
 // inside the subset, and writes the script as wasm -d x.wast -o x.bin.wast does. The spec's commit
 // is pinned: the script refuses any other. It needs ocaml, dune and menhir. WORK is a folder for the
 // spec's clone and the build. The license, the tests (wast/), and their binary scripts and lists of
-// pure exports (bin/) go next to this script.
+// pure exports (bin/) go next to this script. Our own tests (own/, AGENTS.md 3.9.1.3) become
+// binary scripts there too, as own-x.bin.wast, once the spec's reference interpreter passes them.
 //
 //   bun convert.ts WORK
 
@@ -23,8 +24,19 @@ const TESTS = [
   "memory", "memory_grow", "memory_size", "memory_trap", "data", "block", "loop", "br", "br_if",
   "br_table", "labels", "local_get", "local_set", "local_tee", "exports", "unreached-invalid",
 ];
+const OWN = ["stores"];
 const HERE = import.meta.dir;
 const DUNE_LANG = "(lang dune 3.14)\n";
+
+// functions
+
+// cut.exe's binary script and pure exports of the test script wast, as bin/name.bin.wast and
+// bin/name.pure
+const writeBinary = (cutExe: string, wast: string, name: string): void =>
+  run({
+    cmd: [cutExe, wast, join(HERE, "bin", `${name}.pure`)],
+    stdout: Bun.file(join(HERE, "bin", `${name}.bin.wast`)),
+  });
 
 // side effects
 
@@ -59,7 +71,9 @@ writeFileSync(
   "(executable\n  (name cut)\n  (libraries wasm)\n  (flags (:standard -open Wasm)))\n",
 );
 cpSync(join(HERE, "cut.ml"), join(cut, "cut", "cut.ml"));
-run({ cmd: ["dune", "build", "./cut/cut.exe"], cwd: cut });
+run({ cmd: ["dune", "build", "./cut/cut.exe", "./interpreter/wasm.exe"], cwd: cut });
+const cutExe = join(cut, "_build", "default", "cut", "cut.exe");
+const wasmExe = join(cut, "_build", "default", "interpreter", "wasm.exe");
 
 rmSync(join(HERE, "wast"), { recursive: true, force: true });
 rmSync(join(HERE, "bin"), { recursive: true, force: true });
@@ -69,8 +83,10 @@ cpSync(join(spec, "test", "LICENSE"), join(HERE, "LICENSE"));
 TESTS.forEach((test) => {
   const wast = join(spec, "test", "core", `${test}.wast`);
   cpSync(wast, join(HERE, "wast", `${test}.wast`));
-  run({
-    cmd: [join(cut, "_build", "default", "cut", "cut.exe"), wast, join(HERE, "bin", `${test}.pure`)],
-    stdout: Bun.file(join(HERE, "bin", `${test}.bin.wast`)),
-  });
+  writeBinary(cutExe, wast, test);
+});
+OWN.forEach((test) => {
+  const wast = join(HERE, "own", `${test}.wast`);
+  run({ cmd: [wasmExe, wast] });
+  writeBinary(cutExe, wast, `own-${test}`);
 });

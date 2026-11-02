@@ -3,16 +3,17 @@
 
    cut.exe x.wast x.pure: the binary script of the test script x.wast, as
    wasm -d x.wast -o x.bin.wast writes it, except that each module that a
-   command defines keeps only its functions inside the subset of the Bend version
-   of WASM (W2), with their types and exports; the other functions and their
-   exports go. A module with imports, tables, globals, elements, tags or a
-   start function stays whole, as do the modules of assertions. So the model
-   refuses only what is outside the subset, and the official results still
-   hold for the functions that a module keeps (W6). For each command that
-   defines a module, x.pure gets a line (pure i "name" ...): the command's
-   index in the script, and the exports of the module's functions that change
-   nothing in its instance (pure_exports). It uses the spec's own parser,
-   syntax and encoder (convert.ts builds it with them). *)
+   command defines keeps only its functions inside the subset of the Bend
+   version of WASM (W2), with their types and exports; the other functions and
+   their exports go, and so do its tables, elements and globals, which no
+   function of the subset uses. A module with imports, tags, a start function or
+   a data offset that reads a global stays whole, as do the modules of
+   assertions. So the model refuses only what is outside the subset, and the
+   official results still hold for the functions that a module keeps (W6). For
+   each command that defines a module, x.pure gets a line (pure i "name" ...):
+   the command's index in the script, and the exports of the module's functions
+   that change nothing in its instance (pure_exports). It uses the spec's own
+   parser, syntax and encoder (convert.ts builds it with them). *)
 
 open Types
 open Ast
@@ -26,7 +27,7 @@ let rec instrs_ok es = List.for_all instr_ok es
 and instr_ok (e : instr) =
   match e.it with
   | Block (ValBlockType None, es) | Loop (ValBlockType None, es) -> instrs_ok es
-  | Br _ | BrIf _ | BrTable _ -> true
+  | Br _ | BrIf _ -> true
   | LocalGet _ | LocalSet _ | LocalTee _ -> true
   | Load (x, {ty = I32T; pack = None; _}) -> x.it = 0l
   | Load (x, {ty = I32T; pack = Some (Pack.Pack8, Pack.U); _}) -> x.it = 0l
@@ -60,9 +61,15 @@ let func_ok (m : module_) (f : func) =
   && List.for_all (fun (l : local) -> let Local t = l.it in is_i32 t) ls
   && instrs_ok body
 
+(* a data segment's offset reads a global, so the module needs its globals *)
+let reads_global (d : data) =
+  match d.it with
+  | Data (_, {it = Active (_, offset); _}) ->
+    List.exists (fun (e : instr) -> match e.it with GlobalGet _ -> true | _ -> false) offset.it
+  | _ -> false
+
 let is_whole (m : module_) =
-  m.it.imports <> [] || m.it.tables <> [] || m.it.globals <> [] || m.it.elems <> []
-  || m.it.tags <> [] || m.it.start <> None
+  m.it.imports <> [] || m.it.tags <> [] || m.it.start <> None || List.exists reads_global m.it.datas
 
 let index_of x xs =
   let rec go i = function [] -> None | y :: ys -> if y = x then Some i else go (i + 1) ys in
@@ -83,8 +90,9 @@ let cut (m : module_) : module_ =
       | FuncX x ->
         Option.map (fun j -> Export (n, FuncX (Int32.of_int j @@ x.at) @@ xx.at) @@ e.at)
           (index_of (Int32.to_int x.it) (List.map fst kept))
-      | _ -> Some e) m.it.exports in
-  {m with it = {m.it with types; funcs; exports}}
+      | MemoryX _ -> Some e
+      | TableX _ | GlobalX _ | TagX _ -> None) m.it.exports in
+  {m with it = {m.it with types; funcs; exports; tables = []; elems = []; globals = []}}
 
 let command (c : Script.command) =
   match c.it with
