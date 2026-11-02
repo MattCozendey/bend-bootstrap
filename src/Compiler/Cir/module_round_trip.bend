@@ -6,8 +6,7 @@
 # sections whose contents stay variables (secs.six reads them back, with fuel
 # of the form g + |rest|); the parts are then decoded one by one: the memory's
 # limits (part.mem), the two codes (part.code, with I.instrs.round on each
-# body; fits.stmt shows that Cir.code.stmt emits no br_table) and the data
-# segment (part.data). The sizes that must fit a U32 come from the premises
+# body) and the data segment (part.data). The sizes that must fit a U32 come from the premises
 # with the limits kept as variables (round.sized), so that the checker never
 # expands 2^26, 2^32 - 1 or 50000.
 
@@ -296,27 +295,27 @@ def count1(+y: Word(8n), +U: List<&2, Word(8n)>) -> {Wa.Wasm.decode.count(Con{Sd
     {Wa.Wasm.decode.count.if(_, 1, Con{y, U}) == Some{Wa.Wasm.Decoded{1n, Con{y, U}}} : Maybe<&2, Wa.Wasm.Decoded<Nat>>}
   {==}
 
-def lim(+P: U32) -> {Wa.Wasm.decode.limits(Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(P)}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P, None{}}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>}:
+def lim(+P: U32) -> {Wa.Wasm.decode.limits(Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(P)}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>}:
   +U = Cr.Wasm.encode.uleb(P)
-  %app.nil(Word(8n), U) : {Wa.Wasm.decode.limits(Con{Sd.Byte.from_u32(0), _}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P, None{}}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>}
-  %I.uleb.back(P, []) : {Wa.Wasm.decode.bind(U32, Wa.Wasm.Limits, _, n => r => Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{n, None{}}, r}}) ==
-    Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P, None{}}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>}
+  %app.nil(Word(8n), U) : {Wa.Wasm.decode.limits(Con{Sd.Byte.from_u32(0), _}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>}
+  %I.uleb.back(P, []) : {Wa.Wasm.decode.bind(U32, Wa.Wasm.Limits, _, n => r => Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{n}, r}}) ==
+    Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>}
   {==}
 
 # the memory section's content decodes to its limits
 def part.mem(+P: U32) ->
   {Wa.Wasm.decode.one(Wa.Wasm.Limits, Wa.Wasm.decode.part(~Wa.Wasm.Limits, ~Wa.Wasm.decode.limits, Some{Con{Sd.Byte.from_u32(1), Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(P)}}})) ==
-    Some{Some{Wa.Wasm.Limits{P, None{}}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}:
+    Some{Some{Wa.Wasm.Limits{P}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}:
   +U = Cr.Wasm.encode.uleb(P)
   %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<Nat>>, Wa.Wasm.decode.count(Con{Sd.Byte.from_u32(1), Con{Sd.Byte.from_u32(0), U}}), Some{Wa.Wasm.Decoded{1n, Con{Sd.Byte.from_u32(0), U}}}, count1(Sd.Byte.from_u32(0), U)) :
     {Wa.Wasm.decode.one(Wa.Wasm.Limits, Wa.Wasm.decode.done(List<&2, Wa.Wasm.Limits>,
       Wa.Wasm.decode.bind(Nat, List<&2, Wa.Wasm.Limits>, _, n => r => Wa.Wasm.decode.items(~Wa.Wasm.Limits, ~Wa.Wasm.decode.limits, n, r)))) ==
-      Some{Some{Wa.Wasm.Limits{P, None{}}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}
-  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>, Wa.Wasm.decode.limits(Con{Sd.Byte.from_u32(0), U}), Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P, None{}}, []}}, lim(P)) :
+      Some{Some{Wa.Wasm.Limits{P}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}
+  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Limits>>, Wa.Wasm.decode.limits(Con{Sd.Byte.from_u32(0), U}), Some{Wa.Wasm.Decoded{Wa.Wasm.Limits{P}, []}}, lim(P)) :
     {Wa.Wasm.decode.one(Wa.Wasm.Limits, Wa.Wasm.decode.done(List<&2, Wa.Wasm.Limits>,
       Wa.Wasm.decode.bind(Wa.Wasm.Limits, List<&2, Wa.Wasm.Limits>, _, x => r =>
         Wa.Wasm.decode.cons(Wa.Wasm.Limits, x, Wa.Wasm.decode.items(~Wa.Wasm.Limits, ~Wa.Wasm.decode.limits, 0n, r))))) ==
-      Some{Some{Wa.Wasm.Limits{P, None{}}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}
+      Some{Some{Wa.Wasm.Limits{P}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}
   {==}
 
 # The data section
@@ -483,72 +482,6 @@ def func.many(+N: U32, -n: Nat, +IR: List<&2, Word(8n)>, -b: List<&2, Wa.Wasm.In
   %Equal.sym(Nat, U32.to_nat(N), n, eN) : {Some{Wa.Wasm.Decoded{Wa.Wasm.Code{_, b}, []}} == Some{Wa.Wasm.Decoded{Wa.Wasm.Code{n, b}, []}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Code>>}
   {==}
 
-# Cir.code emits no br_table
-# --------------------------
-
-def fits.expr(e: Cr.Cir.Expr, +acc: List<&2, Wa.Wasm.Instr>) -> {I.fits(Cr.Cir.code.expr(e, acc)) == I.fits(acc) : Bool}:
-  match e:
-    case Cr.Cir.Expr.const{n}:
-      {==}
-    case Cr.Cir.Expr.get{r}:
-      {==}
-    case Cr.Cir.Expr.op{+o, +a, +b}:
-      +X = Cr.Cir.code.expr(b, Con{Cr.Cir.i.op(o), acc})
-      Equal.trans(Bool, I.fits(Cr.Cir.code.expr(a, X)), I.fits(X), I.fits(acc), fits.expr(a, X), fits.expr(b, Con{Cr.Cir.i.op(o), acc}))
-    case Cr.Cir.Expr.eqz{+a}:
-      fits.expr(a, Con{Wa.Wasm.Instr.eqz{}, acc})
-    case Cr.Cir.Expr.field{+k, +c}:
-      fits.expr(c, Cr.Cir.code.at(Con{Wa.Wasm.Instr.load{U32.shln(U32.from_nat(k), 2n)}, acc}))
-    case Cr.Cir.Expr.byte{+i}:
-      fits.expr(i, Con{Cr.Cir.i.get(0), Con{Cr.Cir.i.op(Wa.Wasm.Op.add{}), Con{Wa.Wasm.Instr.load8_u{0}, acc}}})
-    case Cr.Cir.Expr.size{}:
-      {==}
-
-def fits.result(z: Bool, +l: U32) -> {I.fits(List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(z), [Wa.Wasm.Instr.br{l}])) == True{} : Bool}:
-  match z:
-    case True{}:
-      {==}
-    case False{}:
-      {==}
-
-def fits.stmt(s: Cr.Cir.Stmt, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>) -> {I.fits(Cr.Cir.code.stmt(s, d, acc)) == I.fits(acc) : Bool}:
-  match s:
-    case Cr.Cir.Stmt.nop{}:
-      {==}
-    case Cr.Cir.Stmt.set{+r, +e}:
-      fits.expr(e, Con{Cr.Cir.i.set(Cr.Cir.l.reg(r)), acc})
-    case Cr.Cir.Stmt.store{+k, +c, +v}:
-      +X = Cr.Cir.code.expr(v, Con{Wa.Wasm.Instr.store{U32.shln(U32.from_nat(k), 2n)}, acc})
-      Equal.trans(Bool, I.fits(Cr.Cir.code.expr(c, Cr.Cir.code.at(X))), I.fits(X), I.fits(acc),
-        fits.expr(c, Cr.Cir.code.at(X)), fits.expr(v, Con{Wa.Wasm.Instr.store{U32.shln(U32.from_nat(k), 2n)}, acc}))
-    case Cr.Cir.Stmt.alloc{+r}:
-      {==}
-    case Cr.Cir.Stmt.emit{+v}:
-      fits.expr(v, Con{Wa.Wasm.Instr.store8{0},
-        Con{Cr.Cir.i.get(Cr.Cir.l.outn()), Con{Cr.Cir.i.const(1), Con{Cr.Cir.i.op(Wa.Wasm.Op.add{}),
-          Con{Cr.Cir.i.set(Cr.Cir.l.outn()), acc}}}}})
-    case Cr.Cir.Stmt.seq{+a, +b}:
-      +X = Cr.Cir.code.stmt(b, d, acc)
-      Equal.trans(Bool, I.fits(Cr.Cir.code.stmt(a, d, X)), I.fits(X), I.fits(acc), fits.stmt(a, d, X), fits.stmt(b, d, acc))
-    case Cr.Cir.Stmt.if{+c, +t, +e}:
-      +T = Cr.Cir.code.stmt(t, 2n+d, [Wa.Wasm.Instr.br{1}])
-      +X = {Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, T}} : List<&2, Wa.Wasm.Instr>}
-      +E = Cr.Cir.code.stmt(e, 1n+d, [])
-      +e1 = Equal.trans(Bool, I.fits(Cr.Cir.code.expr(c, X)), I.fits(T), True{}, fits.expr(c, X), fits.stmt(t, 2n+d, [Wa.Wasm.Instr.br{1}]))
-      %Equal.sym(Bool, I.fits(Cr.Cir.code.expr(c, X)), True{}, e1) : {Bool.and(Bool.and(_, I.fits(E)), I.fits(acc)) == I.fits(acc) : Bool}
-      %Equal.sym(Bool, I.fits(E), True{}, fits.stmt(e, 1n+d, [])) : {Bool.and(Bool.and(True{}, _), I.fits(acc)) == I.fits(acc) : Bool}
-      {==}
-    case Cr.Cir.Stmt.while{+c, +body}:
-      +T = Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])
-      +X = {Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, T}} : List<&2, Wa.Wasm.Instr>}
-      +e1 = Equal.trans(Bool, I.fits(Cr.Cir.code.expr(c, X)), I.fits(T), True{}, fits.expr(c, X), fits.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]))
-      %Equal.sym(Bool, I.fits(Cr.Cir.code.expr(c, X)), True{}, e1) : {Bool.and(Bool.and(_, True{}), I.fits(acc)) == I.fits(acc) : Bool}
-      {==}
-    case Cr.Cir.Stmt.halt{+s}:
-      %Equal.sym(Bool, I.fits(List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(U32.is_zero(s)), [Wa.Wasm.Instr.br{U32.from_nat(1n+d)}])), True{},
-        fits.result(U32.is_zero(s), U32.from_nat(1n+d))) : {Bool.and(_, I.fits(acc)) == I.fits(acc) : Bool}
-      {==}
-
 # The module
 # ----------
 
@@ -556,13 +489,6 @@ def body(f: Wa.Wasm.Func) -> List<&2, Wa.Wasm.Instr>:
   match f:
     case Wa.Wasm.Func{_, _, _, b}:
       b
-
-def fits.alloc(+k: U32) -> {I.fits(body(Cr.Cir.alloc(k))) == True{} : Bool}:
-  {==}
-
-def fits.run(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32) -> {I.fits(body(Cr.Cir.run(prog, regs, k))) == True{} : Bool}:
-  %Equal.sym(Bool, I.fits(Cr.Cir.code.stmt(prog, 0n, [])), True{}, fits.stmt(prog, 0n, [])) : {Bool.and(_, True{}) == True{} : Bool}
-  {==}
 
 # the code of alloc, after its size
 def XA(+k: U32) -> List<&2, Word(8n)>:
@@ -623,8 +549,8 @@ def round.of(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>,
   +N = U32.from_nat(6n+regs)
   +CA = {Wa.Wasm.Code{3n, body(A)} : Wa.Wasm.Code}
   +CR = {Wa.Wasm.Code{6n+regs, body(R)} : Wa.Wasm.Code}
-  +dA = func.three(IA, body(A), I.instrs.round(body(A), fits.alloc(k)))
-  +dR = func.many(N, 6n+regs, IR, body(R), hN, eN, I.instrs.round(body(R), fits.run(prog, regs, k)))
+  +dA = func.three(IA, body(A), I.instrs.round(body(A)))
+  +dR = func.many(N, 6n+regs, IR, body(R), hN, eN, I.instrs.round(body(R)))
   +p10 = part.code(Sd.Byte.from_u32(1), {Con{Sd.Byte.from_u32(3), Con{Sd.Byte.from_u32(127), IA}} : List<&2, Word(8n)>}, XR(prog, regs, k), CA, CR, hA, hR, dA, dR)
   +p5 = part.mem(Cr.Cir.pages(Cr.Cir.input.at(k)))
   +p11 = part.data(Cr.Cir.bytes(cells), hB)
@@ -635,7 +561,7 @@ def round.of(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>,
   +q10 = Wa.Wasm.decode.part(~Wa.Wasm.Code, ~Wa.Wasm.decode.code, Some{c10(prog, regs, k)})
   +q11 = Wa.Wasm.decode.one(Wa.Wasm.Segment, Wa.Wasm.decode.part(~Wa.Wasm.Segment, ~Wa.Wasm.decode.data, Some{c11(cells)}))
   +m = mod.of(c1(prog, regs, k), c3(prog, regs, k), c5(k), c7(), c10(prog, regs, k), c11(cells), {==}, {==}, h5, {==}, h10, h11)
-  +L5 = {Some{Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(k)), None{}}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}
+  +L5 = {Some{Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(k))}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Limits>>}
   +L10 = {Some{[CA, CR]} : Maybe<&2, List<&2, Wa.Wasm.Code>>}
   +L11 = {Some{Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}} : Maybe<&2, Maybe<&2, Wa.Wasm.Segment>>}
   +rest = {(
@@ -846,8 +772,7 @@ def round.sized(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +
 #
 # Wasm.decode.module reads back the module of Cir.module that Wasm.encode
 # writes, when it has fewer than 2^26 cells, at most 50000 locals in run, and
-# a code section of fewer than 2^32 - 1 bytes. The program needs no premise:
-# Cir.code.stmt emits no br_table (fits.stmt).
+# a code section of fewer than 2^32 - 1 bytes. The program needs no premise.
 def module.round(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>,
   hc: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   +hr: {Nat.is_le(6n+regs, U32.to_nat(50000)) == True{} : Bool},

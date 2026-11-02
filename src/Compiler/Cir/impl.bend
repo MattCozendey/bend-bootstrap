@@ -71,14 +71,6 @@ def Wasm.encode.vec(n: U32, items: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
 def Wasm.encode.sized(+c: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   Wasm.encode.vec(Wasm.encode.len(Word(8n), c), c)
 
-# the labels of a br_table, then the bytes acc
-def Wasm.encode.labels(ls: List<&2, U32>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
-  match ls:
-    case Nil{}:
-      acc
-    case Con{l, rest}:
-      List.append(&2, Word(8n), Wasm.encode.uleb(l), Wasm.encode.labels(rest, acc))
-
 def Wasm.encode.opcode(o: Wa.Wasm.Op) -> U32:
   match o:
     case Wa.Wasm.Op.add{}:
@@ -150,9 +142,6 @@ def Wasm.encode.instrs(xs: List<&2, Wa.Wasm.Instr>, acc: List<&2, Word(8n)>) -> 
           Wasm.encode.with(12, Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))
         case Wa.Wasm.Instr.br_if{l}:
           Wasm.encode.with(13, Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))
-        case Wa.Wasm.Instr.br_table{+ls, l}:
-          Wasm.encode.with(14, Wasm.encode.uleb(Wasm.encode.len(U32, ls)),
-            Wasm.encode.labels(ls, List.append(&2, Word(8n), Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))))
 
 # the value type i32, n times
 def Wasm.encode.i32s(n: Nat) -> List<&2, Word(8n)>:
@@ -221,27 +210,19 @@ def Wasm.encode.exports(es: List<&2, Wa.Wasm.Export>) -> List<&2, Word(8n)>:
     case Con{e, rest}:
       List.append(&2, Word(8n), Wasm.encode.export(e), Wasm.encode.exports(rest))
 
-# a memory's limits (spec 5.3.7): 0 and a minimum, or 1, a minimum and a
-# maximum
-def Wasm.encode.limits(l: Wa.Wasm.Limits) -> List<&2, Word(8n)>:
-  match l:
-    case Wa.Wasm.Limits{min, None{}}:
-      Con{Sd.Byte.from_u32(0), Wasm.encode.uleb(min)}
-    case Wa.Wasm.Limits{min, Some{max}}:
-      Con{Sd.Byte.from_u32(1), List.append(&2, Word(8n), Wasm.encode.uleb(min), Wasm.encode.uleb(max))}
-
 # a section (spec 5.5.2): its id, its size and its content c; then the bytes
 # acc
 def Wasm.encode.section(id: U32, c: List<&2, Word(8n)>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   Con{Sd.Byte.from_u32(id), List.append(&2, Word(8n), Wasm.encode.sized(c), acc)}
 
-# the memory section, when there is a memory
+# the memory section, when there is a memory: one memory, of limits 0 and a
+# minimum (spec 5.3.7)
 def Wasm.encode.memory(m: Maybe<&2, Wa.Wasm.Limits>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match m:
     case None{}:
       acc
-    case Some{l}:
-      Wasm.encode.section(5, Con{Sd.Byte.from_u32(1), Wasm.encode.limits(l)}, acc)
+    case Some{Wa.Wasm.Limits{min}}:
+      Wasm.encode.section(5, Con{Sd.Byte.from_u32(1), Con{Sd.Byte.from_u32(0), Wasm.encode.uleb(min)}}, acc)
 
 # the data section, when there is a segment: 0, an active segment of memory
 # 0, its offset as the constant expression i32.const n end, then its bytes
@@ -883,7 +864,7 @@ def Cir.module(prog: Cir.Stmt, regs: Nat, +cells: List<&2, Cir.Cell>) -> Wa.Wasm
   +k = Wasm.encode.len(Cir.Cell, cells)
   Wa.Wasm.Module{
     [Cir.alloc(k), Cir.run(prog, regs, k)],
-    Some{Wa.Wasm.Limits{Cir.pages(Cir.input.at(k)), None{}}},
+    Some{Wa.Wasm.Limits{Cir.pages(Cir.input.at(k))}},
     [Wa.Wasm.Export.memory{Wa.Wasm.name.memory()}, Wa.Wasm.Export.func{Wa.Wasm.name.alloc(), 0},
      Wa.Wasm.Export.func{Wa.Wasm.name.run(), 1}],
     Some{Wa.Wasm.Segment{20, Cir.bytes(cells)}}}

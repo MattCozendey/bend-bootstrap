@@ -166,9 +166,6 @@ def free.go(xs: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +mem: 
     case Con{Wa.Wasm.Instr.br_if{l}, rest}:
       Wa.Wasm.valid.if(Wa.Wasm.valid.br_if(Wa.Wasm.valid.label(labels, l), h),
         u => free.go(rest, sb(1n, h), labels, mem))
-    case Con{Wa.Wasm.Instr.br_table{ls, l}, rest}:
-      Wa.Wasm.valid.if(Wa.Wasm.valid.table(labels, ls, Wa.Wasm.valid.label(labels, l), h) && List.is_empty(&2, Wa.Wasm.Instr, rest),
-        u => Some{Wa.Wasm.Height.any{}})
 
 # the local i is below n
 def chk(i: U32, n: Nat) -> Bool:
@@ -303,8 +300,6 @@ def go.free(xs: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +loc: 
             Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, mem), free.go(rest, sb(1n, h), labels, mem),
             go.at(rest, Nat.sub(h, 1n), sb(1n, h), labels, loc, mem, sb.eq(1n, h),
               go.free(rest, sb(1n, h), labels, loc, n, mem, en, ok)))
-        case Wa.Wasm.Instr.br_table{_, _}:
-          {==}
 
 # Labels
 # ------
@@ -842,9 +837,9 @@ def module.sized(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, 
   {Wa.Wasm.valid.module(Cr.Cir.module(prog, regs, cells)) == True{} : Bool}:
   +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
   %Equal.sym(Bool, U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), 65536), True{}, pages.le(U32.sub(Cr.Cir.input.at(k), 1))) :
-    {Bool.and(Bool.and(Bool.and(Bool.and(_, True{}), Bool.and(Wa.Wasm.valid.func(True{}, Cr.Cir.run(prog, regs, k)), True{})), True{}), True{}) == True{} : Bool}
+    {Bool.and(Bool.and(Bool.and(_, Bool.and(Wa.Wasm.valid.func(True{}, Cr.Cir.run(prog, regs, k)), True{})), True{}), True{}) == True{} : Bool}
   %Equal.sym(Bool, Wa.Wasm.valid.func(True{}, Cr.Cir.run(prog, regs, k)), True{}, run.ok(prog, regs, k, M, ok, b)) :
-    {Bool.and(Bool.and(Bool.and(Bool.and(True{}, True{}), Bool.and(_, True{})), True{}), True{}) == True{} : Bool}
+    {Bool.and(Bool.and(Bool.and(True{}, Bool.and(_, True{})), True{}), True{}) == True{} : Bool}
   {==}
 
 # 6 + regs <= W gives 8 + regs <= W + 2, when W + 1 and W + 2 do not wrap

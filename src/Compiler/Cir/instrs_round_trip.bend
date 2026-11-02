@@ -3,9 +3,7 @@
 #
 # Wasm.decode.instrs, with the fuel that Wasm.decode.func.body gives it,
 # reads back the instructions that Wasm.encode.instrs writes, then the end
-# 0x0B (instrs.round, at the end), for every list of instructions whose
-# br_tables each have a labels count that fits a U32 (fits): a br_table of
-# 2^32 labels or more wraps Wasm.encode.len, and the decoder then fails.
+# 0x0B (instrs.round, at the end), for every list of instructions.
 #
 # The induction (run) goes on the instruction tree: the bytes of xs, then
 # more, with fuel |bytes| + k, read as the heads of xs (each one fuel; a
@@ -180,50 +178,6 @@ def U32.inc_nat(a: U32, h: {False{} == U32.is_zero(U32.inc(a)) : Bool}) -> {U32.
     case U32{x}:
       Word.inc_nat(32n, x, h)
 
-# Instructions that fit
-# ---------------------
-#
-# A br_table's labels count fits a U32: the number of each suffix of its
-# labels, plus one, is not 0. A list of 2^32 labels or more would wrap
-# Wasm.encode.len, and the round trip fails on it.
-
-def fits.labels(ls: List<&2, U32>) -> Bool:
-  match ls:
-    case Nil{}:
-      True{}
-    case Con{_, +rest}:
-      Bool.and(Bool.not(U32.is_zero(U32.inc(Cr.Wasm.encode.len(U32, rest)))), fits.labels(rest))
-
-def fits(xs: List<&2, Wa.Wasm.Instr>) -> Bool:
-  match xs:
-    case Nil{}:
-      True{}
-    case Con{x, rest}:
-      match x:
-        case Wa.Wasm.Instr.block{body}:
-          Bool.and(fits(body), fits(rest))
-        case Wa.Wasm.Instr.loop{body}:
-          Bool.and(fits(body), fits(rest))
-        case Wa.Wasm.Instr.br_table{ls, l}:
-          Bool.and(fits.labels(ls), fits(rest))
-        case o:
-          fits(rest)
-
-# the number of labels, as a Nat
-def labels.nat(ls: List<&2, U32>, +h: {fits.labels(ls) == True{} : Bool}) ->
-  {List.length(&2, U32, ls) == U32.to_nat(Cr.Wasm.encode.len(U32, ls)) : Nat}:
-  match ls:
-    case Nil{}:
-      {==}
-    case Con{l, +rest}:
-      +z = U32.is_zero(U32.inc(Cr.Wasm.encode.len(U32, rest)))
-      +ih = labels.nat(rest, and.r(Bool.not(z), fits.labels(rest), h))
-      +e = U32.inc_nat(Cr.Wasm.encode.len(U32, rest), not.t(z, and.l(Bool.not(z), fits.labels(rest), h)))
-      Equal.trans(Nat, 1n+List.length(&2, U32, rest), 1n+U32.to_nat(Cr.Wasm.encode.len(U32, rest)),
-        U32.to_nat(U32.inc(Cr.Wasm.encode.len(U32, rest))),
-        Equal.cong(Nat, Nat, n => 1n+n, List.length(&2, U32, rest), U32.to_nat(Cr.Wasm.encode.len(U32, rest)), ih),
-        Equal.sym(Nat, U32.to_nat(U32.inc(Cr.Wasm.encode.len(U32, rest))), 1n+U32.to_nat(Cr.Wasm.encode.len(U32, rest)), e))
-
 # Wasm.has
 # --------
 
@@ -275,22 +229,6 @@ def has.uleb(+v: U32, +L: List<&2, Word(8n)>, +w: U32,
   hz: {False{} == U32.is_zero(U32.inc(w)) : Bool}, h: {Wa.Wasm.has(L, w) == True{} : Bool}) ->
   {Wa.Wasm.has(List.append(&2, Word(8n), Cr.Wasm.encode.uleb(v), L), U32.inc(w)) == True{} : Bool}:
   has.leb(U32.is_zero(U32.shrn(v, 7n)), U32.and(v, 127), u => Cr.Wasm.encode.uleb.go(4n, U32.shrn(v, 7n)), L, w, hz, h)
-
-# the labels then A hold as many bytes as there are labels
-def has.labels(ls: List<&2, U32>, +A: List<&2, Word(8n)>, +h: {fits.labels(ls) == True{} : Bool}) ->
-  {Wa.Wasm.has(Cr.Wasm.encode.labels(ls, A), Cr.Wasm.encode.len(U32, ls)) == True{} : Bool}:
-  match ls:
-    case Nil{}:
-      match A:
-        case Nil{}:
-          {==}
-        case Con{_, _}:
-          {==}
-    case Con{+l, +rest}:
-      +z = U32.is_zero(U32.inc(Cr.Wasm.encode.len(U32, rest)))
-      has.uleb(l, Cr.Wasm.encode.labels(rest, A), Cr.Wasm.encode.len(U32, rest),
-        not.t(z, and.l(Bool.not(z), fits.labels(rest), h)),
-        has.labels(rest, A, and.r(Bool.not(z), fits.labels(rest), h)))
 
 # Heads
 # -----
@@ -355,100 +293,8 @@ def tok.op(o: Wa.Wasm.Op, +E: List<&2, Word(8n)>) ->
     case Wa.Wasm.Op.ge_u{}:
       {==}
 
-# the labels of a br_table, one by one
-def tok.items(ls: List<&2, U32>, +A: List<&2, Word(8n)>) ->
-  {Wa.Wasm.decode.items(~U32, ~Wa.Wasm.decode.u32, List.length(&2, U32, ls), Cr.Wasm.encode.labels(ls, A)) ==
-    Some{Wa.Wasm.Decoded{ls, A}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, U32>>>}:
-  match ls:
-    case Nil{}:
-      {==}
-    case Con{+l, +rest}:
-      %uleb.back(l, Cr.Wasm.encode.labels(rest, A)) : {Wa.Wasm.decode.bind(U32, List<&2, U32>, _,
-        x => r => Wa.Wasm.decode.cons(U32, x, Wa.Wasm.decode.items(~U32, ~Wa.Wasm.decode.u32, List.length(&2, U32, rest), r))) ==
-        Some{Wa.Wasm.Decoded{Con{l, rest}, A}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, U32>>>}
-      %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, U32>>>,
-        Wa.Wasm.decode.items(~U32, ~Wa.Wasm.decode.u32, List.length(&2, U32, rest), Cr.Wasm.encode.labels(rest, A)),
-        Some{Wa.Wasm.Decoded{rest, A}}, tok.items(rest, A)) :
-        {Wa.Wasm.decode.cons(U32, l, _) == Some{Wa.Wasm.Decoded{Con{l, rest}, A}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, U32>>>}
-      {==}
-
-def tok.count(+ls: List<&2, U32>, +A: List<&2, Word(8n)>, +h: {fits.labels(ls) == True{} : Bool}) ->
-  {Wa.Wasm.decode.count(List.append(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)), Cr.Wasm.encode.labels(ls, A))) ==
-    Some{Wa.Wasm.Decoded{List.length(&2, U32, ls), Cr.Wasm.encode.labels(ls, A)}} : Maybe<&2, Wa.Wasm.Decoded<Nat>>}:
-  +n = Cr.Wasm.encode.len(U32, ls)
-  +B = Cr.Wasm.encode.labels(ls, A)
-  %uleb.back(n, B) : {Wa.Wasm.decode.bind(U32, Nat, _, +m => +r => Wa.Wasm.decode.count.if(Wa.Wasm.has(r, m), m, r)) ==
-    Some{Wa.Wasm.Decoded{List.length(&2, U32, ls), B}} : Maybe<&2, Wa.Wasm.Decoded<Nat>>}
-  %Equal.sym(Bool, Wa.Wasm.has(B, n), True{}, has.labels(ls, A, h)) :
-    {Wa.Wasm.decode.count.if(_, n, B) == Some{Wa.Wasm.Decoded{List.length(&2, U32, ls), B}} : Maybe<&2, Wa.Wasm.Decoded<Nat>>}
-  %labels.nat(ls, h) : {Some{Wa.Wasm.Decoded{_, B}} == Some{Wa.Wasm.Decoded{List.length(&2, U32, ls), B}} : Maybe<&2, Wa.Wasm.Decoded<Nat>>}
-  {==}
-
-def tok.vec(+ls: List<&2, U32>, +A: List<&2, Word(8n)>, +h: {fits.labels(ls) == True{} : Bool}) ->
-  {Wa.Wasm.decode.vec(~U32, ~Wa.Wasm.decode.u32, List.append(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)), Cr.Wasm.encode.labels(ls, A))) ==
-    Some{Wa.Wasm.Decoded{ls, A}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, U32>>>}:
-  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<Nat>>,
-    Wa.Wasm.decode.count(List.append(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)), Cr.Wasm.encode.labels(ls, A))),
-    Some{Wa.Wasm.Decoded{List.length(&2, U32, ls), Cr.Wasm.encode.labels(ls, A)}}, tok.count(ls, A, h)) :
-    {Wa.Wasm.decode.bind(Nat, List<&2, U32>, _, n => r => Wa.Wasm.decode.items(~U32, ~Wa.Wasm.decode.u32, n, r)) ==
-      Some{Wa.Wasm.Decoded{ls, A}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, U32>>>}
-  tok.items(ls, A)
-
-def tok.table(+ls: List<&2, U32>, +l: U32, +E: List<&2, Word(8n)>, +h: {fits.labels(ls) == True{} : Bool}) ->
-  {Wa.Wasm.decode.table(List.append(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)),
-      Cr.Wasm.encode.labels(ls, List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), E)))) ==
-    Some{Wa.Wasm.Decoded{Wa.Wasm.Token.instr{Wa.Wasm.Instr.br_table{ls, l}}, E}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Token>>}:
-  +A = List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), E)
-  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, U32>>>,
-    Wa.Wasm.decode.vec(~U32, ~Wa.Wasm.decode.u32, List.append(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)), Cr.Wasm.encode.labels(ls, A))),
-    Some{Wa.Wasm.Decoded{ls, A}}, tok.vec(ls, A, h)) :
-    {Wa.Wasm.decode.bind(List<&2, U32>, Wa.Wasm.Token, _, ms => r =>
-      Wa.Wasm.decode.bind(U32, Wa.Wasm.Token, Wa.Wasm.decode.u32(r), j => r2 => Wa.Wasm.decode.as(Wa.Wasm.Instr.br_table{ms, j}, r2))) ==
-      Some{Wa.Wasm.Decoded{Wa.Wasm.Token.instr{Wa.Wasm.Instr.br_table{ls, l}}, E}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Token>>}
-  %uleb.back(l, E) : {Wa.Wasm.decode.bind(U32, Wa.Wasm.Token, _, j => r2 => Wa.Wasm.decode.as(Wa.Wasm.Instr.br_table{ls, j}, r2)) ==
-      Some{Wa.Wasm.Decoded{Wa.Wasm.Token.instr{Wa.Wasm.Instr.br_table{ls, l}}, E}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Token>>}
-  {==}
-
 # Fuel
 # ----
-
-# the fuel left after the labels ls, from k
-def lab(ls: List<&2, U32>, k: Nat) -> Nat:
-  match ls:
-    case Nil{}:
-      k
-    case Con{l, rest}:
-      lab(rest, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k))
-
-def lab.len(ls: List<&2, U32>, +A: List<&2, Word(8n)>, +k: Nat) ->
-  {Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.labels(ls, A)), k) == Nat.add(List.length(&2, Word(8n), A), lab(ls, k)) : Nat}:
-  match ls:
-    case Nil{}:
-      {==}
-    case Con{+l, +rest}:
-      +k2 = Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k)
-      Equal.trans(Nat, Nat.add(List.length(&2, Word(8n), List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), Cr.Wasm.encode.labels(rest, A))), k),
-        Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.labels(rest, A)), k2),
-        Nat.add(List.length(&2, Word(8n), A), lab(rest, k2)),
-        add.len(Cr.Wasm.encode.uleb(l), Cr.Wasm.encode.labels(rest, A), k), lab.len(rest, A, k2))
-
-# the fuel of a br_table's immediates
-def table.len(+ls: List<&2, U32>, +l: U32, +E: List<&2, Word(8n)>, +k: Nat) ->
-  {Nat.add(List.length(&2, Word(8n), List.append(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)),
-      Cr.Wasm.encode.labels(ls, List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), E)))), k) ==
-    Nat.add(List.length(&2, Word(8n), E), Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)),
-      lab(ls, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls))), k)))) : Nat}:
-  +N = Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls))
-  +A = List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), E)
-  +k1 = Nat.add(List.length(&2, Word(8n), N), k)
-  Equal.trans(Nat, Nat.add(List.length(&2, Word(8n), List.append(&2, Word(8n), N, Cr.Wasm.encode.labels(ls, A))), k),
-    Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.labels(ls, A)), k1),
-    Nat.add(List.length(&2, Word(8n), E), Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), lab(ls, k1))),
-    add.len(N, Cr.Wasm.encode.labels(ls, A), k),
-    Equal.trans(Nat, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.labels(ls, A)), k1),
-      Nat.add(List.length(&2, Word(8n), A), lab(ls, k1)),
-      Nat.add(List.length(&2, Word(8n), E), Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), lab(ls, k1))),
-      lab.len(ls, A, k1), add.len(Cr.Wasm.encode.uleb(l), E, lab(ls, k1))))
 
 # the fuel left after the instructions xs, from k, beside the bytes after them
 def left(xs: List<&2, Wa.Wasm.Instr>, k: Nat) -> Nat:
@@ -489,9 +335,6 @@ def left(xs: List<&2, Wa.Wasm.Instr>, k: Nat) -> Nat:
           left(rest, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k))
         case Wa.Wasm.Instr.br_if{l}:
           left(rest, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k))
-        case Wa.Wasm.Instr.br_table{+ls, l}:
-          left(rest, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)),
-            lab(ls, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls))), k))))
 
 # The decoder's steps
 # -------------------
@@ -536,7 +379,7 @@ def simple(+op: U32, +I: List<&2, Word(8n)>, +rest: List<&2, Wa.Wasm.Instr>, +mo
 # the bytes of xs, then more, read with ys and the open blocks st so far:
 # the decoder reads the heads of xs, one fuel each, and goes on at more
 def run(xs: List<&2, Wa.Wasm.Instr>, +more: List<&2, Word(8n)>, +k: Nat, +ys: List<&2, Wa.Wasm.Instr>,
-  +st: List<&2, Wa.Wasm.Open>, +h: {fits(xs) == True{} : Bool}) ->
+  +st: List<&2, Wa.Wasm.Open>) ->
   {Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.instrs(xs, more)), k), Cr.Wasm.encode.instrs(xs, more), ys, st) ==
     Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), more), left(xs, k)), more, List.reverse.go(&2, Wa.Wasm.Instr, xs, ys), st) : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}:
   match xs:
@@ -546,44 +389,44 @@ def run(xs: List<&2, Wa.Wasm.Instr>, +more: List<&2, Word(8n)>, +k: Nat, +ys: Li
       match x:
         case Wa.Wasm.Instr.const{+n}:
           simple(65, Cr.Wasm.encode.sleb(n), rest, more, Wa.Wasm.Instr.const{n}, k, ys, st, tok.const(n, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.sleb(n)), k), Con{Wa.Wasm.Instr.const{n}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.sleb(n)), k), Con{Wa.Wasm.Instr.const{n}, ys}, st))
         case Wa.Wasm.Instr.local_get{+i}:
           simple(32, Cr.Wasm.encode.uleb(i), rest, more, Wa.Wasm.Instr.local_get{i}, k, ys, st, tok.index(j => Wa.Wasm.Instr.local_get{j}, i, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(i)), k), Con{Wa.Wasm.Instr.local_get{i}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(i)), k), Con{Wa.Wasm.Instr.local_get{i}, ys}, st))
         case Wa.Wasm.Instr.local_set{+i}:
           simple(33, Cr.Wasm.encode.uleb(i), rest, more, Wa.Wasm.Instr.local_set{i}, k, ys, st, tok.index(j => Wa.Wasm.Instr.local_set{j}, i, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(i)), k), Con{Wa.Wasm.Instr.local_set{i}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(i)), k), Con{Wa.Wasm.Instr.local_set{i}, ys}, st))
         case Wa.Wasm.Instr.local_tee{+i}:
           simple(34, Cr.Wasm.encode.uleb(i), rest, more, Wa.Wasm.Instr.local_tee{i}, k, ys, st, tok.index(j => Wa.Wasm.Instr.local_tee{j}, i, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(i)), k), Con{Wa.Wasm.Instr.local_tee{i}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(i)), k), Con{Wa.Wasm.Instr.local_tee{i}, ys}, st))
         case Wa.Wasm.Instr.op{+o}:
           simple(Cr.Wasm.encode.opcode(o), [], rest, more, Wa.Wasm.Instr.op{o}, k, ys, st,
-            tok.op(o, Cr.Wasm.encode.instrs(rest, more)), run(rest, more, k, Con{Wa.Wasm.Instr.op{o}, ys}, st, h))
+            tok.op(o, Cr.Wasm.encode.instrs(rest, more)), run(rest, more, k, Con{Wa.Wasm.Instr.op{o}, ys}, st))
         case Wa.Wasm.Instr.eqz{}:
           simple(69, [], rest, more, Wa.Wasm.Instr.eqz{}, k, ys, st, {==},
-            run(rest, more, Nat.add(List.length(&2, Word(8n), []), k), Con{Wa.Wasm.Instr.eqz{}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), []), k), Con{Wa.Wasm.Instr.eqz{}, ys}, st))
         case Wa.Wasm.Instr.load{+o}:
           simple(40, Con{Sd.Byte.from_u32(2), Cr.Wasm.encode.uleb(o)}, rest, more, Wa.Wasm.Instr.load{o}, k, ys, st,
             tok.memarg(j => Wa.Wasm.Instr.load{j}, o, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(2), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.load{o}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(2), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.load{o}, ys}, st))
         case Wa.Wasm.Instr.load8_u{+o}:
           simple(45, Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(o)}, rest, more, Wa.Wasm.Instr.load8_u{o}, k, ys, st,
             tok.memarg(j => Wa.Wasm.Instr.load8_u{j}, o, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.load8_u{o}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.load8_u{o}, ys}, st))
         case Wa.Wasm.Instr.store{+o}:
           simple(54, Con{Sd.Byte.from_u32(2), Cr.Wasm.encode.uleb(o)}, rest, more, Wa.Wasm.Instr.store{o}, k, ys, st,
             tok.memarg(j => Wa.Wasm.Instr.store{j}, o, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(2), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.store{o}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(2), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.store{o}, ys}, st))
         case Wa.Wasm.Instr.store8{+o}:
           simple(58, Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(o)}, rest, more, Wa.Wasm.Instr.store8{o}, k, ys, st,
             tok.memarg(j => Wa.Wasm.Instr.store8{j}, o, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.store8{o}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(0), Cr.Wasm.encode.uleb(o)}), k), Con{Wa.Wasm.Instr.store8{o}, ys}, st))
         case Wa.Wasm.Instr.memory_size{}:
           simple(63, [Sd.Byte.from_u32(0)], rest, more, Wa.Wasm.Instr.memory_size{}, k, ys, st, {==},
-            run(rest, more, Nat.add(List.length(&2, Word(8n), [Sd.Byte.from_u32(0)]), k), Con{Wa.Wasm.Instr.memory_size{}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), [Sd.Byte.from_u32(0)]), k), Con{Wa.Wasm.Instr.memory_size{}, ys}, st))
         case Wa.Wasm.Instr.memory_grow{}:
           simple(64, [Sd.Byte.from_u32(0)], rest, more, Wa.Wasm.Instr.memory_grow{}, k, ys, st, {==},
-            run(rest, more, Nat.add(List.length(&2, Word(8n), [Sd.Byte.from_u32(0)]), k), Con{Wa.Wasm.Instr.memory_grow{}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), [Sd.Byte.from_u32(0)]), k), Con{Wa.Wasm.Instr.memory_grow{}, ys}, st))
         case Wa.Wasm.Instr.block{+body}:
           +R = Cr.Wasm.encode.instrs(rest, more)
           +B = Cr.Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), R})
@@ -593,9 +436,9 @@ def run(xs: List<&2, Wa.Wasm.Instr>, +more: List<&2, Word(8n)>, +k: Nat, +ys: Li
           %add.succ(List.length(&2, Word(8n), B), k) : {Wa.Wasm.decode.instrs.go(_, B, [], os) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
           %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>, Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), B), 1n+k), B, [], os),
             Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(11), R}), k1), Con{Sd.Byte.from_u32(11), R}, List.reverse.go(&2, Wa.Wasm.Instr, body, []), os),
-            run(body, Con{Sd.Byte.from_u32(11), R}, 1n+k, [], os, and.l(fits(body), fits(rest), h))) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+            run(body, Con{Sd.Byte.from_u32(11), R}, 1n+k, [], os)) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
           %rev2(body) : {Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), R), k1), R, Con{Wa.Wasm.Instr.block{_}, ys}, st) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          run(rest, more, k1, Con{Wa.Wasm.Instr.block{body}, ys}, st, and.r(fits(body), fits(rest), h))
+          run(rest, more, k1, Con{Wa.Wasm.Instr.block{body}, ys}, st)
         case Wa.Wasm.Instr.loop{+body}:
           +R = Cr.Wasm.encode.instrs(rest, more)
           +B = Cr.Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), R})
@@ -605,30 +448,19 @@ def run(xs: List<&2, Wa.Wasm.Instr>, +more: List<&2, Word(8n)>, +k: Nat, +ys: Li
           %add.succ(List.length(&2, Word(8n), B), k) : {Wa.Wasm.decode.instrs.go(_, B, [], os) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
           %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>, Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), B), 1n+k), B, [], os),
             Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(11), R}), k1), Con{Sd.Byte.from_u32(11), R}, List.reverse.go(&2, Wa.Wasm.Instr, body, []), os),
-            run(body, Con{Sd.Byte.from_u32(11), R}, 1n+k, [], os, and.l(fits(body), fits(rest), h))) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+            run(body, Con{Sd.Byte.from_u32(11), R}, 1n+k, [], os)) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
           %rev2(body) : {Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), R), k1), R, Con{Wa.Wasm.Instr.loop{_}, ys}, st) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          run(rest, more, k1, Con{Wa.Wasm.Instr.loop{body}, ys}, st, and.r(fits(body), fits(rest), h))
+          run(rest, more, k1, Con{Wa.Wasm.Instr.loop{body}, ys}, st)
         case Wa.Wasm.Instr.br{+l}:
           simple(12, Cr.Wasm.encode.uleb(l), rest, more, Wa.Wasm.Instr.br{l}, k, ys, st, tok.index(j => Wa.Wasm.Instr.br{j}, l, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k), Con{Wa.Wasm.Instr.br{l}, ys}, st, h))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k), Con{Wa.Wasm.Instr.br{l}, ys}, st))
         case Wa.Wasm.Instr.br_if{+l}:
           simple(13, Cr.Wasm.encode.uleb(l), rest, more, Wa.Wasm.Instr.br_if{l}, k, ys, st, tok.index(j => Wa.Wasm.Instr.br_if{j}, l, Cr.Wasm.encode.instrs(rest, more)),
-            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k), Con{Wa.Wasm.Instr.br_if{l}, ys}, st, h))
-        case Wa.Wasm.Instr.br_table{+ls, +l}:
-          +E = Cr.Wasm.encode.instrs(rest, more)
-          +x = {Wa.Wasm.Instr.br_table{ls, l} : Wa.Wasm.Instr}
-          +k2 = Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)),
-            lab(ls, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls))), k)))
-          +bs = List.append(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)),
-            Cr.Wasm.encode.labels(ls, List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), E)))
-          step(Sd.Byte.from_u32(14), bs, E, x, k, k2, ys, st, after(rest, more, k2, x, ys, st),
-            tok.table(ls, l, E, and.l(fits.labels(ls), fits(rest), h)), table.len(ls, l, E, k),
-            run(rest, more, k2, Con{x, ys}, st, and.r(fits.labels(ls), fits(rest), h)))
+            run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k), Con{Wa.Wasm.Instr.br_if{l}, ys}, st))
 
 # a function body's instructions, encoded then decoded as
-# Wasm.decode.func.body does, are themselves (when each br_table's labels
-# count fits a U32)
-def instrs.round(+xs: List<&2, Wa.Wasm.Instr>, +h: {fits(xs) == True{} : Bool}) ->
+# Wasm.decode.func.body does, are themselves
+def instrs.round(+xs: List<&2, Wa.Wasm.Instr>) ->
   {Wa.Wasm.decode.instrs(1n+List.length(&2, Word(8n), Cr.Wasm.encode.instrs(xs, [Sd.Byte.from_u32(11)])), Cr.Wasm.encode.instrs(xs, [Sd.Byte.from_u32(11)])) ==
     Some{Wa.Wasm.Decoded{xs, []}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}:
   +bs = Cr.Wasm.encode.instrs(xs, [Sd.Byte.from_u32(11)])
@@ -637,7 +469,7 @@ def instrs.round(+xs: List<&2, Wa.Wasm.Instr>, +h: {fits(xs) == True{} : Bool}) 
   %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>,
     Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), bs), 1n), bs, [], []),
     Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), [Sd.Byte.from_u32(11)]), left(xs, 1n)), [Sd.Byte.from_u32(11)], List.reverse.go(&2, Wa.Wasm.Instr, xs, []), []),
-    run(xs, [Sd.Byte.from_u32(11)], 1n, [], [], h)) :
+    run(xs, [Sd.Byte.from_u32(11)], 1n, [], [])) :
     {_ == Some{Wa.Wasm.Decoded{xs, []}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
   %rev2(xs) : {Some{Wa.Wasm.Decoded{_, []}} == Some{Wa.Wasm.Decoded{xs, []}} : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
   {==}

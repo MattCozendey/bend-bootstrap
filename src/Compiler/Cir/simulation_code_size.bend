@@ -4,9 +4,9 @@
 # The bytes of the code section of Cir.module(Mach.code(), ...) are fewer
 # than 2^32 - 1, the premise of M.round.sized (mach.size), so that the
 # machine's module decodes to itself (mach.round): each instruction encodes
-# to at most 7 bytes, a block to 3 more than its body, a br_table to 12 more
-# than 5 per label (ib.len); the code of each unit of a Cir program (NE, NS:
-# about one per node) has at most 512 such bytes (cb.expr, cb.stmt); and
+# to at most 7 bytes, a block to 3 more than its body (ib.len); the code of
+# each unit of a Cir program (NE, NS: about one per node) has at most 512 such
+# bytes (cb.expr, cb.stmt); and
 # Mach.code has at most 2^16 units (mach.nodes, by evaluation). The code of
 # Mach.code itself is never encoded here.
 
@@ -62,14 +62,7 @@ def NS(s: Cr.Cir.Stmt) -> Nat:
       1n
 
 # a bound on the bytes of the instructions xs: 7 for each, 3 more than its
-# body for a block or loop, 12 more than 5 per label for a br_table
-def ib.tab(ls: List<&2, U32>) -> Nat:
-  match ls:
-    case Nil{}:
-      0n
-    case Con{_, r}:
-      5n+ib.tab(r)
-
+# body for a block or loop
 def ib(xs: List<&2, Wa.Wasm.Instr>) -> Nat:
   match xs:
     case Nil{}:
@@ -80,8 +73,6 @@ def ib(xs: List<&2, Wa.Wasm.Instr>) -> Nat:
           3n+Nat.add(ib(body), ib(rest))
         case Wa.Wasm.Instr.loop{body}:
           3n+Nat.add(ib(body), ib(rest))
-        case Wa.Wasm.Instr.br_table{ls, _}:
-          12n+Nat.add(ib.tab(ls), ib(rest))
         case _:
           7n+ib(rest)
 
@@ -100,20 +91,6 @@ def with.len(+op: U32, +imm: List<&2, Word(8n)>, +R: List<&2, Word(8n)>, +X: Nat
   N.le_rw_l(Nat.add(List.length(&2, Word(8n), imm), List.length(&2, Word(8n), R)), List.length(&2, Word(8n), List.append(&2, Word(8n), imm, R)), 6n+X,
     Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), imm, R)), Nat.add(List.length(&2, Word(8n), imm), List.length(&2, Word(8n), R)), M.len.app(Word(8n), imm, R)),
     N.add_mono(List.length(&2, Word(8n), imm), 6n, List.length(&2, Word(8n), R), X, h, ih))
-
-# the labels of a br_table
-def labels.len(ls: List<&2, U32>, +acc: List<&2, Word(8n)>, +X: Nat, ih: N.Le(List.length(&2, Word(8n), acc), X)) ->
-  N.Le(List.length(&2, Word(8n), Cr.Wasm.encode.labels(ls, acc)), Nat.add(ib.tab(ls), X)):
-  match ls:
-    case Nil{}:
-      ih
-    case Con{+l, +r}:
-      N.le_rw_l(Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), List.length(&2, Word(8n), Cr.Wasm.encode.labels(r, acc))),
-        List.length(&2, Word(8n), List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), Cr.Wasm.encode.labels(r, acc))), 5n+Nat.add(ib.tab(r), X),
-        Equal.sym(Nat, List.length(&2, Word(8n), List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), Cr.Wasm.encode.labels(r, acc))),
-          Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), List.length(&2, Word(8n), Cr.Wasm.encode.labels(r, acc))), M.len.app(Word(8n), Cr.Wasm.encode.uleb(l), Cr.Wasm.encode.labels(r, acc))),
-        N.add_mono(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), 5n, List.length(&2, Word(8n), Cr.Wasm.encode.labels(r, acc)), Nat.add(ib.tab(r), X), len.u(l),
-          labels.len(r, acc, X, ih)))
 
 # a + (k + x) = k + (a + x)
 def shk(+a: Nat, +k: Nat, +x: Nat) -> {Nat.add(a, Nat.add(k, x)) == Nat.add(k, Nat.add(a, x)) : Nat}:
@@ -134,10 +111,6 @@ def blk.len(+body: List<&2, Wa.Wasm.Instr>, +R: List<&2, Word(8n)>, +X: Nat, ih:
 def blk.as(+Y: Nat, +a: Nat, +b: Nat, +c: Nat, h: N.Le(Y, 3n+Nat.add(a, Nat.add(b, c)))) -> N.Le(Y, 3n+Nat.add(Nat.add(a, b), c)):
   N.le_rw_r(Y, 3n+Nat.add(a, Nat.add(b, c)), 3n+Nat.add(Nat.add(a, b), c),
     Equal.cong(Nat, Nat, z => 3n+z, Nat.add(a, Nat.add(b, c)), Nat.add(Nat.add(a, b), c), Equal.sym(Nat, Nat.add(Nat.add(a, b), c), Nat.add(a, Nat.add(b, c)), Z.add.assoc(a, b, c))), h)
-
-def tab.as(+Y: Nat, +a: Nat, +b: Nat, +c: Nat, h: N.Le(Y, 12n+Nat.add(a, Nat.add(b, c)))) -> N.Le(Y, 12n+Nat.add(Nat.add(a, b), c)):
-  N.le_rw_r(Y, 12n+Nat.add(a, Nat.add(b, c)), 12n+Nat.add(Nat.add(a, b), c),
-    Equal.cong(Nat, Nat, z => 12n+z, Nat.add(a, Nat.add(b, c)), Nat.add(Nat.add(a, b), c), Equal.sym(Nat, Nat.add(Nat.add(a, b), c), Nat.add(a, Nat.add(b, c)), Z.add.assoc(a, b, c))), h)
 
 # the bytes of the instructions xs, then acc: at most ib(xs) + |acc|
 def ib.len(xs: List<&2, Wa.Wasm.Instr>, +acc: List<&2, Word(8n)>) ->
@@ -193,21 +166,6 @@ def ib.len(xs: List<&2, Wa.Wasm.Instr>, +acc: List<&2, Word(8n)>) ->
         case Wa.Wasm.Instr.br_if{+l}:
           with.len(13, Cr.Wasm.encode.uleb(l), Cr.Wasm.encode.instrs(rest, acc), Nat.add(ib(rest), List.length(&2, Word(8n), acc)),
             N.le_trans(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), 5n, 6n, len.u(l), Unit{}), ib.len(rest, acc))
-        case Wa.Wasm.Instr.br_table{+ls, +l}:
-          +R = Cr.Wasm.encode.instrs(rest, acc)
-          +X = Nat.add(ib(rest), List.length(&2, Word(8n), acc))
-          +T0 = List.append(&2, Word(8n), Cr.Wasm.encode.uleb(l), R)
-          +hT0 = N.le_rw_l(Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), List.length(&2, Word(8n), R)), List.length(&2, Word(8n), T0), 5n+X,
-            Equal.sym(Nat, List.length(&2, Word(8n), T0), Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), List.length(&2, Word(8n), R)), M.len.app(Word(8n), Cr.Wasm.encode.uleb(l), R)),
-            N.add_mono(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), 5n, List.length(&2, Word(8n), R), X, len.u(l), ib.len(rest, acc)))
-          +hall = with.len(14, Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)), Cr.Wasm.encode.labels(ls, T0), Nat.add(ib.tab(ls), 5n+X),
-            N.le_trans(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls))), 5n, 6n, len.u(Cr.Wasm.encode.len(U32, ls)), Unit{}),
-            labels.len(ls, T0, 5n+X, hT0))
-          +Y = List.length(&2, Word(8n), Cr.Wasm.encode.with(14, Cr.Wasm.encode.uleb(Cr.Wasm.encode.len(U32, ls)), Cr.Wasm.encode.labels(ls, T0)))
-          tab.as(Y, ib.tab(ls), ib(rest), List.length(&2, Word(8n), acc),
-            N.le_rw_r(Y, 7n+Nat.add(5n, Nat.add(ib.tab(ls), X)), 12n+Nat.add(ib.tab(ls), X), {==},
-              N.le_rw_r(Y, 7n+Nat.add(ib.tab(ls), 5n+X), 7n+Nat.add(5n, Nat.add(ib.tab(ls), X)),
-                Equal.cong(Nat, Nat, z => 7n+z, Nat.add(ib.tab(ls), 5n+X), Nat.add(5n, Nat.add(ib.tab(ls), X)), shk(ib.tab(ls), 5n, X)), hall)))
 
 # Bytes of the code of a program
 # -------------------------------

@@ -52,7 +52,7 @@ def H.body(+s: U32, z: Bool) -> List<&2, Wa.Wasm.Instr>:
 def H.mod(+s: U32, z: Bool) -> Wa.Wasm.Module:
   Wa.Wasm.Module{
     [Cr.Cir.alloc(0), Wa.Wasm.Func{2n, 1n, 6n, H.body(s, z)}],
-    Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(0)), None{}}},
+    Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(0))}},
     [Wa.Wasm.Export.memory{Wa.Wasm.name.memory()}, Wa.Wasm.Export.func{Wa.Wasm.name.alloc(), 0},
      Wa.Wasm.Export.func{Wa.Wasm.name.run(), 1}],
     Some{Wa.Wasm.Segment{20, []}}}
@@ -78,7 +78,7 @@ def H.bytes(cs: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   Con{Sd.Byte.from_u32(0), Con{Sd.Byte.from_u32(97), Con{Sd.Byte.from_u32(115), Con{Sd.Byte.from_u32(109), Con{Sd.Byte.from_u32(1), Con{Sd.Byte.from_u32(0), Con{Sd.Byte.from_u32(0), Con{Sd.Byte.from_u32(0),
     Cr.Wasm.encode.section(1, Cr.Wasm.encode.vec(2, Cr.Wasm.encode.functypes(fs)),
       Cr.Wasm.encode.section(3, Cr.Wasm.encode.vec(2, Cr.Wasm.encode.indices(fs, 0)),
-        Cr.Wasm.encode.memory(Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(0)), None{}}},
+        Cr.Wasm.encode.memory(Some{Wa.Wasm.Limits{Cr.Cir.pages(Cr.Cir.input.at(0))}},
           Cr.Wasm.encode.section(7, Cr.Wasm.encode.vec(Cr.Wasm.encode.len(Wa.Wasm.Export, es), Cr.Wasm.encode.exports(es)),
             Cr.Wasm.encode.section(10, Cr.Wasm.encode.vec(2, List.append(&2, Word(8n), Cr.Wasm.encode.code(Cr.Cir.alloc(0)),
               List.append(&2, Word(8n), Cr.Wasm.encode.sized(H.RUNC(cs)), []))),
@@ -97,7 +97,7 @@ def H.parts(x: Maybe<&2, List<&2, Wa.Wasm.Code>>) -> Maybe<&2, Wa.Wasm.Module>:
   Maybe.bind(&2, List<&2, Wa.Wasm.Code>, Wa.Wasm.Module, x, cs =>
     Maybe.bind(&2, List<&2, Wa.Wasm.Func>, Wa.Wasm.Module,
       Wa.Wasm.funcs.of([Wa.Wasm.Type{1n, 1n}, Wa.Wasm.Type{2n, 1n}], [0, 1], cs), fs =>
-      Some{Wa.Wasm.Module{fs, Some{Wa.Wasm.Limits{1, None{}}},
+      Some{Wa.Wasm.Module{fs, Some{Wa.Wasm.Limits{1}},
         [Wa.Wasm.Export.memory{Wa.Wasm.name.memory()}, Wa.Wasm.Export.func{Wa.Wasm.name.alloc(), 0},
          Wa.Wasm.Export.func{Wa.Wasm.name.run(), 1}],
         Some{Wa.Wasm.Segment{20, []}}}}))
@@ -517,11 +517,11 @@ def H.nr.sized(n: Maybe<&2, U32>, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == Fals
       H.nr.alloced(Wa.Wasm.call(f, Cr.Cir.alloc(0), [k], mem), f, s, ns, k, i)
 
 def H.nr.mem(b: Bool, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool}, +m: U32, +i: List<&2, Word(8n)>) ->
-  H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}),
+  H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), Wa.Wasm.Bytes.zero{}}),
     Some{Wa.Wasm.Segment{20, []}}, H.mod(s, False{})), i)):
   match b:
     case True{}:
-      H.nr.sized(Wa.Wasm.length32(i), f, s, ns, Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}, i)
+      H.nr.sized(Wa.Wasm.length32(i), f, s, ns, Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), Wa.Wasm.Bytes.zero{}}, i)
     case False{}:
       Unit{}
 
@@ -1624,17 +1624,17 @@ def H.A.BP3(+k: U32, c: Bool) -> Wa.Wasm.Frame:
   Wa.Wasm.Frame{List.drop(&2, Wa.Wasm.Instr, H.A.B2(), 3n), H.A.LA2(), 1n, [Bool.to_u32(c)], H.A.L3(k)}
 
 def H.A.mem(+m: U32) -> Wa.Wasm.Memory:
-  Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}
+  Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), Wa.Wasm.Bytes.zero{}}
 
 # the pages after a memory.grow that succeeds
 def H.A.np(+k: U32) -> U32:
   U32.add(1, U32.sub(H.A.need(k), 1))
 
 def H.A.c4(+k: U32, +m: U32) -> Bool:
-  U32.is_ge(H.A.np(k), 1) && U32.is_le(H.A.np(k), Wa.Wasm.limit(None{}, m))
+  U32.is_ge(H.A.np(k), 1) && U32.is_le(H.A.np(k), Wa.Wasm.min(m, 65536))
 
 def H.A.GP(+k: U32, +m: U32, c: Bool) -> Wa.Wasm.Step:
-  Wa.Wasm.step.grown(c, 1, H.A.np(k), Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{},
+  Wa.Wasm.step.grown(c, 1, H.A.np(k), Wa.Wasm.min(m, 65536), Wa.Wasm.Bytes.zero{},
     [Wa.Wasm.Instr.const{4294967295}, Wa.Wasm.Instr.op{Wa.Wasm.Op.eq{}}, Wa.Wasm.Instr.br_if{1}], H.A.LA2(), 1n, [], H.A.L3(k))
 
 def H.A.Y(+k: U32) -> Nat:
@@ -1658,7 +1658,7 @@ def H.A.al4(B: Bool, +kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, e4: {H.A.c
       +f = Nat.add(64n, Y)
       %Equal.sym(Bool, H.A.c4(k, m), True{}, e4) :
         H.AO(f, k, i, H.plusN(31n, Wa.Wasm.call.stepped(H.A.GP(k, m, _), g => mm => Wa.Wasm.call.go(Nat.add(32n, Y), g, mm))))
-      +memw = {Wa.Wasm.Memory{H.A.np(k), Wa.Wasm.limit(None{}, m), Wa.Wasm.write.bytes(i, 20, Wa.Wasm.Bytes.zero{})} : Wa.Wasm.Memory}
+      +memw = {Wa.Wasm.Memory{H.A.np(k), Wa.Wasm.min(m, 65536), Wa.Wasm.write.bytes(i, 20, Wa.Wasm.Bytes.zero{})} : Wa.Wasm.Memory}
       %Equal.sym(Bool, Wa.Wasm.fits(H.A.np(k), 20, k), True{},
         H.fits(k, H.A.np(k), e1, H.hX2(U32.shrn(U32.sub(H.A.E(k), 1), 15n)))) :
         {Wa.Wasm.run.written(_, Nat.sub(f, 41n), Wa.Wasm.Instance{H.M1(), memw}, 20, k) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
@@ -1686,7 +1686,7 @@ def H.A.al3(B: Bool, +kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, +e3: {U32.
       +f = Nat.add(64n, Y)
       %Equal.sym(Bool, U32.is_le(H.A.need(k), 1), True{}, e3) :
         H.AO(f, k, i, H.plusN(27n, Wa.Wasm.call.go(Nat.add(37n, Y), H.A.BP3(k, _), H.A.mem(m))))
-      +memw = {Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.write.bytes(i, 20, Wa.Wasm.Bytes.zero{})} : Wa.Wasm.Memory}
+      +memw = {Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), Wa.Wasm.write.bytes(i, 20, Wa.Wasm.Bytes.zero{})} : Wa.Wasm.Memory}
       %Equal.sym(Bool, Wa.Wasm.fits(1, 20, k), True{},
         H.fits(k, 1, e1, H.hX1(U32.shrn(U32.sub(H.A.E(k), 1), 15n), e3))) :
         {Wa.Wasm.run.written(_, Nat.sub(f, 33n), Wa.Wasm.Instance{H.M1(), memw}, 20, k) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
@@ -1756,7 +1756,7 @@ def H.oom.len(n: Maybe<&2, U32>, +i: List<&2, Word(8n)>, +m: U32) ->
           (Nat.add(64n, H.A.Y(U32{kw})), H.A.top(kw, i, m, H.pat(7n), H.hP(), H.h1()))
 
 def H.oom.mem(b: Bool, +i: List<&2, Word(8n)>, +m: U32) ->
-  &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.limit(None{}, m), Wa.Wasm.Bytes.zero{}}),
+  &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), Wa.Wasm.Bytes.zero{}}),
     Some{Wa.Wasm.Segment{20, []}}, H.M1()), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   match b:
     case False{}:

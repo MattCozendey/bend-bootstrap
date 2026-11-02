@@ -59,7 +59,6 @@ type Wasm.Instr is Data:
   Wasm.Instr.loop{body: List<&2, Wasm.Instr>}
   Wasm.Instr.br{l: U32}
   Wasm.Instr.br_if{l: U32}
-  Wasm.Instr.br_table{ls: List<&2, U32>, l: U32}
 
 # a function type: its numbers of i32 parameters and results
 type Wasm.Type is Data:
@@ -75,9 +74,9 @@ type Wasm.Export is Data:
   Wasm.Export.func{name: List<&2, Word(8n)>, index: U32}
   Wasm.Export.memory{name: List<&2, Word(8n)>}
 
-# the limits of the memory, in pages
+# the limits of the memory: its minimum, in pages; the subset has no maximum
 type Wasm.Limits is Data:
-  Wasm.Limits{min: U32, max: Maybe<&2, U32>}
+  Wasm.Limits{min: U32}
 
 # an active data segment of the memory: where it starts, and its bytes
 type Wasm.Segment is Data:
@@ -334,26 +333,12 @@ def Wasm.decode.functype(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.
       Wasm.decode.bind(Nat, Wasm.Type, Wasm.decode.i32s(r2), q => r3 =>
         Some{Wasm.Decoded{Wasm.Type{p, q}, r3}})))
 
-# the limits after their flag: 0 for a minimum, 1 for a minimum and maximum
-def Wasm.decode.limits.of(flag: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Limits>>:
-  match flag:
-    case 0n:
-      Wasm.decode.bind(U32, Wasm.Limits, Wasm.decode.u32(bs), n => r =>
-        Some{Wasm.Decoded{Wasm.Limits{n, None{}}, r}})
-    case 1n:
-      Wasm.decode.bind(U32, Wasm.Limits, Wasm.decode.u32(bs), n => r =>
-        Wasm.decode.bind(U32, Wasm.Limits, Wasm.decode.u32(r), m => r2 =>
-          Some{Wasm.Decoded{Wasm.Limits{n, Some{m}}, r2}}))
-    case _:
-      None{}
-
-# a memory type (spec 5.2): its limits, of a memory of 32-bit addresses
+# a memory type (spec 5.2): its limits, of a memory of 32-bit addresses: the
+# flag 0, for a minimum alone, then the minimum
 def Wasm.decode.limits(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Limits>>:
-  match bs:
-    case Nil{}:
-      None{}
-    case Con{flag, rest}:
-      Wasm.decode.limits.of(Word.to_nat(8n, flag), rest)
+  Wasm.decode.bind(U32, Wasm.Limits, Wasm.decode.byte(0, bs), f => r =>
+    Wasm.decode.bind(U32, Wasm.Limits, Wasm.decode.u32(r), n => r2 =>
+      Some{Wasm.Decoded{Wasm.Limits{n}, r2}}))
 
 def Wasm.decode.export.kind(
   kind: Nat, name: List<&2, Word(8n)>, bs: List<&2, Word(8n)>
@@ -400,11 +385,6 @@ def Wasm.decode.block(loop: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Deco
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.byte(64, bs), t => r =>
     Some{Wasm.Decoded{Wasm.Token.start{loop}, r}})
 
-# br_table (spec 5.3): a vector of labels, then the default label
-def Wasm.decode.table(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
-  Wasm.decode.bind(List<&2, U32>, Wasm.Token, Wasm.decode.vec(~U32, ~Wasm.decode.u32, bs), ls => r =>
-    Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(r), l => r2 => Wasm.decode.as(Wasm.Instr.br_table{ls, l}, r2)))
-
 def Wasm.decode.memarg.if(ok: Bool, k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   match ok:
     case True{}:
@@ -439,8 +419,6 @@ def Wasm.decode.token(op: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded
       Wasm.decode.index(l => Wasm.Instr.br{l}, bs)
     case 13n:
       Wasm.decode.index(l => Wasm.Instr.br_if{l}, bs)
-    case 14n:
-      Wasm.decode.table(bs)
     case 32n:
       Wasm.decode.index(i => Wasm.Instr.local_get{i}, bs)
     case 33n:
@@ -864,34 +842,10 @@ def Wasm.valid.br_if(a: Maybe<&2, Nat>, h: Nat) -> Bool:
     case Some{k}:
       Nat.is_ge(h, 1n+k)
 
-def Wasm.valid.is_type(a: Maybe<&2, Nat>, k: Nat) -> Bool:
-  match a:
-    case None{}:
-      False{}
-    case Some{j}:
-      Nat.is_eq(j, k)
-
-# every label of ls has the type k
-def Wasm.valid.table.all(+labels: List<&2, Nat>, ls: List<&2, U32>, +k: Nat) -> Bool:
-  match ls:
-    case Nil{}:
-      True{}
-    case Con{l, rest}:
-      Wasm.valid.is_type(Wasm.valid.label(labels, l), k) && Wasm.valid.table.all(labels, rest, k)
-
-# br_table ls l: its labels all have the default label's type, and it takes
-# their values and the index
-def Wasm.valid.table(+labels: List<&2, Nat>, ls: List<&2, U32>, a: Maybe<&2, Nat>, h: Nat) -> Bool:
-  match a:
-    case None{}:
-      False{}
-    case Some{+k}:
-      Nat.is_ge(h, 1n+k) && Wasm.valid.table.all(labels, ls, k)
-
 # the instructions xs from the height h: the height at their end, or None
 # when they are invalid; labels holds the labels' types, innermost first,
 # locals the number of locals, and mem says the module has a memory. The
-# subset takes no instruction after br or br_table in their block.
+# subset takes no instruction after br in its block.
 def Wasm.valid.go(
   xs: List<&2, Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +locals: U32, +mem: Bool
 ) -> Maybe<&2, Wasm.Height>:
@@ -934,9 +888,6 @@ def Wasm.valid.go(
     case Con{Wasm.Instr.br_if{l}, rest}:
       Wasm.valid.if(Wasm.valid.br_if(Wasm.valid.label(labels, l), h),
         u => Wasm.valid.go(rest, Nat.sub(h, 1n), labels, locals, mem))
-    case Con{Wasm.Instr.br_table{ls, l}, rest}:
-      Wasm.valid.if(Wasm.valid.table(labels, ls, Wasm.valid.label(labels, l), h) && List.is_empty(&2, Wasm.Instr, rest),
-        u => Some{Wasm.Height.any{}})
 
 # a function's body ends with its results, or after a branch
 def Wasm.valid.is_results(m: Maybe<&2, Wasm.Height>, q: Nat) -> Bool:
@@ -962,21 +913,13 @@ def Wasm.valid.funcs(+mem: Bool, fs: List<&2, Wasm.Func>) -> Bool:
     case Con{f, rest}:
       Wasm.valid.func(mem, f) && Wasm.valid.funcs(mem, rest)
 
-# memory limits (spec 3.2): at most 2^16 pages, the minimum no more than the
-# maximum
-def Wasm.valid.max(+min: U32, max: Maybe<&2, U32>) -> Bool:
-  match max:
-    case None{}:
-      True{}
-    case Some{+k}:
-      U32.is_le(k, 65536) && U32.is_le(min, k)
-
+# memory limits (spec 3.2): at most 2^16 pages
 def Wasm.valid.memory(m: Maybe<&2, Wasm.Limits>) -> Bool:
   match m:
     case None{}:
       True{}
-    case Some{Wasm.Limits{+min, max}}:
-      U32.is_le(min, 65536) && Wasm.valid.max(min, max)
+    case Some{Wasm.Limits{min}}:
+      U32.is_le(min, 65536)
 
 def Wasm.export.name(e: Wasm.Export) -> List<&2, Word(8n)>:
   match e:
@@ -1456,32 +1399,6 @@ def Wasm.step.br_if(
     case Nil{}:
       Wasm.Step.trap{mem}
 
-def Wasm.table.pick.if(zero: Bool, x: U32, more: Unit -> U32) -> U32:
-  match zero:
-    case True{}:
-      x
-    case False{}:
-      more(Unit{})
-
-# the label of br_table ls l for the index i (spec 4.4.8): the i-th of ls,
-# or l past them
-def Wasm.table.pick(ls: List<&2, U32>, +i: U32, l: U32) -> U32:
-  match ls:
-    case Nil{}:
-      l
-    case Con{x, rest}:
-      Wasm.table.pick.if(U32.is_zero(i), x, u => Wasm.table.pick(rest, U32.sub(i, 1), l))
-
-def Wasm.step.table(
-  ls: List<&2, U32>, l: U32, labels: List<&2, Wasm.Label>, results: Nat, stack: List<&2, U32>,
-  locals: List<&2, U32>, mem: Wasm.Memory
-) -> Wasm.Step:
-  match stack:
-    case Con{i, s}:
-      Wasm.step.br(List.drop(&2, Wasm.Label, labels, U32.to_nat(Wasm.table.pick(ls, i, l))), results, s, locals, mem)
-    case Nil{}:
-      Wasm.Step.trap{mem}
-
 # one step of the instruction x, with the instructions rest after it in its
 # block (spec 4.4)
 def Wasm.step.instr(
@@ -1524,8 +1441,6 @@ def Wasm.step.instr(
       Wasm.step.br(List.drop(&2, Wasm.Label, labels, U32.to_nat(l)), results, stack, locals, mem)
     case Wasm.Instr.br_if{l}:
       Wasm.step.br_if(l, rest, labels, results, stack, locals, mem)
-    case Wasm.Instr.br_table{ls, l}:
-      Wasm.step.table(ls, l, labels, results, stack, locals, mem)
 
 # one step of a running function
 def Wasm.step(f: Wasm.Frame, mem: Wasm.Memory) -> Wasm.Step:
@@ -1605,11 +1520,6 @@ def Wasm.min.if(le: Bool, a: U32, b: U32) -> U32:
 def Wasm.min(+a: U32, +b: U32) -> U32:
   Wasm.min.if(U32.is_le(a, b), a, b)
 
-# the limit of a memory's growth: its maximum, if any, at most m pages, and
-# at most 2^16 pages (4 GiB)
-def Wasm.limit(max: Maybe<&2, U32>, +m: U32) -> U32:
-  Wasm.min(Maybe.default(&2, U32, max, 65536), Wasm.min(m, 65536))
-
 def Wasm.memory.of.if(ok: Bool, mem: Wasm.Memory) -> Maybe<&2, Wasm.Memory>:
   match ok:
     case True{}:
@@ -1617,14 +1527,15 @@ def Wasm.memory.of.if(ok: Bool, mem: Wasm.Memory) -> Maybe<&2, Wasm.Memory>:
     case False{}:
       None{}
 
-# the memory of the limits, at its minimum, when that fits in m pages; a
-# module without one gets a memory of no pages, which it cannot use
+# the memory of the limits, at its minimum, when that fits in m pages, and
+# whose growth stops at m pages and at 2^16 pages (4 GiB); a module without
+# one gets a memory of no pages, which it cannot use
 def Wasm.memory.of(l: Maybe<&2, Wasm.Limits>, +m: U32) -> Maybe<&2, Wasm.Memory>:
   match l:
     case None{}:
       Some{Wasm.Memory{0, 0, Wasm.Bytes.zero{}}}
-    case Some{Wasm.Limits{+min, max}}:
-      Wasm.memory.of.if(U32.is_le(min, m), Wasm.Memory{min, Wasm.limit(max, m), Wasm.Bytes.zero{}})
+    case Some{Wasm.Limits{+min}}:
+      Wasm.memory.of.if(U32.is_le(min, m), Wasm.Memory{min, Wasm.min(m, 65536), Wasm.Bytes.zero{}})
 
 def Wasm.fits.len(+p: U32, +k: U32, n: Maybe<&2, U32>) -> Bool:
   match n:
