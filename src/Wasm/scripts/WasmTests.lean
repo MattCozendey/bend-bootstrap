@@ -221,9 +221,9 @@ partial def instrForms (ks : List String) (xs : Term) : List String :=
 -- the forms of each function of the module m (a Wasm.Module term)
 def Module.forms (m : Term) : List (List String) :=
   match unctor m with
-  | some ("Wasm.Module", [fs, _, _, _]) => ((unlist fs).getD []).map fun f =>
+  | some ("Wasm.Module", [_, fs, _, _, _]) => ((unlist fs).getD []).map fun f =>
     match unctor f with
-    | some ("Wasm.Func", [_, _, _, b]) => instrForms ["function"] b
+    | some ("Wasm.Func", [_, _, b]) => instrForms ["function"] b
     | _ => ["?"]
   | _ => [["?"]]
 
@@ -233,7 +233,7 @@ def exportForms (i : Term) (name : List UInt8) : List String :=
   match unctor i with
   | some ("Wasm.Instance", [m, _]) =>
     match unctor m with
-    | some ("Wasm.Module", [_, _, es, _]) =>
+    | some ("Wasm.Module", [_, _, _, es, _]) =>
       let j := ((unlist es).getD []).findSome? fun e => match unctor e with
         | some ("Wasm.Export.func", [n, j]) => if unbytes n == some name then unU32 j else none
         | _ => none
