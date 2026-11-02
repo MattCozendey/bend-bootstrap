@@ -213,6 +213,7 @@ def invoke (c : Cfg) (i : Term) (name : List UInt8) (args : List Nat) : Invoked 
 -- load's or store's offset; an op's operator; for a branch, whether it leaves
 -- its innermost label (depth 0) or more, and the kind of the label that it
 -- goes to. The instructions are terms of the model's Wasm.Instr.
+-- A block's or loop's form, and so its label's kind, holds its block type.
 
 -- the forms of the instructions xs, inside labels of the kinds ks, innermost
 -- first
@@ -222,7 +223,9 @@ partial def instrForms (ks : List String) (xs : Term) : List String :=
     | some (k, fs) =>
       let kind := String.ofList (k.toList.drop "Wasm.Instr.".length)
       match kind, fs with
-      | "block", [b] | "loop", [b] => kind :: instrForms (kind :: ks) b
+      | "block", [t, b] | "loop", [t, b] =>
+        let f := s!"{kind} {((unctor t).map fun (c, _) => String.ofList (c.toList.drop "Wasm.Blocktype.".length)).getD "?"}"
+        f :: instrForms (f :: ks) b
       | "br", [l] | "br_if", [l] =>
         let d := (unU32 l).getD 0
         [s!"{kind} depth {if d == 0 then "0" else ">0"} to {ks.getD d "?"}"]
@@ -235,9 +238,9 @@ partial def instrForms (ks : List String) (xs : Term) : List String :=
 -- the forms of each function of the module m (a Wasm.Module term)
 def Module.forms (m : Term) : List (List String) :=
   match unctor m with
-  | some ("Wasm.Module", [fs, _, _, _]) => ((unlist fs).getD []).map fun f =>
+  | some ("Wasm.Module", [_, fs, _, _, _]) => ((unlist fs).getD []).map fun f =>
     match unctor f with
-    | some ("Wasm.Func", [_, _, _, b]) => instrForms ["function"] b
+    | some ("Wasm.Func", [_, _, b]) => instrForms ["function"] b
     | _ => ["?"]
   | _ => [["?"]]
 
@@ -247,7 +250,7 @@ def exportForms (i : Term) (name : List UInt8) : List String :=
   match unctor i with
   | some ("Wasm.Instance", [m, _]) =>
     match unctor m with
-    | some ("Wasm.Module", [_, _, es, _]) =>
+    | some ("Wasm.Module", [_, _, _, es, _]) =>
       let j := ((unlist es).getD []).findSome? fun e => match unctor e with
         | some ("Wasm.Export.func", [n, j]) => if unbytes n == some name then unU32 j else none
         | _ => none

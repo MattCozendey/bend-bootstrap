@@ -11,9 +11,9 @@ import ../Shared/shared.bend as Sd
 # leaves open: the most pages (of 64 KiB) of memory, and the grows that it
 # refuses. A module
 # outside the subset gives unsupported and does not run. The subset is in
-# every version of the spec (1.0, 2.0, 3.0); where they decode a number with
-# more bits, the model reads the 32 bits of 1.0, so it accepts only what
-# every version accepts, and it runs that as every version does.
+# the versions 2.0 and 3.0 of the spec; where 3.0 decodes a number with more
+# bits, the model reads the 32 bits of 2.0, so it accepts only what both
+# versions accept, and it runs that as both do.
 
 # Types
 # -----
@@ -42,8 +42,15 @@ type Wasm.Op is Data:
   Wasm.Op.le_u{}
   Wasm.Op.ge_u{}
 
-# an instruction; a block or a loop holds its body, and takes and gives
-# no values
+# a block type (spec 2.3): _RESULT t?, which in the subset is empty (no
+# values, 0x40) or i32 (one i32 result, 0x7F); or _IDX x (index), the
+# function type of index x of the module's types
+type Wasm.Blocktype is Data:
+  Wasm.Blocktype.empty{}
+  Wasm.Blocktype.i32{}
+  Wasm.Blocktype.index{x: U32}
+
+# an instruction; a block or a loop holds its block type and its body
 type Wasm.Instr is Data:
   Wasm.Instr.const{n: U32}
   Wasm.Instr.local_get{i: U32}
@@ -57,8 +64,8 @@ type Wasm.Instr is Data:
   Wasm.Instr.store8{offset: U32}
   Wasm.Instr.memory_size{}
   Wasm.Instr.memory_grow{}
-  Wasm.Instr.block{body: List<&2, Wasm.Instr>}
-  Wasm.Instr.loop{body: List<&2, Wasm.Instr>}
+  Wasm.Instr.block{bt: Wasm.Blocktype, body: List<&2, Wasm.Instr>}
+  Wasm.Instr.loop{bt: Wasm.Blocktype, body: List<&2, Wasm.Instr>}
   Wasm.Instr.br{l: U32}
   Wasm.Instr.br_if{l: U32}
 
@@ -66,10 +73,10 @@ type Wasm.Instr is Data:
 type Wasm.Type is Data:
   Wasm.Type{params: Nat, results: Nat}
 
-# a function: its numbers of i32 parameters, results and locals (after the
+# a function: the index of its type, its number of i32 locals (after the
 # parameters), and its body
 type Wasm.Func is Data:
-  Wasm.Func{params: Nat, results: Nat, locals: Nat, body: List<&2, Wasm.Instr>}
+  Wasm.Func{typeidx: U32, locals: Nat, body: List<&2, Wasm.Instr>}
 
 # an export: of a function, by its index, or of the memory
 type Wasm.Export is Data:
@@ -84,9 +91,11 @@ type Wasm.Limits is Data:
 type Wasm.Segment is Data:
   Wasm.Segment{offset: U32, bytes: List<&2, Word(8n)>}
 
-# a module of the subset
+# a module of the subset; its functions and block types name its types by
+# index
 type Wasm.Module is Data:
   Wasm.Module{
+    types: List<&2, Wasm.Type>,
     funcs: List<&2, Wasm.Func>,
     memory: Maybe<&2, Wasm.Limits>,
     exports: List<&2, Wasm.Export>,
@@ -176,6 +185,27 @@ def Wasm.decode.sleb(n: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U
       +v = Sd.Byte.to_u32(b)
       Wasm.decode.leb.if(U32.is_lt(v, 128), Wasm.decode.sleb.last(k, v), Wasm.decode.sleb.sign(v),
         rest, r => None{})
+
+# sN at least 0, for N <= 33, whose numbers fit a U32 (spec 5.1):
+#   a byte n < 2^6 with n < 2^(N-1) is n (a last byte from 2^6 to 2^7 is a
+#   number below 0); a byte n >= 2^7 with N > 7, then i of s(N-7) at least
+#   0, is 2^7 * i + (n - 2^7)
+def Wasm.decode.s33.go(n: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
+  match n bs:
+    case _ Nil{}:
+      None{}
+    case 8n+p Con{b, rest}:
+      +v = Sd.Byte.to_u32(b)
+      Wasm.decode.leb.if(U32.is_lt(v, 128), U32.is_lt(v, 64), v, rest,
+        r => Wasm.decode.leb.more(v, Wasm.decode.s33.go(1n+p, r)))
+    case +k Con{b, rest}:
+      +v = Sd.Byte.to_u32(b)
+      Wasm.decode.leb.if(U32.is_lt(v, 128), U32.is_lt(v, 64) && U32.is_lt(v, U32.shln(1, Nat.sub(k, 1n))), v, rest,
+        r => None{})
+
+# the type index of a block type (spec 5.3): an s33 number at least 0
+def Wasm.decode.s33(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
+  Wasm.decode.s33.go(33n, bs)
 
 def Wasm.decode.u32(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
   Wasm.decode.uleb(32n, bs)
@@ -367,11 +397,11 @@ def Wasm.decode.export.of(name: List<&2, Word(8n)>, bs: List<&2, Word(8n)>) -> M
 def Wasm.decode.export(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Export>>:
   Wasm.decode.bind(List<&2, Word(8n)>, Wasm.Export, Wasm.decode.name(bs), n => r => Wasm.decode.export.of(n, r))
 
-# the head of an instruction: an instruction, the start of a block or a loop,
-# or the end of a block
+# the head of an instruction: an instruction, the start of a block or a loop
+# with its block type, or the end of a block
 type Wasm.Token is Data:
   Wasm.Token.instr{x: Wasm.Instr}
-  Wasm.Token.start{loop: Bool}
+  Wasm.Token.start{loop: Bool, bt: Wasm.Blocktype}
   Wasm.Token.end{}
 
 def Wasm.decode.as(x: Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
@@ -381,11 +411,34 @@ def Wasm.decode.as(x: Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Deco
 def Wasm.decode.index(k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.u32(bs), i => r => Wasm.decode.as(k(i), r))
 
-# the start of a block or a loop (spec 5.3): its block type, which must be
-# 0x40 (no values)
+def Wasm.decode.blocktype.if(
+  empty: Bool, i32: Bool, rest: List<&2, Word(8n)>, bs: List<&2, Word(8n)>
+) -> Maybe<&2, Wasm.Decoded<Wasm.Blocktype>>:
+  match empty i32:
+    case True{} _:
+      Some{Wasm.Decoded{Wasm.Blocktype.empty{}, rest}}
+    case False{} True{}:
+      Some{Wasm.Decoded{Wasm.Blocktype.i32{}, rest}}
+    case False{} False{}:
+      Wasm.decode.bind(U32, Wasm.Blocktype, Wasm.decode.s33(bs), x => r =>
+        Some{Wasm.Decoded{Wasm.Blocktype.index{x}, r}})
+
+# a block type (spec 5.3): 0x40, of no values; a value type, of one result,
+# which in the subset is i32 (0x7F); or a type index. Each other value type
+# begins with a byte that s33 reads as a number below 0, so it leaves the
+# subset
+def Wasm.decode.blocktype(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Blocktype>>:
+  match bs:
+    case Nil{}:
+      None{}
+    case Con{+b, +rest}:
+      +v = Sd.Byte.to_u32(b)
+      Wasm.decode.blocktype.if(U32.is_eq(v, 64), U32.is_eq(v, 127), rest, Con{b, rest})
+
+# the start of a block or a loop (spec 5.3): its block type
 def Wasm.decode.block(loop: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
-  Wasm.decode.bind(U32, Wasm.Token, Wasm.decode.byte(64, bs), t => r =>
-    Some{Wasm.Decoded{Wasm.Token.start{loop}, r}})
+  Wasm.decode.bind(Wasm.Blocktype, Wasm.Token, Wasm.decode.blocktype(bs), bt => r =>
+    Some{Wasm.Decoded{Wasm.Token.start{loop, bt}, r}})
 
 def Wasm.decode.memarg.if(ok: Bool, k: U32 -> Wasm.Instr, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Token>>:
   match ok:
@@ -470,17 +523,17 @@ def Wasm.decode.token(op: Nat, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded
     case _:
       None{}
 
-# an open block: whether it is a loop, and the instructions before it in its
-# own block, the last first
+# an open block: whether it is a loop, its block type, and the instructions
+# before it in its own block, the last first
 type Wasm.Open is Data:
-  Wasm.Open{loop: Bool, before: List<&2, Wasm.Instr>}
+  Wasm.Open{loop: Bool, bt: Wasm.Blocktype, before: List<&2, Wasm.Instr>}
 
-def Wasm.decode.closed(loop: Bool, body: List<&2, Wasm.Instr>) -> Wasm.Instr:
+def Wasm.decode.closed(loop: Bool, bt: Wasm.Blocktype, body: List<&2, Wasm.Instr>) -> Wasm.Instr:
   match loop:
     case True{}:
-      Wasm.Instr.loop{body}
+      Wasm.Instr.loop{bt, body}
     case False{}:
-      Wasm.Instr.block{body}
+      Wasm.Instr.block{bt, body}
 
 # an end: of the outermost block, its instructions; of an open block, the
 # block joins the instructions before it
@@ -493,8 +546,8 @@ def Wasm.decode.instrs.end(
   match st:
     case Nil{}:
       Some{Wasm.Decoded{List.reverse(&2, Wasm.Instr, xs), r}}
-    case Con{Wasm.Open{loop, before}, outer}:
-      more(r, Con{Wasm.decode.closed(loop, List.reverse(&2, Wasm.Instr, xs)), before}, outer)
+    case Con{Wasm.Open{loop, bt, before}, outer}:
+      more(r, Con{Wasm.decode.closed(loop, bt, List.reverse(&2, Wasm.Instr, xs)), before}, outer)
 
 # the next head, after the instructions xs (the last first) of the innermost
 # open block, inside the open blocks st (the innermost first)
@@ -509,8 +562,8 @@ def Wasm.decode.instrs.then(
       None{}
     case Some{Wasm.Decoded{Wasm.Token.instr{x}, r}}:
       more(r, Con{x, xs}, st)
-    case Some{Wasm.Decoded{Wasm.Token.start{loop}, r}}:
-      more(r, Nil{}, Con{Wasm.Open{loop, xs}, st})
+    case Some{Wasm.Decoded{Wasm.Token.start{loop, bt}, r}}:
+      more(r, Nil{}, Con{Wasm.Open{loop, bt, xs}, st})
     case Some{Wasm.Decoded{Wasm.Token.end{}, r}}:
       Wasm.decode.instrs.end(st, xs, r, more)
 
@@ -592,11 +645,25 @@ def Wasm.decode.data.if(ok: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Deco
     case False{}:
       None{}
 
-# a data segment (spec 5.4): 0, an active one of memory 0, then its offset,
-# which in the subset is the constant expression i32.const n end, then its
-# bytes
+# the memory of an active data segment, by its flag (spec 5.4): 0, of memory
+# 0; 2, of the memory index that follows. Another flag (1 is a passive
+# segment) leaves the subset
+def Wasm.decode.data.memory(zero: Bool, two: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
+  match zero two:
+    case True{} _:
+      Some{Wasm.Decoded{0, bs}}
+    case False{} True{}:
+      Wasm.decode.u32(bs)
+    case False{} False{}:
+      None{}
+
+# a data segment (spec 5.4): its flag and its memory, which in the subset is
+# memory 0, then its offset, which in the subset is the constant expression
+# i32.const n end, then its bytes
 def Wasm.decode.data(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
-  Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.u32(bs), flag => r => Wasm.decode.data.if(U32.is_zero(flag), r))
+  Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.u32(bs), +flag => r =>
+    Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.data.memory(U32.is_zero(flag), U32.is_eq(flag, 2), r), +x => r2 =>
+      Wasm.decode.data.if(U32.is_zero(x), r2)))
 
 # a section (spec 5.4): its id, its size, then exactly that many bytes
 type Wasm.Section is Data:
@@ -688,45 +755,21 @@ def Wasm.decode.one(-A: Data, m: Maybe<&2, List<&2, A>>) -> Maybe<&2, Maybe<&2, 
     case _:
       None{}
 
-def Wasm.type.at.if(zero: Bool, t: Wasm.Type, more: Unit -> Maybe<&2, Wasm.Type>) -> Maybe<&2, Wasm.Type>:
-  match zero:
-    case True{}:
-      Some{t}
-    case False{}:
-      more(Unit{})
-
-# the type of index i
-def Wasm.type.at(ts: List<&2, Wasm.Type>, +i: U32) -> Maybe<&2, Wasm.Type>:
-  match ts:
-    case Nil{}:
+def Wasm.funcs.cons(f: Wasm.Func, m: Maybe<&2, List<&2, Wasm.Func>>) -> Maybe<&2, List<&2, Wasm.Func>>:
+  match m:
+    case None{}:
       None{}
-    case Con{t, rest}:
-      Wasm.type.at.if(U32.is_zero(i), t, u => Wasm.type.at(rest, U32.sub(i, 1)))
+    case Some{fs}:
+      Some{Con{f, fs}}
 
-def Wasm.func.of(t: Maybe<&2, Wasm.Type>, c: Wasm.Code) -> Maybe<&2, Wasm.Func>:
-  match t c:
-    case None{} _:
-      None{}
-    case Some{Wasm.Type{p, q}} Wasm.Code{n, b}:
-      Some{Wasm.Func{p, q, n, b}}
-
-def Wasm.funcs.cons(f: Maybe<&2, Wasm.Func>, m: Maybe<&2, List<&2, Wasm.Func>>) -> Maybe<&2, List<&2, Wasm.Func>>:
-  match f m:
-    case Some{x} Some{xs}:
-      Some{Con{x, xs}}
-    case _ _:
-      None{}
-
-# the functions, of the function section's types and the code section's
-# codes, one each (spec 5.4)
-def Wasm.funcs.of(
-  +ts: List<&2, Wasm.Type>, idx: List<&2, U32>, cs: List<&2, Wasm.Code>
-) -> Maybe<&2, List<&2, Wasm.Func>>:
+# the functions, of the function section's type indices and the code
+# section's codes, one each (spec 5.4)
+def Wasm.funcs.of(idx: List<&2, U32>, cs: List<&2, Wasm.Code>) -> Maybe<&2, List<&2, Wasm.Func>>:
   match idx cs:
     case Nil{} Nil{}:
       Some{Nil{}}
-    case Con{i, idx2} Con{c, cs2}:
-      Wasm.funcs.cons(Wasm.func.of(Wasm.type.at(ts, i), c), Wasm.funcs.of(ts, idx2, cs2))
+    case Con{i, idx2} Con{Wasm.Code{n, b}, cs2}:
+      Wasm.funcs.cons(Wasm.Func{i, n, b}, Wasm.funcs.of(idx2, cs2))
     case _ _:
       None{}
 
@@ -741,8 +784,8 @@ def Wasm.decode.module.parts(
           Maybe.bind(&2, List<&2, Wasm.Code>, Wasm.Module, Wasm.decode.part(~Wasm.Code, ~Wasm.decode.code, Wasm.sections.find(ss, 10)), cs =>
             Maybe.bind(&2, Maybe<&2, Wasm.Segment>, Wasm.Module,
               Wasm.decode.one(Wasm.Segment, Wasm.decode.part(~Wasm.Segment, ~Wasm.decode.data, Wasm.sections.find(ss, 11))), seg =>
-              Maybe.bind(&2, List<&2, Wasm.Func>, Wasm.Module, Wasm.funcs.of(ts, idx, cs), fs =>
-                Some{Wasm.Module{fs, mem, es, seg}})))))))
+              Maybe.bind(&2, List<&2, Wasm.Func>, Wasm.Module, Wasm.funcs.of(idx, cs), fs =>
+                Some{Wasm.Module{ts, fs, mem, es, seg}})))))))
 
 def Wasm.decode.module.if(ok: Bool, +ss: List<&2, Wasm.Section>) -> Maybe<&2, Wasm.Module>:
   match ok:
@@ -790,8 +833,8 @@ def Wasm.decode.module(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Module>:
 # (spec 3.5). Every value is an i32, so a type is a number of values: a
 # label's type is the number of values that a branch to it takes.
 
-# a stack's height at the end of instructions, relative to their block's
-# start, or any after a branch
+# a stack's height at the end of instructions, counted from the bottom of
+# their block's own values (its parameters first), or any after a branch
 type Wasm.Height is Data:
   Wasm.Height.at{h: Nat}
   Wasm.Height.any{}
@@ -818,15 +861,57 @@ def Wasm.valid.label(labels: List<&2, Nat>, +l: U32) -> Maybe<&2, Nat>:
     case Con{a, rest}:
       Wasm.valid.label.if(U32.is_zero(l), a, u => Wasm.valid.label(rest, U32.sub(l, 1)))
 
-# a block's body ends with no values left, or after a branch
-def Wasm.valid.is_empty(m: Maybe<&2, Wasm.Height>) -> Bool:
+# instructions end with q values, or after a branch
+def Wasm.valid.is_results(m: Maybe<&2, Wasm.Height>, q: Nat) -> Bool:
   match m:
-    case Some{Wasm.Height.at{0n}}:
-      True{}
+    case Some{Wasm.Height.at{h}}:
+      Nat.is_eq(h, q)
     case Some{Wasm.Height.any{}}:
       True{}
     case _:
       False{}
+
+def Wasm.type.at.if(zero: Bool, t: Wasm.Type, more: Unit -> Maybe<&2, Wasm.Type>) -> Maybe<&2, Wasm.Type>:
+  match zero:
+    case True{}:
+      Some{t}
+    case False{}:
+      more(Unit{})
+
+# the type of index i
+def Wasm.type.at(ts: List<&2, Wasm.Type>, +i: U32) -> Maybe<&2, Wasm.Type>:
+  match ts:
+    case Nil{}:
+      None{}
+    case Con{t, rest}:
+      Wasm.type.at.if(U32.is_zero(i), t, u => Wasm.type.at(rest, U32.sub(i, 1)))
+
+# the function type of a block type, of the module's types (spec 3.4): no
+# parameters, and no result or one i32; or the type of its index
+def Wasm.blocktype(ts: List<&2, Wasm.Type>, bt: Wasm.Blocktype) -> Maybe<&2, Wasm.Type>:
+  match bt:
+    case Wasm.Blocktype.empty{}:
+      Some{Wasm.Type{0n, 0n}}
+    case Wasm.Blocktype.i32{}:
+      Some{Wasm.Type{0n, 1n}}
+    case Wasm.Blocktype.index{x}:
+      Wasm.type.at(ts, x)
+
+# a block or a loop (spec 3.4) of the function type t, at the height h: it
+# takes its p parameters and leaves its q results. body(p, a) checks its body
+# from the p parameters, inside a label of the type a: the results of a
+# block, the parameters of a loop; it must end with the q results. more(g)
+# checks the instructions after it, from g = h - p + q
+def Wasm.valid.block(
+  t: Maybe<&2, Wasm.Type>, +h: Nat, loop: Bool, body: Nat -> Nat -> Maybe<&2, Wasm.Height>,
+  more: Nat -> Maybe<&2, Wasm.Height>
+) -> Maybe<&2, Wasm.Height>:
+  match t:
+    case None{}:
+      None{}
+    case Some{Wasm.Type{+p, +q}}:
+      Wasm.valid.if(Nat.is_ge(h, p) && Wasm.valid.is_results(body(p, Bool.pick(Nat, loop, p, q)), q),
+        u => more(Nat.add(Nat.sub(h, p), q)))
 
 # br l takes the label's values
 def Wasm.valid.br(a: Maybe<&2, Nat>, h: Nat) -> Bool:
@@ -846,74 +931,76 @@ def Wasm.valid.br_if(a: Maybe<&2, Nat>, h: Nat) -> Bool:
 
 # the instructions xs from the height h: the height at their end, or None
 # when they are invalid; labels holds the labels' types, innermost first,
-# locals the number of locals, and mem says the module has a memory. The
-# subset takes no instruction after br in its block.
+# locals the number of locals, types the module's types, and mem says the
+# module has a memory. The subset takes no instruction after br in its block.
 def Wasm.valid.go(
-  xs: List<&2, Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +locals: U32, +mem: Bool
+  xs: List<&2, Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +locals: U32, +types: List<&2, Wasm.Type>, +mem: Bool
 ) -> Maybe<&2, Wasm.Height>:
   match xs:
     case Nil{}:
       Some{Wasm.Height.at{h}}
     case Con{Wasm.Instr.const{_}, rest}:
-      Wasm.valid.go(rest, 1n+h, labels, locals, mem)
+      Wasm.valid.go(rest, 1n+h, labels, locals, types, mem)
     case Con{Wasm.Instr.local_get{i}, rest}:
-      Wasm.valid.if(U32.is_lt(i, locals), u => Wasm.valid.go(rest, 1n+h, labels, locals, mem))
+      Wasm.valid.if(U32.is_lt(i, locals), u => Wasm.valid.go(rest, 1n+h, labels, locals, types, mem))
     case Con{Wasm.Instr.local_set{i}, rest}:
-      Wasm.valid.if(U32.is_lt(i, locals) && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, Nat.sub(h, 1n), labels, locals, mem))
+      Wasm.valid.if(U32.is_lt(i, locals) && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, Nat.sub(h, 1n), labels, locals, types, mem))
     case Con{Wasm.Instr.local_tee{i}, rest}:
-      Wasm.valid.if(U32.is_lt(i, locals) && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, mem))
+      Wasm.valid.if(U32.is_lt(i, locals) && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, types, mem))
     case Con{Wasm.Instr.op{_}, rest}:
-      Wasm.valid.if(Nat.is_ge(h, 2n), u => Wasm.valid.go(rest, Nat.sub(h, 1n), labels, locals, mem))
+      Wasm.valid.if(Nat.is_ge(h, 2n), u => Wasm.valid.go(rest, Nat.sub(h, 1n), labels, locals, types, mem))
     case Con{Wasm.Instr.eqz{}, rest}:
-      Wasm.valid.if(Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, mem))
+      Wasm.valid.if(Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, types, mem))
     case Con{Wasm.Instr.load{_}, rest}:
-      Wasm.valid.if(mem && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, mem))
+      Wasm.valid.if(mem && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, types, mem))
     case Con{Wasm.Instr.load8_u{_}, rest}:
-      Wasm.valid.if(mem && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, mem))
+      Wasm.valid.if(mem && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, types, mem))
     case Con{Wasm.Instr.store{_}, rest}:
-      Wasm.valid.if(mem && Nat.is_ge(h, 2n), u => Wasm.valid.go(rest, Nat.sub(h, 2n), labels, locals, mem))
+      Wasm.valid.if(mem && Nat.is_ge(h, 2n), u => Wasm.valid.go(rest, Nat.sub(h, 2n), labels, locals, types, mem))
     case Con{Wasm.Instr.store8{_}, rest}:
-      Wasm.valid.if(mem && Nat.is_ge(h, 2n), u => Wasm.valid.go(rest, Nat.sub(h, 2n), labels, locals, mem))
+      Wasm.valid.if(mem && Nat.is_ge(h, 2n), u => Wasm.valid.go(rest, Nat.sub(h, 2n), labels, locals, types, mem))
     case Con{Wasm.Instr.memory_size{}, rest}:
-      Wasm.valid.if(mem, u => Wasm.valid.go(rest, 1n+h, labels, locals, mem))
+      Wasm.valid.if(mem, u => Wasm.valid.go(rest, 1n+h, labels, locals, types, mem))
     case Con{Wasm.Instr.memory_grow{}, rest}:
-      Wasm.valid.if(mem && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, mem))
-    case Con{Wasm.Instr.block{body}, rest}:
-      Wasm.valid.if(Wasm.valid.is_empty(Wasm.valid.go(body, 0n, Con{0n, labels}, locals, mem)),
-        u => Wasm.valid.go(rest, h, labels, locals, mem))
-    case Con{Wasm.Instr.loop{body}, rest}:
-      Wasm.valid.if(Wasm.valid.is_empty(Wasm.valid.go(body, 0n, Con{0n, labels}, locals, mem)),
-        u => Wasm.valid.go(rest, h, labels, locals, mem))
+      Wasm.valid.if(mem && Nat.is_ge(h, 1n), u => Wasm.valid.go(rest, h, labels, locals, types, mem))
+    case Con{Wasm.Instr.block{bt, body}, rest}:
+      Wasm.valid.block(Wasm.blocktype(types, bt), h, False{},
+        p => a => Wasm.valid.go(body, p, Con{a, labels}, locals, types, mem),
+        g => Wasm.valid.go(rest, g, labels, locals, types, mem))
+    case Con{Wasm.Instr.loop{bt, body}, rest}:
+      Wasm.valid.block(Wasm.blocktype(types, bt), h, True{},
+        p => a => Wasm.valid.go(body, p, Con{a, labels}, locals, types, mem),
+        g => Wasm.valid.go(rest, g, labels, locals, types, mem))
     case Con{Wasm.Instr.br{l}, rest}:
       Wasm.valid.if(Wasm.valid.br(Wasm.valid.label(labels, l), h) && List.is_empty(&2, Wasm.Instr, rest),
         u => Some{Wasm.Height.any{}})
     case Con{Wasm.Instr.br_if{l}, rest}:
       Wasm.valid.if(Wasm.valid.br_if(Wasm.valid.label(labels, l), h),
-        u => Wasm.valid.go(rest, Nat.sub(h, 1n), labels, locals, mem))
+        u => Wasm.valid.go(rest, Nat.sub(h, 1n), labels, locals, types, mem))
 
-# a function's body ends with its results, or after a branch
-def Wasm.valid.is_results(m: Maybe<&2, Wasm.Height>, q: Nat) -> Bool:
-  match m:
-    case Some{Wasm.Height.at{h}}:
-      Nat.is_eq(h, q)
-    case Some{Wasm.Height.any{}}:
-      True{}
-    case _:
+# a function of the type t (spec 3.5): its locals are its parameters, then
+# its n locals; its body's label, and its end, take its results
+def Wasm.valid.func.of(
+  t: Maybe<&2, Wasm.Type>, n: Nat, body: List<&2, Wasm.Instr>, +types: List<&2, Wasm.Type>, +mem: Bool
+) -> Bool:
+  match t:
+    case None{}:
       False{}
+    case Some{Wasm.Type{p, +q}}:
+      Wasm.valid.is_results(Wasm.valid.go(body, 0n, [q], U32.from_nat(Nat.add(p, n)), types, mem), q)
 
-# a function (spec 3.5): its locals are its parameters, then its locals;
-# its body's label, and its end, take its results
-def Wasm.valid.func(+mem: Bool, f: Wasm.Func) -> Bool:
+# a function (spec 3.5), of the type of its index
+def Wasm.valid.func(+types: List<&2, Wasm.Type>, +mem: Bool, f: Wasm.Func) -> Bool:
   match f:
-    case Wasm.Func{p, +q, n, body}:
-      Wasm.valid.is_results(Wasm.valid.go(body, 0n, [q], U32.from_nat(Nat.add(p, n)), mem), q)
+    case Wasm.Func{x, n, body}:
+      Wasm.valid.func.of(Wasm.type.at(types, x), n, body, types, mem)
 
-def Wasm.valid.funcs(+mem: Bool, fs: List<&2, Wasm.Func>) -> Bool:
+def Wasm.valid.funcs(+types: List<&2, Wasm.Type>, +mem: Bool, fs: List<&2, Wasm.Func>) -> Bool:
   match fs:
     case Nil{}:
       True{}
     case Con{f, rest}:
-      Wasm.valid.func(mem, f) && Wasm.valid.funcs(mem, rest)
+      Wasm.valid.func(types, mem, f) && Wasm.valid.funcs(types, mem, rest)
 
 # memory limits (spec 3.2): at most 2^16 pages
 def Wasm.valid.memory(m: Maybe<&2, Wasm.Limits>) -> Bool:
@@ -960,9 +1047,9 @@ def Wasm.valid.data(seg: Maybe<&2, Wasm.Segment>, mem: Bool) -> Bool:
 # a module (spec 3.5)
 def Wasm.valid.module(m: Wasm.Module) -> Bool:
   match m:
-    case Wasm.Module{+fs, +memory, es, seg}:
+    case Wasm.Module{ts, +fs, +memory, es, seg}:
       +mem = Maybe.is_some(&2, Wasm.Limits, memory)
-      Wasm.valid.memory(memory) && Wasm.valid.funcs(mem, fs) &&
+      Wasm.valid.memory(memory) && Wasm.valid.funcs(ts, mem, fs) &&
         Wasm.valid.exports(es, U32.from_nat(List.length(&2, Wasm.Func, fs)), mem) && Wasm.valid.data(seg, mem)
 
 # Running
@@ -1168,10 +1255,11 @@ def Wasm.op(o: Wasm.Op, +a: U32, +b: U32) -> U32:
 type Wasm.Memory is Data:
   Wasm.Memory{pages: U32, limit: U32, grows: List<&2, Bool>, bytes: Wasm.Bytes}
 
-# a label (spec 4.2): for a loop, its body, which a branch runs again; the
-# instructions after its block; and the stack's height when it began
+# a label (spec 4.2): its arity, the number of values that a branch to it
+# takes; for a loop, its body, which a branch runs again; the instructions
+# after its block; and the stack's height below the block's parameters
 type Wasm.Label is Data:
-  Wasm.Label{loop: Maybe<&2, List<&2, Wasm.Instr>>, rest: List<&2, Wasm.Instr>, height: Nat}
+  Wasm.Label{arity: Nat, loop: Maybe<&2, List<&2, Wasm.Instr>>, rest: List<&2, Wasm.Instr>, height: Nat}
 
 # a running function (spec 4.2): the instructions left in its innermost
 # block, its labels (innermost first), its number of results, its stack (top
@@ -1204,10 +1292,11 @@ def Wasm.step.end(
   match labels:
     case Nil{}:
       Wasm.Step.done{Wasm.results(stack, results), mem}
-    case Con{Wasm.Label{_, after, _}, outer}:
+    case Con{Wasm.Label{_, _, after, _}, outer}:
       Wasm.Step.next{Wasm.Frame{after, outer, results, stack, locals}, mem}
 
 def Wasm.step.br.to(
+  n: Nat,
   loop: Maybe<&2, List<&2, Wasm.Instr>>,
   after: List<&2, Wasm.Instr>,
   h: Nat,
@@ -1221,20 +1310,22 @@ def Wasm.step.br.to(
     case None{}:
       Wasm.Step.next{Wasm.Frame{after, outer, results, kept, locals}, mem}
     case Some{+body}:
-      Wasm.Step.next{Wasm.Frame{body, Con{Wasm.Label{Some{body}, after, h}, outer}, results, kept, locals}, mem}
+      Wasm.Step.next{Wasm.Frame{body, Con{Wasm.Label{n, Some{body}, after, h}, outer}, results, kept, locals}, mem}
 
 # a branch (spec 4.4.8) to the first label of ls: to the end of its block, or
-# to the start of its loop again, with the stack cut to the label's height;
-# past every label, the function returns its results
+# to the start of its loop again, with the label's values on top of the
+# stack cut to the label's height; past every label, the function returns
+# its results
 def Wasm.step.br(
   ls: List<&2, Wasm.Label>, +results: Nat, +stack: List<&2, U32>, locals: List<&2, U32>, mem: Wasm.Memory
 ) -> Wasm.Step:
   match ls:
     case Nil{}:
       Wasm.Step.done{Wasm.results(stack, results), mem}
-    case Con{Wasm.Label{loop, after, +h}, outer}:
-      Wasm.step.br.to(loop, after, h, outer, results,
-        List.drop(&2, U32, stack, Nat.sub(List.length(&2, U32, stack), h)), locals, mem)
+    case Con{Wasm.Label{+n, loop, after, +h}, outer}:
+      Wasm.step.br.to(n, loop, after, h, outer, results,
+        List.append(&2, U32, List.take(&2, U32, stack, n), List.drop(&2, U32, stack, Nat.sub(List.length(&2, U32, stack), h))),
+        locals, mem)
 
 def Wasm.step.set(
   i: U32, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat, stack: List<&2, U32>,
@@ -1429,10 +1520,34 @@ def Wasm.step.br_if(
     case Nil{}:
       Wasm.Step.trap{mem}
 
+# the label of a block, or of a loop (Some of its body), of p parameters and
+# q results, over the stack's height h below the parameters: a branch to a
+# block takes its results, and one to a loop its parameters
+def Wasm.label.of(loop: Maybe<&2, List<&2, Wasm.Instr>>, p: Nat, q: Nat, rest: List<&2, Wasm.Instr>, h: Nat) -> Wasm.Label:
+  match loop:
+    case None{}:
+      Wasm.Label{q, None{}, rest, h}
+    case Some{body}:
+      Wasm.Label{p, Some{body}, rest, h}
+
+# a block, or a loop (spec 4.4.8), of the function type t: its body runs on
+# the stack, whose top p values are its parameters, inside its label
+def Wasm.step.block(
+  t: Maybe<&2, Wasm.Type>, loop: Maybe<&2, List<&2, Wasm.Instr>>, body: List<&2, Wasm.Instr>,
+  rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat, +stack: List<&2, U32>,
+  locals: List<&2, U32>, mem: Wasm.Memory
+) -> Wasm.Step:
+  match t:
+    case None{}:
+      Wasm.Step.trap{mem}
+    case Some{Wasm.Type{+p, q}}:
+      Wasm.Step.next{Wasm.Frame{body,
+        Con{Wasm.label.of(loop, p, q, rest, Nat.sub(List.length(&2, U32, stack), p)), labels}, results, stack, locals}, mem}
+
 # one step of the instruction x, with the instructions rest after it in its
-# block (spec 4.4)
+# block, in a module of the types types (spec 4.4)
 def Wasm.step.instr(
-  x: Wasm.Instr, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat,
+  types: List<&2, Wasm.Type>, x: Wasm.Instr, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat,
   +stack: List<&2, U32>, +locals: List<&2, U32>, mem: Wasm.Memory
 ) -> Wasm.Step:
   match x:
@@ -1461,26 +1576,24 @@ def Wasm.step.instr(
       Wasm.step.size(rest, labels, results, stack, locals, mem)
     case Wasm.Instr.memory_grow{}:
       Wasm.step.grow(rest, labels, results, stack, locals, mem)
-    case Wasm.Instr.block{body}:
-      Wasm.Step.next{Wasm.Frame{body,
-        Con{Wasm.Label{None{}, rest, List.length(&2, U32, stack)}, labels}, results, stack, locals}, mem}
-    case Wasm.Instr.loop{+body}:
-      Wasm.Step.next{Wasm.Frame{body,
-        Con{Wasm.Label{Some{body}, rest, List.length(&2, U32, stack)}, labels}, results, stack, locals}, mem}
+    case Wasm.Instr.block{bt, body}:
+      Wasm.step.block(Wasm.blocktype(types, bt), None{}, body, rest, labels, results, stack, locals, mem)
+    case Wasm.Instr.loop{bt, +body}:
+      Wasm.step.block(Wasm.blocktype(types, bt), Some{body}, body, rest, labels, results, stack, locals, mem)
     case Wasm.Instr.br{l}:
       Wasm.step.br(List.drop(&2, Wasm.Label, labels, U32.to_nat(l)), results, stack, locals, mem)
     case Wasm.Instr.br_if{l}:
       Wasm.step.br_if(l, rest, labels, results, stack, locals, mem)
 
-# one step of a running function
-def Wasm.step(f: Wasm.Frame, mem: Wasm.Memory) -> Wasm.Step:
+# one step of a running function, of a module of the types types
+def Wasm.step(types: List<&2, Wasm.Type>, f: Wasm.Frame, mem: Wasm.Memory) -> Wasm.Step:
   match f:
     case Wasm.Frame{code, labels, results, stack, locals}:
       match code:
         case Nil{}:
           Wasm.step.end(labels, results, stack, locals, mem)
         case Con{x, rest}:
-          Wasm.step.instr(x, rest, labels, results, stack, locals, mem)
+          Wasm.step.instr(types, x, rest, labels, results, stack, locals, mem)
 
 # how a call ends: its results, the memory, and the steps that it took; a
 # trap, with the memory; or no end within the fuel
@@ -1509,19 +1622,22 @@ def Wasm.call.stepped(s: Wasm.Step, more: Wasm.Frame -> Wasm.Memory -> Wasm.Call
       Wasm.Call.trap{m}
 
 # the steps of a running function, one per unit of fuel
-def Wasm.call.go(fuel: Nat, f: Wasm.Frame, mem: Wasm.Memory) -> Wasm.Call:
+def Wasm.call.go(fuel: Nat, +types: List<&2, Wasm.Type>, f: Wasm.Frame, mem: Wasm.Memory) -> Wasm.Call:
   match fuel:
     case 0n:
       Wasm.Call.not_done{}
     case 1n+k:
-      Wasm.call.stepped(Wasm.step(f, mem), g => m => Wasm.call.go(k, g, m))
+      Wasm.call.stepped(Wasm.step(types, f, mem), g => m => Wasm.call.go(k, types, g, m))
 
-# a call of the function to the arguments, in order (spec 4.4.10): its locals
-# are the arguments, then its own locals at 0
-def Wasm.call(fuel: Nat, func: Wasm.Func, args: List<&2, U32>, mem: Wasm.Memory) -> Wasm.Call:
+# a call of the function, of q results, to the arguments, in order (spec
+# 4.4.10), in a module of the types types: its locals are the arguments,
+# then its own locals at 0
+def Wasm.call(
+  fuel: Nat, types: List<&2, Wasm.Type>, q: Nat, func: Wasm.Func, args: List<&2, U32>, mem: Wasm.Memory
+) -> Wasm.Call:
   match func:
-    case Wasm.Func{_, q, n, body}:
-      Wasm.call.go(fuel, Wasm.Frame{body, Nil{}, q, Nil{}, List.append(&2, U32, args, List.replicate(U32, n, 0))}, mem)
+    case Wasm.Func{_, n, body}:
+      Wasm.call.go(fuel, types, Wasm.Frame{body, Nil{}, q, Nil{}, List.append(&2, U32, args, List.replicate(U32, n, 0))}, mem)
 
 # Instances
 # ---------
@@ -1613,8 +1729,8 @@ def Wasm.instantiate.valid(ok: Bool, module: Wasm.Module, +m: U32, gs: List<&2, 
       Wasm.Made.unsupported{}
     case True{}:
       match module:
-        case Wasm.Module{fs, +memory, es, +seg}:
-          Wasm.instantiate.sized(Wasm.memory.of(memory, m, gs), seg, Wasm.Module{fs, memory, es, seg})
+        case Wasm.Module{ts, fs, +memory, es, +seg}:
+          Wasm.instantiate.sized(Wasm.memory.of(memory, m, gs), seg, Wasm.Module{ts, fs, memory, es, seg})
 
 def Wasm.instantiate.decoded(m: Maybe<&2, Wasm.Module>, +lim: U32, gs: List<&2, Bool>) -> Wasm.Made:
   match m:
@@ -1674,13 +1790,22 @@ def Wasm.func.at(fs: List<&2, Wasm.Func>, +i: U32) -> Maybe<&2, Wasm.Func>:
 def Wasm.export.func(+fs: List<&2, Wasm.Func>, es: List<&2, Wasm.Export>, name: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Func>:
   Maybe.bind(&2, U32, Wasm.Func, Wasm.export.find(es, name), i => Wasm.func.at(fs, i))
 
-# the function has p parameters and q results
-def Wasm.func.is_type(f: Maybe<&2, Wasm.Func>, p: Nat, q: Nat) -> Bool:
+# the type has p parameters and q results
+def Wasm.type.is(t: Maybe<&2, Wasm.Type>, p: Nat, q: Nat) -> Bool:
+  match t:
+    case None{}:
+      False{}
+    case Some{Wasm.Type{a, b}}:
+      Nat.is_eq(a, p) && Nat.is_eq(b, q)
+
+# the function's type, of the module's types ts, has p parameters and q
+# results
+def Wasm.func.is_type(ts: List<&2, Wasm.Type>, f: Maybe<&2, Wasm.Func>, p: Nat, q: Nat) -> Bool:
   match f:
     case None{}:
       False{}
-    case Some{Wasm.Func{a, b, _, _}}:
-      Nat.is_eq(a, p) && Nat.is_eq(b, q)
+    case Some{Wasm.Func{x, _, _}}:
+      Wasm.type.is(Wasm.type.at(ts, x), p, q)
 
 # how an invocation ends: its results, with the instance after it and the
 # steps that it took; a trap, with the instance after it; no end within the
@@ -1701,22 +1826,35 @@ def Wasm.invoked(c: Wasm.Call, module: Wasm.Module) -> Wasm.Invoked:
       Wasm.Invoked.not_done{}
 
 def Wasm.invoke.arity(
-  ok: Bool, f: Wasm.Func, fuel: Nat, args: List<&2, U32>, mem: Wasm.Memory, module: Wasm.Module
+  ok: Bool, types: List<&2, Wasm.Type>, q: Nat, f: Wasm.Func, fuel: Nat, args: List<&2, U32>, mem: Wasm.Memory,
+  module: Wasm.Module
 ) -> Wasm.Invoked:
   match ok:
     case True{}:
-      Wasm.invoked(Wasm.call(fuel, f, args, mem), module)
+      Wasm.invoked(Wasm.call(fuel, types, q, f, args, mem), module)
     case False{}:
       Wasm.Invoked.unsupported{}
 
+# a call of the function f, of the type t
+def Wasm.invoke.typed(
+  t: Maybe<&2, Wasm.Type>, types: List<&2, Wasm.Type>, f: Wasm.Func, fuel: Nat, +args: List<&2, U32>,
+  mem: Wasm.Memory, module: Wasm.Module
+) -> Wasm.Invoked:
+  match t:
+    case None{}:
+      Wasm.Invoked.unsupported{}
+    case Some{Wasm.Type{p, q}}:
+      Wasm.invoke.arity(Nat.is_eq(p, List.length(&2, U32, args)), types, q, f, fuel, args, mem, module)
+
 def Wasm.invoke.found(
-  f: Maybe<&2, Wasm.Func>, fuel: Nat, +args: List<&2, U32>, mem: Wasm.Memory, module: Wasm.Module
+  f: Maybe<&2, Wasm.Func>, +types: List<&2, Wasm.Type>, fuel: Nat, args: List<&2, U32>, mem: Wasm.Memory,
+  module: Wasm.Module
 ) -> Wasm.Invoked:
   match f:
     case None{}:
       Wasm.Invoked.unsupported{}
-    case Some{Wasm.Func{+p, q, n, body}}:
-      Wasm.invoke.arity(Nat.is_eq(p, List.length(&2, U32, args)), Wasm.Func{p, q, n, body}, fuel, args, mem, module)
+    case Some{Wasm.Func{+x, n, body}}:
+      Wasm.invoke.typed(Wasm.type.at(types, x), types, Wasm.Func{x, n, body}, fuel, args, mem, module)
 
 # a call of the function exported as name, with the arguments in order, in at
 # most fuel steps; unsupported when no such function takes as many arguments
@@ -1724,8 +1862,8 @@ def Wasm.invoke(fuel: Nat, inst: Wasm.Instance, name: List<&2, Word(8n)>, args: 
   match inst:
     case Wasm.Instance{module, mem}:
       match module:
-        case Wasm.Module{+fs, memory, +es, seg}:
-          Wasm.invoke.found(Wasm.export.func(fs, es, name), fuel, args, mem, Wasm.Module{fs, memory, es, seg})
+        case Wasm.Module{+ts, +fs, memory, +es, seg}:
+          Wasm.invoke.found(Wasm.export.func(fs, es, name), ts, fuel, args, mem, Wasm.Module{ts, fs, memory, es, seg})
 
 # Host
 # ----
@@ -1853,10 +1991,10 @@ def Wasm.run.sized(n: Maybe<&2, U32>, +f: Nat, inst: Wasm.Instance, i: List<&2, 
 # the module exports what the host uses
 def Wasm.run.is_host(inst: Wasm.Instance) -> Bool:
   match inst:
-    case Wasm.Instance{Wasm.Module{+fs, _, +es, _}, _}:
+    case Wasm.Instance{Wasm.Module{+ts, +fs, _, +es, _}, _}:
       Wasm.export.has_memory(es, Wasm.name.memory()) &&
-        Wasm.func.is_type(Wasm.export.func(fs, es, Wasm.name.alloc()), 1n, 1n) &&
-        Wasm.func.is_type(Wasm.export.func(fs, es, Wasm.name.run()), 2n, 1n)
+        Wasm.func.is_type(ts, Wasm.export.func(fs, es, Wasm.name.alloc()), 1n, 1n) &&
+        Wasm.func.is_type(ts, Wasm.export.func(fs, es, Wasm.name.run()), 2n, 1n)
 
 def Wasm.run.instance(ok: Bool, f: Nat, inst: Wasm.Instance, +i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match ok:
