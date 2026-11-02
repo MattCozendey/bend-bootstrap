@@ -186,10 +186,10 @@ def cov.count(+n: Nat, +m: Cr.Cir.Cells, +c: U32, +rs: List<&2, D.Rt>, +xs: List
   ?TODO
 
 # with no pending cell (and so no zombie), the own cells are at most
-# Acc.need: the STATIC ones, the roots' and the frames' nodes, the frames and
-# the cells xs
+# Acc.need: the STATIC ones, the nodes of the roots, of the temporaries'
+# terms and of the frames' terms, the frames and the temporaries
 def acc.count(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, D.Rt>, +xs: List<&2, U32>, +sp: U32,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +sp: U32,
   +fs: List<&2, D.AF>, +zs: List<&2, D.Rt>,
   h: D.AccK(dk, ds, ks, img, m, nx, fi, im, rs, xs, sp, fs, Nil{}, zs)) ->
   N.Le(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), D.Acc.need(m, nx, fi, rs, xs, sp, fs)):
@@ -262,31 +262,69 @@ def stat.fresh(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +e: U32, hfn: {U32.is_le(fi
     D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat}:
   ?TODO
 
+# Stores to field 1
+# -----------------
+
+# each of the cells xs is none of ys
+def Outs(xs: List<&2, U32>, +ys: List<&2, U32>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Bool.not(D.Mem(ys, x)), Outs(rest, ys))
+
+# stores to field 1 keep every term (IsCK reads fields 0, 2, 3 and 4)
+def rts.put1(+dk: Bool, xs: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +ws: List<&2, D.W1>, +m: Cr.Cir.Cells, +im: U32, +fi: U32,
+  +nx: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, h: D.RtsK(dk, ds, m, im, fi, nx, ks, img, xs)) ->
+  D.RtsK(dk, ds, D.Put1(ws, m), im, fi, nx, ks, img, xs):
+  ?TODO
+
+# a cell of a tag below 32 is no frame
+def fr.out.lo(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +sp: U32, fs: List<&2, D.AF>, +c: U32,
+  hf: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs), ht: {U32.is_lt(D.Tg(m, c), 32) == True{} : Bool}) ->
+  {D.Mem(D.Fr.cells(fs, m, sp), c) == False{} : Bool}:
+  ?TODO
+
+# a cell out of the pend list that holds no pointer is no frame
+def fr.out.nil(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +sp: U32, fs: List<&2, D.AF>, +c: U32,
+  hf: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs), hm: {D.Mem(ps, c) == False{} : Bool},
+  hfs: {D.Fs(m, ps, c) == Nil{} : List<&2, U32>}) ->
+  {D.Mem(D.Fr.cells(fs, m, sp), c) == False{} : Bool}:
+  ?TODO
+
 # The Acc step of each heap operation (for heap_ops.bend)
 # -------------------------------------------------------
 #
 # Each takes the operation's HSK and AccK, as its law does, and gives AccK
-# after it. Where the operation stores to field 1 or sets the flag DATA, it
-# takes the zombies' terms after it (RtsK of zs), which the same frame
-# lemmas as HSK's give.
+# after it.
 
 # a new root keeps Acc (M.inc of a STATIC cell changes no cell)
 def acc.root(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +r: D.Rt, +rs: List<&2, D.Rt>, +xs: List<&2, U32>, +sp: U32,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +r: D.Rt, +rs: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +sp: U32,
   +fs: List<&2, D.AF>, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
   h: D.AccK(dk, ds, ks, img, m, nx, fi, im, rs, xs, sp, fs, ps, zs)) ->
   D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{r, rs}, xs, sp, fs, ps, zs):
   ?TODO
 
-# M.inc of the held term cell c of u (a tag below 19, so no frame): c is a
-# root, and its count (field 1) gets v
+# stores to field 1 of cells that are no frames keep Acc
+def acc.f1(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +sp: U32,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +zs: List<&2, D.Rt>, +ws: List<&2, D.W1>,
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, rs, xs, sp, fs, ps, zs),
+  hw: {Outs(D.W1.cells(ws), D.Fr.cells(fs, m, sp)) == True{} : Bool}) ->
+  D.AccK(dk, ds, ks, img, D.Put1(ws, m), nx, fi, im, rs, xs, sp, fs, ps, zs):
+  ?TODO
+
+# M.inc of the held term cell c of u (a tag below 19): c is a root, and its
+# count (field 1) gets v
 def acc.inc(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
-  +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term, +v: U32, +xs: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term, +v: U32, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
   hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
   hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs),
-  ht: {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool},
-  hz: D.RtsK(dk, ds, X.X.put(m, 1n, c, v), im, fi, nx, ks, img, zs)) ->
+  ht: {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool}) ->
   D.AccK(dk, ds, ks, img, X.X.put(m, 1n, c, v), nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs):
   ?TODO
 
@@ -294,12 +332,35 @@ def acc.inc(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>,
 # pend; c goes to the pend list, and its root to the zombies
 def acc.dec.pend(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
-  +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term, +d: U32, +xs: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term, +d: U32, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, bs, fs, sp, pend, ps),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs),
+  ht: {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool}) ->
+  D.AccK(dk, ds, ks, img, X.X.put(X.X.put(m, 1n, c, d), 1n, c, pend), nx, fi, im, os, xs, sp, fs, Con{c, ps},
+    Con{D.Rt{c, u}, zs}):
+  ?TODO
+
+# a root whose cell is STATIC or keeps a pointer without it leaves the roots:
+# each of its nodes is still accounted for, through the cell that points to it
+def acc.drop(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
+  +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, bs, fs, sp, pend, ps),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs),
+  hd: {D.Hd(m, nx, fi, ps, D.Rt.cells(os), c) == True{} : Bool}) ->
+  D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs):
+  ?TODO
+
+# M.dec of the root c of u, a term cell, to a count above 0 (c keeps a
+# pointer): c is no root, and its count gets d
+def acc.dec.keep(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
+  +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term, +d: U32, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
   hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, bs, fs, sp, pend, ps),
   hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs),
   ht: {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool},
-  hz: D.RtsK(dk, ds, X.X.put(X.X.put(m, 1n, c, d), 1n, c, pend), im, fi, nx, ks, img, Con{D.Rt{c, u}, zs})) ->
-  D.AccK(dk, ds, ks, img, X.X.put(X.X.put(m, 1n, c, d), 1n, c, pend), nx, fi, im, os, xs, sp, fs, Con{c, ps}, Con{D.Rt{c, u}, zs}):
+  hd: {D.Hd(m, nx, fi, ps, D.Rt.cells(os), c) == True{} : Bool}) ->
+  D.AccK(dk, ds, ks, img, X.X.put(m, 1n, c, d), nx, fi, im, os, xs, sp, fs, ps, zs):
   ?TODO
 
 # M.release of z, of the machine's own kinds (tag 32 or more), out of the pend
@@ -307,54 +368,92 @@ def acc.dec.pend(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8
 # pend list, and its field 1 gets pend
 def acc.release(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
-  +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32, +xs: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
   hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
-  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, Con{z, xs}, sp, fs, ps, zs),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, Con{D.TmpE{z, Nil{}}, xs}, sp, fs, ps, zs),
   ht: {U32.is_lt(D.Tg(m, z), 32) == False{} : Bool},
   hm: {D.Mem(ps, z) == False{} : Bool},
-  hfs: {D.Fs(m, ps, z) == Nil{} : List<&2, U32>},
-  hz: D.RtsK(dk, ds, X.X.put(m, 1n, z, pend), im, fi, nx, ks, img, zs)) ->
+  hfs: {D.Fs(m, ps, z) == Nil{} : List<&2, U32>}) ->
   D.AccK(dk, ds, ks, img, X.X.put(m, 1n, z, pend), nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs):
   ?TODO
 
-# a store at the temporary z, which nothing points to, is not STATIC, is out
-# of the pend list and holds no pointer (so no frame): Acc's covers stay
+# a store at z, the first temporary, which nothing points to, is not STATIC,
+# is out of the pend list, holds no pointer (so no frame) and is no root of a
+# temporary's term, of a cell x that is not STATIC whose pointers are those
+# of the roots us: the roots us become z's terms
 def acc.store(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
-  +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +xs: List<&2, U32>, +zs: List<&2, D.Rt>,
-  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
-  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs),
-  hzx: {D.Mem(xs, z) == True{} : Bool},
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +us: List<&2, D.Rt>, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>,
+  +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +xs: List<&2, D.TmpE>,
+  +zs: List<&2, D.Rt>,
+  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, List.append(&2, D.Rt, us, os), bs, fs, sp, pend, ps),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, List.append(&2, D.Rt, us, os), xs, sp, fs, ps, zs),
+  hzx: {D.Tmp.head(xs) == Some{z} : Maybe<&2, U32>},
   hm: {D.Mem(ps, z) == False{} : Bool},
   hzs: {D.Fl(m, z, 1024) == False{} : Bool},
-  hz0: {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(os), z) == 0n : Nat},
-  hzf: {D.Fs(m, ps, z) == Nil{} : List<&2, U32>}) ->
-  D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, os, xs, sp, fs, ps, zs):
+  hz0: {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(List.append(&2, D.Rt, us, os)), z) == 0n : Nat},
+  hzf: {D.Fs(m, ps, z) == Nil{} : List<&2, U32>},
+  hnh: {D.NeAll(D.Rt.cells(D.Tmp.held(xs)), z) == True{} : Bool},
+  hxs: {D.FlW(Cr.Cir.Cell.get(0n, x), 1024) == False{} : Bool},
+  hf: {D.Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == D.Rt.cells(us) : List<&2, U32>}) ->
+  D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, os, D.Tmp.hold(us, xs), sp, fs, ps, zs):
   ?TODO
 
-# the flag DATA of the cell c: the tag, the flag STATIC and fields 1 to 4 stay
+# the flag DATA of the cell c: the tag, the flag STATIC and fields 1 to 4
+# stay; the zombies and the temporaries' terms are given after it
 def acc.flag(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, D.Rt>, +xs: List<&2, U32>, +sp: U32,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +sp: U32,
   +fs: List<&2, D.AF>, +ps: List<&2, U32>, +zs: List<&2, D.Rt>, +c: U32,
   hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, rs, xs, sp, fs, ps, zs),
   hz: D.RtsK(dk, ds, Cr.Cir.Cells.set(m, c, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, c), U32.or(D.Fd(0n, m, c), 512))), im, fi, nx,
-    ks, img, zs)) ->
+    ks, img, zs),
+  hh: D.RtsK(dk, ds, Cr.Cir.Cells.set(m, c, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, c), U32.or(D.Fd(0n, m, c), 512))), im, fi, nx,
+    ks, img, D.Tmp.held(xs))) ->
   D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, c, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, c), U32.or(D.Fd(0n, m, c), 512))), nx, fi,
     im, rs, xs, sp, fs, ps, zs):
   ?TODO
 
 # a new cell, all zeros, at next nx (the pend list is empty; nx is below the
-# cell e): it is a temporary, and next grows
+# cell e): it is a temporary, and next grows; the temporaries' terms are
+# given after it
 def acc.fresh(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
-  +sp: U32, +pend: U32, +xs: List<&2, U32>, +zs: List<&2, D.Rt>, +e: U32,
+  +sp: U32, +pend: U32, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>, +e: U32,
   hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, Nil{}),
   hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Nil{}, zs),
-  hfn: {U32.is_le(fi, nx) == True{} : Bool},
-  hl: {U32.is_lt(nx, e) == True{} : Bool}) ->
-  D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, os, Con{nx, xs}, sp, fs, Nil{}, Nil{}):
+  hl: {U32.is_lt(nx, e) == True{} : Bool},
+  hh: D.RtsK(dk, ds, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), im, fi, U32.inc(nx), ks, img, D.Tmp.held(xs))) ->
+  D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, os, Con{D.TmpE{nx, Nil{}}, xs}, sp,
+    fs, Nil{}, Nil{}):
   ?TODO
 
-# Waiting for the AccK fix (B-design part 3; U2's F2): M.dec when the count
-# stays above 0 (acc.dec.keep), and M.alloc from the pend list (cov.reuse,
-# acc.reuse). Their statements follow the fixed AccK.
+# each of the cells ys is one of P, or STATIC or has a pointer (Hd)
+def Kept(ys: List<&2, U32>, +P: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +rs: List<&2, U32>) ->
+  Bool:
+  match ys:
+    case Nil{}:
+      True{}
+    case Con{+y, rest}:
+      Bool.and(Bool.or(D.Mem(P, y), D.Hd(m, nx, fi, ps, rs, y)), Kept(rest, P, m, nx, fi, ps, rs))
+
+# M.alloc from the pend list (cov.reuse): its first cell p, which nothing
+# points to and no temporary's term has as its root, gets zeros after its
+# parts lost a pointer (ws: the stores to their field 1); the parts P went
+# to the pend list (P ++ ps1), each other part keeps a pointer after: Acc
+# holds with p a temporary, and the parts P zombies
+def acc.reuse(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
+  +sp: U32, +pend: U32, +p: U32, +ps1: List<&2, U32>, +ws: List<&2, D.W1>, +P: List<&2, U32>, +pend2: U32,
+  +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, Con{p, ps1}),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Con{p, ps1}, zs),
+  hpn: {D.Mem(ps1, p) == False{} : Bool},
+  hnh: {D.NeAll(D.Rt.cells(D.Tmp.held(xs)), p) == True{} : Bool},
+  hw: {D.Took(ws, Con{p, ps1}, m) == True{} : Bool},
+  hPp: {D.AllIn(P, D.Fs(m, Con{p, ps1}, p)) == True{} : Bool},
+  hs2: D.HSK(dk, ds, ks, img, Cr.Cir.Cells.set(D.Put1(ws, m), p, Cr.Cir.Cell.zero()), nx, fi, im, os, bs, fs, sp, pend2,
+    List.append(&2, U32, P, ps1)),
+  hk: {Kept(D.Fs(m, Con{p, ps1}, p), P, Cr.Cir.Cells.set(D.Put1(ws, m), p, Cr.Cir.Cell.zero()), nx, fi, List.append(&2, U32, P, ps1),
+    D.Rt.cells(os)) == True{} : Bool}) ->
+  D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(D.Put1(ws, m), p, Cr.Cir.Cell.zero()), nx, fi, im, os,
+    Con{D.TmpE{p, Nil{}}, xs}, sp, fs, List.append(&2, U32, P, ps1), zs2)):
+  ?TODO
