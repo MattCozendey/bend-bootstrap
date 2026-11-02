@@ -37,6 +37,86 @@ import ./definitions.bend as D
 import ./eval_facts.bend as EV
 import ./first_cell_past_table.bend as FC
 
+# Kit
+# ---
+
+# a <= max(a, b)
+def max_l(+a: Nat, +b: Nat) -> N.Le(a, Nat.max(a, b)):
+  match a b:
+    case 0n _:
+      N.le_zero(b)
+    case 1n+p 0n:
+      N.le_refl(1n+p)
+    case 1n+p 1n+q:
+      max_l(p, q)
+
+# b <= max(a, b)
+def max_r(+a: Nat, +b: Nat) -> N.Le(b, Nat.max(a, b)):
+  match a b:
+    case 0n _:
+      N.le_refl(b)
+    case 1n+p 0n:
+      N.le_zero(1n+p)
+    case 1n+p 1n+q:
+      max_r(p, q)
+
+# x <= y + (x - y)
+def sub_le(+x: Nat, +y: Nat) -> N.Le(x, Nat.add(y, Nat.sub(x, y))):
+  match x y:
+    case 0n _:
+      N.le_zero(Nat.add(y, Nat.sub(0n, y)))
+    case 1n+p 0n:
+      N.le_refl(1n+p)
+    case 1n+p 1n+q:
+      sub_le(p, q)
+
+# j + (n - j) = n, for j <= n
+def sub_add(+n: Nat, +j: Nat, h: N.Le(j, n)) -> {Nat.add(j, Nat.sub(n, j)) == n : Nat}:
+  match n j:
+    case 0n 0n:
+      {==}
+    case 1n+q 0n:
+      {==}
+    case 0n 1n+p:
+      Empty.absurd({Nat.add(1n+p, Nat.sub(0n, 1n+p)) == 0n : Nat}, h)
+    case 1n+q 1n+p:
+      Equal.cong(Nat, Nat, x => 1n+x, Nat.add(p, Nat.sub(q, p)), q, sub_add(q, p, h))
+
+# the term in a Some
+def tget(m: Maybe<Bk.Term>, d: Bk.Term) -> Bk.Term:
+  match m:
+    case Some{x}:
+      x
+    case None{}:
+      d
+
+# Some is one to one
+def tsome.inj(-a: Bk.Term, -b: Bk.Term, e: {Some{a} == Some{b} : Maybe<Bk.Term>}) -> {a == b : Bk.Term}:
+  Equal.cong(Maybe<Bk.Term>, Bk.Term, x => tget(x, a), Some{a}, Some{b}, e)
+
+# None is no Some
+def IsNone(m: Maybe<Bk.Term>) -> Type:
+  match m:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+def tsome.ne(-u: Bk.Term, e: {None{} == Some{u} : Maybe<Bk.Term>}) -> Empty:
+  %e : IsNone(_)
+  Unit{}
+
+def OIsNone(m: Maybe<&2, List<&2, Word(8n)>>) -> Type:
+  match m:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+def osome.ne(-o: List<&2, Word(8n)>, e: {None{} == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) -> Empty:
+  %e : OIsNone(_)
+  Unit{}
+
 # The bounds
 # ----------
 
@@ -56,53 +136,160 @@ def Room(+ds: List<&2, Bk.Def>, +X: Nat, +C: Nat, +S: Nat) -> Nat:
 # the run from t reaches t, so its largest term has at least t's nodes
 def largest.self(+n: Nat, +ds: List<&2, Bk.Def>, +t: Bk.Term) ->
   N.Le(Pg.Term.size(t), Pg.Program.largest.go(n, ds, t)):
-  ?TODO
+  match n:
+    case 0n:
+      N.le_refl(Pg.Term.size(t))
+    case 1n+m:
+      max_l(Pg.Term.size(t), Pg.Program.largest.next(El.Eval.step(ds, t), u => Pg.Program.largest.go(m, ds, u)))
 
 # after a step from t to u, the largest term of the rest of the run is at most
 # that of the run from t
 def largest.next(+j: Nat, +ds: List<&2, Bk.Def>, +t: Bk.Term, +u: Bk.Term,
   es: {El.Eval.step(ds, t) == Some{u} : Maybe<Bk.Term>}) ->
   N.Le(Pg.Program.largest.go(j, ds, u), Pg.Program.largest.go(1n+j, ds, t)):
-  ?TODO
+  %Equal.sym(Maybe<Bk.Term>, El.Eval.step(ds, t), Some{u}, es) :
+    N.Le(Pg.Program.largest.go(j, ds, u), Nat.max(Pg.Term.size(t), Pg.Program.largest.next(_, x => Pg.Program.largest.go(j, ds, x))))
+  max_r(Pg.Term.size(t), Pg.Program.largest.go(j, ds, u))
+
+# the step of t, by what it is, after which the run has j more steps
+def step.le(r: Maybe<Bk.Term>, +j: Nat, +ds: List<&2, Bk.Def>, +t: Bk.Term, +er: {El.Eval.step(ds, t) == r : Maybe<Bk.Term>}) ->
+  N.Le(D.StepSize(ds, t), Pg.Program.largest.go(1n+j, ds, t)):
+  match r:
+    case None{}:
+      %Equal.sym(Maybe<Bk.Term>, El.Eval.step(ds, t), None{}, er) : N.Le(D.StepSize.of(_), Pg.Program.largest.go(1n+j, ds, t))
+      N.le_zero(Pg.Program.largest.go(1n+j, ds, t))
+    case Some{+u}:
+      %Equal.sym(Maybe<Bk.Term>, El.Eval.step(ds, t), Some{u}, er) : N.Le(D.StepSize.of(_), Pg.Program.largest.go(1n+j, ds, t))
+      N.le_trans(Pg.Term.size(u), Pg.Program.largest.go(j, ds, u), Pg.Program.largest.go(1n+j, ds, t), largest.self(j, ds, u),
+        largest.next(j, ds, t, u, er))
+
+# a term from which the run gives a result at once is a value: no step
+def val.le(b: Bool, +ds: List<&2, Bk.Def>, +t: Bk.Term, -o: List<&2, Word(8n)>, eb: {El.Eval.vals(ds, t, False{}) == b : Bool},
+  e: {Pg.Program.result.if(b, t) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) -> N.Le(D.StepSize(ds, t), Pg.Term.size(t)):
+  match b:
+    case True{}:
+      %Equal.sym(Maybe<Bk.Term>, El.Eval.step(ds, t), None{}, EV.ev.stops(ds, t, eb)) : N.Le(D.StepSize.of(_), Pg.Term.size(t))
+      N.le_zero(Pg.Term.size(t))
+    case False{}:
+      Empty.absurd(N.Le(D.StepSize(ds, t), Pg.Term.size(t)), osome.ne(o, e))
 
 # when Eval reaches a list of bytes from t within n steps, the step of t has
 # at most as many nodes as the largest term of that run (a value has no step)
 def largest.step(+n: Nat, +ds: List<&2, Bk.Def>, +t: Bk.Term, +o: List<&2, Word(8n)>,
   e: {Pg.Program.result(ds, El.Eval.steps(n, ds, t)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
   N.Le(D.StepSize(ds, t), Pg.Program.largest.go(n, ds, t)):
-  ?TODO
+  match n:
+    case 0n:
+      val.le(El.Eval.vals(ds, t, False{}), ds, t, o, {==}, e)
+    case 1n+m:
+      step.le(El.Eval.step(ds, t), m, ds, t, {==})
+
+# a run from no term reaches none
+def run.none(j: Nat, +ds: List<&2, Bk.Def>) -> {El.Eval.run(j, ds, None{}) == None{} : Maybe<Bk.Term>}:
+  match j:
+    case 0n:
+      {==}
+    case 1n+q:
+      {==}
+
+# the rest of the run after 1 + j steps, by the step of t
+def rest.of(s: Maybe<Bk.Term>, +j: Nat, +r: Nat, +ds: List<&2, Bk.Def>, +t: Bk.Term, +u: Bk.Term,
+  +es: {El.Eval.step(ds, t) == s : Maybe<Bk.Term>},
+  e: {El.Eval.run(j, ds, s) == Some{u} : Maybe<Bk.Term>},
+  ih: @t1: Bk.Term -> {El.Eval.steps(j, ds, t1) == Some{u} : Maybe<Bk.Term>} ->
+    N.Le(Pg.Program.largest.go(r, ds, u), Pg.Program.largest.go(Nat.add(j, r), ds, t1))) ->
+  N.Le(Pg.Program.largest.go(r, ds, u), Pg.Program.largest.go(1n+Nat.add(j, r), ds, t)):
+  match s:
+    case None{}:
+      Empty.absurd(N.Le(Pg.Program.largest.go(r, ds, u), Pg.Program.largest.go(1n+Nat.add(j, r), ds, t)),
+        tsome.ne(u, Equal.trans(Maybe<Bk.Term>, None{}, El.Eval.run(j, ds, None{}), Some{u},
+          Equal.sym(Maybe<Bk.Term>, El.Eval.run(j, ds, None{}), None{}, run.none(j, ds)), e)))
+    case Some{+t1}:
+      N.le_trans(Pg.Program.largest.go(r, ds, u), Pg.Program.largest.go(Nat.add(j, r), ds, t1), Pg.Program.largest.go(1n+Nat.add(j, r), ds, t),
+        ih(t1, e), largest.next(Nat.add(j, r), ds, t, t1, es))
 
 # the rest of the run after j steps, from u, is within the run from t
 def largest.rest(j: Nat, +r: Nat, +ds: List<&2, Bk.Def>, +t: Bk.Term, +u: Bk.Term,
   e: {El.Eval.steps(j, ds, t) == Some{u} : Maybe<Bk.Term>}) ->
   N.Le(Pg.Program.largest.go(r, ds, u), Pg.Program.largest.go(Nat.add(j, r), ds, t)):
-  ?TODO
+  match j:
+    case 0n:
+      %tsome.inj(t, u, e) : N.Le(Pg.Program.largest.go(r, ds, _), Pg.Program.largest.go(Nat.add(0n, r), ds, t))
+      N.le_refl(Pg.Program.largest.go(r, ds, t))
+    case 1n+(+q):
+      rest.of(El.Eval.step(ds, t), q, r, ds, t, u, {==}, e, t1 => e1 => largest.rest(q, r, ds, t1, u, e1))
 
 # S, the largest term of the run of the program p on the input i within n
 # steps, is that of the run from the start term in the book that p reads
 def largest.eq(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}) ->
   {Pg.Program.largest(p, i, n) == Pg.Program.largest.go(n, ds, Pg.Program.start(i)) : Nat}:
-  ?TODO
+  %Equal.sym(Maybe<List<&2, Bk.Def>>, Bk.Book.read(p), Some{ds}, rd) :
+    {Pg.Program.largest.of(_, i, n) == Pg.Program.largest.go(n, ds, Pg.Program.start(i)) : Nat}
+  {==}
 
 # every term that the run of p on i reaches within n steps has at most S
 # nodes
-def largest.ge(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, j: Nat, +n: Nat, +u: Bk.Term,
+def largest.ge(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +j: Nat, +n: Nat, +u: Bk.Term,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   hj: N.Le(j, n),
   e: {El.Eval.steps(j, ds, Pg.Program.start(i)) == Some{u} : Maybe<Bk.Term>}) ->
   N.Le(Pg.Term.size(u), Pg.Program.largest(p, i, n)):
-  ?TODO
+  +t = Pg.Program.start(i)
+  +r = Nat.sub(n, j)
+  +h1 = N.le_trans(Pg.Term.size(u), Pg.Program.largest.go(r, ds, u), Pg.Program.largest.go(Nat.add(j, r), ds, t),
+    largest.self(r, ds, u), largest.rest(j, r, ds, t, u, e))
+  +h2 = N.le_rw_r(Pg.Term.size(u), Pg.Program.largest.go(Nat.add(j, r), ds, t), Pg.Program.largest.go(n, ds, t),
+    Equal.cong(Nat, Nat, x => Pg.Program.largest.go(x, ds, t), Nat.add(j, r), n, sub_add(n, j, hj)), h1)
+  N.le_rw_r(Pg.Term.size(u), Pg.Program.largest.go(n, ds, t), Pg.Program.largest(p, i, n),
+    Equal.sym(Nat, Pg.Program.largest(p, i, n), Pg.Program.largest.go(n, ds, t), largest.eq(p, ds, i, n, rd)), h2)
+
+# the run of 1 + j + r steps, by the step of t
+def split.of(s: Maybe<Bk.Term>, +j: Nat, +r: Nat, +ds: List<&2, Bk.Def>, +u: Bk.Term,
+  e: {El.Eval.run(j, ds, s) == Some{u} : Maybe<Bk.Term>},
+  ih: @t1: Bk.Term -> {El.Eval.steps(j, ds, t1) == Some{u} : Maybe<Bk.Term>} ->
+    {El.Eval.steps(Nat.add(j, r), ds, t1) == El.Eval.steps(r, ds, u) : Maybe<Bk.Term>}) ->
+  {El.Eval.run(Nat.add(j, r), ds, s) == El.Eval.steps(r, ds, u) : Maybe<Bk.Term>}:
+  match s:
+    case None{}:
+      Empty.absurd({El.Eval.run(Nat.add(j, r), ds, None{}) == El.Eval.steps(r, ds, u) : Maybe<Bk.Term>},
+        tsome.ne(u, Equal.trans(Maybe<Bk.Term>, None{}, El.Eval.run(j, ds, None{}), Some{u},
+          Equal.sym(Maybe<Bk.Term>, El.Eval.run(j, ds, None{}), None{}, run.none(j, ds)), e)))
+    case Some{+t1}:
+      ih(t1, e)
+
+# the run of j + r steps from t is the run of r steps from where j steps lead
+def steps.split(j: Nat, +r: Nat, +ds: List<&2, Bk.Def>, +t: Bk.Term, +u: Bk.Term,
+  e: {El.Eval.steps(j, ds, t) == Some{u} : Maybe<Bk.Term>}) ->
+  {El.Eval.steps(Nat.add(j, r), ds, t) == El.Eval.steps(r, ds, u) : Maybe<Bk.Term>}:
+  match j:
+    case 0n:
+      %tsome.inj(t, u, e) : {El.Eval.steps(Nat.add(0n, r), ds, t) == El.Eval.steps(r, ds, _) : Maybe<Bk.Term>}
+      {==}
+    case 1n+(+q):
+      split.of(El.Eval.step(ds, t), q, r, ds, u, e, t1 => e1 => steps.split(q, r, ds, t1, u, e1))
 
 # and so has its step, when the run reaches the list of bytes o at n
-def largest.ge.step(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, j: Nat, +n: Nat, +u: Bk.Term,
+def largest.ge.step(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +j: Nat, +n: Nat, +u: Bk.Term,
   +o: List<&2, Word(8n)>,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   hj: N.Le(j, n),
-  e: {El.Eval.steps(j, ds, Pg.Program.start(i)) == Some{u} : Maybe<Bk.Term>},
+  +e: {El.Eval.steps(j, ds, Pg.Program.start(i)) == Some{u} : Maybe<Bk.Term>},
   er: {Pg.Program.result(ds, El.Eval.steps(n, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
   N.Le(D.StepSize(ds, u), Pg.Program.largest(p, i, n)):
-  ?TODO
+  +t = Pg.Program.start(i)
+  +r = Nat.sub(n, j)
+  +en = sub_add(n, j, hj)
+  +er1 = {(%Equal.sym(Nat, Nat.add(j, r), n, en) : {Pg.Program.result(ds, El.Eval.steps(_, ds, t)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; er) :
+    {Pg.Program.result(ds, El.Eval.steps(Nat.add(j, r), ds, t)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}}
+  +er2 = {(%steps.split(j, r, ds, t, u, e) : {Pg.Program.result(ds, _) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; er1) :
+    {Pg.Program.result(ds, El.Eval.steps(r, ds, u)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}}
+  +h1 = N.le_trans(D.StepSize(ds, u), Pg.Program.largest.go(r, ds, u), Pg.Program.largest.go(Nat.add(j, r), ds, t),
+    largest.step(r, ds, u, o, er2), largest.rest(j, r, ds, t, u, e))
+  +h2 = N.le_rw_r(D.StepSize(ds, u), Pg.Program.largest.go(Nat.add(j, r), ds, t), Pg.Program.largest.go(n, ds, t),
+    Equal.cong(Nat, Nat, x => Pg.Program.largest.go(x, ds, t), Nat.add(j, r), n, en), h1)
+  N.le_rw_r(D.StepSize(ds, u), Pg.Program.largest.go(n, ds, t), Pg.Program.largest(p, i, n),
+    Equal.sym(Nat, Pg.Program.largest(p, i, n), Pg.Program.largest.go(n, ds, t), largest.eq(p, ds, i, n, rd)), h2)
 
 # The input and the output
 # ------------------------
