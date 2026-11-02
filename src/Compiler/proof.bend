@@ -78,6 +78,18 @@ def compile.machine(machine: List<&2, Cr.Cir.Cell> -> List<&2, Word(8n)>, +ds: L
   {C.Compiler.compile.of(machine, True{}, Some{ds}) == machine(Mc.Img.cells(ds)) : List<&2, Word(8n)>}:
   {==}
 
+# the compiler's module of a book of 2^26 bytes or more is the module that
+# halts with 1
+def compile.big(-machine: List<&2, Cr.Cir.Cell> -> List<&2, Word(8n)>, -r: Maybe<List<&2, Bk.Def>>) ->
+  {C.Compiler.compile.of(machine, False{}, r) == C.Compiler.halt(1) : List<&2, Word(8n)>}:
+  {==}
+
+# the compiler's module of a book of fewer than 2^26 bytes that Book.read
+# cannot read is the module that halts with 2
+def compile.unread(-machine: List<&2, Cr.Cir.Cell> -> List<&2, Word(8n)>) ->
+  {C.Compiler.compile.of(machine, True{}, None{}) == C.Compiler.halt(2) : List<&2, Word(8n)>}:
+  {==}
+
 # no_wrong_result, for a book that Book.read reads: its machine's result is,
 # by A, one that Cir gives, and so, by B, one that Eval gives
 def nwr.machine(
@@ -97,10 +109,12 @@ def nwr.of(+f: Nat, +p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +gs
   match small r:
     case False{} _:
       es => er => e => Empty.absurd(&k:Nat -> {Pg.Program.gives(p, i, k) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
-        A.halt.no_result(f, 1, i, Wa.Wasm.Engine{m, gs}, o, {==}, e))
+        A.halt.no_result(f, 1, i, Wa.Wasm.Engine{m, gs}, o, {==},
+          (%compile.big(C.Compiler.module, r) : {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}; e)))
     case True{} None{}:
       es => er => e => Empty.absurd(&k:Nat -> {Pg.Program.gives(p, i, k) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
-        A.halt.no_result(f, 2, i, Wa.Wasm.Engine{m, gs}, o, {==}, e))
+        A.halt.no_result(f, 2, i, Wa.Wasm.Engine{m, gs}, o, {==},
+          (%compile.unread(C.Compiler.module) : {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}; e)))
     case True{} Some{+ds}:
       +es => +er => e => nwr.machine(p, ds, i, m, o, er, es,
         A.mach_wasm.sound(f, Mc.Img.cells(ds), i, m, gs, o, img.small(p, ds, er, es), x => B.mach.safe(p, ds, i, m, x, er, es),
@@ -188,11 +202,14 @@ def nof.of(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2,
     {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, small, r), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   match small r:
     case False{} _:
-      es => er => e => nof.halt(i, Wa.Wasm.Engine{m, gs}, o, A.halt.oom(i, Wa.Wasm.Engine{m, gs}))
+      es => er => e => (%Equal.sym(List<&2, Word(8n)>, C.Compiler.compile.of(C.Compiler.module, False{}, r), C.Compiler.halt(1), compile.big(C.Compiler.module, r)) :
+        &f:Nat -> Or({Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+          {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome});
+        nof.halt(i, Wa.Wasm.Engine{m, gs}, o, A.halt.oom(i, Wa.Wasm.Engine{m, gs})))
     case True{} None{}:
       es => er => e => Empty.absurd(
-        &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.halt(2), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-          {Wa.Wasm.run(f, C.Compiler.halt(2), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}),
+        &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, True{}, None{}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+          {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, True{}, None{}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}),
         gives.none(o, e))
     case True{} Some{+ds}:
       +es => +er => e => nof.machine(p, ds, i, m, gs, o, er, es, B.mach.complete(p, ds, i, m, n, o, er, es, e))
@@ -234,15 +251,15 @@ def em.of(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, 
   match small r:
     case False{} None{}:
       es => er => e => big => Empty.absurd(
-        &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+        &f:Nat -> {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, False{}, None{}), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
         gives.none(o, e))
     case False{} Some{+ds}:
       es => er => e => big => Empty.absurd(
-        &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+        &f:Nat -> {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, False{}, Some{ds}), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
         need.big(p, ds, i, n, m, er, es, big))
     case True{} None{}:
       es => er => e => big => Empty.absurd(
-        &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(2), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+        &f:Nat -> {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module, True{}, None{}), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
         gives.none(o, e))
     case True{} Some{+ds}:
       +es => +er => e => big => em.machine(p, ds, i, m, o, er, es,
