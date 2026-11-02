@@ -485,8 +485,8 @@ def tm.is.at(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U
 # The laws
 # --------
 
-def K.copy.post(f, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, src, keep, os, bs, fs, sp, pend, ps, c, t, ce, es, xs, zs, hs, hac, hl, hc, hp, he, hn, env, hr, hsrc, ho, hv, hk):
+def K.copy.post(f, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, wt, keep, os, bs, fs, sp, pend, ps, c, t, ce, es, xs, zs, hs, hac, hl, hc, hp, he, hn, env, ho, hv, hk):
   ?TODO
 
-def K.copy.done(ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, src, os, bs, fs, sp, pend, ps, c, t, ce, es, hs, hl, hc, hp, he, hn, env, hr, hsrc, ho):
+def K.copy.done(ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, wt, os, bs, fs, sp, pend, ps, c, t, ce, es, xs, zs, hs, hac, hl, hc, hp, he, hn, env, ho, hv):
   ?TODO
