@@ -7,6 +7,8 @@
 // Only the defs with a hole, and the proofs that call them, differ from what
 // `bend -o` will write once the holes are filled; src/Shared/scripts/Defs.lean writes Lean versions of
 // from it only defs and types that name no hole (src/Joining/Generated/Trusted.lean).
+// Temporary: once no hole is left, delete this file, and `getLower` becomes `getBend` on
+// `main.bend`.
 //
 //   cd src && bun Shared/lower.ts main.bend out.bendtt
 
