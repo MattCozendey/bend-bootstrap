@@ -199,6 +199,7 @@ def invoke (c : Cfg) (i : Term) (name : List UInt8) (args : List Nat) : Invoked 
 -- load's or store's offset; an op's operator; for a branch, whether it leaves
 -- its innermost label (depth 0) or more, and the kind of the label that it
 -- goes to. The instructions are terms of the model's Wasm.Instr.
+-- A block's or loop's form, and so its label's kind, holds its block type.
 
 -- the forms of the instructions xs, inside labels of the kinds ks, innermost
 -- first
@@ -208,7 +209,9 @@ partial def instrForms (ks : List String) (xs : Term) : List String :=
     | some (k, fs) =>
       let kind := String.ofList (k.toList.drop "Wasm.Instr.".length)
       match kind, fs with
-      | "block", [b] | "loop", [b] => kind :: instrForms (kind :: ks) b
+      | "block", [t, b] | "loop", [t, b] =>
+        let f := s!"{kind} {((unctor t).map fun (c, _) => String.ofList (c.toList.drop "Wasm.Blocktype.".length)).getD "?"}"
+        f :: instrForms (f :: ks) b
       | "br", [l] | "br_if", [l] =>
         let d := (unU32 l).getD 0
         [s!"{kind} depth {if d == 0 then "0" else ">0"} to {ks.getD d "?"}"]
