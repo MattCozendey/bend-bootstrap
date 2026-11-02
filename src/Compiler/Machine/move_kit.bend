@@ -69,7 +69,7 @@ law copy.post:
   for +xs: List<&2, D.TmpE>
   for +zs: List<&2, D.Rt>
   for hs: D.HS(ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, t}, bs}, fs, sp, pend, ps)
-  for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs)
+  for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs), sp, fs, ps, zs)
   for hl: {List.length(&2, U32, regs) == 63n : Nat}
   for hc: {List.get(&2, U32, regs, D.Copy.src(wt)) == Some{c} : Maybe<&2, U32>}
   for hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}
@@ -107,7 +107,7 @@ law copy.done:
   for +xs: List<&2, D.TmpE>
   for +zs: List<&2, D.Rt>
   for hs: D.HS(ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, t}, bs}, fs, sp, pend, ps)
-  for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs)
+  for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs), sp, fs, ps, zs)
   for hl: {List.length(&2, U32, regs) == 63n : Nat}
   for hc: {List.get(&2, U32, regs, D.Copy.src(wt)) == Some{c} : Maybe<&2, U32>}
   for hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}
