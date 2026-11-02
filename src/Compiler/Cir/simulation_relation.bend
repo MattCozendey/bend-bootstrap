@@ -448,6 +448,11 @@ def pb.lt(-P: Nat, +G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, +pg: U32, +lm
   N.le_trans(1n+N.D(16n, PG), N.D(16n, 1n+PG), W, Z.D.succ(16n, PG),
     N.le_rw_r(N.D(16n, 1n+PG), N.D(16n, G), W, hG, M.D_mono(16n, 1n+PG, G, h1)))
 
+# the memory is at most 2^32
+def pb.le(-P: Nat, +G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, +pg: U32, +lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
+  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on), +W: Nat, hG: {N.D(16n, G) == W : Nat}) -> N.Le(PB(pg), W):
+  N.weaken(PB(pg), W, pb.lt(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG))
+
 # no cell is left when q >= 1
 def cf.use(q: Nat, +NX: Nat, +B: Nat, h: CF(q, NX, B), hq: N.Le(1n, q)) -> N.Le(PH.H.t20(NX), B):
   match q:
