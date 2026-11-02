@@ -2,9 +2,9 @@
 # =============================================
 #
 # The laws inc.post, dec.post, alloc.post, release.post, is.fresh, node.part,
-# store.post and data.flag of definitions.bend: each statement of the heap
-# (M.inc, M.dec, M.alloc, M.release, a store) keeps HSK and the accounting
-# AccK, within its budget. Filled by U2; U0 left each as ?TODO.
+# store.post, term.post and data.flag of definitions.bend: each statement of
+# the heap (M.inc, M.dec, M.alloc, M.release, a store) keeps HSK and the
+# accounting AccK, within its budget. Filled by U2; U0 left each as ?TODO.
 
 import Base
 import ./definitions.bend as D
@@ -27,8 +27,11 @@ def D.is.fresh(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, x, hs):
 def D.node.part(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, y, hs, hn, hy):
   ?TODO
 
-def D.store.post(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, xs, zs, hs, hac, hzx, hb, ho, hm, hzs, hzt, hz0, hzf, ht, hf):
+def D.store.post(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, xs, zs, hs, hac, hzx, hb, ho, hm, hzs, hzt, hz0, hzf, ht, hxs, hf):
   ?TODO
 
-def D.data.flag(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, xs, zs, hs, hac, hd):
+def D.term.post(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, t, xs, zs, hs, hac, ho, hm, hzs, hzt, hz0, hzf, hxs, hx1, hf, hi):
+  ?TODO
+
+def D.data.flag(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, xs, zs, hs, hac, hd, hco):
   ?TODO
