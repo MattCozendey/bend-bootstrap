@@ -33,6 +33,14 @@ export const getBend = (file: string, out: string) => ({
   stdout: "ignore" as const,
 });
 
+// the BendTT lowering of src/main.bend into out, as `bend -o` writes it but for the holes
+// (src/Shared/lower.ts)
+export const getLower = (out: string) => ({
+  cmd: [process.execPath, "Shared/lower.ts", "main.bend", out],
+  cwd: join(REPO, "src"),
+  stdout: "ignore" as const,
+});
+
 // `lake <args>` at the root of the Lean project (the repo), with these variables
 export const getLake = (args: readonly string[], vars: Record<string, string> = {}) => ({
   cmd: ["lake", ...args],

@@ -9,6 +9,8 @@
 //   3. src/Wasm/scripts/WasmTests.lean on src/Wasm/tests/bin: no assertion fails or runs out of
 //      fuel, and passing assertions run each form of instruction that the compiler emits
 //      (AGENTS.md 3.9.1.3.2). Milestone 4.
+//   4. src/Wasm/tests/agree.ts: the model's Host section and a real host give the same outcome on
+//      each of its cases (AGENTS.md 3.9.1.3.3). Milestone 4.
 //
 //   bun src/milestones.ts WORK
 
@@ -16,7 +18,7 @@
 
 import { mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { getArgs, getBend, getLake, REPO, run } from "./Shared/shared.ts";
+import { getArgs, getBend, getLake, getLower, REPO, run } from "./Shared/shared.ts";
 
 // constants
 
@@ -34,11 +36,7 @@ mkdirSync(work, { recursive: true });
 run(getLake(["build"]));
 console.log("1. ok: the Lean library checks, with no axiom but Lean's own");
 
-run({
-  cmd: [process.execPath, "Shared/lower.ts", "main.bend", at("main.bendtt")],
-  cwd: join(REPO, "src"),
-  stdout: "ignore",
-});
+run(getLower(at("main.bendtt")));
 run(getLake(["lean", "src/Joining/scripts/Trusted.lean"], { BOOK: at("main.bendtt") }));
 console.log("2. ok: main.bend's book holds the proven Bend versions exactly");
 
@@ -61,4 +59,7 @@ if (failed !== "0" || notDone !== "0" || notRun !== "") {
   );
   process.exit(1);
 }
-console.log("3. ok: no WASM test fails or runs out of fuel, and passing tests run each emitted form");
+console.log("3. ok: no WASM test fails or runs out of fuel; passing tests run each emitted form");
+
+run({ cmd: [process.execPath, join(REPO, "src/Wasm/tests/agree.ts"), at("agree")] });
+console.log("4. ok: the model's Host section and a real host agree on each case");
