@@ -1,5 +1,10 @@
 // What the scripts of the tests have in common.
 
+// imports
+
+import { homedir } from "node:os";
+import { delimiter, join, resolve } from "node:path";
+
 // types
 
 // a command and how it runs, as Bun.spawnSync takes them
@@ -9,7 +14,31 @@ type Command = Bun.SpawnOptions.SpawnSyncOptions<
   Bun.SpawnOptions.Readable
 > & { readonly cmd: string[] };
 
+// constants
+
+export const REPO = resolve(import.meta.dir, "../..");
+
+// the env of lake: elan's folder first on PATH (whose key is Path on Windows)
+const PATH_KEY = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+const LAKE_ENV = {
+  ...process.env,
+  [PATH_KEY]: [join(homedir(), ".elan", "bin"), process.env[PATH_KEY]].join(delimiter),
+};
+
 // functions
+
+// `bend file -o out`, with the Bend of the bend submodule
+export const getBend = (file: string, out: string) => ({
+  cmd: [process.execPath, join(REPO, "bend/bend2/main.ts"), file, "-o", out],
+  stdout: "ignore" as const,
+});
+
+// `lake <args>` at the root of the Lean project (the repo), with these variables
+export const getLake = (args: readonly string[], vars: Record<string, string> = {}) => ({
+  cmd: ["lake", ...args],
+  cwd: REPO,
+  env: { ...LAKE_ENV, ...vars },
+});
 
 // the arguments of the script, one for each name; with another number of them, the script stops
 // and prints its usage

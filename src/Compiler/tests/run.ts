@@ -26,9 +26,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
-import { basename, delimiter, join, resolve } from "node:path";
-import { getArgs, run } from "../../Shared/shared.ts";
+import { basename, join, resolve } from "node:path";
+import { getArgs, getBend, getLake, REPO, run } from "../../Shared/shared.ts";
 
 // types
 
@@ -51,7 +50,6 @@ type Answer =
 
 const BUN = "1.4.4";
 const HERE = import.meta.dir;
-const REPO = resolve(HERE, "../../..");
 const RUN = "src/Interpreter/scripts/Run.lean";
 const CACHE = join(REPO, ".cache", "interp");
 
@@ -69,13 +67,6 @@ const CODE_HASH = [
     new Bun.CryptoHasher("sha256"),
   )
   .digest("hex");
-
-// the env of lake: elan's folder first on PATH (whose key is Path on Windows)
-const PATH_KEY = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
-const LAKE_ENV = {
-  ...process.env,
-  [PATH_KEY]: [join(homedir(), ".elan", "bin"), process.env[PATH_KEY]].join(delimiter),
-};
 
 // The JS that `bend -o` writes recurses deeper than bun's default stack allows, so compile.ts runs
 // in a bun whose JavaScriptCore may use STACK_BYTES of stack. On POSIX, the stack limit must allow
@@ -113,19 +104,6 @@ const INPUTS: Record<string, readonly Input[]> = {
 };
 
 // functions
-
-// `bend file -o out`, with the Bend of the bend submodule
-const getBend = (file: string, out: string) => ({
-  cmd: [process.execPath, join(REPO, "bend/bend2/main.ts"), file, "-o", out],
-  stdout: "ignore" as const,
-});
-
-// `lake lean <script>` at the root of the Lean project (the repo), with these variables
-const getLake = (script: string, vars: Record<string, string>) => ({
-  cmd: ["lake", "lean", script],
-  cwd: REPO,
-  env: { ...LAKE_ENV, ...vars },
-});
 
 // prints a line of the report, and gives whether it is a failure
 const isFail = ({ ok, text }: Line): boolean => {
@@ -183,7 +161,7 @@ const getAnswers = <J extends Job>(
     todo.length === 0
       ? undefined
       : Bun.spawnSync({
-          ...getLake(RUN, { JOBS: jobsFile, FUEL: fuel }),
+          ...getLake(["lean", RUN], { JOBS: jobsFile, FUEL: fuel }),
           stdout: "pipe",
           stderr: "pipe",
         });
@@ -222,7 +200,10 @@ writeFileSync(
   at("write.jobs"),
   progs.map((n) => `${at(`${n}.bendtt`)}\t${at(`${n}.book`)}\n`).join(""),
 );
-run({ ...getLake("src/Book/scripts/Write.lean", { JOBS: at("write.jobs") }), stdout: "ignore" });
+run({
+  ...getLake(["lean", "src/Book/scripts/Write.lean"], { JOBS: at("write.jobs") }),
+  stdout: "ignore",
+});
 progs.forEach((n) =>
   run({
     cmd: [

@@ -22,6 +22,10 @@ import Shared.Script
 -- next to each x.bin.wast (cut.ml). assert_invalid and assert_malformed pass
 -- only when the model refuses the module: it may never accept a module that
 -- the spec rejects.
+--
+-- With MAIN=<file.bendtt>, the book of src/main.bend (src/Shared/lower.ts), it
+-- also writes a line FORMS: the forms of instructions that the compiler emits
+-- and that no passing assertion runs (AGENTS.md 3.9.1.3.2), which must be none.
 
 open Quan Term
 
@@ -187,6 +191,55 @@ def invoke (c : Cfg) (i : Term) (name : List UInt8) (args : List Nat) : Invoked 
   | some ("Wasm.Invoked.unsupported", []) => .unsupported
   | _ => .stuck
 
+-- Forms
+-- -----
+--
+-- The form of an instruction, as AGENTS.md 3.9.1.3.2 counts them: its kind; a
+-- load's or store's offset; an op's operator; for a branch, whether it leaves
+-- its innermost label (depth 0) or more, and the kind of the label that it
+-- goes to. The instructions are terms of the model's Wasm.Instr.
+
+-- the forms of the instructions xs, inside labels of the kinds ks, innermost
+-- first
+partial def instrForms (ks : List String) (xs : Term) : List String :=
+  ((unlist xs).getD []).flatMap fun x =>
+    match unctor x with
+    | some (k, fs) =>
+      let kind := String.ofList (k.toList.drop "Wasm.Instr.".length)
+      match kind, fs with
+      | "block", [b] | "loop", [b] => kind :: instrForms (kind :: ks) b
+      | "br", [l] | "br_if", [l] =>
+        let d := (unU32 l).getD 0
+        [s!"{kind} depth {if d == 0 then "0" else ">0"} to {ks.getD d "?"}"]
+      | "load", [o] | "load8_u", [o] | "store", [o] | "store8", [o] =>
+        [s!"{kind} offset {(unU32 o).getD 0}"]
+      | "op", [o] => [s!"op {((unctor o).map (·.1)).getD "?"}"]
+      | _, _ => [kind]
+    | none => ["?"]
+
+-- the forms of each function of the module m (a Wasm.Module term)
+def Module.forms (m : Term) : List (List String) :=
+  match unctor m with
+  | some ("Wasm.Module", [fs, _, _, _]) => ((unlist fs).getD []).map fun f =>
+    match unctor f with
+    | some ("Wasm.Func", [_, _, _, b]) => instrForms ["function"] b
+    | _ => ["?"]
+  | _ => [["?"]]
+
+-- the forms of the function that the instance i (a Wasm.Instance term) exports
+-- as name
+def exportForms (i : Term) (name : List UInt8) : List String :=
+  match unctor i with
+  | some ("Wasm.Instance", [m, _]) =>
+    match unctor m with
+    | some ("Wasm.Module", [_, _, es, _]) =>
+      let j := ((unlist es).getD []).findSome? fun e => match unctor e with
+        | some ("Wasm.Export.func", [n, j]) => if unbytes n == some name then unU32 j else none
+        | _ => none
+      (j.bind ((Module.forms m)[·]?)).getD []
+    | _ => []
+  | _ => []
+
 -- Scripts
 -- -------
 
@@ -207,6 +260,8 @@ structure St where
   unsupported : Nat := 0
   notDone : Nat := 0
   failures : Array String := #[]
+  -- the forms of the functions that passing assertions ran
+  forms : List String := []
 
 def St.add (s : St) (n : Option String) (i : Inst) : St := { s with insts := (n, i) :: s.insts }
 
@@ -225,6 +280,12 @@ def St.defn (s : St) (n : Option String) : Option (List UInt8 × List (List UInt
 
 def St.passed (s : St) : St := { s with pass := s.pass + 1 }
 def St.unsup (s : St) : St := { s with unsupported := s.unsupported + 1 }
+
+-- s after a passing assertion on the export name of the instance n
+def St.ran (s : St) (n : Option String) (name : List UInt8) : St :=
+  match s.get n with
+  | some (.ok i _) => { s.passed with forms := (s.forms ++ exportForms i name).eraseDups }
+  | _ => s.passed
 def St.notdone (s : St) : St := { s with notDone := s.notDone + 1 }
 def St.failed (s : St) (why : String) (e : Sexp) : St :=
   { s with fail := s.fail + 1, failures := s.failures.push s!"{why}: {(e.show).take 300}" }
@@ -331,7 +392,7 @@ def command (c : Cfg) (pures : Nat → List (List UInt8)) (k : Nat) (s : St) (e 
         if vs.length != pats.length then s.failed s!"gave {vs}" e else
         match (pats.zip vs).mapM fun (p, v) => patOk p v with
         | none => s.unsup
-        | some oks => if oks.all id then s.passed else s.failed s!"gave {vs}" e
+        | some oks => if oks.all id then s.ran n name else s.failed s!"gave {vs}" e
       | .trap _ => s.failed "trapped" e
       | .not_done => s.notdone
       | .unsupported => s.unsup
@@ -346,7 +407,7 @@ def command (c : Cfg) (pures : Nat → List (List UInt8)) (k : Nat) (s : St) (e 
     | some (n, name, r) =>
       let s := s.after n name r
       match r with
-      | .trap _ => s.passed
+      | .trap _ => s.ran n name
       | .not_done => s.notdone
       | .unsupported => s.unsup
       | .values vs _ => s.failed s!"gave {vs}" e
@@ -417,8 +478,18 @@ def main' : IO Unit := do
     for f in s.failures do h.putStrLn s!"  FAIL {f}"
     h.flush
     total := { total with pass := total.pass + s.pass, fail := total.fail + s.fail,
-                          unsupported := total.unsupported + s.unsupported, notDone := total.notDone + s.notDone }
+                          unsupported := total.unsupported + s.unsupported, notDone := total.notDone + s.notDone,
+                          forms := (total.forms ++ s.forms).eraseDups }
   h.putStrLn s!"ALL: {total.pass} passed, {total.fail} failed, {total.unsupported} unsupported, {total.notDone} not done"
+  -- the compiler's module for no cells, decoded by the model: its code, the
+  -- machine's, is the same for every program
+  if let some main ← IO.getEnv "MAIN" then
+    let M ← Script.bookAt main
+    let (w, _) := steps M 4000000000 (App Q1 (Ref "Compiler_2f_impl.Compiler.module") (list [])) 0
+    let emitted := match (evalTerm c (App Q1 (Ref "Wasm.decode.module") w)).bind unctor with
+      | some ("Some", [m]) => (Module.forms m).flatten.eraseDups
+      | _ => ["?"]
+    h.putStrLn s!"FORMS: {emitted.length} that the compiler emits, not run by a passing test: {emitted.filter (!total.forms.contains ·)}"
   h.flush
 
 #eval main'
