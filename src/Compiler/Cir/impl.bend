@@ -55,6 +55,21 @@ def Wasm.encode.sleb.go(fuel: Nat, +v: U32) -> List<&2, Word(8n)>:
 def Wasm.encode.sleb(v: U32) -> List<&2, Word(8n)>:
   Wasm.encode.sleb.go(5n, v)
 
+def Wasm.encode.s33.go(fuel: Nat, +v: U32) -> List<&2, Word(8n)>:
+  match fuel:
+    case 0n:
+      []
+    case 1n+f:
+      +b = U32.and(v, 127)
+      +r = U32.shrn(v, 7n)
+      Wasm.encode.leb.if(U32.is_zero(r) && U32.is_lt(b, 64), b, u => Wasm.encode.s33.go(f, r))
+
+# a U32 as signed 33-bit LEB128 (spec 5.2.2), of its value, which is at
+# least 0: seven bits a byte, the lowest first, up to a last byte whose sign
+# bit (2^6) is 0
+def Wasm.encode.s33(v: U32) -> List<&2, Word(8n)>:
+  Wasm.encode.s33.go(5n, v)
+
 # the number of items of a list
 def Wasm.encode.len(-A: Data, xs: List<&2, A>) -> U32:
   match xs:
@@ -102,6 +117,17 @@ def Wasm.encode.opcode(o: Wa.Wasm.Op) -> U32:
 def Wasm.encode.with(op: U32, imm: List<&2, Word(8n)>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   Con{Sd.Byte.from_u32(op), List.append(&2, Word(8n), imm, acc)}
 
+# a block type (spec 5.4.1): 0x40 for no values, the value type i32 (0x7F)
+# for one result, or its type index as s33
+def Wasm.encode.blocktype(bt: Wa.Wasm.Blocktype) -> List<&2, Word(8n)>:
+  match bt:
+    case Wa.Wasm.Blocktype.empty{}:
+      [Sd.Byte.from_u32(64)]
+    case Wa.Wasm.Blocktype.i32{}:
+      [Sd.Byte.from_u32(127)]
+    case Wa.Wasm.Blocktype.index{x}:
+      Wasm.encode.s33(x)
+
 # the instructions xs (spec 5.4), then the bytes acc; a load or a store names
 # the natural alignment of its width
 def Wasm.encode.instrs(xs: List<&2, Wa.Wasm.Instr>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
@@ -134,10 +160,10 @@ def Wasm.encode.instrs(xs: List<&2, Wa.Wasm.Instr>, acc: List<&2, Word(8n)>) -> 
           Con{Sd.Byte.from_u32(63), Con{Sd.Byte.from_u32(0), Wasm.encode.instrs(rest, acc)}}
         case Wa.Wasm.Instr.memory_grow{}:
           Con{Sd.Byte.from_u32(64), Con{Sd.Byte.from_u32(0), Wasm.encode.instrs(rest, acc)}}
-        case Wa.Wasm.Instr.block{body}:
-          Con{Sd.Byte.from_u32(2), Con{Sd.Byte.from_u32(64), Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), Wasm.encode.instrs(rest, acc)})}}
-        case Wa.Wasm.Instr.loop{body}:
-          Con{Sd.Byte.from_u32(3), Con{Sd.Byte.from_u32(64), Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), Wasm.encode.instrs(rest, acc)})}}
+        case Wa.Wasm.Instr.block{bt, body}:
+          Wasm.encode.with(2, Wasm.encode.blocktype(bt), Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), Wasm.encode.instrs(rest, acc)}))
+        case Wa.Wasm.Instr.loop{bt, body}:
+          Wasm.encode.with(3, Wasm.encode.blocktype(bt), Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), Wasm.encode.instrs(rest, acc)}))
         case Wa.Wasm.Instr.br{l}:
           Wasm.encode.with(12, Wasm.encode.uleb(l), Wasm.encode.instrs(rest, acc))
         case Wa.Wasm.Instr.br_if{l}:
@@ -151,26 +177,26 @@ def Wasm.encode.i32s(n: Nat) -> List<&2, Word(8n)>:
     case 1n+p:
       Con{Sd.Byte.from_u32(127), Wasm.encode.i32s(p)}
 
-# a function's type (spec 5.3.6): 0x60, then its parameters and results
-def Wasm.encode.functype(f: Wa.Wasm.Func) -> List<&2, Word(8n)>:
-  match f:
-    case Wa.Wasm.Func{p, q, _, _}:
+# a function type (spec 5.3.6): 0x60, then its parameters and results
+def Wasm.encode.functype(t: Wa.Wasm.Type) -> List<&2, Word(8n)>:
+  match t:
+    case Wa.Wasm.Type{p, q}:
       Con{Sd.Byte.from_u32(96), List.append(&2, Word(8n), Wasm.encode.sized(Wasm.encode.i32s(p)), Wasm.encode.sized(Wasm.encode.i32s(q)))}
 
-def Wasm.encode.functypes(fs: List<&2, Wa.Wasm.Func>) -> List<&2, Word(8n)>:
-  match fs:
+def Wasm.encode.functypes(ts: List<&2, Wa.Wasm.Type>) -> List<&2, Word(8n)>:
+  match ts:
     case Nil{}:
       []
-    case Con{f, rest}:
-      List.append(&2, Word(8n), Wasm.encode.functype(f), Wasm.encode.functypes(rest))
+    case Con{t, rest}:
+      List.append(&2, Word(8n), Wasm.encode.functype(t), Wasm.encode.functypes(rest))
 
-# the function section: function i has type i
-def Wasm.encode.indices(fs: List<&2, Wa.Wasm.Func>, +i: U32) -> List<&2, Word(8n)>:
+# the function section: each function's type index
+def Wasm.encode.indices(fs: List<&2, Wa.Wasm.Func>) -> List<&2, Word(8n)>:
   match fs:
     case Nil{}:
       []
-    case Con{_, rest}:
-      List.append(&2, Word(8n), Wasm.encode.uleb(i), Wasm.encode.indices(rest, U32.inc(i)))
+    case Con{Wa.Wasm.Func{x, _, _}, rest}:
+      List.append(&2, Word(8n), Wasm.encode.uleb(x), Wasm.encode.indices(rest))
 
 # a function's locals after its parameters (spec 5.5.13): one group of n
 # locals of i32, or none
@@ -184,7 +210,7 @@ def Wasm.encode.locals(+n: Nat) -> List<&2, Word(8n)>:
 # a function's code (spec 5.5.13): its size, its locals, its body and its end
 def Wasm.encode.code(f: Wa.Wasm.Func) -> List<&2, Word(8n)>:
   match f:
-    case Wa.Wasm.Func{_, _, n, body}:
+    case Wa.Wasm.Func{_, n, body}:
       Wasm.encode.sized(List.append(&2, Word(8n), Wasm.encode.locals(n), Wasm.encode.instrs(body, [Sd.Byte.from_u32(11)])))
 
 def Wasm.encode.codes(fs: List<&2, Wa.Wasm.Func>) -> List<&2, Word(8n)>:
@@ -235,14 +261,14 @@ def Wasm.encode.data(d: Maybe<&2, Wa.Wasm.Segment>) -> List<&2, Word(8n)>:
         List.append(&2, Word(8n), Wasm.encode.sleb(o), Con{Sd.Byte.from_u32(11), Wasm.encode.sized(bs)})}}}, [])
 
 # a module of the subset (spec 5.5.15): its header, then its sections in the
-# order of their ids; function i has type i
+# order of their ids
 def Wasm.encode(m: Wa.Wasm.Module) -> List<&2, Word(8n)>:
   match m:
-    case Wa.Wasm.Module{+fs, mem, +es, d}:
+    case Wa.Wasm.Module{+ts, +fs, mem, +es, d}:
       +n = Wasm.encode.len(Wa.Wasm.Func, fs)
       List.append(&2, Word(8n), Wa.Wasm.header(),
-        Wasm.encode.section(1, Wasm.encode.vec(n, Wasm.encode.functypes(fs)),
-          Wasm.encode.section(3, Wasm.encode.vec(n, Wasm.encode.indices(fs, 0)),
+        Wasm.encode.section(1, Wasm.encode.vec(Wasm.encode.len(Wa.Wasm.Type, ts), Wasm.encode.functypes(ts)),
+          Wasm.encode.section(3, Wasm.encode.vec(n, Wasm.encode.indices(fs)),
             Wasm.encode.memory(mem,
               Wasm.encode.section(7, Wasm.encode.vec(Wasm.encode.len(Wa.Wasm.Export, es), Wasm.encode.exports(es)),
                 Wasm.encode.section(10, Wasm.encode.vec(n, Wasm.encode.codes(fs)), Wasm.encode.data(d)))))))
@@ -687,6 +713,13 @@ def Cir.i.op(o: Wa.Wasm.Op) -> Wa.Wasm.Instr:
 def Cir.i.const(n: U32) -> Wa.Wasm.Instr:
   Wa.Wasm.Instr.const{n}
 
+# a block, and a loop, that take and give no values
+def Cir.i.block(body: List<&2, Wa.Wasm.Instr>) -> Wa.Wasm.Instr:
+  Wa.Wasm.Instr.block{Wa.Wasm.Blocktype.empty{}, body}
+
+def Cir.i.loop(body: List<&2, Wa.Wasm.Instr>) -> Wa.Wasm.Instr:
+  Wa.Wasm.Instr.loop{Wa.Wasm.Blocktype.empty{}, body}
+
 # the cell number on the stack, turned into its first byte, 20 × c; then acc
 def Cir.code.at(acc: List<&2, Wa.Wasm.Instr>) -> List<&2, Wa.Wasm.Instr>:
   Con{Wa.Wasm.Instr.local_tee{Cir.l.tmp()}, Con{Cir.i.const(4), Con{Cir.i.op(Wa.Wasm.Op.shl{}),
@@ -714,19 +747,19 @@ def Cir.code.expr(e: Cir.Expr, acc: List<&2, Wa.Wasm.Instr>) -> List<&2, Wa.Wasm
 # the status s, then a branch out of run: the label d + 1 levels out, from a
 # block of its own at d levels inside run's block
 def Cir.code.exit(s: U32, d: Nat) -> Wa.Wasm.Instr:
-  Wa.Wasm.Instr.block{[Cir.i.const(s), Cir.i.set(Cir.l.status()), Wa.Wasm.Instr.br{U32.from_nat(1n+d)}]}
+  Cir.i.block([Cir.i.const(s), Cir.i.set(Cir.l.status()), Wa.Wasm.Instr.br{U32.from_nat(1n+d)}])
 
 # the instructions cond, which leave a Bool; when it is 0, out of memory
 def Cir.code.unless(cond: List<&2, Wa.Wasm.Instr>, d: Nat, acc: List<&2, Wa.Wasm.Instr>) -> List<&2, Wa.Wasm.Instr>:
-  Con{Wa.Wasm.Instr.block{List.append(&2, Wa.Wasm.Instr, cond, [Wa.Wasm.Instr.br_if{0}, Cir.code.exit(1, 1n+d)])}, acc}
+  Con{Cir.i.block(List.append(&2, Wa.Wasm.Instr, cond, [Wa.Wasm.Instr.br_if{0}, Cir.code.exit(1, 1n+d)])), acc}
 
 # the memory grows to the pages in local need, when it has fewer; out of
 # memory when it cannot
 def Cir.code.grow(d: Nat, acc: List<&2, Wa.Wasm.Instr>) -> List<&2, Wa.Wasm.Instr>:
-  Con{Wa.Wasm.Instr.block{Con{Cir.i.get(Cir.l.need()), Con{Wa.Wasm.Instr.memory_size{}, Con{Cir.i.op(Wa.Wasm.Op.le_u{}),
+  Con{Cir.i.block(Con{Cir.i.get(Cir.l.need()), Con{Wa.Wasm.Instr.memory_size{}, Con{Cir.i.op(Wa.Wasm.Op.le_u{}),
     Con{Wa.Wasm.Instr.br_if{0},
       Cir.code.unless([Cir.i.get(Cir.l.need()), Wa.Wasm.Instr.memory_size{}, Cir.i.op(Wa.Wasm.Op.sub{}),
-        Wa.Wasm.Instr.memory_grow{}, Cir.i.const(4294967295), Cir.i.op(Wa.Wasm.Op.ne{})], 1n+d, [])}}}}}, acc}
+        Wa.Wasm.Instr.memory_grow{}, Cir.i.const(4294967295), Cir.i.op(Wa.Wasm.Op.ne{})], 1n+d, [])}}}}), acc}
 
 # the pages (b >> 16) + 1 that the byte b on the stack needs, into local need
 def Cir.code.need(acc: List<&2, Wa.Wasm.Instr>) -> List<&2, Wa.Wasm.Instr>:
@@ -774,8 +807,8 @@ def Cir.code.result(ok: Bool) -> List<&2, Wa.Wasm.Instr>:
       []
 
 def Cir.code.halt(+s: U32, d: Nat) -> Wa.Wasm.Instr:
-  Wa.Wasm.Instr.block{Con{Cir.i.const(s), Con{Cir.i.set(Cir.l.status()),
-    List.append(&2, Wa.Wasm.Instr, Cir.code.result(U32.is_zero(s)), [Wa.Wasm.Instr.br{U32.from_nat(1n+d)}])}}}
+  Cir.i.block(Con{Cir.i.const(s), Con{Cir.i.set(Cir.l.status()),
+    List.append(&2, Wa.Wasm.Instr, Cir.code.result(U32.is_zero(s)), [Wa.Wasm.Instr.br{U32.from_nat(1n+d)}])}})
 
 # a statement at d levels inside run's block; then acc
 def Cir.code.stmt(s: Cir.Stmt, +d: Nat, acc: List<&2, Wa.Wasm.Instr>) -> List<&2, Wa.Wasm.Instr>:
@@ -793,13 +826,13 @@ def Cir.code.stmt(s: Cir.Stmt, +d: Nat, acc: List<&2, Wa.Wasm.Instr>) -> List<&2
     case Cir.Stmt.seq{a, b}:
       Cir.code.stmt(a, d, Cir.code.stmt(b, d, acc))
     case Cir.Stmt.if{c, t, e}:
-      Con{Wa.Wasm.Instr.block{Con{
-        Wa.Wasm.Instr.block{Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0},
-          Cir.code.stmt(t, 2n+d, [Wa.Wasm.Instr.br{1}])}})},
-        Cir.code.stmt(e, 1n+d, [])}}, acc}
+      Con{Cir.i.block(Con{
+        Cir.i.block(Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0},
+          Cir.code.stmt(t, 2n+d, [Wa.Wasm.Instr.br{1}])}})),
+        Cir.code.stmt(e, 1n+d, [])}), acc}
     case Cir.Stmt.while{c, body}:
-      Con{Wa.Wasm.Instr.block{[Wa.Wasm.Instr.loop{Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1},
-        Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}]}, acc}
+      Con{Cir.i.block([Cir.i.loop(Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1},
+        Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}))]), acc}
     case Cir.Stmt.halt{s}:
       Con{Cir.code.halt(s, d), acc}
 
@@ -812,33 +845,33 @@ def Cir.input.at(k: U32) -> U32:
 # byte 4294967280, so that the cells after it have numbers below 2^32 / 20
 def Cir.alloc(+k: U32) -> Wa.Wasm.Func:
   +a = Cir.input.at(k)
-  Wa.Wasm.Func{1n, 1n, 3n, [
+  Wa.Wasm.Func{0, 3n, [
     Cir.i.const(4294967295), Cir.i.set(2),
     Cir.i.const(a), Cir.i.get(0), Cir.i.op(Wa.Wasm.Op.add{}), Cir.i.set(1),
-    Wa.Wasm.Instr.block{[
+    Cir.i.block([
       Cir.i.get(1), Cir.i.const(a), Cir.i.op(Wa.Wasm.Op.lt_u{}), Wa.Wasm.Instr.br_if{0},
       Cir.i.get(1), Cir.i.const(4294967280), Cir.i.op(Wa.Wasm.Op.gt_u{}), Wa.Wasm.Instr.br_if{0},
       Cir.i.get(1), Cir.i.const(1), Cir.i.op(Wa.Wasm.Op.sub{}), Cir.i.const(16), Cir.i.op(Wa.Wasm.Op.shr_u{}),
       Cir.i.const(1), Cir.i.op(Wa.Wasm.Op.add{}), Cir.i.set(3),
-      Wa.Wasm.Instr.block{[
+      Cir.i.block([
         Cir.i.get(3), Wa.Wasm.Instr.memory_size{}, Cir.i.op(Wa.Wasm.Op.le_u{}), Wa.Wasm.Instr.br_if{0},
         Cir.i.get(3), Wa.Wasm.Instr.memory_size{}, Cir.i.op(Wa.Wasm.Op.sub{}), Wa.Wasm.Instr.memory_grow{},
-        Cir.i.const(4294967295), Cir.i.op(Wa.Wasm.Op.eq{}), Wa.Wasm.Instr.br_if{1}]},
-      Cir.i.const(a), Cir.i.set(2)]},
+        Cir.i.const(4294967295), Cir.i.op(Wa.Wasm.Op.eq{}), Wa.Wasm.Instr.br_if{1}]),
+      Cir.i.const(a), Cir.i.set(2)]),
     Cir.i.get(2)]}
 
 # run(a, n) (see Host): the first cell after the input, then the program; the
 # status that it ends with
 def Cir.run(prog: Cir.Stmt, regs: Nat, k: U32) -> Wa.Wasm.Func:
-  Wa.Wasm.Func{2n, 1n, 6n+regs, [
+  Wa.Wasm.Func{1, 6n+regs, [
     Cir.i.const(2), Cir.i.set(Cir.l.status()),
     Cir.i.get(0), Cir.i.get(1), Cir.i.op(Wa.Wasm.Op.add{}), Cir.i.set(Cir.l.addr()),
     Cir.i.const(U32.inc(k)), Cir.i.set(Cir.l.next()),
-    Wa.Wasm.Instr.block{[Wa.Wasm.Instr.loop{Con{Cir.i.get(Cir.l.next()), Cir.code.at(
+    Cir.i.block([Cir.i.loop(Con{Cir.i.get(Cir.l.next()), Cir.code.at(
       [Cir.i.get(Cir.l.addr()), Cir.i.op(Wa.Wasm.Op.ge_u{}), Wa.Wasm.Instr.br_if{1},
        Cir.i.get(Cir.l.next()), Cir.i.const(1), Cir.i.op(Wa.Wasm.Op.add{}), Cir.i.set(Cir.l.next()),
-       Wa.Wasm.Instr.br{0}])}}]},
-    Wa.Wasm.Instr.block{Cir.code.stmt(prog, 0n, [])},
+       Wa.Wasm.Instr.br{0}])})]),
+    Cir.i.block(Cir.code.stmt(prog, 0n, [])),
     Cir.i.get(Cir.l.status())]}
 
 # the pages that bytes 0 to b - 1 need, for b above 0
@@ -859,10 +892,12 @@ def Cir.bytes(cs: List<&2, Cir.Cell>) -> List<&2, Word(8n)>:
       Cir.word.bytes(a, Cir.word.bytes(b, Cir.word.bytes(c, Cir.word.bytes(d, Cir.word.bytes(e, Cir.bytes(rest))))))
 
 # the module of the program prog with regs registers, whose memory holds the
-# cells from cell 1: memory, alloc and run
+# cells from cell 1: the types of alloc (type 0) and run (type 1), memory,
+# alloc and run
 def Cir.module(prog: Cir.Stmt, regs: Nat, +cells: List<&2, Cir.Cell>) -> Wa.Wasm.Module:
   +k = Wasm.encode.len(Cir.Cell, cells)
   Wa.Wasm.Module{
+    [Wa.Wasm.Type{1n, 1n}, Wa.Wasm.Type{2n, 1n}],
     [Cir.alloc(k), Cir.run(prog, regs, k)],
     Some{Wa.Wasm.Limits{Cir.pages(Cir.input.at(k))}},
     [Wa.Wasm.Export.memory{Wa.Wasm.name.memory()}, Wa.Wasm.Export.func{Wa.Wasm.name.alloc(), 0},
