@@ -755,6 +755,14 @@ def Mem(xs: List<&2, U32>, +c: U32) -> Bool:
     case Con{x, rest}:
       Bool.or(U32.is_eq(x, c), Mem(rest, c))
 
+# every cell of xs is in ys
+def AllIn(xs: List<&2, U32>, +ys: List<&2, U32>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Mem(ys, x), AllIn(rest, ys))
+
 # the part b of a frame: in field 3, for Rwt only
 def Frs.bK(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, Bk.Term>, +c: U32, kind: FK, b: Bk.Term) -> Data:
@@ -1304,6 +1312,18 @@ def All.held(ys: List<&2, U32>, +m: Cr.Cir.Cells, +cs: List<&2, U32>, +hc: List<
     case Con{+y, rest}:
       Bool.and(Bool.or(Fl(m, y, 1024), Bool.or(Mem(cs, y), Mem(hc, y))), All.held(rest, m, cs, hc))
 
+# the temporaries xs, the machine's working cells: distinct cells of its own,
+# not STATIC, out of the pend list ps, no node of a term of rs (the terms that
+# Acc counts), each holding only terms whose roots are among its pointers (Fs)
+def Tmp.ok(xs: List<&2, TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +ps: List<&2, U32>, +rs: List<&2, Rt>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{TmpE{+c, h}, +rest}:
+      Bool.and(Own(fi, nx, c), Bool.and(Bool.not(Fl(m, c, 1024)), Bool.and(Bool.not(Mem(ps, c)),
+      Bool.and(Bool.not(Mem(Tmp.cells(rest), c)), Bool.and(Bool.not(Nodes(rs, m, c)),
+        Bool.and(AllIn(Rt.cells(h), Fs(m, ps, c)), Tmp.ok(rest, m, fi, nx, ps, rs)))))))
+
 # the pointers of the cell c: to STATIC cells when c is STATIC; to STATIC
 # cells, temporaries (cs) or the roots of the terms that they hold (hc) when
 # c is a temporary
@@ -1322,7 +1342,10 @@ def Clo(n: Nat, +m: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>, +cs: List<&2, U32
 # AccK: the zombies zs, and the terms that the temporaries xs hold, stand
 # for their terms; zs are the term cells of the pend list ps; every own cell
 # is STATIC, a node of a term of rs, of the temporaries', of the frames' or
-# of zs, or a frame, a temporary or pending; and Clo holds of every own cell
+# of zs, or a frame, a temporary or pending; Clo holds of every own cell; and
+# the temporaries are working cells (Tmp.ok): distinct own cells, not STATIC,
+# out of ps, no node of those terms, whose held terms' roots are among their
+# pointers
 def AccK(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, Rt>, +xs: List<&2, TmpE>, +sp: U32,
   +fs: List<&2, AF>, +ps: List<&2, U32>, +zs: List<&2, Rt>) -> Data:
@@ -1334,7 +1357,8 @@ def AccK(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +i
   P2({Rt.cells(zs) == Pend.terms(ps, m) : List<&2, U32>},
   P2({Cov(n, m, fi, List.append(&2, Rt, rs, List.append(&2, Rt, hl, List.append(&2, Rt, Fr.rts(fs, m, sp), zs))),
       List.append(&2, U32, Fr.cells(fs, m, sp), List.append(&2, U32, cs, ps))) == True{} : Bool},
-    {Clo(n, m, fi, ps, cs, Rt.cells(hl)) == True{} : Bool}))))
+  P2({Clo(n, m, fi, ps, cs, Rt.cells(hl)) == True{} : Bool},
+    {Tmp.ok(xs, m, fi, nx, ps, List.append(&2, Rt, rs, List.append(&2, Rt, hl, List.append(&2, Rt, Fr.rts(fs, m, sp), zs)))) == True{} : Bool})))))
 
 # AccK of a state that Inv finds: the focus is the one root, and there is
 # no temporary
@@ -1399,16 +1423,16 @@ def Ag.vars(xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32) -> List<&2, U32>:
     case Con{_, +rest}:
       Bool.pick(List<&2, U32>, Fl(m, a, 4096), Con{Fd(2n, m, a), Ag.vars(rest, m, Fd(1n, m, a))}, Ag.vars(rest, m, Fd(1n, m, a)))
 
-# the chain of K.arg cells from a, for the arguments xs, as temporaries:
-# each with the Var cell that an OWNED one holds, a temporary too (a K.arg
-# that does not own its term holds no pointer)
+# the chain of K.arg cells from a, for the arguments xs, as temporaries: an
+# OWNED one holds its term, a Var (M.var's cell, a new owned root that the
+# K.arg's store took: term.post, store.post); any other holds none (its
+# pointer is borrowed, Fs does not count it)
 def Ag.cells(xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32) -> List<&2, TmpE>:
   match xs:
     case Nil{}:
       Nil{}
-    case Con{_, +rest}:
-      Bool.pick(List<&2, TmpE>, Fl(m, a, 4096), Con{TmpE{a, Nil{}}, Con{TmpE{Fd(2n, m, a), Nil{}}, Ag.cells(rest, m, Fd(1n, m, a))}},
-        Con{TmpE{a, Nil{}}, Ag.cells(rest, m, Fd(1n, m, a))})
+    case Con{El.Arg{_, +x}, +rest}:
+      Con{TmpE{a, Bool.pick(List<&2, Rt>, Fl(m, a, 4096), [Rt{Fd(2n, m, a), x}], Nil{})}, Ag.cells(rest, m, Fd(1n, m, a))}
 
 def Arg.terms(xs: List<&2, El.Arg>) -> List<&2, Bk.Term>:
   match xs:
@@ -1483,16 +1507,66 @@ def Same(+regs: List<&2, U32>, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Wor
 def Reg(st: Cr.Cir.State, +r: Nat, +v: U32) -> Data:
   {List.get(&2, U32, St.regs(st), r) == Some{v} : Maybe<&2, U32>}
 
+# What a phase keeps
+# ------------------
+#
+# A phase (M.copy, M.data, M.walk) writes the cells that it takes (from the
+# pend list or new), the counts and the flag DATA of term cells, and the cells
+# es that it is given to change; the cells of the machine's own kinds that a
+# caller holds outside HS (the walk's K.arg chains, the arguments of a call)
+# keep their values.
+
+def Kept.if(b: Bool, X: Data) -> Data:
+  match b:
+    case True{}:
+      Unit
+    case False{}:
+      X
+
+# the cell c keeps its value from m to m2, unless it is one of xs or a term
+# cell
+def Kept.at(+m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +xs: List<&2, U32>, +c: U32) -> Data:
+  Kept.if(Bool.or(Mem(xs, c), U32.is_lt(Tg(m, c), 19)), {Cr.Cir.Cells.get(m2, c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell})
+
+# Kept.at of each of the n cells from c
+def Kept.go(n: Nat, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +xs: List<&2, U32>, +c: U32) -> Data:
+  match n:
+    case 0n:
+      Unit
+    case 1n+p:
+      P2(Kept.at(m, m2, xs, c), Kept.go(p, m, m2, xs, U32.inc(c)))
+
+# each cell of qs below nx is one of xs or a term cell of m
+def PsSub.lt(qs: List<&2, U32>, +xs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32) -> Bool:
+  match qs:
+    case Nil{}:
+      True{}
+    case Con{+q, rest}:
+      Bool.and(Bool.or(Bool.not(U32.is_lt(q, nx)), Bool.or(Mem(xs, q), U32.is_lt(Tg(m, q), 19))), PsSub.lt(rest, xs, m, nx))
+
+# what a phase keeps of the cells m (next nx, the pend list ps) in the cells
+# m2 (next nx2, the pend list ps2), but for the cells es that it may change:
+# next does not go down; each own cell out of ps and es, of the machine's own
+# kinds (tag 19 or more), keeps its value; each cell of ps2 below nx was in
+# ps or es, or is a term cell (M.alloc may free the parts of a reused cell)
+def Kept.cells(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +es: List<&2, U32>, +m2: Cr.Cir.Cells,
+  +nx2: U32, +ps2: List<&2, U32>) -> Data:
+  P2({U32.is_le(nx, nx2) == True{} : Bool},
+  P2(Kept.go(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, m2, List.append(&2, U32, ps, es), fi),
+    {PsSub.lt(ps2, List.append(&2, U32, ps, es), m, nx) == True{} : Bool}))
+
 # Open: M.copy (copy_substitution.bend)
 # ------------------------------
 #
 # From a state of HS, with the cell c of t borrowed (in the register of the
 # source, Copy.src(wt)) and the locals of the chain ce (register cenv)
 # standing for the terms of es (clen, their number, in register clen), each
-# below 2^31 (hv), M.copy(R.n(), Copy.src(wt)) gives register n a new cell
+# below 2^31 (hv), the chain's cells among the temporaries of Acc (Ag.cells,
+# before xs), M.copy(R.n(), Copy.src(wt)) gives register n a new cell
 # n that stands for Term.subst(t, terms(es), 0n), owned (its count is 1);
-# HS holds again with n among the owned roots, the locals' chain is kept, and
-# only Copy.scr(R.n())'s registers change: pend to pend2, with the pend list ps2.
+# HS holds again with n among the owned roots, the locals' chain is kept, the
+# cells that the copy does not own keep their values (Kept.cells), and only
+# Copy.scr(R.n())'s registers change: pend to pend2, with the pend list ps2.
 # Every cell that a copy takes is from the pend list or new (the frame
 # condition on allocation, by which HS's terms stay). Acc holds again with n
 # among the roots, and the copy runs out of memory only below its budget: the
@@ -1510,24 +1584,24 @@ def Copy.src(wt: Bool) -> Nat:
       Mc.R.z()
 
 def CopyQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
-  +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>, +os: List<&2, Rt>,
-  +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +t: Bk.Term, +ce: U32, +es: List<&2, El.Arg>, +xs: List<&2, TmpE>,
-  +st2: Cr.Cir.State) -> Data:
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +ps: List<&2, U32>, +t: Bk.Term, +ce: U32,
+  +es: List<&2, El.Arg>, +xs: List<&2, TmpE>, +st2: Cr.Cir.State) -> Data:
   +m2 = St.cells(st2)
   +nx2 = St.next(st2)
   P2(Same(regs, fi, im, lim, inp, keep, st2),
   Ex(U32, n => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
-    P2(Reg(st2, r, n), P2(Reg(st2, 3n, pend2),
+    P2(Reg(st2, r, n), P2(Reg(st2, 3n, pend2), P2(Kept.cells(m, nx, fi, ps, Nil{}, m2, nx2, ps2),
     P2(HS(ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, bs, fs, sp, pend2, ps2),
     P2(Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, Nil{}, ce, es),
-      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, xs, sp, fs, ps2, zs2))))))))))
+      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, List.append(&2, TmpE, Ag.cells(es, m2, ce), xs), sp, fs, ps2, zs2)))))))))))
 # the conclusion of copy.post (moves.bend), for the phase that proves it
 def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +wt: Bool,
   +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
   +c: U32, +t: Bk.Term, +ce: U32, +es: List<&2, El.Arg>, +xs: List<&2, TmpE>, +zs: List<&2, Rt>,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{c, t}, bs}, fs, sp, pend, ps),
-  hac: AccK(True{}, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs),
+  hac: AccK(True{}, ds, ks, img, m, nx, fi, im, os, List.append(&2, TmpE, Ag.cells(es, m, ce), xs), sp, fs, ps, zs),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, Copy.src(wt)) == Some{c} : Maybe<&2, U32>},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
@@ -1539,16 +1613,16 @@ def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   hk: {Disj(keep, Copy.scr(Mc.R.n())) == True{} : Bool}) ->
   Type:
   PostB(False{}, Cr.Cir.exec(f, Mc.M.copy(Mc.R.n(), Copy.src(wt)), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
-    st2 => CopyQ(ds, ks, img, regs, fi, im, lim, inp, Mc.R.n(), keep, os, Con{Rt{c, t}, bs}, fs, sp, t, ce, es, xs, st2),
+    st2 => CopyQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, Mc.R.n(), keep, os, Con{Rt{c, t}, bs}, fs, sp, ps, t, ce, es, xs, st2),
     s => st2 => Empty,
-    Cells.bytes(fi, Nat.add(Acc.need(m, nx, fi, os, xs, sp, fs), 2n+Pg.Term.size(El.Term.subst(t, Arg.terms(es), 0n)))), lim)
+    Cells.bytes(fi, Nat.add(Acc.need(m, nx, fi, os, List.append(&2, TmpE, Ag.cells(es, m, ce), xs), sp, fs), 2n+Pg.Term.size(El.Term.subst(t, Arg.terms(es), 0n)))), lim)
 # the conclusion of copy.done (moves.bend), for the phase that proves it
 def CopyDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +wt: Bool,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
   +c: U32, +t: Bk.Term, +ce: U32, +es: List<&2, El.Arg>, +xs: List<&2, TmpE>, +zs: List<&2, Rt>,
   hs: HS(ds, ks, img, m, nx, fi, im, os, Con{Rt{c, t}, bs}, fs, sp, pend, ps),
-  hac: AccK(True{}, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs),
+  hac: AccK(True{}, ds, ks, img, m, nx, fi, im, os, List.append(&2, TmpE, Ag.cells(es, m, ce), xs), sp, fs, ps, zs),
   hl: {List.length(&2, U32, regs) == 63n : Nat},
   hc: {List.get(&2, U32, regs, Copy.src(wt)) == Some{c} : Maybe<&2, U32>},
   hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
@@ -1582,13 +1656,14 @@ def DataH(b: Bool, X: Data) -> Data:
       Unit
 
 def DataQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
-  +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>,
-  +fs: List<&2, AF>, +sp: U32, +v: Bk.Term, +xs: List<&2, TmpE>, +st2: Cr.Cir.State) -> Data:
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
+  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +ps: List<&2, U32>, +v: Bk.Term,
+  +xs: List<&2, TmpE>, +st2: Cr.Cir.State) -> Data:
   P2(Same(regs, fi, im, lim, inp, keep, st2),
   P2(Reg(st2, 43n, Bool.to_u32(El.Term.is_data(v))),
   Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
-    P2(Reg(st2, 3n, pend2), DataH(El.Term.is_data(v), P2(HS(ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2),
-      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, xs, sp, fs, ps2, zs2)))))))))
+    P2(Reg(st2, 3n, pend2), P2(Kept.cells(m, nx, fi, ps, Nil{}, St.cells(st2), St.next(st2), ps2), DataH(El.Term.is_data(v), P2(HS(ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2),
+      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, xs, sp, fs, ps2, zs2))))))))))
 # the conclusion of data.post (moves.bend), for the phase that proves it
 def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
@@ -1603,7 +1678,7 @@ def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   hk: {Disj(keep, Data.scr()) == True{} : Bool}) ->
   Type:
   PostB(False{}, Cr.Cir.exec(f, Mc.M.data(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
-    st2 => DataQ(ds, ks, img, regs, fi, im, lim, inp, keep, os, Con{Rt{c, v}, bs}, fs, sp, v, xs, st2), s => st2 => Empty,
+    st2 => DataQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, Con{Rt{c, v}, bs}, fs, sp, ps, v, xs, st2), s => st2 => Empty,
     Cells.bytes(fi, Nat.add(Acc.need(m, nx, fi, os, xs, sp, fs), 1n+Pg.Term.size(v))), lim)
 # the conclusion of data.done (moves.bend), for the phase that proves it
 def DataDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
@@ -1630,10 +1705,12 @@ def DataDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
 # Ag), so that the walk gives Term.spine(ys, Term.subst(u, e, 0n)); 2 when
 # the walk needs more arguments,
 # with wenv and wargs chains to release; 3 when no walk exists. HS holds
-# again, except when wres is 3 (a check of M.data may have failed), and
-# only Walk.scr()'s registers change. Acc holds again with the new chains'
-# cells (wenv's and wargs') among the temporaries, when wres is 1 or 2; the
-# walk runs out of memory only below its budget: the cells that Acc counts,
+# again, except when wres is 3 (a check of M.data may have failed), the
+# cells that the walk does not own, but its arguments' chain, keep their
+# values (Kept.cells), and only Walk.scr()'s registers change. Acc holds
+# again with the new chains' cells (wenv's and wargs') among the
+# temporaries, when wres is 1 or 2; the walk runs out of memory only below
+# its budget: the cells that Acc counts,
 # two cells a round (at most the nodes of tt) and a check's stack (at most
 # 1 + the arguments' nodes). With some fuel it ends.
 
@@ -1654,14 +1731,16 @@ def WalkR(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
     P2({res == 3 : U32}, {El.Eval.walk(tt, Nil{}, xs) == None{} : Maybe<Maybe<Bk.Term>>})))
 
 def WalkQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
-  +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>, +os: List<&2, Rt>, +bs: List<&2, Rt>,
-  +fs: List<&2, AF>, +sp: U32, +tt: Bk.Term, +xs: List<&2, El.Arg>, +xs0: List<&2, TmpE>, +st2: Cr.Cir.State) -> Type:
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
+  +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +ps: List<&2, U32>, +tt: Bk.Term, +a: U32,
+  +xs: List<&2, El.Arg>, +xs0: List<&2, TmpE>, +st2: Cr.Cir.State) -> Type:
   +m2 = St.cells(st2)
   +nx2 = St.next(st2)
   Same(regs, fi, im, lim, inp, keep, st2) &
   &res: U32 -> &wt2: U32 -> &env: U32 -> &wn: U32 -> &args: U32 -> &pend2: U32 -> &ps2: List<&2, U32> ->
     Reg(st2, 26n, res) & Reg(st2, 19n, wt2) & Reg(st2, 20n, env) & Reg(st2, 25n, wn) & Reg(st2, 21n, args) &
-    Reg(st2, 3n, pend2) & DataH(U32.is_ne(res, 3), HS(ds, ks, img, m2, nx2, fi, im, os, bs, fs, sp, pend2, ps2)) &
+    Reg(st2, 3n, pend2) & Kept.cells(m, nx, fi, ps, Tmp.cells(Ag.cells(xs, m, a)), m2, nx2, ps2) &
+    DataH(U32.is_ne(res, 3), HS(ds, ks, img, m2, nx2, fi, im, os, bs, fs, sp, pend2, ps2)) &
     WalkR(ds, ks, img, m2, nx2, fi, im, ps2, os, sp, fs, xs0, tt, xs, res, wt2, env, wn, args)
 # the conclusion of walk.post (moves.bend), for the phase that proves it
 def WalkPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
@@ -1679,7 +1758,7 @@ def WalkPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   hk: {Disj(keep, Walk.scr()) == True{} : Bool}) ->
   Type:
   PostB(False{}, Cr.Cir.exec(f, Mc.M.walk(), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
-    st2 => WalkQ(ds, ks, img, regs, fi, im, lim, inp, keep, os, Con{Rt{tc, tt}, bs}, fs, sp, tt, xs, xs0, st2), s => st2 => Empty,
+    st2 => WalkQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, Con{Rt{tc, tt}, bs}, fs, sp, ps, tt, a, xs, xs0, st2), s => st2 => Empty,
     Cells.bytes(fi, Nat.add(Acc.need(m, nx, fi, os, List.append(&2, TmpE, Ag.cells(xs, m, a), xs0), sp, fs),
       1n+Nat.add(Nat.mul(2n, Pg.Term.size(tt)), Terms.size(Arg.terms(xs))))), lim)
 # the conclusion of walk.done (moves.bend), for the phase that proves it
@@ -3867,14 +3946,6 @@ def and.i(-a: Bool, -b: Bool, ha: {a == True{} : Bool}, hb: {b == True{} : Bool}
   %Equal.sym(Bool, b, True{}, hb) : {Bool.and(True{}, _) == True{} : Bool}
   {==}
 
-# every cell of xs is in ys
-def AllIn(xs: List<&2, U32>, +ys: List<&2, U32>) -> Bool:
-  match xs:
-    case Nil{}:
-      True{}
-    case Con{+x, rest}:
-      Bool.and(Mem(ys, x), AllIn(rest, ys))
-
 def allin.cons(xs: List<&2, U32>, +x: U32, +ys: List<&2, U32>, +h: {AllIn(xs, ys) == True{} : Bool}) ->
   {AllIn(xs, Con{x, ys}) == True{} : Bool}:
   match xs:
@@ -5895,8 +5966,9 @@ law inc.post:
   for hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>}
   PostB(False{}, Cr.Cir.exec(f, Mc.M.inc(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => Ex(Cr.Cir.Cells, m2 => P2({st2 == Cr.Cir.State{regs, m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+      P2({Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
       P2(HSK(dk, ds, ks, img, m2, nx, fi, im, Con{Rt{c, u}, os}, Con{Rt{c, u}, bs}, fs, sp, pend, ps),
-        AccK(dk, ds, ks, img, m2, nx, fi, im, Con{Rt{c, u}, os}, xs, sp, fs, ps, zs)))),
+        AccK(dk, ds, ks, img, m2, nx, fi, im, Con{Rt{c, u}, os}, xs, sp, fs, ps, zs))))),
     s => st2 => Empty, 0n, lim)
 
 # M.dec(r), with the owned root c of u in register r, when each borrowed term
@@ -5938,8 +6010,9 @@ law dec.post:
   PostB(False{}, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => Ex(Cr.Cir.Cells, m2 => Ex(U32, d => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
       P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+      P2({Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
       P2(HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2),
-        Ex(List<&2, Rt>, zs2 => AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2)))))))),
+        Ex(List<&2, Rt>, zs2 => AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2))))))))),
     s => st2 => Empty, 0n, lim)
 
 # the parts of the pend list's first cell, which M.alloc takes
@@ -6071,8 +6144,9 @@ law release.post:
   for hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}
   PostB(False{}, Cr.Cir.exec(f, Mc.M.release(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => Ex(Cr.Cir.Cells, m2 => P2({st2 == Cr.Cir.State{List.set(&2, U32, regs, 3n, z), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+      P2({Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
       P2(HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, z, Con{z, ps}),
-        AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs)))),
+        AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs))))),
     s => st2 => Empty, 0n, lim)
 
 # Open: the frame conditions of allocation (this file)
@@ -6206,8 +6280,9 @@ law node.part:
   {Nodes(os, m, y) == True{} : Bool}
 
 # a store, at a cell z that nothing points to and that holds no pointer, of a
-# cell of the machine's own kinds whose pointers are those of the owned roots
-# us: they leave the roots, and the temporary z (the first of xs) holds them
+# cell of the machine's own kinds, with no STATIC bit, whose pointers are those
+# of the owned roots us: they leave the roots, and the temporary z (the first
+# of xs) holds them
 law store.post:
   for +dk: Bool
   for +ds: List<&2, Bk.Def>
@@ -6239,15 +6314,16 @@ law store.post:
   for hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, Rt.cells(List.append(&2, Rt, us, os)), z) == 0n : Nat}
   for hzf: {Fs(m, ps, z) == Nil{} : List<&2, U32>}
   for ht: {U32.is_le(32, TgW(Cr.Cir.Cell.get(0n, x))) == True{} : Bool}
+  for hxs: {FlW(Cr.Cir.Cell.get(0n, x), 1024) == False{} : Bool}
   for hf: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Rt.cells(us) : List<&2, U32>}
   P2(HSK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, os, bs, fs, sp, pend, ps),
     AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, os, Tmp.hold(us, xs), sp, fs, ps, zs))
 
-# a store, at the first temporary z (which holds no term, nothing points to,
-# and which holds no pointer: no other temporary, no held root), of a term
-# cell x (no STATIC, one pointer) that stands for t, with the roots of the
-# owned terms us as its pointers: z is a new owned root of t, and us leave
-# the roots (M.var's Var; the App and Tup values that the moves make)
+# a store, at the first temporary z (which holds no term, which nothing
+# points to and which holds no pointer), of a term cell x (no STATIC, one
+# pointer) that stands for t, with the roots of the owned terms us as its
+# pointers: z is a new owned root of t, and us leave the roots (M.var's Var;
+# the App and Tup values that the moves make)
 law term.post:
   for +dk: Bool
   for +ds: List<&2, Bk.Def>
@@ -6277,8 +6353,6 @@ law term.post:
   for hzt: {Bool.or(U32.is_lt(Tg(m, z), 32), U32.is_le(41, Tg(m, z))) == True{} : Bool}
   for hz0: {Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, Rt.cells(List.append(&2, Rt, us, os)), z) == 0n : Nat}
   for hzf: {Fs(m, ps, z) == Nil{} : List<&2, U32>}
-  for hnt: {Mem(Tmp.cells(xs), z) == False{} : Bool}
-  for hnh: {NeAll(Rt.cells(Tmp.held(xs)), z) == True{} : Bool}
   for hxs: {FlW(Cr.Cir.Cell.get(0n, x), 1024) == False{} : Bool}
   for hx1: {Cr.Cir.Cell.get(1n, x) == 1 : U32}
   for hf: {Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == Rt.cells(us) : List<&2, U32>}
