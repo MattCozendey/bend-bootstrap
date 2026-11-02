@@ -18,11 +18,11 @@
 # reusing a garbage cell drops a count of each of its parts, and the counts
 # make sure that only garbage reaches 0: a garbage cell out of Q counts
 # exactly the garbage's pointers to it, at least one (none point to Q's),
-# and a live part of the garbage counts more than them, below the bound Bu.
-# Each garbage cell has a zombie size, the nodes of the term that it stood
-# for, larger than its garbage parts': the garbage is well-founded, so once
-# Q is empty, so is P. The copy shares parts of its source and adds a count
-# to each, at most W times in all, so Bu + W must not wrap.
+# and a live part of the garbage counts more than them. Each garbage cell
+# has a zombie size, the nodes of the term that it stood for, larger than
+# its garbage parts': the garbage is well-founded, so once Q is empty, so is
+# P. A count is at most the pointers to its cell and 64 (Cb), and next at
+# most 214748364, so a count that the copy adds never wraps.
 #
 # The cover (Cv): every own cell (from F to next) is STATIC, garbage (in P),
 # a node of the term of a root, or one of a list of cells (the kept cells,
@@ -427,19 +427,19 @@ def Zz(zs: List<&2, Zs>, +p: U32) -> Nat:
 
 # the part p of a garbage cell of the zombie size z, in its mask am at bit:
 # none, a cell that is STATIC, garbage of a smaller zombie size, or a live one,
-# which counts more than the garbage's pointers to it and less than Bu
+# which counts more than the garbage's pointers to it
 def AL.part(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, Zs>, +z: Nat, +am: U32, +bit: U32, +p: U32, +K: U32,
-  +F: U32, +N: U32, +Bu: U32) -> Bool:
+  +F: U32, +N: U32) -> Bool:
   Bool.or(U32.is_zero(U32.and(am, bit)), Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, N),
     Bool.or(Stc(m, p), Bool.or(Bool.and(Has(P, p), Nat.is_lt(Zz(zs, p), z)),
-      Bool.and(Nat.is_lt(Pp(P, m, p), U32.to_nat(Fd(1n, m, p))), U32.is_lt(Fd(1n, m, p), Bu)))))))
+      Nat.is_lt(Pp(P, m, p), U32.to_nat(Fd(1n, m, p))))))))
 
 # each garbage cell of os: one of the machine's own, not STATIC, of a term's
 # tag or of one of the machine's own (so its mask is the table's), its parts
 # as above; one of the pend list has no pointer of the garbage, another
 # counts exactly them, at least one
 def AL.cells(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, Zs>, +K: U32,
-  +F: U32, +N: U32, +Bu: U32) -> Bool:
+  +F: U32, +N: U32) -> Bool:
   match os:
     case Nil{}:
       True{}
@@ -450,17 +450,17 @@ def AL.cells(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2
       +pp = Pp(P, m, o)
       Bool.and(Bool.and(Bool.and(Bool.and(U32.is_le(F, o), U32.is_lt(o, N)), Bool.not(Stc(m, o))),
         Bool.or(U32.is_le(tg, 18), U32.is_le(32, tg))),
-      Bool.and(Bool.and(AL.part(m, P, zs, z, am, 1, Fd(2n, m, o), K, F, N, Bu),
-        Bool.and(AL.part(m, P, zs, z, am, 2, Fd(3n, m, o), K, F, N, Bu), AL.part(m, P, zs, z, am, 4, Fd(4n, m, o), K, F, N, Bu))),
+      Bool.and(Bool.and(AL.part(m, P, zs, z, am, 1, Fd(2n, m, o), K, F, N),
+        Bool.and(AL.part(m, P, zs, z, am, 2, Fd(3n, m, o), K, F, N), AL.part(m, P, zs, z, am, 4, Fd(4n, m, o), K, F, N))),
       Bool.and(Bool.pick(Bool, Has(Q, o), Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, U32.to_nat(Fd(1n, m, o))), Nat.is_lt(0n, pp))),
-        AL.cells(rest, m, P, Q, zs, K, F, N, Bu))))
+        AL.cells(rest, m, P, Q, zs, K, F, N))))
 
 # the allocation's invariant, with the pend list from pend and the zombie
 # sizes zs
 def AL(+m: Cr.Cir.Cells, +pend: U32, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, Zs>, +K: U32, +F: U32,
-  +N: U32, +Bu: U32) -> Bool:
+  +N: U32) -> Bool:
   Bool.and(Bool.and(Chain(Q, m, pend), Nodup(Q)), Bool.and(Bool.and(Sub(Q, P), Nodup(P)),
-    AL.cells(P, m, P, Q, zs, K, F, N, Bu)))
+    AL.cells(P, m, P, Q, zs, K, F, N)))
 
 # The cover
 # ---------
@@ -619,13 +619,32 @@ def Clo(n: Nat, +m: Cr.Cir.Cells, +c: U32, +Q: List<&2, U32>, +cs: List<&2, U32>
 # What a copy keeps of the cells that it does not take: their fields 0 and
 # 2 to 4, and of a live term cell, its count less the pointers to it.
 
-# the pointers to c of the n cells from o, by their masks
-def Pc(n: Nat, +m: Cr.Cir.Cells, +o: U32, +c: U32) -> Nat:
+# how many of xs are c
+def Occ(xs: List<&2, U32>, +c: U32) -> Nat:
+  match xs:
+    case Nil{}:
+      0n
+    case Con{x, rest}:
+      Nat.add(Nat.of(U32.is_eq(x, c)), Occ(rest, c))
+
+# the pointers to c of the n cells from o, with the pend list Q (Ps; the
+# heap's Pc)
+def Pc(n: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +c: U32) -> Nat:
   match n:
     case 0n:
       0n
     case 1n+p:
-      Nat.add(Ow(m, o, c), Pc(p, m, U32.inc(o), c))
+      Nat.add(Occ(Ps(m, Q, o), c), Pc(p, m, Q, U32.inc(o), c))
+
+# each of the n cells from c, a term cell neither STATIC nor pending (Q),
+# counts at most the pointers to it of the N own cells from F, and 64 more
+def Cb(n: Nat, +m: Cr.Cir.Cells, +c: U32, +Q: List<&2, U32>, +F: U32, +N: Nat) -> Bool:
+  match n:
+    case 0n:
+      True{}
+    case 1n+p:
+      Bool.and(Bool.or(Bool.or(U32.is_le(19, U32.and(Fd(0n, m, c), 63)), Bool.or(Stc(m, c), Has(Q, c))),
+        Nat.is_le(U32.to_nat(Fd(1n, m, c)), Nat.add(64n, Pc(N, m, Q, F, c)))), Cb(p, m, U32.inc(c), Q, F, N))
 
 # the cell c keeps its fields 0, 2, 3 and 4 from m to ms
 def Same.at(+m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32) -> Bool:
@@ -640,30 +659,22 @@ def Same(n: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32) -> Bool:
     case 1n+p:
       Bool.and(Same.at(m, ms, c), Same(p, m, ms, U32.inc(c)))
 
-# how many of xs are c
-def Occ(xs: List<&2, U32>, +c: U32) -> Nat:
-  match xs:
-    case Nil{}:
-      0n
-    case Con{x, rest}:
-      Nat.add(Nat.of(U32.is_eq(x, c)), Occ(rest, c))
-
 # each of the n cells from c that is not one of the taken cells T keeps its
 # fields 0, 2, 3 and 4; and, a term cell neither STATIC nor garbage (Pn),
 # its count grew as the references to it did: the pointers of the own cells
-# (the a cells from F in m, the b cells from F in ms) and the others, x
-# before and y after
+# (the a cells from F in m with the pend list Q, the b cells from F in ms
+# with Qn) and the others, x before and y after
 def Kept(n: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +T: List<&2, U32>, +Pn: List<&2, U32>, +F: U32,
-  +a: Nat, +b: Nat, +x: List<&2, U32>, +y: List<&2, U32>) -> Bool:
+  +a: Nat, +b: Nat, +Q: List<&2, U32>, +Qn: List<&2, U32>, +x: List<&2, U32>, +y: List<&2, U32>) -> Bool:
   match n:
     case 0n:
       True{}
     case 1n+p:
       Bool.and(Bool.or(Has(T, c), Bool.and(Same.at(m, ms, c),
         Bool.or(Bool.or(U32.is_le(19, U32.and(Fd(0n, m, c), 63)), Bool.or(Stc(m, c), Has(Pn, c))),
-          Nat.is_eq(Nat.add(U32.to_nat(Fd(1n, ms, c)), Nat.add(Pc(a, m, F, c), Occ(x, c))),
-            Nat.add(U32.to_nat(Fd(1n, m, c)), Nat.add(Pc(b, ms, F, c), Occ(y, c))))))),
-        Kept(p, m, ms, U32.inc(c), T, Pn, F, a, b, x, y))
+          Nat.is_eq(Nat.add(U32.to_nat(Fd(1n, ms, c)), Nat.add(Pc(a, m, Q, F, c), Occ(x, c))),
+            Nat.add(U32.to_nat(Fd(1n, m, c)), Nat.add(Pc(b, ms, Qn, F, c), Occ(y, c))))))),
+        Kept(p, m, ms, U32.inc(c), T, Pn, F, a, b, Q, Qn, x, y))
 
 # the cells T hold no flag (bits 8 to 12 of field 0)
 def Nf(T: List<&2, U32>, +ms: Cr.Cir.Cells) -> Bool:
@@ -672,6 +683,116 @@ def Nf(T: List<&2, U32>, +ms: Cr.Cir.Cells) -> Bool:
       True{}
     case Con{+c, rest}:
       Bool.and(U32.is_zero(U32.and(Fd(0n, ms, c), 7936)), Nf(rest, ms))
+
+# What the result is made of
+# --------------------------
+
+# a new cell c and the old cell s that it copies
+type Pr is Data:
+  Pr{c: U32, s: U32}
+
+# the old cell that the new cell c copies, by the first of ps that is c's
+# (c itself when none is)
+def Pr.of(ps: List<&2, Pr>, +c: U32) -> U32:
+  match ps:
+    case Nil{}:
+      c
+    case Con{Pr{+n, +s}, rest}:
+      Bool.pick(U32, U32.is_eq(n, c), s, Pr.of(rest, c))
+
+# the new cell c (in ms) copies the old cell s (in m): a node of the terms of
+# S, with the same low byte of field 0 (its tag and quantity) and, for a Lab
+# and a Mat, the same field 2 (its name)
+def Cpy(+ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +S: List<&2, Rt>, +c: U32, +s: U32) -> Bool:
+  +f0 = Fd(0n, ms, c)
+  +tg = U32.and(f0, 63)
+  Bool.and(Nodes(S, m, s), Bool.and(U32.is_eq(U32.and(f0, 255), U32.and(Fd(0n, m, s), 255)),
+    Bool.or(Bool.not(Bool.or(U32.is_eq(tg, 13), U32.is_eq(tg, 14))), U32.is_eq(Fd(2n, ms, c), Fd(2n, m, s)))))
+
+# the cell r (in ms) is a new one: taken (T), one pointer counted, no flag
+def New(+ms: Cr.Cir.Cells, +T: List<&2, U32>, +r: U32) -> Bool:
+  Bool.and(Has(T, r), Bool.and(U32.is_eq(Fd(1n, ms, r), 1), U32.is_zero(U32.and(Fd(0n, ms, r), 7936))))
+
+# the cell r is new and copies the old cell that the pairs ps give it
+def Nw(+ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +S: List<&2, Rt>, +T: List<&2, U32>, +ps: List<&2, Pr>, +r: U32) -> Bool:
+  Bool.and(New(ms, T, r), Cpy(ms, m, S, r, Pr.of(ps, r)))
+
+# the term u at the cell r is made of the copied cells: each node is a node
+# of the terms of S (the source and the locals) as it was in m, or a new cell
+# that, but for a Var, copies an old node of S (by the pairs ps), with its
+# parts made so too; a Ref, an Enu, a Lab, an Efq and a Rfl, of no free
+# variable, are always old
+def Made(u: Bk.Term, +ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +r: U32, +S: List<&2, Rt>, +T: List<&2, U32>, +ps: List<&2, Pr>) ->
+  Bool:
+  match u:
+    case Bk.Term.Var{_}:
+      Bool.or(Nodes(S, m, r), New(ms, T, r))
+    case Bk.Term.Ref{_}:
+      Nodes(S, m, r)
+    case Bk.Term.Ann{y, z}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(y, ms, m, Fd(2n, ms, r), S, T, ps), Made(z, ms, m, Fd(3n, ms, r), S, T, ps))))
+    case Bk.Term.Let{_, v, f}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(v, ms, m, Fd(2n, ms, r), S, T, ps), Made(f, ms, m, Fd(3n, ms, r), S, T, ps))))
+    case Bk.Term.Typ{y}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Made(y, ms, m, Fd(2n, ms, r), S, T, ps)))
+    case Bk.Term.Min{a, b}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+    case Bk.Term.All{_, a, b}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+    case Bk.Term.Lam{_, f}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Made(f, ms, m, Fd(2n, ms, r), S, T, ps)))
+    case Bk.Term.App{_, f, y}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(f, ms, m, Fd(2n, ms, r), S, T, ps), Made(y, ms, m, Fd(3n, ms, r), S, T, ps))))
+    case Bk.Term.Sig{_, a, b}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+    case Bk.Term.Tup{_, a, b}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+    case Bk.Term.Prj{h}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Made(h, ms, m, Fd(2n, ms, r), S, T, ps)))
+    case Bk.Term.Enu{_}:
+      Nodes(S, m, r)
+    case Bk.Term.Lab{_}:
+      Nodes(S, m, r)
+    case Bk.Term.Mat{_, h, n}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(h, ms, m, Fd(3n, ms, r), S, T, ps), Made(n, ms, m, Fd(4n, ms, r), S, T, ps))))
+    case Bk.Term.Efq{}:
+      Nodes(S, m, r)
+    case Bk.Term.Eql{a, b, y}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(b, ms, m, Fd(3n, ms, r), S, T, ps),
+        Made(y, ms, m, Fd(4n, ms, r), S, T, ps)))))
+    case Bk.Term.Rfl{}:
+      Nodes(S, m, r)
+    case Bk.Term.Rwt{e, y, f}:
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(e, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(y, ms, m, Fd(3n, ms, r), S, T, ps),
+        Made(f, ms, m, Fd(4n, ms, r), S, T, ps)))))
+
+# each taken cell of T is a node of the result u at r, or a root given back
+# (K.root, 45) to the garbage Pn
+def Tk(T: List<&2, U32>, +ms: Cr.Cir.Cells, +u: Bk.Term, +r: U32, +Pn: List<&2, U32>) -> Bool:
+  match T:
+    case Nil{}:
+      True{}
+    case Con{+c, rest}:
+      Bool.and(Bool.or(Node(u, ms, r, c), Bool.and(U32.is_eq(Fd(0n, ms, c), 45), Has(Pn, c))), Tk(rest, ms, u, r, Pn))
+
+# the garbage after a copy: each of Pn is an old garbage cell (of P) not taken
+# (T), or a taken root given back (45); and each old garbage cell is taken or
+# still garbage
+def Gb(Pn: List<&2, U32>, +P: List<&2, U32>, +T: List<&2, U32>, +ms: Cr.Cir.Cells) -> Bool:
+  match Pn:
+    case Nil{}:
+      True{}
+    case Con{+c, rest}:
+      Bool.and(Bool.or(Bool.and(Has(P, c), Bool.not(Has(T, c))), Bool.and(Has(T, c), U32.is_eq(Fd(0n, ms, c), 45))),
+        Gb(rest, P, T, ms))
+
+# X, when b holds
+def Hx(b: Bool, X: Data) -> Data:
+  match b:
+    case True{}:
+      X
+    case False{}:
+      Unit
 
 # The registers
 # -------------
@@ -761,48 +882,56 @@ def Ok(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +B: Nat
 
 # what a copy (of the mode mo, from the cell of the term t) leaves: the
 # registers of regs but for the writes ups, to the registers rs; in register
-# rr the cell r of Mo.F(mo, t, 0), with any fuel g, of the cells that may be
-# read once the new garbage Pn and the new next may be returned; the
-# allocation's invariant again, of Pn, its pend list Qn, its zombie sizes zn
-# and the bound Bu + Wu; the cells that may be read only grow; the table,
-# the roots rs, the terms that the temporaries ts hold and the kept cells kc
+# rr the cell r of the result Mo.F(mo, t, 0), with any fuel g, of the cells
+# that may be read once the new garbage Pn and the new next may be returned,
+# when hx; the allocation's invariant again, of Pn, its pend list Qn and its
+# zombie sizes zn; the cells that may be read only grow; the table, the
+# roots rs, the terms that the temporaries ts hold and the kept cells kc
 # stay; the cover and the closure again, with the result among the roots;
-# the cells that the copy took (T: past N, or from the garbage) hold no
-# flag, the others keep their fields 0 and 2 to 4 (Kept, and the image's:
-# Same) and the counts follow the pointers; next stays at most 214748364
-# when it grows; and the cells that it took, less those that it gave back to
-# the garbage, are at most the result's nodes
+# what the result is made of (Made: the old nodes of S, the source and the
+# locals, and new cells, by the pairs ps); the cells taken (T) are the
+# result's new nodes and roots given back, the new garbage the old garbage
+# not taken and those roots; the taken cells were garbage or new, and hold no
+# flag; the others keep their fields 0 and 2 to 4 (Kept, and the image's:
+# Same) and their counts follow the pointers, the result's register counting
+# one more; next stays at most 214748364 when it grows; and the cells taken,
+# less those given back, are at most the result's nodes
 type Wt is Data:
-  Wt{ups: List<&2, Up>, r: U32, g: Nat, Pn: List<&2, U32>, Qn: List<&2, U32>, zn: List<&2, Zs>, T: List<&2, U32>}
+  Wt{ups: List<&2, Up>, r: U32, g: Nat, Pn: List<&2, U32>, Qn: List<&2, U32>, zn: List<&2, Zs>, T: List<&2, U32>,
+    ps: List<&2, Pr>}
 
-def Post(+mo: Mo, +t: Bk.Term, +regs: List<&2, U32>, +scr: List<&2, Nat>, +rr: Nat, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, Bk.Term>, +K: U32, +F: U32, +m: Cr.Cir.Cells, +P: List<&2, U32>, +E: List<&2, U32>, +N: U32, +Bu: U32,
-  +Wu: U32, +rs: List<&2, Rt>, +ts: List<&2, Tmp>, +kc: List<&2, Kc>, w: Wt, +rg: List<&2, U32>, +ms: Cr.Cir.Cells,
-  +nx: U32) -> Data:
+def Post(+hx: Bool, +mo: Mo, +t: Bk.Term, +regs: List<&2, U32>, +scr: List<&2, Nat>, +rr: Nat,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32, +m: Cr.Cir.Cells, +P: List<&2, U32>,
+  +Q: List<&2, U32>, +E: List<&2, U32>, +N: U32, +rs: List<&2, Rt>, +ts: List<&2, Tmp>, +kc: List<&2, Kc>,
+  +S: List<&2, Rt>, w: Wt, +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx: U32) -> Data:
   match w:
-    case Wt{+ups, +r, +g, +Pn, +Qn, +zn, +T}:
+    case Wt{+ups, +r, +g, +Pn, +Qn, +zn, +T, +ps}:
       +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
       +n0 = Nat.sub(U32.to_nat(N), U32.to_nat(F))
       +hl = Tmp.held(ts)
+      +u = Mo.F(mo, t, 0n)
       P2({rg == Ups(ups, Rg.ex(63n, regs, 0n)) : List<&2, U32>},
       P2({Ups.in(ups, scr) == True{} : Bool},
       P2({T.tm.reg(rg, rr) == r : U32},
-      P2({Tm(g, ms, ks, img, K, F, List.append(&2, U32, Pn, E), nx, r) == Some{Mo.F(mo, t, 0n)} : Maybe<&2, Bk.Term>},
-      P2({AL(ms, T.tm.reg(rg, 3n), Pn, Qn, zn, K, F, nx, U32.add(Bu, Wu)) == True{} : Bool},
+      P2(Hx(hx, {Tm(g, ms, ks, img, K, F, List.append(&2, U32, Pn, E), nx, r) == Some{u} : Maybe<&2, Bk.Term>}),
+      P2({AL(ms, T.tm.reg(rg, 3n), Pn, Qn, zn, K, F, nx) == True{} : Bool},
       P2({Incl(P, N, Pn, nx) == True{} : Bool},
       P2(Tb(ms),
       P2(Rts(ms, ks, img, K, F, List.append(&2, U32, P, E), N, List.append(&2, Rt, rs, hl)),
       P2(Kcs(ms, K, F, List.append(&2, U32, P, E), N, E, kc),
-      P2({Cv(n, ms, F, Pn, Con{Rt{g, r, Mo.F(mo, t, 0n)}, List.append(&2, Rt, rs, hl)},
-          List.append(&2, U32, Tmp.cells(ts), E)) == True{} : Bool},
+      P2({Cv(n, ms, F, Pn, Con{Rt{g, r, u}, List.append(&2, Rt, rs, hl)}, List.append(&2, U32, Tmp.cells(ts), E)) == True{} : Bool},
       P2({Clo(n, ms, F, Qn, Tmp.cells(ts), Rt.cells(hl), E) == True{} : Bool},
+      P2({Made(u, ms, m, r, S, T, ps) == True{} : Bool},
+      P2({Tk(T, ms, u, r, Pn) == True{} : Bool},
+      P2({Gb(Pn, P, T, ms) == True{} : Bool},
+      P2({Sub(P, List.append(&2, U32, T, Pn)) == True{} : Bool},
       P2({Incl.go(T, P, N) == True{} : Bool},
       P2({Nf(T, ms) == True{} : Bool},
       P2({Same(U32.to_nat(K), m, ms, 1) == True{} : Bool},
-      P2({Kept(n0, m, ms, F, T, Pn, F, n0, n, Nil{}, [r]) == True{} : Bool},
+      P2({Kept(n0, m, ms, F, T, Pn, F, n0, n, Q, Qn, Nil{}, [r]) == True{} : Bool},
       P2({Bool.or(U32.is_eq(nx, N), U32.is_le(nx, 214748364)) == True{} : Bool},
         N.Le(Nat.add(U32.to_nat(nx), List.length(&2, U32, P)),
-          Nat.add(U32.to_nat(N), Nat.add(List.length(&2, U32, Pn), Pg.Term.size(Mo.F(mo, t, 0n)))))))))))))))))))))
+          Nat.add(U32.to_nat(N), Nat.add(List.length(&2, U32, Pn), Pg.Term.size(u))))))))))))))))))))))))
 
 # the cells E that the run may not read: machine cells before nx, none garbage
 def Ex.ok(xs: List<&2, U32>, +P: List<&2, U32>, +F: U32, +nx: U32) -> Bool:
@@ -813,38 +942,40 @@ def Ex.ok(xs: List<&2, U32>, +P: List<&2, U32>, +F: U32, +nx: U32) -> Bool:
       Bool.and(Bool.and(Bool.not(Has(P, x)), Bool.and(U32.is_le(F, x), U32.is_lt(x, nx))), Ex.ok(rest, P, F, nx))
 
 # what the state of a run should be at the start: the image's cells, the
-# table, the pend list and the zombie sizes zs, the bound, the cells E that
-# it may not read, the roots rs, the temporaries ts (own cells, none
-# garbage) and the terms that they hold, the kept cells kc, the cover and
-# the closure, and its own cells at most B0 and the garbage
+# table, next at most 214748364, the pend list and the zombie sizes zs, the
+# counts (Cb), the cells E that it may not read, the roots rs, the
+# temporaries ts (own cells, none garbage) and the terms that they hold, the
+# kept cells kc, the cover and the closure, and its own cells at most B0 and
+# the garbage
 def Pre(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, Bk.Term>, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, Zs>, +E: List<&2, U32>, +Bu: U32,
-  +Wu: U32, +rs: List<&2, Rt>, +ts: List<&2, Tmp>, +kc: List<&2, Kc>, +B0: Nat) -> Data:
+  +img: List<&2, Bk.Term>, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, Zs>, +E: List<&2, U32>,
+  +rs: List<&2, Rt>, +ts: List<&2, Tmp>, +kc: List<&2, Kc>, +B0: Nat) -> Data:
   +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
   +hl = Tmp.held(ts)
   P2({List.length(&2, U32, regs) == 63n : Nat},
   P2({U32.is_le(290, K) == True{} : Bool},
   P2({U32.is_lt(K, F) == True{} : Bool},
   P2({U32.is_le(F, nx) == True{} : Bool},
+  P2({U32.is_le(nx, 214748364) == True{} : Bool},
   P2(Tb(m),
-  P2({AL(m, T.tm.reg(regs, 3n), P, Q, zs, K, F, nx, Bu) == True{} : Bool},
-  P2({U32.is_le(Bu, U32.add(Bu, Wu)) == True{} : Bool},
+  P2({AL(m, T.tm.reg(regs, 3n), P, Q, zs, K, F, nx) == True{} : Bool},
+  P2({Cb(n, m, F, Q, F, n) == True{} : Bool},
   P2({Ex.ok(E, P, F, nx) == True{} : Bool},
   P2({Ex.ok(Tmp.cells(ts), P, F, nx) == True{} : Bool},
   P2(Rts(m, ks, img, K, F, List.append(&2, U32, P, E), nx, List.append(&2, Rt, rs, hl)),
   P2(Kcs(m, K, F, List.append(&2, U32, P, E), nx, E, kc),
   P2({Cv(n, m, F, P, List.append(&2, Rt, rs, hl), List.append(&2, U32, Tmp.cells(ts), E)) == True{} : Bool},
   P2({Clo(n, m, F, Q, Tmp.cells(ts), Rt.cells(hl), E) == True{} : Bool},
-    N.Le(n, Nat.add(B0, List.length(&2, U32, P))))))))))))))))
+    N.Le(n, Nat.add(B0, List.length(&2, U32, P)))))))))))))))))
 
 # LAW: M.shift(sres, t2): from a state whose register t2 holds a cell of the
 # term t (by Tm, with any fuel g, reading neither the garbage P nor the cells
-# E), and samt the amount a, of whose variables t allows the shift, with the
-# start's facts (Pre) and a count bound Wu of at least 2 + 2 × Sz(t), some fuel
-# gives sres a cell of Term.shift(t, a, 0), with Post's facts, or runs out of
-# memory, only when the limit L has fewer bytes than the cells up to F + B0,
-# the result's nodes and the root. E is [] for the machine; M.copy passes its
-# frames' cells
+# E), and samt the amount a, below 2 next, with the start's facts (Pre), some
+# fuel gives sres a cell of Term.shift(t, a, 0) when hx, with Post's facts, or
+# runs out of memory, only when the limit L has fewer bytes than the cells up
+# to F + B0, the result's nodes and the root. When hx, the free variables of
+# t are below 2^31, so that no shifted variable wraps (a depth is below 2
+# next). E is [] for the machine; M.copy passes its frames' cells
 law Sh.ok:
   for +regs: List<&2, U32>
   for +m: Cr.Cir.Cells
@@ -859,26 +990,25 @@ law Sh.ok:
   for +P: List<&2, U32>
   for +Q: List<&2, U32>
   for +zs: List<&2, Zs>
-  for +Bu: U32
-  for +Wu: U32
   for +E: List<&2, U32>
   for +rs: List<&2, Rt>
   for +ts: List<&2, Tmp>
   for +kc: List<&2, Kc>
   for +B0: Nat
+  for +hx: Bool
   for +t: Bk.Term
   for +g: Nat
   for +a: U32
-  for pre: Pre(regs, m, nx, F, K, ks, img, P, Q, zs, E, Bu, Wu, rs, ts, kc, B0)
+  for pre: Pre(regs, m, nx, F, K, ks, img, P, Q, zs, E, rs, ts, kc, B0)
   for ht: {Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, 62n)) == Some{t} : Maybe<&2, Bk.Term>}
   for ha: {T.tm.reg(regs, 60n) == a : U32}
-  for hf: {Fit(t, a) == True{} : Bool}
-  for hw: {Nat.is_le(2n+Nat.double(Sz(t)), U32.to_nat(Wu)) == True{} : Bool}
+  for hd: N.Le(U32.to_nat(a), Nat.double(U32.to_nat(nx)))
+  for hv: Hx(hx, N.Le(Fv(t), N.D(31n, 1n)))
   exs n: Nat
   Ok(Cr.Cir.exec(n, Mc.M.shift(Mc.R.sres(), Mc.R.t2()), S(regs, m, nx, F, K, pg, L, I)), F, K, L, I,
     Cells.bytes(F, Nat.add(B0, 1n+Pg.Term.size(El.Term.shift(t, U32.to_nat(a), 0n)))),
-    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(Mo.shift{U32.to_nat(a)}, t, regs, Sh.scratch(), Mc.R.sres(), ks, img, K, F,
-      m, P, E, nx, Bu, Wu, rs, ts, kc, w, rg, ms, nx2)))
+    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(hx, Mo.shift{U32.to_nat(a)}, t, regs, Sh.scratch(), Mc.R.sres(), ks, img, K, F,
+      m, P, Q, E, nx, rs, ts, kc, [Rt{g, T.tm.reg(regs, 62n), t}], w, rg, ms, nx2)))
 
 # the list of locals from the cell l: a cell of each of es, which may be read,
 # no term's (tag 19 or more), its field 2 a cell of its term (by Tm, with any
@@ -894,10 +1024,21 @@ def Env(+m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.T
       P2(Ex(Nat, g => {Tm(g, m, ks, img, K, F, X, N, Fd(2n, m, l)) == Some{e} : Maybe<&2, Bk.Term>}),
         Env(m, ks, img, K, F, X, N, Fd(1n, m, l), rest))))
 
-# the most counts that a copy of t with the locals es adds: a round of its
-# walk adds at most one, and shifts a local at most once
-def Cp.W(t: Bk.Term, es: List<&2, Bk.Term>) -> Nat:
-  Nat.mul(1n+Nat.double(Sz(t)), 2n+Nat.double(Sz.max(es)))
+# the locals' terms es as roots, at the cells of the list from l
+def Env.rts(es: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +l: U32) -> List<&2, Rt>:
+  match es:
+    case Nil{}:
+      Nil{}
+    case Con{e, rest}:
+      Con{Rt{0n, Fd(2n, m, l), e}, Env.rts(rest, m, Fd(1n, m, l))}
+
+# the free variables of each of es are below b
+def Fvs(es: List<&2, Bk.Term>, +b: Nat) -> Data:
+  match es:
+    case Nil{}:
+      Unit
+    case Con{e, rest}:
+      P2(N.Le(Fv(e), b), Fvs(rest, b))
 
 # the register of the source of M.copy: wt (a call's leaf) or z (a λ's or a
 # let's body), the machine's two calls; the copy goes to n
@@ -911,11 +1052,11 @@ def Cp.src(wt: Bool) -> Nat:
 # LAW: M.copy(n, src), src wt or z (Cp.src): from a state whose register src
 # holds a cell of the term t (by Tm, reading neither the garbage P nor the
 # cells E), cenv the list of the locals es (Env) and clen their number, with
-# the start's facts (Pre), every local fitting a shift by any depth of t
-# (below 2 × Sz(t)), and a count bound Wu of at least Cp.W(t, es), some fuel
-# gives n a cell of Term.subst(t, es, 0), with Post's facts, or runs out of
+# the start's facts (Pre), some fuel gives n a cell of Term.subst(t, es, 0)
+# when hx, with Post's facts (S: the source and the locals), or runs out of
 # memory, only when the limit L has fewer bytes than the cells up to F + B0,
-# the result's nodes, the root and a shift's root
+# the result's nodes, the root and a shift's root. When hx, the free
+# variables of the locals are below 2^31, so that no shifted variable wraps
 law Cp.ok:
   for +wt: Bool
   for +regs: List<&2, U32>
@@ -931,24 +1072,22 @@ law Cp.ok:
   for +P: List<&2, U32>
   for +Q: List<&2, U32>
   for +zs: List<&2, Zs>
-  for +Bu: U32
-  for +Wu: U32
   for +E: List<&2, U32>
   for +rs: List<&2, Rt>
   for +ts: List<&2, Tmp>
   for +kc: List<&2, Kc>
   for +B0: Nat
+  for +hx: Bool
   for +t: Bk.Term
   for +g: Nat
   for +es: List<&2, Bk.Term>
-  for pre: Pre(regs, m, nx, F, K, ks, img, P, Q, zs, E, Bu, Wu, rs, ts, kc, B0)
+  for pre: Pre(regs, m, nx, F, K, ks, img, P, Q, zs, E, rs, ts, kc, B0)
   for ht: {Tm(g, m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, Cp.src(wt))) == Some{t} : Maybe<&2, Bk.Term>}
   for he: Env(m, ks, img, K, F, List.append(&2, U32, P, E), nx, T.tm.reg(regs, 36n), es)
   for hl: {U32.to_nat(T.tm.reg(regs, 37n)) == List.length(&2, Bk.Term, es) : Nat}
-  for hf: {Fits(es, U32.from_nat(Nat.double(Sz(t)))) == True{} : Bool}
-  for hw: {Nat.is_le(Cp.W(t, es), U32.to_nat(Wu)) == True{} : Bool}
+  for hv: Hx(hx, Fvs(es, N.D(31n, 1n)))
   exs n: Nat
   Ok(Cr.Cir.exec(n, Mc.M.copy(Mc.R.n(), Cp.src(wt)), S(regs, m, nx, F, K, pg, L, I)), F, K, L, I,
     Cells.bytes(F, Nat.add(B0, 2n+Pg.Term.size(El.Term.subst(t, es, 0n)))),
-    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(Mo.subst{es}, t, regs, Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, K, F,
-      m, P, E, nx, Bu, Wu, rs, ts, kc, w, rg, ms, nx2)))
+    rg => ms => nx2 => pg2 => Ex(Wt, w => Post(hx, Mo.subst{es}, t, regs, Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, K, F,
+      m, P, Q, E, nx, rs, ts, kc, Con{Rt{g, T.tm.reg(regs, Cp.src(wt)), t}, Env.rts(es, m, T.tm.reg(regs, 36n))}, w, rg, ms, nx2)))

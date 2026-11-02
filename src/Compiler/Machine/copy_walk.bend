@@ -357,14 +357,14 @@ def Al.how(fresh: Bool, +P: List<&2, U32>, +c: U32, +P2: List<&2, U32>, +nx: U32
       D.P2({D.Has(P, c) == True{} : Bool}, D.P2({P2 == Del(P, c) : List<&2, U32>}, {nx2 == nx : U32}))
 
 def Al.post(+r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +K: U32, +F: U32, +P: List<&2, U32>,
-  +zs: List<&2, D.Zs>, +Bu: U32, w: Aw, +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx2: U32) -> Data:
+  +zs: List<&2, D.Zs>, w: Aw, +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx2: U32) -> Data:
   match w:
     case Aw{+c, +fresh, +P2, +Q2, +ws, +a}:
       D.P2({rg == List.set(&2, U32, Rp(a, D.Rg.ex(63n, R, 0n)), r, c) : List<&2, U32>},
       D.P2({ms == Cr.Cir.Cells.set(W1s(ws, m), c, Cr.Cir.Cell.zero()) : Cr.Cir.Cells},
       D.P2({W1s.in(ws, P) == True{} : Bool},
       D.P2(Al.how(fresh, P, c, P2, nx, nx2),
-      D.P2({D.AL(ms, T.tm.reg(a, 0n), P2, Q2, zs, K, F, nx2, Bu) == True{} : Bool},
+      D.P2({D.AL(ms, T.tm.reg(a, 0n), P2, Q2, zs, K, F, nx2) == True{} : Bool},
       D.P2({U32.is_le(F, c) == True{} : Bool},
       D.P2({Cr.Cir.is_cell(c, K, F, nx2) == True{} : Bool},
       D.P2({D.Has(P2, c) == False{} : Bool}, D.Tb(ms)))))))))
@@ -382,13 +382,13 @@ def Al.b(+Q: List<&2, U32>, +nx: U32) -> Nat:
 # list, whose reuse drops the counts of its parts; the allocation's invariant
 # holds again, without that cell; it runs out of memory only for a new cell
 def Al.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
-  +I: List<&2, Word(8n)>, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +Bu: U32,
-  hal: {D.AL(m, T.tm.reg(R, 3n), P, Q, zs, K, F, nx, Bu) == True{} : Bool},
+  +I: List<&2, Word(8n)>, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>,
+  hal: {D.AL(m, T.tm.reg(R, 3n), P, Q, zs, K, F, nx) == True{} : Bool},
   hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Bool.and(Nat.is_le(3n, r), Nat.is_le(r, 7n)))) == True{} : Bool},
   hk: {U32.is_le(290, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool}, hfn: {U32.is_le(F, nx) == True{} : Bool},
   tb: D.Tb(m)) ->
   D.Ok(Cr.Cir.exec(1n+f, Mc.M.alloc(r), D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I, Al.b(Q, nx),
-    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, zs, Bu, w, rg, ms, nx2))):
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, zs, w, rg, ms, nx2))):
   ?TODO
 
 # no garbage cell of P points to the cells ns
@@ -402,12 +402,14 @@ def Pz(ns: List<&2, U32>, +P: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
 # What a walk keeps from its start
 # --------------------------------
 
-# the start's cells m0, garbage P0, next N0, bound Bu and its room Wu, the
-# cells E that the walk may not read, the roots rs, the temporaries ts, the
-# kept cells kc, the base B0 of the own cells, and the zombie sizes zs
+# the start's cells m0, garbage P0, pend list Q0 and next N0, the cells E
+# that the walk may not read, the roots rs, the temporaries ts, the kept
+# cells kc, the base B0 of the own cells, the zombie sizes zs, the roots S
+# that the result is made of (the source and the locals), and the mode hx
+# (the result's term is exact when hx)
 type Sc is Data:
-  Sc{m0: Cr.Cir.Cells, P0: List<&2, U32>, N0: U32, Bu: U32, Wu: U32, E: List<&2, U32>, rs: List<&2, D.Rt>,
-    ts: List<&2, D.Tmp>, kc: List<&2, D.Kc>, B0: Nat, zs: List<&2, D.Zs>}
+  Sc{m0: Cr.Cir.Cells, P0: List<&2, U32>, Q0: List<&2, U32>, N0: U32, E: List<&2, U32>, rs: List<&2, D.Rt>,
+    ts: List<&2, D.Tmp>, kc: List<&2, D.Kc>, B0: Nat, zs: List<&2, D.Zs>, S: List<&2, D.Rt>, hx: Bool}
 
 # The accounting
 # --------------
@@ -491,7 +493,7 @@ def NfX(T: List<&2, U32>, +ms: Cr.Cir.Cells, +ws: List<&2, U32>) -> Bool:
 # at most the result's and the root), the frames and their pending nodes
 # within the same, the taken cells T (the walk's among them, the others with
 # no flag), what stays, and next at most 214748364 once it grows
-def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +N0: U32, +E: List<&2, U32>,
+def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +Q0: List<&2, U32>, +N0: U32, +E: List<&2, U32>,
   +rs: List<&2, D.Rt>, +ts: List<&2, D.Tmp>, +B0: Nat, +t: Bk.Term, +m: Cr.Cir.Cells, +nx: U32, +frs: List<&2, Fr>,
   +P: List<&2, U32>, +Q: List<&2, U32>, +root: U32, +T: List<&2, U32>) -> Data:
   +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
@@ -510,5 +512,5 @@ def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +N0:
   D.P2({D.Sub(wl, T) == True{} : Bool},
   D.P2({NfX(T, m, wl) == True{} : Bool},
   D.P2({D.Same(U32.to_nat(K), m0, m, 1) == True{} : Bool},
-  D.P2({D.Kept(n0, m0, m, F, T, P, F, n0, n, Pe(frs), Nil{}) == True{} : Bool},
+  D.P2({D.Kept(n0, m0, m, F, T, P, F, n0, n, Q0, Q, Pe(frs), Nil{}) == True{} : Bool},
     {Bool.or(U32.is_eq(nx, N0), U32.is_le(nx, 214748364)) == True{} : Bool}))))))))))

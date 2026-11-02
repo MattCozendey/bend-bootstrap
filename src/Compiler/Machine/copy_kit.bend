@@ -5,6 +5,7 @@
 # of copy_substitution.bend's claims use.
 
 import Base
+import ../../Wasm/impl.bend as Wa
 import ../Cir/impl.bend as Cr
 import ./cell_terms.bend as T
 import ../need_big.bend as N
@@ -608,3 +609,335 @@ def U.le_lt(+a: U32, +b: U32, +c: U32, h1: {U32.is_le(a, b) == True{} : Bool}, h
 # a < b and b <= a are false
 def U.lt_ge(+a: U32, +b: U32, -G: Type, h1: {U32.is_lt(a, b) == True{} : Bool}, h2: {U32.is_le(b, a) == True{} : Bool}) -> G:
   Empty.absurd(G, N.not_succ_le(U32.to_nat(a), N.le_trans(1n+U32.to_nat(a), U32.to_nat(b), U32.to_nat(a), U.lt(a, b, h1), U.le(b, a, h2))))
+
+# Budgets
+# -------
+#
+# A Cir alloc at next nx runs out of memory only when the limit L has fewer
+# than 20 (nx + 1) bytes (D.Lim.bytes): either nx is 214748364 or more, and
+# 20 (nx + 1) is past 2^32, the most bytes of a limit; or the pages of the
+# cell's last byte, ((20 nx + 19) >> 16) + 1, are more than L. The big
+# numbers stay symbolic, as in need_big.bend: 2^k is N.D(k, 1n), 214748364
+# is Pat(7), of nibbles 12, and the code's arithmetic is bounded above only (a
+# wrap makes a value smaller).
+
+# 20 × x
+def T20(x: Nat) -> Nat:
+  match x:
+    case 0n:
+      0n
+    case 1n+p:
+      20n+T20(p)
+
+# 20 × x grows with x
+def t20.mono(+x: Nat, +y: Nat, h: N.Le(x, y)) -> N.Le(T20(x), T20(y)):
+  match x:
+    case 0n:
+      N.le_zero(T20(y))
+    case 1n+p:
+      match y:
+        case 0n:
+          Empty.absurd(N.Le(T20(1n+p), 0n), h)
+        case 1n+q:
+          t20.mono(p, q, h)
+
+# 20 × 2x = 2 × 20x
+def t20.double(+x: Nat) -> {T20(Nat.double(x)) == Nat.double(T20(x)) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      %t20.double(p) : {40n+T20(Nat.double(p)) == 40n+_ : Nat}
+      {==}
+
+# 20 × 16x = 16 × 20x
+def t20.D4(+x: Nat) -> {T20(N.D(4n, x)) == N.D(4n, T20(x)) : Nat}:
+  +x1 = Nat.double(x)
+  +x2 = Nat.double(x1)
+  +x3 = Nat.double(x2)
+  Equal.trans(Nat, T20(Nat.double(x3)), Nat.double(T20(x3)), Nat.double(Nat.double(Nat.double(Nat.double(T20(x))))),
+    t20.double(x3),
+    Equal.cong(Nat, Nat, z => Nat.double(z), T20(x3), Nat.double(Nat.double(Nat.double(T20(x)))),
+      Equal.trans(Nat, T20(x3), Nat.double(T20(x2)), Nat.double(Nat.double(Nat.double(T20(x)))),
+        t20.double(x2),
+        Equal.cong(Nat, Nat, z => Nat.double(z), T20(x2), Nat.double(Nat.double(T20(x))),
+          Equal.trans(Nat, T20(x2), Nat.double(T20(x1)), Nat.double(Nat.double(T20(x))),
+            t20.double(x1),
+            Equal.cong(Nat, Nat, z => Nat.double(z), T20(x1), Nat.double(T20(x)), t20.double(x)))))))
+
+# 0x0CCC...C, nibble by nibble: 12 + 16 × the rest
+def Pat(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      0n
+    case 1n+q:
+      Nat.add(12n, N.D(4n, Pat(q)))
+
+def E4(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      4n
+    case 1n+q:
+      4n+E4(q)
+
+# 16 + 20 × Pat(j) = 2^(4 + 4j)
+def pat.val(+j: Nat) -> {Nat.add(16n, T20(Pat(j))) == N.D(E4(j), 1n) : Nat}:
+  match j:
+    case 0n:
+      {==}
+    case 1n+q:
+      %pat.val(q) : {256n+T20(N.D(4n, Pat(q))) == N.D(4n, _) : Nat}
+      %Equal.sym(Nat, T20(N.D(4n, Pat(q))), N.D(4n, T20(Pat(q))), t20.D4(Pat(q))) :
+        {256n+_ == 256n+N.D(4n, T20(Pat(q))) : Nat}
+      {==}
+
+# 16 + 20 × 214748364 = 2^32
+def hP() -> {Nat.add(16n, T20(Pat(7n))) == N.D(32n, 1n) : Nat}:
+  %{{==} : {E4(7n) == 32n : Nat}} : {Nat.add(16n, T20(Pat(7n))) == N.D(_, 1n) : Nat}
+  pat.val(7n)
+
+def q4(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      0n
+    case 1n+q:
+      4n+q4(q)
+
+# n bits of 0x0CCC...C with j nibbles of 12 at the bottom, its lowest bit
+# first; the index is n itself, so that the word of 32 bits is a Word(32n)
+def wb(n: Nat, j: Nat) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n:
+      WCon{False{}, WNil{}}
+    case 2n:
+      WCon{False{}, WCon{False{}, WNil{}}}
+    case 3n:
+      WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}
+    case 4n+p:
+      match j:
+        case 0n:
+          WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, wb(p, 0n)}}}}
+        case 1n+q:
+          WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, wb(p, q)}}}}
+
+def wb.val(j: Nat, +n: Nat, e: {n == 4n+q4(j) : Nat}) -> {Word.to_nat(n, wb(n, j)) == Pat(j) : Nat}:
+  match j:
+    case 0n:
+      %Equal.sym(Nat, n, 4n, e) : {Word.to_nat(_, wb(_, 0n)) == Pat(0n) : Nat}
+      {==}
+    case 1n+(+q):
+      %Equal.sym(Nat, n, 4n+q4(1n+q), e) : {Word.to_nat(_, wb(_, 1n+q)) == Pat(1n+q) : Nat}
+      %Equal.sym(Nat, Word.to_nat(q4(1n+q), wb(q4(1n+q), q)), Pat(q), wb.val(q, q4(1n+q), {==})) :
+        {Nat.double(Nat.double(1n+Nat.double(1n+Nat.double(_)))) == Nat.add(12n, N.D(4n, Pat(q))) : Nat}
+      {==}
+
+def lit.wb() -> {214748364 == U32{wb(32n, 7n)} : U32}:
+  {==}
+
+# 214748364 is Pat(7)
+def lit.pat() -> {U32.to_nat(214748364) == Pat(7n) : Nat}:
+  %Equal.sym(U32, 214748364, U32{wb(32n, 7n)}, lit.wb()) : {U32.to_nat(_) == Pat(7n) : Nat}
+  Equal.trans(Nat, U32.to_nat(U32{wb(32n, 7n)}), Word.to_nat(32n, wb(32n, 7n)), Pat(7n), N.u32_to_nat(wb(32n, 7n)),
+    wb.val(7n, 32n, {==}))
+
+# 2^k x grows with x
+def Dk.mono(+k: Nat, +x: Nat, +y: Nat, h: N.Le(x, y)) -> N.Le(N.D(k, x), N.D(k, y)):
+  match k:
+    case 0n:
+      h
+    case 1n+q:
+      N.double_mono(N.D(q, x), N.D(q, y), Dk.mono(q, x, y, h))
+
+def adc.h0(+X: Nat, +A: Nat, +B: Nat, ih: N.Le(X, Nat.add(A, B))) -> N.Le(Nat.double(X), Nat.add(Nat.double(A), Nat.double(B))):
+  N.le_rw_r(Nat.double(X), Nat.double(Nat.add(A, B)), Nat.add(Nat.double(A), Nat.double(B)), N.double_add(A, B),
+    N.double_mono(X, Nat.add(A, B), ih))
+
+def adc.h1(+X: Nat, +A: Nat, +B: Nat, ih: N.Le(X, 1n+Nat.add(A, B))) -> N.Le(Nat.double(X), 2n+Nat.add(Nat.double(A), Nat.double(B))):
+  N.le_rw_r(Nat.double(X), 2n+Nat.double(Nat.add(A, B)), 2n+Nat.add(Nat.double(A), Nat.double(B)),
+    Equal.cong(Nat, Nat, z => 2n+z, Nat.double(Nat.add(A, B)), Nat.add(Nat.double(A), Nat.double(B)), N.double_add(A, B)),
+    N.double_mono(X, 1n+Nat.add(A, B), ih))
+
+# 1 + (a + b) = a + (1 + b), on the right of a bound
+def adc.r1(+Y: Nat, +a: Nat, +b: Nat, h: N.Le(Y, 1n+Nat.add(a, b))) -> N.Le(Y, Nat.add(a, 1n+b)):
+  N.le_rw_r(Y, 1n+Nat.add(a, b), Nat.add(a, 1n+b), Equal.sym(Nat, Nat.add(a, 1n+b), 1n+Nat.add(a, b), N.add_succ_r(a, b)), h)
+
+# the number of a sum of words, with the carry c in, is at most the sum
+def adc.le(+n: Nat, +a: Word(n), +b: Word(n), +c: Bool) ->
+  N.Le(Word.to_nat(n, Word.adc(n, a, b, False{}, c)), Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b)))):
+  match n:
+    case 0n:
+      N.le_zero(Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(0n, a), Word.to_nat(0n, b))))
+    case 1n+p:
+      match a b c:
+        case WCon{False{}, +at} WCon{False{}, +bt} False{}:
+          adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, False{}))
+        case WCon{False{}, +at} WCon{False{}, +bt} True{}:
+          adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, False{}))
+        case WCon{False{}, +at} WCon{True{}, +bt} False{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          adc.r1(1n+Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{}))), Nat.double(A), Nat.double(B),
+            adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), A, B, adc.le(p, at, bt, False{})))
+        case WCon{False{}, +at} WCon{True{}, +bt} True{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          +X = Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})))
+          N.le_rw_r(X, 2n+Nat.add(Nat.double(A), Nat.double(B)), 1n+Nat.add(Nat.double(A), 1n+Nat.double(B)),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(Nat.double(A), Nat.double(B)), Nat.add(Nat.double(A), 1n+Nat.double(B)),
+              Equal.sym(Nat, Nat.add(Nat.double(A), 1n+Nat.double(B)), 1n+Nat.add(Nat.double(A), Nat.double(B)), N.add_succ_r(Nat.double(A), Nat.double(B)))),
+            adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), A, B, adc.le(p, at, bt, True{})))
+        case WCon{True{}, +at} WCon{False{}, +bt} False{}:
+          adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, False{}))
+        case WCon{True{}, +at} WCon{False{}, +bt} True{}:
+          adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, True{}))
+        case WCon{True{}, +at} WCon{True{}, +bt} False{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          +X = Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})))
+          N.le_rw_r(X, 2n+Nat.add(Nat.double(A), Nat.double(B)), 1n+Nat.add(Nat.double(A), 1n+Nat.double(B)),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(Nat.double(A), Nat.double(B)), Nat.add(Nat.double(A), 1n+Nat.double(B)),
+              Equal.sym(Nat, Nat.add(Nat.double(A), 1n+Nat.double(B)), 1n+Nat.add(Nat.double(A), Nat.double(B)), N.add_succ_r(Nat.double(A), Nat.double(B)))),
+            adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), A, B, adc.le(p, at, bt, True{})))
+        case WCon{True{}, +at} WCon{True{}, +bt} True{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          +X = Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})))
+          N.le_rw_r(X, 2n+Nat.add(Nat.double(A), Nat.double(B)), 1n+Nat.add(Nat.double(A), 1n+Nat.double(B)),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(Nat.double(A), Nat.double(B)), Nat.add(Nat.double(A), 1n+Nat.double(B)),
+              Equal.sym(Nat, Nat.add(Nat.double(A), 1n+Nat.double(B)), 1n+Nat.add(Nat.double(A), Nat.double(B)), N.add_succ_r(Nat.double(A), Nat.double(B)))),
+            adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), A, B, adc.le(p, at, bt, True{})))
+
+# a sum of U32s is at most the sum of their numbers
+def add.le(+x: U32, +y: U32) -> N.Le(U32.to_nat(U32.add(x, y)), Nat.add(U32.to_nat(x), U32.to_nat(y))):
+  match x y:
+    case U32{+a} U32{+b}:
+      adc.le(32n, a, b, False{})
+
+# the bit c under the word w less its top bit: at most c + 2w
+def shl.put.le(+n: Nat, c: Bool, w: Word(n)) ->
+  N.Le(Word.to_nat(n, Word.shl.put(n, c, w)), Nat.add(D.Nat.of(c), Nat.double(Word.to_nat(n, w)))):
+  match n:
+    case 0n:
+      N.le_zero(Nat.add(D.Nat.of(c), Nat.double(Word.to_nat(0n, w))))
+    case 1n+p:
+      match c w:
+        case False{} WCon{False{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, False{}, t)), Nat.double(Word.to_nat(p, t)), shl.put.le(p, False{}, t))
+        case True{} WCon{False{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, False{}, t)), Nat.double(Word.to_nat(p, t)), shl.put.le(p, False{}, t))
+        case False{} WCon{True{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, True{}, t)), 1n+Nat.double(Word.to_nat(p, t)), shl.put.le(p, True{}, t))
+        case True{} WCon{True{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, True{}, t)), 1n+Nat.double(Word.to_nat(p, t)), shl.put.le(p, True{}, t))
+
+# a shift left at most doubles a word
+def shl.le(+n: Nat, w: Word(n)) -> N.Le(Word.to_nat(n, Word.shl(n, w)), Nat.double(Word.to_nat(n, w))):
+  match n:
+    case 0n:
+      N.le_zero(Nat.double(Word.to_nat(0n, w)))
+    case 1n+p:
+      match w:
+        case WCon{False{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, False{}, t)), Nat.double(Word.to_nat(p, t)), shl.put.le(p, False{}, t))
+        case WCon{True{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, True{}, t)), 1n+Nat.double(Word.to_nat(p, t)), shl.put.le(p, True{}, t))
+
+def ushl.le(+y: U32) -> N.Le(U32.to_nat(U32.shl(y)), Nat.double(U32.to_nat(y))):
+  match y:
+    case U32{+w}:
+      shl.le(32n, w)
+
+# k shifts left multiply by at most 2^k
+def shln.le(+x: U32, +k: Nat) -> N.Le(U32.to_nat(U32.shln(x, k)), N.D(k, U32.to_nat(x))):
+  match k:
+    case 0n:
+      N.le_refl(U32.to_nat(x))
+    case 1n+q:
+      +y = U32.shln(x, q)
+      N.le_trans(U32.to_nat(U32.shl(y)), Nat.double(U32.to_nat(y)), N.D(1n+q, U32.to_nat(x)),
+        ushl.le(y), N.double_mono(U32.to_nat(y), N.D(q, U32.to_nat(x)), shln.le(x, q)))
+
+# a word shifted right with a 0 on top keeps its number
+def pad.val(+p: Nat, t: Word(p)) -> {Word.to_nat(1n+p, Word.shr.pad(p, t)) == Word.to_nat(p, t) : Nat}:
+  match p:
+    case 0n:
+      match t:
+        case WNil{}:
+          {==}
+    case 1n+q:
+      match t:
+        case WCon{False{}, +r}:
+          Equal.cong(Nat, Nat, v => Nat.double(v), Word.to_nat(1n+q, Word.shr.pad(q, r)), Word.to_nat(q, r), pad.val(q, r))
+        case WCon{True{}, +r}:
+          Equal.cong(Nat, Nat, v => 1n+Nat.double(v), Word.to_nat(1n+q, Word.shr.pad(q, r)), Word.to_nat(q, r), pad.val(q, r))
+
+# 2 (x >> 1) <= x
+def shr.le(x: U32) -> N.Le(Nat.double(U32.to_nat(U32.shr(x))), U32.to_nat(x)):
+  match x:
+    case U32{w}:
+      match w:
+        case WCon{False{}, +t}:
+          +a = Nat.double(Word.to_nat(31n, t))
+          N.le_rw_l(a, Nat.double(Word.to_nat(32n, Word.shr.pad(31n, t))), a,
+            Equal.cong(Nat, Nat, v => Nat.double(v), Word.to_nat(31n, t), Word.to_nat(32n, Word.shr.pad(31n, t)),
+              Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), pad.val(31n, t))),
+            N.le_refl(a))
+        case WCon{True{}, +t}:
+          +a = Nat.double(Word.to_nat(31n, t))
+          N.le_rw_l(a, Nat.double(Word.to_nat(32n, Word.shr.pad(31n, t))), 1n+a,
+            Equal.cong(Nat, Nat, v => Nat.double(v), Word.to_nat(31n, t), Word.to_nat(32n, Word.shr.pad(31n, t)),
+              Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), pad.val(31n, t))),
+            N.le_succ(a, a, N.le_refl(a)))
+
+# x >> (1 + q) = (x >> 1) >> q
+def shrn.succ(+x: U32, q: Nat) -> {U32.shrn(x, 1n+q) == U32.shrn(U32.shr(x), q) : U32}:
+  match q:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(U32, U32, y => U32.shr(y), U32.shrn(x, 1n+p), U32.shrn(U32.shr(x), p), shrn.succ(x, p))
+
+# 2^k (x >> k) <= x
+def shrn.le(+k: Nat, +x: U32) -> N.Le(N.D(k, U32.to_nat(U32.shrn(x, k))), U32.to_nat(x)):
+  match k:
+    case 0n:
+      N.le_refl(U32.to_nat(x))
+    case 1n+q:
+      +y = U32.shr(x)
+      +a = Nat.double(N.D(q, U32.to_nat(U32.shrn(y, q))))
+      +h = N.le_trans(a, Nat.double(U32.to_nat(y)), U32.to_nat(x),
+        N.double_mono(N.D(q, U32.to_nat(U32.shrn(y, q))), U32.to_nat(y), shrn.le(q, y)), shr.le(x))
+      N.le_rw_l(a, Nat.double(N.D(q, U32.to_nat(U32.shrn(x, 1n+q)))), U32.to_nat(x),
+        Equal.cong(U32, Nat, z => Nat.double(N.D(q, U32.to_nat(z))), U32.shrn(y, q), U32.shrn(x, 1n+q),
+          Equal.sym(U32, U32.shrn(x, 1n+q), U32.shrn(y, q), shrn.succ(x, q))), h)
+# a comparison that is not at most EQ: y < x
+def nle.of(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: {Cmp.is_le(c) == False{} : Bool}) -> N.Le(1n+y, x):
+  match c:
+    case LT{}:
+      Bo.ft(N.Le(1n+y, x), h)
+    case EQ{}:
+      Bo.ft(N.Le(1n+y, x), h)
+    case GT{}:
+      r
+# a comparison that is not LT: y <= x
+def nlt.of(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: {Cmp.is_lt(c) == False{} : Bool}) -> N.Le(y, x):
+  match c:
+    case LT{}:
+      Bo.ft(N.Le(y, x), h)
+    case EQ{}:
+      %Equal.sym(Nat, x, y, r) : N.Le(y, _)
+      N.le_refl(y)
+    case GT{}:
+      N.weaken(y, x, r)
+# min(m, k) is at most m
+def min.le.l(b0: Bool, +m: U32, +k: U32, e: {U32.is_le(m, k) == b0 : Bool}) -> N.Le(U32.to_nat(Wa.Wasm.min.if(b0, m, k)), U32.to_nat(m)):
+  match b0:
+    case True{}:
+      N.le_refl(U32.to_nat(m))
+    case False{}:
+      N.weaken(U32.to_nat(k), U32.to_nat(m), nle.of(U32.cmp(m, k), U32.to_nat(m), U32.to_nat(k), U.rel(m, k), e))
+# the minimum of the limit and 65536, as min.case gives it
+def lim.min(+L: U32) -> {Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536) == Wa.Wasm.min(L, 65536) : U32}:
+  {==}
