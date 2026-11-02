@@ -125,47 +125,79 @@ def sb.eq(k: Nat, h: Nat) -> {Nat.sub(h, k) == sb(k, h) : Nat}:
         case 1n+p:
           sb.eq(q, p)
 
+# x + q, by the steps of q
+def ad(q: Nat, x: Nat) -> Nat:
+  match q:
+    case 0n:
+      x
+    case 1n+r:
+      1n+ad(r, x)
+
+# Nat.add is ad
+def ad.eq(q: Nat, +x: Nat) -> {Nat.add(x, q) == ad(q, x) : Nat}:
+  match q:
+    case 0n:
+      N.add_zero(x)
+    case 1n+(+r):
+      Equal.trans(Nat, Nat.add(x, 1n+r), 1n+Nat.add(x, r), 1n+ad(r, x), N.add_succ_r(x, r),
+        Equal.cong(Nat, Nat, v => 1n+v, Nat.add(x, r), ad(r, x), ad.eq(r, x)))
+
+# Wasm.valid.block, with the heights by the steps of the type's numbers
+def free.block(
+  t: Maybe<&2, Wa.Wasm.Type>, +h: Nat, loop: Bool, body: Nat -> Nat -> Maybe<&2, Wa.Wasm.Height>,
+  more: Nat -> Maybe<&2, Wa.Wasm.Height>
+) -> Maybe<&2, Wa.Wasm.Height>:
+  match t:
+    case None{}:
+      None{}
+    case Some{Wa.Wasm.Type{+p, +q}}:
+      Wa.Wasm.valid.if(ge(p, h) && Wa.Wasm.valid.is_results(body(p, Bool.pick(Nat, loop, p, q)), q),
+        u => more(ad(q, sb(p, h))))
+
 # Wasm.valid.go with no check of the local indices
-def free.go(xs: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +mem: Bool) -> Maybe<&2, Wa.Wasm.Height>:
+def free.go(xs: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +types: List<&2, Wa.Wasm.Type>, +mem: Bool) ->
+  Maybe<&2, Wa.Wasm.Height>:
   match xs:
     case Nil{}:
       Some{Wa.Wasm.Height.at{h}}
     case Con{Wa.Wasm.Instr.const{_}, rest}:
-      free.go(rest, 1n+h, labels, mem)
+      free.go(rest, 1n+h, labels, types, mem)
     case Con{Wa.Wasm.Instr.local_get{_}, rest}:
-      free.go(rest, 1n+h, labels, mem)
+      free.go(rest, 1n+h, labels, types, mem)
     case Con{Wa.Wasm.Instr.local_set{_}, rest}:
-      Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, sb(1n, h), labels, mem))
+      Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, sb(1n, h), labels, types, mem))
     case Con{Wa.Wasm.Instr.local_tee{_}, rest}:
-      Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, h, labels, mem))
+      Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, h, labels, types, mem))
     case Con{Wa.Wasm.Instr.op{_}, rest}:
-      Wa.Wasm.valid.if(ge(2n, h), u => free.go(rest, sb(1n, h), labels, mem))
+      Wa.Wasm.valid.if(ge(2n, h), u => free.go(rest, sb(1n, h), labels, types, mem))
     case Con{Wa.Wasm.Instr.eqz{}, rest}:
-      Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, h, labels, mem))
+      Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, h, labels, types, mem))
     case Con{Wa.Wasm.Instr.load{_}, rest}:
-      Wa.Wasm.valid.if(mem && ge(1n, h), u => free.go(rest, h, labels, mem))
+      Wa.Wasm.valid.if(mem && ge(1n, h), u => free.go(rest, h, labels, types, mem))
     case Con{Wa.Wasm.Instr.load8_u{_}, rest}:
-      Wa.Wasm.valid.if(mem && ge(1n, h), u => free.go(rest, h, labels, mem))
+      Wa.Wasm.valid.if(mem && ge(1n, h), u => free.go(rest, h, labels, types, mem))
     case Con{Wa.Wasm.Instr.store{_}, rest}:
-      Wa.Wasm.valid.if(mem && ge(2n, h), u => free.go(rest, sb(2n, h), labels, mem))
+      Wa.Wasm.valid.if(mem && ge(2n, h), u => free.go(rest, sb(2n, h), labels, types, mem))
     case Con{Wa.Wasm.Instr.store8{_}, rest}:
-      Wa.Wasm.valid.if(mem && ge(2n, h), u => free.go(rest, sb(2n, h), labels, mem))
+      Wa.Wasm.valid.if(mem && ge(2n, h), u => free.go(rest, sb(2n, h), labels, types, mem))
     case Con{Wa.Wasm.Instr.memory_size{}, rest}:
-      Wa.Wasm.valid.if(mem, u => free.go(rest, 1n+h, labels, mem))
+      Wa.Wasm.valid.if(mem, u => free.go(rest, 1n+h, labels, types, mem))
     case Con{Wa.Wasm.Instr.memory_grow{}, rest}:
-      Wa.Wasm.valid.if(mem && ge(1n, h), u => free.go(rest, h, labels, mem))
-    case Con{Wa.Wasm.Instr.block{body}, rest}:
-      Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(free.go(body, 0n, Con{0n, labels}, mem)),
-        u => free.go(rest, h, labels, mem))
-    case Con{Wa.Wasm.Instr.loop{body}, rest}:
-      Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(free.go(body, 0n, Con{0n, labels}, mem)),
-        u => free.go(rest, h, labels, mem))
+      Wa.Wasm.valid.if(mem && ge(1n, h), u => free.go(rest, h, labels, types, mem))
+    case Con{Wa.Wasm.Instr.block{bt, body}, rest}:
+      free.block(Wa.Wasm.blocktype(types, bt), h, False{},
+        p => a => free.go(body, p, Con{a, labels}, types, mem),
+        g => free.go(rest, g, labels, types, mem))
+    case Con{Wa.Wasm.Instr.loop{bt, body}, rest}:
+      free.block(Wa.Wasm.blocktype(types, bt), h, True{},
+        p => a => free.go(body, p, Con{a, labels}, types, mem),
+        g => free.go(rest, g, labels, types, mem))
     case Con{Wa.Wasm.Instr.br{l}, rest}:
       Wa.Wasm.valid.if(Wa.Wasm.valid.br(Wa.Wasm.valid.label(labels, l), h) && List.is_empty(&2, Wa.Wasm.Instr, rest),
         u => Some{Wa.Wasm.Height.any{}})
     case Con{Wa.Wasm.Instr.br_if{l}, rest}:
       Wa.Wasm.valid.if(Wa.Wasm.valid.br_if(Wa.Wasm.valid.label(labels, l), h),
-        u => free.go(rest, sb(1n, h), labels, mem))
+        u => free.go(rest, sb(1n, h), labels, types, mem))
 
 # the local i is below n
 def chk(i: U32, n: Nat) -> Bool:
@@ -182,9 +214,9 @@ def locs(xs: List<&2, Wa.Wasm.Instr>, +n: Nat) -> Bool:
       chk(i, n) && locs(rest, n)
     case Con{Wa.Wasm.Instr.local_tee{i}, rest}:
       chk(i, n) && locs(rest, n)
-    case Con{Wa.Wasm.Instr.block{body}, rest}:
+    case Con{Wa.Wasm.Instr.block{_, body}, rest}:
       locs(body, n) && locs(rest, n)
-    case Con{Wa.Wasm.Instr.loop{body}, rest}:
+    case Con{Wa.Wasm.Instr.loop{_, body}, rest}:
       locs(body, n) && locs(rest, n)
     case Con{_, rest}:
       locs(rest, n)
@@ -209,97 +241,117 @@ def mem.cong(+mem: Bool, -c1: Bool, -c2: Bool, ec: {c1 == c2 : Bool}) -> {Bool.a
   {==}
 
 # go at the height k1 = k2
-def go.at(+rest: List<&2, Wa.Wasm.Instr>, -k1: Nat, -k2: Nat, +labels: List<&2, Nat>, +loc: U32, +mem: Bool,
-  ek: {k1 == k2 : Nat}, ih: {Wa.Wasm.valid.go(rest, k2, labels, loc, mem) == free.go(rest, k2, labels, mem) : Maybe<&2, Wa.Wasm.Height>}) ->
-  {Wa.Wasm.valid.go(rest, k1, labels, loc, mem) == free.go(rest, k2, labels, mem) : Maybe<&2, Wa.Wasm.Height>}:
-  %Equal.sym(Nat, k1, k2, ek) : {Wa.Wasm.valid.go(rest, _, labels, loc, mem) == free.go(rest, k2, labels, mem) : Maybe<&2, Wa.Wasm.Height>}
+def go.at(+rest: List<&2, Wa.Wasm.Instr>, -k1: Nat, -k2: Nat, +labels: List<&2, Nat>, +loc: U32, +types: List<&2, Wa.Wasm.Type>, +mem: Bool,
+  ek: {k1 == k2 : Nat},
+  ih: {Wa.Wasm.valid.go(rest, k2, labels, loc, types, mem) == free.go(rest, k2, labels, types, mem) : Maybe<&2, Wa.Wasm.Height>}) ->
+  {Wa.Wasm.valid.go(rest, k1, labels, loc, types, mem) == free.go(rest, k2, labels, types, mem) : Maybe<&2, Wa.Wasm.Height>}:
+  %Equal.sym(Nat, k1, k2, ek) :
+    {Wa.Wasm.valid.go(rest, _, labels, loc, types, mem) == free.go(rest, k2, labels, types, mem) : Maybe<&2, Wa.Wasm.Height>}
   ih
 
+# a block's checks agree when its body's checks and the checks after it agree
+def block.free(t: Maybe<&2, Wa.Wasm.Type>, +h: Nat, +loop: Bool,
+  -b1: Nat -> Nat -> Maybe<&2, Wa.Wasm.Height>, -b2: Nat -> Nat -> Maybe<&2, Wa.Wasm.Height>,
+  -m1: Nat -> Maybe<&2, Wa.Wasm.Height>, -m2: Nat -> Maybe<&2, Wa.Wasm.Height>,
+  eb: @p: Nat -> @a: Nat -> {b1(p, a) == b2(p, a) : Maybe<&2, Wa.Wasm.Height>},
+  em: @g: Nat -> {m1(g) == m2(g) : Maybe<&2, Wa.Wasm.Height>}) ->
+  {Wa.Wasm.valid.block(t, h, loop, b1, m1) == free.block(t, h, loop, b2, m2) : Maybe<&2, Wa.Wasm.Height>}:
+  match t:
+    case None{}:
+      {==}
+    case Some{Wa.Wasm.Type{+p, +q}}:
+      +a = Bool.pick(Nat, loop, p, q)
+      +g = ad(q, sb(p, h))
+      +eg = Equal.trans(Nat, Nat.add(Nat.sub(h, p), q), ad(q, Nat.sub(h, p)), g, ad.eq(q, Nat.sub(h, p)),
+        Equal.cong(Nat, Nat, v => ad(q, v), Nat.sub(h, p), sb(p, h), sb.eq(p, h)))
+      if.cong(Bool.and(Nat.is_ge(h, p), Wa.Wasm.valid.is_results(b1(p, a), q)), Bool.and(ge(p, h), Wa.Wasm.valid.is_results(b2(p, a), q)),
+        m1(Nat.add(Nat.sub(h, p), q)), m2(g),
+        Equal.trans(Bool, Bool.and(Nat.is_ge(h, p), Wa.Wasm.valid.is_results(b1(p, a), q)),
+          Bool.and(ge(p, h), Wa.Wasm.valid.is_results(b1(p, a), q)), Bool.and(ge(p, h), Wa.Wasm.valid.is_results(b2(p, a), q)),
+          Equal.cong(Bool, Bool, c => Bool.and(c, Wa.Wasm.valid.is_results(b1(p, a), q)), Nat.is_ge(h, p), ge(p, h), ge.eq(p, h)),
+          Equal.cong(Maybe<&2, Wa.Wasm.Height>, Bool, m => Bool.and(ge(p, h), Wa.Wasm.valid.is_results(m, q)), b1(p, a), b2(p, a), eb(p, a))),
+        Equal.trans(Maybe<&2, Wa.Wasm.Height>, m1(Nat.add(Nat.sub(h, p), q)), m1(g), m2(g),
+          Equal.cong(Nat, Maybe<&2, Wa.Wasm.Height>, v => m1(v), Nat.add(Nat.sub(h, p), q), g, eg), em(g)))
+
 # with every local below the locals' number, Wasm.valid.go is free.go
-def go.free(xs: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +loc: U32, +n: Nat, +mem: Bool,
+def go.free(xs: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +loc: U32, +n: Nat, +types: List<&2, Wa.Wasm.Type>, +mem: Bool,
   +en: {U32.to_nat(loc) == n : Nat}, +ok: {locs(xs, n) == True{} : Bool}) ->
-  {Wa.Wasm.valid.go(xs, h, labels, loc, mem) == free.go(xs, h, labels, mem) : Maybe<&2, Wa.Wasm.Height>}:
+  {Wa.Wasm.valid.go(xs, h, labels, loc, types, mem) == free.go(xs, h, labels, types, mem) : Maybe<&2, Wa.Wasm.Height>}:
   match xs:
     case Nil{}:
       {==}
     case Con{x, +rest}:
       match x:
         case Wa.Wasm.Instr.const{_}:
-          go.free(rest, 1n+h, labels, loc, n, mem, en, ok)
+          go.free(rest, 1n+h, labels, loc, n, types, mem, en, ok)
         case Wa.Wasm.Instr.local_get{+i}:
           +c = chk.lt(i, loc, n, en, I.and.l(chk(i, n), locs(rest, n), ok))
           %Equal.sym(Bool, U32.is_lt(i, loc), True{}, c) :
-            {Wa.Wasm.valid.if(_, u => Wa.Wasm.valid.go(rest, 1n+h, labels, loc, mem)) == free.go(rest, 1n+h, labels, mem) : Maybe<&2, Wa.Wasm.Height>}
-          go.free(rest, 1n+h, labels, loc, n, mem, en, I.and.r(chk(i, n), locs(rest, n), ok))
+            {Wa.Wasm.valid.if(_, u => Wa.Wasm.valid.go(rest, 1n+h, labels, loc, types, mem)) == free.go(rest, 1n+h, labels, types, mem) : Maybe<&2, Wa.Wasm.Height>}
+          go.free(rest, 1n+h, labels, loc, n, types, mem, en, I.and.r(chk(i, n), locs(rest, n), ok))
         case Wa.Wasm.Instr.local_set{+i}:
           +c = chk.lt(i, loc, n, en, I.and.l(chk(i, n), locs(rest, n), ok))
           %Equal.sym(Bool, U32.is_lt(i, loc), True{}, c) :
-            {Wa.Wasm.valid.if(Bool.and(_, Nat.is_ge(h, 1n)), u => Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, mem)) ==
-              Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, sb(1n, h), labels, mem)) : Maybe<&2, Wa.Wasm.Height>}
-          if.cong(Nat.is_ge(h, 1n), ge(1n, h), Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, mem), free.go(rest, sb(1n, h), labels, mem),
-            ge.eq(1n, h), go.at(rest, Nat.sub(h, 1n), sb(1n, h), labels, loc, mem, sb.eq(1n, h),
-              go.free(rest, sb(1n, h), labels, loc, n, mem, en, I.and.r(chk(i, n), locs(rest, n), ok))))
+            {Wa.Wasm.valid.if(Bool.and(_, Nat.is_ge(h, 1n)), u => Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, types, mem)) ==
+              Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, sb(1n, h), labels, types, mem)) : Maybe<&2, Wa.Wasm.Height>}
+          if.cong(Nat.is_ge(h, 1n), ge(1n, h), Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, types, mem), free.go(rest, sb(1n, h), labels, types, mem),
+            ge.eq(1n, h), go.at(rest, Nat.sub(h, 1n), sb(1n, h), labels, loc, types, mem, sb.eq(1n, h),
+              go.free(rest, sb(1n, h), labels, loc, n, types, mem, en, I.and.r(chk(i, n), locs(rest, n), ok))))
         case Wa.Wasm.Instr.local_tee{+i}:
           +c = chk.lt(i, loc, n, en, I.and.l(chk(i, n), locs(rest, n), ok))
           %Equal.sym(Bool, U32.is_lt(i, loc), True{}, c) :
-            {Wa.Wasm.valid.if(Bool.and(_, Nat.is_ge(h, 1n)), u => Wa.Wasm.valid.go(rest, h, labels, loc, mem)) ==
-              Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, h, labels, mem)) : Maybe<&2, Wa.Wasm.Height>}
-          if.cong(Nat.is_ge(h, 1n), ge(1n, h), Wa.Wasm.valid.go(rest, h, labels, loc, mem), free.go(rest, h, labels, mem),
-            ge.eq(1n, h), go.free(rest, h, labels, loc, n, mem, en, I.and.r(chk(i, n), locs(rest, n), ok)))
+            {Wa.Wasm.valid.if(Bool.and(_, Nat.is_ge(h, 1n)), u => Wa.Wasm.valid.go(rest, h, labels, loc, types, mem)) ==
+              Wa.Wasm.valid.if(ge(1n, h), u => free.go(rest, h, labels, types, mem)) : Maybe<&2, Wa.Wasm.Height>}
+          if.cong(Nat.is_ge(h, 1n), ge(1n, h), Wa.Wasm.valid.go(rest, h, labels, loc, types, mem), free.go(rest, h, labels, types, mem),
+            ge.eq(1n, h), go.free(rest, h, labels, loc, n, types, mem, en, I.and.r(chk(i, n), locs(rest, n), ok)))
         case Wa.Wasm.Instr.op{_}:
-          if.cong(Nat.is_ge(h, 2n), ge(2n, h), Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, mem), free.go(rest, sb(1n, h), labels, mem),
-            ge.eq(2n, h), go.at(rest, Nat.sub(h, 1n), sb(1n, h), labels, loc, mem, sb.eq(1n, h),
-              go.free(rest, sb(1n, h), labels, loc, n, mem, en, ok)))
+          if.cong(Nat.is_ge(h, 2n), ge(2n, h), Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, types, mem), free.go(rest, sb(1n, h), labels, types, mem),
+            ge.eq(2n, h), go.at(rest, Nat.sub(h, 1n), sb(1n, h), labels, loc, types, mem, sb.eq(1n, h),
+              go.free(rest, sb(1n, h), labels, loc, n, types, mem, en, ok)))
         case Wa.Wasm.Instr.eqz{}:
-          if.cong(Nat.is_ge(h, 1n), ge(1n, h), Wa.Wasm.valid.go(rest, h, labels, loc, mem), free.go(rest, h, labels, mem),
-            ge.eq(1n, h), go.free(rest, h, labels, loc, n, mem, en, ok))
+          if.cong(Nat.is_ge(h, 1n), ge(1n, h), Wa.Wasm.valid.go(rest, h, labels, loc, types, mem), free.go(rest, h, labels, types, mem),
+            ge.eq(1n, h), go.free(rest, h, labels, loc, n, types, mem, en, ok))
         case Wa.Wasm.Instr.load{_}:
-          if.cong(Bool.and(mem, Nat.is_ge(h, 1n)), Bool.and(mem, ge(1n, h)), Wa.Wasm.valid.go(rest, h, labels, loc, mem), free.go(rest, h, labels, mem),
-            mem.cong(mem, Nat.is_ge(h, 1n), ge(1n, h), ge.eq(1n, h)), go.free(rest, h, labels, loc, n, mem, en, ok))
+          if.cong(Bool.and(mem, Nat.is_ge(h, 1n)), Bool.and(mem, ge(1n, h)), Wa.Wasm.valid.go(rest, h, labels, loc, types, mem), free.go(rest, h, labels, types, mem),
+            mem.cong(mem, Nat.is_ge(h, 1n), ge(1n, h), ge.eq(1n, h)), go.free(rest, h, labels, loc, n, types, mem, en, ok))
         case Wa.Wasm.Instr.load8_u{_}:
-          if.cong(Bool.and(mem, Nat.is_ge(h, 1n)), Bool.and(mem, ge(1n, h)), Wa.Wasm.valid.go(rest, h, labels, loc, mem), free.go(rest, h, labels, mem),
-            mem.cong(mem, Nat.is_ge(h, 1n), ge(1n, h), ge.eq(1n, h)), go.free(rest, h, labels, loc, n, mem, en, ok))
+          if.cong(Bool.and(mem, Nat.is_ge(h, 1n)), Bool.and(mem, ge(1n, h)), Wa.Wasm.valid.go(rest, h, labels, loc, types, mem), free.go(rest, h, labels, types, mem),
+            mem.cong(mem, Nat.is_ge(h, 1n), ge(1n, h), ge.eq(1n, h)), go.free(rest, h, labels, loc, n, types, mem, en, ok))
         case Wa.Wasm.Instr.store{_}:
-          if.cong(Bool.and(mem, Nat.is_ge(h, 2n)), Bool.and(mem, ge(2n, h)), Wa.Wasm.valid.go(rest, Nat.sub(h, 2n), labels, loc, mem), free.go(rest, sb(2n, h), labels, mem),
-            mem.cong(mem, Nat.is_ge(h, 2n), ge(2n, h), ge.eq(2n, h)), go.at(rest, Nat.sub(h, 2n), sb(2n, h), labels, loc, mem, sb.eq(2n, h),
-              go.free(rest, sb(2n, h), labels, loc, n, mem, en, ok)))
+          if.cong(Bool.and(mem, Nat.is_ge(h, 2n)), Bool.and(mem, ge(2n, h)), Wa.Wasm.valid.go(rest, Nat.sub(h, 2n), labels, loc, types, mem), free.go(rest, sb(2n, h), labels, types, mem),
+            mem.cong(mem, Nat.is_ge(h, 2n), ge(2n, h), ge.eq(2n, h)), go.at(rest, Nat.sub(h, 2n), sb(2n, h), labels, loc, types, mem, sb.eq(2n, h),
+              go.free(rest, sb(2n, h), labels, loc, n, types, mem, en, ok)))
         case Wa.Wasm.Instr.store8{_}:
-          if.cong(Bool.and(mem, Nat.is_ge(h, 2n)), Bool.and(mem, ge(2n, h)), Wa.Wasm.valid.go(rest, Nat.sub(h, 2n), labels, loc, mem), free.go(rest, sb(2n, h), labels, mem),
-            mem.cong(mem, Nat.is_ge(h, 2n), ge(2n, h), ge.eq(2n, h)), go.at(rest, Nat.sub(h, 2n), sb(2n, h), labels, loc, mem, sb.eq(2n, h),
-              go.free(rest, sb(2n, h), labels, loc, n, mem, en, ok)))
+          if.cong(Bool.and(mem, Nat.is_ge(h, 2n)), Bool.and(mem, ge(2n, h)), Wa.Wasm.valid.go(rest, Nat.sub(h, 2n), labels, loc, types, mem), free.go(rest, sb(2n, h), labels, types, mem),
+            mem.cong(mem, Nat.is_ge(h, 2n), ge(2n, h), ge.eq(2n, h)), go.at(rest, Nat.sub(h, 2n), sb(2n, h), labels, loc, types, mem, sb.eq(2n, h),
+              go.free(rest, sb(2n, h), labels, loc, n, types, mem, en, ok)))
         case Wa.Wasm.Instr.memory_size{}:
           Equal.cong(Maybe<&2, Wa.Wasm.Height>, Maybe<&2, Wa.Wasm.Height>, m => Wa.Wasm.valid.if(mem, u => m),
-            Wa.Wasm.valid.go(rest, 1n+h, labels, loc, mem), free.go(rest, 1n+h, labels, mem),
-            go.free(rest, 1n+h, labels, loc, n, mem, en, ok))
+            Wa.Wasm.valid.go(rest, 1n+h, labels, loc, types, mem), free.go(rest, 1n+h, labels, types, mem),
+            go.free(rest, 1n+h, labels, loc, n, types, mem, en, ok))
         case Wa.Wasm.Instr.memory_grow{}:
-          if.cong(Bool.and(mem, Nat.is_ge(h, 1n)), Bool.and(mem, ge(1n, h)), Wa.Wasm.valid.go(rest, h, labels, loc, mem), free.go(rest, h, labels, mem),
-            mem.cong(mem, Nat.is_ge(h, 1n), ge(1n, h), ge.eq(1n, h)), go.free(rest, h, labels, loc, n, mem, en, ok))
-        case Wa.Wasm.Instr.block{+body}:
-          +eb = go.free(body, 0n, Con{0n, labels}, loc, n, mem, en, I.and.l(locs(body, n), locs(rest, n), ok))
-          %Equal.sym(Maybe<&2, Wa.Wasm.Height>, Wa.Wasm.valid.go(body, 0n, Con{0n, labels}, loc, mem), free.go(body, 0n, Con{0n, labels}, mem), eb) :
-            {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => Wa.Wasm.valid.go(rest, h, labels, loc, mem)) ==
-              Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(free.go(body, 0n, Con{0n, labels}, mem)), u => free.go(rest, h, labels, mem)) : Maybe<&2, Wa.Wasm.Height>}
-          Equal.cong(Maybe<&2, Wa.Wasm.Height>, Maybe<&2, Wa.Wasm.Height>,
-            m => Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(free.go(body, 0n, Con{0n, labels}, mem)), u => m),
-            Wa.Wasm.valid.go(rest, h, labels, loc, mem), free.go(rest, h, labels, mem),
-            go.free(rest, h, labels, loc, n, mem, en, I.and.r(locs(body, n), locs(rest, n), ok)))
-        case Wa.Wasm.Instr.loop{+body}:
-          +eb = go.free(body, 0n, Con{0n, labels}, loc, n, mem, en, I.and.l(locs(body, n), locs(rest, n), ok))
-          %Equal.sym(Maybe<&2, Wa.Wasm.Height>, Wa.Wasm.valid.go(body, 0n, Con{0n, labels}, loc, mem), free.go(body, 0n, Con{0n, labels}, mem), eb) :
-            {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => Wa.Wasm.valid.go(rest, h, labels, loc, mem)) ==
-              Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(free.go(body, 0n, Con{0n, labels}, mem)), u => free.go(rest, h, labels, mem)) : Maybe<&2, Wa.Wasm.Height>}
-          Equal.cong(Maybe<&2, Wa.Wasm.Height>, Maybe<&2, Wa.Wasm.Height>,
-            m => Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(free.go(body, 0n, Con{0n, labels}, mem)), u => m),
-            Wa.Wasm.valid.go(rest, h, labels, loc, mem), free.go(rest, h, labels, mem),
-            go.free(rest, h, labels, loc, n, mem, en, I.and.r(locs(body, n), locs(rest, n), ok)))
+          if.cong(Bool.and(mem, Nat.is_ge(h, 1n)), Bool.and(mem, ge(1n, h)), Wa.Wasm.valid.go(rest, h, labels, loc, types, mem), free.go(rest, h, labels, types, mem),
+            mem.cong(mem, Nat.is_ge(h, 1n), ge(1n, h), ge.eq(1n, h)), go.free(rest, h, labels, loc, n, types, mem, en, ok))
+        case Wa.Wasm.Instr.block{+bt, +body}:
+          block.free(Wa.Wasm.blocktype(types, bt), h, False{},
+            p => a => Wa.Wasm.valid.go(body, p, Con{a, labels}, loc, types, mem), p => a => free.go(body, p, Con{a, labels}, types, mem),
+            g => Wa.Wasm.valid.go(rest, g, labels, loc, types, mem), g => free.go(rest, g, labels, types, mem),
+            p => a => go.free(body, p, Con{a, labels}, loc, n, types, mem, en, I.and.l(locs(body, n), locs(rest, n), ok)),
+            g => go.free(rest, g, labels, loc, n, types, mem, en, I.and.r(locs(body, n), locs(rest, n), ok)))
+        case Wa.Wasm.Instr.loop{+bt, +body}:
+          block.free(Wa.Wasm.blocktype(types, bt), h, True{},
+            p => a => Wa.Wasm.valid.go(body, p, Con{a, labels}, loc, types, mem), p => a => free.go(body, p, Con{a, labels}, types, mem),
+            g => Wa.Wasm.valid.go(rest, g, labels, loc, types, mem), g => free.go(rest, g, labels, types, mem),
+            p => a => go.free(body, p, Con{a, labels}, loc, n, types, mem, en, I.and.l(locs(body, n), locs(rest, n), ok)),
+            g => go.free(rest, g, labels, loc, n, types, mem, en, I.and.r(locs(body, n), locs(rest, n), ok)))
         case Wa.Wasm.Instr.br{_}:
           {==}
         case Wa.Wasm.Instr.br_if{+l}:
           Equal.cong(Maybe<&2, Wa.Wasm.Height>, Maybe<&2, Wa.Wasm.Height>,
             m => Wa.Wasm.valid.if(Wa.Wasm.valid.br_if(Wa.Wasm.valid.label(labels, l), h), u => m),
-            Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, mem), free.go(rest, sb(1n, h), labels, mem),
-            go.at(rest, Nat.sub(h, 1n), sb(1n, h), labels, loc, mem, sb.eq(1n, h),
-              go.free(rest, sb(1n, h), labels, loc, n, mem, en, ok)))
+            Wa.Wasm.valid.go(rest, Nat.sub(h, 1n), labels, loc, types, mem), free.go(rest, sb(1n, h), labels, types, mem),
+            go.at(rest, Nat.sub(h, 1n), sb(1n, h), labels, loc, types, mem, sb.eq(1n, h),
+              go.free(rest, sb(1n, h), labels, loc, n, types, mem, en, ok)))
 
 # Labels
 # ------
@@ -336,8 +388,8 @@ def lab.out(+d: Nat) -> {Wa.Wasm.valid.label(lab(d), U32.from_nat(d)) == Some{0n
 # -----------
 
 # the code of an expression leaves one value
-def free.expr(e: Cr.Cir.Expr, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>) ->
-  {free.go(Cr.Cir.code.expr(e, acc), h, labels, True{}) == free.go(acc, 1n+h, labels, True{}) : Maybe<&2, Wa.Wasm.Height>}:
+def free.expr(e: Cr.Cir.Expr, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: List<&2, Nat>, +ts: List<&2, Wa.Wasm.Type>) ->
+  {free.go(Cr.Cir.code.expr(e, acc), h, labels, ts, True{}) == free.go(acc, 1n+h, labels, ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
   match e:
     case Cr.Cir.Expr.const{_}:
       {==}
@@ -345,14 +397,14 @@ def free.expr(e: Cr.Cir.Expr, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: L
       {==}
     case Cr.Cir.Expr.op{+o, +a, +b}:
       +X = Cr.Cir.code.expr(b, Con{Cr.Cir.i.op(o), acc})
-      Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(a, X), h, labels, True{}), free.go(X, 1n+h, labels, True{}),
-        free.go(acc, 1n+h, labels, True{}), free.expr(a, X, h, labels), free.expr(b, Con{Cr.Cir.i.op(o), acc}, 1n+h, labels))
+      Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(a, X), h, labels, ts, True{}), free.go(X, 1n+h, labels, ts, True{}),
+        free.go(acc, 1n+h, labels, ts, True{}), free.expr(a, X, h, labels, ts), free.expr(b, Con{Cr.Cir.i.op(o), acc}, 1n+h, labels, ts))
     case Cr.Cir.Expr.eqz{+a}:
-      free.expr(a, Con{Wa.Wasm.Instr.eqz{}, acc}, h, labels)
+      free.expr(a, Con{Wa.Wasm.Instr.eqz{}, acc}, h, labels, ts)
     case Cr.Cir.Expr.field{+k, +c}:
-      free.expr(c, Cr.Cir.code.at(Con{Wa.Wasm.Instr.load{U32.shln(U32.from_nat(k), 2n)}, acc}), h, labels)
+      free.expr(c, Cr.Cir.code.at(Con{Wa.Wasm.Instr.load{U32.shln(U32.from_nat(k), 2n)}, acc}), h, labels, ts)
     case Cr.Cir.Expr.byte{+i}:
-      free.expr(i, Con{Cr.Cir.i.get(0), Con{Cr.Cir.i.op(Wa.Wasm.Op.add{}), Con{Wa.Wasm.Instr.load8_u{0}, acc}}}, h, labels)
+      free.expr(i, Con{Cr.Cir.i.get(0), Con{Cr.Cir.i.op(Wa.Wasm.Op.add{}), Con{Wa.Wasm.Instr.load8_u{0}, acc}}}, h, labels, ts)
     case Cr.Cir.Expr.size{}:
       {==}
 
@@ -360,31 +412,31 @@ def free.expr(e: Cr.Cir.Expr, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +labels: L
 # -------------------
 
 # a branch to a block of no values
-def br.ok(+l: U32, +labels: List<&2, Nat>, e: {Wa.Wasm.valid.label(labels, l) == Some{0n} : Maybe<&2, Nat>}) ->
-  {free.go([Wa.Wasm.Instr.br{l}], 0n, labels, True{}) == Some{Wa.Wasm.Height.any{}} : Maybe<&2, Wa.Wasm.Height>}:
+def br.ok(+l: U32, +labels: List<&2, Nat>, +ts: List<&2, Wa.Wasm.Type>, e: {Wa.Wasm.valid.label(labels, l) == Some{0n} : Maybe<&2, Nat>}) ->
+  {free.go([Wa.Wasm.Instr.br{l}], 0n, labels, ts, True{}) == Some{Wa.Wasm.Height.any{}} : Maybe<&2, Wa.Wasm.Height>}:
   %Equal.sym(Maybe<&2, Nat>, Wa.Wasm.valid.label(labels, l), Some{0n}, e) :
     {Wa.Wasm.valid.if(Bool.and(Wa.Wasm.valid.br(_, 0n), List.is_empty(&2, Wa.Wasm.Instr, [])), u => Some{Wa.Wasm.Height.any{}}) ==
       Some{Wa.Wasm.Height.any{}} : Maybe<&2, Wa.Wasm.Height>}
   {==}
 
 # the exit with the status s
-def exit.ok(+s: U32, +d: Nat, +rest: List<&2, Wa.Wasm.Instr>, +h: Nat) ->
-  {free.go(Con{Cr.Cir.code.exit(s, d), rest}, h, lab(d), True{}) == free.go(rest, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}:
-  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go([Wa.Wasm.Instr.br{U32.from_nat(1n+d)}], 0n, lab(1n+d), True{}), Some{Wa.Wasm.Height.any{}},
-    br.ok(U32.from_nat(1n+d), lab(1n+d), lab.out(1n+d))) :
-    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => free.go(rest, h, lab(d), True{})) == free.go(rest, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}
+def exit.ok(+s: U32, +d: Nat, +rest: List<&2, Wa.Wasm.Instr>, +h: Nat, +ts: List<&2, Wa.Wasm.Type>) ->
+  {free.go(Con{Cr.Cir.code.exit(s, d), rest}, h, lab(d), ts, True{}) == free.go(rest, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
+  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go([Wa.Wasm.Instr.br{U32.from_nat(1n+d)}], 0n, lab(1n+d), ts, True{}), Some{Wa.Wasm.Height.any{}},
+    br.ok(U32.from_nat(1n+d), lab(1n+d), ts, lab.out(1n+d))) :
+    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => free.go(rest, h, lab(d), ts, True{})) == free.go(rest, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}
   {==}
 
 # out of memory unless cond, which leaves one value
-def unless.ok(+cond: List<&2, Wa.Wasm.Instr>, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat,
-  ec: {free.go(List.append(&2, Wa.Wasm.Instr, cond, [Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.exit(1, 1n+d)]), 0n, lab(1n+d), True{}) ==
-    free.go([Cr.Cir.code.exit(1, 1n+d)], 0n, lab(1n+d), True{}) : Maybe<&2, Wa.Wasm.Height>}) ->
-  {free.go(Cr.Cir.code.unless(cond, d, acc), h, lab(d), True{}) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}:
+def unless.ok(+cond: List<&2, Wa.Wasm.Instr>, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +ts: List<&2, Wa.Wasm.Type>,
+  ec: {free.go(List.append(&2, Wa.Wasm.Instr, cond, [Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.exit(1, 1n+d)]), 0n, lab(1n+d), ts, True{}) ==
+    free.go([Cr.Cir.code.exit(1, 1n+d)], 0n, lab(1n+d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}) ->
+  {free.go(Cr.Cir.code.unless(cond, d, acc), h, lab(d), ts, True{}) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
   +B = List.append(&2, Wa.Wasm.Instr, cond, [Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.exit(1, 1n+d)])
-  +e = Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(B, 0n, lab(1n+d), True{}), free.go([Cr.Cir.code.exit(1, 1n+d)], 0n, lab(1n+d), True{}),
-    free.go([], 0n, lab(1n+d), True{}), ec, exit.ok(1, 1n+d, [], 0n))
-  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(B, 0n, lab(1n+d), True{}), free.go([], 0n, lab(1n+d), True{}), e) :
-    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => free.go(acc, h, lab(d), True{})) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}
+  +e = Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(B, 0n, lab(1n+d), ts, True{}), free.go([Cr.Cir.code.exit(1, 1n+d)], 0n, lab(1n+d), ts, True{}),
+    free.go([], 0n, lab(1n+d), ts, True{}), ec, exit.ok(1, 1n+d, [], 0n, ts))
+  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(B, 0n, lab(1n+d), ts, True{}), free.go([], 0n, lab(1n+d), ts, True{}), e) :
+    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => free.go(acc, h, lab(d), ts, True{})) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}
   {==}
 
 # the check of memory.grow
@@ -393,11 +445,11 @@ def grow.cond() -> List<&2, Wa.Wasm.Instr>:
     Wa.Wasm.Instr.memory_grow{}, Cr.Cir.i.const(4294967295), Cr.Cir.i.op(Wa.Wasm.Op.ne{})]
 
 # the memory grows
-def grow.ok(+d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat) ->
-  {free.go(Cr.Cir.code.grow(d, acc), h, lab(d), True{}) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}:
-  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.unless(grow.cond(), 1n+d, []), 0n, lab(1n+d), True{}), free.go([], 0n, lab(1n+d), True{}),
-    unless.ok(grow.cond(), 1n+d, [], 0n, {==})) :
-    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => free.go(acc, h, lab(d), True{})) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}
+def grow.ok(+d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +ts: List<&2, Wa.Wasm.Type>) ->
+  {free.go(Cr.Cir.code.grow(d, acc), h, lab(d), ts, True{}) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
+  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.unless(grow.cond(), 1n+d, []), 0n, lab(1n+d), ts, True{}), free.go([], 0n, lab(1n+d), ts, True{}),
+    unless.ok(grow.cond(), 1n+d, [], 0n, ts, {==})) :
+    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => free.go(acc, h, lab(d), ts, True{})) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}
   {==}
 
 # the check of alloc that the cell's number fits
@@ -416,14 +468,14 @@ def alloc.rest(+x: U32, +d: Nat, acc: List<&2, Wa.Wasm.Instr>) -> List<&2, Wa.Wa
     Cr.Cir.code.need(Cr.Cir.code.grow(d, alloc.tail(x, acc)))}})}
 
 # a new cell leaves the stack as it was
-def alloc.ok(+x: U32, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat) ->
-  {free.go(Cr.Cir.code.alloc(x, d, acc), h, lab(d), True{}) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}:
+def alloc.ok(+x: U32, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +ts: List<&2, Wa.Wasm.Type>) ->
+  {free.go(Cr.Cir.code.alloc(x, d, acc), h, lab(d), ts, True{}) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
   +R = alloc.rest(x, d, acc)
   +K = alloc.tail(x, acc)
-  Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.alloc(x, d, acc), h, lab(d), True{}), free.go(R, h, lab(d), True{}),
-    free.go(acc, h, lab(d), True{}), unless.ok(alloc.cond(), d, R, h, {==}),
-    Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(R, h, lab(d), True{}), free.go(K, h, lab(d), True{}),
-      free.go(acc, h, lab(d), True{}), grow.ok(d, K, h), {==}))
+  Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.alloc(x, d, acc), h, lab(d), ts, True{}), free.go(R, h, lab(d), ts, True{}),
+    free.go(acc, h, lab(d), ts, True{}), unless.ok(alloc.cond(), d, R, h, ts, {==}),
+    Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(R, h, lab(d), ts, True{}), free.go(K, h, lab(d), ts, True{}),
+      free.go(acc, h, lab(d), ts, True{}), grow.ok(d, K, h, ts), {==}))
 
 # the check of emit that the byte's place fits
 def emit.cond() -> List<&2, Wa.Wasm.Instr>:
@@ -444,31 +496,31 @@ def emit.rest(+v: Cr.Cir.Expr, +d: Nat, acc: List<&2, Wa.Wasm.Instr>) -> List<&2
   Con{Cr.Cir.i.get(Cr.Cir.l.addr()), Cr.Cir.code.need(Cr.Cir.code.grow(d, emit.tail(v, acc)))}
 
 # a byte of output leaves the stack as it was
-def emit.ok(+v: Cr.Cir.Expr, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat) ->
-  {free.go(Cr.Cir.code.emit(v, d, acc), h, lab(d), True{}) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}:
+def emit.ok(+v: Cr.Cir.Expr, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +ts: List<&2, Wa.Wasm.Type>) ->
+  {free.go(Cr.Cir.code.emit(v, d, acc), h, lab(d), ts, True{}) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
   +R = emit.rest(v, d, acc)
   +K = emit.tail(v, acc)
-  Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.emit(v, d, acc), h, lab(d), True{}), free.go(R, h, lab(d), True{}),
-    free.go(acc, h, lab(d), True{}), unless.ok(emit.cond(), d, R, h, {==}),
-    Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(R, h, lab(d), True{}), free.go(K, h, lab(d), True{}),
-      free.go(acc, h, lab(d), True{}), grow.ok(d, K, h), free.expr(v, emit.store(acc), 1n+h, lab(d))))
+  Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.emit(v, d, acc), h, lab(d), ts, True{}), free.go(R, h, lab(d), ts, True{}),
+    free.go(acc, h, lab(d), ts, True{}), unless.ok(emit.cond(), d, R, h, ts, {==}),
+    Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(R, h, lab(d), ts, True{}), free.go(K, h, lab(d), ts, True{}),
+      free.go(acc, h, lab(d), ts, True{}), grow.ok(d, K, h, ts), free.expr(v, emit.store(acc), 1n+h, lab(d), ts)))
 
 # the result, if any, then the branch out of run
-def result.ok(z: Bool, +l: U32, +labels: List<&2, Nat>, e: {Wa.Wasm.valid.label(labels, l) == Some{0n} : Maybe<&2, Nat>}) ->
-  {free.go(List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(z), [Wa.Wasm.Instr.br{l}]), 0n, labels, True{}) == Some{Wa.Wasm.Height.any{}} : Maybe<&2, Wa.Wasm.Height>}:
+def result.ok(z: Bool, +l: U32, +labels: List<&2, Nat>, +ts: List<&2, Wa.Wasm.Type>, e: {Wa.Wasm.valid.label(labels, l) == Some{0n} : Maybe<&2, Nat>}) ->
+  {free.go(List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(z), [Wa.Wasm.Instr.br{l}]), 0n, labels, ts, True{}) == Some{Wa.Wasm.Height.any{}} : Maybe<&2, Wa.Wasm.Height>}:
   match z:
     case True{}:
-      br.ok(l, labels, e)
+      br.ok(l, labels, ts, e)
     case False{}:
-      br.ok(l, labels, e)
+      br.ok(l, labels, ts, e)
 
 # halt leaves the stack as it was (and branches out of run)
-def halt.ok(+s: U32, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat) ->
-  {free.go(Con{Cr.Cir.code.halt(s, d), acc}, h, lab(d), True{}) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}:
+def halt.ok(+s: U32, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +ts: List<&2, Wa.Wasm.Type>) ->
+  {free.go(Con{Cr.Cir.code.halt(s, d), acc}, h, lab(d), ts, True{}) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
   +A = List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(U32.is_zero(s)), [Wa.Wasm.Instr.br{U32.from_nat(1n+d)}])
-  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(A, 0n, lab(1n+d), True{}), Some{Wa.Wasm.Height.any{}},
-    result.ok(U32.is_zero(s), U32.from_nat(1n+d), lab(1n+d), lab.out(1n+d))) :
-    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => free.go(acc, h, lab(d), True{})) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}
+  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(A, 0n, lab(1n+d), ts, True{}), Some{Wa.Wasm.Height.any{}},
+    result.ok(U32.is_zero(s), U32.from_nat(1n+d), lab(1n+d), ts, lab.out(1n+d))) :
+    {Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => free.go(acc, h, lab(d), ts, True{})) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}
   {==}
 
 # Statements
@@ -476,49 +528,49 @@ def halt.ok(+s: U32, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat) ->
 
 # the code of a statement at d levels inside run's block leaves the stack as
 # it found it
-def free.stmt(s: Cr.Cir.Stmt, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat) ->
-  {free.go(Cr.Cir.code.stmt(s, d, acc), h, lab(d), True{}) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}:
+def free.stmt(s: Cr.Cir.Stmt, +d: Nat, +acc: List<&2, Wa.Wasm.Instr>, +h: Nat, +ts: List<&2, Wa.Wasm.Type>) ->
+  {free.go(Cr.Cir.code.stmt(s, d, acc), h, lab(d), ts, True{}) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}:
   match s:
     case Cr.Cir.Stmt.nop{}:
       {==}
     case Cr.Cir.Stmt.set{+r, +e}:
-      free.expr(e, Con{Cr.Cir.i.set(Cr.Cir.l.reg(r)), acc}, h, lab(d))
+      free.expr(e, Con{Cr.Cir.i.set(Cr.Cir.l.reg(r)), acc}, h, lab(d), ts)
     case Cr.Cir.Stmt.store{+k, +c, +v}:
       +X = Cr.Cir.code.expr(v, Con{Wa.Wasm.Instr.store{U32.shln(U32.from_nat(k), 2n)}, acc})
-      Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, Cr.Cir.code.at(X)), h, lab(d), True{}),
-        free.go(Cr.Cir.code.at(X), 1n+h, lab(d), True{}), free.go(acc, h, lab(d), True{}),
-        free.expr(c, Cr.Cir.code.at(X), h, lab(d)), free.expr(v, Con{Wa.Wasm.Instr.store{U32.shln(U32.from_nat(k), 2n)}, acc}, 1n+h, lab(d)))
+      Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, Cr.Cir.code.at(X)), h, lab(d), ts, True{}),
+        free.go(Cr.Cir.code.at(X), 1n+h, lab(d), ts, True{}), free.go(acc, h, lab(d), ts, True{}),
+        free.expr(c, Cr.Cir.code.at(X), h, lab(d), ts), free.expr(v, Con{Wa.Wasm.Instr.store{U32.shln(U32.from_nat(k), 2n)}, acc}, 1n+h, lab(d), ts))
     case Cr.Cir.Stmt.alloc{+r}:
-      alloc.ok(Cr.Cir.l.reg(r), d, acc, h)
+      alloc.ok(Cr.Cir.l.reg(r), d, acc, h, ts)
     case Cr.Cir.Stmt.emit{+v}:
-      emit.ok(v, d, acc, h)
+      emit.ok(v, d, acc, h, ts)
     case Cr.Cir.Stmt.seq{+a, +b}:
       +X = Cr.Cir.code.stmt(b, d, acc)
-      Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.stmt(a, d, X), h, lab(d), True{}), free.go(X, h, lab(d), True{}),
-        free.go(acc, h, lab(d), True{}), free.stmt(a, d, X, h), free.stmt(b, d, acc, h))
+      Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.stmt(a, d, X), h, lab(d), ts, True{}), free.go(X, h, lab(d), ts, True{}),
+        free.go(acc, h, lab(d), ts, True{}), free.stmt(a, d, X, h, ts), free.stmt(b, d, acc, h, ts))
     case Cr.Cir.Stmt.if{+c, +t, +e}:
       +T = Cr.Cir.code.stmt(t, 2n+d, [Wa.Wasm.Instr.br{1}])
       +X = {Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, T}} : List<&2, Wa.Wasm.Instr>}
       +E = Cr.Cir.code.stmt(e, 1n+d, [])
-      +e1 = Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), True{}), free.go(T, 0n, lab(2n+d), True{}),
-        free.go([Wa.Wasm.Instr.br{1}], 0n, lab(2n+d), True{}), free.expr(c, X, 0n, lab(2n+d)), free.stmt(t, 2n+d, [Wa.Wasm.Instr.br{1}], 0n))
-      %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), True{}), free.go([Wa.Wasm.Instr.br{1}], 0n, lab(2n+d), True{}), e1) :
-        {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => free.go(E, 0n, lab(1n+d), True{}))),
-          u => free.go(acc, h, lab(d), True{})) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}
-      %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(E, 0n, lab(1n+d), True{}), free.go([], 0n, lab(1n+d), True{}), free.stmt(e, 1n+d, [], 0n)) :
-        {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => free.go(acc, h, lab(d), True{})) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}
+      +e1 = Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), ts, True{}), free.go(T, 0n, lab(2n+d), ts, True{}),
+        free.go([Wa.Wasm.Instr.br{1}], 0n, lab(2n+d), ts, True{}), free.expr(c, X, 0n, lab(2n+d), ts), free.stmt(t, 2n+d, [Wa.Wasm.Instr.br{1}], 0n, ts))
+      %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), ts, True{}), free.go([Wa.Wasm.Instr.br{1}], 0n, lab(2n+d), ts, True{}), e1) :
+        {Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => free.go(E, 0n, lab(1n+d), ts, True{})), 0n),
+          u => free.go(acc, h, lab(d), ts, True{})) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}
+      %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(E, 0n, lab(1n+d), ts, True{}), free.go([], 0n, lab(1n+d), ts, True{}), free.stmt(e, 1n+d, [], 0n, ts)) :
+        {Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => free.go(acc, h, lab(d), ts, True{})) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}
       {==}
     case Cr.Cir.Stmt.while{+c, +body}:
       +T = Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])
       +X = {Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, T}} : List<&2, Wa.Wasm.Instr>}
-      +e1 = Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), True{}), free.go(T, 0n, lab(2n+d), True{}),
-        free.go([Wa.Wasm.Instr.br{0}], 0n, lab(2n+d), True{}), free.expr(c, X, 0n, lab(2n+d)), free.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}], 0n))
-      %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), True{}), free.go([Wa.Wasm.Instr.br{0}], 0n, lab(2n+d), True{}), e1) :
-        {Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => free.go([], 0n, lab(1n+d), True{}))),
-          u => free.go(acc, h, lab(d), True{})) == free.go(acc, h, lab(d), True{}) : Maybe<&2, Wa.Wasm.Height>}
+      +e1 = Equal.trans(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), ts, True{}), free.go(T, 0n, lab(2n+d), ts, True{}),
+        free.go([Wa.Wasm.Instr.br{0}], 0n, lab(2n+d), ts, True{}), free.expr(c, X, 0n, lab(2n+d), ts), free.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}], 0n, ts))
+      %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.expr(c, X), 0n, lab(2n+d), ts, True{}), free.go([Wa.Wasm.Instr.br{0}], 0n, lab(2n+d), ts, True{}), e1) :
+        {Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => free.go([], 0n, lab(1n+d), ts, True{})), 0n),
+          u => free.go(acc, h, lab(d), ts, True{})) == free.go(acc, h, lab(d), ts, True{}) : Maybe<&2, Wa.Wasm.Height>}
       {==}
     case Cr.Cir.Stmt.halt{+s}:
-      halt.ok(s, d, acc, h)
+      halt.ok(s, d, acc, h, ts)
 
 # Register indices
 # ----------------
@@ -817,18 +869,22 @@ def run.locs(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +M: U32,
     {Bool.and(_, True{}) == True{} : Bool}
   {==}
 
+# the module's types: alloc's (type 0), then run's (type 1)
+def types() -> List<&2, Wa.Wasm.Type>:
+  [Wa.Wasm.Type{1n, 1n}, Wa.Wasm.Type{2n, 1n}]
+
 # run is valid, with 8 + regs <= M locals
 def run.ok(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +M: U32,
   ok: {ok.stmt(prog, regs) == True{} : Bool}, +b: N.Le(8n+regs, U32.to_nat(M))) ->
-  {Wa.Wasm.valid.func(True{}, Cr.Cir.run(prog, regs, k)) == True{} : Bool}:
+  {Wa.Wasm.valid.func(types(), True{}, Cr.Cir.run(prog, regs, k)) == True{} : Bool}:
   +B = M.body(Cr.Cir.run(prog, regs, k))
   +loc = U32.from_nat(8n+regs)
-  +eg = go.free(B, 0n, [1n], loc, 8n+regs, True{}, M.tofrom(8n+regs, M, b), run.locs(prog, regs, k, M, ok, b))
-  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, Wa.Wasm.valid.go(B, 0n, [1n], loc, True{}), free.go(B, 0n, [1n], True{}), eg) :
+  +eg = go.free(B, 0n, [1n], loc, 8n+regs, types(), True{}, M.tofrom(8n+regs, M, b), run.locs(prog, regs, k, M, ok, b))
+  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, Wa.Wasm.valid.go(B, 0n, [1n], loc, types(), True{}), free.go(B, 0n, [1n], types(), True{}), eg) :
     {Wa.Wasm.valid.is_results(_, 1n) == True{} : Bool}
-  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.stmt(prog, 0n, []), 0n, lab(0n), True{}), free.go([], 0n, lab(0n), True{}),
-    free.stmt(prog, 0n, [], 0n)) :
-    {Wa.Wasm.valid.is_results(Wa.Wasm.valid.if(Wa.Wasm.valid.is_empty(_), u => Some{Wa.Wasm.Height.at{1n}}), 1n) == True{} : Bool}
+  %Equal.sym(Maybe<&2, Wa.Wasm.Height>, free.go(Cr.Cir.code.stmt(prog, 0n, []), 0n, lab(0n), types(), True{}),
+    free.go([], 0n, lab(0n), types(), True{}), free.stmt(prog, 0n, [], 0n, types())) :
+    {Wa.Wasm.valid.is_results(Wa.Wasm.valid.if(Wa.Wasm.valid.is_results(_, 0n), u => Some{Wa.Wasm.Height.at{1n}}), 1n) == True{} : Bool}
   {==}
 
 # the module is valid, with 8 + regs <= M locals in run
@@ -837,8 +893,8 @@ def module.sized(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, 
   {Wa.Wasm.valid.module(Cr.Cir.module(prog, regs, cells)) == True{} : Bool}:
   +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
   %Equal.sym(Bool, U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), 65536), True{}, pages.le(U32.sub(Cr.Cir.input.at(k), 1))) :
-    {Bool.and(Bool.and(Bool.and(_, Bool.and(Wa.Wasm.valid.func(True{}, Cr.Cir.run(prog, regs, k)), True{})), True{}), True{}) == True{} : Bool}
-  %Equal.sym(Bool, Wa.Wasm.valid.func(True{}, Cr.Cir.run(prog, regs, k)), True{}, run.ok(prog, regs, k, M, ok, b)) :
+    {Bool.and(Bool.and(Bool.and(_, Bool.and(Wa.Wasm.valid.func(types(), True{}, Cr.Cir.run(prog, regs, k)), True{})), True{}), True{}) == True{} : Bool}
+  %Equal.sym(Bool, Wa.Wasm.valid.func(types(), True{}, Cr.Cir.run(prog, regs, k)), True{}, run.ok(prog, regs, k, M, ok, b)) :
     {Bool.and(Bool.and(Bool.and(True{}, Bool.and(_, True{})), True{}), True{}) == True{} : Bool}
   {==}
 
