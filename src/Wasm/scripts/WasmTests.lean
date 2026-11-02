@@ -25,9 +25,9 @@ import Shared.Script
 -- accept a module that the spec rejects. A command that instantiates a module
 -- fails when the model does not, unless the module is outside the subset: the
 -- spec's harness stops there. Each unsupported assertion has a cause, which
--- the lines UNSUPPORTED n: cause count: the reason of cut.ml's (an instruction
--- that the compiler does not emit, for one that cut.ml names), or why the
--- model or this harness does not run it.
+-- the lines UNSUPPORTED n: cause count: cut.ml's reason (for an instruction
+-- that it names, whether the compiler emits it), or why the model or this
+-- harness does not run it.
 --
 -- With MAIN=<file.bendtt>, the book of src/main.bend (src/Shared/lower.ts), it
 -- also writes a line FORMS: the forms that the compiler emits and that no
@@ -658,7 +658,6 @@ def command (c : Cfg) (facts : Nat → Facts) (k : Nat) (s : St) (e : Sexp) : St
     match action c s e with
     | some (n, name, r, why) => s.after n name r why
     | none => s
-  -- a global's value: globals are outside the subset
   | .list (.atom "assert_return" :: .list (.atom "get" :: _) :: _) => s.unsup "globals"
   | .list (.atom "assert_return" :: a :: pats) =>
     match action c s a with
