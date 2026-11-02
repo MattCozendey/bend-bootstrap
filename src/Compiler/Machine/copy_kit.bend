@@ -1519,3 +1519,147 @@ def pp.set(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, 
       %Equal.sym(Nat, D.Pp(rest, M2, c), D.Pp(rest, m, c), pp.set(rest, m, P, Q, zs, K, F, N, z, x, c, al.rest(o, rest, m, P, Q, zs, K, F, N, h2), hzn, hz)) :
         {Nat.add(D.Ow(m, o, c), _) == Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c)) : Nat}
       {==}
+
+# a and b and c and d, with b giving b2
+def Bo.and4.b(a: Bool, b: Bool, -c: Bool, -d: Bool, -b2: Bool, h: {Bool.and(Bool.and(Bool.and(a, b), c), d) == True{} : Bool},
+  g: {b == True{} : Bool} -> {b2 == True{} : Bool}) -> {Bool.and(Bool.and(Bool.and(a, b2), c), d) == True{} : Bool}:
+  match a:
+    case True{}:
+      match b:
+        case True{}:
+          %Equal.sym(Bool, b2, True{}, g({==})) : {Bool.and(Bool.and(Bool.and(True{}, _), c), d) == True{} : Bool}
+          h
+        case False{}:
+          Bo.tf({Bool.and(Bool.and(Bool.and(True{}, b2), c), d) == True{} : Bool}, h)
+    case False{}:
+      Bo.tf({Bool.and(Bool.and(Bool.and(False{}, b2), c), d) == True{} : Bool}, h)
+
+# o < N <= M gives o < M
+def Ar.lt.up(+o: U32, +N: U32, +M: U32, h: {U32.is_lt(o, N) == True{} : Bool}, hm: N.Le(U32.to_nat(N), U32.to_nat(M))) ->
+  {U32.is_lt(o, M) == True{} : Bool}:
+  U.lt_t(o, M, N.le_trans(1n+U32.to_nat(o), U32.to_nat(N), U32.to_nat(M), U.lt(o, N, h), hm))
+
+# next grows by one, below 214748364
+def Ar.nx.up(+nx: U32, hb: N.Le(1n+U32.to_nat(nx), U32.to_nat(214748364))) -> N.Le(U32.to_nat(nx), U32.to_nat(U32.inc(nx))):
+  N.le_rw_r(U32.to_nat(nx), 1n+U32.to_nat(nx), U32.to_nat(U32.inc(nx)),
+    Equal.sym(Nat, U32.to_nat(U32.inc(nx)), 1n+U32.to_nat(nx), Ar.u.inc(nx, 214748364, hb)), N.le_succ(U32.to_nat(nx), U32.to_nat(nx), N.le_refl(U32.to_nat(nx))))
+
+# a cell below N is one below M >= N
+def cell.up.of(b: Bool, +p: U32, +F: U32, +N: U32, +M: U32, hm: N.Le(U32.to_nat(N), U32.to_nat(M)),
+  h: {Bool.or(b, Bool.and(U32.is_le(F, p), U32.is_lt(p, N))) == True{} : Bool}) ->
+  {Bool.or(b, Bool.and(U32.is_le(F, p), U32.is_lt(p, M))) == True{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      +h2 = h
+      Bo.and_i(U32.is_le(F, p), U32.is_lt(p, M), Bo.and_l(U32.is_le(F, p), U32.is_lt(p, N), h2),
+        Ar.lt.up(p, N, M, Bo.and_r(U32.is_le(F, p), U32.is_lt(p, N), h2), hm))
+
+def cell.up(+p: U32, +K: U32, +F: U32, +N: U32, +M: U32, hm: N.Le(U32.to_nat(N), U32.to_nat(M)),
+  h: {Cr.Cir.is_cell(p, K, F, N) == True{} : Bool}) -> {Cr.Cir.is_cell(p, K, F, M) == True{} : Bool}:
+  cell.up.of(Bool.and(Bool.not(U32.is_zero(p)), U32.is_le(p, K)), p, F, N, M, hm, h)
+
+# a cell is not N, past the image K
+def cell.ne.of(b: Bool, +p: U32, +K: U32, +F: U32, +N: U32, eb: {Bool.and(Bool.not(U32.is_zero(p)), U32.is_le(p, K)) == b : Bool},
+  hk: N.Le(1n+U32.to_nat(K), U32.to_nat(N)), h: {Bool.or(b, Bool.and(U32.is_le(F, p), U32.is_lt(p, N))) == True{} : Bool}) ->
+  {U32.is_eq(p, N) == False{} : Bool}:
+  match b:
+    case True{}:
+      Ar.ne(p, N, N.le_trans(1n+U32.to_nat(p), 1n+U32.to_nat(K), U32.to_nat(N),
+        U.le(p, K, Bo.and_r(Bool.not(U32.is_zero(p)), U32.is_le(p, K), eb)), hk))
+    case False{}:
+      Ar.ne(p, N, U.lt(p, N, Bo.and_r(U32.is_le(F, p), U32.is_lt(p, N), h)))
+
+def cell.ne(+p: U32, +K: U32, +F: U32, +N: U32, hk: N.Le(1n+U32.to_nat(K), U32.to_nat(N)),
+  h: {Cr.Cir.is_cell(p, K, F, N) == True{} : Bool}) -> {U32.is_eq(p, N) == False{} : Bool}:
+  cell.ne.of(Bool.and(Bool.not(U32.is_zero(p)), U32.is_le(p, K)), p, K, F, N, {==}, hk, h)
+
+# The pointers below next
+# -----------------------
+
+# each of ys is below N, so below M >= N
+def all.lt.up(ys: List<&2, U32>, +N: U32, +M: U32, +hm: N.Le(U32.to_nat(N), U32.to_nat(M)), h: {D.All.lt(ys, N) == True{} : Bool}) ->
+  {D.All.lt(ys, M) == True{} : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +h2 = h
+      Bo.and_i(U32.is_lt(y, M), D.All.lt(rest, M), Ar.lt.up(y, N, M, Bo.and_l(U32.is_lt(y, N), D.All.lt(rest, N), h2), hm),
+        all.lt.up(rest, N, M, hm, Bo.and_r(U32.is_lt(y, N), D.All.lt(rest, N), h2)))
+
+# no pointer below N is N
+def occ.lt0(ys: List<&2, U32>, +N: U32, h: {D.All.lt(ys, N) == True{} : Bool}) -> {D.Occ(ys, N) == 0n : Nat}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +h2 = h
+      %Equal.sym(Bool, U32.is_eq(y, N), False{}, Ar.ne(y, N, U.lt(y, N, Bo.and_l(U32.is_lt(y, N), D.All.lt(rest, N), h2)))) :
+        {Nat.add(D.Nat.of(_), D.Occ(rest, N)) == 0n : Nat}
+      occ.lt0(rest, N, Bo.and_r(U32.is_lt(y, N), D.All.lt(rest, N), h2))
+
+# the cells whose pointers are below N do not point to N
+def lt.pc0(k: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +N: U32, h: {D.Lt(k, m, Q, o, N) == True{} : Bool}) ->
+  {D.Pc(k, m, Q, o, N) == 0n : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +h2 = h
+      %Equal.sym(Nat, D.Occ(D.Ps(m, Q, o), N), 0n, occ.lt0(D.Ps(m, Q, o), N, Bo.and_l(D.All.lt(D.Ps(m, Q, o), N), D.Lt(p, m, Q, U32.inc(o), N), h2))) :
+        {Nat.add(_, D.Pc(p, m, Q, U32.inc(o), N)) == 0n : Nat}
+      lt.pc0(p, m, Q, U32.inc(o), N, Bo.and_r(D.All.lt(D.Ps(m, Q, o), N), D.Lt(p, m, Q, U32.inc(o), N), h2))
+
+# a store to z, past the table, keeps Lt of the n cells from o, none of
+# them z, with next M >= N
+def lt.set(n: Nat, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +Q: List<&2, U32>, +o: U32, +N: U32, +M: U32,
+  +hn: {Ne(n, o, z) == True{} : Bool}, +hz: N.Le(291n, U32.to_nat(z)), +hm: N.Le(U32.to_nat(N), U32.to_nat(M)),
+  h: {D.Lt(n, m, Q, o, N) == True{} : Bool}) -> {D.Lt(n, Cr.Cir.Cells.set(m, z, x), Q, o, M) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +M2 = Cr.Cir.Cells.set(m, z, x)
+      +h2 = h
+      +ne = Bo.not_t(U32.is_eq(o, z), Bo.and_l(Bool.not(U32.is_eq(o, z)), Ne(p, U32.inc(o), z), hn))
+      %Equal.sym(List<&2, U32>, D.Ps(M2, Q, o), D.Ps(m, Q, o), ps.set(m, z, x, Q, o, ne, hz)) :
+        {Bool.and(D.All.lt(_, M), D.Lt(p, M2, Q, U32.inc(o), M)) == True{} : Bool}
+      Bo.and_i(D.All.lt(D.Ps(m, Q, o), M), D.Lt(p, M2, Q, U32.inc(o), M),
+        all.lt.up(D.Ps(m, Q, o), N, M, hm, Bo.and_l(D.All.lt(D.Ps(m, Q, o), N), D.Lt(p, m, Q, U32.inc(o), N), h2)),
+        lt.set(p, m, z, x, Q, U32.inc(o), N, M, Bo.and_r(Bool.not(U32.is_eq(o, z)), Ne(p, U32.inc(o), z), hn), hz, hm,
+          Bo.and_r(D.All.lt(D.Ps(m, Q, o), N), D.Lt(p, m, Q, U32.inc(o), N), h2)))
+
+# Lt of n + 1 cells: of the n first, and of the last
+def lt.snoc(n: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +N: U32) ->
+  {D.Lt(1n+n, m, Q, o, N) == Bool.and(D.Lt(n, m, Q, o, N), D.All.lt(D.Ps(m, Q, Inc(n, o)), N)) : Bool}:
+  match n:
+    case 0n:
+      Bo.and_true(D.All.lt(D.Ps(m, Q, o), N))
+    case 1n+(+p):
+      +A = D.All.lt(D.Ps(m, Q, o), N)
+      +B = D.Lt(p, m, Q, U32.inc(o), N)
+      +C = D.All.lt(D.Ps(m, Q, Inc(p, U32.inc(o))), N)
+      %Equal.sym(Bool, D.Lt(1n+p, m, Q, U32.inc(o), N), Bool.and(B, C), lt.snoc(p, m, Q, U32.inc(o), N)) :
+        {Bool.and(A, _) == Bool.and(Bool.and(A, B), C) : Bool}
+      Bo.and_assoc(A, B, C)
+
+# the pointers of the cells from F to nx are below nx, and the new cell nx,
+# set to zeros, has none: all are below nx + 1
+def lt.new(+m: Cr.Cir.Cells, +F: U32, +nx: U32, +Q: List<&2, U32>,
+  +t0: {Cr.Cir.Cells.get(m, 272) == Cr.Cir.Cell{0, 0, 0, 0, 0} : Cr.Cir.Cell}, +hz: N.Le(291n, U32.to_nat(nx)),
+  +hfn: {U32.is_le(F, nx) == True{} : Bool}, +hb: N.Le(1n+U32.to_nat(nx), U32.to_nat(214748364)),
+  h: {D.Lt(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Q, F, nx) == True{} : Bool}) ->
+  {D.Lt(1n+Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), Q, F, U32.inc(nx)) == True{} : Bool}:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  +N2 = U32.inc(nx)
+  %Equal.sym(Bool, D.Lt(1n+n, M2, Q, F, N2), Bool.and(D.Lt(n, M2, Q, F, N2), D.All.lt(D.Ps(M2, Q, Inc(n, F)), N2)), lt.snoc(n, M2, Q, F, N2)) :
+    {_ == True{} : Bool}
+  %Equal.sym(U32, Inc(n, F), nx, Ar.inc.end(F, nx, hfn)) :
+    {Bool.and(D.Lt(n, M2, Q, F, N2), D.All.lt(D.Ps(M2, Q, _), N2)) == True{} : Bool}
+  %Equal.sym(List<&2, U32>, D.Ps(M2, Q, nx), Nil{}, ps.zero(m, nx, Q, t0, hz)) :
+    {Bool.and(D.Lt(n, M2, Q, F, N2), D.All.lt(_, N2)) == True{} : Bool}
+  Bo.and_i(D.Lt(n, M2, Q, F, N2), True{},
+    lt.set(n, m, nx, Cr.Cir.Cell.zero(), Q, F, nx, N2, Ar.ne.own(F, nx, hfn), hz, Ar.nx.up(nx, hb), h), {==})
