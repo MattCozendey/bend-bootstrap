@@ -37,6 +37,7 @@ import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
 import ./cell_terms.bend as T
 import ../need_big.bend as PN
+import ../Cir/halt.bend as PH
 
 # Kit
 # ---
@@ -1554,6 +1555,401 @@ def BB(+fb: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List
     case 1n+f:
       BB.p(Pm(m, c), f, m, ks, img, c, im, fs, nx, hok, {==})
 
+# The budget of an emit
+# ---------------------
+#
+# An emit at the next cell nx, with outn bytes out, runs out of memory only
+# when the limit has at most 20 nx + outn bytes (EB): its byte at 20 nx + outn
+# would pass 2^32, which no limit passes (LB <= 2^32), or the memory cannot
+# grow to hold that byte.
+
+# the bytes of a limit of lim pages (Lim.bytes of definitions.bend), its
+# minimum spelled as the checker evaluates it (as need_big.bend's memory_le)
+def Lim.bytes(+lim: U32) -> Nat:
+  PN.D(16n, U32.to_nat(Wa.Wasm.min.if(Cmp.is_le(U32.cmp(lim, 65536)), lim, 65536)))
+
+# the limit lim has at most 20 nx + outn bytes
+def EB(+lim: U32, +nx: U32, +outn: U32) -> Data:
+  PN.Le(Lim.bytes(lim), Nat.add(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn)))
+
+# 2^k x is monotone in x
+def D.mono(+k: Nat, +x: Nat, +y: Nat, h: PN.Le(x, y)) -> PN.Le(PN.D(k, x), PN.D(k, y)):
+  match k:
+    case 0n:
+      h
+    case 1n+q:
+      PN.double_mono(PN.D(q, x), PN.D(q, y), D.mono(q, x, y, h))
+
+# 2^k (2 x) = 2 (2^k x)
+def D.dbl(+k: Nat, +x: Nat) -> {PN.D(k, Nat.double(x)) == Nat.double(PN.D(k, x)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+q:
+      Equal.cong(Nat, Nat, z => Nat.double(z), PN.D(q, Nat.double(x)), Nat.double(PN.D(q, x)), D.dbl(q, x))
+
+# a × (1 + b) = a + a × b
+def mul_succ_r(+a: Nat, +b: Nat) -> {Nat.mul(a, 1n+b) == Nat.add(a, Nat.mul(a, b)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.trans(Nat, 1n+Nat.add(b, Nat.mul(p, 1n+b)), 1n+Nat.add(b, Nat.add(p, Nat.mul(p, b))), 1n+Nat.add(p, Nat.add(b, Nat.mul(p, b))),
+        Equal.cong(Nat, Nat, z => 1n+Nat.add(b, z), Nat.mul(p, 1n+b), Nat.add(p, Nat.mul(p, b)), mul_succ_r(p, b)),
+        Equal.cong(Nat, Nat, z => 1n+z, Nat.add(b, Nat.add(p, Nat.mul(p, b))), Nat.add(p, Nat.add(b, Nat.mul(p, b))), PN.add_swap(b, p, Nat.mul(p, b))))
+
+# 20 x, as halt.bend counts it, is 20 × x
+def t20.mul(+x: Nat) -> {PH.H.t20(x) == Nat.mul(20n, x) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.trans(Nat, 20n+PH.H.t20(p), 20n+Nat.mul(20n, p), Nat.mul(20n, 1n+p),
+        Equal.cong(Nat, Nat, z => 20n+z, PH.H.t20(p), Nat.mul(20n, p), t20.mul(p)),
+        Equal.sym(Nat, Nat.mul(20n, 1n+p), Nat.add(20n, Nat.mul(20n, p)), mul_succ_r(20n, p)))
+
+# a Some is no None
+def MS(x: Maybe<&2, U32>) -> Type:
+  match x:
+    case Some{_}:
+      Unit
+    case None{}:
+      Empty
+
+def some_ne_none(+p: U32, e: {Some{p} == None{} : Maybe<&2, U32>}) -> Empty:
+  %e : MS(_)
+  Unit{}
+
+# what a comparison that is no LT says
+def rel.nlt(c: Cmp, +x: Nat, +y: Nat, h: PN.Rel(c, x, y), e: {Cmp.is_lt(c) == False{} : Bool}) -> PN.Le(y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(PN.Le(y, x), PN.true_ne_false(e))
+    case EQ{}:
+      %h : PN.Le(_, x)
+      PN.le_refl(x)
+    case GT{}:
+      PN.weaken(y, x, h)
+
+# what a comparison that is no LE says
+def rel.nle(c: Cmp, +x: Nat, +y: Nat, h: PN.Rel(c, x, y), e: {Cmp.is_le(c) == False{} : Bool}) -> PN.Le(1n+y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(PN.Le(1n+y, x), PN.true_ne_false(e))
+    case EQ{}:
+      Empty.absurd(PN.Le(1n+y, x), PN.true_ne_false(e))
+    case GT{}:
+      h
+
+# a comparison GE, from the numbers
+def rel.ge(c: Cmp, +x: Nat, +y: Nat, r: PN.Rel(c, x, y), h: PN.Le(y, x)) -> {Cmp.is_ge(c) == True{} : Bool}:
+  match c:
+    case LT{}:
+      Empty.absurd({False{} == True{} : Bool}, PN.not_succ_le(x, PN.le_trans(1n+x, y, x, r, h)))
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+# the minimum of a and b is at most a
+def min.l.go(c: Bool, +a: U32, +b: U32, e: {U32.is_le(a, b) == c : Bool}) -> PN.Le(U32.to_nat(Wa.Wasm.min.if(c, a, b)), U32.to_nat(a)):
+  match c:
+    case True{}:
+      PN.le_refl(U32.to_nat(a))
+    case False{}:
+      PN.weaken(U32.to_nat(b), U32.to_nat(a), rel.nle(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), PN.U32.rel(a, b), e))
+
+# Shifts and sums of words
+# ------------------------
+
+# a shift right with a 0 in at the top keeps the value
+def pad.val(+p: Nat, t: Word(p)) -> {Word.to_nat(1n+p, Word.shr.pad(p, t)) == Word.to_nat(p, t) : Nat}:
+  match p:
+    case 0n:
+      {==}
+    case 1n+q:
+      match t:
+        case WCon{False{}, +u}:
+          Equal.cong(Nat, Nat, z => Nat.double(z), Word.to_nat(1n+q, Word.shr.pad(q, u)), Word.to_nat(q, u), pad.val(q, u))
+        case WCon{True{}, +u}:
+          Equal.cong(Nat, Nat, z => 1n+Nat.double(z), Word.to_nat(1n+q, Word.shr.pad(q, u)), Word.to_nat(q, u), pad.val(q, u))
+
+# 2 (x >> 1) <= x
+def shr.down(x: U32) -> PN.Le(Nat.double(U32.to_nat(U32.shr(x))), U32.to_nat(x)):
+  match x:
+    case U32{w}:
+      match w:
+        case WCon{False{}, +t}:
+          PN.le_rw_l(Nat.double(Word.to_nat(31n, t)), Nat.double(Word.to_nat(32n, Word.shr.pad(31n, t))), Nat.double(Word.to_nat(31n, t)),
+            Equal.cong(Nat, Nat, z => Nat.double(z), Word.to_nat(31n, t), Word.to_nat(32n, Word.shr.pad(31n, t)),
+              Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), pad.val(31n, t))),
+            PN.le_refl(Nat.double(Word.to_nat(31n, t))))
+        case WCon{True{}, +t}:
+          PN.le_rw_l(Nat.double(Word.to_nat(31n, t)), Nat.double(Word.to_nat(32n, Word.shr.pad(31n, t))), 1n+Nat.double(Word.to_nat(31n, t)),
+            Equal.cong(Nat, Nat, z => Nat.double(z), Word.to_nat(31n, t), Word.to_nat(32n, Word.shr.pad(31n, t)),
+              Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), pad.val(31n, t))),
+            PN.le_succ(Nat.double(Word.to_nat(31n, t)), Nat.double(Word.to_nat(31n, t)), PN.le_refl(Nat.double(Word.to_nat(31n, t)))))
+
+# 2^k (x >> k) <= x
+def shrn.down(+k: Nat, +x: U32) -> PN.Le(PN.D(k, U32.to_nat(U32.shrn(x, k))), U32.to_nat(x)):
+  match k:
+    case 0n:
+      PN.le_refl(U32.to_nat(x))
+    case 1n+q:
+      +y = U32.shrn(x, q)
+      +s = U32.to_nat(U32.shr(y))
+      PN.le_rw_l(PN.D(q, Nat.double(s)), Nat.double(PN.D(q, s)), U32.to_nat(x), D.dbl(q, s),
+        PN.le_trans(PN.D(q, Nat.double(s)), PN.D(q, U32.to_nat(y)), U32.to_nat(x), D.mono(q, Nat.double(s), U32.to_nat(y), shr.down(y)),
+          shrn.down(q, x)))
+
+# x << 1 <= 2 x
+def shl.le(a: U32) -> PN.Le(U32.to_nat(U32.shl(a)), Nat.double(U32.to_nat(a))):
+  match a:
+    case U32{+x}:
+      +V = Word.to_nat(32n, Word.shl(32n, x))
+      +Dc = PN.D(32n, PH.H.bn(PH.H.sout(32n, x)))
+      PN.le_rw_r(V, Nat.add(V, Dc), Nat.double(Word.to_nat(32n, x)), PH.H.shl(32n, x), PN.le_add_r(V, Dc))
+
+# x << k <= 2^k x
+def shln.le(+k: Nat, +a: U32) -> PN.Le(U32.to_nat(U32.shln(a, k)), PN.D(k, U32.to_nat(a))):
+  match k:
+    case 0n:
+      PN.le_refl(U32.to_nat(a))
+    case 1n+q:
+      PN.le_trans(U32.to_nat(U32.shl(U32.shln(a, q))), Nat.double(U32.to_nat(U32.shln(a, q))), Nat.double(PN.D(q, U32.to_nat(a))),
+        shl.le(U32.shln(a, q)), PN.double_mono(U32.to_nat(U32.shln(a, q)), PN.D(q, U32.to_nat(a)), shln.le(q, a)))
+
+# a + b, as a word, is at most the sum
+def add.le(a: U32, b: U32) -> PN.Le(U32.to_nat(U32.add(a, b)), Nat.add(U32.to_nat(a), U32.to_nat(b))):
+  match a b:
+    case U32{+x} U32{+y}:
+      PH.H.add_le(32n, x, y)
+
+# the first byte of the cell c is at most 20 c
+def at.le(+c: U32) -> PN.Le(U32.to_nat(Cr.Cir.at(c)), Nat.mul(20n, U32.to_nat(c))):
+  +x = U32.to_nat(c)
+  PN.le_trans(U32.to_nat(Cr.Cir.at(c)), Nat.add(U32.to_nat(U32.shln(c, 4n)), U32.to_nat(U32.shln(c, 2n))), Nat.mul(20n, x),
+    add.le(U32.shln(c, 4n), U32.shln(c, 2n)),
+    PN.le_rw_r(Nat.add(U32.to_nat(U32.shln(c, 4n)), U32.to_nat(U32.shln(c, 2n))), Nat.add(PN.D(4n, x), PN.D(2n, x)), Nat.mul(20n, x),
+      Equal.trans(Nat, Nat.add(PN.D(4n, x), PN.D(2n, x)), PH.H.t20(x), Nat.mul(20n, x), PH.H.t20_shifts(x), t20.mul(x)),
+      PN.add_mono(U32.to_nat(U32.shln(c, 4n)), PN.D(4n, x), U32.to_nat(U32.shln(c, 2n)), PN.D(2n, x), shln.le(4n, c), shln.le(2n, c))))
+
+# 2^k 0 = 0
+def D.zero(+n: Nat) -> {PN.D(n, 0n) == 0n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+q:
+      Equal.cong(Nat, Nat, z => Nat.double(z), PN.D(q, 0n), 0n, D.zero(q))
+
+# a sum S of n-bit words is V plus its carry out: without a carry V = S, so
+# a part Y <= S that V is below has a carry, and S >= 2^n
+def wrap.go(co: Bool, +n: Nat, +V: Nat, +S: Nat, +Y: Nat, ea: {Nat.add(V, PN.D(n, PH.H.bn(co))) == S : Nat}, hy: PN.Le(Y, S),
+  nge: PN.Le(Y, V) -> Empty) -> PN.Le(PH.H.W(n), S):
+  match co:
+    case True{}:
+      PN.le_rw_r(PH.H.W(n), Nat.add(V, PH.H.W(n)), S, ea, PN.le_add_l(V, PH.H.W(n)))
+    case False{}:
+      Empty.absurd(PN.Le(PH.H.W(n), S), nge(PN.le_rw_r(Y, S, V,
+        Equal.trans(Nat, S, Nat.add(V, PN.D(n, 0n)), V, Equal.sym(Nat, Nat.add(V, PN.D(n, 0n)), S, ea),
+          Equal.trans(Nat, Nat.add(V, PN.D(n, 0n)), Nat.add(V, 0n), V, Equal.cong(Nat, Nat, z => Nat.add(V, z), PN.D(n, 0n), 0n, D.zero(n)), PN.add_zero(V))),
+        hy)))
+
+# a + b of n-bit words, below b: the sum is at least 2^n
+def wadd.wrap(+n: Nat, +x: Word(n), +y: Word(n), nge: PN.Le(Word.to_nat(n, y), Word.to_nat(n, Word.add(n, x, y))) -> Empty) ->
+  PN.Le(PH.H.W(n), Nat.add(Word.to_nat(n, x), Word.to_nat(n, y))):
+  wrap.go(PH.H.cout(n, x, y, False{}), n, Word.to_nat(n, Word.add(n, x, y)), Nat.add(Word.to_nat(n, x), Word.to_nat(n, y)), Word.to_nat(n, y),
+    PH.H.adc(n, x, y, False{}), PN.le_add_l(Word.to_nat(n, x), Word.to_nat(n, y)), nge)
+
+# a + b, as a U32, below b: the sum is at least W = 2^32 (W stays a variable
+# in the match, so that no check expands 2^32)
+def add.wrap(a: U32, b: U32, +W: Nat, hW: {W == PH.H.W(32n) : Nat}, e: {U32.is_ge(U32.add(a, b), b) == False{} : Bool}) ->
+  PN.Le(W, Nat.add(U32.to_nat(a), U32.to_nat(b))):
+  match a b:
+    case U32{+x} U32{+y}:
+      PN.le_rw_l(PH.H.W(32n), W, Nat.add(Word.to_nat(32n, x), Word.to_nat(32n, y)), Equal.sym(Nat, W, PH.H.W(32n), hW),
+        wadd.wrap(32n, x, y, h => PN.true_ne_false(Equal.trans(Bool, True{}, U32.is_ge(U32{Word.add(32n, x, y)}, U32{y}), False{},
+          Equal.sym(Bool, U32.is_ge(U32{Word.add(32n, x, y)}, U32{y}), True{},
+            rel.ge(U32.cmp(U32{Word.add(32n, x, y)}, U32{y}), Word.to_nat(32n, Word.add(32n, x, y)), Word.to_nat(32n, y),
+              PN.U32.rel(U32{Word.add(32n, x, y)}, U32{y}), h)), e))))
+
+# The literals of the emit's test
+# -------------------------------
+
+def q4(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      0n
+    case 1n+q:
+      4n+q4(q)
+
+# n bits of 0x0CCC...C with j nibbles of 12 at the bottom, its lowest bit
+# first (as simulation_alloc_emit.bend writes 214748364)
+def wb(n: Nat, j: Nat) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n:
+      WCon{False{}, WNil{}}
+    case 2n:
+      WCon{False{}, WCon{False{}, WNil{}}}
+    case 3n:
+      WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}
+    case 4n+p:
+      match j:
+        case 0n:
+          WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, wb(p, 0n)}}}}
+        case 1n+q:
+          WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, wb(p, q)}}}}
+
+def wb.val(j: Nat, +n: Nat, e: {n == 4n+q4(j) : Nat}) -> {Word.to_nat(n, wb(n, j)) == PH.H.pat(j) : Nat}:
+  match j:
+    case 0n:
+      %Equal.sym(Nat, n, 4n, e) : {Word.to_nat(_, wb(_, 0n)) == PH.H.pat(0n) : Nat}
+      {==}
+    case 1n+(+q):
+      %Equal.sym(Nat, n, 4n+q4(1n+q), e) : {Word.to_nat(_, wb(_, 1n+q)) == PH.H.pat(1n+q) : Nat}
+      %Equal.sym(Nat, Word.to_nat(q4(1n+q), wb(q4(1n+q), q)), PH.H.pat(q), wb.val(q, q4(1n+q), {==})) :
+        {Nat.double(Nat.double(1n+Nat.double(1n+Nat.double(_)))) == Nat.add(12n, PN.D(4n, PH.H.pat(q))) : Nat}
+      {==}
+
+def lit.wb() -> {214748364 == U32{wb(32n, 7n)} : U32}:
+  {==}
+
+def lit.pat() -> {U32.to_nat(214748364) == PH.H.pat(7n) : Nat}:
+  %Equal.sym(U32, 214748364, U32{wb(32n, 7n)}, lit.wb()) : {U32.to_nat(_) == PH.H.pat(7n) : Nat}
+  Equal.trans(Nat, U32.to_nat(U32{wb(32n, 7n)}), Word.to_nat(32n, wb(32n, 7n)), PH.H.pat(7n), PN.u32_to_nat(wb(32n, 7n)),
+    wb.val(7n, 32n, {==}))
+
+def Cmp.fin_ff(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(False{}, False{}, c)) == Cmp.is_eq(c) : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+# t + 1, when not 0, counts one more than t
+def Word.inc_nat(n: Nat, t: Word(n), h: {False{} == Cmp.is_eq(Word.cmp(n, Word.inc(n, t), Word.zero(n))) : Bool}) ->
+  {Word.to_nat(n, Word.inc(n, t)) == 1n+Word.to_nat(n, t) : Nat}:
+  match n:
+    case 0n:
+      match t:
+        case WNil{}:
+          Empty.absurd({Word.to_nat(0n, WNil{}) == 1n : Nat}, PN.true_ne_false(Equal.sym(Bool, False{}, True{}, h)))
+    case 1n+(+p):
+      match t:
+        case WCon{False{}, r}:
+          {==}
+        case WCon{True{}, +r}:
+          +c = Word.cmp(p, Word.inc(p, r), Word.zero(p))
+          +ih = Word.inc_nat(p, r, Equal.trans(Bool, False{}, Cmp.is_eq(Word.cmp.fin(False{}, False{}, c)), Cmp.is_eq(c), h, Cmp.fin_ff(c)))
+          %Equal.sym(Nat, Word.to_nat(p, Word.inc(p, r)), 1n+Word.to_nat(p, r), ih) : {Nat.double(_) == 2n+Nat.double(Word.to_nat(p, r)) : Nat}
+          {==}
+
+def U32.inc_nat(a: U32, h: {False{} == U32.is_zero(U32.inc(a)) : Bool}) -> {U32.to_nat(U32.inc(a)) == 1n+U32.to_nat(a) : Nat}:
+  match a:
+    case U32{x}:
+      Word.inc_nat(32n, x, h)
+
+# 214748365 is 214748364 + 1
+def lit.k5() -> {214748365 == U32.inc(214748364) : U32}:
+  {==}
+
+# the value of 214748365: 1 + P, where 16 + 20 P = 2^32 (H.hP)
+def lit.val() -> {U32.to_nat(214748365) == 1n+PH.H.pat(7n) : Nat}:
+  %Equal.sym(U32, 214748365, U32.inc(214748364), lit.k5()) : {U32.to_nat(_) == 1n+PH.H.pat(7n) : Nat}
+  Equal.trans(Nat, U32.to_nat(U32.inc(214748364)), 1n+U32.to_nat(214748364), 1n+PH.H.pat(7n), U32.inc_nat(214748364, {==}),
+    Equal.cong(Nat, Nat, z => 1n+z, U32.to_nat(214748364), PH.H.pat(7n), lit.pat()))
+
+# The budget of an emit, proven
+# -----------------------------
+
+# the two spellings of 2^n
+def w.d(+n: Nat) -> {PH.H.W(n) == PN.D(n, 1n) : Nat}:
+  {==}
+
+# a limit has at most W = 2^32 bytes. 2^32 stays a variable: a check that
+# compares a type holding it with another spelling evaluates it
+def lb.top(+lim: U32, +W: Nat, hW: {PN.D(32n, 1n) == W : Nat}) -> PN.Le(Lim.bytes(lim), W):
+  +y = U32.to_nat(Wa.Wasm.min.if(Cmp.is_le(U32.cmp(lim, 65536)), lim, 65536))
+  +h1 = D.mono(16n, y, U32.to_nat(65536), PN.min.case(Cmp.is_le(U32.cmp(lim, 65536)), lim, 65536, {==}))
+  +h2 = PN.le_rw_r(PN.D(16n, y), PN.D(16n, U32.to_nat(65536)), PN.D(32n, 1n),
+    Equal.trans(Nat, PN.D(16n, U32.to_nat(65536)), PN.D(16n, PN.D(16n, 1n)), PN.D(32n, 1n),
+      Equal.cong(Nat, Nat, z => PN.D(16n, z), U32.to_nat(65536), PN.D(16n, 1n), PN.val_65536()), PN.D_add(16n, 16n, 32n, 1n, {==})), h1)
+  PN.le_rw_r(PN.D(16n, y), PN.D(32n, 1n), W, hW, h2)
+
+# below W = 2^32 is below the limit's bytes too
+def lb.le(+lim: U32, +W: Nat, hW: {PN.D(32n, 1n) == W : Nat}, +X: Nat, h: PN.Le(W, X)) -> PN.Le(Lim.bytes(lim), X):
+  PN.le_trans(Lim.bytes(lim), W, X, lb.top(lim, W, hW), h)
+
+# an emit whose next cell is 214748365 = 1 + P or more, where 16 + 20 P = 2^32:
+# 20 nx is at least 2^32 (P stays a variable too)
+def eb.big(+nx: U32, +lim: U32, +P: Nat, +W: Nat, hW: {PN.D(32n, 1n) == W : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == W : Nat},
+  +eP: {U32.to_nat(214748365) == 1n+P : Nat}, e: {U32.is_lt(nx, 214748365) == False{} : Bool}) -> PN.Le(Lim.bytes(lim), Nat.mul(20n, U32.to_nat(nx))):
+  +hk = PN.le_rw_l(U32.to_nat(214748365), 1n+P, U32.to_nat(nx), eP,
+    rel.nlt(U32.cmp(nx, 214748365), U32.to_nat(nx), U32.to_nat(214748365), PN.U32.rel(nx, 214748365), e))
+  +ht = PN.le_rw_r(PH.H.t20(1n+P), PH.H.t20(U32.to_nat(nx)), Nat.mul(20n, U32.to_nat(nx)), t20.mul(U32.to_nat(nx)),
+    PH.H.t20_mono(1n+P, U32.to_nat(nx), hk))
+  +hw = PN.le_rw_l(Nat.add(PH.H.W(4n), PH.H.t20(P)), W, 20n+PH.H.t20(P), hP, PN.le_add_l(4n, PH.H.t20(P)))
+  lb.le(lim, W, hW, Nat.mul(20n, U32.to_nat(nx)), PN.le_trans(W, 20n+PH.H.t20(P), Nat.mul(20n, U32.to_nat(nx)), hw, ht))
+
+# eb.big at P = H.pat(7) and W = 2^32
+def eb.big7(+nx: U32, +lim: U32, e: {U32.is_lt(nx, 214748365) == False{} : Bool}) -> PN.Le(Lim.bytes(lim), Nat.mul(20n, U32.to_nat(nx))):
+  eb.big(nx, lim, PH.H.pat(7n), PH.H.W(32n), Equal.sym(Nat, PH.H.W(32n), PN.D(32n, 1n), w.d(32n)), PH.H.hP(), lit.val(), e)
+
+# the byte of an emit is at most 20 nx + outn
+def eb.sum(+nx: U32, +outn: U32) -> PN.Le(U32.to_nat(U32.add(Cr.Cir.at(nx), outn)), Nat.add(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn))):
+  PN.le_trans(U32.to_nat(U32.add(Cr.Cir.at(nx), outn)), Nat.add(U32.to_nat(Cr.Cir.at(nx)), U32.to_nat(outn)),
+    Nat.add(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn)), add.le(Cr.Cir.at(nx), outn),
+    PN.add_mono(U32.to_nat(Cr.Cir.at(nx)), Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn), U32.to_nat(outn), at.le(nx), PN.le_refl(U32.to_nat(outn))))
+
+# an emit whose byte wraps W = 2^32: EB
+def eb.wrap(+nx: U32, +outn: U32, +lim: U32, +W: Nat, hW: {PN.D(32n, 1n) == W : Nat}, hW2: {W == PH.H.W(32n) : Nat},
+  e: {U32.is_ge(U32.add(Cr.Cir.at(nx), outn), outn) == False{} : Bool}) -> EB(lim, nx, outn):
+  lb.le(lim, W, hW, Nat.add(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn)),
+    PN.le_trans(W, Nat.add(U32.to_nat(Cr.Cir.at(nx)), U32.to_nat(outn)), Nat.add(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn)),
+      add.wrap(Cr.Cir.at(nx), outn, W, hW2, e),
+      PN.add_mono(U32.to_nat(Cr.Cir.at(nx)), Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn), U32.to_nat(outn), at.le(nx), PN.le_refl(U32.to_nat(outn)))))
+
+# eb.wrap at W = 2^32
+def eb.wrap32(+nx: U32, +outn: U32, +lim: U32, e: {U32.is_ge(U32.add(Cr.Cir.at(nx), outn), outn) == False{} : Bool}) -> EB(lim, nx, outn):
+  eb.wrap(nx, outn, lim, PH.H.W(32n), Equal.sym(Nat, PH.H.W(32n), PN.D(32n, 1n), w.d(32n)), {==}, e)
+
+# the emit's test fails: EB
+def eb.test(c: Bool, +nx: U32, +outn: U32, +lim: U32, ec: {U32.is_lt(nx, 214748365) == c : Bool},
+  e: {Bool.and(c, U32.is_ge(U32.add(Cr.Cir.at(nx), outn), outn)) == False{} : Bool}) -> EB(lim, nx, outn):
+  match c:
+    case False{}:
+      PN.le_trans(Lim.bytes(lim), Nat.mul(20n, U32.to_nat(nx)), Nat.add(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn)), eb.big7(nx, lim, ec),
+        PN.le_add_r(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn)))
+    case True{}:
+      eb.wrap32(nx, outn, lim, e)
+
+# room for the byte b fails only when lim can not grow to it: the limit has at
+# most b bytes
+def room.grow(i: Bool, g: Bool, +p: U32, +nd: U32, e: {Cr.Cir.room.if(i, g, p, nd) == None{} : Maybe<&2, U32>}) -> {g == False{} : Bool}:
+  match i g:
+    case True{} _:
+      Empty.absurd({g == False{} : Bool}, some_ne_none(p, e))
+    case False{} True{}:
+      Empty.absurd({True{} == False{} : Bool}, some_ne_none(nd, e))
+    case False{} False{}:
+      {==}
+
+def eb.room(+b: U32, +pg: U32, +lim: U32, e: {Cr.Cir.room(b, pg, lim) == None{} : Maybe<&2, U32>}) -> PN.Le(Lim.bytes(lim), U32.to_nat(b)):
+  +s = U32.shrn(b, 16n)
+  +nd = U32.inc(s)
+  +eg = room.grow(U32.is_le(nd, pg), U32.is_le(nd, lim), pg, nd, e)
+  +hl = PN.le_trans(1n+U32.to_nat(lim), U32.to_nat(nd), 1n+U32.to_nat(s),
+    rel.nle(U32.cmp(nd, lim), U32.to_nat(nd), U32.to_nat(lim), PN.U32.rel(nd, lim), eg), PN.U32.inc_le(s))
+  PN.le_trans(Lim.bytes(lim), PN.D(16n, U32.to_nat(s)), U32.to_nat(b),
+    D.mono(16n, U32.to_nat(Wa.Wasm.min.if(Cmp.is_le(U32.cmp(lim, 65536)), lim, 65536)), U32.to_nat(s),
+      PN.le_trans(U32.to_nat(Wa.Wasm.min.if(Cmp.is_le(U32.cmp(lim, 65536)), lim, 65536)), U32.to_nat(lim), U32.to_nat(s),
+        min.l.go(Cmp.is_le(U32.cmp(lim, 65536)), lim, 65536, {==}), hl)),
+    shrn.down(16n, b))
+
 # Runs
 # ----
 #
@@ -1564,37 +1960,37 @@ def BB(+fb: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List
 # their first 63 made explicit, and those that M.out sets (oc, ow, ov, oi,
 # t1, t2) put in, so that reading and setting a register computes.
 
-def Wp(o: Cr.Cir.Out, K: Cr.Cir.State -> Type, H: U32 -> Cr.Cir.State -> Type) -> Type:
+def Wp(o: Cr.Cir.Out, K: Cr.Cir.State -> Type, H: U32 -> Cr.Cir.State -> Type, O: Type) -> Type:
   match o:
     case Cr.Cir.Out.next{st}:
       K(st)
     case Cr.Cir.Out.halt{s, st}:
       H(s, st)
     case Cr.Cir.Out.out_of_memory{}:
-      Unit
+      O
     case Cr.Cir.Out.trap{}:
       Empty
     case Cr.Cir.Out.not_done{}:
       Empty
 
-def Wp.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
-  h: Wp(o, t => Wp(k(t), K, H), H)) -> Wp(Cr.Cir.exec.then(o, k), K, H):
+def Wp.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
+  h: Wp(o, t => Wp(k(t), K, H, O), H, O)) -> Wp(Cr.Cir.exec.then(o, k), K, H, O):
   match o:
     case Cr.Cir.Out.next{st}:
       h
     case Cr.Cir.Out.halt{s, st}:
       h
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      h
     case Cr.Cir.Out.trap{}:
       match h:
     case Cr.Cir.Out.not_done{}:
       match h:
 
 # a then b
-def Wp.seq(+f: Nat, +a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
-  h: Wp(Cr.Cir.exec(1n+f, a, st), t => Wp(Cr.Cir.exec(1n+f, b, t), K, H), H)) -> Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), K, H):
-  Wp.then(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), K, H, h)
+def Wp.seq(+f: Nat, +a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
+  h: Wp(Cr.Cir.exec(1n+f, a, st), t => Wp(Cr.Cir.exec(1n+f, b, t), K, H, O), H, O)) -> Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), K, H, O):
+  Wp.then(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), K, H, O, h)
 
 # the parts of a state
 def St.rg(st: Cr.Cir.State) -> List<&2, U32>:
@@ -1620,6 +2016,11 @@ def St.fs(st: Cr.Cir.State) -> U32:
 def St.im(st: Cr.Cir.State) -> U32:
   match st:
     case Cr.Cir.State{_, _, _, _, x, _, _, _, _, _}:
+      x
+
+def St.pg(st: Cr.Cir.State) -> U32:
+  match st:
+    case Cr.Cir.State{_, _, _, _, _, x, _, _, _, _}:
       x
 
 def St.lim(st: Cr.Cir.State) -> U32:
@@ -1778,10 +2179,10 @@ def ev.ff(+k1: Nat, +k2: Nat, +r: Nat, +st: Cr.Cir.State, +i: U32, +er: {Some{i}
   ev.f(k2, Mc.M.f(k1, Mc.M.g(r)), st, Fd(k1, St.cl(st), i), ev.f(k1, Mc.M.g(r), st, i, er, ec), eck)
 
 # Statements
-def Wp.set(+f: Nat, +r: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +v: U32,
-  +ev: {Some{v} == Cr.Cir.eval(e, st) : Maybe<&2, U32>}, h: Wp(Cr.Cir.exec.set(r, Some{v}, st), K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.set{r, e}, st), K, H):
-  %ev : Wp(Cr.Cir.exec.set(r, _, st), K, H)
+def Wp.set(+f: Nat, +r: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type, +v: U32,
+  +ev: {Some{v} == Cr.Cir.eval(e, st) : Maybe<&2, U32>}, h: Wp(Cr.Cir.exec.set(r, Some{v}, st), K, H, O)) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.set{r, e}, st), K, H, O):
+  %ev : Wp(Cr.Cir.exec.set(r, _, st), K, H, O)
   h
 
 # X when b holds, else Y
@@ -1801,52 +2202,58 @@ def CasesK(b: Bool, -A: Type, a: A, -X: Type, -Y: Type, t: A -> {b == True{} : B
     case False{}:
       e(a, {==})
 
-def Wp.if(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+def Wp.if(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   b: Bool, +ev: {Some{Bool.to_u32(b)} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
-  g: IFT(b, Wp(Cr.Cir.exec(1n+f, t, st), K, H), Wp(Cr.Cir.exec(1n+f, e, st), K, H))) ->
-  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.if{c, t, e}, st), K, H):
+  g: IFT(b, Wp(Cr.Cir.exec(1n+f, t, st), K, H, O), Wp(Cr.Cir.exec(1n+f, e, st), K, H, O))) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.if{c, t, e}, st), K, H, O):
   match b:
     case True{}:
-      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), K, H, O)
       g
     case False{}:
-      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), K, H, O)
       g
 
-def Wp.need(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+def Wp.need(+f: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   b: Bool, +ev: {Some{Bool.to_u32(b)} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
-  g: IFT(b, Wp(Cr.Cir.exec(1n+f, t, st), K, H), H(2, st))) ->
-  Wp(Cr.Cir.exec(1n+f, Mc.M.need(c, t), st), K, H):
-  Wp.if(f, c, t, Mc.M.halt(2), st, K, H, b, ev, g)
+  g: IFT(b, Wp(Cr.Cir.exec(1n+f, t, st), K, H, O), H(2, st))) ->
+  Wp(Cr.Cir.exec(1n+f, Mc.M.need(c, t), st), K, H, O):
+  Wp.if(f, c, t, Mc.M.halt(2), st, K, H, O, b, ev, g)
 
-def Wp.emit.of(pages: Maybe<&2, U32>, +v: U32, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
-  h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(Cr.Cir.exec.emit.of(pages, v, st), K, H):
+def Wp.emit.of(pages: Maybe<&2, U32>, +v: U32, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
+  hn: {pages == None{} : Maybe<&2, U32>} -> O, h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(Cr.Cir.exec.emit.of(pages, v, st), K, H, O):
   match pages:
     case None{}:
-      Unit{}
+      hn({==})
     case Some{+p}:
       match st:
         case Cr.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
           h(p)
 
-def Wp.emit.if(ok: Bool, +bb: U32, +v: U32, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
-  h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(Cr.Cir.exec.emit.if(ok, bb, v, st), K, H):
+def Wp.emit.if(ok: Bool, +bb: U32, +v: U32, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
+  ef: {ok == False{} : Bool} -> EB(St.lim(st), St.nx(st), St.outn(st)),
+  er: {Cr.Cir.room(bb, St.pg(st), St.lim(st)) == None{} : Maybe<&2, U32>} -> EB(St.lim(st), St.nx(st), St.outn(st)),
+  ho: EB(St.lim(st), St.nx(st), St.outn(st)) -> O, h: @p: U32 -> K(St.emit(st, p, v))) -> Wp(Cr.Cir.exec.emit.if(ok, bb, v, st), K, H, O):
   match ok:
     case False{}:
-      Unit{}
+      ho(ef({==}))
     case True{}:
       match st:
         case Cr.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
-          Wp.emit.of(Cr.Cir.room(bb, pg, lim), v, Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, h)
+          Wp.emit.of(Cr.Cir.room(bb, pg, lim), v, Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, O, e => ho(er(e)), h)
 
-def Wp.emit(+f: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +v: U32,
-  +ev: {Some{v} == Cr.Cir.eval(e, st) : Maybe<&2, U32>}, h: @p: U32 -> K(St.emit(st, p, v))) ->
-  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.emit{e}, st), K, H):
+def Wp.emit(+f: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type, +v: U32,
+  +ev: {Some{v} == Cr.Cir.eval(e, st) : Maybe<&2, U32>}, ho: EB(St.lim(st), St.nx(st), St.outn(st)) -> O, h: @p: U32 -> K(St.emit(st, p, v))) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.emit{e}, st), K, H, O):
   match st:
     case Cr.Cir.State{+rg, +cl, +nx, +fs, +im, +pg, +lim, +inp, +out, +outn}:
-      %ev : Wp(Cr.Cir.exec.emit(_, Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}), K, H)
-      Wp.emit.if(Bool.and(U32.is_lt(nx, 214748365), U32.is_ge(U32.add(Cr.Cir.at(nx), outn), outn)), U32.add(Cr.Cir.at(nx), outn), v,
-        Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, h)
+      +bb = U32.add(Cr.Cir.at(nx), outn)
+      %ev : Wp(Cr.Cir.exec.emit(_, Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}), K, H, O)
+      Wp.emit.if(Bool.and(U32.is_lt(nx, 214748365), U32.is_ge(bb, outn)), bb, v,
+        Cr.Cir.State{rg, cl, nx, fs, im, pg, lim, inp, out, outn}, K, H, O,
+        ef => eb.test(U32.is_lt(nx, 214748365), nx, outn, lim, {==}, ef),
+        er => PN.le_trans(Lim.bytes(lim), U32.to_nat(bb), Nat.add(Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn)), eb.room(bb, pg, lim, er), eb.sum(nx, outn)),
+        ho, h)
 
 # ok, read with any fuel
 def Pr(n: Nat) -> Nat:
@@ -1971,46 +2378,46 @@ def MB.Kc(+b: Cr.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +c: U32, +pg
 # M.out.bit on the cell c in t1: the bit that CB reads goes into ov, or the
 # run ends with no result
 def MB(+f: Nat, +b: Cr.Cir.State, +oc: U32, +ow: U32, +ov: U32, +oi: U32, +c: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nb: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +nb: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hok: {ok(nb, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MB.Kc(b, oc, ow, ov, oi, c, pg, out, outn, K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, Mc.M.out.bit(), ST(b, oc, ow, ov, oi, c, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.out.bit(), ST(b, oc, ow, ov, oi, c, t2, pg, out, outn)), K, H, O):
   +m = St.cl(b)
   +s0 = ST(b, oc, ow, ov, oi, c, t2, pg, out, outn)
   +x2 = Fd(2n, m, Fd(2n, m, c))
   +s1 = ST(b, oc, ow, ov, oi, c, x2, pg, out, outn)
   +hc = ok.isc(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok)
   -A = MB.Kc(b, oc, ow, ov, oi, c, pg, out, outn, K, H)
-  Wp.need(f, Mc.M.pair(Mc.R.t1()), MB.s1(), s0, K, H, Pm(m, c), ev.pair(61n, s0, c, {==}, hc),
-   CasesK(Pm(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MB.s1(), s0), K, H), H(2, s0),
+  Wp.need(f, Mc.M.pair(Mc.R.t1()), MB.s1(), s0, K, H, O, Pm(m, c), ev.pair(61n, s0, c, {==}, hc),
+   CasesK(Pm(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MB.s1(), s0), K, H, O), H(2, s0),
     kk => +eP =>
-      Wp.need(f, Mc.M.last(Mc.R.t1()), MB.s2(), s0, K, H, LAST(m, c),
+      Wp.need(f, Mc.M.last(Mc.R.t1()), MB.s2(), s0, K, H, O, LAST(m, c),
         ev.islab(3n, 61n, 0, s0, c, {==}, hc, ok.isc(Pr(nb), m, ks, img, Fd(3n, m, c), St.im(b), St.fs(b), St.nx(b), ok.R(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-       CasesK(LAST(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MB.s2(), s0), K, H), H(2, s0),
+       CasesK(LAST(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MB.s2(), s0), K, H, O), H(2, s0),
         kk => +eL =>
-          Wp.need(f, Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.t1()))), Mc.M.c(Mc.T.lab())), Mc.M.do([MB.a(), MB.b()]), s0, K, H, Lm(m, Fd(2n, m, c)),
+          Wp.need(f, Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.t1()))), Mc.M.c(Mc.T.lab())), Mc.M.do([MB.a(), MB.b()]), s0, K, H, O, Lm(m, Fd(2n, m, c)),
             ev.tag(2n, 61n, s0, c, {==}, hc, ok.isc(Pr(nb), m, ks, img, Fd(2n, m, c), St.im(b), St.fs(b), St.nx(b), ok.L(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-           CasesK(Lm(m, Fd(2n, m, c)), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MB.a(), MB.b()]), s0), K, H), H(2, s0),
+           CasesK(Lm(m, Fd(2n, m, c)), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MB.a(), MB.b()]), s0), K, H, O), H(2, s0),
             kk => +eM =>
-              Wp.seq(f, MB.a(), Mc.M.do([MB.b()]), s0, K, H,
-                Wp.set(f, 62n, Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.t1()))), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MB.b()]), t), K, H), H, x2,
+              Wp.seq(f, MB.a(), Mc.M.do([MB.b()]), s0, K, H, O,
+                Wp.set(f, 62n, Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.t1()))), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MB.b()]), t), K, H, O), H, O, x2,
                   ev.ff(2n, 2n, 61n, s0, c, {==}, hc, ok.isc(Pr(nb), m, ks, img, Fd(2n, m, c), St.im(b), St.fs(b), St.nx(b), ok.L(nb, m, ks, img, c, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-                  Wp.seq(f, MB.b(), Cr.Cir.Stmt.nop{}, s1, K, H,
+                  Wp.seq(f, MB.b(), Cr.Cir.Stmt.nop{}, s1, K, H, O,
                     Wp.need(f, Mc.M.or(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.false()))),
-                      Mc.M.when(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o()), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H,
+                      Mc.M.when(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o()), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O,
                       Bool.or(U32.is_eq(x2, 5), U32.is_eq(x2, 6)),
                       Equal.cong(U32, Maybe<&2, U32>, x => Some{x}, Bool.to_u32(Bool.or(U32.is_eq(x2, 5), U32.is_eq(x2, 6))),
                         U32.or(Bool.to_u32(U32.is_eq(x2, 5)), Bool.to_u32(U32.is_eq(x2, 6))), or_u32(U32.is_eq(x2, 5), U32.is_eq(x2, 6))),
                      CasesK(Bool.or(U32.is_eq(x2, 5), U32.is_eq(x2, 6)), A, kk,
-                      Wp(Cr.Cir.exec(1n+f, Mc.M.when(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o()), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H), H(2, s1),
+                      Wp(Cr.Cir.exec(1n+f, Mc.M.when(Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o()), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O), H(2, s1),
                       kk => +eO =>
-                        Wp.if(f, Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o(), Cr.Cir.Stmt.nop{}, s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H,
+                        Wp.if(f, Mc.M.eq(Mc.M.g(Mc.R.t2()), Mc.M.c(Mc.N.true())), MB.o(), Cr.Cir.Stmt.nop{}, s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O,
                           U32.is_eq(x2, 5), {==},
                          CasesK(U32.is_eq(x2, 5), A, kk,
-                          Wp(Cr.Cir.exec(1n+f, MB.o(), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H),
-                          Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H),
+                          Wp(Cr.Cir.exec(1n+f, MB.o(), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O),
+                          Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O),
                           kk => +eT =>
-                            Wp.set(f, 47n, Mc.M.or(Mc.M.g(Mc.R.ov()), Mc.M.shl(Mc.M.c(1), Mc.M.g(Mc.R.oi()))), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H,
+                            Wp.set(f, 47n, Mc.M.or(Mc.M.g(Mc.R.ov()), Mc.M.shl(Mc.M.c(1), Mc.M.g(Mc.R.oi()))), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O,
                               OV(True{}, ov, oi), {==},
                               kk(Some{True{}}, Equal.trans(Maybe<&2, Bool>, CB(m, c), Some{U32.is_eq(x2, 5)}, Some{True{}}, CB.ok(m, c, eP, eL, eM, eO),
                                 Equal.cong(Bool, Maybe<&2, Bool>, x => Some{x}, U32.is_eq(x2, 5), True{}, eT)))),
@@ -2189,7 +2596,7 @@ def MI.Kc(+b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg: U32, +ou
 
 # the round, once its bit is read: the rest of its tests
 def MI.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +eP: {Pm(St.cl(b), c) == True{} : Bool}, +eI: {ISLAB(St.cl(b), c, 4) == True{} : Bool},
   +eF: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool}, +x: Bool,
@@ -2197,7 +2604,7 @@ def MI.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg
   kk: MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)) ->
   Wp(Cr.Cir.exec(1n+f, MW.r3(), ST(b, oc, Fd(3n, St.cl(b), c), OV(x, ov, oi), oi, Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
       Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)),
-    t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H):
+    t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -2215,25 +2622,25 @@ def MI.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg
   +s3 = ST(b, oc, fc, v, oi, bc, x2, pg, out, outn)
   +s4 = ST(b, oc, rc, v, oi, bc, x2, pg, out, outn)
   +s5 = ST(b, oc, nc, v, oi, bc, x2, pg, out, outn)
-  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
-  -K2 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K1, H) : Cr.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O) : Cr.Cir.State -> Type}
+  -K2 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K1, H, O) : Cr.Cir.State -> Type}
   -A = MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)
-  Wp.seq(f, MW.a3(), Mc.M.do([MW.s3()]), s3, K1, H,
-    Wp.set(f, 46n, Mc.M.f(3n, Mc.M.g(Mc.R.ow())), s3, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.s3()]), t), K1, H), H, rc,
+  Wp.seq(f, MW.a3(), Mc.M.do([MW.s3()]), s3, K1, H, O,
+    Wp.set(f, 46n, Mc.M.f(3n, Mc.M.g(Mc.R.ow())), s3, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.s3()]), t), K1, H, O), H, O, rc,
       ev.f(3n, Mc.M.g(Mc.R.ow()), s3, fc, {==}, hcf),
-      Wp.seq(f, MW.s3(), Cr.Cir.Stmt.nop{}, s4, K1, H,
-        Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.s4(), s4, K2, H, Pm(m, rc), ev.pair(46n, s4, rc, {==}, hcr),
-         CasesK(Pm(m, rc), A, kk, Wp(Cr.Cir.exec(1n+f, MW.s4(), s4), K2, H), H(2, s4),
+      Wp.seq(f, MW.s3(), Cr.Cir.Stmt.nop{}, s4, K1, H, O,
+        Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.s4(), s4, K2, H, O, Pm(m, rc), ev.pair(46n, s4, rc, {==}, hcr),
+         CasesK(Pm(m, rc), A, kk, Wp(Cr.Cir.exec(1n+f, MW.s4(), s4), K2, H, O), H(2, s4),
           kk => +eR =>
-            Wp.need(f, Mc.M.last(Mc.R.ow()), Mc.M.do([MW.a4(), MW.a5()]), s4, K2, H, LAST(m, rc),
+            Wp.need(f, Mc.M.last(Mc.R.ow()), Mc.M.do([MW.a4(), MW.a5()]), s4, K2, H, O, LAST(m, rc),
               ev.islab(3n, 46n, 0, s4, rc, {==}, hcr, ok.isc(Pr(Pr(Pr(nw))), m, ks, img, Fd(3n, m, rc), im, fs, nx, ok.R(Pr(Pr(nw)), m, ks, img, rc, im, fs, nx, hokr, eR))),
-             CasesK(LAST(m, rc), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a4(), MW.a5()]), s4), K2, H), H(2, s4),
+             CasesK(LAST(m, rc), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a4(), MW.a5()]), s4), K2, H, O), H(2, s4),
               kk => +eZ =>
-                Wp.seq(f, MW.a4(), Mc.M.do([MW.a5()]), s4, K2, H,
-                  Wp.set(f, 46n, Mc.M.f(2n, Mc.M.g(Mc.R.ow())), s4, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a5()]), t), K2, H), H, nc,
+                Wp.seq(f, MW.a4(), Mc.M.do([MW.a5()]), s4, K2, H, O,
+                  Wp.set(f, 46n, Mc.M.f(2n, Mc.M.g(Mc.R.ow())), s4, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a5()]), t), K2, H, O), H, O, nc,
                     ev.f(2n, Mc.M.g(Mc.R.ow()), s4, rc, {==}, hcr),
-                    Wp.seq(f, MW.a5(), Cr.Cir.Stmt.nop{}, s5, K2, H,
-                      Wp.set(f, 48n, Mc.M.add(Mc.M.g(Mc.R.oi()), Mc.M.c(1)), s5, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K2, H), H, U32.add(oi, 1), {==},
+                    Wp.seq(f, MW.a5(), Cr.Cir.Stmt.nop{}, s5, K2, H, O,
+                      Wp.set(f, 48n, Mc.M.add(Mc.M.g(Mc.R.oi()), Mc.M.c(1)), s5, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K2, H, O), H, O, U32.add(oi, 1), {==},
                         kk(Some{x}, GB.ok(m, c, eP, eI, eF, x, eB, eR, eZ), ok.L(Pr(Pr(nw)), m, ks, img, rc, im, fs, nx, hokr, eR)))))),
               kk => +eZ =>
                 kk(None{}, GB.n6(m, c, eP, eI, eF, x, eB, eR, eZ), s4))),
@@ -2242,13 +2649,13 @@ def MI.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +pg
 
 # the round, once its first tests pass: the bit, then the rest of its tests
 def MI.bit(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +eP: {Pm(St.cl(b), c) == True{} : Bool}, +eI: {ISLAB(St.cl(b), c, 4) == True{} : Bool},
   +eF: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool},
   kk: MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)) ->
   Wp(Cr.Cir.exec(1n+f, MW.r1(), ST(b, oc, Fd(3n, St.cl(b), c), ov, oi, t1, t2, pg, out, outn)),
-    t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H):
+    t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -2263,18 +2670,18 @@ def MI.bit(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1
   +hokr = ok.R(Pr(nw), m, ks, img, fc, im, fs, nx, hokf, eF)
   +hcr = ok.isc(Pr(Pr(nw)), m, ks, img, rc, im, fs, nx, hokr)
   +s1 = ST(b, oc, fc, ov, oi, t1, t2, pg, out, outn)
-  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O) : Cr.Cir.State -> Type}
   -A = MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)
-  Wp.seq(f, MW.a2(), MW.r2(), s1, K1, H,
-    Wp.set(f, 61n, Mc.M.f(2n, Mc.M.g(Mc.R.ow())), s1, t => Wp(Cr.Cir.exec(1n+f, MW.r2(), t), K1, H), H, bc,
+  Wp.seq(f, MW.a2(), MW.r2(), s1, K1, H, O,
+    Wp.set(f, 61n, Mc.M.f(2n, Mc.M.g(Mc.R.ow())), s1, t => Wp(Cr.Cir.exec(1n+f, MW.r2(), t), K1, H, O), H, O, bc,
       ev.f(2n, Mc.M.g(Mc.R.ow()), s1, fc, {==}, hcf),
-      Wp.seq(f, Mc.M.out.bit(), MW.r3(), ST(b, oc, fc, ov, oi, bc, t2, pg, out, outn), K1, H,
-        MB(f, b, oc, fc, ov, oi, bc, t2, pg, out, outn, Pr(Pr(nw)), ks, img, t => Wp(Cr.Cir.exec(1n+f, MW.r3(), t), K1, H), H,
+      Wp.seq(f, Mc.M.out.bit(), MW.r3(), ST(b, oc, fc, ov, oi, bc, t2, pg, out, outn), K1, H, O,
+        MB(f, b, oc, fc, ov, oi, bc, t2, pg, out, outn, Pr(Pr(nw)), ks, img, t => Wp(Cr.Cir.exec(1n+f, MW.r3(), t), K1, H, O), H, O,
           ok.L(Pr(nw), m, ks, img, fc, im, fs, nx, hokf, eF),
-          rB => +eB => CasesM(rB, A, kk, x => Wp(Cr.Cir.exec(1n+f, MW.r3(), ST(b, oc, fc, OV(x, ov, oi), oi, bc, x2, pg, out, outn)), K1, H),
+          rB => +eB => CasesM(rB, A, kk, x => Wp(Cr.Cir.exec(1n+f, MW.r3(), ST(b, oc, fc, OV(x, ov, oi), oi, bc, x2, pg, out, outn)), K1, H, O),
             @st: Cr.Cir.State -> H(2, st),
             kk => +x => +ex =>
-              MI.end(f, b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H, hok, eP, eI, eF, x,
+              MI.end(f, b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H, O, hok, eP, eI, eF, x,
                 Equal.trans(Maybe<&2, Bool>, CB(m, bc), rB, Some{x}, eB, ex), kk),
             kk => +ex =>
               st => kk(None{}, GB.n4(m, c, eP, eI, eF, Equal.trans(Maybe<&2, Bool>, CB(m, bc), rB, None{}, eB, ex)), st))))))
@@ -2283,10 +2690,10 @@ def MI.bit(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1
 # reads goes into ov, and ow gets the cell after it; or the run ends with no
 # result
 def MI(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, MW.body(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, MW.body(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H, O):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -2301,22 +2708,22 @@ def MI(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U3
   +s2 = ST(b, oc, fc, ov, oi, bc, t2, pg, out, outn)
   +hc = ok.isc(nw, m, ks, img, c, im, fs, nx, hok)
   -A = MI.Kc(b, oc, c, ov, oi, pg, out, outn, nw, ks, img, K, H)
-  Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.s1(), s0, K, H, Pm(m, c), ev.pair(46n, s0, c, {==}, hc),
-   CasesK(Pm(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MW.s1(), s0), K, H), H(2, s0),
+  Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.s1(), s0, K, H, O, Pm(m, c), ev.pair(46n, s0, c, {==}, hc),
+   CasesK(Pm(m, c), A, kk, Wp(Cr.Cir.exec(1n+f, MW.s1(), s0), K, H, O), H(2, s0),
     kk => +eP =>
-      Wp.need(f, Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wcon()), Mc.M.do([MW.a1(), MW.s2()]), s0, K, H, ISLAB(m, c, 4),
+      Wp.need(f, Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wcon()), Mc.M.do([MW.a1(), MW.s2()]), s0, K, H, O, ISLAB(m, c, 4),
         ev.islab(2n, 46n, 4, s0, c, {==}, hc, ok.isc(Pr(nw), m, ks, img, Fd(2n, m, c), im, fs, nx, ok.L(nw, m, ks, img, c, im, fs, nx, hok, eP))),
-       CasesK(ISLAB(m, c, 4), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a1(), MW.s2()]), s0), K, H), H(2, s0),
+       CasesK(ISLAB(m, c, 4), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.a1(), MW.s2()]), s0), K, H, O), H(2, s0),
         kk => +eI =>
-          Wp.seq(f, MW.a1(), Mc.M.do([MW.s2()]), s0, K, H,
-            Wp.set(f, 46n, Mc.M.f(3n, Mc.M.g(Mc.R.ow())), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.s2()]), t), K, H), H, fc,
+          Wp.seq(f, MW.a1(), Mc.M.do([MW.s2()]), s0, K, H, O,
+            Wp.set(f, 46n, Mc.M.f(3n, Mc.M.g(Mc.R.ow())), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.s2()]), t), K, H, O), H, O, fc,
               ev.f(3n, Mc.M.g(Mc.R.ow()), s0, c, {==}, hc),
-              Wp.seq(f, MW.s2(), Cr.Cir.Stmt.nop{}, s1, K, H,
-                Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.r1(), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H, Pm(m, fc),
+              Wp.seq(f, MW.s2(), Cr.Cir.Stmt.nop{}, s1, K, H, O,
+                Wp.need(f, Mc.M.pair(Mc.R.ow()), MW.r1(), s1, t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O, Pm(m, fc),
                   ev.pair(46n, s1, fc, {==}, ok.isc(Pr(nw), m, ks, img, fc, im, fs, nx, ok.R(nw, m, ks, img, c, im, fs, nx, hok, eP))),
-                 CasesK(Pm(m, fc), A, kk, Wp(Cr.Cir.exec(1n+f, MW.r1(), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H), H), H(2, s1),
+                 CasesK(Pm(m, fc), A, kk, Wp(Cr.Cir.exec(1n+f, MW.r1(), s1), t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O), H, O), H(2, s1),
                   kk => +eF =>
-                    MI.bit(f, b, oc, c, ov, oi, t1, t2, pg, out, outn, nw, ks, img, K, H, hok, eP, eI, eF, kk),
+                    MI.bit(f, b, oc, c, ov, oi, t1, t2, pg, out, outn, nw, ks, img, K, H, O, hok, eP, eI, eF, kk),
                   kk => +eF =>
                     kk(None{}, GB.n3(m, c, eP, eI, eF), s1)))))),
         kk => +eI =>
@@ -2455,16 +2862,16 @@ def ev.lt(+r: Nat, +n: U32, +st: Cr.Cir.State, +i: U32, +er: {Some{i} == Cr.Cir.
   %eb : {Some{Bool.to_u32(_)} == Some{Bool.to_u32(U32.is_lt(i, n))} : Maybe<&2, U32>}
   {==}
 
-def Wp.while(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+def Wp.while(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   b: Bool, +ev: {Some{Bool.to_u32(b)} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
-  g: IFT(b, Wp(Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), K, H), K(st))) ->
-  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st), K, H):
+  g: IFT(b, Wp(Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), K, H, O), K(st))) ->
+  Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st), K, H, O):
   match b:
     case True{}:
-      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), K, H, O)
       g
     case False{}:
-      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), K, H)
+      %ev : Wp(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), K, H, O)
       g
 
 # the fuel of ok left after r bits of a word
@@ -2488,7 +2895,7 @@ def ML.Kc(r: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, -K: Word(r) -> Word(8n), 
 def ML.next(+q: Nat, +g: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +pg: U32,
   +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -K: Word(1n+q) -> Word(8n), -Kz: Word(1n+q) -> Word(8n), +HK: HKT(1n+q, K, Kz), +G: Good(1n+q, idx, Kz),
-  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eov: {Sd.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +x: Bool,
+  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type, +eov: {Sd.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +x: Bool,
   +ex: {GB(St.cl(b), c) == Some{x} : Maybe<&2, Bool>},
   +hokn: {ok(Pr(Pr(Pr(nw))), St.cl(b), ks, img, CW.next(St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H),
@@ -2496,9 +2903,9 @@ def ML.next(+q: Nat, +g: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +id
     @ov2: U32 -> {Sd.Byte.to_u32(K(WCon{x, zeros(q)})) == ov2 : U32} ->
     ML.Kc(q, b, oc, nc, y => K(WCon{x, y}), pg, out, outn, Pr(Pr(Pr(nw))), ks, img, KK, H) ->
     Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
-      Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H)) ->
+      Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H, O)) ->
   Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, CW.next(St.cl(b), c), OV(x, ov, idx), U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
-    Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H):
+    Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H, O):
   +m = St.cl(b)
   +nc = CW.next(m, c)
   -A = ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H)
@@ -2517,30 +2924,30 @@ def ML.next(+q: Nat, +g: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +id
 def ML.go(+q: Nat, +g: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +pg: U32,
   +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -K: Word(1n+q) -> Word(8n), -Kz: Word(1n+q) -> Word(8n), +HK: HKT(1n+q, K, Kz), +G: Good(1n+q, idx, Kz),
-  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eov: {Sd.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +t1: U32, +t2: U32, +hF: PN.Le(1n+q, 1n+g),
+  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type, +eov: {Sd.Byte.to_u32(K(zeros(1n+q))) == ov : U32}, +t1: U32, +t2: U32, +hF: PN.Le(1n+q, 1n+g),
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H),
   ih: @nc: U32 -> @x: Bool -> {ok(Pr(Pr(Pr(nw))), St.cl(b), ks, img, nc, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
     @ov2: U32 -> {Sd.Byte.to_u32(K(WCon{x, zeros(q)})) == ov2 : U32} ->
     ML.Kc(q, b, oc, nc, y => K(WCon{x, y}), pg, out, outn, Pr(Pr(Pr(nw))), ks, img, KK, H) ->
     Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
-      Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H)) ->
-  Wp(Cr.Cir.exec(1n+1n+g, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H):
+      Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn)), KK, H, O)) ->
+  Wp(Cr.Cir.exec(1n+1n+g, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H, O):
   +m = St.cl(b)
   +s0 = ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)
   +bc = Fd(2n, m, Fd(3n, m, c))
   +x2 = Fd(2n, m, Fd(2n, m, bc))
   -A = ML.Kc(1n+q, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H)
-  Wp.while(1n+g, Mc.M.lt(Mc.M.g(Mc.R.oi()), Mc.M.c(8)), MW.body(), s0, KK, H, True{},
+  Wp.while(1n+g, Mc.M.lt(Mc.M.g(Mc.R.oi()), Mc.M.c(8)), MW.body(), s0, KK, H, O, True{},
     ev.lt(48n, 8, s0, idx, {==}, True{}, D1({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G)),
-    Wp.then(Cr.Cir.exec(1n+g, MW.body(), s0), t => Cr.Cir.exec(1n+g, MW.loop(), t), KK, H,
-      MI(g, b, oc, c, ov, idx, t1, t2, pg, out, outn, nw, ks, img, t => Wp(Cr.Cir.exec(1n+g, MW.loop(), t), KK, H), H, hok,
+    Wp.then(Cr.Cir.exec(1n+g, MW.body(), s0), t => Cr.Cir.exec(1n+g, MW.loop(), t), KK, H, O,
+      MI(g, b, oc, c, ov, idx, t1, t2, pg, out, outn, nw, ks, img, t => Wp(Cr.Cir.exec(1n+g, MW.loop(), t), KK, H, O), H, O, hok,
         gb => +egb => CasesM(gb, A, kk,
           x => {ok(Pr(Pr(Pr(nw))), m, ks, img, CW.next(m, c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
-            Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, CW.next(m, c), OV(x, ov, idx), U32.add(idx, 1), bc, x2, pg, out, outn)), KK, H),
+            Wp(Cr.Cir.exec(1n+g, MW.loop(), ST(b, oc, CW.next(m, c), OV(x, ov, idx), U32.add(idx, 1), bc, x2, pg, out, outn)), KK, H, O),
           @st: Cr.Cir.State -> H(2, st),
           kk => +x => +ex => +hokn =>
-            ML.next(q, g, b, oc, c, ov, idx, pg, out, outn, nw, ks, img, K, Kz, HK, G, KK, H, eov, x,
+            ML.next(q, g, b, oc, c, ov, idx, pg, out, outn, nw, ks, img, K, Kz, HK, G, KK, H, O, eov, x,
               Equal.trans(Maybe<&2, Bool>, GB(m, c), gb, Some{x}, egb, ex), hokn, kk, ih),
           kk => +ex =>
             st => kk(None{}, CWb.none1(q, m, c, Equal.trans(Maybe<&2, Bool>, GB(m, c), gb, None{}, egb, ex)), st)))))
@@ -2549,36 +2956,36 @@ def ML.go(+q: Nat, +g: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx:
 def ML(+r: Nat, +F: Nat, +hF: PN.Le(1n+r, F), +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +idx: U32, +t1: U32, +t2: U32, +pg: U32,
   +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -K: Word(r) -> Word(8n), -Kz: Word(r) -> Word(8n), +HK: HKT(r, K, Kz), +G: Good(r, idx, Kz),
-  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eov: {Sd.Byte.to_u32(K(zeros(r))) == ov : U32},
+  -KK: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type, +eov: {Sd.Byte.to_u32(K(zeros(r))) == ov : U32},
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: ML.Kc(r, b, oc, c, K, pg, out, outn, nw, ks, img, KK, H)) ->
-  Wp(Cr.Cir.exec(F, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H):
+  Wp(Cr.Cir.exec(F, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H, O):
   match r:
     case 0n:
       match F:
         case 0n:
-          Empty.absurd(Wp(Cr.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
+          Empty.absurd(Wp(Cr.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H, O), hF)
         case 1n+f:
-          Wp.while(f, Mc.M.lt(Mc.M.g(Mc.R.oi()), Mc.M.c(8)), MW.body(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn), KK, H, False{},
+          Wp.while(f, Mc.M.lt(Mc.M.g(Mc.R.oi()), Mc.M.c(8)), MW.body(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn), KK, H, O, False{},
             ev.lt(48n, 8, ST(b, oc, c, ov, idx, t1, t2, pg, out, outn), idx, {==}, False{}, G),
             Tr(U32, v => KK(ST(b, oc, c, v, idx, t1, t2, pg, out, outn)), Sd.Byte.to_u32(K(zeros(0n))), ov, eov, kk(Some{WNil{}}, {==}, hok, idx, t1, t2)))
     case 1n+q:
       match F:
         case 0n:
-          Empty.absurd(Wp(Cr.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
+          Empty.absurd(Wp(Cr.Cir.exec(0n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H, O), hF)
         case 1n+f:
           match f:
             case 0n:
-              Empty.absurd(Wp(Cr.Cir.exec(1n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H), hF)
+              Empty.absurd(Wp(Cr.Cir.exec(1n, MW.loop(), ST(b, oc, c, ov, idx, t1, t2, pg, out, outn)), KK, H, O), hF)
             case 1n+g:
-              ML.go(q, g, b, oc, c, ov, idx, pg, out, outn, nw, ks, img, K, Kz, HK, G, KK, H, eov, t1, t2, hF, hok, kk,
+              ML.go(q, g, b, oc, c, ov, idx, pg, out, outn, nw, ks, img, K, Kz, HK, G, KK, H, O, eov, t1, t2, hF, hok, kk,
                 nc => +x => +hokn => +ov2 => +eov2 => kk2 =>
                   ML(q, 1n+g, hF, b, oc, nc, ov2, U32.add(idx, 1), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)),
                     Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)))), pg, out, outn, Pr(Pr(Pr(nw))), ks, img,
                     y => K(WCon{x, y}), y => Kz(WCon{False{}, y}), HK.step(q, x, K, Kz, HK),
                     D2({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y})),
                       D2({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))), G)),
-                    KK, H, eov2, hokn, kk2))
+                    KK, H, O, eov2, hokn, kk2))
 
 # The word
 # --------
@@ -2638,29 +3045,29 @@ def MWd.Kc(+b: Cr.Cir.State, +oc: U32, +c: U32, +pg: U32, +out: List<&2, Word(8n
 
 # the end of a byte: its WNil
 def MWd.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +w: Word(8n), +oi: U32, +t1: U32, +t2: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: U32,
-  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +ew: {CWb(8n, St.cl(b), c) == Some{w} : Maybe<&2, Word(8n)>},
   +hok: {ok(Pn(8n, nw), St.cl(b), ks, img, Nx(8n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MWd.Kc(b, oc, c, pg, out, outn, K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.end()]), ST(b, oc, Nx(8n, St.cl(b), c), Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.end()]), ST(b, oc, Nx(8n, St.cl(b), c), Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H, O):
   +m = St.cl(b)
   +d = Nx(8n, m, c)
   +s0 = ST(b, oc, d, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)
   +hc = ok.isc(Pn(8n, nw), m, ks, img, d, St.im(b), St.fs(b), St.nx(b), hok)
-  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O) : Cr.Cir.State -> Type}
   -A = MWd.Kc(b, oc, c, pg, out, outn, K, H)
-  Wp.seq(f, MW.end(), Cr.Cir.Stmt.nop{}, s0, K, H,
-    Wp.need(f, Mc.M.pair(Mc.R.ow()), Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{})), s0, K1, H,
+  Wp.seq(f, MW.end(), Cr.Cir.Stmt.nop{}, s0, K, H, O,
+    Wp.need(f, Mc.M.pair(Mc.R.ow()), Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{})), s0, K1, H, O,
       Pm(m, d), ev.pair(46n, s0, d, {==}, hc),
-     CasesK(Pm(m, d), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{})), s0), K1, H), H(2, s0),
+     CasesK(Pm(m, d), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{})), s0), K1, H, O), H(2, s0),
       kk => +eP =>
-        Wp.need(f, Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}), s0, K1, H, ISLAB(m, d, 3),
+        Wp.need(f, Mc.M.is_lab(Mc.M.f(2n, Mc.M.g(Mc.R.ow())), Mc.N.wnil()), Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}), s0, K1, H, O, ISLAB(m, d, 3),
           ev.islab(2n, 46n, 3, s0, d, {==}, hc, ok.isc(Pr(Pn(8n, nw)), m, ks, img, Fd(2n, m, d), St.im(b), St.fs(b), St.nx(b), ok.L(Pn(8n, nw), m, ks, img, d, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-         CasesK(ISLAB(m, d, 3), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}), s0), K1, H), H(2, s0),
+         CasesK(ISLAB(m, d, 3), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}), s0), K1, H, O), H(2, s0),
           kk => +eI =>
-            Wp.need(f, Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}, s0, K1, H, LAST(m, d),
+            Wp.need(f, Mc.M.last(Mc.R.ow()), Cr.Cir.Stmt.nop{}, s0, K1, H, O, LAST(m, d),
               ev.islab(3n, 46n, 0, s0, d, {==}, hc, ok.isc(Pr(Pn(8n, nw)), m, ks, img, Fd(3n, m, d), St.im(b), St.fs(b), St.nx(b), ok.R(Pn(8n, nw), m, ks, img, d, St.im(b), St.fs(b), St.nx(b), hok, eP))),
-             CasesK(LAST(m, d), A, kk, Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, s0), K1, H), H(2, s0),
+             CasesK(LAST(m, d), A, kk, Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, s0), K1, H, O), H(2, s0),
               kk => +eL =>
                 kk(Some{w}, CWs.some(8n, m, c, w, ew, CW0.ok(m, d, eP, eI, eL)), d, oi, t1, t2),
               kk => +eL =>
@@ -2674,27 +3081,27 @@ def MWd.end(+f: Nat, +b: Cr.Cir.State, +oc: U32, +c: U32, +w: Word(8n), +oi: U32
 # into ov, or the run ends with no result
 def MWd(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +oc: U32, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
   +out: List<&2, Word(8n)>, +outn: U32, +nw: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hok: {ok(nw, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   kk: MWd.Kc(b, oc, c, pg, out, outn, K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, Mc.M.out.byte(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H):
+  Wp(Cr.Cir.exec(1n+f, Mc.M.out.byte(), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn)), K, H, O):
   +m = St.cl(b)
   +s1 = ST(b, oc, c, 0, oi, t1, t2, pg, out, outn)
   +s2 = ST(b, oc, c, 0, 0, t1, t2, pg, out, outn)
-  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.end()]), t), K, H) : Cr.Cir.State -> Type}
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.end()]), t), K, H, O) : Cr.Cir.State -> Type}
   -A = MWd.Kc(b, oc, c, pg, out, outn, K, H)
-  Wp.seq(f, Mc.M.set(Mc.R.ov(), Mc.M.c(0)), Mc.M.do([Mc.M.set(Mc.R.oi(), Mc.M.c(0)), MW.loop(), MW.end()]), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), K, H,
-    Wp.set(f, 47n, Mc.M.c(0), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.set(Mc.R.oi(), Mc.M.c(0)), MW.loop(), MW.end()]), t), K, H), H, 0, {==},
-      Wp.seq(f, Mc.M.set(Mc.R.oi(), Mc.M.c(0)), Mc.M.do([MW.loop(), MW.end()]), s1, K, H,
-        Wp.set(f, 48n, Mc.M.c(0), s1, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.loop(), MW.end()]), t), K, H), H, 0, {==},
-          Wp.seq(f, MW.loop(), Mc.M.do([MW.end()]), s2, K, H,
-            ML(8n, 1n+f, PN.le_trans(9n, 33n, 1n+f, PN.le_add_r(9n, 24n), hF), b, oc, c, 0, 0, t1, t2, pg, out, outn, nw, ks, img, y => y, y => y, HK8(), Good8(), K1, H, {==}, hok,
+  Wp.seq(f, Mc.M.set(Mc.R.ov(), Mc.M.c(0)), Mc.M.do([Mc.M.set(Mc.R.oi(), Mc.M.c(0)), MW.loop(), MW.end()]), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), K, H, O,
+    Wp.set(f, 47n, Mc.M.c(0), ST(b, oc, c, ov, oi, t1, t2, pg, out, outn), t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.set(Mc.R.oi(), Mc.M.c(0)), MW.loop(), MW.end()]), t), K, H, O), H, O, 0, {==},
+      Wp.seq(f, Mc.M.set(Mc.R.oi(), Mc.M.c(0)), Mc.M.do([MW.loop(), MW.end()]), s1, K, H, O,
+        Wp.set(f, 48n, Mc.M.c(0), s1, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([MW.loop(), MW.end()]), t), K, H, O), H, O, 0, {==},
+          Wp.seq(f, MW.loop(), Mc.M.do([MW.end()]), s2, K, H, O,
+            ML(8n, 1n+f, PN.le_trans(9n, 33n, 1n+f, PN.le_add_r(9n, 24n), hF), b, oc, c, 0, 0, t1, t2, pg, out, outn, nw, ks, img, y => y, y => y, HK8(), Good8(), K1, H, O, {==}, hok,
               rr => +err => CasesW(8n, rr, A, kk,
                 w => {ok(Pn(8n, nw), m, ks, img, Nx(8n, m, c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
                   @oi: U32 -> @t1: U32 -> @t2: U32 -> K1(ST(b, oc, Nx(8n, m, c), Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
                 @st: Cr.Cir.State -> H(2, st),
                 kk => +w => +ew => +hokd => +oi2 => +t12 => +t22 =>
-                  MWd.end(f, b, oc, c, w, oi2, t12, t22, pg, out, outn, nw, ks, img, K, H,
+                  MWd.end(f, b, oc, c, w, oi2, t12, t22, pg, out, outn, nw, ks, img, K, H, O,
                     Equal.trans(Maybe<&2, Word(8n)>, CWb(8n, m, c), rr, Some{w}, err, ew), hokd, kk),
                 kk => +ew =>
                   st => kk(None{}, CWs.none0(8n, m, c, Equal.trans(Maybe<&2, Word(8n)>, CWb(8n, m, c), rr, None{}, err, ew)), st))))))))
@@ -2812,23 +3219,23 @@ def MC.Kc(+b: Cr.Cir.State, +c: U32, +pg: U32, +out: List<&2, Word(8n)>, +outn: 
 # the byte goes out: the low byte of its value, which is the byte
 def MC.emit(+f: Nat, +b: Cr.Cir.State, +c: U32, +ow: U32, +w: Word(8n), +oi: U32, +t1: U32, +t2: U32, +pg: U32,
   +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hok1: {ok(n1, St.cl(b), ks, img, Fd(3n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +ePb: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool},
   +ePy: {Pm(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
   +eLy: {LAST(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
   +eW: {CW(8n, St.cl(b), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c))) == Some{w} : Maybe<&2, Word(8n)>},
-  kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.E()]), ST(b, Fd(2n, St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))), ow, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H):
+  ho: EB(St.lim(b), St.nx(b), outn) -> O, kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
+  Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.E()]), ST(b, Fd(2n, St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))), ow, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)), K, H, O):
   +m = St.cl(b)
   +bc = Fd(3n, m, c)
   +yc = Fd(3n, m, bc)
   +rc = Fd(2n, m, yc)
   +v = Sd.Byte.to_u32(w)
   +s = ST(b, rc, ow, v, oi, t1, t2, pg, out, outn)
-  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
-  Wp.seq(f, OC.E(), Cr.Cir.Stmt.nop{}, s, K, H,
-    Wp.emit(f, Mc.M.g(Mc.R.ov()), s, K1, H, v, {==},
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O) : Cr.Cir.State -> Type}
+  Wp.seq(f, OC.E(), Cr.Cir.Stmt.nop{}, s, K, H, O,
+    Wp.emit(f, Mc.M.g(Mc.R.ov()), s, K1, H, O, v, {==}, ho,
       p => Tr(Word(8n), y => K(ST(b, rc, ow, v, oi, t1, t2, p, Con{y, out}, U32.inc(outn))), w, Sd.Byte.from_u32(v),
         Equal.sym(Word(8n), Sd.Byte.from_u32(v), w, low_pad(8n, 24n, w)),
         kk(SR.more{w, rc}, Sc.ok(m, bc, w, ePb, ePy, eLy, eW), ok.L(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb), ePy), p, ow, v, oi, t1, t2))))
@@ -2836,13 +3243,13 @@ def MC.emit(+f: Nat, +b: Cr.Cir.State, +c: U32, +ow: U32, +w: Word(8n), +oi: U32
 # the rest of the list goes into oc, and the byte into ov
 def MC.C(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +c: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
   +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hok1: {ok(n1, St.cl(b), ks, img, Fd(3n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
   +ePb: {Pm(St.cl(b), Fd(3n, St.cl(b), c)) == True{} : Bool},
   +ePy: {Pm(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
   +eLy: {LAST(St.cl(b), Fd(3n, St.cl(b), Fd(3n, St.cl(b), c))) == True{} : Bool},
-  kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, OC.C(), ST(b, Fd(3n, St.cl(b), Fd(3n, St.cl(b), c)), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)), ov, oi, t1, t2, pg, out, outn)), K, H):
+  ho: EB(St.lim(b), St.nx(b), outn) -> O, kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
+  Wp(Cr.Cir.exec(1n+f, OC.C(), ST(b, Fd(3n, St.cl(b), Fd(3n, St.cl(b), c)), Fd(2n, St.cl(b), Fd(3n, St.cl(b), c)), ov, oi, t1, t2, pg, out, outn)), K, H, O):
   +m = St.cl(b)
   +bc = Fd(3n, m, c)
   +xc = Fd(2n, m, bc)
@@ -2851,19 +3258,19 @@ def MC.C(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +c: U32, +ov: U32, +o
   -A = MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)
   +s3 = ST(b, yc, xc, ov, oi, t1, t2, pg, out, outn)
   +s4 = ST(b, rc, xc, ov, oi, t1, t2, pg, out, outn)
-  -KE = {t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.E()]), t), K, H) : Cr.Cir.State -> Type}
-  Wp.seq(f, OC.C1(), Mc.M.do([Mc.M.out.byte(), OC.E()]), s3, K, H,
-    Wp.set(f, 45n, Mc.M.f(2n, Mc.M.g(Mc.R.oc())), s3, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.out.byte(), OC.E()]), t), K, H), H, rc,
+  -KE = {t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.E()]), t), K, H, O) : Cr.Cir.State -> Type}
+  Wp.seq(f, OC.C1(), Mc.M.do([Mc.M.out.byte(), OC.E()]), s3, K, H, O,
+    Wp.set(f, 45n, Mc.M.f(2n, Mc.M.g(Mc.R.oc())), s3, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.out.byte(), OC.E()]), t), K, H, O), H, O, rc,
       ev.f(2n, Mc.M.g(Mc.R.oc()), s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb))),
-      Wp.seq(f, Mc.M.out.byte(), Mc.M.do([OC.E()]), s4, K, H,
-        MWd(f, hF, b, rc, xc, ov, oi, t1, t2, pg, out, outn, Pr(n1), ks, img, KE, H,
+      Wp.seq(f, Mc.M.out.byte(), Mc.M.do([OC.E()]), s4, K, H, O,
+        MWd(f, hF, b, rc, xc, ov, oi, t1, t2, pg, out, outn, Pr(n1), ks, img, KE, H, O,
           ok.L(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb),
           rr => +err => CasesW(8n, rr, A, kk,
             w => @ow: U32 -> @oi: U32 -> @t1: U32 -> @t2: U32 -> KE(ST(b, rc, ow, Sd.Byte.to_u32(w), oi, t1, t2, pg, out, outn)),
             @st: Cr.Cir.State -> H(2, st),
             kk => +w => +ew => +ow2 => +oi2 => +t12 => +t22 =>
-              MC.emit(f, b, c, ow2, w, oi2, t12, t22, pg, out, outn, n1, ks, img, K, H, hok1, ePb, ePy, eLy,
-                Equal.trans(Maybe<&2, Word(8n)>, CW(8n, m, xc), rr, Some{w}, err, ew), kk),
+              MC.emit(f, b, c, ow2, w, oi2, t12, t22, pg, out, outn, n1, ks, img, K, H, O, hok1, ePb, ePy, eLy,
+                Equal.trans(Maybe<&2, Word(8n)>, CW(8n, m, xc), rr, Some{w}, err, ew), ho, kk),
             kk => +ew =>
               st => kk(SR.done{None{}}, Sc.n4(m, bc, ePb, ePy, eLy, Equal.trans(Maybe<&2, Word(8n)>, CW(8n, m, xc), rr, None{}, err, ew)), {==}, st))))))
 
@@ -2871,11 +3278,11 @@ def MC.C(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +c: U32, +ov: U32, +o
 # gets the rest of the list; or the run ends with no result
 def MCon(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32, +pg: U32,
   +out: List<&2, Word(8n)>, +outn: U32, +n1: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  -K: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -O: Type,
   +hc: {True{} == Cr.Cir.is_cell(c, St.im(b), St.fs(b), St.nx(b)) : Bool},
   +hok1: {ok(n1, St.cl(b), ks, img, Fd(3n, St.cl(b), c), St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
-  kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
-  Wp(Cr.Cir.exec(1n+f, Mc.M.out.con(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), K, H):
+  ho: EB(St.lim(b), St.nx(b), outn) -> O, kk: MC.Kc(b, c, pg, out, outn, n1, ks, img, K, H)) ->
+  Wp(Cr.Cir.exec(1n+f, Mc.M.out.con(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), K, H, O):
   +m = St.cl(b)
   +bc = Fd(3n, m, c)
   +xc = Fd(2n, m, bc)
@@ -2887,29 +3294,29 @@ def MCon(+f: Nat, +hF: PN.Le(33n, 1n+f), +b: Cr.Cir.State, +c: U32, +ow: U32, +o
   +s2 = ST(b, bc, xc, ov, oi, t1, t2, pg, out, outn)
   +s3 = ST(b, yc, xc, ov, oi, t1, t2, pg, out, outn)
   +hcb = ok.isc(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1)
-  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H) : Cr.Cir.State -> Type}
-  -K2 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K1, H) : Cr.Cir.State -> Type}
-  Wp.seq(f, OC.A1(), Mc.M.do([Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B())]), s0, K, H,
-    Wp.set(f, 45n, Mc.M.f(3n, Mc.M.g(Mc.R.oc())), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B())]), t), K, H), H, bc,
+  -K1 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K, H, O) : Cr.Cir.State -> Type}
+  -K2 = {t => Wp(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, t), K1, H, O) : Cr.Cir.State -> Type}
+  Wp.seq(f, OC.A1(), Mc.M.do([Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B())]), s0, K, H, O,
+    Wp.set(f, 45n, Mc.M.f(3n, Mc.M.g(Mc.R.oc())), s0, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B())]), t), K, H, O), H, O, bc,
       ev.f(3n, Mc.M.g(Mc.R.oc()), s0, c, {==}, hc),
-      Wp.seq(f, Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B()), Cr.Cir.Stmt.nop{}, s1, K, H,
-        Wp.need(f, Mc.M.pair(Mc.R.oc()), OC.B(), s1, K1, H, Pm(m, bc), ev.pair(45n, s1, bc, {==}, hcb),
-         CasesK(Pm(m, bc), A, kk, Wp(Cr.Cir.exec(1n+f, OC.B(), s1), K1, H), H(2, s1),
+      Wp.seq(f, Mc.M.need(Mc.M.pair(Mc.R.oc()), OC.B()), Cr.Cir.Stmt.nop{}, s1, K, H, O,
+        Wp.need(f, Mc.M.pair(Mc.R.oc()), OC.B(), s1, K1, H, O, Pm(m, bc), ev.pair(45n, s1, bc, {==}, hcb),
+         CasesK(Pm(m, bc), A, kk, Wp(Cr.Cir.exec(1n+f, OC.B(), s1), K1, H, O), H(2, s1),
           kk => +ePb =>
-            Wp.seq(f, OC.B1(), Mc.M.do([OC.B2(), OC.B3()]), s1, K1, H,
-              Wp.set(f, 46n, Mc.M.f(2n, Mc.M.g(Mc.R.oc())), s1, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.B2(), OC.B3()]), t), K1, H), H, xc,
+            Wp.seq(f, OC.B1(), Mc.M.do([OC.B2(), OC.B3()]), s1, K1, H, O,
+              Wp.set(f, 46n, Mc.M.f(2n, Mc.M.g(Mc.R.oc())), s1, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.B2(), OC.B3()]), t), K1, H, O), H, O, xc,
                 ev.f(2n, Mc.M.g(Mc.R.oc()), s1, bc, {==}, hcb),
-                Wp.seq(f, OC.B2(), Mc.M.do([OC.B3()]), s2, K1, H,
-                  Wp.set(f, 45n, Mc.M.f(3n, Mc.M.g(Mc.R.oc())), s2, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.B3()]), t), K1, H), H, yc,
+                Wp.seq(f, OC.B2(), Mc.M.do([OC.B3()]), s2, K1, H, O,
+                  Wp.set(f, 45n, Mc.M.f(3n, Mc.M.g(Mc.R.oc())), s2, t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([OC.B3()]), t), K1, H, O), H, O, yc,
                     ev.f(3n, Mc.M.g(Mc.R.oc()), s2, bc, {==}, hcb),
-                    Wp.seq(f, OC.B3(), Cr.Cir.Stmt.nop{}, s3, K1, H,
-                      Wp.need(f, Mc.M.pair(Mc.R.oc()), Mc.M.need(Mc.M.last(Mc.R.oc()), OC.C()), s3, K2, H, Pm(m, yc), ev.pair(45n, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb))),
-                       CasesK(Pm(m, yc), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.last(Mc.R.oc()), OC.C()), s3), K2, H), H(2, s3),
+                    Wp.seq(f, OC.B3(), Cr.Cir.Stmt.nop{}, s3, K1, H, O,
+                      Wp.need(f, Mc.M.pair(Mc.R.oc()), Mc.M.need(Mc.M.last(Mc.R.oc()), OC.C()), s3, K2, H, O, Pm(m, yc), ev.pair(45n, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb))),
+                       CasesK(Pm(m, yc), A, kk, Wp(Cr.Cir.exec(1n+f, Mc.M.need(Mc.M.last(Mc.R.oc()), OC.C()), s3), K2, H, O), H(2, s3),
                         kk => +ePy =>
-                          Wp.need(f, Mc.M.last(Mc.R.oc()), OC.C(), s3, K2, H, LAST(m, yc), ev.islab(3n, 45n, 0, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb)), ok.isc(Pr(Pr(n1)), m, ks, img, Fd(3n, m, yc), St.im(b), St.fs(b), St.nx(b), ok.R(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb), ePy))),
-                           CasesK(LAST(m, yc), A, kk, Wp(Cr.Cir.exec(1n+f, OC.C(), s3), K2, H), H(2, s3),
+                          Wp.need(f, Mc.M.last(Mc.R.oc()), OC.C(), s3, K2, H, O, LAST(m, yc), ev.islab(3n, 45n, 0, s3, yc, {==}, ok.isc(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb)), ok.isc(Pr(Pr(n1)), m, ks, img, Fd(3n, m, yc), St.im(b), St.fs(b), St.nx(b), ok.R(Pr(n1), m, ks, img, yc, St.im(b), St.fs(b), St.nx(b), ok.R(n1, m, ks, img, bc, St.im(b), St.fs(b), St.nx(b), hok1, ePb), ePy))),
+                           CasesK(LAST(m, yc), A, kk, Wp(Cr.Cir.exec(1n+f, OC.C(), s3), K2, H, O), H(2, s3),
                             kk => +eLy =>
-                              MC.C(f, hF, b, c, ov, oi, t1, t2, pg, out, outn, n1, ks, img, K2, H, hok1, ePb, ePy, eLy, kk),
+                              MC.C(f, hF, b, c, ov, oi, t1, t2, pg, out, outn, n1, ks, img, K2, H, O, hok1, ePb, ePy, eLy, ho, kk),
                             kk => +eLy =>
                               kk(SR.done{None{}}, Sc.n3(m, bc, ePb, ePy, eLy), {==}, s3))),
                         kk => +ePy =>
@@ -3011,15 +3418,15 @@ def Fin.cons(r: Maybe<&2, List<&2, Word(8n)>>, +v: Word(8n), +out: List<&2, Word
     case None{}:
       h
 
-def Wp.mapH(o: Cr.Cir.Out, -K: Cr.Cir.State -> Type, -H1: U32 -> Cr.Cir.State -> Type, -H2: U32 -> Cr.Cir.State -> Type,
-  f: @s: U32 -> @st: Cr.Cir.State -> H1(s, st) -> H2(s, st), h: Wp(o, K, H1)) -> Wp(o, K, H2):
+def Wp.mapH(o: Cr.Cir.Out, -K: Cr.Cir.State -> Type, -H1: U32 -> Cr.Cir.State -> Type, -H2: U32 -> Cr.Cir.State -> Type, -O: Type,
+  f: @s: U32 -> @st: Cr.Cir.State -> H1(s, st) -> H2(s, st), h: Wp(o, K, H1, O)) -> Wp(o, K, H2, O):
   match o:
     case Cr.Cir.Out.next{st}:
       h
     case Cr.Cir.Out.halt{s, st}:
       f(s, st, h)
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      h
     case Cr.Cir.Out.trap{}:
       match h:
     case Cr.Cir.Out.not_done{}:
@@ -3100,29 +3507,64 @@ def BO() -> Cr.Cir.Stmt:
 def WO() -> Cr.Cir.Stmt:
   Mc.M.while(Mc.M.c(1), BO())
 
+# what a run of M.out from the state b gives when it runs out of memory: the
+# limit has fewer bytes than 20 next + N0, where N0 bounds the bytes out and
+# the ok level of the rest of the list (EB at each emit, ob.of)
+def OBn(+lim: U32, +nx: U32, +N0: Nat) -> Type:
+  PN.Le(1n+Lim.bytes(lim), Nat.add(Nat.mul(20n, U32.to_nat(nx)), N0))
+
+def OB(+b: Cr.Cir.State, +N0: Nat) -> Type:
+  OBn(St.lim(b), St.nx(b), N0)
+
+# Pr twice is at most the number
+def pr2.le(+k: Nat) -> PN.Le(Pr(Pr(k)), k):
+  match k:
+    case 0n:
+      PN.le_refl(0n)
+    case 1n+(+p):
+      match p:
+        case 0n:
+          PN.le_zero(1n)
+        case 1n+(+q):
+          PN.le_succ(q, 1n+q, PN.le_succ(q, q, PN.le_refl(q)))
+
+# an emit at a Con of the ok level 1 + k, with outn + 1 + k <= N0: EB gives OB
+def ob.of(+L: Nat, +A: Nat, +o: Nat, +k: Nat, +N0: Nat, e: PN.Le(L, Nat.add(A, o)), hn: PN.Le(Nat.add(o, 1n+k), N0)) -> PN.Le(1n+L, Nat.add(A, N0)):
+  +h1 = PN.le_trans(1n+o, Nat.add(o, 1n+k), N0,
+    PN.le_rw_r(1n+o, 1n+Nat.add(o, k), Nat.add(o, 1n+k), Equal.sym(Nat, Nat.add(o, 1n+k), 1n+Nat.add(o, k), PN.add_succ_r(o, k)), PN.le_add_r(o, k)), hn)
+  PN.le_trans(1n+L, 1n+Nat.add(A, o), Nat.add(A, N0), e,
+    PN.le_rw_l(Nat.add(A, 1n+o), 1n+Nat.add(A, o), Nat.add(A, N0), PN.add_succ_r(A, o), PN.add_mono(A, A, 1n+o, N0, PN.le_refl(A), h1)))
+
+# after that emit, the invariant holds of the rest, at the level Pr(Pr(k))
+def ob.step(+o: U32, +k: Nat, +N0: Nat, hn: PN.Le(Nat.add(U32.to_nat(o), 1n+k), N0)) -> PN.Le(Nat.add(U32.to_nat(U32.inc(o)), Pr(Pr(k))), N0):
+  PN.le_trans(Nat.add(U32.to_nat(U32.inc(o)), Pr(Pr(k))), 1n+Nat.add(U32.to_nat(o), k), N0,
+    PN.add_mono(U32.to_nat(U32.inc(o)), 1n+U32.to_nat(o), Pr(Pr(k)), k, PN.U32.inc_le(o), pr2.le(k)),
+    PN.le_rw_l(Nat.add(U32.to_nat(o), 1n+k), 1n+Nat.add(U32.to_nat(o), k), N0, PN.add_succ_r(U32.to_nat(o), k), hn))
+
 # the claim of the loop of M.out for the rest of the list, at any cell rc
 # that ok grants, with the fuel f2
-def LO.IH(+n1: Nat, +b: Cr.Cir.State, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>) -> Type:
+def LO.IH(+n1: Nat, +b: Cr.Cir.State, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +N0: Nat) -> Type:
   @rc: U32 -> {ok(Pr(Pr(n1)), St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool} ->
     @f2: Nat -> PN.Le(Nat.add(Pr(Pr(n1)), 34n), f2) -> @pg2: U32 -> @ow2: U32 -> @ov2: U32 -> @oi2: U32 -> @t12: U32 -> @t22: U32 ->
-    @out2: List<&2, Word(8n)> -> @outn2: U32 ->
+    @out2: List<&2, Word(8n)> -> @outn2: U32 -> PN.Le(Nat.add(U32.to_nat(outn2), Pr(Pr(n1))), N0) ->
     Wp(Cr.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
-      s => st => Fin(CU(Pr(Pr(n1)), St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st))
+      s => st => Fin(CU(Pr(Pr(n1)), St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st), OB(b, N0))
 
 # the round of a Con: its byte goes out (MCon), then the rest of the list
 def LO.con(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +N0: Nat,
   +hok: {ok(1n+n1, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
+  +hn: PN.Le(Nat.add(U32.to_nat(outn), 1n+n1), N0),
   +hc: {True{} == Cr.Cir.is_cell(c, St.im(b), St.fs(b), St.nx(b)) : Bool},
   +eP: {Pm(St.cl(b), c) == True{} : Bool}, +eM: {Lm(St.cl(b), Fd(2n, St.cl(b), c)) == True{} : Bool},
   +eN: {U32.is_eq(Fd(2n, St.cl(b), Fd(2n, St.cl(b), c)), 1) == False{} : Bool},
   +eC: {U32.is_eq(Fd(2n, St.cl(b), Fd(2n, St.cl(b), c)), 2) == True{} : Bool},
-  ih: LO.IH(n1, b, ks, img)) ->
+  ih: LO.IH(n1, b, ks, img, N0)) ->
   Wp(Cr.Cir.exec(1n+g, Mc.M.out.con(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)),
     t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), u => Wp(Cr.Cir.exec(1n+g, WO(), u), st => Empty,
-      s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)),
-      s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)),
-    s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
+      s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)),
+      s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)),
+    s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -3131,23 +3573,24 @@ def LO.con(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.Sta
   +estep = StC.ok(m, c, eP, eM, eN, eC)
   -K0 = {st => Empty : Cr.Cir.State -> Type}
   -H0 = {s => st => Fin(CU(1n+n1, m, Step(m, c)), out, outn, s, st) : U32 -> Cr.Cir.State -> Type}
-  -KW = {t => Wp(Cr.Cir.exec(1n+g, WO(), t), K0, H0) : Cr.Cir.State -> Type}
-  -KB = {t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), KW, H0) : Cr.Cir.State -> Type}
-  -IH = LO.IH(n1, b, ks, img)
+  -KW = {t => Wp(Cr.Cir.exec(1n+g, WO(), t), K0, H0, OB(b, N0)) : Cr.Cir.State -> Type}
+  -KB = {t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), KW, H0, OB(b, N0)) : Cr.Cir.State -> Type}
+  -IH = LO.IH(n1, b, ks, img, N0)
   MCon(g, PN.weaken(33n, 1n+g, PN.le_trans(34n, Nat.add(n1, 34n), 1n+g, PN.le_add_l(n1, 34n), hF)),
-    b, c, ow, ov, oi, t1, t2, pg, out, outn, n1, ks, img, KB, H0, hc, ok.R(1n+n1, m, ks, img, c, im, fs, nx, hok, eP),
+    b, c, ow, ov, oi, t1, t2, pg, out, outn, n1, ks, img, KB, H0, OB(b, N0), hc, ok.R(1n+n1, m, ks, img, c, im, fs, nx, hok, eP),
+    e => ob.of(Lim.bytes(St.lim(b)), Nat.mul(20n, U32.to_nat(nx)), U32.to_nat(outn), n1, N0, e, hn),
     sr => +esr => CasesS(sr, IH, ih,
       v => rest => {ok(Pr(Pr(n1)), m, ks, img, rest, im, fs, nx) == True{} : Bool} ->
         @pg2: U32 -> @ow2: U32 -> @ov2: U32 -> @oi2: U32 -> @t12: U32 -> @t22: U32 -> KB(ST(b, rest, ow2, ov2, oi2, t12, t22, pg2, Con{v, out}, U32.inc(outn))),
       r => {r == None{} : Maybe<&2, List<&2, Word(8n)>>} -> @st: Cr.Cir.State -> H0(2, st),
       ih => +v => +rest => +emv => +hokr => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 =>
         Wp.mapH(Cr.Cir.exec(1n+g, WO(), ST(b, rest, ow2, ov2, oi2, t12, t22, pg2, Con{v, out}, U32.inc(outn))), K0,
-          s => st => Fin(CU(Pr(Pr(n1)), m, Step(m, rest)), Con{v, out}, U32.inc(outn), s, st), H0,
+          s => st => Fin(CU(Pr(Pr(n1)), m, Step(m, rest)), Con{v, out}, U32.inc(outn), s, st), H0, OB(b, N0),
           s => st => hf => Fin.step(n1, m, c, v, rest, out, outn, ks, img, im, fs, nx,
             Equal.trans(SR, Step(m, c), sr, SR.more{v, rest}, Equal.trans(SR, Step(m, c), S.c0(Pm(m, bc), m, bc), sr, estep, esr), emv),
             hokr, s, st, hf),
           ih(rest, hokr, 1n+g, PN.le_trans(Nat.add(Pr(Pr(n1)), 34n), Nat.add(n1, 34n), 1n+g, le_pr2(n1), hF),
-            pg2, ow2, ov2, oi2, t12, t22, Con{v, out}, U32.inc(outn))),
+            pg2, ow2, ov2, oi2, t12, t22, Con{v, out}, U32.inc(outn), ob.step(outn, n1, N0, hn))),
       ih => +r => +ed => +er => st =>
         Fin.none(n1, m, c, out, outn, st,
           Equal.trans(SR, Step(m, c), sr, SR.done{None{}}, Equal.trans(SR, Step(m, c), S.c0(Pm(m, bc), m, bc), sr, estep, esr),
@@ -3155,11 +3598,12 @@ def LO.con(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.Sta
 
 # a round of the loop of M.out at the list cell c, then, by ih, the rest
 def LO.run(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +N0: Nat,
   +hok: {ok(1n+n1, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
-  ih: LO.IH(n1, b, ks, img)) ->
+  +hn: PN.Le(Nat.add(U32.to_nat(outn), 1n+n1), N0),
+  ih: LO.IH(n1, b, ks, img, N0)) ->
   Wp(Cr.Cir.exec(1n+1n+g, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty,
-    s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
+    s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)):
   +m = St.cl(b)
   +im = St.im(b)
   +fs = St.fs(b)
@@ -3170,39 +3614,39 @@ def LO.run(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.Sta
   +hc = ok.isc(1n+n1, m, ks, img, c, im, fs, nx, hok)
   -K0 = {st => Empty : Cr.Cir.State -> Type}
   -H0 = {s => st => Fin(CU(1n+n1, m, Step(m, c)), out, outn, s, st) : U32 -> Cr.Cir.State -> Type}
-  -KW = {t => Wp(Cr.Cir.exec(1n+g, WO(), t), K0, H0) : Cr.Cir.State -> Type}
-  -KB = {t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), KW, H0) : Cr.Cir.State -> Type}
-  -IH = LO.IH(n1, b, ks, img)
-  Wp.while(1n+g, Mc.M.c(1), BO(), s0, K0, H0, True{}, {==},
-    Wp.then(Cr.Cir.exec(1n+g, BO(), s0), t => Cr.Cir.exec(1n+g, WO(), t), K0, H0,
-      Wp.need(g, Mc.M.pair(Mc.R.oc()), BO.s1(), s0, KW, H0, Pm(m, c), ev.pair(45n, s0, c, {==}, hc),
-       CasesK(Pm(m, c), IH, ih, Wp(Cr.Cir.exec(1n+g, BO.s1(), s0), KW, H0), H0(2, s0),
+  -KW = {t => Wp(Cr.Cir.exec(1n+g, WO(), t), K0, H0, OB(b, N0)) : Cr.Cir.State -> Type}
+  -KB = {t => Wp(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.nop{}, t), KW, H0, OB(b, N0)) : Cr.Cir.State -> Type}
+  -IH = LO.IH(n1, b, ks, img, N0)
+  Wp.while(1n+g, Mc.M.c(1), BO(), s0, K0, H0, OB(b, N0), True{}, {==},
+    Wp.then(Cr.Cir.exec(1n+g, BO(), s0), t => Cr.Cir.exec(1n+g, WO(), t), K0, H0, OB(b, N0),
+      Wp.need(g, Mc.M.pair(Mc.R.oc()), BO.s1(), s0, KW, H0, OB(b, N0), Pm(m, c), ev.pair(45n, s0, c, {==}, hc),
+       CasesK(Pm(m, c), IH, ih, Wp(Cr.Cir.exec(1n+g, BO.s1(), s0), KW, H0, OB(b, N0)), H0(2, s0),
         ih => +eP =>
-          Wp.need(g, Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.oc()))), Mc.M.c(Mc.T.lab())), Mc.M.do([BO.a(), BO.i()]), s0, KW, H0, Lm(m, Fd(2n, m, c)),
+          Wp.need(g, Mc.M.eq(Mc.M.tag(Mc.M.f(2n, Mc.M.g(Mc.R.oc()))), Mc.M.c(Mc.T.lab())), Mc.M.do([BO.a(), BO.i()]), s0, KW, H0, OB(b, N0), Lm(m, Fd(2n, m, c)),
             ev.tag(2n, 45n, s0, c, {==}, hc, ok.isc(n1, m, ks, img, Fd(2n, m, c), im, fs, nx, ok.L(1n+n1, m, ks, img, c, im, fs, nx, hok, eP))),
-           CasesK(Lm(m, Fd(2n, m, c)), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.do([BO.a(), BO.i()]), s0), KW, H0), H0(2, s0),
+           CasesK(Lm(m, Fd(2n, m, c)), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.do([BO.a(), BO.i()]), s0), KW, H0, OB(b, N0)), H0(2, s0),
             ih => +eM =>
-              Wp.seq(g, BO.a(), Mc.M.do([BO.i()]), s0, KW, H0,
-                Wp.set(g, 46n, Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.oc()))), s0, t => Wp(Cr.Cir.exec(1n+g, Mc.M.do([BO.i()]), t), KW, H0), H0, x22,
+              Wp.seq(g, BO.a(), Mc.M.do([BO.i()]), s0, KW, H0, OB(b, N0),
+                Wp.set(g, 46n, Mc.M.f(2n, Mc.M.f(2n, Mc.M.g(Mc.R.oc()))), s0, t => Wp(Cr.Cir.exec(1n+g, Mc.M.do([BO.i()]), t), KW, H0, OB(b, N0)), H0, OB(b, N0), x22,
                   ev.ff(2n, 2n, 45n, s0, c, {==}, hc, ok.isc(n1, m, ks, img, Fd(2n, m, c), im, fs, nx, ok.L(1n+n1, m, ks, img, c, im, fs, nx, hok, eP))),
-                  Wp.seq(g, BO.i(), Cr.Cir.Stmt.nop{}, s1, KW, H0,
+                  Wp.seq(g, BO.i(), Cr.Cir.Stmt.nop{}, s1, KW, H0, OB(b, N0),
                     Wp.if(g, Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.nil())), Mc.M.need(Mc.M.last(Mc.R.oc()), Mc.M.halt(0)),
-                      Mc.M.need(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con()), s1, KB, H0, U32.is_eq(x22, 1), {==},
-                     CasesK(U32.is_eq(x22, 1), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.need(Mc.M.last(Mc.R.oc()), Mc.M.halt(0)), s1), KB, H0),
-                      Wp(Cr.Cir.exec(1n+g, Mc.M.need(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con()), s1), KB, H0),
+                      Mc.M.need(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con()), s1, KB, H0, OB(b, N0), U32.is_eq(x22, 1), {==},
+                     CasesK(U32.is_eq(x22, 1), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.need(Mc.M.last(Mc.R.oc()), Mc.M.halt(0)), s1), KB, H0, OB(b, N0)),
+                      Wp(Cr.Cir.exec(1n+g, Mc.M.need(Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con()), s1), KB, H0, OB(b, N0)),
                       ih => +eN =>
-                        Wp.need(g, Mc.M.last(Mc.R.oc()), Mc.M.halt(0), s1, KB, H0, LAST(m, c),
+                        Wp.need(g, Mc.M.last(Mc.R.oc()), Mc.M.halt(0), s1, KB, H0, OB(b, N0), LAST(m, c),
                           ev.islab(3n, 45n, 0, s1, c, {==}, hc, ok.isc(n1, m, ks, img, Fd(3n, m, c), im, fs, nx, ok.R(1n+n1, m, ks, img, c, im, fs, nx, hok, eP))),
-                         CasesK(LAST(m, c), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.halt(0), s1), KB, H0), H0(2, s1),
+                         CasesK(LAST(m, c), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.halt(0), s1), KB, H0, OB(b, N0)), H0(2, s1),
                           ih => +eL =>
                             Fin.nil(n1, b, c, x22, ov, oi, t1, t2, pg, out, outn, StN.ok(m, c, eP, eM, eN, eL)),
                           ih => +eL =>
                             Fin.none(n1, m, c, out, outn, s1, StN.n4(m, c, eP, eM, eN, eL)))),
                       ih => +eN =>
-                        Wp.need(g, Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con(), s1, KB, H0, U32.is_eq(x22, 2), {==},
-                         CasesK(U32.is_eq(x22, 2), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.out.con(), s1), KB, H0), H0(2, s1),
+                        Wp.need(g, Mc.M.eq(Mc.M.g(Mc.R.ow()), Mc.M.c(Mc.N.con())), Mc.M.out.con(), s1, KB, H0, OB(b, N0), U32.is_eq(x22, 2), {==},
+                         CasesK(U32.is_eq(x22, 2), IH, ih, Wp(Cr.Cir.exec(1n+g, Mc.M.out.con(), s1), KB, H0, OB(b, N0)), H0(2, s1),
                           ih => +eC =>
-                            LO.con(n1, g, hF, b, c, x22, ov, oi, t1, t2, pg, out, outn, ks, img, hok, hc, eP, eM, eN, eC, ih),
+                            LO.con(n1, g, hF, b, c, x22, ov, oi, t1, t2, pg, out, outn, ks, img, N0, hok, hn, hc, eP, eM, eN, eC, ih),
                           ih => +eC =>
                             Fin.none(n1, m, c, out, outn, s1, StC.n4(m, c, eP, eM, eN, eC))))))))),
             ih => +eM =>
@@ -3212,47 +3656,49 @@ def LO.run(+n1: Nat, +g: Nat, +hF: PN.Le(Nat.add(n1, 34n), 1n+g), +b: Cr.Cir.Sta
 
 # the loop of M.out from the list cell c, with fuel F
 def LO.body(+n1: Nat, +F: Nat, +hF: PN.Le(Nat.add(1n+n1, 34n), F), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +N0: Nat,
   +hok: {ok(1n+n1, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
-  ih: LO.IH(n1, b, ks, img)) ->
-  Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
+  +hn: PN.Le(Nat.add(U32.to_nat(outn), 1n+n1), N0),
+  ih: LO.IH(n1, b, ks, img, N0)) ->
+  Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)):
   match F:
     case 0n:
-      Empty.absurd(Wp(Cr.Cir.exec(0n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), hF)
+      Empty.absurd(Wp(Cr.Cir.exec(0n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)), hF)
     case 1n+f:
       match f:
         case 0n:
-          Empty.absurd(Wp(Cr.Cir.exec(1n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), PN.le_trans(34n, Nat.add(n1, 34n), 0n, PN.le_add_l(n1, 34n), hF))
+          Empty.absurd(Wp(Cr.Cir.exec(1n, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(1n+n1, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)), PN.le_trans(34n, Nat.add(n1, 34n), 0n, PN.le_add_l(n1, 34n), hF))
         case 1n+g:
-          LO.run(n1, g, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok, ih)
+          LO.run(n1, g, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, N0, hok, hn, ih)
 
 # the loop of M.out from the list cell c: the run halts as CU says, or runs
 # out of memory
 def LO(+n: Nat, +F: Nat, +hF: PN.Le(Nat.add(n, 34n), F), +b: Cr.Cir.State, +c: U32, +ow: U32, +ov: U32, +oi: U32, +t1: U32, +t2: U32,
-  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  +hok: {ok(n, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool}) ->
-  Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)):
+  +pg: U32, +out: List<&2, Word(8n)>, +outn: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +N0: Nat,
+  +hok: {ok(n, St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b)) == True{} : Bool},
+  +hn: PN.Le(Nat.add(U32.to_nat(outn), n), N0)) ->
+  Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)):
   match n:
     case 0n:
-      Empty.absurd(Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st)), ok.zero(St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b), hok))
+      Empty.absurd(Wp(Cr.Cir.exec(F, WO(), ST(b, c, ow, ov, oi, t1, t2, pg, out, outn)), st => Empty, s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), c)), out, outn, s, st), OB(b, N0)), ok.zero(St.cl(b), ks, img, c, St.im(b), St.fs(b), St.nx(b), hok))
     case 1n+n1:
       match n1:
         case 0n:
-          LO.body(0n, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok,
-            rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 =>
+          LO.body(0n, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, N0, hok, hn,
+            rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 => +hnr =>
             Empty.absurd(Wp(Cr.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
-              s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st)), ok.zero(St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b), hokr)))
+              s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st), OB(b, N0)), ok.zero(St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b), hokr)))
         case 1n+n2:
           match n2:
             case 0n:
-              LO.body(1n, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok,
-                rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 =>
+              LO.body(1n, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, N0, hok, hn,
+                rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 => +hnr =>
             Empty.absurd(Wp(Cr.Cir.exec(f2, WO(), ST(b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2)), st => Empty,
-              s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st)), ok.zero(St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b), hokr)))
+              s => st => Fin(CU(0n, St.cl(b), Step(St.cl(b), rc)), out2, outn2, s, st), OB(b, N0)), ok.zero(St.cl(b), ks, img, rc, St.im(b), St.fs(b), St.nx(b), hokr)))
             case 1n+n3:
-              LO.body(1n+1n+n3, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, hok,
-                rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 =>
-                  LO(n3, f2, hF2, b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2, ks, img, hokr))
+              LO.body(1n+1n+n3, F, hF, b, c, ow, ov, oi, t1, t2, pg, out, outn, ks, img, N0, hok, hn,
+                rc => +hokr => +f2 => +hF2 => +pg2 => +ow2 => +ov2 => +oi2 => +t12 => +t22 => +out2 => +outn2 => +hnr =>
+                  LO(n3, f2, hF2, b, rc, ow2, ov2, oi2, t12, t22, pg2, out2, outn2, ks, img, N0, hokr, hnr))
 
 # The run of M.out
 # ----------------
@@ -3266,11 +3712,12 @@ def At(+k: Nat, +xs: List<&2, U32>) -> U32:
 # of memory
 def MOUT(+n: Nat, +f: Nat, +hF: PN.Le(Nat.add(n, 34n), 1n+f), +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +N0: Nat,
   +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
   +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
-  +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
+  +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}, +hn: PN.Le(Nat.add(U32.to_nat(outn), n), N0)) ->
   Wp(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), st => Empty,
-    s => st => Fin(CU(n, m, Step(m, c)), out, outn, s, st)):
+    s => st => Fin(CU(n, m, Step(m, c)), out, outn, s, st), OB(Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}, N0)):
   +b = {Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn} : Cr.Cir.State}
   +esp = Rg.sp_eq(63n, regs, PN.toLe(63n, List.length(&2, U32, regs), hlen))
   +ec = Equal.cong(Maybe<&2, U32>, U32, x => Maybe.default(&2, U32, x, 0), Some{Rg.hd(regs)}, Some{c},
@@ -3278,15 +3725,15 @@ def MOUT(+n: Nat, +f: Nat, +hF: PN.Le(Nat.add(n, 34n), 1n+f), +regs: List<&2, U3
       Equal.cong(List<&2, U32>, Maybe<&2, U32>, xs => List.get(&2, U32, xs, 0n), Rg.sp(regs), regs, esp), hreg))
   -K0 = {st => Empty : Cr.Cir.State -> Type}
   -H0 = {s => st => Fin(CU(n, m, Step(m, Rg.hd(regs))), out, outn, s, st) : U32 -> Cr.Cir.State -> Type}
-  %ec : Wp(Cr.Cir.exec(1n+f, Mc.M.out(), b), st => Empty, s => st => Fin(CU(n, m, Step(m, _)), out, outn, s, st))
-  %esp : Wp(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{_, m, nx, fs, im, pg, lim, inp, out, outn}), K0, H0)
-  Wp.seq(f, Mc.M.set(Mc.R.oc(), Mc.M.g(Mc.R.focus())), Mc.M.do([WO()]), Cr.Cir.State{Rg.sp(regs), m, nx, fs, im, pg, lim, inp, out, outn}, K0, H0,
+  %ec : Wp(Cr.Cir.exec(1n+f, Mc.M.out(), b), st => Empty, s => st => Fin(CU(n, m, Step(m, _)), out, outn, s, st), OB(b, N0))
+  %esp : Wp(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{_, m, nx, fs, im, pg, lim, inp, out, outn}), K0, H0, OB(b, N0))
+  Wp.seq(f, Mc.M.set(Mc.R.oc(), Mc.M.g(Mc.R.focus())), Mc.M.do([WO()]), Cr.Cir.State{Rg.sp(regs), m, nx, fs, im, pg, lim, inp, out, outn}, K0, H0, OB(b, N0),
     Wp.set(f, 45n, Mc.M.g(Mc.R.focus()), Cr.Cir.State{Rg.sp(regs), m, nx, fs, im, pg, lim, inp, out, outn},
-      t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([WO()]), t), K0, H0), H0, Rg.hd(regs), {==},
-      Wp.seq(f, WO(), Cr.Cir.Stmt.nop{}, ST(b, Rg.hd(regs), At(46n, regs), At(47n, regs), At(48n, regs), At(61n, regs), At(62n, regs), pg, out, outn), K0, H0,
+      t => Wp(Cr.Cir.exec(1n+f, Mc.M.do([WO()]), t), K0, H0, OB(b, N0)), H0, OB(b, N0), Rg.hd(regs), {==},
+      Wp.seq(f, WO(), Cr.Cir.Stmt.nop{}, ST(b, Rg.hd(regs), At(46n, regs), At(47n, regs), At(48n, regs), At(61n, regs), At(62n, regs), pg, out, outn), K0, H0, OB(b, N0),
         LO(n, 1n+f, hF, b, Rg.hd(regs), At(46n, regs), At(47n, regs), At(48n, regs), At(61n, regs), At(62n, regs),
-          pg, out, outn, ks, img,
-          Tr(U32, x => {ok(n, m, ks, img, x, im, fs, nx) == True{} : Bool}, c, Rg.hd(regs), Equal.sym(U32, Rg.hd(regs), c, ec), hok)))))
+          pg, out, outn, ks, img, N0,
+          Tr(U32, x => {ok(n, m, ks, img, x, im, fs, nx) == True{} : Bool}, c, Rg.hd(regs), Equal.sym(U32, Rg.hd(regs), c, ec), hok), hn))))
 
 # U reads what Program.unbytes reads, for every term
 def UE(+t: Bk.Term) -> {Pg.Program.unbytes(t) == U(t) : Maybe<&2, List<&2, Word(8n)>>}:
@@ -4505,14 +4952,14 @@ def Gives.halt(r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0
       {s == 2 : U32}
 
 # the run o halts as Gives.halt says, or runs out of memory
-def Gives(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32) -> Type:
+def Gives(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32, O: Type) -> Type:
   match o:
     case Cr.Cir.Out.next{_}:
       Empty
     case Cr.Cir.Out.halt{s, st}:
       Gives.halt(r, out0, outn0, s, st)
     case Cr.Cir.Out.out_of_memory{}:
-      Unit
+      O
     case Cr.Cir.Out.trap{}:
       Empty
     case Cr.Cir.Out.not_done{}:
@@ -4529,15 +4976,15 @@ def Gives.fin(r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn
     case None{}:
       h
 
-def Gives.of(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn0: U32,
-  h: Wp(o, st => Empty, s => st => Fin(r, out0, outn0, s, st))) -> Gives(o, r, out0, outn0):
+def Gives.of(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, +out0: List<&2, Word(8n)>, +outn0: U32, -O: Type,
+  h: Wp(o, st => Empty, s => st => Fin(r, out0, outn0, s, st), O)) -> Gives(o, r, out0, outn0, O):
   match o:
     case Cr.Cir.Out.next{st}:
       match h:
     case Cr.Cir.Out.halt{+s, +st}:
       Gives.fin(r, out0, outn0, s, st, h)
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      h
     case Cr.Cir.Out.trap{}:
       match h:
     case Cr.Cir.Out.not_done{}:
@@ -4558,14 +5005,15 @@ def out.run(+n: Nat, +f: Nat, +hF: PN.Le(Nat.add(n, 34n), 1n+f), +regs: List<&2,
   +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
   +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  Gives(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
+  Gives(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n))):
   ev = Tr(Maybe<&2, Bk.Term>, r => SpecM(r, t => {Pg.Program.unbytes(t) == CU(n, m, Step(m, c)) : Maybe<&2, List<&2, Word(8n)>>}),
     T.tm.of(n, m, ks, img, c), Some{v}, htm, LB(n, m, ks, img, c, im, fs, nx, hok))
-  Gives.of(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn,
+  Gives.of(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n)),
     Tr(Maybe<&2, List<&2, Word(8n)>>, r => Wp(Cr.Cir.exec(1n+f, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), st => Empty,
-        s => st => Fin(r, out, outn, s, st)),
+        s => st => Fin(r, out, outn, s, st), OB(Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}, Nat.add(U32.to_nat(outn), n))),
       CU(n, m, Step(m, c)), Pg.Program.unbytes(v), Equal.sym(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.unbytes(v), CU(n, m, Step(m, c)), ev),
-      MOUT(n, f, hF, regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, hreg, hlen, hok)))
+      MOUT(n, f, hF, regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, Nat.add(U32.to_nat(outn), n), hreg, hlen, hok,
+        PN.le_refl(Nat.add(U32.to_nat(outn), n)))))
 
 # THE LEMMA, for some fuel F (1 + n + 34)
 def out.gives(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
@@ -4575,12 +5023,12 @@ def out.gives(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U3
   +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
   +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  &F: Nat -> Gives(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
+  &F: Nat -> Gives(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n))):
   (1n+Nat.add(n, 34n), out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
     regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, hok))
 
 # Gives, for bytes, as a halt with 0 or out of memory
-def Gives.some(o: Cr.Cir.Out, +bs: List<&2, Word(8n)>, +out0: List<&2, Word(8n)>, +outn0: U32, g: Gives(o, Some{bs}, out0, outn0)) ->
+def Gives.some(o: Cr.Cir.Out, +bs: List<&2, Word(8n)>, +out0: List<&2, Word(8n)>, +outn0: U32, -O: Type, g: Gives(o, Some{bs}, out0, outn0, O)) ->
   Or(&st: Cr.Cir.State -> ({o == Cr.Cir.Out.halt{0, st} : Cr.Cir.Out} & ({St.out(st) == List.append(&2, Word(8n), List.reverse(&2, Word(8n), bs), out0) : List<&2, Word(8n)>} &
       {St.outn(st) == Incs(bs, outn0) : U32})),
     {o == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
@@ -4598,7 +5046,7 @@ def Gives.some(o: Cr.Cir.Out, +bs: List<&2, Word(8n)>, +out0: List<&2, Word(8n)>
       match g:
 
 # Gives, for no bytes, as a halt with 2 or out of memory
-def Gives.none(o: Cr.Cir.Out, -out0: List<&2, Word(8n)>, -outn0: U32, g: Gives(o, None{}, out0, outn0)) ->
+def Gives.none(o: Cr.Cir.Out, -out0: List<&2, Word(8n)>, -outn0: U32, -O: Type, g: Gives(o, None{}, out0, outn0, O)) ->
   Or(&st: Cr.Cir.State -> {o == Cr.Cir.Out.halt{2, st} : Cr.Cir.Out}, {o == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
   match o:
     case Cr.Cir.Out.next{st}:
@@ -4628,8 +5076,8 @@ def out.some(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32
     {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
   +F = {1n+Nat.add(n, 34n) : Nat}
   +x = {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) : Cr.Cir.Out}
-  (F, Gives.some(x, o, out, outn,
-    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn), Pg.Program.unbytes(v), Some{o}, eo,
+  (F, Gives.some(x, o, out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n)),
+    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n))), Pg.Program.unbytes(v), Some{o}, eo,
       out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
         regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, hok))))
 
@@ -4646,8 +5094,8 @@ def out.none(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32
     {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}):
   +F = {1n+Nat.add(n, 34n) : Nat}
   +x = {Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}) : Cr.Cir.Out}
-  (F, Gives.none(x, out, outn,
-    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn), Pg.Program.unbytes(v), None{}, eo,
+  (F, Gives.none(x, out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n)),
+    Tr(Maybe<&2, List<&2, Word(8n)>>, r => Gives(x, r, out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n))), Pg.Program.unbytes(v), None{}, eo,
       out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
         regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, hok))))
 
@@ -5109,7 +5557,7 @@ def out.known(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U3
   +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  &F: Nat -> Gives(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
+  &F: Nat -> Gives(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n))):
   out.gives(n, regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm,
     Tr(List<&2, List<&2, Word(8n)>>, x => {ok(n, m, x, img, c, im, fs, nx) == True{} : Bool}, Mc.Img.known(ks2), ks,
       Equal.sym(List<&2, List<&2, Word(8n)>>, ks, Mc.Img.known(ks2), hk),
@@ -5241,32 +5689,32 @@ def EM(+f: Nat, +g: Nat, s: Cr.Cir.Stmt, +st: Cr.Cir.State) -> OMc(Cr.Cir.exec(f
           {==}
 
 # Gives, or out of fuel
-def GivesF(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32) -> Type:
+def GivesF(o: Cr.Cir.Out, r: Maybe<&2, List<&2, Word(8n)>>, out0: List<&2, Word(8n)>, outn0: U32, O: Type) -> Type:
   match o:
     case Cr.Cir.Out.next{_}:
       Empty
     case Cr.Cir.Out.halt{s, st}:
       Gives.halt(r, out0, outn0, s, st)
     case Cr.Cir.Out.out_of_memory{}:
-      Unit
+      O
     case Cr.Cir.Out.trap{}:
       Empty
     case Cr.Cir.Out.not_done{}:
       Unit
 
-def GivesF.of(a: Cr.Cir.Out, -b: Cr.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32,
-  hab: OMc(a, b), g: Gives(b, r, out0, outn0)) -> GivesF(a, r, out0, outn0):
+def GivesF.of(a: Cr.Cir.Out, -b: Cr.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32, -O: Type,
+  hab: OMc(a, b), g: Gives(b, r, out0, outn0, O)) -> GivesF(a, r, out0, outn0, O):
   match a:
     case Cr.Cir.Out.next{st}:
-      Empty.absurd(GivesF(Cr.Cir.Out.next{st}, r, out0, outn0),
-        Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0), b, Cr.Cir.Out.next{st}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.next{st}, b, hab), g))
+      Empty.absurd(GivesF(Cr.Cir.Out.next{st}, r, out0, outn0, O),
+        Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0, O), b, Cr.Cir.Out.next{st}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.next{st}, b, hab), g))
     case Cr.Cir.Out.halt{s, st}:
-      Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0), b, Cr.Cir.Out.halt{s, st}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.halt{s, st}, b, hab), g)
+      Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0, O), b, Cr.Cir.Out.halt{s, st}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.halt{s, st}, b, hab), g)
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0, O), b, Cr.Cir.Out.out_of_memory{}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.out_of_memory{}, b, hab), g)
     case Cr.Cir.Out.trap{}:
-      Empty.absurd(GivesF(Cr.Cir.Out.trap{}, r, out0, outn0),
-        Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0), b, Cr.Cir.Out.trap{}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.trap{}, b, hab), g))
+      Empty.absurd(GivesF(Cr.Cir.Out.trap{}, r, out0, outn0, O),
+        Tr(Cr.Cir.Out, x => Gives(x, r, out0, outn0, O), b, Cr.Cir.Out.trap{}, Equal.sym(Cr.Cir.Out, Cr.Cir.Out.trap{}, b, hab), g))
     case Cr.Cir.Out.not_done{}:
       Unit{}
 
@@ -5279,12 +5727,12 @@ def out.any(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, 
   +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
   +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
   +hok: {ok(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
-  GivesF(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn):
+  GivesF(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n))):
   +X = Nat.add(n, 34n)
   +st = {Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn} : Cr.Cir.State}
-  GivesF.of(Cr.Cir.exec(F, Mc.M.out(), st), Cr.Cir.exec(Nat.add(F, 1n+X), Mc.M.out(), st), Pg.Program.unbytes(v), out, outn,
+  GivesF.of(Cr.Cir.exec(F, Mc.M.out(), st), Cr.Cir.exec(Nat.add(F, 1n+X), Mc.M.out(), st), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n)),
     EM(F, 1n+X, Mc.M.out(), st),
-    Tr(Nat, k => Gives(Cr.Cir.exec(k, Mc.M.out(), st), Pg.Program.unbytes(v), out, outn), 1n+Nat.add(F, X), Nat.add(F, 1n+X),
+    Tr(Nat, k => Gives(Cr.Cir.exec(k, Mc.M.out(), st), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n))), 1n+Nat.add(F, X), Nat.add(F, 1n+X),
       Equal.sym(Nat, Nat.add(F, 1n+X), 1n+Nat.add(F, X), PN.add_succ_r(F, X)),
       out.run(n, Nat.add(F, X), PN.le_succ(X, Nat.add(F, X), PN.le_add_l(F, X)), regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v,
         hreg, hlen, htm, hok)))
@@ -5351,7 +5799,7 @@ def PostO(o: Cr.Cir.Out, +v: Bk.Term) -> Type:
     case Cr.Cir.Out.not_done{}:
       Unit
 
-def PostO.of(o: Cr.Cir.Out, +v: Bk.Term, g: GivesF(o, Pg.Program.unbytes(v), Nil{}, 0)) -> PostO(o, v):
+def PostO.of(o: Cr.Cir.Out, +v: Bk.Term, -O: Type, g: GivesF(o, Pg.Program.unbytes(v), Nil{}, 0, O)) -> PostO(o, v):
   match o:
     case Cr.Cir.Out.next{st}:
       match g:
@@ -5378,7 +5826,7 @@ def EndsO(o: Cr.Cir.Out) -> Data:
     case Cr.Cir.Out.not_done{}:
       Empty
 
-def EndsO.of(o: Cr.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32, g: Gives(o, r, out0, outn0)) -> EndsO(o):
+def EndsO.of(o: Cr.Cir.Out, -r: Maybe<&2, List<&2, Word(8n)>>, -out0: List<&2, Word(8n)>, -outn0: U32, -O: Type, g: Gives(o, r, out0, outn0, O)) -> EndsO(o):
   match o:
     case Cr.Cir.Out.next{st}:
       Unit{}
@@ -5411,7 +5859,7 @@ def out.post.of(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U
   +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
   +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
   PostO(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v):
-  PostO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v,
+  PostO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v, OBn(lim, nx, Nat.add(U32.to_nat(0), n)),
     out.any(n, F, regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0, c, ks, img, v, hreg, hlen, htm, ok.known(n, m, ks, ks2, img, c, im, fs, nx, hk, hok)))
 
 # out.done of moves.bend: with some fuel, M.out ends
@@ -5425,7 +5873,7 @@ def out.done.of(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: 
   +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
   Sigma<&2, &2, Nat, F => EndsO(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}))>:
   +F = {1n+Nat.add(n, 34n) : Nat}
-  (F, EndsO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn,
+  (F, EndsO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, out, outn}), Pg.Program.unbytes(v), out, outn, OBn(lim, nx, Nat.add(U32.to_nat(outn), n)),
     out.run(n, Nat.add(n, 34n), PN.le_succ(Nat.add(n, 34n), Nat.add(n, 34n), PN.le_refl(Nat.add(n, 34n))),
       regs, m, nx, fs, im, pg, lim, inp, out, outn, c, ks, img, v, hreg, hlen, htm, ok.known(n, m, ks, ks2, img, c, im, fs, nx, hk, hok))))
 
