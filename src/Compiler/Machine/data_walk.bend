@@ -1,16 +1,17 @@
 # compiler: the data check and the walk of the machine (layer B)
 # ===============================================================
 #
-# Toward data.post/data.done and walk.post/walk.done of moves.bend
+# Toward data.post/data.done and walk.post/walk.done of move_kit.bend
 # (M.data and M.walk of impl.bend's Machine). What is here, all checked:
 #
-#   WP(s, F, st, Q): a weakest precondition of Cir.exec that matches the
-#     statement first (Cir.exec matches the fuel first, so it is stuck on a
-#     fuel variable); straight code computes inside it, and a proof gives only
-#     the accesses' checks (Ob, CellOk) and a case at each test. M.alloc (an if
-#     whose else is Stmt.alloc) is left whole, as an Ok of Cir.exec.
-#     Sim: WP gives Ok(Cir.exec(F, s, st), Q); Mono: a weaker end;
-#     WP.post: WP gives PM.Post(False, Cir.exec(F, s, st), Q, no halt).
+#   WP(s, F, st, Q, B, lim): a weakest precondition of Cir.exec that matches
+#     the statement first (Cir.exec matches the fuel first, so it is stuck on
+#     a fuel variable); straight code computes inside it, and a proof gives
+#     only the accesses' checks (Ob, CellOk) and a case at each test. M.alloc
+#     (an if whose else is Stmt.alloc) is left whole, as an Ok of Cir.exec.
+#     Ok(o, Q, B, lim) is PM.PostB for any fuel with no halt: out of memory
+#     only when the limit lim has fewer than B bytes.
+#     Sim: WP gives Ok(Cir.exec(F, s, st), Q, B, lim); Mono: a weaker end.
 #   Frames of T.tm.of: TFag (a set that keeps a cell's tag, quantity and
 #     parts), TF1 (field 1), TFl (a flag outside the tag and quantity bits),
 #     TFo/RdF (a set outside the cells that the term reads, RdIn); a ghost
@@ -21,10 +22,6 @@
 #     every cell the check flagged stands for Data), with its invariant
 #     (Stk, NFOk, Setl, Cl) and the lemmas that a round keeps it (SetStep,
 #     ClM, NFOkM, FlW).
-#   An interface for allocation (CS, AH, CF, PH, Sup) that the runs of M.data
-#     and M.walk would take.
-#
-# Not here yet: the rounds of M.data's loops through WP, and M.walk.
 
 import Base
 import ../../Book/impl.bend as Bk
@@ -53,13 +50,6 @@ def IsSome(x: Maybe<&2, U32>) -> Type:
       Empty
     case Some{_}:
       Unit
-
-def IfV(z: Bool, A: Type, B: Type) -> Type:
-  match z:
-    case False{}:
-      A
-    case True{}:
-      B
 
 def ft(-G: Type, h: {True{} == False{} : Bool}) -> G:
   Empty.absurd(G, N.true_ne_false(h))
@@ -117,18 +107,11 @@ def Ob(e: Cr.Cir.Expr, +st: Cr.Cir.State) -> Type:
     case Cr.Cir.Expr.size{}:
       Unit
 
-def Ok(o: Cr.Cir.Out, Q: Cr.Cir.State -> Type) -> Type:
-  match o:
-    case Cr.Cir.Out.next{st}:
-      Q(st)
-    case Cr.Cir.Out.halt{_, _}:
-      Empty
-    case Cr.Cir.Out.out_of_memory{}:
-      Unit
-    case Cr.Cir.Out.trap{}:
-      Empty
-    case Cr.Cir.Out.not_done{}:
-      Unit
+# what the outcome o may be, as PM.PostB says for any fuel with no halt:
+# next, with a state of which Q holds; out of memory only when the limit lim
+# has fewer than B bytes; out of fuel; never a halt or a trap
+def Ok(o: Cr.Cir.Out, Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32) -> Type:
+  PM.PostB(False{}, o, Q, s => st => Empty, B, lim)
 
 # a register r is set to v
 def Upd(+st: Cr.Cir.State, r: Nat, v: U32) -> Cr.Cir.State:
@@ -159,11 +142,11 @@ def IfQ(z: Bool, ka: (Cr.Cir.State -> Type) -> Type, kb: (Cr.Cir.State -> Type) 
       kb(Q)
 
 # an if; one whose else is an alloc is M.alloc, whose outcome is given whole
-def WP.if(e: Cr.Cir.Stmt, F: Nat, c: Cr.Cir.Expr, t: Cr.Cir.Stmt, +st: Cr.Cir.State, Q: Cr.Cir.State -> Type,
+def WP.if(e: Cr.Cir.Stmt, F: Nat, c: Cr.Cir.Expr, t: Cr.Cir.Stmt, +st: Cr.Cir.State, Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
   ka: (Cr.Cir.State -> Type) -> Type, kb: (Cr.Cir.State -> Type) -> Type) -> Type:
   match e:
     case Cr.Cir.Stmt.alloc{r}:
-      Ok(Cr.Cir.exec(F, Cr.Cir.Stmt.if{c, t, Cr.Cir.Stmt.alloc{r}}, st), Q)
+      Ok(Cr.Cir.exec(F, Cr.Cir.Stmt.if{c, t, Cr.Cir.Stmt.alloc{r}}, st), Q, B, lim)
     case _:
       Ob(c, st) & IfQ(U32.is_zero(Ev(c, st)), ka, kb, Q)
 
@@ -176,8 +159,12 @@ def WhQ(z: Bool, kb: (Cr.Cir.State -> Type) -> Type, Q: Cr.Cir.State -> Type, st
     case True{}:
       Q(st)
 
-# the weakest precondition of s from st, for the end Q
-def WP(+s: Cr.Cir.Stmt, +F: Nat, +st: Cr.Cir.State, Q: Cr.Cir.State -> Type) -> Type:
+# the weakest precondition of s from st, for the end Q, within the budget B of
+# the limit lim. Q is used once on each path (a branch takes it as a
+# continuation's argument q). The kernel compares functions with no η, and
+# Bend writes a predicate argument η-long, but in a self-call: so the
+# self-calls here pass q as x => q(x), the form every other def gets
+def WP(+s: Cr.Cir.Stmt, +F: Nat, +st: Cr.Cir.State, Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32) -> Type:
   match s:
     case Cr.Cir.Stmt.nop{}:
       Q(st)
@@ -190,15 +177,15 @@ def WP(+s: Cr.Cir.Stmt, +F: Nat, +st: Cr.Cir.State, Q: Cr.Cir.State -> Type) -> 
     case Cr.Cir.Stmt.emit{_}:
       Empty
     case Cr.Cir.Stmt.seq{a, b}:
-      WP(a, F, st, t => WP(b, F, t, Q))
+      WP(a, F, st, t => WP(b, F, t, Q, B, lim), B, lim)
     case Cr.Cir.Stmt.if{+c, +t, +e}:
-      WP.if(e, F, c, t, st, Q, q => WP(t, F, st, q), q => WP(e, F, st, q))
+      WP.if(e, F, c, t, st, Q, B, lim, q => WP(t, F, st, x => q(x), B, lim), q => WP(e, F, st, x => q(x), B, lim))
     case Cr.Cir.Stmt.while{+c, +b}:
       match F:
         case 0n:
           Unit
         case 1n+(+g):
-          Ob(c, st) & WhQ(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(s, g, t, q)), Q, st)
+          Ob(c, st) & WhQ(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(s, g, t, x => q(x), B, lim), B, lim), Q, st)
     case Cr.Cir.Stmt.halt{_}:
       Empty
 
@@ -254,166 +241,153 @@ def EvS(+e: Cr.Cir.Expr, +st: Cr.Cir.State, ob: Ob(e, st)) -> {Some{Ev(e, st)} =
       EvS.size(st)
 
 # an outcome, then more
-def Then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type,
-  h: Ok(o, P), g: @st: Cr.Cir.State -> P(st) -> Ok(k(st), Q)) -> Ok(Cr.Cir.exec.then(o, k), Q):
+def Then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
+  h: Ok(o, P, B, lim), g: @st: Cr.Cir.State -> P(st) -> Ok(k(st), Q, B, lim)) -> Ok(Cr.Cir.exec.then(o, k), Q, B, lim):
   match o:
     case Cr.Cir.Out.next{st}:
       g(st, h)
     case Cr.Cir.Out.halt{s, st}:
       match h:
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      h
     case Cr.Cir.Out.trap{}:
       match h:
     case Cr.Cir.Out.not_done{}:
       Unit{}
 
 def Sim.set.if(b: Bool, +regs: List<&2, U32>, +r: Nat, +x: U32, +cells: Cr.Cir.Cells, +next: U32, +first: U32, +image: U32, +pages: U32, +limit: U32,
-  +input: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, -Q: Cr.Cir.State -> Type, tr: Tr(b),
+  +input: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32, tr: Tr(b),
   q: Q(Cr.Cir.State{List.set(&2, U32, regs, r, x), cells, next, first, image, pages, limit, input, out, outn})) ->
-  Ok(Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(b, regs, r, x), Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Q):
+  Ok(Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(b, regs, r, x), Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Q, B, lim):
   match b:
     case True{}:
       q
     case False{}:
       match tr:
 
-def Sim.set(+r: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, w: Ob(e, st) & WP.set(r, Ev(e, st), st, Q)) ->
-  Ok(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st), Q):
+def Sim.set(+r: Nat, +e: Cr.Cir.Expr, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32, w: Ob(e, st) & WP.set(r, Ev(e, st), st, Q)) ->
+  Ok(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st), Q, B, lim):
   match st:
     case Cr.Cir.State{+regs, +cells, +next, +first, +image, +pages, +limit, +input, +out, +outn}:
       (ob, ws) = w
       (tr, q) = ws
       +s0 = {Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn} : Cr.Cir.State}
-      %EvS(e, s0, ob) : Ok(Cr.Cir.exec.set(r, _, s0), Q)
-      Sim.set.if(Nat.is_lt(r, List.length(&2, U32, regs)), regs, r, Ev(e, s0), cells, next, first, image, pages, limit, input, out, outn, Q, tr, q)
+      %EvS(e, s0, ob) : Ok(Cr.Cir.exec.set(r, _, s0), Q, B, lim)
+      Sim.set.if(Nat.is_lt(r, List.length(&2, U32, regs)), regs, r, Ev(e, s0), cells, next, first, image, pages, limit, input, out, outn, Q, B, lim,
+        tr, q)
 
-def Sim.store.go(+k: Nat, +i: U32, +x: U32, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, w: WP.store(k, i, x, st, Q)) ->
-  Ok(Cr.Cir.exec.store(k, Some{i}, Some{x}, st), Q):
+def Sim.store.go(+k: Nat, +i: U32, +x: U32, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32, w: WP.store(k, i, x, st, Q)) ->
+  Ok(Cr.Cir.exec.store(k, Some{i}, Some{x}, st), Q, B, lim):
   match st:
     case Cr.Cir.State{regs, +cells, +next, +first, +image, pages, limit, input, out, outn}:
       (ok, q) = w
-      %ok : Ok(Cr.Cir.exec.store.if(_, k, i, x, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Q)
+      %ok : Ok(Cr.Cir.exec.store.if(_, k, i, x, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Q, B, lim)
       q
 
-def Sim.store(+k: Nat, +c: Cr.Cir.Expr, +v: Cr.Cir.Expr, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type,
+def Sim.store(+k: Nat, +c: Cr.Cir.Expr, +v: Cr.Cir.Expr, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
   w: Ob(c, st) & (Ob(v, st) & WP.store(k, Ev(c, st), Ev(v, st), st, Q))) ->
-  Ok(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st), Q):
+  Ok(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st), Q, B, lim):
   (oc, w2) = w
   (ov, ws) = w2
-  %EvS(c, st, oc) : Ok(Cr.Cir.exec.store(k, _, Cr.Cir.eval(v, st), st), Q)
-  %EvS(v, st, ov) : Ok(Cr.Cir.exec.store(k, Some{Ev(c, st)}, _, st), Q)
-  Sim.store.go(k, Ev(c, st), Ev(v, st), st, Q, ws)
+  %EvS(c, st, oc) : Ok(Cr.Cir.exec.store(k, _, Cr.Cir.eval(v, st), st), Q, B, lim)
+  %EvS(v, st, ov) : Ok(Cr.Cir.exec.store(k, Some{Ev(c, st)}, _, st), Q, B, lim)
+  Sim.store.go(k, Ev(c, st), Ev(v, st), st, Q, B, lim, ws)
 
-def Sim.if.of(z: Bool, -ka: (Cr.Cir.State -> Type) -> Type, -kb: (Cr.Cir.State -> Type) -> Type, -Q: Cr.Cir.State -> Type,
-  -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, h: IfQ(z, ka, kb, Q), hy: ka(Q) -> Ok(yes(Unit{}), Q), hn: kb(Q) -> Ok(no(Unit{}), Q)) ->
-  Ok(Cr.Cir.exec.if.of(z, yes, no), Q):
+def Sim.if.of(z: Bool, -ka: (Cr.Cir.State -> Type) -> Type, -kb: (Cr.Cir.State -> Type) -> Type, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
+  -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, h: IfQ(z, ka, kb, Q), hy: ka(Q) -> Ok(yes(Unit{}), Q, B, lim),
+  hn: kb(Q) -> Ok(no(Unit{}), Q, B, lim)) ->
+  Ok(Cr.Cir.exec.if.of(z, yes, no), Q, B, lim):
   match z:
     case False{}:
       hy(h)
     case True{}:
       hn(h)
 
-def Sim.if(+F: Nat, +c: Cr.Cir.Expr, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type,
-  w: Ob(c, st) & IfQ(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(e, F, st, q), Q),
-  ht: WP(t, F, st, Q) -> Ok(Cr.Cir.exec(F, t, st), Q), he: WP(e, F, st, Q) -> Ok(Cr.Cir.exec(F, e, st), Q)) ->
-  Ok(Cr.Cir.exec.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st)), Q):
+def Sim.if(+F: Nat, +c: Cr.Cir.Expr, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
+  w: Ob(c, st) & IfQ(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(e, F, st, x => q(x), B, lim), Q),
+  ht: WP(t, F, st, Q, B, lim) -> Ok(Cr.Cir.exec(F, t, st), Q, B, lim), he: WP(e, F, st, Q, B, lim) -> Ok(Cr.Cir.exec(F, e, st), Q, B, lim)) ->
+  Ok(Cr.Cir.exec.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st)), Q, B, lim):
   (oc, wz) = w
-  %EvS(c, st, oc) : Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st)), Q)
-  Sim.if.of(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(e, F, st, q), Q, u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st), wz, ht, he)
+  %EvS(c, st, oc) : Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st)), Q, B, lim)
+  Sim.if.of(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(e, F, st, x => q(x), B, lim), Q, B, lim,
+    u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st), wz, ht, he)
 
-def Sim.wh.of(z: Bool, -kb: (Cr.Cir.State -> Type) -> Type, -Q: Cr.Cir.State -> Type, +st: Cr.Cir.State,
-  -yes: Unit -> Cr.Cir.Out, h: WhQ(z, kb, Q, st), hy: kb(Q) -> Ok(yes(Unit{}), Q)) ->
-  Ok(Cr.Cir.exec.if.of(z, yes, u => Cr.Cir.Out.next{st}), Q):
+def Sim.wh.of(z: Bool, -kb: (Cr.Cir.State -> Type) -> Type, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32, +st: Cr.Cir.State,
+  -yes: Unit -> Cr.Cir.Out, h: WhQ(z, kb, Q, st), hy: kb(Q) -> Ok(yes(Unit{}), Q, B, lim)) ->
+  Ok(Cr.Cir.exec.if.of(z, yes, u => Cr.Cir.Out.next{st}), Q, B, lim):
   match z:
     case False{}:
       hy(h)
     case True{}:
       h
 
-def Sim.wh(+g: Nat, +c: Cr.Cir.Expr, -b: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type,
-  w: Ob(c, st) & WhQ(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, q)), Q, st),
-  hb: WP(b, g, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, Q)) ->
-    Ok(Cr.Cir.exec.then(Cr.Cir.exec(g, b, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, b}, t)), Q)) ->
+def Sim.wh(+g: Nat, +c: Cr.Cir.Expr, -b: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
+  w: Ob(c, st) & WhQ(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, x => q(x), B, lim), B, lim), Q, st),
+  hb: WP(b, g, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, Q, B, lim), B, lim) ->
+    Ok(Cr.Cir.exec.then(Cr.Cir.exec(g, b, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, b}, t)), Q, B, lim)) ->
   Ok(Cr.Cir.exec.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec.then(Cr.Cir.exec(g, b, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, b}, t)),
-    u => Cr.Cir.Out.next{st}), Q):
+    u => Cr.Cir.Out.next{st}), Q, B, lim):
   (oc, wz) = w
   %EvS(c, st, oc) : Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(g, b, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, b}, t)),
-    u => Cr.Cir.Out.next{st}), Q)
-  Sim.wh.of(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, q)), Q, st,
+    u => Cr.Cir.Out.next{st}), Q, B, lim)
+  Sim.wh.of(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, x => q(x), B, lim), B, lim), Q, B, lim, st,
     u => Cr.Cir.exec.then(Cr.Cir.exec(g, b, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, b}, t)), wz, hb)
 
 # an if, by its else: M.alloc's outcome is given whole
-def Sim.if2(+F: Nat, +e: Cr.Cir.Stmt, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type,
-  w: WP.if(e, F, c, t, st, Q, q => WP(t, F, st, q), q => WP(e, F, st, q)),
-  ht: WP(t, F, st, Q) -> Ok(Cr.Cir.exec(F, t, st), Q), he: WP(e, F, st, Q) -> Ok(Cr.Cir.exec(F, e, st), Q)) ->
-  Ok(Cr.Cir.exec.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st)), Q):
-  match F:
-    case 0n:
-      match e:
-        case Cr.Cir.Stmt.alloc{r}:
+def Sim.if2(+e: Cr.Cir.Stmt, +F: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
+  w: WP.if(e, F, c, t, st, Q, B, lim, q => WP(t, F, st, x => q(x), B, lim), q => WP(e, F, st, x => q(x), B, lim)),
+  ht: WP(t, F, st, Q, B, lim) -> Ok(Cr.Cir.exec(F, t, st), Q, B, lim), he: WP(e, F, st, Q, B, lim) -> Ok(Cr.Cir.exec(F, e, st), Q, B, lim)) ->
+  Ok(Cr.Cir.exec.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(F, t, st), u => Cr.Cir.exec(F, e, st)), Q, B, lim):
+  match e:
+    case Cr.Cir.Stmt.alloc{r}:
+      match F:
+        case 0n:
           w
-        case Cr.Cir.Stmt.nop{}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.nop{}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.set{r2, e2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.set{r2, e2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.store{k2, c2, v2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.store{k2, c2, v2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.emit{v2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.emit{v2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.seq{a2, b2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.seq{a2, b2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.if{c2, t2, e2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.if{c2, t2, e2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.while{c2, b2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.while{c2, b2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.halt{s2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.halt{s2}, st, Q, w, ht, he)
-    case 1n+g:
-      match e:
-        case Cr.Cir.Stmt.alloc{r}:
+        case 1n+g:
           w
-        case Cr.Cir.Stmt.nop{}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.nop{}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.set{r2, e2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.set{r2, e2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.store{k2, c2, v2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.store{k2, c2, v2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.emit{v2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.emit{v2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.seq{a2, b2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.seq{a2, b2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.if{c2, t2, e2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.if{c2, t2, e2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.while{c2, b2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.while{c2, b2}, st, Q, w, ht, he)
-        case Cr.Cir.Stmt.halt{s2}:
-          Sim.if(F, c, t, Cr.Cir.Stmt.halt{s2}, st, Q, w, ht, he)
+    case Cr.Cir.Stmt.nop{}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.nop{}, st, Q, B, lim, w, ht, he)
+    case Cr.Cir.Stmt.set{r2, e2}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.set{r2, e2}, st, Q, B, lim, w, ht, he)
+    case Cr.Cir.Stmt.store{k2, c2, v2}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.store{k2, c2, v2}, st, Q, B, lim, w, ht, he)
+    case Cr.Cir.Stmt.emit{v2}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.emit{v2}, st, Q, B, lim, w, ht, he)
+    case Cr.Cir.Stmt.seq{a2, b2}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.seq{a2, b2}, st, Q, B, lim, w, ht, he)
+    case Cr.Cir.Stmt.if{c2, t2, e2}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.if{c2, t2, e2}, st, Q, B, lim, w, ht, he)
+    case Cr.Cir.Stmt.while{c2, b2}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.while{c2, b2}, st, Q, B, lim, w, ht, he)
+    case Cr.Cir.Stmt.halt{s2}:
+      Sim.if(F, c, t, Cr.Cir.Stmt.halt{s2}, st, Q, B, lim, w, ht, he)
 
-def Sim.seq(+F: Nat, +a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type,
-  ha: Ok(Cr.Cir.exec(F, a, st), t => WP(b, F, t, Q)), hb: @t: Cr.Cir.State -> WP(b, F, t, Q) -> Ok(Cr.Cir.exec(F, b, t), Q)) ->
-  Ok(Cr.Cir.exec.then(Cr.Cir.exec(F, a, st), t => Cr.Cir.exec(F, b, t)), Q):
-  Then(Cr.Cir.exec(F, a, st), t => Cr.Cir.exec(F, b, t), t => WP(b, F, t, Q), Q, ha, hb)
+def Sim.seq(+F: Nat, +a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
+  ha: Ok(Cr.Cir.exec(F, a, st), t => WP(b, F, t, Q, B, lim), B, lim),
+  hb: @t: Cr.Cir.State -> WP(b, F, t, Q, B, lim) -> Ok(Cr.Cir.exec(F, b, t), Q, B, lim)) ->
+  Ok(Cr.Cir.exec.then(Cr.Cir.exec(F, a, st), t => Cr.Cir.exec(F, b, t)), Q, B, lim):
+  Then(Cr.Cir.exec(F, a, st), t => Cr.Cir.exec(F, b, t), t => WP(b, F, t, Q, B, lim), Q, B, lim, ha, hb)
 
 # WP gives Cir.exec's outcome
-def Sim(+F: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, w: WP(s, F, st, Q)) -> Ok(Cr.Cir.exec(F, s, st), Q):
+def Sim(+F: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32, w: WP(s, F, st, Q, B, lim)) ->
+  Ok(Cr.Cir.exec(F, s, st), Q, B, lim):
   match F:
     case 0n:
       match s:
         case Cr.Cir.Stmt.nop{}:
           w
         case Cr.Cir.Stmt.set{+r, +e}:
-          Sim.set(r, e, st, Q, w)
+          Sim.set(r, e, st, Q, B, lim, w)
         case Cr.Cir.Stmt.store{+k, +c, +v}:
-          Sim.store(k, c, v, st, Q, w)
+          Sim.store(k, c, v, st, Q, B, lim, w)
         case Cr.Cir.Stmt.alloc{_}:
           match w:
         case Cr.Cir.Stmt.emit{_}:
           match w:
         case Cr.Cir.Stmt.seq{+a, +b}:
-          Sim.seq(F, a, b, st, Q, Sim(F, a, st, t => WP(b, F, t, Q), w), t => wt => Sim(F, b, t, Q, wt))
+          Sim.seq(F, a, b, st, Q, B, lim, Sim(F, a, st, t => WP(b, F, t, Q, B, lim), B, lim, w), t => wt => Sim(F, b, t, Q, B, lim, wt))
         case Cr.Cir.Stmt.if{+c, +t, +e}:
-          Sim.if2(F, e, c, t, st, Q, w, wt => Sim(F, t, st, Q, wt), we => Sim(F, e, st, Q, we))
+          Sim.if2(e, F, c, t, st, Q, B, lim, w, wt => Sim(F, t, st, Q, B, lim, wt), we => Sim(F, e, st, Q, B, lim, we))
         case Cr.Cir.Stmt.while{_, _}:
           Unit{}
         case Cr.Cir.Stmt.halt{_}:
@@ -423,34 +397,35 @@ def Sim(+F: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, w
         case Cr.Cir.Stmt.nop{}:
           w
         case Cr.Cir.Stmt.set{+r, +e}:
-          Sim.set(r, e, st, Q, w)
+          Sim.set(r, e, st, Q, B, lim, w)
         case Cr.Cir.Stmt.store{+k, +c, +v}:
-          Sim.store(k, c, v, st, Q, w)
+          Sim.store(k, c, v, st, Q, B, lim, w)
         case Cr.Cir.Stmt.alloc{_}:
           match w:
         case Cr.Cir.Stmt.emit{_}:
           match w:
         case Cr.Cir.Stmt.seq{+a, +b}:
-          Sim.seq(F, a, b, st, Q, Sim(F, a, st, t => WP(b, F, t, Q), w), t => wt => Sim(F, b, t, Q, wt))
+          Sim.seq(F, a, b, st, Q, B, lim, Sim(F, a, st, t => WP(b, F, t, Q, B, lim), B, lim, w), t => wt => Sim(F, b, t, Q, B, lim, wt))
         case Cr.Cir.Stmt.if{+c, +t, +e}:
-          Sim.if2(F, e, c, t, st, Q, w, wt => Sim(F, t, st, Q, wt), we => Sim(F, e, st, Q, we))
+          Sim.if2(e, F, c, t, st, Q, B, lim, w, wt => Sim(F, t, st, Q, B, lim, wt), we => Sim(F, e, st, Q, B, lim, we))
         case Cr.Cir.Stmt.while{+c, +b}:
-          Sim.wh(g, c, b, st, Q, w, wb => Sim.seq(g, b, Cr.Cir.Stmt.while{c, b}, st, Q, Sim(g, b, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, Q), wb),
-            t => wt => Sim(g, Cr.Cir.Stmt.while{c, b}, t, Q, wt)))
+          Sim.wh(g, c, b, st, Q, B, lim, w, wb => Sim.seq(g, b, Cr.Cir.Stmt.while{c, b}, st, Q, B, lim,
+            Sim(g, b, st, t => WP(Cr.Cir.Stmt.while{c, b}, g, t, Q, B, lim), B, lim, wb), t => wt => Sim(g, Cr.Cir.Stmt.while{c, b}, t, Q, B, lim, wt)))
         case Cr.Cir.Stmt.halt{_}:
           match w:
 
 # A weaker end
 # ------------
 
-def OkMono(o: Cr.Cir.Out, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type, h: Ok(o, P), imp: @t: Cr.Cir.State -> P(t) -> Q(t)) -> Ok(o, Q):
+def OkMono(o: Cr.Cir.Out, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32, h: Ok(o, P, B, lim),
+  imp: @t: Cr.Cir.State -> P(t) -> Q(t)) -> Ok(o, Q, B, lim):
   match o:
     case Cr.Cir.Out.next{st}:
       imp(st, h)
     case Cr.Cir.Out.halt{s, st}:
       match h:
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      h
     case Cr.Cir.Out.trap{}:
       match h:
     case Cr.Cir.Out.not_done{}:
@@ -473,37 +448,47 @@ def Mono.ifq(z: Bool, -ka: (Cr.Cir.State -> Type) -> Type, -kb: (Cr.Cir.State ->
       rb(imp, w)
 
 def Mono.if(+e: Cr.Cir.Stmt, +F: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +st: Cr.Cir.State, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type,
-  w: WP.if(e, F, c, t, st, P, q => WP(t, F, st, q), q => WP(e, F, st, q)), imp: @t: Cr.Cir.State -> P(t) -> Q(t),
-  ra: (@t: Cr.Cir.State -> P(t) -> Q(t)) -> WP(t, F, st, P) -> WP(t, F, st, Q),
-  rb: (@t: Cr.Cir.State -> P(t) -> Q(t)) -> WP(e, F, st, P) -> WP(e, F, st, Q)) ->
-  WP.if(e, F, c, t, st, Q, q => WP(t, F, st, q), q => WP(e, F, st, q)):
+  +B: Nat, +lim: U32,
+  w: WP.if(e, F, c, t, st, P, B, lim, q => WP(t, F, st, x => q(x), B, lim), q => WP(e, F, st, x => q(x), B, lim)),
+  imp: @u: Cr.Cir.State -> P(u) -> Q(u),
+  ra: (@u: Cr.Cir.State -> P(u) -> Q(u)) -> WP(t, F, st, P, B, lim) -> WP(t, F, st, Q, B, lim),
+  rb: (@u: Cr.Cir.State -> P(u) -> Q(u)) -> WP(e, F, st, P, B, lim) -> WP(e, F, st, Q, B, lim)) ->
+  WP.if(e, F, c, t, st, Q, B, lim, q => WP(t, F, st, x => q(x), B, lim), q => WP(e, F, st, x => q(x), B, lim)):
   match e:
     case Cr.Cir.Stmt.alloc{r}:
-      OkMono(Cr.Cir.exec(F, Cr.Cir.Stmt.if{c, t, Cr.Cir.Stmt.alloc{r}}, st), P, Q, w, imp)
+      OkMono(Cr.Cir.exec(F, Cr.Cir.Stmt.if{c, t, Cr.Cir.Stmt.alloc{r}}, st), P, Q, B, lim, w, imp)
     case Cr.Cir.Stmt.nop{}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.nop{}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.nop{}, F, st, x => q(x), B, lim), P, Q,
+        wz, imp, ra, rb))
     case Cr.Cir.Stmt.set{r2, e2}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.set{r2, e2}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.set{r2, e2}, F, st, x => q(x), B, lim), P, Q,
+        wz, imp, ra, rb))
     case Cr.Cir.Stmt.store{k2, c2, v2}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.store{k2, c2, v2}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.store{k2, c2, v2}, F, st, x => q(x), B, lim),
+        P, Q, wz, imp, ra, rb))
     case Cr.Cir.Stmt.emit{v2}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.emit{v2}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.emit{v2}, F, st, x => q(x), B, lim), P, Q,
+        wz, imp, ra, rb))
     case Cr.Cir.Stmt.seq{a2, b2}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.seq{a2, b2}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.seq{a2, b2}, F, st, x => q(x), B, lim), P, Q,
+        wz, imp, ra, rb))
     case Cr.Cir.Stmt.if{c2, t2, e2}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.if{c2, t2, e2}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.if{c2, t2, e2}, F, st, x => q(x), B, lim),
+        P, Q, wz, imp, ra, rb))
     case Cr.Cir.Stmt.while{c2, b2}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.while{c2, b2}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.while{c2, b2}, F, st, x => q(x), B, lim),
+        P, Q, wz, imp, ra, rb))
     case Cr.Cir.Stmt.halt{s2}:
       (oc, wz) = w
-      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, q), q => WP(Cr.Cir.Stmt.halt{s2}, F, st, q), P, Q, wz, imp, ra, rb))
+      (oc, Mono.ifq(U32.is_zero(Ev(c, st)), q => WP(t, F, st, x => q(x), B, lim), q => WP(Cr.Cir.Stmt.halt{s2}, F, st, x => q(x), B, lim), P, Q,
+        wz, imp, ra, rb))
 
 def Mono.wh(z: Bool, -kb: (Cr.Cir.State -> Type) -> Type, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type, +st: Cr.Cir.State,
   w: WhQ(z, kb, P, st), imp: @t: Cr.Cir.State -> P(t) -> Q(t), rb: (@t: Cr.Cir.State -> P(t) -> Q(t)) -> kb(P) -> kb(Q)) -> WhQ(z, kb, Q, st):
@@ -514,8 +499,8 @@ def Mono.wh(z: Bool, -kb: (Cr.Cir.State -> Type) -> Type, -P: Cr.Cir.State -> Ty
       imp(st, w)
 
 # WP for an end P gives WP for any weaker end Q
-def Mono(+s: Cr.Cir.Stmt, +F: Nat, +st: Cr.Cir.State, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type, w: WP(s, F, st, P),
-  imp: @t: Cr.Cir.State -> P(t) -> Q(t)) -> WP(s, F, st, Q):
+def Mono(+s: Cr.Cir.Stmt, +F: Nat, +st: Cr.Cir.State, -P: Cr.Cir.State -> Type, -Q: Cr.Cir.State -> Type, +B: Nat, +lim: U32,
+  w: WP(s, F, st, P, B, lim), imp: @u: Cr.Cir.State -> P(u) -> Q(u)) -> WP(s, F, st, Q, B, lim):
   match s:
     case Cr.Cir.Stmt.nop{}:
       imp(st, w)
@@ -532,17 +517,18 @@ def Mono(+s: Cr.Cir.Stmt, +F: Nat, +st: Cr.Cir.State, -P: Cr.Cir.State -> Type, 
     case Cr.Cir.Stmt.emit{_}:
       match w:
     case Cr.Cir.Stmt.seq{+a, +b}:
-      Mono(a, F, st, t => WP(b, F, t, P), t => WP(b, F, t, Q), w, t => wt => Mono(b, F, t, P, Q, wt, imp))
+      Mono(a, F, st, t => WP(b, F, t, P, B, lim), t => WP(b, F, t, Q, B, lim), B, lim, w, t => wt => Mono(b, F, t, P, Q, B, lim, wt, imp))
     case Cr.Cir.Stmt.if{+c, +t, +e}:
-      Mono.if(e, F, c, t, st, P, Q, w, imp, i => wt => Mono(t, F, st, P, Q, wt, i), i => we => Mono(e, F, st, P, Q, we, i))
+      Mono.if(e, F, c, t, st, P, Q, B, lim, w, imp, i => wt => Mono(t, F, st, P, Q, B, lim, wt, i), i => we => Mono(e, F, st, P, Q, B, lim, we, i))
     case Cr.Cir.Stmt.while{+c, +b}:
       match F:
         case 0n:
           Unit{}
         case 1n+(+g):
           (oc, wz) = w
-          (oc, Mono.wh(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(s, g, t, q)), P, Q, st, wz, imp,
-            i => wb => Mono(b, g, st, t => WP(s, g, t, P), t => WP(s, g, t, Q), wb, t => wt => Mono(s, g, t, P, Q, wt, i))))
+          (oc, Mono.wh(U32.is_zero(Ev(c, st)), q => WP(b, g, st, t => WP(s, g, t, x => q(x), B, lim), B, lim), P, Q, st, wz, imp,
+            i => wb => Mono(b, g, st, t => WP(s, g, t, P, B, lim), t => WP(s, g, t, Q, B, lim), B, lim, wb,
+              t => wt => Mono(s, g, t, P, Q, B, lim, wt, i))))
     case Cr.Cir.Stmt.halt{_}:
       match w:
 
@@ -1689,142 +1675,6 @@ def W.ag(ws: List<&2, Wr>, +m: Cr.Cir.Cells, +L: List<&2, U32>, +K: List<&2, U32
         W.ag(rest, m, L, K, d, Bo.and_r(WOk1(w, L, K), WOk(rest, L, K), ok2), hd),
         Do1.ag(w, Apply(rest, m), L, K, d, Bo.and_l(WOk1(w, L, K), WOk(rest, L, K), ok2), hd))
 
-# The pend list
-# -------------
-#
-# M.alloc takes the first cell of the pend list, whose parts then lose a
-# pointer, or a new cell. That the cell it takes is none of the live ones is
-# what the machine's counts guarantee; the proofs here take it, through CS,
-# an invariant of the pend list p of the cells m that the caller chooses, of
-# the live term cells L and the live link cells K (the machine's own: lists of
-# arguments and locals, the stack of a check):
-#
-#   AH: from CS, M.alloc gives a cell c of neither L nor K, all zeros, after
-#       writes that keep L's terms and K (counts, and the cells it takes),
-#       and set no flag, and CS again with c in K;
-#   CF: writes to cells of K, and flags on cells of L, keep CS;
-#   PH: a cell of K that is no term cell (tag 32 or more), once on the pend
-#       list, keeps CS, with the cell out of K.
-#
-# Each use takes one proof, so a run takes a supply of them, Sup(k), with k
-# at least the rounds of its loops.
-
-# every cell of L is one that Cir may access
-def AllCell(L: List<&2, U32>, +im: U32, +fs: U32, +nx: U32) -> Bool:
-  match L:
-    case Nil{}:
-      True{}
-    case Con{c, rest}:
-      Cr.Cir.is_cell(c, im, fs, nx) && AllCell(rest, im, fs, nx)
-
-# K without c
-def Remove.if(b: Bool, h: U32, r: List<&2, U32>) -> List<&2, U32>:
-  match b:
-    case True{}:
-      r
-    case False{}:
-      Con{h, r}
-
-def Remove(+c: U32, K: List<&2, U32>) -> List<&2, U32>:
-  match K:
-    case Nil{}:
-      Nil{}
-    case Con{+h, t}:
-      Remove.if(U32.is_eq(c, h), h, Remove(c, t))
-
-# the registers after M.alloc(r): r holds c; pend, dx, dr, aq and am what it left
-def AlRegs(+rg: List<&2, U32>, r: Nat, c: U32, p: U32, aq: U32, am: U32, dx: U32, dr: U32) -> List<&2, U32>:
-  List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, rg, 3n, p), 4n, dx), 5n, dr), 6n, aq), 7n, am), r, c)
-
-def Pend(+rg: List<&2, U32>) -> U32:
-  Maybe.default(&2, U32, List.get(&2, U32, rg, 3n), 0)
-
-# what M.alloc leaves: c, the registers, the writes and the new next and pages
-type AW is Data:
-  AW{c: U32, p: U32, aq: U32, am: U32, dx: U32, dr: U32, ws: List<&2, Wr>, nx: U32, pg: U32}
-
-def AlPost.of(w: AW, +rg: List<&2, U32>, +r: Nat, +m: Cr.Cir.Cells, +fs: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>,
-  +L: List<&2, U32>, +K: List<&2, U32>, -CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type, st2: Cr.Cir.State) -> Type:
-  match w:
-    case AW{+c, +p, +aq, +am, +dx, +dr, +ws, +nx2, +pg2}:
-      Sigma<&1, &1, {st2 == Cr.Cir.State{AlRegs(rg, r, c, p, aq, am, dx, dr), Apply(ws, m), nx2, fs, im, pg2, lim, inp, [], 0} : Cr.Cir.State}, _ =>
-      Sigma<&1, &1, {Mem(c, L) == False{} : Bool}, _ =>
-      Sigma<&1, &1, {Mem(c, K) == False{} : Bool}, _ =>
-      Sigma<&1, &1, {U32.is_zero(c) == False{} : Bool}, _ =>
-      Sigma<&1, &1, {WOk(ws, L, K) == True{} : Bool}, _ =>
-      Sigma<&1, &1, {WFl(ws, Nil{}) == True{} : Bool}, _ =>
-      Sigma<&1, &1, {Cr.Cir.Cells.get(Apply(ws, m), c) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}, _ =>
-      Sigma<&1, &1, {AllCell(L, im, fs, nx2) == True{} : Bool}, _ =>
-      Sigma<&1, &1, {AllCell(Con{c, K}, im, fs, nx2) == True{} : Bool}, _ =>
-      CS(Apply(ws, m), p, L, Con{c, K})>>>>>>>>>
-
-def AlPost(+rg: List<&2, U32>, +r: Nat, +m: Cr.Cir.Cells, +fs: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>,
-  +L: List<&2, U32>, +K: List<&2, U32>, -CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type, st2: Cr.Cir.State) -> Type:
-  &w: AW -> AlPost.of(w, rg, r, m, fs, im, lim, inp, L, K, CS, st2)
-
-# AH: an alloc from a state of which CS holds
-def AH(-CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type) -> Type:
-  @F: Nat -> @r: Nat -> @rg: List<&2, U32> -> @m: Cr.Cir.Cells -> @nx: U32 -> @fs: U32 -> @im: U32 -> @pg: U32 -> @lim: U32 ->
-  @inp: List<&2, Word(8n)> -> @L: List<&2, U32> -> @K: List<&2, U32> ->
-  CS(m, Pend(rg), L, K) -> {AllCell(L, im, fs, nx) == True{} : Bool} -> {AllCell(K, im, fs, nx) == True{} : Bool} ->
-  Ok(Cr.Cir.exec(F, Mc.M.alloc(r), Cr.Cir.State{rg, m, nx, fs, im, pg, lim, inp, [], 0}), st2 => AlPost(rg, r, m, fs, im, lim, inp, L, K, CS, st2))
-
-# the writes of the machine's own code: links and whole cells of K, flags on L
-def MyOk1(w: Wr, +L: List<&2, U32>, +K: List<&2, U32>) -> Bool:
-  match w:
-    case Wr.one{+c, _}:
-      Mem(c, K)
-    case Wr.flag{+c, +fl}:
-      (Mem(c, L) || Mem(c, K)) && (U32.is_eq(U32.and(fl, 63), 0) && U32.is_eq(U32.and(U32.shrn(fl, 6n), 3), 0))
-    case Wr.any{+c, _}:
-      Mem(c, K)
-
-def MyOk(ws: List<&2, Wr>, +L: List<&2, U32>, +K: List<&2, U32>) -> Bool:
-  match ws:
-    case Nil{}:
-      True{}
-    case Con{w, rest}:
-      MyOk1(w, L, K) && MyOk(rest, L, K)
-
-# CF: the machine's own writes keep CS
-def CF(-CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type) -> Type:
-  @m: Cr.Cir.Cells -> @p: U32 -> @L: List<&2, U32> -> @K: List<&2, U32> -> @ws: List<&2, Wr> ->
-  CS(m, p, L, K) -> {MyOk(ws, L, K) == True{} : Bool} -> CS(Apply(ws, m), p, L, K)
-
-# PH: a cell of K, no term cell, goes to the pend list
-def PH(-CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type) -> Type:
-  @m: Cr.Cir.Cells -> @p: U32 -> @L: List<&2, U32> -> @K: List<&2, U32> -> @s: U32 ->
-  CS(m, p, L, K) -> {Mem(s, K) == True{} : Bool} -> {Mem(s, L) == False{} : Bool} ->
-  {U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, s)), 63), 32) == False{} : Bool} ->
-  CS(Set1(m, s, p), s, L, Remove(s, K))
-
-# the proofs that a round of a loop may use
-def Unit6(-CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type) -> Type:
-  AH(CS) & (AH(CS) & (PH(CS) & (CF(CS) & (CF(CS) & CF(CS)))))
-
-def Sup(k: Nat, -CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type) -> Type:
-  match k:
-    case 0n:
-      Unit
-    case 1n+j:
-      Unit6(CS) & Sup(j, CS)
-
-def Sup.split.cons(j: Nat, b: Nat, -CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type, u: Unit6(CS), r: Sup(j, CS) & Sup(b, CS)) ->
-  Sup(1n+j, CS) & Sup(b, CS):
-  (x, y) = r
-  ((u, x), y)
-
-# a supply of a + b rounds is two
-def Sup.split(a: Nat, +b: Nat, -CS: Cr.Cir.Cells -> U32 -> List<&2, U32> -> List<&2, U32> -> Type, s: Sup(Nat.add(a, b), CS)) ->
-  Sup(a, CS) & Sup(b, CS):
-  match a:
-    case 0n:
-      (Unit{}, s)
-    case 1n+(+j):
-      (u, r) = s
-      Sup.split.cons(j, b, CS, u, Sup.split(j, b, CS, r))
-
-
 # The registers
 # -------------
 
@@ -2434,28 +2284,6 @@ def Mem.cat_l(+c: U32, A: List<&2, U32>, +B: List<&2, U32>, e: {Mem(c, A) == Tru
     case Con{+h, +t}:
       Mem.cat_l.if(U32.is_eq(c, h), c, t, B, e, x => Mem.cat_l(c, t, B, x))
 
-def AllCell.mem.if(b: Bool, +c: U32, +h2: U32, +t: List<&2, U32>, +im: U32, +fs: U32, +nx: U32, eb: {U32.is_eq(c, h2) == b : Bool},
-  h: {Bool.and(Cr.Cir.is_cell(h2, im, fs, nx), AllCell(t, im, fs, nx)) == True{} : Bool}, e: {Bool.or(b, Mem(c, t)) == True{} : Bool},
-  r: {AllCell(t, im, fs, nx) == True{} : Bool} -> {Mem(c, t) == True{} : Bool} -> {True{} == Cr.Cir.is_cell(c, im, fs, nx) : Bool}) ->
-  {True{} == Cr.Cir.is_cell(c, im, fs, nx) : Bool}:
-  match b:
-    case True{}:
-      +h3 = h
-      %Equal.sym(U32, c, h2, U.eq_t(c, h2, eb)) : {True{} == Cr.Cir.is_cell(_, im, fs, nx) : Bool}
-      Equal.sym(Bool, Cr.Cir.is_cell(h2, im, fs, nx), True{}, Bo.and_l(Cr.Cir.is_cell(h2, im, fs, nx), AllCell(t, im, fs, nx), h3))
-    case False{}:
-      +h3 = h
-      r(Bo.and_r(Cr.Cir.is_cell(h2, im, fs, nx), AllCell(t, im, fs, nx), h3), e)
-
-# a cell of L is one that Cir may access
-def AllCell.mem(L: List<&2, U32>, +c: U32, +im: U32, +fs: U32, +nx: U32, h: {AllCell(L, im, fs, nx) == True{} : Bool},
-  e: {Mem(c, L) == True{} : Bool}) -> {True{} == Cr.Cir.is_cell(c, im, fs, nx) : Bool}:
-  match L:
-    case Nil{}:
-      tf({True{} == Cr.Cir.is_cell(c, im, fs, nx) : Bool}, e)
-    case Con{+h2, +t}:
-      AllCell.mem.if(U32.is_eq(c, h2), c, h2, t, im, fs, nx, {==}, h, e, ht => et => AllCell.mem(t, c, im, fs, nx, ht, et))
-
 def Sub(A: List<&2, U32>, +B: List<&2, U32>) -> Bool:
   match A:
     case Nil{}:
@@ -3012,27 +2840,3 @@ def Mem.sub_f.b(b: Bool, +c: U32, +A: List<&2, U32>, +B: List<&2, U32>, eb: {Mem
 
 def Mem.sub_f(+c: U32, +A: List<&2, U32>, +B: List<&2, U32>, hs: {Sub(A, B) == True{} : Bool}, h: {Mem(c, B) == False{} : Bool}) -> {Mem(c, A) == False{} : Bool}:
   Mem.sub_f.b(Mem(c, A), c, A, B, {==}, hs, h)
-
-
-# Bridge to layer B (moves.bend)
-# -----------------------------------
-
-# Ok is PM.Post for any fuel (dn False), with no halt
-def Ok.post(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, h: Ok(o, Q)) -> PM.Post(False{}, o, Q, s => st => Empty):
-  match o:
-    case Cr.Cir.Out.next{st}:
-      h
-    case Cr.Cir.Out.halt{s, st}:
-      h
-    case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
-    case Cr.Cir.Out.trap{}:
-      h
-    case Cr.Cir.Out.not_done{}:
-      Unit{}
-
-# WP gives PM.Post(False) of Cir.exec, with no halt: the shape of data.post and
-# walk.post
-def WP.post(+F: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, w: WP(s, F, st, Q)) ->
-  PM.Post(False{}, Cr.Cir.exec(F, s, st), Q, s2 => st2 => Empty):
-  Ok.post(Cr.Cir.exec(F, s, st), Q, Sim(F, s, st, Q, w))
