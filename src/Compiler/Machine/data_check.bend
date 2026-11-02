@@ -1588,6 +1588,159 @@ def al.ok(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word
       PM.alloc.post(F, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, ps, xs, zs, hs, hac, hl, hp, hr, hk)),
     k)
 
+# The K.check cells
+# -----------------
+#
+# A K.check cell, made at the cell z that M.alloc gives (all zeros, nothing
+# points to it, the first temporary), holds the cell of a part of v in field
+# 2 and the next entry of the stack in field 1; it holds no pointer that Fs
+# counts. Its six stores (M.make's five and the link) are one store of the
+# whole cell, which store.post takes.
+
+# a cell of the machine's own is a cell
+def own.cell(+i: U32, +im: U32, +fi: U32, +nx: U32, h: {PM.Own(fi, nx, i) == True{} : Bool}) -> {Cr.Cir.is_cell(i, im, fi, nx) == True{} : Bool}:
+  PM.or.r(Bool.and(Bool.not(U32.is_zero(i)), U32.is_le(i, im)), Bool.and(U32.is_le(fi, i), U32.is_lt(i, nx)), h)
+
+# a zero cell holds no pointer (the table's mask of tag 0 is 0)
+def zero.fs(+m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ps: List<&2, U32>, +z: U32, tbl: PM.Tbl(m, im, fi, nx),
+  ez: {Cr.Cir.Cells.get(m, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}) -> {PM.Fs(m, ps, z) == Nil{} : List<&2, U32>}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, z), Cr.Cir.Cell.zero(), ez) :
+    {PM.FsK(U32.is_lt(PM.TgW(Cr.Cir.Cell.get(0n, _)), 19), PM.Fd(2n, m, U32.add(272, PM.TgW(Cr.Cir.Cell.get(0n, _)))), _, ps, z) == Nil{} : List<&2, U32>}
+  %Equal.sym(U32, PM.Fd(2n, m, U32.add(272, PM.A.tag(Bk.Term.Var{0n}))), PM.Mask(Bk.Term.Var{0n}), PM.tbl.mask(m, im, fi, nx, Bk.Term.Var{0n}, tbl)) :
+    {PM.Fs.term(_, 0, 0, 0) == Nil{} : List<&2, U32>}
+  {==}
+
+# the K.check cell with the part y and the link w
+def CK(+w: U32, +y: U32) -> Cr.Cir.Cell:
+  Cr.Cir.Cell{44, w, y, 0, 0}
+
+# M.make's stores and the link, at the zero cell z: one store of CK
+def ck.cells(+m: Cr.Cir.Cells, +z: U32, +y: U32, +w: U32) ->
+  {X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(Cr.Cir.Cells.set(m, z, Cr.Cir.Cell.zero()), 0n, z, 44), 1n, z, 1), 2n, z, y), 3n, z, 0), 4n, z, 0), 1n, z, w) ==
+    Cr.Cir.Cells.set(Cr.Cir.Cells.set(m, z, Cr.Cir.Cell.zero()), z, CK(w, y)) : Cr.Cir.Cells}:
+  +c0 = Cr.Cir.Cell.zero()
+  +c1 = Cr.Cir.Cell.set(0n, c0, 44)
+  +c2 = Cr.Cir.Cell.set(1n, c1, 1)
+  +c3 = Cr.Cir.Cell.set(2n, c2, y)
+  +c4 = Cr.Cir.Cell.set(3n, c3, 0)
+  +c5 = Cr.Cir.Cell.set(4n, c4, 0)
+  +rhs = Cr.Cir.Cells.set(Cr.Cir.Cells.set(m, z, c0), z, CK(w, y))
+  %X.Ce.put_set(m, z, c0, 0n, 44) :
+    {X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(_, 1n, z, 1), 2n, z, y), 3n, z, 0), 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c1, 1n, 1) :
+    {X.X.put(X.X.put(X.X.put(X.X.put(_, 2n, z, y), 3n, z, 0), 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c2, 2n, y) :
+    {X.X.put(X.X.put(X.X.put(_, 3n, z, 0), 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c3, 3n, 0) :
+    {X.X.put(X.X.put(_, 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c4, 4n, 0) :
+    {X.X.put(_, 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c5, 1n, w) :
+    {_ == rhs : Cr.Cir.Cells}
+  X.Ce.set_set(m, z, c0, CK(w, y))
+
+# store.post at a K.check cell: HSK and AccK hold with it
+def ck.post(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
+  +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
+  +z: U32, +y: U32, +w: U32, +xs: List<&2, PM.TmpE>, +zs: List<&2, PM.Rt>,
+  +hs: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
+  hac: PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.TmpE{z, Nil{}}, xs}, sp, fs, ps, zs),
+  +ez: {Cr.Cir.Cells.get(m, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}, ho: {PM.Own(fi, nx, z) == True{} : Bool},
+  hm: {PM.Mem(ps, z) == False{} : Bool},
+  hz0: {PM.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, PM.Rt.cells(os), z) == 0n : Nat}) ->
+  PM.P2(PM.HSK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, CK(w, y)), nx, fi, im, os, bs, fs, sp, pend, ps),
+    PM.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, CK(w, y)), nx, fi, im, os, Con{PM.TmpE{z, Nil{}}, xs}, sp, fs, ps, zs)):
+  +x = CK(w, y)
+  +M = Cr.Cir.Cells.set(m, z, x)
+  +tbl = PM.img.tbl(dk, ds, ks, img, m, im, fi, nx, hsk.img(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, hs))
+  +ez2 = Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, z), Cr.Cir.Cell.zero(), ez)
+  PM.store.post(dk, ds, ks, img, m, nx, fi, im, Nil{}, os, bs, fs, sp, pend, ps, z, x, Con{PM.TmpE{z, Nil{}}, xs}, zs, hs, hac, {==},
+    hsk.held(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, hs), ho, hm,
+    (%ez2 : {U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0) == False{} : Bool}; {==}),
+    (%ez2 : {Bool.or(U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 32), U32.is_le(41, U32.and(Cr.Cir.Cell.get(0n, _), 63))) == True{} : Bool}; {==}),
+    hz0, zero.fs(m, im, fi, nx, ps, z, tbl, ez), {==}, {==},
+    (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M, z), x, X.Ce.get_set(m, z, x)) :
+      {PM.FsK(U32.is_lt(PM.TgW(Cr.Cir.Cell.get(0n, _)), 19), PM.Fd(2n, M, U32.add(272, PM.TgW(Cr.Cir.Cell.get(0n, _)))), _, ps, z) == Nil{} : List<&2, U32>};
+      {==}))
+
+# Release
+# -------
+
+# a PostB of an outcome known to be next{st} is its Q of st
+def postb.at(o: Cr.Cir.Out, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -B: Nat, -lim: U32,
+  eo: {o == Cr.Cir.Out.next{st} : Cr.Cir.Out}, h: PM.PostB(False{}, o, Q, H, B, lim)) -> Q(st):
+  (%eo : PM.PostB(False{}, _, Q, H, B, lim); h)
+
+# M.release(r) of the cell z: a store of field 1, and pend gets z
+def rl.eq(+f: Nat, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +z: U32, +pend: U32, hl: {List.length(&2, U32, regs) == 63n : Nat},
+  +hc: {List.get(&2, U32, regs, r) == Some{z} : Maybe<&2, U32>}, hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  hz: {Cr.Cir.is_cell(z, im, fi, nx) == True{} : Bool}) ->
+  {Cr.Cir.exec(f, Mc.M.release(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) ==
+    Cr.Cir.Out.next{X.X.st(List.set(&2, U32, regs, 3n, z), X.X.put(m, 1n, z, pend), nx, fi, im, pg, lim, inp)} : Cr.Cir.Out}:
+  +S0 = X.X.st(regs, m, nx, fi, im, pg, lim, inp)
+  +S1 = X.X.st(regs, X.X.put(m, 1n, z, pend), nx, fi, im, pg, lim, inp)
+  +S2 = X.X.st(List.set(&2, U32, regs, 3n, z), X.X.put(m, 1n, z, pend), nx, fi, im, pg, lim, inp)
+  +a = Mc.M.release(r)
+  +rhs = {Cr.Cir.Out.next{S2} : Cr.Cir.Out}
+  %X.rw.seq(f, X.sel.a(a), X.sel.b(a), S0, S1, X.run.store(f, 1n, Mc.M.g(r), Mc.M.g(3n), S0, z, pend, hc, hp, hz)) : {_ == rhs : Cr.Cir.Out}
+  %X.rw.seq(f, X.sel.a(X.sel.b(a)), X.sel.b(X.sel.b(a)), S1, S2, X.run.set(f, 3n, Mc.M.g(r), S1, z, hc, hl, {==})) :
+    {_ == rhs : Cr.Cir.Out}
+  X.run.nop(f, S2)
+
+# what release.post says of the state st2 after M.release
+def RlQ(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +os: List<&2, PM.Rt>,
+  +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps: List<&2, U32>, +z: U32, +xs: List<&2, PM.TmpE>,
+  +zs: List<&2, PM.Rt>, +st2: Cr.Cir.State) -> Data:
+  PM.Ex(Cr.Cir.Cells, m2 => PM.P2({st2 == Cr.Cir.State{List.set(&2, U32, regs, 3n, z), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+    PM.P2({PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+    PM.P2(PM.HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, z, Con{z, ps}),
+      PM.AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs)))))
+
+# release.post's cells are the store's
+def rl.cells(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +os: List<&2, PM.Rt>,
+  +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps: List<&2, U32>, +z: U32, +pend: U32, +xs: List<&2, PM.TmpE>,
+  +zs: List<&2, PM.Rt>,
+  q: RlQ(dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, os, bs, fs, sp, ps, z, xs, zs,
+    X.X.st(List.set(&2, U32, regs, 3n, z), X.X.put(m, 1n, z, pend), nx, fi, im, pg, lim, inp))) ->
+  PM.P2({PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), X.X.put(m, 1n, z, pend), fi) == PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+    PM.P2(PM.HSK(dk, ds, ks, img, X.X.put(m, 1n, z, pend), nx, fi, im, os, bs, fs, sp, z, Con{z, ps}),
+      PM.AccK(dk, ds, ks, img, X.X.put(m, 1n, z, pend), nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs))):
+  match q:
+    case Tuple{m2, Tuple{e, h}}:
+      +ec = Equal.cong(Cr.Cir.State, Cr.Cir.Cells, st => PM.St.cells(st),
+        X.X.st(List.set(&2, U32, regs, 3n, z), X.X.put(m, 1n, z, pend), nx, fi, im, pg, lim, inp),
+        Cr.Cir.State{List.set(&2, U32, regs, 3n, z), m2, nx, fi, im, pg, lim, inp, Nil{}, 0}, e)
+      (%Equal.sym(Cr.Cir.Cells, X.X.put(m, 1n, z, pend), m2, ec) :
+        PM.P2({PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), _, fi) == PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+          PM.P2(PM.HSK(dk, ds, ks, img, _, nx, fi, im, os, bs, fs, sp, z, Con{z, ps}),
+            PM.AccK(dk, ds, ks, img, _, nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs))); h)
+
+# M.release(r) of the first temporary z: release.post at the store's cells
+def rl.at(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +os: List<&2, PM.Rt>,
+  +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +z: U32, +xs: List<&2, PM.TmpE>,
+  +zs: List<&2, PM.Rt>,
+  hs: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
+  hac: PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.TmpE{z, Nil{}}, xs}, sp, fs, ps, zs),
+  +hz: {PM.Own(fi, nx, z) == True{} : Bool}, ht: {U32.is_lt(PM.Tg(m, z), 32) == False{} : Bool},
+  hf: {PM.Fl(m, z, 1024) == False{} : Bool}, hm: {PM.Mem(ps, z) == False{} : Bool}, hfs: {PM.Fs(m, ps, z) == Nil{} : List<&2, U32>},
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +hc: {List.get(&2, U32, regs, r) == Some{z} : Maybe<&2, U32>},
+  +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}) ->
+  PM.P2({PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), X.X.put(m, 1n, z, pend), fi) == PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+    PM.P2(PM.HSK(dk, ds, ks, img, X.X.put(m, 1n, z, pend), nx, fi, im, os, bs, fs, sp, z, Con{z, ps}),
+      PM.AccK(dk, ds, ks, img, X.X.put(m, 1n, z, pend), nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs))):
+  +S2 = X.X.st(List.set(&2, U32, regs, 3n, z), X.X.put(m, 1n, z, pend), nx, fi, im, pg, lim, inp)
+  rl.cells(dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, os, bs, fs, sp, ps, z, pend, xs, zs,
+    postb.at(Cr.Cir.exec(0n, Mc.M.release(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), S2,
+      st2 => RlQ(dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, os, bs, fs, sp, ps, z, xs, zs, st2),
+      s => st2 => Empty, 0n, lim,
+      rl.eq(0n, r, regs, m, nx, fi, im, pg, lim, inp, z, pend, hl, hc, hp, own.cell(z, im, fi, nx, hz)),
+      PM.release.post(0n, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, z, xs, zs, hs, hac, hz, ht, hf, hm,
+        hfs, hl, hc, hp)))
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
