@@ -648,11 +648,148 @@ def w.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>,
 # The first cell
 # --------------
 
+def UIsNone(m: Maybe<&2, U32>) -> Type:
+  match m:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+def usome.ne(-x: U32, e: {None{} == Some{x} : Maybe<&2, U32>}) -> Empty:
+  %e : UIsNone(_)
+  Unit{}
+
+# one byte more of the count, by whether the count is full
+def len.con(b: Bool, +rest: List<&2, Word(8n)>, +n: U32, +len: U32,
+  e: {Wa.Wasm.length32.if(b, u => Wa.Wasm.length32.go(rest, U32.inc(n))) == Some{len} : Maybe<&2, U32>},
+  ih: {Wa.Wasm.length32.go(rest, U32.inc(n)) == Some{len} : Maybe<&2, U32>} ->
+    N.Le(U32.to_nat(len), Nat.add(U32.to_nat(U32.inc(n)), List.length(&2, Word(8n), rest)))) ->
+  N.Le(U32.to_nat(len), Nat.add(U32.to_nat(n), 1n+List.length(&2, Word(8n), rest))):
+  match b:
+    case True{}:
+      Empty.absurd(N.Le(U32.to_nat(len), Nat.add(U32.to_nat(n), 1n+List.length(&2, Word(8n), rest))), usome.ne(len, e))
+    case False{}:
+      +l = List.length(&2, Word(8n), rest)
+      %Equal.sym(Nat, Nat.add(U32.to_nat(n), 1n+l), 1n+Nat.add(U32.to_nat(n), l), N.add_succ_r(U32.to_nat(n), l)) : N.Le(U32.to_nat(len), _)
+      N.le_trans(U32.to_nat(len), Nat.add(U32.to_nat(U32.inc(n)), l), 1n+Nat.add(U32.to_nat(n), l), ih(e),
+        N.add_mono(U32.to_nat(U32.inc(n)), 1n+U32.to_nat(n), l, l, N.U32.inc_le(n), N.le_refl(l)))
+
+# the count from n: n and the bytes
+def len.go(xs: List<&2, Word(8n)>, +n: U32, +len: U32, e: {Wa.Wasm.length32.go(xs, n) == Some{len} : Maybe<&2, U32>}) ->
+  N.Le(U32.to_nat(len), Nat.add(U32.to_nat(n), List.length(&2, Word(8n), xs))):
+  match xs:
+    case Nil{}:
+      +enl = {Equal.cong(Maybe<&2, U32>, U32, x => Maybe.default(&2, U32, x, n), Some{n}, Some{len}, e) : {n == len : U32}}
+      %enl : N.Le(U32.to_nat(_), Nat.add(U32.to_nat(n), 0n))
+      N.le_add_r(U32.to_nat(n), 0n)
+    case Con{_, +rest}:
+      len.con(U32.is_eq(n, 4294967295), rest, n, len, e, e2 => len.go(rest, U32.inc(n), len, e2))
+
 # the length that Wasm.length32 gives is the list's
 def len.le(+i: List<&2, Word(8n)>, +len: U32,
   el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>}) ->
   N.Le(U32.to_nat(len), List.length(&2, Word(8n), i)):
-  ?TODO
+  +l = List.length(&2, Word(8n), i)
+  N.le_rw_r(U32.to_nat(len), Nat.add(U32.to_nat(0), l), l, N.zero_add(l), len.go(i, 0, len, el))
+
+# a sum of words is at most the sum of their numbers (it may wrap)
+def wadd.le(+n: Nat, +a: Word(n), +b: Word(n)) ->
+  N.Le(Word.to_nat(n, Word.add(n, a, b)), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b))):
+  +X = Word.to_nat(n, Word.adc(n, a, b, False{}, False{}))
+  +Dc = N.D(n, FC.hw.bn(FC.hw.cout(n, a, b, False{})))
+  N.le_rw_r(X, Nat.add(X, Dc), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b)), FC.hw.adc(n, a, b, False{}), N.le_add_r(X, Dc))
+
+def add.le(+a: U32, +b: U32) -> N.Le(U32.to_nat(U32.add(a, b)), Nat.add(U32.to_nat(a), U32.to_nat(b))):
+  match a b:
+    case U32{+x} U32{+y}:
+      wadd.le(32n, x, y)
+
+# a shift left at most doubles
+def shl.le(+n: Nat, +w: Word(n)) -> N.Le(Word.to_nat(n, Word.shl(n, w)), Nat.double(Word.to_nat(n, w))):
+  +X = Word.to_nat(n, Word.shl(n, w))
+  +Dc = N.D(n, FC.hw.bn(FC.hw.sout(n, w)))
+  N.le_rw_r(X, Nat.add(X, Dc), Nat.double(Word.to_nat(n, w)), FC.hw.shl(n, w), N.le_add_r(X, Dc))
+
+def shlj.le(j: Nat, +n: Nat, +w: Word(n)) -> N.Le(Word.to_nat(n, FC.hw.shlj(j, n, w)), N.D(j, Word.to_nat(n, w))):
+  match j:
+    case 0n:
+      N.le_refl(Word.to_nat(n, w))
+    case 1n+(+q):
+      +s = FC.hw.shlj(q, n, w)
+      N.le_trans(Word.to_nat(n, Word.shl(n, s)), Nat.double(Word.to_nat(n, s)), Nat.double(N.D(q, Word.to_nat(n, w))), shl.le(n, s),
+        N.double_mono(Word.to_nat(n, s), N.D(q, Word.to_nat(n, w)), shlj.le(q, n, w)))
+
+# the first byte of the cell c is at most 20 c
+def at.le(+c: U32) -> N.Le(U32.to_nat(Cr.Cir.at(c)), FC.hw.t20(U32.to_nat(c))):
+  match c:
+    case U32{+w}:
+      +X = Word.to_nat(32n, w)
+      +s4 = FC.hw.shlj(4n, 32n, w)
+      +s2 = FC.hw.shlj(2n, 32n, w)
+      N.le_rw_r(Word.to_nat(32n, Word.add(32n, s4, s2)), Nat.add(N.D(4n, X), N.D(2n, X)), FC.hw.t20(X), FC.hw.t20_shifts(X),
+        N.le_trans(Word.to_nat(32n, Word.add(32n, s4, s2)), Nat.add(Word.to_nat(32n, s4), Word.to_nat(32n, s2)), Nat.add(N.D(4n, X), N.D(2n, X)),
+          wadd.le(32n, s4, s2),
+          N.add_mono(Word.to_nat(32n, s4), N.D(4n, X), Word.to_nat(32n, s2), N.D(2n, X), shlj.le(4n, 32n, w), shlj.le(2n, 32n, w))))
+
+# 20 (a + b) = 20 a + 20 b
+def t20_add(+a: Nat, +b: Nat) -> {FC.hw.t20(Nat.add(a, b)) == Nat.add(FC.hw.t20(a), FC.hw.t20(b)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 20n+x, FC.hw.t20(Nat.add(p, b)), Nat.add(FC.hw.t20(p), FC.hw.t20(b)), t20_add(p, b))
+
+# 1 + (e - 1) = e, for 1 <= e
+def sub1.le(+e: Nat, h: N.Le(1n, e)) -> N.Le(1n+Nat.sub(e, 1n), e):
+  match e:
+    case 0n:
+      Empty.absurd(N.Le(1n+Nat.sub(0n, 1n), 0n), h)
+    case 1n+(+q):
+      %Equal.sym(Nat, Nat.sub(q, 0n), q, FC.hf.sub0(q)) : N.Le(_, q)
+      N.le_refl(q)
+
+# Cir.first's k + 1
+def first.le.t(+k: U32, +first: U32, +L: Nat, ef: {first == U32.inc(k) : U32}) ->
+  N.Le(U32.to_nat(first), 1n+Nat.add(U32.to_nat(k), L)):
+  %Equal.sym(U32, first, U32.inc(k), ef) : N.Le(U32.to_nat(_), 1n+Nat.add(U32.to_nat(k), L))
+  N.le_trans(U32.to_nat(U32.inc(k)), 1n+U32.to_nat(k), 1n+Nat.add(U32.to_nat(k), L), N.U32.inc_le(k), N.le_add_r(U32.to_nat(k), L))
+
+# Cir.first's (E - 1) / 20 + 1, for E above 20 (k + 1), E <= 20 (k + 1) + L
+def first.le.f(+k: U32, +E: U32, +first: U32, +L: Nat,
+  hE: N.Le(U32.to_nat(E), Nat.add(FC.hw.t20(1n+U32.to_nat(k)), L)),
+  eb: {U32.is_ge(Cr.Cir.at(U32.inc(k)), E) == False{} : Bool},
+  ef: {first == U32.inc(U32.div(U32.sub(E, 1), 20)) : U32}) -> N.Le(U32.to_nat(first), 1n+Nat.add(U32.to_nat(k), L)):
+  +K = U32.to_nat(k)
+  +A = Cr.Cir.at(U32.inc(k))
+  +En = U32.to_nat(E)
+  +hlt = FC.hw.rel_nge(U32.cmp(A, E), U32.to_nat(A), En, N.U32.rel(A, E), eb)
+  +hE1 = N.le_trans(U32.to_nat(1), 1n+U32.to_nat(A), En, N.le_zero(U32.to_nat(A)), hlt)
+  +hE2 = N.le_trans(1n, 1n+U32.to_nat(A), En, N.le_zero(U32.to_nat(A)), hlt)
+  +X = U32.sub(E, 1)
+  +eX = FC.hf.sub.nat(E, 1, hE1)
+  +D0 = U32.div(X, 20)
+  +Q = U32.to_nat(D0)
+  +lo = FC.hf.fst(N.Le(FC.hw.t20(Q), U32.to_nat(X)), N.Le(U32.to_nat(X), 19n+FC.hw.t20(Q)), FC.hf.div(X))
+  +h1 = N.le_rw_r(FC.hw.t20(Q), U32.to_nat(X), Nat.sub(En, 1n), eX, lo)
+  +h3 = N.le_trans(1n+FC.hw.t20(Q), 1n+Nat.sub(En, 1n), En, h1, sub1.le(En, hE2))
+  +M = Nat.add(1n+K, L)
+  +h5 = N.le_rw_r(Nat.add(FC.hw.t20(1n+K), L), Nat.add(FC.hw.t20(1n+K), FC.hw.t20(L)), FC.hw.t20(M),
+    Equal.sym(Nat, FC.hw.t20(M), Nat.add(FC.hw.t20(1n+K), FC.hw.t20(L)), t20_add(1n+K, L)),
+    N.add_mono(FC.hw.t20(1n+K), FC.hw.t20(1n+K), L, FC.hw.t20(L), N.le_refl(FC.hw.t20(1n+K)), FC.hw.le_t20(L)))
+  +hQ = FC.hw.t20_lt(Q, M, N.le_trans(1n+FC.hw.t20(Q), En, FC.hw.t20(M), h3, N.le_trans(En, Nat.add(FC.hw.t20(1n+K), L), FC.hw.t20(M), hE, h5)))
+  %Equal.sym(U32, first, U32.inc(D0), ef) : N.Le(U32.to_nat(_), 1n+Nat.add(K, L))
+  N.le_trans(U32.to_nat(U32.inc(D0)), 1n+Q, 1n+Nat.add(K, L), N.U32.inc_le(D0), hQ)
+
+def first.of(b: Bool, +k: U32, +E: U32, +first: U32, +L: Nat,
+  hE: N.Le(U32.to_nat(E), Nat.add(FC.hw.t20(1n+U32.to_nat(k)), L)),
+  eb: {U32.is_ge(Cr.Cir.at(U32.inc(k)), E) == b : Bool},
+  ef: {first == Bool.pick(U32, b, U32.inc(k), U32.inc(U32.div(U32.sub(E, 1), 20))) : U32}) ->
+  N.Le(U32.to_nat(first), 1n+Nat.add(U32.to_nat(k), L)):
+  match b:
+    case True{}:
+      first.le.t(k, first, L, ef)
+    case False{}:
+      first.le.f(k, E, first, L, hE, eb, ef)
 
 # the first cell after the image's k cells and the input's bytes, as
 # Cir.result computes it, is at most 1 + k + |i|
@@ -660,7 +797,15 @@ def first.le(+i: List<&2, Word(8n)>, +k: U32, +len: U32, +first: U32,
   el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
   ef: {first == Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)) : U32}) ->
   N.Le(U32.to_nat(first), 1n+Nat.add(U32.to_nat(k), List.length(&2, Word(8n), i))):
-  ?TODO
+  +K = U32.to_nat(k)
+  +L = List.length(&2, Word(8n), i)
+  +E = U32.add(Cr.Cir.input.at(k), len)
+  +ha = N.le_trans(U32.to_nat(Cr.Cir.at(U32.inc(k))), FC.hw.t20(U32.to_nat(U32.inc(k))), FC.hw.t20(1n+K), at.le(U32.inc(k)),
+    FC.hw.t20_mono(U32.to_nat(U32.inc(k)), 1n+K, N.U32.inc_le(k)))
+  +hE = N.le_trans(U32.to_nat(E), Nat.add(U32.to_nat(Cr.Cir.input.at(k)), U32.to_nat(len)), Nat.add(FC.hw.t20(1n+K), L),
+    add.le(Cr.Cir.input.at(k), len),
+    N.add_mono(U32.to_nat(Cr.Cir.at(U32.inc(k))), FC.hw.t20(1n+K), U32.to_nat(len), L, ha, len.le(i, len, el)))
+  first.of(U32.is_ge(Cr.Cir.at(U32.inc(k)), E), k, E, first, L, hE, {==}, ef)
 
 # A round
 # -------
