@@ -4,7 +4,7 @@
 # M.input, from Cir.result's start state, leaves the focus the cell of
 # Program.start(i): In.input.post (any fuel: next with In.Post, out of
 # memory, or out of fuel) and In.input.done (the fuel 10 + |i| ends it), in
-# the shapes of input.post and input.done of moves.bend, with In.Post
+# the shapes of input.post and input.done of move_kit.bend, with In.Post
 # in place of InvIn and the premise 272 <= first.
 #
 # Kit: In.Go(f, s, st, k, R), a run of s then k, in CPS (In.sq, In.set,
@@ -33,6 +33,7 @@ import ../need_big.bend as N
 import ../Cir/module_round_trip.bend as PM
 import ../Cir/instrs_round_trip.bend as PI
 import ../img_small.bend as PG
+import ./definitions.bend as D
 
 # Cells
 # -----
@@ -3297,243 +3298,12 @@ def In.start(+ds: List<&2, Bk.Def>, +F: U32, +M: U32, +fc: Nat, +hsm: N.Le(1n+Li
   In.Fa(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), F, U32.to_nat(F), F, 80n, fc, T.tm.names(ds), T.tm.img(ds)):
   ({==}, (N.le_refl(U32.to_nat(F)), (In.start.im(ds, F, M, hsm), In.start.ci(ds, F, M, fc, hsm))))
 
-# The run's outcome, as layer B states it
-# ---------------------------------------
-#
-# Copied from definitions.bend (it holds open ?TODOs, so it cannot be
-# imported here): Post, Ends, mono, St0 and Start.
-
-# a pair of two Data types, itself Data
-def P2(-A: Data, -B: Data) -> Data:
-  Sigma<&2, &2, A, _ => B>
-
-# a witness x of A, and B(x), as Data
-def Ex(-A: Data, -B: @-x: A -> Data) -> Data:
-  Sigma<&2, &2, A, B>
-
-def Ex.fst(-A: Data, -B: @-x: A -> Data, p: Ex(A, B)) -> A:
-  match p:
-    case Tuple{a, _}:
-      a
-
-def Ex.snd(-A: Data, -B: @-x: A -> Data, p: Ex(A, B)) -> B(Ex.fst(A, B, p)):
-  match p:
-    case Tuple{_, b}:
-      b
-
-# a run that must end may not run out of fuel
-def ND(dn: Bool) -> Type:
-  match dn:
-    case True{}:
-      Empty
-    case False{}:
-      Unit
-
-# what the outcome o of a statement may be: next, with a state of which Q
-# holds; a halt with the status s in the state st, of which H holds; out of
-# memory; never a trap; out of fuel only when dn is False
-def Post(dn: Bool, o: Cr.Cir.Out, Q: Cr.Cir.State -> Type, H: U32 -> Cr.Cir.State -> Type) -> Type:
-  match o:
-    case Cr.Cir.Out.next{st}:
-      Q(st)
-    case Cr.Cir.Out.halt{s, st}:
-      H(s, st)
-    case Cr.Cir.Out.out_of_memory{}:
-      Unit
-    case Cr.Cir.Out.trap{}:
-      Empty
-    case Cr.Cir.Out.not_done{}:
-      ND(dn)
-
-# the run ends: anything but out of fuel
-def Ends(o: Cr.Cir.Out) -> Data:
-  match o:
-    case Cr.Cir.Out.next{_}:
-      Unit
-    case Cr.Cir.Out.halt{_, _}:
-      Unit
-    case Cr.Cir.Out.out_of_memory{}:
-      Unit
-    case Cr.Cir.Out.trap{}:
-      Unit
-    case Cr.Cir.Out.not_done{}:
-      Empty
-
-def ends.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, d: Ends(Cr.Cir.exec.then(o, k))) -> Ends(o):
-  match o:
-    case Cr.Cir.Out.next{st}:
-      Unit{}
-    case Cr.Cir.Out.halt{s, st}:
-      Unit{}
-    case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
-    case Cr.Cir.Out.trap{}:
-      Unit{}
-    case Cr.Cir.Out.not_done{}:
-      d
-
-# the rest of a seq, after the same outcome o
-def mono.then(o: Cr.Cir.Out, -f: Nat, -g: Nat, -b: Cr.Cir.Stmt, d: Ends(Cr.Cir.exec.then(o, t => Cr.Cir.exec(f, b, t))),
-  ih: @t: Cr.Cir.State -> Ends(Cr.Cir.exec(f, b, t)) -> {Cr.Cir.exec(f, b, t) == Cr.Cir.exec(g, b, t) : Cr.Cir.Out}) ->
-  {Cr.Cir.exec.then(o, t => Cr.Cir.exec(f, b, t)) == Cr.Cir.exec.then(o, t => Cr.Cir.exec(g, b, t)) : Cr.Cir.Out}:
-  match o:
-    case Cr.Cir.Out.next{st}:
-      ih(st, d)
-    case Cr.Cir.Out.halt{s, st}:
-      {==}
-    case Cr.Cir.Out.out_of_memory{}:
-      {==}
-    case Cr.Cir.Out.trap{}:
-      {==}
-    case Cr.Cir.Out.not_done{}:
-      {==}
-
-# a seq: its first part by ha, then the rest by ih
-def mono.seq(+f: Nat, -g: Nat, +a: Cr.Cir.Stmt, -b: Cr.Cir.Stmt, +st: Cr.Cir.State,
-  +d: Ends(Cr.Cir.exec.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t))),
-  ha: Ends(Cr.Cir.exec(f, a, st)) -> {Cr.Cir.exec(f, a, st) == Cr.Cir.exec(g, a, st) : Cr.Cir.Out},
-  ih: @t: Cr.Cir.State -> Ends(Cr.Cir.exec(f, b, t)) -> {Cr.Cir.exec(f, b, t) == Cr.Cir.exec(g, b, t) : Cr.Cir.Out}) ->
-  {Cr.Cir.exec.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t)) ==
-    Cr.Cir.exec.then(Cr.Cir.exec(g, a, st), t => Cr.Cir.exec(g, b, t)) : Cr.Cir.Out}:
-  +e = ha(ends.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t), d))
-  %e : {Cr.Cir.exec.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, b, t)) ==
-    Cr.Cir.exec.then(_, t => Cr.Cir.exec(g, b, t)) : Cr.Cir.Out}
-  mono.then(Cr.Cir.exec(f, a, st), f, g, b, d, ih)
-
-def mono.if.of(z: Bool, -f: Nat, -g: Nat, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, -st: Cr.Cir.State,
-  d: Ends(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st))),
-  ht: Ends(Cr.Cir.exec(f, t, st)) -> {Cr.Cir.exec(f, t, st) == Cr.Cir.exec(g, t, st) : Cr.Cir.Out},
-  he: Ends(Cr.Cir.exec(f, e, st)) -> {Cr.Cir.exec(f, e, st) == Cr.Cir.exec(g, e, st) : Cr.Cir.Out}) ->
-  {Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st)) ==
-    Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(g, t, st), u => Cr.Cir.exec(g, e, st)) : Cr.Cir.Out}:
-  match z:
-    case False{}:
-      ht(d)
-    case True{}:
-      he(d)
-
-# an if: the branch that its condition takes
-def mono.if(c: Maybe<&2, U32>, -f: Nat, -g: Nat, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, -st: Cr.Cir.State,
-  d: Ends(Cr.Cir.exec.if(c, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st))),
-  ht: Ends(Cr.Cir.exec(f, t, st)) -> {Cr.Cir.exec(f, t, st) == Cr.Cir.exec(g, t, st) : Cr.Cir.Out},
-  he: Ends(Cr.Cir.exec(f, e, st)) -> {Cr.Cir.exec(f, e, st) == Cr.Cir.exec(g, e, st) : Cr.Cir.Out}) ->
-  {Cr.Cir.exec.if(c, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st)) ==
-    Cr.Cir.exec.if(c, u => Cr.Cir.exec(g, t, st), u => Cr.Cir.exec(g, e, st)) : Cr.Cir.Out}:
-  match c:
-    case Some{x}:
-      mono.if.of(U32.is_zero(x), f, g, t, e, st, d, ht, he)
-    case None{}:
-      {==}
-
-def mono.wh.of(z: Bool, -f: Nat, -g: Nat, -c: Cr.Cir.Expr, -body: Cr.Cir.Stmt, -st: Cr.Cir.State,
-  d: Ends(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st})),
-  h: Ends(Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t))) ->
-    {Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)) ==
-      Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)) : Cr.Cir.Out}) ->
-  {Cr.Cir.exec.if.of(z, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st}) ==
-   Cr.Cir.exec.if.of(z, u => Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st}) : Cr.Cir.Out}:
-  match z:
-    case False{}:
-      h(d)
-    case True{}:
-      {==}
-
-# a round of a while: its body, then the while again
-def mono.wh(v: Maybe<&2, U32>, -f: Nat, -g: Nat, -c: Cr.Cir.Expr, -body: Cr.Cir.Stmt, -st: Cr.Cir.State,
-  d: Ends(Cr.Cir.exec.if(v, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st})),
-  h: Ends(Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t))) ->
-    {Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)) ==
-      Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)) : Cr.Cir.Out}) ->
-  {Cr.Cir.exec.if(v, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st}) ==
-   Cr.Cir.exec.if(v, u => Cr.Cir.exec.then(Cr.Cir.exec(g, body, st), t => Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st}) : Cr.Cir.Out}:
-  match v:
-    case Some{x}:
-      mono.wh.of(U32.is_zero(x), f, g, c, body, st, d, h)
-    case None{}:
-      {==}
-
-# more fuel keeps a run that ends
-def mono(+f: Nat, +g: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, +le: N.Le(f, g), +d: Ends(Cr.Cir.exec(f, s, st))) ->
-  {Cr.Cir.exec(f, s, st) == Cr.Cir.exec(g, s, st) : Cr.Cir.Out}:
-  match f g:
-    case 0n 0n:
-      {==}
-    case 0n 1n+h:
-      match s:
-        case Cr.Cir.Stmt.nop{}:
-          {==}
-        case Cr.Cir.Stmt.set{r, e}:
-          {==}
-        case Cr.Cir.Stmt.store{k, c, v}:
-          {==}
-        case Cr.Cir.Stmt.alloc{r}:
-          {==}
-        case Cr.Cir.Stmt.emit{v}:
-          {==}
-        case Cr.Cir.Stmt.seq{+a, +b}:
-          mono.seq(0n, 1n+h, a, b, st, d, x => mono(0n, 1n+h, a, st, le, x), t => x => mono(0n, 1n+h, b, t, le, x))
-        case Cr.Cir.Stmt.if{c, +t, +e}:
-          mono.if(Cr.Cir.eval(c, st), 0n, 1n+h, t, e, st, d, x => mono(0n, 1n+h, t, st, le, x),
-            x => mono(0n, 1n+h, e, st, le, x))
-        case Cr.Cir.Stmt.while{c, body}:
-          Empty.absurd({Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, body}, st) == Cr.Cir.exec(1n+h, Cr.Cir.Stmt.while{c, body}, st) : Cr.Cir.Out}, d)
-        case Cr.Cir.Stmt.halt{x}:
-          {==}
-    case 1n+p 0n:
-      Empty.absurd({Cr.Cir.exec(1n+p, s, st) == Cr.Cir.exec(0n, s, st) : Cr.Cir.Out}, le)
-    case 1n+p 1n+h:
-      match s:
-        case Cr.Cir.Stmt.nop{}:
-          {==}
-        case Cr.Cir.Stmt.set{r, e}:
-          {==}
-        case Cr.Cir.Stmt.store{k, c, v}:
-          {==}
-        case Cr.Cir.Stmt.alloc{r}:
-          {==}
-        case Cr.Cir.Stmt.emit{v}:
-          {==}
-        case Cr.Cir.Stmt.seq{+a, +b}:
-          mono.seq(1n+p, 1n+h, a, b, st, d, x => mono(1n+p, 1n+h, a, st, le, x), t => x => mono(1n+p, 1n+h, b, t, le, x))
-        case Cr.Cir.Stmt.if{c, +t, +e}:
-          mono.if(Cr.Cir.eval(c, st), 1n+p, 1n+h, t, e, st, d, x => mono(1n+p, 1n+h, t, st, le, x),
-            x => mono(1n+p, 1n+h, e, st, le, x))
-        case Cr.Cir.Stmt.while{+c, +body}:
-          mono.wh(Cr.Cir.eval(c, st), p, h, c, body, st, d,
-            x => mono.seq(p, h, body, Cr.Cir.Stmt.while{c, body}, st, x, y => mono(p, h, body, st, le, y),
-              t => y => mono(p, h, Cr.Cir.Stmt.while{c, body}, t, le, y)))
-        case Cr.Cir.Stmt.halt{x}:
-          {==}
-
-# the state from which Cir.result runs the program
-def St0(+regs: Nat, cells: List<&2, Cr.Cir.Cell>, +first: U32, +k: U32, +p: U32, +lim: U32, i: List<&2, Word(8n)>) ->
-  Cr.Cir.State:
-  Cr.Cir.State{List.replicate(U32, regs, 0), Cr.Cir.load(cells, 1, Cr.Cir.Cells.none{}), first, first, k, p, lim, i, Nil{}, 0}
-
-# what Cir.result computed for the start: the image's k cells, its room for
-# them, the input's len bytes, the limit lim of the pages, the p pages after
-# alloc, and the first cell after the input
-def Start(cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32, +p: U32, +lim: U32,
-  +first: U32) -> Data:
-  P2({k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
-  P2({U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
-  P2({lim == Wa.Wasm.min(m, 65536) : U32},
-  P2({Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
-  P2({Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim) == Some{p} : Maybe<&2, U32>},
-    {first == Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)) : U32})))))
-
 # M.input from Cir.result's start
 # -------------------------------
 
 # a run of which In.Ok holds may be what Post asks
 def Ok.post(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -Q2: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, dn: Bool,
-  h: In.Ok(o, Q), c: @st: Cr.Cir.State -> Q(st) -> Q2(st)) -> Post(dn, o, Q2, H):
+  h: In.Ok(o, Q), c: @st: Cr.Cir.State -> Q(st) -> Q2(st)) -> D.Post(dn, o, Q2, H):
   match o:
     case Cr.Cir.Out.next{st}:
       c(st, h)
@@ -3544,10 +3314,10 @@ def Ok.post(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -Q2: Cr.Cir.State -> Type, 
     case Cr.Cir.Out.trap{}:
       h
     case Cr.Cir.Out.not_done{}:
-      Empty.absurd(ND(dn), h)
+      Empty.absurd(D.ND(dn), h)
 
 # and it ends
-def Ok.ends(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, h: In.Ok(o, Q)) -> Ends(o):
+def Ok.ends(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, h: In.Ok(o, Q)) -> D.Ends(o):
   match o:
     case Cr.Cir.Out.next{st}:
       Unit{}
@@ -3562,18 +3332,18 @@ def Ok.ends(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, h: In.Ok(o, Q)) -> Ends(o):
 
 # a run with less fuel: the same outcome, or out of fuel
 def In.post.of(o: Cr.Cir.Out, -o2: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
-  e: Ends(o) -> {o == o2 : Cr.Cir.Out}, h: Post(False{}, o2, Q, H)) -> Post(False{}, o, Q, H):
+  e: D.Ends(o) -> {o == o2 : Cr.Cir.Out}, h: D.Post(False{}, o2, Q, H)) -> D.Post(False{}, o, Q, H):
   match o:
     case Cr.Cir.Out.next{st}:
-      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.next{st}, o2, e(Unit{})) : Post(False{}, _, Q, H)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.next{st}, o2, e(Unit{})) : D.Post(False{}, _, Q, H)
       h
     case Cr.Cir.Out.halt{s, st}:
-      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.halt{s, st}, o2, e(Unit{})) : Post(False{}, _, Q, H)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.halt{s, st}, o2, e(Unit{})) : D.Post(False{}, _, Q, H)
       h
     case Cr.Cir.Out.out_of_memory{}:
       Unit{}
     case Cr.Cir.Out.trap{}:
-      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.trap{}, o2, e(Unit{})) : Post(False{}, _, Q, H)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.trap{}, o2, e(Unit{})) : D.Post(False{}, _, Q, H)
       h
     case Cr.Cir.Out.not_done{}:
       Unit{}
@@ -3602,7 +3372,7 @@ def In.hsm(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, rd: {Bk.Book.read(p) =
   PM.lt_le(List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)), U32.to_nat(67108864), PG.img.small.nat(p, ds, rd, small))
 
 def In.ek(-cells: List<&2, Cr.Cir.Cell>, -i: List<&2, Word(8n)>, -m: U32, -k: U32, -len: U32, -p: U32, -lim: U32, -first: U32,
-  s: Start(cells, i, m, k, len, p, lim, first)) -> {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32}:
+  s: D.Start(cells, i, m, k, len, p, lim, first)) -> {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32}:
   (ek, r) = s
   ek
 
@@ -3618,48 +3388,48 @@ def In.PostIn(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +first: U32, +k: U3
 def In.inp0(+d: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, Bk.Term>, +M: U32, +cs: List<&2, Cr.Cir.Cell>, +hF: N.Le(272n, U32.to_nat(F)), +hK: N.Le(271n, U32.to_nat(K)), +hc: N.Le(24n+f0, fc),
   +hLM: N.Le(List.length(&2, Word(8n), I), U32.to_nat(M)), +fa: In.Fa(Cr.Cir.load(cs, 1, Cr.Cir.Cells.none{}), F, U32.to_nat(F), F, f0, fc, ks, img)) ->
-  In.Ok(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), I), d), Mc.M.input(), St0(Mc.Mach.regs(), cs, F, K, pg, L, I)),
+  In.Ok(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), I), d), Mc.M.input(), D.St0(Mc.Mach.regs(), cs, F, K, pg, L, I)),
     s => In.Post(Cr.Cir.load(cs, 1, Cr.Cir.Cells.none{}), F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc),
       1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s)):
   In.inp(d, F, K, pg, L, I, f0, fc, ks, img, M, Cr.Cir.load(cs, 1, Cr.Cir.Cells.none{}), hF, hK, hc, hLM, fa)
 # M.input from St0, with the fuel 10 + (|i| + d)
 def In.input.ok(+d: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
-  +s: Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
+  +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
   +hLM: N.Le(List.length(&2, Word(8n), i), U32.to_nat(M2))) ->
-  In.Ok(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), d), Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
+  In.Ok(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), d), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s)):
   In.inp0(d, first, k, pg, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), M2, Mc.Img.cells(ds), hF,
     In.k.ge(ds, k, 67108864, In.ek(Mc.Img.cells(ds), i, m, k, len, pg, lim, first, s), In.hsm(p, ds, rd, small)), Unit{}, hLM,
     In.start(ds, first, 67108864, 104n, In.hsm(p, ds, rd, small)))
 
-# input.post of moves.bend, with In.Post (as In.PostIn spells it) in place of InvIn, and the
+# input.post of move_kit.bend, with In.Post (as In.PostIn spells it) in place of InvIn, and the
 # premises hF (the first cell is past the cache) and hLM (the input has
 # fewer than 2^32 bytes)
 def In.input.post.lm(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
-  +s: Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
+  +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
   +hLM: N.Le(List.length(&2, Word(8n), i), U32.to_nat(M2))) ->
-  Post(False{}, Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)), s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty):
-  In.post.of(Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
-    Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
+  D.Post(False{}, Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)), s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty):
+  In.post.of(Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
+    Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty,
-    dd => mono(f, 10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i),
+    dd => D.mono(f, 10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i),
       N.le_trans(f, Nat.add(List.length(&2, Word(8n), i), f), 10n+Nat.add(List.length(&2, Word(8n), i), f), N.le_add_l(List.length(&2, Word(8n), i), f),
         N.le_add_l(10n, Nat.add(List.length(&2, Word(8n), i), f))), dd),
-    Ok.post(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
+    Ok.post(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
       s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty, False{},
       In.input.ok(f, p, ds, i, m, k, len, pg, lim, first, rd, small, s, M2, hF, hLM), st => q => q))
 
-# input.done of moves.bend, with the same premises: the fuel 10 + |i|
+# input.done of move_kit.bend, with the same premises: the fuel 10 + |i|
 # ends the run
 def In.input.done.lm(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
-  +s: Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
+  +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
   +hLM: N.Le(List.length(&2, Word(8n), i), U32.to_nat(M2))) ->
-  Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)))):
+  D.Ex(Nat, f => D.Ends(Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)))):
   (10n+Nat.add(List.length(&2, Word(8n), i), 0n),
-   Ok.ends(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), 0n), Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
+   Ok.ends(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), 0n), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
      s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), In.input.ok(0n, p, ds, i, m, k, len, pg, lim, first, rd, small, s, M2, hF, hLM)))
 
 # The input's length
@@ -3780,27 +3550,27 @@ def L32(+i: List<&2, Word(8n)>, +len: U32, e: {Wa.Wasm.length32(i) == Some{len} 
   N.le_rw_l(Nat.add(U32.to_nat(0), List.length(&2, Word(8n), i)), List.length(&2, Word(8n), i), U32.to_nat(len), N.zero_add(List.length(&2, Word(8n), i)), L32.go(i, 0, len, e))
 
 def In.el(-cells: List<&2, Cr.Cir.Cell>, -i: List<&2, Word(8n)>, -m: U32, -k: U32, -len: U32, -p: U32, -lim: U32, -first: U32,
-  s: Start(cells, i, m, k, len, p, lim, first)) -> {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>}:
+  s: D.Start(cells, i, m, k, len, p, lim, first)) -> {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>}:
   (ek, r1) = s
   (em, r2) = r1
   (elim, r3) = r2
   (el, r4) = r3
   el
 
-# input.post of moves.bend, with In.Post in place of InvIn (as
+# input.post of move_kit.bend, with In.Post in place of InvIn (as
 # In.PostIn spells it), and the premise hF: the first cell is past the cache
 def In.input.post(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
-  +s: Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +hF: N.Le(272n, U32.to_nat(first))) ->
-  Post(False{}, Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
+  +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +hF: N.Le(272n, U32.to_nat(first))) ->
+  D.Post(False{}, Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s),
     s2 => st2 => Empty):
   In.input.post.lm(f, p, ds, i, m, k, len, pg, lim, first, rd, small, s, len, hF, L32(i, len, In.el(Mc.Img.cells(ds), i, m, k, len, pg, lim, first, s)))
 
-# input.done of moves.bend, with the premise hF: the fuel 10 + |i| ends
+# input.done of move_kit.bend, with the premise hF: the fuel 10 + |i| ends
 # the run
 def In.input.done(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
-  +s: Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +hF: N.Le(272n, U32.to_nat(first))) ->
-  Ex(Nat, f => Ends(Cr.Cir.exec(f, Mc.M.input(), St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)))):
+  +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +hF: N.Le(272n, U32.to_nat(first))) ->
+  D.Ex(Nat, f => D.Ends(Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)))):
   In.input.done.lm(p, ds, i, m, k, len, pg, lim, first, rd, small, s, len, hF, L32(i, len, In.el(Mc.Img.cells(ds), i, m, k, len, pg, lim, first, s)))
