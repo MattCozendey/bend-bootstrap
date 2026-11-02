@@ -1,6 +1,6 @@
 // milestones.ts WORK: checks that the milestones of AGENTS.md 3.11 still hold, and stops at the
-// first check that fails. WORK is a folder for what the checks write. It needs the bend submodule
-// and the Lean toolchain (lake).
+// first check that fails. WORK is a folder for what the checks write. It needs the bend submodule,
+// the Lean toolchain (lake), and the tools that src/Wasm/tests/spec.ts pins.
 //
 //   1. `lake build`: each theorem of the Lean library checks, with no axiom but Lean's own
 //      (src/Bootstrap.lean's guard). Milestones 1 to 3.
@@ -13,8 +13,10 @@
 //   4. src/Wasm/tests/agree.ts: the model's Host section and a real host give the same outcome on
 //      each of its cases (AGENTS.md 3.9.1.3.3), and on engines that refuse some grows, the model
 //      gives the spec's outcome, fixed in agree.ts (3.9.1.2). Milestone 4.
+//   5. src/Wasm/tests/differential.ts: on modules inside the subset that seeds generate, the model
+//      gives what the spec's reference interpreter gives (AGENTS.md 3.9.1.3.2). Milestone 4.
 //
-//   bun src/milestones.ts WORK
+//   opam exec --switch=wasm-spec -- bun src/milestones.ts WORK
 
 // imports
 
@@ -86,3 +88,8 @@ console.log(
 
 run({ cmd: [process.execPath, join(REPO, "src/Wasm/tests/agree.ts"), at("agree")] });
 console.log("4. ok: the model's Host section and a real host agree on each case; engine cases ok");
+
+run({ cmd: [process.execPath, join(REPO, "src/Wasm/tests/differential.ts"), at("differential")] });
+console.log(
+  "5. ok: the model gives what the spec's reference interpreter gives on generated modules",
+);
