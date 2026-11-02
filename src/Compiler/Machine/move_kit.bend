@@ -67,7 +67,7 @@ law copy.post:
   for +t: Bk.Term
   for +ce: U32
   for +es: List<&2, El.Arg>
-  for +xs: List<&2, U32>
+  for +xs: List<&2, D.TmpE>
   for +zs: List<&2, D.Rt>
   for hs: D.HS(ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, t}, bs}, fs, sp, pend, ps)
   for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs)
@@ -143,7 +143,7 @@ law data.post:
   for +ps: List<&2, U32>
   for +c: U32
   for +v: Bk.Term
-  for +xs: List<&2, U32>
+  for +xs: List<&2, D.TmpE>
   for +zs: List<&2, D.Rt>
   for hs: D.HS(ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, v}, bs}, fs, sp, pend, ps)
   for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs)
@@ -206,10 +206,10 @@ law walk.post:
   for +tt: Bk.Term
   for +a: U32
   for +xs: List<&2, El.Arg>
-  for +xs0: List<&2, U32>
+  for +xs0: List<&2, D.TmpE>
   for +zs: List<&2, D.Rt>
   for hs: D.HS(ds, ks, img, m, nx, fi, im, os, Con{D.Rt{tc, tt}, bs}, fs, sp, pend, ps)
-  for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, List.append(&2, U32, D.Ag.cells(xs, m, a), xs0), sp, fs, ps, zs)
+  for hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, List.append(&2, D.TmpE, D.Ag.cells(xs, m, a), xs0), sp, fs, ps, zs)
   for hst: {D.Fl(m, tc, 1024) == True{} : Bool}
   for hl: {List.length(&2, U32, regs) == 63n : Nat}
   for ht: {List.get(&2, U32, regs, 19n) == Some{tc} : Maybe<&2, U32>}
