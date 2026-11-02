@@ -25,6 +25,98 @@ import ../need_big.bend as N
 import ./definitions.bend as D
 import ./statement_runs.bend as X
 
+# Bool and Nat kit
+# ----------------
+
+def or.assoc(a: Bool, -b: Bool, -c: Bool) -> {Bool.or(Bool.or(a, b), c) == Bool.or(a, Bool.or(b, c)) : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def or.swap(a: Bool, b: Bool, -c: Bool) -> {Bool.or(a, Bool.or(b, c)) == Bool.or(b, Bool.or(a, c)) : Bool}:
+  match a b:
+    case True{} True{}:
+      {==}
+    case True{} False{}:
+      {==}
+    case False{} True{}:
+      {==}
+    case False{} False{}:
+      {==}
+
+def of.or(a: Bool, b: Bool) -> N.Le(D.Nat.of(Bool.or(a, b)), Nat.add(D.Nat.of(a), D.Nat.of(b))):
+  match a b:
+    case True{} True{}:
+      Unit{}
+    case True{} False{}:
+      Unit{}
+    case False{} True{}:
+      Unit{}
+    case False{} False{}:
+      Unit{}
+
+def of3(a: Bool, b: Bool, c: Bool, h: {Bool.or(a, Bool.or(b, c)) == True{} : Bool}) ->
+  N.Le(1n, Nat.add(D.Nat.of(a), Nat.add(D.Nat.of(b), D.Nat.of(c)))):
+  match a b c:
+    case True{} True{} True{}:
+      Unit{}
+    case True{} True{} False{}:
+      Unit{}
+    case True{} False{} True{}:
+      Unit{}
+    case True{} False{} False{}:
+      Unit{}
+    case False{} True{} True{}:
+      Unit{}
+    case False{} True{} False{}:
+      Unit{}
+    case False{} False{} True{}:
+      Unit{}
+    case False{} False{} False{}:
+      D.bool.ft(N.Le(1n, 0n), h)
+
+def add.comm(a: Nat, +b: Nat) -> {Nat.add(a, b) == Nat.add(b, a) : Nat}:
+  match a:
+    case 0n:
+      Equal.sym(Nat, Nat.add(b, 0n), b, N.add_zero(b))
+    case 1n+(+q):
+      %Equal.sym(Nat, Nat.add(q, b), Nat.add(b, q), add.comm(q, b)) : {1n+_ == Nat.add(b, 1n+q) : Nat}
+      Equal.sym(Nat, Nat.add(b, 1n+q), 1n+Nat.add(b, q), N.add_succ_r(b, q))
+
+def add4(+a: Nat, +b: Nat, +c: Nat, +d: Nat) -> {Nat.add(Nat.add(a, b), Nat.add(c, d)) == Nat.add(Nat.add(a, c), Nat.add(b, d)) : Nat}:
+  Equal.trans(Nat, Nat.add(Nat.add(a, b), Nat.add(c, d)), Nat.add(a, Nat.add(b, Nat.add(c, d))), Nat.add(Nat.add(a, c), Nat.add(b, d)),
+    N.add_assoc(a, b, Nat.add(c, d)),
+    Equal.trans(Nat, Nat.add(a, Nat.add(b, Nat.add(c, d))), Nat.add(a, Nat.add(c, Nat.add(b, d))), Nat.add(Nat.add(a, c), Nat.add(b, d)),
+      Equal.cong(Nat, Nat, x => Nat.add(a, x), Nat.add(b, Nat.add(c, d)), Nat.add(c, Nat.add(b, d)), N.add_swap(b, c, d)),
+      Equal.sym(Nat, Nat.add(Nat.add(a, c), Nat.add(b, d)), Nat.add(a, Nat.add(c, Nat.add(b, d))), N.add_assoc(a, c, Nat.add(b, d)))))
+
+# the n cells from c do not wrap: 1 + c is the next one's number
+def inc.nat(+c: U32, +k: Nat, +e: U32, hw: N.Le(Nat.add(U32.to_nat(c), 1n+k), U32.to_nat(e))) ->
+  {U32.to_nat(U32.inc(c)) == 1n+U32.to_nat(c) : Nat}:
+  D.u.inc(c, e, N.le_trans(1n+U32.to_nat(c), Nat.add(U32.to_nat(c), 1n+k), U32.to_nat(e), N.lt_add(U32.to_nat(c), k), hw))
+
+# and the cells after the first do not wrap either
+def hw.inc(+c: U32, +k: Nat, +e: U32, hw: N.Le(Nat.add(U32.to_nat(c), 1n+k), U32.to_nat(e))) ->
+  N.Le(Nat.add(U32.to_nat(U32.inc(c)), k), U32.to_nat(e)):
+  +hw2 = hw
+  %Equal.sym(Nat, U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), inc.nat(c, k, e, hw2)) : N.Le(Nat.add(_, k), U32.to_nat(e))
+  N.le_rw_l(Nat.add(U32.to_nat(c), 1n+k), 1n+Nat.add(U32.to_nat(c), k), U32.to_nat(e), N.add_succ_r(U32.to_nat(c), k), hw2)
+
+def ne.lt.b(b: Bool, +y: U32, +c: U32, eb: {U32.is_eq(y, c) == b : Bool}, h: N.Le(1n+U32.to_nat(y), U32.to_nat(c))) ->
+  {U32.is_eq(y, c) == False{} : Bool}:
+  match b:
+    case False{}:
+      eb
+    case True{}:
+      Empty.absurd({U32.is_eq(y, c) == False{} : Bool},
+        N.not_succ_le(U32.to_nat(c), (%D.u32.eq(y, c, eb) : N.Le(1n+U32.to_nat(_), U32.to_nat(c)); h)))
+
+# a cell below c is not c
+def ne.lt(+y: U32, +c: U32, h: N.Le(1n+U32.to_nat(y), U32.to_nat(c))) -> {U32.is_eq(y, c) == False{} : Bool}:
+  ne.lt.b(U32.is_eq(y, c), y, c, {==}, h)
+
 # Many
 # ----
 
@@ -137,53 +229,355 @@ def CP.step(p: CP) -> CP:
     case CP.none{}:
       CP.none{}
 
+# Node, one step unfolded
+def node.step.at(t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +x: U32) -> {D.Node(t, m, r, x) == CP.at(CP.node.step(t, m, r), x) : Bool}:
+  match t:
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Ref{_}:
+      {==}
+    case Bk.Term.Ann{_, _}:
+      {==}
+    case Bk.Term.Let{_, _, _}:
+      {==}
+    case Bk.Term.Typ{_}:
+      {==}
+    case Bk.Term.Min{_, _}:
+      {==}
+    case Bk.Term.All{_, _, _}:
+      {==}
+    case Bk.Term.Lam{_, _}:
+      {==}
+    case Bk.Term.App{_, _, _}:
+      {==}
+    case Bk.Term.Sig{_, _, _}:
+      {==}
+    case Bk.Term.Tup{_, _, _}:
+      {==}
+    case Bk.Term.Prj{_}:
+      {==}
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_}:
+      {==}
+    case Bk.Term.Mat{_, _, _}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{_, _, _}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{_, _, _}:
+      {==}
+
+# Nodes, one step unfolded
+def nodes.step.at(rs: List<&2, D.Rt>, +m: Cr.Cir.Cells, +x: U32) -> {D.Nodes(rs, m, x) == CP.at(CP.nodes.step(rs, m), x) : Bool}:
+  match rs:
+    case Nil{}:
+      {==}
+    case Con{D.Rt{_, _}, _}:
+      {==}
+
+# Mem, one step unfolded
+def mem.step.at(xs: List<&2, U32>, +x: U32) -> {D.Mem(xs, x) == CP.at(CP.mem.step(xs), x) : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{_, _}:
+      {==}
+
 # p and its step hold of the same cells
 def cp.step.at(p: CP, +x: U32) -> {CP.at(p, x) == CP.at(CP.step(p), x) : Bool}:
-  ?TODO
+  match p:
+    case CP.node{t, +m, +r}:
+      node.step.at(t, m, r, x)
+    case CP.nodes{rs, +m}:
+      nodes.step.at(rs, m, x)
+    case CP.mem{xs}:
+      mem.step.at(xs, x)
+    case CP.eq{y}:
+      {==}
+    case CP.or{a, b}:
+      {==}
+    case CP.none{}:
+      {==}
 
 # so they count the same cells
 def many.step(n: Nat, +c: U32, +p: CP) -> {Many(n, c, p) == Many(n, c, CP.step(p)) : Nat}:
-  ?TODO
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+k):
+      %cp.step.at(p, c) : {Nat.add(D.Nat.of(CP.at(p, c)), Many(k, U32.inc(c), p)) == Nat.add(D.Nat.of(_), Many(k, U32.inc(c), CP.step(p))) : Nat}
+      %many.step(k, U32.inc(c), p) : {Nat.add(D.Nat.of(CP.at(p, c)), Many(k, U32.inc(c), p)) == Nat.add(D.Nat.of(CP.at(p, c)), _) : Nat}
+      {==}
 
 # either of a and b holds of at most the cells that a holds of and those that
 # b holds of
 def many.or(n: Nat, +c: U32, +a: CP, +b: CP) -> N.Le(Many(n, c, CP.or{a, b}), Nat.add(Many(n, c, a), Many(n, c, b))):
-  ?TODO
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+(+k):
+      +A = CP.at(a, c)
+      +B = CP.at(b, c)
+      +Ma = Many(k, U32.inc(c), a)
+      +Mb = Many(k, U32.inc(c), b)
+      N.le_rw_r(Nat.add(D.Nat.of(Bool.or(A, B)), Many(k, U32.inc(c), CP.or{a, b})), Nat.add(Nat.add(D.Nat.of(A), D.Nat.of(B)), Nat.add(Ma, Mb)),
+        Nat.add(Nat.add(D.Nat.of(A), Ma), Nat.add(D.Nat.of(B), Mb)), add4(D.Nat.of(A), D.Nat.of(B), Ma, Mb),
+        N.add_mono(D.Nat.of(Bool.or(A, B)), Nat.add(D.Nat.of(A), D.Nat.of(B)), Many(k, U32.inc(c), CP.or{a, b}), Nat.add(Ma, Mb),
+          of.or(A, B), many.or(k, U32.inc(c), a, b)))
+
+# none of the k cells from c, all above y (no wrap), is y
+def many.eq.past(k: Nat, +c: U32, +y: U32, +e: U32, hlt: N.Le(1n+U32.to_nat(y), U32.to_nat(c)),
+  hw: N.Le(Nat.add(U32.to_nat(c), k), U32.to_nat(e))) -> {Many(k, c, CP.eq{y}) == 0n : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+j):
+      +hw2 = hw
+      +hlt2 = hlt
+      +hlt3 = N.le_rw_r(1n+U32.to_nat(y), 1n+U32.to_nat(c), U32.to_nat(U32.inc(c)),
+        Equal.sym(Nat, U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), inc.nat(c, j, e, hw2)), N.le_succ(1n+U32.to_nat(y), U32.to_nat(c), hlt2))
+      %Equal.sym(Bool, U32.is_eq(y, c), False{}, ne.lt(y, c, hlt2)) : {Nat.add(D.Nat.of(_), Many(j, U32.inc(c), CP.eq{y})) == 0n : Nat}
+      many.eq.past(j, U32.inc(c), y, e, hlt3, hw.inc(c, j, e, hw2))
+
+def many.eq.b(b: Bool, +k: Nat, +c: U32, +y: U32, +e: U32, eb: {U32.is_eq(y, c) == b : Bool},
+  hw: N.Le(Nat.add(U32.to_nat(c), 1n+k), U32.to_nat(e)), ih: N.Le(Many(k, U32.inc(c), CP.eq{y}), 1n)) ->
+  N.Le(Nat.add(D.Nat.of(b), Many(k, U32.inc(c), CP.eq{y})), 1n):
+  match b:
+    case True{}:
+      +hw2 = hw
+      +hlt = N.le_rw_r(1n+U32.to_nat(y), 1n+U32.to_nat(c), U32.to_nat(U32.inc(c)),
+        Equal.sym(Nat, U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), inc.nat(c, k, e, hw2)),
+        (%D.u32.eq(y, c, eb) : N.Le(1n+U32.to_nat(y), 1n+U32.to_nat(_)); N.le_refl(1n+U32.to_nat(y))))
+      %Equal.sym(Nat, Many(k, U32.inc(c), CP.eq{y}), 0n, many.eq.past(k, U32.inc(c), y, e, hlt, hw.inc(c, k, e, hw2))) : N.Le(Nat.add(1n, _), 1n)
+      Unit{}
+    case False{}:
+      ih
 
 # the n cells from c, which end at or before the cell e (they do not wrap):
 # at most one of them is y
 def many.eq(n: Nat, +c: U32, +y: U32, +e: U32, hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) ->
   N.Le(Many(n, c, CP.eq{y}), 1n):
-  ?TODO
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+(+k):
+      +hw2 = hw
+      many.eq.b(U32.is_eq(y, c), k, c, y, e, {==}, hw2, many.eq(k, U32.inc(c), y, e, hw.inc(c, k, e, hw2)))
+
+# none of the cells
+def many.none(n: Nat, +c: U32) -> N.Le(Many(n, c, CP.none{}), 0n):
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+(+k):
+      many.none(k, U32.inc(c))
+
+# the cell r, or a: at most 1 + sa
+def le1(+n: Nat, +c: U32, +r: U32, +a: CP, +sa: Nat, +e: U32, ha: N.Le(Many(n, c, a), sa),
+  hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) -> N.Le(Many(n, c, CP.or{CP.eq{r}, a}), 1n+sa):
+  N.le_trans(Many(n, c, CP.or{CP.eq{r}, a}), Nat.add(Many(n, c, CP.eq{r}), Many(n, c, a)), 1n+sa,
+    many.or(n, c, CP.eq{r}, a),
+    N.add_mono(Many(n, c, CP.eq{r}), 1n, Many(n, c, a), sa, many.eq(n, c, r, e, hw), ha))
+
+# the cell r, or a, or b: at most 1 + sa + sb
+def le2(+n: Nat, +c: U32, +r: U32, +a: CP, +b: CP, +sa: Nat, +sb: Nat, +e: U32, ha: N.Le(Many(n, c, a), sa),
+  hb: N.Le(Many(n, c, b), sb), hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) ->
+  N.Le(Many(n, c, CP.or{CP.eq{r}, CP.or{a, b}}), 1n+Nat.add(sa, sb)):
+  le1(n, c, r, CP.or{a, b}, Nat.add(sa, sb), e,
+    N.le_trans(Many(n, c, CP.or{a, b}), Nat.add(Many(n, c, a), Many(n, c, b)), Nat.add(sa, sb), many.or(n, c, a, b),
+      N.add_mono(Many(n, c, a), sa, Many(n, c, b), sb, ha, hb)), hw)
+
+# the cell r, or a, b or d: at most 1 + sa + sb + sd
+def le3(+n: Nat, +c: U32, +r: U32, +a: CP, +b: CP, +d: CP, +sa: Nat, +sb: Nat, +sd: Nat, +e: U32, ha: N.Le(Many(n, c, a), sa),
+  hb: N.Le(Many(n, c, b), sb), hd: N.Le(Many(n, c, d), sd), hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) ->
+  N.Le(Many(n, c, CP.or{CP.eq{r}, CP.or{a, CP.or{b, d}}}), 1n+Nat.add(sa, Nat.add(sb, sd))):
+  le1(n, c, r, CP.or{a, CP.or{b, d}}, Nat.add(sa, Nat.add(sb, sd)), e,
+    N.le_trans(Many(n, c, CP.or{a, CP.or{b, d}}), Nat.add(Many(n, c, a), Many(n, c, CP.or{b, d})), Nat.add(sa, Nat.add(sb, sd)),
+      many.or(n, c, a, CP.or{b, d}),
+      N.add_mono(Many(n, c, a), sa, Many(n, c, CP.or{b, d}), Nat.add(sb, sd), ha,
+        N.le_trans(Many(n, c, CP.or{b, d}), Nat.add(Many(n, c, b), Many(n, c, d)), Nat.add(sb, sd), many.or(n, c, b, d),
+          N.add_mono(Many(n, c, b), sb, Many(n, c, d), sd, hb, hd)))), hw)
 
 # the nodes of t at r are at most |t| of the n cells from c (no wrap)
 def node.many(t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +n: Nat, +c: U32, +e: U32,
   hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) -> N.Le(Many(n, c, CP.node{t, m, r}), Pg.Term.size(t)):
-  ?TODO
+  match t:
+    case Bk.Term.Var{+i}:
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Var{i}, m, r}), Many(n, c, CP.eq{r}), many.step(n, c, CP.node{Bk.Term.Var{i}, m, r})) : N.Le(_, 1n)
+      many.eq(n, c, r, e, hw)
+    case Bk.Term.Ref{+k}:
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Ref{k}, m, r}), Many(n, c, CP.eq{r}), many.step(n, c, CP.node{Bk.Term.Ref{k}, m, r})) : N.Le(_, 1n)
+      many.eq(n, c, r, e, hw)
+    case Bk.Term.Ann{+y, +z}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Ann{y, z}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{y, m, D.Fd(2n, m, r)}, CP.node{z, m, D.Fd(3n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.Ann{y, z}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(y), Pg.Term.size(z)))
+      le2(n, c, r, CP.node{y, m, D.Fd(2n, m, r)}, CP.node{z, m, D.Fd(3n, m, r)}, Pg.Term.size(y), Pg.Term.size(z), e,
+        node.many(y, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(z, m, D.Fd(3n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Let{+q, +v, +f}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Let{q, v, f}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{v, m, D.Fd(2n, m, r)}, CP.node{f, m, D.Fd(3n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.Let{q, v, f}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(v), Pg.Term.size(f)))
+      le2(n, c, r, CP.node{v, m, D.Fd(2n, m, r)}, CP.node{f, m, D.Fd(3n, m, r)}, Pg.Term.size(v), Pg.Term.size(f), e,
+        node.many(v, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(f, m, D.Fd(3n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Typ{+y}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Typ{y}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.node{y, m, D.Fd(2n, m, r)}}),
+        many.step(n, c, CP.node{Bk.Term.Typ{y}, m, r})) : N.Le(_, 1n+Pg.Term.size(y))
+      le1(n, c, r, CP.node{y, m, D.Fd(2n, m, r)}, Pg.Term.size(y), e, node.many(y, m, D.Fd(2n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Min{+a, +b}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Min{a, b}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.Min{a, b}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(a), Pg.Term.size(b)))
+      le2(n, c, r, CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}, Pg.Term.size(a), Pg.Term.size(b), e,
+        node.many(a, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(b, m, D.Fd(3n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.All{+q, +a, +b}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.All{q, a, b}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.All{q, a, b}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(a), Pg.Term.size(b)))
+      le2(n, c, r, CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}, Pg.Term.size(a), Pg.Term.size(b), e,
+        node.many(a, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(b, m, D.Fd(3n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Lam{+q, +f}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Lam{q, f}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.node{f, m, D.Fd(2n, m, r)}}),
+        many.step(n, c, CP.node{Bk.Term.Lam{q, f}, m, r})) : N.Le(_, 1n+Pg.Term.size(f))
+      le1(n, c, r, CP.node{f, m, D.Fd(2n, m, r)}, Pg.Term.size(f), e, node.many(f, m, D.Fd(2n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.App{+q, +f, +y}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.App{q, f, y}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{f, m, D.Fd(2n, m, r)}, CP.node{y, m, D.Fd(3n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.App{q, f, y}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(f), Pg.Term.size(y)))
+      le2(n, c, r, CP.node{f, m, D.Fd(2n, m, r)}, CP.node{y, m, D.Fd(3n, m, r)}, Pg.Term.size(f), Pg.Term.size(y), e,
+        node.many(f, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(y, m, D.Fd(3n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Sig{+q, +a, +b}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Sig{q, a, b}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.Sig{q, a, b}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(a), Pg.Term.size(b)))
+      le2(n, c, r, CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}, Pg.Term.size(a), Pg.Term.size(b), e,
+        node.many(a, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(b, m, D.Fd(3n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Tup{+q, +a, +b}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Tup{q, a, b}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.Tup{q, a, b}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(a), Pg.Term.size(b)))
+      le2(n, c, r, CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}, Pg.Term.size(a), Pg.Term.size(b), e,
+        node.many(a, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(b, m, D.Fd(3n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Prj{+h}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Prj{h}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.node{h, m, D.Fd(2n, m, r)}}),
+        many.step(n, c, CP.node{Bk.Term.Prj{h}, m, r})) : N.Le(_, 1n+Pg.Term.size(h))
+      le1(n, c, r, CP.node{h, m, D.Fd(2n, m, r)}, Pg.Term.size(h), e, node.many(h, m, D.Fd(2n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Enu{+k}:
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Enu{k}, m, r}), Many(n, c, CP.eq{r}), many.step(n, c, CP.node{Bk.Term.Enu{k}, m, r})) : N.Le(_, 1n)
+      many.eq(n, c, r, e, hw)
+    case Bk.Term.Lab{+k}:
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Lab{k}, m, r}), Many(n, c, CP.eq{r}), many.step(n, c, CP.node{Bk.Term.Lab{k}, m, r})) : N.Le(_, 1n)
+      many.eq(n, c, r, e, hw)
+    case Bk.Term.Mat{+k, +h, +o}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Mat{k, h, o}, m, r}), Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{h, m, D.Fd(3n, m, r)}, CP.node{o, m, D.Fd(4n, m, r)}}}),
+        many.step(n, c, CP.node{Bk.Term.Mat{k, h, o}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(h), Pg.Term.size(o)))
+      le2(n, c, r, CP.node{h, m, D.Fd(3n, m, r)}, CP.node{o, m, D.Fd(4n, m, r)}, Pg.Term.size(h), Pg.Term.size(o), e,
+        node.many(h, m, D.Fd(3n, m, r), n, c, e, hw2), node.many(o, m, D.Fd(4n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Efq{}:
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Efq{}, m, r}), Many(n, c, CP.eq{r}), many.step(n, c, CP.node{Bk.Term.Efq{}, m, r})) : N.Le(_, 1n)
+      many.eq(n, c, r, e, hw)
+    case Bk.Term.Eql{+a, +b, +y}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Eql{a, b, y}, m, r}),
+        Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{a, m, D.Fd(2n, m, r)}, CP.or{CP.node{b, m, D.Fd(3n, m, r)}, CP.node{y, m, D.Fd(4n, m, r)}}}}),
+        many.step(n, c, CP.node{Bk.Term.Eql{a, b, y}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(a), Nat.add(Pg.Term.size(b), Pg.Term.size(y))))
+      le3(n, c, r, CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}, CP.node{y, m, D.Fd(4n, m, r)},
+        Pg.Term.size(a), Pg.Term.size(b), Pg.Term.size(y), e,
+        node.many(a, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(b, m, D.Fd(3n, m, r), n, c, e, hw2),
+        node.many(y, m, D.Fd(4n, m, r), n, c, e, hw2), hw2)
+    case Bk.Term.Rfl{}:
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Rfl{}, m, r}), Many(n, c, CP.eq{r}), many.step(n, c, CP.node{Bk.Term.Rfl{}, m, r})) : N.Le(_, 1n)
+      many.eq(n, c, r, e, hw)
+    case Bk.Term.Rwt{+a, +b, +y}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.node{Bk.Term.Rwt{a, b, y}, m, r}),
+        Many(n, c, CP.or{CP.eq{r}, CP.or{CP.node{a, m, D.Fd(2n, m, r)}, CP.or{CP.node{b, m, D.Fd(3n, m, r)}, CP.node{y, m, D.Fd(4n, m, r)}}}}),
+        many.step(n, c, CP.node{Bk.Term.Rwt{a, b, y}, m, r})) : N.Le(_, 1n+Nat.add(Pg.Term.size(a), Nat.add(Pg.Term.size(b), Pg.Term.size(y))))
+      le3(n, c, r, CP.node{a, m, D.Fd(2n, m, r)}, CP.node{b, m, D.Fd(3n, m, r)}, CP.node{y, m, D.Fd(4n, m, r)},
+        Pg.Term.size(a), Pg.Term.size(b), Pg.Term.size(y), e,
+        node.many(a, m, D.Fd(2n, m, r), n, c, e, hw2), node.many(b, m, D.Fd(3n, m, r), n, c, e, hw2),
+        node.many(y, m, D.Fd(4n, m, r), n, c, e, hw2), hw2)
 
 # the nodes of the roots' terms are at most their nodes
 def nodes.many(rs: List<&2, D.Rt>, +m: Cr.Cir.Cells, +n: Nat, +c: U32, +e: U32,
   hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) -> N.Le(Many(n, c, CP.nodes{rs, m}), D.Rts.size(rs)):
-  ?TODO
+  match rs:
+    case Nil{}:
+      %Equal.sym(Nat, Many(n, c, CP.nodes{Nil{}, m}), Many(n, c, CP.none{}), many.step(n, c, CP.nodes{Nil{}, m})) : N.Le(_, 0n)
+      many.none(n, c)
+    case Con{D.Rt{+r, +u}, +rest}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.nodes{Con{D.Rt{r, u}, rest}, m}), Many(n, c, CP.or{CP.node{u, m, r}, CP.nodes{rest, m}}),
+        many.step(n, c, CP.nodes{Con{D.Rt{r, u}, rest}, m})) : N.Le(_, Nat.add(Pg.Term.size(u), D.Rts.size(rest)))
+      N.le_trans(Many(n, c, CP.or{CP.node{u, m, r}, CP.nodes{rest, m}}), Nat.add(Many(n, c, CP.node{u, m, r}), Many(n, c, CP.nodes{rest, m})),
+        Nat.add(Pg.Term.size(u), D.Rts.size(rest)), many.or(n, c, CP.node{u, m, r}, CP.nodes{rest, m}),
+        N.add_mono(Many(n, c, CP.node{u, m, r}), Pg.Term.size(u), Many(n, c, CP.nodes{rest, m}), D.Rts.size(rest),
+          node.many(u, m, r, n, c, e, hw2), nodes.many(rest, m, n, c, e, hw2)))
 
 # the cells xs are at most |xs| of them
 def mem.many(xs: List<&2, U32>, +n: Nat, +c: U32, +e: U32, hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) ->
   N.Le(Many(n, c, CP.mem{xs}), List.length(&2, U32, xs)):
-  ?TODO
+  match xs:
+    case Nil{}:
+      %Equal.sym(Nat, Many(n, c, CP.mem{Nil{}}), Many(n, c, CP.none{}), many.step(n, c, CP.mem{Nil{}})) : N.Le(_, 0n)
+      many.none(n, c)
+    case Con{+y, +rest}:
+      +hw2 = hw
+      %Equal.sym(Nat, Many(n, c, CP.mem{Con{y, rest}}), Many(n, c, CP.or{CP.eq{y}, CP.mem{rest}}), many.step(n, c, CP.mem{Con{y, rest}})) :
+        N.Le(_, 1n+List.length(&2, U32, rest))
+      N.le_trans(Many(n, c, CP.or{CP.eq{y}, CP.mem{rest}}), Nat.add(Many(n, c, CP.eq{y}), Many(n, c, CP.mem{rest})),
+        1n+List.length(&2, U32, rest), many.or(n, c, CP.eq{y}, CP.mem{rest}),
+        N.add_mono(Many(n, c, CP.eq{y}), 1n, Many(n, c, CP.mem{rest}), List.length(&2, U32, rest), many.eq(n, c, y, e, hw2),
+          mem.many(rest, n, c, e, hw2)))
 
 # each of the n cells that Cov covers is STATIC, a node of a root's term or
 # one of xs
 def cov.many(n: Nat, +m: Cr.Cir.Cells, +c: U32, +rs: List<&2, D.Rt>, +xs: List<&2, U32>,
   h: {D.Cov(n, m, c, rs, xs) == True{} : Bool}) ->
   N.Le(n, Nat.add(D.Stat(n, m, c), Nat.add(Many(n, c, CP.nodes{rs, m}), Many(n, c, CP.mem{xs})))):
-  ?TODO
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+(+k):
+      +h2 = h
+      +F = D.Fl(m, c, 1024)
+      +Nd = D.Nodes(rs, m, c)
+      +Mm = D.Mem(xs, c)
+      +S = D.Stat(k, m, U32.inc(c))
+      +A = Many(k, U32.inc(c), CP.nodes{rs, m})
+      +B = Many(k, U32.inc(c), CP.mem{xs})
+      +h0 = D.and.l(Bool.or(F, Bool.or(Nd, Mm)), D.Cov(k, m, U32.inc(c), rs, xs), h2)
+      +ih = cov.many(k, m, U32.inc(c), rs, xs, D.and.r(Bool.or(F, Bool.or(Nd, Mm)), D.Cov(k, m, U32.inc(c), rs, xs), h2))
+      N.le_rw_r(1n+k, Nat.add(Nat.add(D.Nat.of(F), Nat.add(D.Nat.of(Nd), D.Nat.of(Mm))), Nat.add(S, Nat.add(A, B))),
+        Nat.add(Nat.add(D.Nat.of(F), S), Nat.add(Nat.add(D.Nat.of(Nd), A), Nat.add(D.Nat.of(Mm), B))),
+        Equal.trans(Nat, Nat.add(Nat.add(D.Nat.of(F), Nat.add(D.Nat.of(Nd), D.Nat.of(Mm))), Nat.add(S, Nat.add(A, B))),
+          Nat.add(Nat.add(D.Nat.of(F), S), Nat.add(Nat.add(D.Nat.of(Nd), D.Nat.of(Mm)), Nat.add(A, B))),
+          Nat.add(Nat.add(D.Nat.of(F), S), Nat.add(Nat.add(D.Nat.of(Nd), A), Nat.add(D.Nat.of(Mm), B))),
+          add4(D.Nat.of(F), Nat.add(D.Nat.of(Nd), D.Nat.of(Mm)), S, Nat.add(A, B)),
+          Equal.cong(Nat, Nat, w => Nat.add(Nat.add(D.Nat.of(F), S), w), Nat.add(Nat.add(D.Nat.of(Nd), D.Nat.of(Mm)), Nat.add(A, B)),
+            Nat.add(Nat.add(D.Nat.of(Nd), A), Nat.add(D.Nat.of(Mm), B)), add4(D.Nat.of(Nd), D.Nat.of(Mm), A, B))),
+        N.add_mono(1n, Nat.add(D.Nat.of(F), Nat.add(D.Nat.of(Nd), D.Nat.of(Mm))), k, Nat.add(S, Nat.add(A, B)), of3(F, Nd, Mm, h0), ih))
 
 # the n cells that Cov covers (no wrap) are at most the STATIC ones, the
 # roots' nodes and the cells xs
 def cov.count(+n: Nat, +m: Cr.Cir.Cells, +c: U32, +rs: List<&2, D.Rt>, +xs: List<&2, U32>, +e: U32,
   h: {D.Cov(n, m, c, rs, xs) == True{} : Bool}, hw: N.Le(Nat.add(U32.to_nat(c), n), U32.to_nat(e))) ->
   N.Le(n, Nat.add(D.Stat(n, m, c), Nat.add(D.Rts.size(rs), List.length(&2, U32, xs)))):
-  ?TODO
+  +hw2 = hw
+  N.le_trans(n, Nat.add(D.Stat(n, m, c), Nat.add(Many(n, c, CP.nodes{rs, m}), Many(n, c, CP.mem{xs}))),
+    Nat.add(D.Stat(n, m, c), Nat.add(D.Rts.size(rs), List.length(&2, U32, xs))), cov.many(n, m, c, rs, xs, h),
+    N.add_mono(D.Stat(n, m, c), D.Stat(n, m, c), Nat.add(Many(n, c, CP.nodes{rs, m}), Many(n, c, CP.mem{xs})),
+      Nat.add(D.Rts.size(rs), List.length(&2, U32, xs)), N.le_refl(D.Stat(n, m, c)),
+      N.add_mono(Many(n, c, CP.nodes{rs, m}), D.Rts.size(rs), Many(n, c, CP.mem{xs}), List.length(&2, U32, xs),
+        nodes.many(rs, m, n, c, e, hw2), mem.many(xs, n, c, e, hw2))))
 
 # with no pending cell (and so no zombie), the own cells are at most
 # Acc.need: the STATIC ones, the nodes of the roots, of the temporaries'
