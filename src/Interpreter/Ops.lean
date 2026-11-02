@@ -8,9 +8,10 @@ import Interpreter.Ops.Add
 -- Ops
 -- ===
 --
--- Fast calls of Base's U32 operations, for the machine (src/Interpreter/Machine.lean):
--- for a call of an operation on U32 terms (and a Nat term for a count), the
--- term that Eval reaches and its exact number of steps, computed natively.
+-- Fast calls of Base's U32 operations and Word.to_nat, for the machine
+-- (src/Interpreter/Machine.lean): for a call of an operation on U32 terms (and
+-- a Nat term for a count), or of Word.to_nat on a Nat n and a word of n bits,
+-- the term that Eval reaches and its exact number of steps, computed natively.
 --
 -- Ops.prepare checks once which operations the book holds exactly as Base's:
 -- the def of each operation, and each def that its evaluation reaches, is
@@ -24,10 +25,10 @@ import Interpreter.Ops.Add
 --
 -- and each def U32.litN whose term is a U32. Ops.call answers only for those,
 -- after one lookup in a HashMap, and only when each argument is at quantity 1
--- and is a U32 term, or a Nat term for a count. Ops.call_sound proves that Eval
--- reaches its term after exactly its number of steps, and that the term is a
--- value; Ops.call_data, that it is Data. With x, y the U32s, m the Nat, and the
--- steps:
+-- and is a U32 term, a Nat term for a count, or Word.to_nat's Nat and word.
+-- Ops.call_sound proves that Eval reaches its term after exactly its number
+-- of steps, and that the term is a value; Ops.call_data, that it is Data. With x, y the U32s, m the Nat, w a
+-- word of n bits, and the steps:
 --
 --   U32.shr x            x / 2                   34
 --   U32.shrn x m         x >>> m                 1 + 35 m
@@ -42,6 +43,7 @@ import Interpreter.Ops.Add
 --   U32.add x y          x + y mod 2^32          4 + sum of 7 + x_i + y_i
 --   U32.sub x y          x - y mod 2^32          4 + sum of 8 + x_i + (1 - y_i)
 --   U32.to_nat x         the Nat x, x < 2^16     66 + sum of x >>> i, 1 ≤ i ≤ 32
+--   Word.to_nat n w      the Nat w, w < 2^16     tnC n w (Ops/Nat.lean)
 --   U32.from_nat m       m mod 2^32              2 + sum of 3 + T k, k < m
 --   U32.litN             the U32 N               1
 --
@@ -64,7 +66,7 @@ namespace Ops
 inductive Op where
   | shr | shrn | shl | shln
   | cmp | is_eq | is_ne | is_lt | is_le | is_gt | is_ge | is_zero
-  | and | or | inc | to_nat | from_nat | add | sub
+  | and | or | inc | to_nat | word_to_nat | from_nat | add | sub
   -- a def U32.litN, whose term is the U32 v, and that U32, made once
   | lit (v : Nat) (t : Term)
   deriving Inhabited
@@ -87,6 +89,7 @@ def Op.name : Op → String
   | or => "U32.or"
   | inc => "U32.inc"
   | to_nat => "U32.to_nat"
+  | word_to_nat => "Word.to_nat"
   | from_nat => "U32.from_nat"
   | add => "U32.add"
   | sub => "U32.sub"
@@ -132,6 +135,7 @@ def Op.defs : Op → List (String × Term)
   | inc => [("U32.inc", «opsDefs.U32.inc».v), ("Word.inc", «opsDefs.Word.inc».v)]
   | to_nat => [("U32.to_nat", «opsDefs.U32.to_nat».v), ("Word.to_nat", «opsDefs.Word.to_nat».v),
       ("Nat.double", «opsDefs.Nat.double».v)]
+  | word_to_nat => [("Word.to_nat", «opsDefs.Word.to_nat».v), ("Nat.double", «opsDefs.Nat.double».v)]
   | from_nat => [("U32.from_nat", «opsDefs.U32.from_nat».v), ("U32.lit0", «opsDefs.U32.lit0».v),
       ("U32.inc", «opsDefs.U32.inc».v), ("Word.inc", «opsDefs.Word.inc».v)]
   | add => ("U32.add", «opsDefs.U32.add».v) :: ("Word.add", «opsDefs.Word.add».v) :: adcDefs
@@ -202,6 +206,18 @@ theorem argN_eq (h : argN xs = some m) : xs = [(Q1, Form.nat m)] := by
   obtain ⟨rfl, -⟩ := decNat_eq hm
   exact arg1_eq h1
 
+-- a Nat n, then a word of n bits
+def argNW (xs : List Arg) : Option (Nat × Nat) :=
+  (arg2 xs).bind fun (a, w) => (decNat a 0).bind fun m => (decW m w 0 1).map fun v => (m, v)
+
+theorem argNW_eq (h : argNW xs = some (m, v)) : xs = [(Q1, Form.nat m), (Q1, bits m v)] ∧ v < 2 ^ m := by
+  simp only [argNW, Option.bind_eq_some_iff, Option.map_eq_some_iff, Prod.mk.injEq] at h
+  obtain ⟨⟨a, w⟩, h2, m', hm, x, hx, rfl, rfl⟩ := h
+  obtain ⟨rfl, -⟩ := decNat_eq hm
+  obtain ⟨y, rfl, hy, rfl⟩ := decW_eq hx
+  simp only [Nat.zero_add, Nat.one_mul]
+  exact ⟨by rw [arg2_eq h2, Nat.sub_zero], hy⟩
+
 -- Results
 -- -------
 
@@ -247,6 +263,8 @@ def Op.run : Op → List Arg → Option (Term × Nat)
   -- the nat of a large U32 is too large a term: the machine makes it
   | to_nat, xs => (argU xs).bind fun v =>
       if v < 65536 then some (natUp v (Form.nat 0), tnF 32 v 0 + 1) else none
+  | word_to_nat, xs => (argNW xs).bind fun (m, v) =>
+      if v < 65536 then some (natUp v (Form.nat 0), tnF m v 0) else none
   | from_nat, xs => (argN xs).map fun m => (mkU32 (m % 4294967296), fnF m 0)
   | add, xs => (argUU xs).map fun (v, w) => let r := adcCV 32 v w false false; (mkU32 r.1, r.2 + 3)
   | sub, xs => (argUU xs).map fun (v, w) => let r := adcCV 32 v w true true; (mkU32 r.1, r.2 + 3)
@@ -310,6 +328,17 @@ theorem Op.run_sound (hok : Op.ok bk k op = true) (h : Op.run op xs = some (r, n
       have := u32_to_nat_steps (v := v) ⟨hd.1, hd.2.1, hd.2.2⟩
       rwa [padV_eq, Nat.mod_eq_of_lt hlt] at this
     next => cases e
+  case word_to_nat =>
+    obtain ⟨⟨m, v⟩, hv, e⟩ := h
+    obtain ⟨rfl, hlt⟩ := argNW_eq hv
+    split at e
+    next =>
+      obtain ⟨rfl, rfl⟩ := e
+      rw [natUp_eq, tnF_eq hlt, Nat.zero_add, Nat.zero_add]
+      refine ⟨?_, value_nat⟩
+      have := word_to_nat_steps (n := m) (v := v) hd.1 hd.2
+      rwa [padV_eq, Nat.mod_eq_of_lt hlt] at this
+    next => cases e
   case from_nat =>
     obtain ⟨m, hm, rfl, rfl⟩ := h
     obtain rfl := argN_eq hm
@@ -369,7 +398,7 @@ structure Table where
 
 -- the operations with a name of their own
 def named : List Op := [.shr, .shrn, .shl, .shln, .cmp, .is_eq, .is_ne, .is_lt, .is_le, .is_gt,
-  .is_ge, .is_zero, .and, .or, .inc, .to_nat, .from_nat, .add, .sub]
+  .is_ge, .is_zero, .and, .or, .inc, .to_nat, .word_to_nat, .from_nat, .add, .sub]
 
 def addNamed (bk : Book) (m : Std.HashMap String Op) (op : Op) : Std.HashMap String Op :=
   if op.ok bk op.name then m.insert op.name op else m
@@ -457,6 +486,12 @@ theorem Op.run_data (hok : Op.ok bk k op = true) (h : Op.run op xs = some (r, n)
   case to_nat =>
     simp only [Op.run, Option.bind_eq_some_iff] at h
     obtain ⟨v, -, e⟩ := h
+    split at e
+    · cases e; rw [natUp_eq]; exact data_nat
+    · cases e
+  case word_to_nat =>
+    simp only [Op.run, Option.bind_eq_some_iff] at h
+    obtain ⟨_, -, e⟩ := h
     split at e
     · cases e; rw [natUp_eq]; exact data_nat
     · cases e

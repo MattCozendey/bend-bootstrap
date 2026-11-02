@@ -251,7 +251,7 @@ In order. Each step says what to write and what to prove.
 - **3.8.7** Self-hosting: the interpreter runs the compiler on the compiler's own Book, and the
   binary that it writes becomes our compiler. By 3.6.6 and the laws, that binary gives what our
   compiler gives by `Eval`. From then on, it compiles any program, itself included, without the
-  interpreter.
+  interpreter(we keep the interpreter tho for posterity).
 - **3.8.8** For each target, the extra steps that its entry lists.
 
 ### 3.9 Targets
@@ -318,6 +318,13 @@ The entries:
   hash of the interpreter's code, the book, the input and the fuel. The cache is for development
   only: it is a file that anyone can change, so it is not trusted (3.7). The run of 3.8.7 must run
   fresh (`FRESH=1`), and so must any run whose answer we use as proof.
+- **3.10.3** TODO, after the bootstrap: word cells. A word cell holds a whole word of at most 32
+  bits, where the compiled code now uses 3 cells for each bit. With them, the compiled compiler
+  compiling itself needs about 0.7 GB, where it now needs about 4.6 GB, so 3.4.1.4 can hold on WASM.
+  The proofs of the machine must then cover word cells.
+- **3.10.4** TODO, after the bootstrap: native U32 operations in the compiled code. A call of a Base
+  U32 operation, in a book that holds it exactly as Base writes it, runs as WASM instructions, not
+  bit by bit. It only makes the compiled code faster.
 
 ### 3.11 Milestones
 
