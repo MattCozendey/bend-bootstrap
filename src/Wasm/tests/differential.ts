@@ -671,11 +671,13 @@ if (!oracle.success) {
   console.error(`oracle.exe failed (a module that does not end?): ${oracle.stderr.toString()}`);
   process.exit(1);
 }
-const said = oracle.stdout
+// the lines of each script, after its line "script path"
+const lines = oracle.stdout
   .toString()
-  .split("script ")
-  .slice(1)
-  .map((part) => part.trim().split("\n").slice(1));
+  .split("\n")
+  .filter((l) => l !== "");
+const starts = getRange(lines.length).filter((i) => lines[i]?.startsWith("script "));
+const said = starts.map((start, j) => lines.slice(start + 1, starts[j + 1] ?? lines.length));
 const unanswered = cases.filter((c, i) => {
   const script = getScript(c, said[i] ?? []);
   if (script === undefined) {
