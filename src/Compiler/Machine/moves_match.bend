@@ -1423,6 +1423,250 @@ def heap.pop(+kind: D.FK, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +ps: L
     (cnt.pop(n, kind, m, nx, fi, ps, sp, pend, y, rs, fi, hz, ho, ht, hf0, hf1, hcn),
      (pts.pop(n, m, sp, pend, ps, fi, im, fi, nx, hz, hf1, hzt, hpt), hr))))
 
+# The frames after M.pop (swap_moves.bend's Hops kit, copied)
+# ------------------------------------------------------------
+
+# from fr, n cells that are not 0, linked by field 1, then 0
+def Hops(n: Nat, +m: Cr.Cir.Cells, +fr: U32) -> Bool:
+  match n:
+    case 0n:
+      U32.is_eq(fr, 0)
+    case 1n+p:
+      Bool.and(Bool.not(U32.is_eq(fr, 0)), Hops(p, m, D.Fd(1n, m, fr)))
+
+# the frames from fr are as many as its chain's cells
+def frs.hops(fs: List<&2, D.AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32, h: D.Frs(ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
+  {Hops(List.length(&2, D.AF, fs), m, fr) == True{} : Bool}:
+  match fs:
+    case Nil{}:
+      %Equal.sym(U32, fr, 0, h) : {Hops(0n, m, _) == True{} : Bool}
+      {==}
+    case Con{D.AF{+kind, +q, +k, +a, +b}, +rest}:
+      match h:
+        case Tuple{e0, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, ir}}}}}}}}}}:
+          D.and.i(Bool.not(U32.is_eq(fr, 0)), Hops(List.length(&2, D.AF, rest), m, D.Fd(1n, m, fr)),
+            (%Equal.sym(Bool, U32.is_eq(fr, 0), False{}, e0) : {Bool.not(_) == True{} : Bool}; {==}),
+            frs.hops(rest, ds, m, im, fi, nx, ks, img, ps, D.Fd(1n, m, fr), ir))
+
+# a chain ends after one number of cells only
+def hops.lt(a: Nat, b: Nat, +m: Cr.Cir.Cells, +x: U32, ha: {Hops(a, m, x) == True{} : Bool}, hb: {Hops(b, m, x) == True{} : Bool},
+  hlt: N.Le(1n+a, b)) -> Empty:
+  match a b:
+    case 0n 0n:
+      hlt
+    case 0n 1n+q:
+      D.bool.ft(Empty, (%ha : {Bool.not(_) == True{} : Bool};
+        D.and.l(Bool.not(U32.is_eq(x, 0)), Hops(q, m, D.Fd(1n, m, x)), hb)))
+    case 1n+p 0n:
+      hlt
+    case 1n+p 1n+q:
+      hops.lt(p, q, m, D.Fd(1n, m, x), D.and.r(Bool.not(U32.is_eq(x, 0)), Hops(p, m, D.Fd(1n, m, x)), ha),
+        D.and.r(Bool.not(U32.is_eq(x, 0)), Hops(q, m, D.Fd(1n, m, x)), hb), hlt)
+
+def hops.ne.b(bb: Bool, a: Nat, b: Nat, +m: Cr.Cir.Cells, +x: U32, +y: U32, eb: {U32.is_eq(x, y) == bb : Bool},
+  hx: {Hops(a, m, x) == True{} : Bool}, hy: {Hops(b, m, y) == True{} : Bool}, hlt: N.Le(1n+a, b)) -> {U32.is_eq(x, y) == False{} : Bool}:
+  match bb:
+    case False{}:
+      eb
+    case True{}:
+      +e = D.u32.eq(x, y, eb)
+      Empty.absurd({U32.is_eq(x, y) == False{} : Bool}, hops.lt(a, b, m, y, (%e : {Hops(a, m, _) == True{} : Bool}; hx), hy, hlt))
+
+# a cell whose chain is shorter than y's is not y
+def hops.ne(a: Nat, b: Nat, +m: Cr.Cir.Cells, +x: U32, +y: U32, hx: {Hops(a, m, x) == True{} : Bool},
+  hy: {Hops(b, m, y) == True{} : Bool}, hlt: N.Le(1n+a, b)) -> {U32.is_eq(x, y) == False{} : Bool}:
+  hops.ne.b(U32.is_eq(x, y), a, b, m, x, y, {==}, hx, hy, hlt)
+
+# the second of a pair
+def p2.snd(-A: Data, -B: Data, p: D.P2(A, B)) -> B:
+  match p:
+    case Tuple{_, b}:
+      b
+
+# a store to sx, of a tag of 32 or more, keeps the term of the cell c
+def is.keep(t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +sx: U32, +sv: Cr.Cir.Cell, +c: U32, +ht: {U32.is_lt(D.TgW(D.Fd(0n, m, sx)), 32) == False{} : Bool},
+  h: D.Is(ds, m, im, fi, nx, ks, img, c, t)) -> D.Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, t):
+  p2.snd({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, sx, sv), c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell},
+    D.Is(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, t), D.is.st(t, ds, m, im, fi, nx, ks, img, sx, sv, c, ht, h))
+
+def frsb.st(kind: D.FK, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +sx: U32, +sv: Cr.Cir.Cell, +c: U32, +b: Bk.Term, +ht: {U32.is_lt(D.TgW(D.Fd(0n, m, sx)), 32) == False{} : Bool},
+  h: D.Frs.b(ds, m, im, fi, nx, ks, img, c, kind, b)) -> D.Frs.b(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, c, kind, b):
+  match kind:
+    case D.FK.rwt{}:
+      is.keep(b, ds, m, im, fi, nx, ks, img, sx, sv, c, ht, h)
+    case D.FK.arg{}:
+      Unit{}
+    case D.FK.val{}:
+      Unit{}
+    case D.FK.fun{}:
+      Unit{}
+    case D.FK.let{}:
+      Unit{}
+    case D.FK.tupb{}:
+      Unit{}
+    case D.FK.tupa{}:
+      Unit{}
+    case D.FK.minb{}:
+      Unit{}
+    case D.FK.mina{}:
+      Unit{}
+
+# M.pop keeps the frames from fr, past the top frame sp (a longer chain than
+# fr's), with sp in the pend list
+def frs.pop.c(fs: List<&2, D.AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +sp: U32, +pend: U32, +fr: U32, +n: Nat,
+  +ht: {U32.is_lt(D.TgW(D.Fd(0n, m, sp)), 32) == False{} : Bool}, +hn: {Hops(n, m, sp) == True{} : Bool},
+  +hf: {Hops(List.length(&2, D.AF, fs), m, fr) == True{} : Bool},
+  hl: N.Le(1n+List.length(&2, D.AF, fs), n), h: D.Frs(ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
+  D.Frs(ds, M1(m, sp, pend), im, fi, nx, ks, img, Con{sp, ps}, fr, fs):
+  match fs:
+    case Nil{}:
+      h
+    case Con{D.AF{+kind, +q, +k, +a, +b}, +rest}:
+      match h:
+        case Tuple{e0, Tuple{ev, Tuple{eo, Tuple{es, Tuple{em, Tuple{etg, Tuple{eq, Tuple{ek, Tuple{ia, Tuple{ib, ir}}}}}}}}}}:
+          +m1 = M1(m, sp, pend)
+          +sv = X1(m, sp, pend)
+          +hl2 = hl
+          +ne = hops.ne(1n+List.length(&2, D.AF, rest), n, m, fr, sp, hf, hn, hl2)
+          +ec = D.cl.go(m, fr, sp, sv, ne)
+          +em1 = Equal.trans(Bool, D.Mem(Con{sp, ps}, fr), D.Mem(ps, fr), False{}, mem.out(sp, ps, fr, D.ne.sym(fr, sp, ne)), em)
+          D.frs.uc(ds, m1, im, fi, nx, ks, img, Con{sp, ps}, fr, Con{D.AF{kind, q, k, a, b}, rest},
+            D.frsc.at(ds, m1, im, fi, nx, ks, img, Con{sp, ps}, fr, Cr.Cir.Cells.get(m1, fr), Cr.Cir.Cells.get(m, fr), Con{D.AF{kind, q, k, a, b}, rest}, ec,
+              (e0, (ev, (eo, (es, (em1, (etg, (eq, (ek,
+                (is.keep(a, ds, m, im, fi, nx, ks, img, sp, sv, D.Fd(2n, m, fr), ht, ia),
+                (frsb.st(kind, ds, m, im, fi, nx, ks, img, sp, sv, D.Fd(3n, m, fr), b, ht, ib),
+                 frs.pop.c(rest, ds, m, im, fi, nx, ks, img, ps, sp, pend, D.Fd(1n, m, fr), n, ht, hn,
+                   D.and.r(Bool.not(U32.is_eq(fr, 0)), Hops(List.length(&2, D.AF, rest), m, D.Fd(1n, m, fr)), hf),
+                   N.weaken(1n+List.length(&2, D.AF, rest), n, hl2), ir)))))))))))))
+
+# no pointer to z, of a tag of 19 or more, from the cells or the roots rs, of
+# term cells (swap_moves.bend's ptr.none)
+def ptr.none(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +ps: List<&2, U32>, +pend: U32, +rs: List<&2, U32>, +z: U32,
+  +hz: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool}, hr0: {D.RcL(rs, z) == 0n : Nat},
+  h: D.Heap(m, nx, fi, im, rs, pend, ps)) -> {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, rs, z) == 0n : Nat}:
+  (hc, r1) = h
+  (hp, r2) = r1
+  (hcn, r3) = r2
+  (hpt, hr) = r3
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  %Equal.sym(Nat, D.Pc(n, m, ps, fi, z), 0n, pc.none(n, m, ps, fi, im, fi, nx, z, hz, hpt)) : {Nat.add(_, D.RcL(rs, z)) == 0n : Nat}
+  hr0
+
+# a term's tag is below 19 (swap_moves.bend's, copied)
+def atag.lt(t: Bk.Term) -> {U32.is_lt(D.A.tag(t), 19) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Ref{_}:
+      {==}
+    case Bk.Term.Ann{_, _}:
+      {==}
+    case Bk.Term.Let{_, _, _}:
+      {==}
+    case Bk.Term.Typ{_}:
+      {==}
+    case Bk.Term.Min{_, _}:
+      {==}
+    case Bk.Term.All{_, _, _}:
+      {==}
+    case Bk.Term.Lam{_, _}:
+      {==}
+    case Bk.Term.App{_, _, _}:
+      {==}
+    case Bk.Term.Sig{_, _, _}:
+      {==}
+    case Bk.Term.Tup{_, _, _}:
+      {==}
+    case Bk.Term.Prj{_}:
+      {==}
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_}:
+      {==}
+    case Bk.Term.Mat{_, _, _}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{_, _, _}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{_, _, _}:
+      {==}
+
+# the tag of a node's cell is below 19 (swap_moves.bend's, copied)
+def nd.tglt(+dk: Bool, -ds: List<&2, Bk.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, +x: Cr.Cir.Cell, +t: Bk.Term,
+  nd: D.NdK(dk, ds, im, fi, nx, c, x, t, D.A.tag(t))) -> {U32.is_lt(D.TgW(Cr.Cir.Cell.get(0n, x)), 19) == True{} : Bool}:
+  match nd:
+    case Tuple{_, Tuple{_, Tuple{etag, _}}}:
+      %Equal.sym(U32, D.TgW(Cr.Cir.Cell.get(0n, x)), D.A.tag(t), etag) : {U32.is_lt(_, 19) == True{} : Bool}
+      atag.lt(t)
+
+
+# the focus' cell is a term cell
+def is.tglt(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, +t: Bk.Term, h: D.Is(ds, m, im, fi, nx, ks, img, c, t)) -> {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool}:
+  nd.tglt(True{}, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), t, D.is.nd(ds, m, im, fi, nx, ks, img, c, t, h))
+
+
+def fk.lt32(kind: D.FK) -> {U32.is_lt(D.FK.tag(kind), 32) == False{} : Bool}:
+  match kind:
+    case D.FK.arg{}:
+      {==}
+    case D.FK.val{}:
+      {==}
+    case D.FK.fun{}:
+      {==}
+    case D.FK.let{}:
+      {==}
+    case D.FK.tupb{}:
+      {==}
+    case D.FK.tupa{}:
+      {==}
+    case D.FK.rwt{}:
+      {==}
+    case D.FK.minb{}:
+      {==}
+    case D.FK.mina{}:
+      {==}
+
+# HS after M.pop: the roots are the top frame's term a (its field 2) and the
+# focus; the frames are the rest; sp is the pend list's first
+def hsk.pop(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +focus: Bk.Term, +fs: List<&2, D.AF>, +foc: U32, +sp: U32, +pend: U32, +ps: List<&2, U32>, +kind: D.FK, +q: Bk.Quan,
+  +k: Bool, +a: Bk.Term, +b: Bk.Term, +h38: {U32.is_eq(D.FK.tag(kind), 38) == False{} : Bool},
+  +isf: D.Is(ds, m, im, fi, nx, ks, img, foc, focus), +hp: D.Heap(m, nx, fi, im, [foc], pend, ps),
+  +io: D.ImgOK(ds, ks, img, m, im, fi, nx),
+  +frs: D.Frs(ds, m, im, fi, nx, ks, img, ps, sp, Con{D.AF{kind, q, k, a, b}, fs})) ->
+  D.HS(ds, ks, img, M1(m, sp, pend), nx, fi, im, [D.Rt{D.Fd(2n, m, sp), a}, D.Rt{foc, focus}], Nil{}, fs, D.Fd(1n, m, sp), sp, Con{sp, ps}):
+  match frs:
+    case Tuple{e0, Tuple{ev, Tuple{eo, Tuple{es, Tuple{em, Tuple{etg, Tuple{_, Tuple{_, Tuple{ia, Tuple{_, ir}}}}}}}}}}:
+      +sv = X1(m, sp, pend)
+      +eo2 = eo
+      +es2 = es
+      +em2 = em
+      +etg2 = etg
+      +ht = {(%Equal.sym(U32, D.Tg(m, sp), D.FK.tag(kind), etg2) : {U32.is_lt(_, 32) == False{} : Bool}; fk.lt32(kind)) :
+        {U32.is_lt(D.TgW(D.Fd(0n, m, sp)), 32) == False{} : Bool}}
+      +hzt = tg.big(kind, m, sp, etg2)
+      +hsp = frs.hops(Con{D.AF{kind, q, k, a, b}, fs}, ds, m, im, fi, nx, ks, img, ps, sp, frs)
+      +hfoc = is.tglt(ds, m, im, fi, nx, ks, img, foc, focus, isf)
+      +nef = tg.ne(m, foc, sp, hfoc, hzt)
+      +hr0 = {(%Equal.sym(Bool, U32.is_eq(foc, sp), False{}, nef) : {Nat.add(D.Nat.of(_), 0n) == 0n : Nat}; {==}) : {D.RcL([foc], sp) == 0n : Nat}}
+      +hz290 = D.img.hz(True{}, ds, ks, img, m, im, fi, nx, sp, io, eo2)
+      +hz0 = ptr.none(m, nx, fi, im, ps, pend, [foc], sp, hzt, hr0, hp)
+      ((is.keep(a, ds, m, im, fi, nx, ks, img, sp, sv, D.Fd(2n, m, sp), ht, ia), (is.keep(focus, ds, m, im, fi, nx, ks, img, sp, sv, foc, ht, isf), Unit{})),
+      (Unit{}, (Unit{},
+      (frs.pop.c(fs, ds, m, im, fi, nx, ks, img, ps, sp, pend, D.Fd(1n, m, sp), 1n+List.length(&2, D.AF, fs), ht, hsp,
+         D.and.r(Bool.not(U32.is_eq(sp, 0)), Hops(List.length(&2, D.AF, fs), m, D.Fd(1n, m, sp)), hsp),
+         N.le_refl(1n+List.length(&2, D.AF, fs)), ir),
+      (heap.pop(kind, m, nx, fi, im, ps, sp, pend, D.Fd(2n, m, sp), [foc], hz290, eo2, e0, es2, em2, etg2, h38, hr0, {==}, hp),
+        D.ImgOK.fz(True{}, ds, ks, img, m, im, fi, nx, ps, [foc], sp, sv, hz0, es2, eo2, io))))))
+
 # The moves of move_kit.bend that this file proves
 # ------------------------------------------------
 
