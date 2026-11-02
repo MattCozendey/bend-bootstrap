@@ -581,3 +581,56 @@
   "\41\01\6a\21\00\20\00\41\01\6a\21\00\20\00\41\01\6a\21\00\20\00\41\01\6a\21\00\20\00\41\01\6a\21"
   "\00\20\00\41\01\6a\21\00\20\00\0b")
 (assert_return (invoke "count" (i32.const 1)) (i32.const 2401))
+
+;; The numbers that the program's image decides (the memory's minimum, the
+;; data's length, the data and code sections' sizes, each function's size, and
+;; i32.const of the image's end) may take each width of an LEB128 of 32 bits.
+;; Here they take 2 to 5 bytes, of which the last ones only pad, as an LEB128
+;; may (spec 5.2.2): the decoder reads such a number as one of that width.
+;;   (module
+;;     (memory (export "memory") 1)
+;;     (func (export "size") (result i32) (memory.size))
+;;     (func (export "data") (result i32) (i32.load (i32.const 20)))
+;;     (func (export "const") (result i32) (i32.const 42))
+;;     (data (i32.const 20) "WXYZ"))
+
+;; Those numbers in 2 bytes:
+(module binary
+  "\00\61\73\6d\01\00\00\00\01\0d\03\60\00\01\7f\60\00\01\7f\60\00\01\7f\03\04\03\00\01\02\05\04\01"
+  "\00\81\00\07\20\04\06\6d\65\6d\6f\72\79\02\00\04\73\69\7a\65\00\00\04\64\61\74\61\00\01\05\63\6f"
+  "\6e\73\74\00\02\0a\97\00\03\84\00\00\3f\00\0b\87\00\00\41\14\28\02\00\0b\85\00\00\41\aa\00\0b\0b"
+  "\8b\00\01\00\41\14\0b\84\00\57\58\59\5a")
+(assert_return (invoke "size") (i32.const 1))
+(assert_return (invoke "data") (i32.const 0x5a595857))
+(assert_return (invoke "const") (i32.const 42))
+
+;; Those numbers in 3 bytes:
+(module binary
+  "\00\61\73\6d\01\00\00\00\01\0d\03\60\00\01\7f\60\00\01\7f\60\00\01\7f\03\04\03\00\01\02\05\05\01"
+  "\00\81\80\00\07\20\04\06\6d\65\6d\6f\72\79\02\00\04\73\69\7a\65\00\00\04\64\61\74\61\00\01\05\63"
+  "\6f\6e\73\74\00\02\0a\9b\80\00\03\84\80\00\00\3f\00\0b\87\80\00\00\41\14\28\02\00\0b\86\80\00\00"
+  "\41\aa\80\00\0b\0b\8c\80\00\01\00\41\14\0b\84\80\00\57\58\59\5a")
+(assert_return (invoke "size") (i32.const 1))
+(assert_return (invoke "data") (i32.const 0x5a595857))
+(assert_return (invoke "const") (i32.const 42))
+
+;; Those numbers in 4 bytes:
+(module binary
+  "\00\61\73\6d\01\00\00\00\01\0d\03\60\00\01\7f\60\00\01\7f\60\00\01\7f\03\04\03\00\01\02\05\06\01"
+  "\00\81\80\80\00\07\20\04\06\6d\65\6d\6f\72\79\02\00\04\73\69\7a\65\00\00\04\64\61\74\61\00\01\05"
+  "\63\6f\6e\73\74\00\02\0a\9f\80\80\00\03\84\80\80\00\00\3f\00\0b\87\80\80\00\00\41\14\28\02\00\0b"
+  "\87\80\80\00\00\41\aa\80\80\00\0b\0b\8d\80\80\00\01\00\41\14\0b\84\80\80\00\57\58\59\5a")
+(assert_return (invoke "size") (i32.const 1))
+(assert_return (invoke "data") (i32.const 0x5a595857))
+(assert_return (invoke "const") (i32.const 42))
+
+;; Those numbers in 5 bytes:
+(module binary
+  "\00\61\73\6d\01\00\00\00\01\0d\03\60\00\01\7f\60\00\01\7f\60\00\01\7f\03\04\03\00\01\02\05\07\01"
+  "\00\81\80\80\80\00\07\20\04\06\6d\65\6d\6f\72\79\02\00\04\73\69\7a\65\00\00\04\64\61\74\61\00\01"
+  "\05\63\6f\6e\73\74\00\02\0a\a3\80\80\80\00\03\84\80\80\80\00\00\3f\00\0b\87\80\80\80\00\00\41\14"
+  "\28\02\00\0b\88\80\80\80\00\00\41\aa\80\80\80\00\0b\0b\8e\80\80\80\00\01\00\41\14\0b\84\80\80\80"
+  "\00\57\58\59\5a")
+(assert_return (invoke "size") (i32.const 1))
+(assert_return (invoke "data") (i32.const 0x5a595857))
+(assert_return (invoke "const") (i32.const 42))

@@ -1,6 +1,7 @@
 import Interpreter.Run
 import Shared.DataForm
 import Shared.Script
+import Std.Data.HashSet
 
 -- WasmTests
 -- =========
@@ -33,8 +34,9 @@ import Shared.Script
 -- also writes a line FORMS: the forms that the compiler emits and that no
 -- passing assertion runs (AGENTS.md 3.9.1.3.2), which must be none. They are
 -- the forms of the instructions, of the module's parts and of their encodings
--- (Parts and encodings) in the modules of Compiler.module [] and
--- Compiler.halt; a passing assertion runs those of its module and of the
+-- (Parts and encodings) in the compiler's modules (compilerModules), where an
+-- LEB128 whose value the program's image decides takes each width that one of
+-- 32 bits can have; a passing assertion runs those of its module and of the
 -- function that it invokes.
 
 open Quan Term
@@ -258,37 +260,50 @@ def exportForms (i : Term) (name : List UInt8) : List String :=
 --
 -- The forms of a module's parts and of their encodings (AGENTS.md 3.9.1.3.2),
 -- read from its bytes as the binary format lays them out (spec 5): each part
--- of a section, and the width of each LEB128 number in it (the compiler writes
--- each number in its fewest bytes, the spec's reference encoder each size in
--- 5). They cover the subset's sections and instructions; for any other byte,
--- a module has none.
+-- of a section, and each LEB128 number in it, whose form is its field and its
+-- width (the compiler writes each number in its fewest bytes, the spec's
+-- reference encoder each size in 5). They cover the subset's sections and
+-- instructions; for any other byte, a module has none.
 
--- what a module's bytes say: the forms of the whole module, those of each
+-- a form of a module's part or encoding: a part, by name, or an LEB128 number
+-- of a field, with its value and its width
+inductive Form where
+  | part (name : String)
+  | leb (field : String) (value width : Nat)
+
+def Form.show : Form → String
+  | .part p => p
+  | .leb f _ w => s!"{f}: {w}-byte LEB128"
+
+-- what a module's bytes say: its forms, in order, but those of each
 -- function's code (by the function's index), the index of the function that
 -- each export names, and the names of its instructions
 structure Coded where
-  module : List String := []
-  funcs : List (List String) := []
+  module : List Form := []
+  funcs : List (List Form) := []
   exports : List (List UInt8 × Nat) := []
   instrs : List String := []
 
 -- the forms that a passing assertion on the export name runs: the module's,
 -- and its function's
 def Coded.run (k : Coded) (name : List UInt8) : List String :=
-  k.module ++ (((List.lookup name k.exports).bind (k.funcs[·]?)).getD [])
+  ((k.module ++ (((List.lookup name k.exports).bind (k.funcs[·]?)).getD [])).map Form.show).eraseDups
 
-def lebw (w : Nat) : String := s!"{w}-byte LEB128"
-
--- an LEB128 number at the start of bs (spec 5.2.2): its value, of 7 bits a
--- byte, the lowest first, its width (at most 10 bytes) and the bytes after it
-def leb (bs : List UInt8) : Option (Nat × Nat × List UInt8) :=
-  go bs 10
+-- an LEB128 number of the field at the start of bs (spec 5.2.2), of 7 bits a
+-- byte, the lowest first, and at most 10 bytes; and the bytes after it
+def leb (field : String) (bs : List UInt8) : Option (Form × List UInt8) :=
+  (go bs 10).map fun (v, w, rest) => (.leb field v w, rest)
 where
   go : List UInt8 → Nat → Option (Nat × Nat × List UInt8)
   | b :: rest, k + 1 =>
     if b < 128 then some (b.toNat, 1, rest)
     else (go rest k).map fun (v, w, r) => (b.toNat - 128 + 128 * v, w + 1, r)
   | _, _ => none
+
+-- the value of an LEB128 number's form
+def Form.value : Form → Nat
+  | .leb _ v _ => v
+  | .part _ => 0
 
 -- n items at the start of bs, each read by item, and the bytes after them
 def items (n : Nat) (bs : List UInt8) (item : List UInt8 → Option (α × List UInt8)) :
@@ -302,10 +317,10 @@ def items (n : Nat) (bs : List UInt8) (item : List UInt8 → Option (α × List 
 
 -- a vector (spec 5.1.3) of the section what: its length's form, and its items
 def vec (what : String) (bs : List UInt8) (item : List UInt8 → Option (α × List UInt8)) :
-    Option (String × List α) := do
-  let (n, w, bs) ← leb bs
-  let (xs, []) ← items n bs item | none
-  pure (s!"{what} section count: {lebw w}", xs)
+    Option (Form × List α) := do
+  let (n, bs) ← leb s!"{what} section count" bs
+  let (xs, []) ← items n.value bs item | none
+  pure (n, xs)
 
 -- the immediates of an instruction of the subset (spec 5.4)
 inductive Imm where
@@ -328,112 +343,108 @@ def opcodes : List (UInt8 × String × Imm) := [
 
 -- the forms of an immediate of the instruction x, and the bytes after it; a
 -- memarg's alignment of 2^6 or more names another memory
-def immForms (x : String) (bs : List UInt8) : Imm → Option (List String × List UInt8)
+def immForms (x : String) (bs : List UInt8) : Imm → Option (List Form × List UInt8)
   | .none => some ([], bs)
-  | .index what => (leb bs).map fun (_, w, bs) => ([s!"{x} {what}: {lebw w}"], bs)
-  | .value => (leb bs).map fun (_, w, bs) => ([s!"{x} immediate: {lebw w}"], bs)
-  | .memory => (leb bs).map fun (_, w, bs) => ([s!"{x} memory index: {lebw w}"], bs)
+  | .index what => (leb s!"{x} {what}" bs).map fun (f, bs) => ([f], bs)
+  | .value => (leb s!"{x} immediate" bs).map fun (f, bs) => ([f], bs)
+  | .memory => (leb s!"{x} memory index" bs).map fun (f, bs) => ([f], bs)
   | .memarg => do
-    let (a, _, bs) ← leb bs
-    guard (a < 64)
-    let (_, w, bs) ← leb bs
-    pure ([s!"{x} alignment: {a}", s!"{x} offset: {lebw w}"], bs)
+    let (a, bs) ← leb s!"{x} alignment" bs
+    guard (a.value < 64)
+    let (o, bs) ← leb s!"{x} offset" bs
+    pure ([.part s!"{x} alignment: {a.value}", o], bs)
   | .blocktype =>
     match bs with
-    | 0x40 :: bs => some ([s!"{x} type: empty"], bs)
-    | 0x7F :: bs => some ([s!"{x} type: i32"], bs)
+    | 0x40 :: bs => some ([.part s!"{x} type: empty"], bs)
+    | 0x7F :: bs => some ([.part s!"{x} type: i32"], bs)
     | b :: _ =>
       if 0x40 ≤ b ∧ b < 0x80 then none
-      else (leb bs).map fun (_, w, bs) => ([s!"{x} type: a type index of {lebw w}"], bs)
+      else (leb s!"{x} type index" bs).map fun (f, bs) => ([f], bs)
     | [] => none
 
-def addNew (xs : Array String) (ys : List String) : Array String :=
-  ys.foldl (fun xs y => if xs.contains y then xs else xs.push y) xs
-
 -- the forms of the instructions at the start of bs, up to the end of the
--- block that holds them, inside depth more blocks; the instructions' names;
--- and the bytes after it
-partial def instrsForms (bs : List UInt8) (depth : Nat) (fs ns : Array String) :
-    Option (Array String × Array String × List UInt8) :=
+-- block that holds them, inside depth more blocks, after the forms fs and the
+-- names ns; and the bytes after it
+partial def instrsForms (bs : List UInt8) (depth : Nat) (fs : Array Form) (ns : Array String) :
+    Option (Array Form × Array String × List UInt8) :=
   match bs with
   | 0x0B :: bs => if depth == 0 then some (fs, ns, bs) else instrsForms bs (depth - 1) fs ns
   | op :: bs => do
     let (_, x, imm) ← opcodes.find? (·.1 == op)
     let (f, bs) ← immForms x bs imm
     let depth := if op == 0x02 || op == 0x03 then depth + 1 else depth
-    instrsForms bs depth (addNew fs f) (addNew ns [x])
+    instrsForms bs depth (fs ++ f.toArray) (if ns.contains x then ns else ns.push x)
   | [] => none
 
--- a group of locals (spec 5.5.13), of i32: its form
-def localsForm (bs : List UInt8) : Option (String × List UInt8) := do
-  let (_, w, 0x7F :: bs) ← leb bs | none
-  pure (s!"local group size: {lebw w}", bs)
+-- a group of locals (spec 5.5.13), of i32
+def localsForm (bs : List UInt8) : Option (Form × List UInt8) := do
+  let (n, 0x7F :: bs) ← leb "local group size" bs | none
+  pure (n, bs)
 
 -- a function's code (spec 5.5.13): the forms of its size, locals and body,
 -- and the names of its instructions
-def codeForms (bs : List UInt8) : Option ((List String × List String) × List UInt8) := do
-  let (n, w, bs) ← leb bs
-  guard (n ≤ bs.length)
-  let (g, wg, c) ← leb (bs.take n)
-  let (ls, c) ← items g c localsForm
+def codeForms (bs : List UInt8) : Option ((List Form × List String) × List UInt8) := do
+  let (n, bs) ← leb "code size" bs
+  guard (n.value ≤ bs.length)
+  let (g, c) ← leb "local groups count" (bs.take n.value)
+  let (ls, c) ← items g.value c localsForm
   let (fs, ns, []) ← instrsForms c 0 #[] #[] | none
-  let groups := if g == 0 then "no locals" else if g == 1 then "one group of locals" else "groups of locals"
-  let forms := s!"code size: {lebw w}" :: s!"local groups count: {lebw wg}" :: groups :: ls.eraseDups
-  pure ((forms ++ fs.toList, ns.toList), bs.drop n)
+  let groups := match g.value with
+    | 0 => "no locals" | 1 => "one group of locals" | _ => "groups of locals"
+  pure ((n :: g :: .part groups :: ls ++ fs.toList, ns.toList), bs.drop n.value)
+
+-- n bytes at the start of bs, and the bytes after them
+def bytesOf (n : Nat) (bs : List UInt8) : Option (List UInt8 × List UInt8) :=
+  if n ≤ bs.length then some (bs.take n, bs.drop n) else none
 
 -- a function type (spec 5.3.6), of i32 parameters and results
-def typeForms (bs : List UInt8) : Option (List String × List UInt8) := do
+def typeForms (bs : List UInt8) : Option (List Form × List UInt8) := do
   let 0x60 :: bs := bs | none
-  let (p, wp, bs) ← leb bs
-  guard ((bs.take p).length == p && (bs.take p).all (· == 0x7F))
-  let (q, wq, bs) ← leb (bs.drop p)
-  guard ((bs.take q).length == q && (bs.take q).all (· == 0x7F))
-  pure ([s!"type [{p} -> {q}]", s!"type parameters count: {lebw wp}",
-    s!"type results count: {lebw wq}"], bs.drop q)
+  let (p, bs) ← leb "type parameters count" bs
+  let (ps, bs) ← bytesOf p.value bs
+  let (q, bs) ← leb "type results count" bs
+  let (qs, bs) ← bytesOf q.value bs
+  guard ((ps ++ qs).all (· == 0x7F))
+  pure ([.part s!"type [{p.value} -> {q.value}]", p, q], bs)
 
 -- an export (spec 5.5.10): its forms, and a function's name and index
-def exportPartForms (bs : List UInt8) :
-    Option ((List String × Option (List UInt8 × Nat)) × List UInt8) := do
-  let (n, wn, bs) ← leb bs
-  guard ((bs.take n).length == n)
-  let name := bs.take n
-  let (kind, func, bs) ← match bs.drop n with
+def exportPartForms (bs : List UInt8) : Option ((List Form × Option (List UInt8 × Nat)) × List UInt8) := do
+  let (n, bs) ← leb "export name length" bs
+  let (name, bs) ← bytesOf n.value bs
+  let (kind, func, bs) ← match bs with
     | 0x00 :: bs => some ("export of a function", true, bs)
     | 0x02 :: bs => some ("export of the memory", false, bs)
     | _ => none
-  let (i, wi, bs) ← leb bs
-  pure (([s!"export name length: {lebw wn}", kind, s!"export index: {lebw wi}"],
-    if func then some (name, i) else none), bs)
+  let (i, bs) ← leb "export index" bs
+  pure (([n, .part kind, i], if func then some (name, i.value) else none), bs)
 
 -- a memory (spec 5.3.7) of a minimum only
-def memoryForms : List UInt8 → Option (List String × List UInt8)
-  | 0x00 :: bs =>
-    (leb bs).map fun (_, w, bs) => (["memory limits: a minimum only", s!"memory minimum: {lebw w}"], bs)
+def memoryForms : List UInt8 → Option (List Form × List UInt8)
+  | 0x00 :: bs => (leb "memory minimum" bs).map fun (m, bs) => ([.part "memory limits: a minimum only", m], bs)
   | _ => none
 
 -- an active data segment of memory 0 (spec 5.5.14), whose offset is
 -- i32.const n end
-def dataForms (bs : List UInt8) : Option (List String × List UInt8) := do
-  let (0, wf, 0x41 :: bs) ← leb bs | none
-  let (_, wo, 0x0B :: bs) ← leb bs | none
-  let (n, wn, bs) ← leb bs
-  guard ((bs.take n).length == n)
-  pure ([s!"data segment flag: {lebw wf}", "active data segment of memory 0",
-    s!"data offset i32.const immediate: {lebw wo}", s!"data length: {lebw wn}"], bs.drop n)
+def dataForms (bs : List UInt8) : Option (List Form × List UInt8) := do
+  let (f, 0x41 :: bs) ← leb "data segment flag" bs | none
+  guard (f.value == 0)
+  let (o, 0x0B :: bs) ← leb "data offset i32.const immediate" bs | none
+  let (n, bs) ← leb "data length" bs
+  let (_, bs) ← bytesOf n.value bs
+  pure ([f, .part "active data segment of memory 0", o, n], bs)
 
 -- the section of the id (spec 5.5.2), whose content is c, in k
 def sectionForms (k : Coded) (id : UInt8) (c : List UInt8) : Option Coded :=
+  let forms (fs : List Form) := { k with module := k.module ++ fs }
   match id with
-  | 1 => (vec "type" c typeForms).map fun (f, fs) => { k with module := k.module ++ f :: fs.flatten }
-  | 3 =>
-    let index (bs : List UInt8) := (leb bs).map fun (_, w, bs) => ([s!"function type index: {lebw w}"], bs)
-    (vec "function" c index).map fun (f, fs) => { k with module := k.module ++ f :: fs.flatten }
-  | 5 => (vec "memory" c memoryForms).map fun (f, fs) => { k with module := k.module ++ f :: fs.flatten }
+  | 1 => (vec "type" c typeForms).map fun (f, fs) => forms (f :: fs.flatten)
+  | 3 => (vec "function" c fun bs => (leb "function type index" bs)).map fun (f, fs) => forms (f :: fs)
+  | 5 => (vec "memory" c memoryForms).map fun (f, fs) => forms (f :: fs.flatten)
   | 7 => (vec "export" c exportPartForms).map fun (f, es) =>
-    { k with module := k.module ++ f :: (es.map (·.1)).flatten, exports := es.filterMap (·.2) }
+    { forms (f :: (es.map (·.1)).flatten) with exports := es.filterMap (·.2) }
   | 10 => (vec "code" c codeForms).map fun (f, cs) =>
-    { k with module := k.module ++ [f], funcs := cs.map (·.1), instrs := (cs.map (·.2)).flatten.eraseDups }
-  | 11 => (vec "data" c dataForms).map fun (f, fs) => { k with module := k.module ++ f :: fs.flatten }
+    { forms [f] with funcs := cs.map (·.1), instrs := (cs.map (·.2)).flatten.eraseDups }
+  | 11 => (vec "data" c dataForms).map fun (f, fs) => forms (f :: fs.flatten)
   | _ => none
 
 def sectionName : UInt8 → String
@@ -444,20 +455,32 @@ def sectionName : UInt8 → String
 partial def sectionsForms (k : Coded) : List UInt8 → Option Coded
   | [] => some k
   | id :: bs => do
-    let (n, w, bs) ← leb bs
-    guard (n ≤ bs.length)
-    let k ← sectionForms { k with module := k.module ++ [s!"{sectionName id} section size: {lebw w}"] }
-      id (bs.take n)
-    sectionsForms k (bs.drop n)
+    let (n, bs) ← leb s!"{sectionName id} section size" bs
+    let (c, bs) ← bytesOf n.value bs
+    sectionsForms (← sectionForms { k with module := k.module ++ [n] } id c) bs
 
 -- what the bytes of a module of the subset say (spec 5.5.16): its header,
 -- then its sections; nothing for bytes that are not one
 def coded (w : List UInt8) : Coded :=
   match w with
-  | 0x00 :: 0x61 :: 0x73 :: 0x6D :: 0x01 :: 0x00 :: 0x00 :: 0x00 :: bs =>
-    let k := (sectionsForms {} bs).getD {}
-    { k with module := k.module.eraseDups }
+  | 0x00 :: 0x61 :: 0x73 :: 0x6D :: 0x01 :: 0x00 :: 0x00 :: 0x00 :: bs => (sectionsForms {} bs).getD {}
   | _ => {}
+
+-- the fields of the LEB128 numbers whose values differ between two modules of
+-- the same layout, each once; none when their layouts differ
+def Coded.changed (a b : Coded) : Option (List String) :=
+  let fa := a.module ++ a.funcs.flatten
+  let fb := b.module ++ b.funcs.flatten
+  if fa.length != fb.length then none else
+  (fa.zip fb).foldlM (init := []) fun fields (x, y) =>
+    match x, y with
+    | .leb f v _, .leb g u _ =>
+      if f != g then none else some (if v == u || fields.contains f then fields else fields ++ [f])
+    | .part p, .part q => if p == q then some fields else none
+    | _, _ => none
+
+-- the widths of an LEB128 number of 32 bits: 1 to ⌈32/7⌉ bytes
+def u32Widths : List Nat := List.range' 1 ((32 + 6) / 7)
 
 -- Scripts
 -- -------
@@ -743,15 +766,24 @@ def runFile (c : Cfg) (h : IO.FS.Handle) (path : String) : IO St := do
         h.flush
     pure s
 
--- the modules that the compiler emits: the machine's for no cells, and
--- those that end at once with the status 1 or 2; their code, the
--- machine's, is the same for every program
+-- the modules that the compiler emits: the machine's for no cells and for a
+-- page of them (2^16 / 20 cells of 20 bytes, so that the input starts past
+-- the first page), and those that end at once with the status 1 or 2. The
+-- machine's code is the same for every program: the first two differ only
+-- where the program's image decides
 def compilerModules (M : Book) : List (List UInt8) :=
-  [App Q1 (Ref "Compiler_2f_impl.Compiler.module") (list []),
+  let cells (k : Nat) := list (List.replicate k (Ref "Compiler_2f_Cir_2f_impl.Cir.Cell.zero"))
+  [App Q1 (Ref "Compiler_2f_impl.Compiler.module") (cells 0),
+   App Q1 (Ref "Compiler_2f_impl.Compiler.module") (cells (2 ^ 16 / 20)),
    App Q1 (Ref "Compiler_2f_impl.Compiler.halt") (u32 1),
    App Q1 (Ref "Compiler_2f_impl.Compiler.halt") (u32 2)].map fun t =>
     let (w, _) := steps M 4000000000 t 0
     (unbytes w).getD []
+
+-- the strings xs, each once, in order
+def once (xs : List String) : List String :=
+  (xs.foldl (init := (({} : Std.HashSet String), #[])) fun (seen, out) x =>
+    if seen.contains x then (seen, out) else (seen.insert x, out.push x)).2.toList
 
 def main' : IO Unit := do
   let B ← Script.book
@@ -764,7 +796,7 @@ def main' : IO Unit := do
   -- answers), as the spec's interpreter does
   let c : Cfg := { B, fuel := Form.nat 2000000, limit := u32 65536 }
   let compiled ← (← IO.getEnv "MAIN").mapM fun main => do pure (compilerModules (← Script.bookAt main))
-  let c := { c with emits := compiled.map fun ws => (ws.map (coded · |>.instrs)).flatten.eraseDups }
+  let c := { c with emits := compiled.map fun ws => once (ws.flatMap (coded · |>.instrs)) }
   let files := ((← System.FilePath.readDir dir).map (·.path.toString)).qsort (· < ·) |>.toList.filter fun p =>
     p.endsWith ".bin.wast" && (only.map fun ks => ks.any fun k => p.endsWith s!"/{k}.bin.wast").getD true
   let mut total : St := {}
@@ -783,14 +815,20 @@ def main' : IO Unit := do
   h.putStrLn s!"ALL: {total.pass} passed, {total.fail} failed, {total.unsupported} unsupported, {total.notDone} not done"
   for (why, n) in total.causes do h.putStrLn s!"UNSUPPORTED {n}: {why}"
   -- the forms of the compiler's modules, as the model decodes them and as
-  -- their bytes say
+  -- their bytes say; a field that the program's image decides takes each width
+  -- that its LEB128, of 32 bits, can have
   if let some ws := compiled then
-    let emitted := (ws.map fun w =>
+    let ks := ws.map coded
+    let fields := match ks with
+      | a :: b :: _ => (a.changed b).getD ["?"]
+      | _ => ["?"]
+    h.putStrLn s!"IMAGE: the fields that the program's image decides: {fields}"
+    let image := fields.flatMap fun f => u32Widths.map fun w => (Form.leb f 0 w).show
+    let emitted := once ((ws.zip ks).flatMap fun (w, k) =>
       let instrs := match (evalTerm c (App Q1 (Ref "Wasm.decode.module") (bytes w))).bind unctor with
         | some ("Some", [m]) => (Module.forms m).flatten
         | _ => ["?"]
-      let k := coded w
-      instrs ++ (if k.funcs.isEmpty then ["?"] else k.module ++ k.funcs.flatten)).flatten.eraseDups
+      instrs ++ (if k.funcs.isEmpty then ["?"] else (k.module ++ k.funcs.flatten).map Form.show)) ++ image
     let notRun := emitted.filter (!total.forms.contains ·)
     h.putStrLn s!"FORMS: {emitted.length} that the compiler emits, not run by a passing test: {notRun}"
   h.flush
