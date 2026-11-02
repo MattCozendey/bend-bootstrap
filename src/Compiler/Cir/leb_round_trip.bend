@@ -576,3 +576,74 @@ def sleb.round(+v: U32, +rest: List<&2, Word(8n)>) ->
     sleb.step(3n, 17n, v1, rest,
       sleb.step(2n, 10n, v2, rest,
         sleb.step(1n, 3n, v3, rest, sleb.last(v, rest)))))
+
+# Signed 33-bit round trip, of numbers at least 0
+# -----------------------------------------------
+
+# Wasm.decode.s33 reads back what Wasm.encode.s33 writes, for every U32 and
+# every list of bytes after it (s33.round): as for uleb, byte by byte
+# (s33.step) down to the fifth byte (s33.last); a byte is the last when the
+# rest is 0 and its bit 6 (the sign) is 0.
+
+# the first byte of a number that goes on is neither 0x40 nor 0x7F, the
+# bytes of the block types of no value and of i32
+def U32.or128_ne64(+x: U32) -> {U32.is_eq(U32.or(U32.and(x, 127), 128), 64) == False{} : Bool}:
+  match x:
+    case U32{WCon{+b0, WCon{+b1, WCon{+b2, WCon{+b3, WCon{+b4, WCon{+b5, WCon{+b6, WCon{+b7, WCon{+b8, WCon{+b9, WCon{+b10, WCon{+b11, WCon{+b12, WCon{+b13, WCon{+b14, WCon{+b15, WCon{+b16, WCon{+b17, WCon{+b18, WCon{+b19, WCon{+b20, WCon{+b21, WCon{+b22, WCon{+b23, WCon{+b24, WCon{+b25, WCon{+b26, WCon{+b27, WCon{+b28, WCon{+b29, WCon{+b30, WCon{+b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+      %Equal.sym(Word(32n), Word.and(32n, WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n)), Word.andm(32n, WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n)), Word.and_is_andm(32n, WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n))) : {U32.is_eq(U32.or(U32{_}, 128), 64) == False{} : Bool}
+      {==}
+
+def U32.or128_ne127(+x: U32) -> {U32.is_eq(U32.or(U32.and(x, 127), 128), 127) == False{} : Bool}:
+  match x:
+    case U32{WCon{+b0, WCon{+b1, WCon{+b2, WCon{+b3, WCon{+b4, WCon{+b5, WCon{+b6, WCon{+b7, WCon{+b8, WCon{+b9, WCon{+b10, WCon{+b11, WCon{+b12, WCon{+b13, WCon{+b14, WCon{+b15, WCon{+b16, WCon{+b17, WCon{+b18, WCon{+b19, WCon{+b20, WCon{+b21, WCon{+b22, WCon{+b23, WCon{+b24, WCon{+b25, WCon{+b26, WCon{+b27, WCon{+b28, WCon{+b29, WCon{+b30, WCon{+b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+      %Equal.sym(Word(32n), Word.and(32n, WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n)), Word.andm(32n, WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n)), Word.and_is_andm(32n, WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n))) : {U32.is_eq(U32.or(U32{_}, 128), 127) == False{} : Bool}
+      {==}
+
+# a byte that goes on: from the bytes of x >> 7 to those of x
+def s33.more(+f: Nat, +p: Nat, +x: U32, +rest: List<&2, Word(8n)>,
+  ih: {Wa.Wasm.decode.s33.go(1n+p, List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n)), rest)) == Some{Wa.Wasm.Decoded{U32.shrn(x, 7n), rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+) -> {Wa.Wasm.decode.s33.go(8n+p, List.append(&2, Word(8n), Cr.Wasm.encode.leb.if(False{}, U32.and(x, 127), u => Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n))), rest)) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}:
+  %Equal.sym(U32, Sd.Byte.to_u32(Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128))), U32.or(U32.and(x, 127), 128), Byte.or128(x)) : {Wa.Wasm.decode.leb.if(U32.is_lt(_, 128), U32.is_lt(_, 64), _, List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n)), rest), r => Wa.Wasm.decode.leb.more(_, Wa.Wasm.decode.s33.go(1n+p, r))) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+  %Equal.sym(Bool, U32.is_lt(U32.or(U32.and(x, 127), 128), 128), False{}, U32.or128_not_lt(x)) : {Wa.Wasm.decode.leb.if(_, U32.is_lt(U32.or(U32.and(x, 127), 128), 64), U32.or(U32.and(x, 127), 128), List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n)), rest), r => Wa.Wasm.decode.leb.more(U32.or(U32.and(x, 127), 128), Wa.Wasm.decode.s33.go(1n+p, r))) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<U32>>, Wa.Wasm.decode.s33.go(1n+p, List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n)), rest)), Some{Wa.Wasm.Decoded{U32.shrn(x, 7n), rest}}, ih) : {Wa.Wasm.decode.leb.more(U32.or(U32.and(x, 127), 128), _) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+  %Equal.sym(U32, U32.and(U32.or(U32.and(x, 127), 128), 127), U32.and(x, 127), U32.or128_low(x)) : {Some{Wa.Wasm.Decoded{U32.or(_, U32.shln(U32.shrn(x, 7n), 7n)), rest}} == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+  Equal.cong(U32, Maybe<&2, Wa.Wasm.Decoded<U32>>, y => Some{Wa.Wasm.Decoded{y, rest}}, U32.or(U32.and(x, 127), U32.shln(U32.shrn(x, 7n), 7n)), x, U32.split7(x))
+
+def s33.step.if(+f: Nat, +p: Nat, +x: U32, +rest: List<&2, Word(8n)>, z1: Bool, z2: Bool,
+  ez1: {U32.is_zero(U32.shrn(x, 7n)) == z1 : Bool}, ez2: {U32.is_lt(U32.and(x, 127), 64) == z2 : Bool},
+  ih: {Wa.Wasm.decode.s33.go(1n+p, List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n)), rest)) == Some{Wa.Wasm.Decoded{U32.shrn(x, 7n), rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+) -> {Wa.Wasm.decode.s33.go(8n+p, List.append(&2, Word(8n), Cr.Wasm.encode.leb.if(Bool.and(z1, z2), U32.and(x, 127), u => Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n))), rest)) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}:
+  match z1 z2:
+    case True{} True{}:
+      %Equal.sym(U32, Sd.Byte.to_u32(Sd.Byte.from_u32(U32.and(x, 127))), U32.and(x, 127), Byte.low7(x)) : {Wa.Wasm.decode.leb.if(U32.is_lt(_, 128), U32.is_lt(_, 64), _, rest, r => Wa.Wasm.decode.leb.more(_, Wa.Wasm.decode.s33.go(1n+p, r))) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+      %Equal.sym(Bool, U32.is_lt(U32.and(x, 127), 128), True{}, U32.and127_lt(x)) : {Wa.Wasm.decode.leb.if(_, U32.is_lt(U32.and(x, 127), 64), U32.and(x, 127), rest, r => Wa.Wasm.decode.leb.more(U32.and(x, 127), Wa.Wasm.decode.s33.go(1n+p, r))) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+      %Equal.sym(Bool, U32.is_lt(U32.and(x, 127), 64), True{}, ez2) : {Wa.Wasm.decode.leb.if(True{}, _, U32.and(x, 127), rest, r => Wa.Wasm.decode.leb.more(U32.and(x, 127), Wa.Wasm.decode.s33.go(1n+p, r))) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+      Equal.cong(U32, Maybe<&2, Wa.Wasm.Decoded<U32>>, y => Some{Wa.Wasm.Decoded{y, rest}}, U32.and(x, 127), x, U32.small_low(x, ez1))
+    case True{} False{}:
+      s33.more(f, p, x, rest, ih)
+    case False{} _:
+      s33.more(f, p, x, rest, ih)
+
+# one byte more of a number at least 0: from the bytes of x >> 7 to those of x
+def s33.step(+f: Nat, +p: Nat, +x: U32, +rest: List<&2, Word(8n)>,
+  ih: {Wa.Wasm.decode.s33.go(1n+p, List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(f, U32.shrn(x, 7n)), rest)) == Some{Wa.Wasm.Decoded{U32.shrn(x, 7n), rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}
+) -> {Wa.Wasm.decode.s33.go(8n+p, List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(1n+f, x), rest)) == Some{Wa.Wasm.Decoded{x, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}:
+  s33.step.if(f, p, x, rest, U32.is_zero(U32.shrn(x, 7n)), U32.is_lt(U32.and(x, 127), 64), {==}, {==}, ih)
+
+# the last byte: the 4 top bits of v, below 2^4
+def s33.last(+v: U32, +rest: List<&2, Word(8n)>) ->
+  {Wa.Wasm.decode.s33.go(5n, List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(1n, U32.shrn(U32.shrn(U32.shrn(U32.shrn(v, 7n), 7n), 7n), 7n)), rest)) == Some{Wa.Wasm.Decoded{U32.shrn(U32.shrn(U32.shrn(U32.shrn(v, 7n), 7n), 7n), 7n), rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}:
+  match v:
+    case U32{WCon{+b0, WCon{+b1, WCon{+b2, WCon{+b3, WCon{+b4, WCon{+b5, WCon{+b6, WCon{+b7, WCon{+b8, WCon{+b9, WCon{+b10, WCon{+b11, WCon{+b12, WCon{+b13, WCon{+b14, WCon{+b15, WCon{+b16, WCon{+b17, WCon{+b18, WCon{+b19, WCon{+b20, WCon{+b21, WCon{+b22, WCon{+b23, WCon{+b24, WCon{+b25, WCon{+b26, WCon{+b27, WCon{+b28, WCon{+b29, WCon{+b30, WCon{+b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+      Equal.cong(Word(32n), Maybe<&2, Wa.Wasm.Decoded<U32>>, u => Some{Wa.Wasm.Decoded{U32{u}, rest}},
+        Word.and(32n, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n)), Word.andm(32n, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n)), Word.and_is_andm(32n, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, Word.low(32n, 7n)))
+
+def s33.round(+v: U32, +rest: List<&2, Word(8n)>) ->
+  {Wa.Wasm.decode.s33(List.append(&2, Word(8n), Cr.Wasm.encode.s33(v), rest)) == Some{Wa.Wasm.Decoded{v, rest}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}:
+  +v1 = U32.shrn(v, 7n)
+  +v2 = U32.shrn(v1, 7n)
+  +v3 = U32.shrn(v2, 7n)
+  s33.step(4n, 25n, v, rest,
+    s33.step(3n, 18n, v1, rest,
+      s33.step(2n, 11n, v2, rest,
+        s33.step(1n, 4n, v3, rest, s33.last(v, rest)))))

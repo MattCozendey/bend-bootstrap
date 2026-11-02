@@ -15,6 +15,7 @@ import ../../Shared/shared.bend as Sd
 import ../../Wasm/impl.bend as Wa
 import ./impl.bend as Cr
 import ./leb_round_trip.bend as L
+import ../need_big.bend as N
 
 # Booleans
 # --------
@@ -293,6 +294,86 @@ def tok.op(o: Wa.Wasm.Op, +E: List<&2, Word(8n)>) ->
     case Wa.Wasm.Op.ge_u{}:
       {==}
 
+# Block types
+# -----------
+
+# a comparison LT is not EQ
+def lt.ne(c: Cmp, h: {Cmp.is_lt(c) == True{} : Bool}) -> {Cmp.is_eq(c) == False{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      L.ft({True{} == False{} : Bool}, h)
+    case GT{}:
+      L.ft({False{} == False{} : Bool}, h)
+
+# a number below 64 is not 127
+def lt64.ne127(c: Cmp, d: Cmp, +A: Nat, r1: N.Rel(c, A, 64n), r2: N.Rel(d, A, 127n), h: {Cmp.is_lt(c) == True{} : Bool}) ->
+  {Cmp.is_eq(d) == False{} : Bool}:
+  match c:
+    case LT{}:
+      match d:
+        case LT{}:
+          {==}
+        case EQ{}:
+          Empty.absurd({True{} == False{} : Bool}, N.le_rw_l(1n+A, 128n, 64n, Equal.cong(Nat, Nat, z => 1n+z, A, 127n, r2), r1))
+        case GT{}:
+          {==}
+    case EQ{}:
+      L.ft({Cmp.is_eq(d) == False{} : Bool}, h)
+    case GT{}:
+      L.ft({Cmp.is_eq(d) == False{} : Bool}, h)
+
+# a type index whose first byte goes on (at least 2^7): that byte is
+# neither 0x40 nor 0x7F
+def bt.index.more(+x: U32, +B: List<&2, Word(8n)>,
+  hs: {Wa.Wasm.decode.s33(Con{Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128)), List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(4n, U32.shrn(x, 7n)), B)}) == Some{Wa.Wasm.Decoded{x, B}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}) ->
+  {Wa.Wasm.decode.blocktype(Con{Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128)), List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(4n, U32.shrn(x, 7n)), B)}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}:
+  +R = List.append(&2, Word(8n), Cr.Wasm.encode.s33.go(4n, U32.shrn(x, 7n)), B)
+  %Equal.sym(U32, Sd.Byte.to_u32(Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128))), U32.or(U32.and(x, 127), 128), L.Byte.or128(x)) :
+    {Wa.Wasm.decode.blocktype.if(U32.is_eq(_, 64), U32.is_eq(_, 127), R, Con{Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128)), R}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+  %Equal.sym(Bool, U32.is_eq(U32.or(U32.and(x, 127), 128), 64), False{}, L.U32.or128_ne64(x)) :
+    {Wa.Wasm.decode.blocktype.if(_, U32.is_eq(U32.or(U32.and(x, 127), 128), 127), R, Con{Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128)), R}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+  %Equal.sym(Bool, U32.is_eq(U32.or(U32.and(x, 127), 128), 127), False{}, L.U32.or128_ne127(x)) :
+    {Wa.Wasm.decode.blocktype.if(False{}, _, R, Con{Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128)), R}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+  %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<U32>>, Wa.Wasm.decode.s33(Con{Sd.Byte.from_u32(U32.or(U32.and(x, 127), 128)), R}), Some{Wa.Wasm.Decoded{x, B}}, hs) :
+    {Wa.Wasm.decode.bind(U32, Wa.Wasm.Blocktype, _, y => r => Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{y}, r}}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+  {==}
+
+# the bytes of a type index read back as it, by its first byte: the last
+# (below 2^6), or one that goes on
+def bt.index(z1: Bool, z2: Bool, +x: U32, +B: List<&2, Word(8n)>, +ez2: {U32.is_lt(U32.and(x, 127), 64) == z2 : Bool},
+  hs: {Wa.Wasm.decode.s33(List.append(&2, Word(8n), Cr.Wasm.encode.leb.if(Bool.and(z1, z2), U32.and(x, 127), u => Cr.Wasm.encode.s33.go(4n, U32.shrn(x, 7n))), B)) == Some{Wa.Wasm.Decoded{x, B}} : Maybe<&2, Wa.Wasm.Decoded<U32>>}) ->
+  {Wa.Wasm.decode.blocktype(List.append(&2, Word(8n), Cr.Wasm.encode.leb.if(Bool.and(z1, z2), U32.and(x, 127), u => Cr.Wasm.encode.s33.go(4n, U32.shrn(x, 7n))), B)) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}:
+  match z1 z2:
+    case True{} True{}:
+      +a = U32.and(x, 127)
+      %Equal.sym(U32, Sd.Byte.to_u32(Sd.Byte.from_u32(U32.and(x, 127))), U32.and(x, 127), L.Byte.low7(x)) :
+        {Wa.Wasm.decode.blocktype.if(U32.is_eq(_, 64), U32.is_eq(_, 127), B, Con{Sd.Byte.from_u32(U32.and(x, 127)), B}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+      %Equal.sym(Bool, U32.is_eq(U32.and(x, 127), 64), False{}, lt.ne(U32.cmp(U32.and(x, 127), 64), ez2)) :
+        {Wa.Wasm.decode.blocktype.if(_, U32.is_eq(U32.and(x, 127), 127), B, Con{Sd.Byte.from_u32(U32.and(x, 127)), B}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+      %Equal.sym(Bool, U32.is_eq(U32.and(x, 127), 127), False{}, lt64.ne127(U32.cmp(U32.and(x, 127), 64), U32.cmp(U32.and(x, 127), 127), U32.to_nat(U32.and(x, 127)),
+        N.U32.rel(U32.and(x, 127), 64), N.U32.rel(U32.and(x, 127), 127), ez2)) :
+        {Wa.Wasm.decode.blocktype.if(False{}, _, B, Con{Sd.Byte.from_u32(U32.and(x, 127)), B}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+      %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<U32>>, Wa.Wasm.decode.s33(Con{Sd.Byte.from_u32(U32.and(x, 127)), B}), Some{Wa.Wasm.Decoded{x, B}}, hs) :
+        {Wa.Wasm.decode.bind(U32, Wa.Wasm.Blocktype, _, y => r => Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{y}, r}}) == Some{Wa.Wasm.Decoded{Wa.Wasm.Blocktype.index{x}, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}
+      {==}
+    case True{} False{}:
+      bt.index.more(x, B, hs)
+    case False{} _:
+      bt.index.more(x, B, hs)
+
+# a block type, encoded then decoded, is itself
+def bt.round(bt: Wa.Wasm.Blocktype, +B: List<&2, Word(8n)>) ->
+  {Wa.Wasm.decode.blocktype(List.append(&2, Word(8n), Cr.Wasm.encode.blocktype(bt), B)) == Some{Wa.Wasm.Decoded{bt, B}} : Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>}:
+  match bt:
+    case Wa.Wasm.Blocktype.empty{}:
+      {==}
+    case Wa.Wasm.Blocktype.i32{}:
+      {==}
+    case Wa.Wasm.Blocktype.index{+x}:
+      bt.index(U32.is_zero(U32.shrn(x, 7n)), U32.is_lt(U32.and(x, 127), 64), x, B, {==}, L.s33.round(x, B))
+
 # Fuel
 # ----
 
@@ -327,10 +408,10 @@ def left(xs: List<&2, Wa.Wasm.Instr>, k: Nat) -> Nat:
           left(rest, 1n+k)
         case Wa.Wasm.Instr.memory_grow{}:
           left(rest, 1n+k)
-        case Wa.Wasm.Instr.block{body}:
-          left(rest, left(body, 1n+k))
-        case Wa.Wasm.Instr.loop{body}:
-          left(rest, left(body, 1n+k))
+        case Wa.Wasm.Instr.block{bt, body}:
+          left(rest, left(body, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.blocktype(bt)), k)))
+        case Wa.Wasm.Instr.loop{bt, body}:
+          left(rest, left(body, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.blocktype(bt)), k)))
         case Wa.Wasm.Instr.br{l}:
           left(rest, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k))
         case Wa.Wasm.Instr.br_if{l}:
@@ -427,30 +508,42 @@ def run(xs: List<&2, Wa.Wasm.Instr>, +more: List<&2, Word(8n)>, +k: Nat, +ys: Li
         case Wa.Wasm.Instr.memory_grow{}:
           simple(64, [Sd.Byte.from_u32(0)], rest, more, Wa.Wasm.Instr.memory_grow{}, k, ys, st, {==},
             run(rest, more, Nat.add(List.length(&2, Word(8n), [Sd.Byte.from_u32(0)]), k), Con{Wa.Wasm.Instr.memory_grow{}, ys}, st))
-        case Wa.Wasm.Instr.block{+body}:
+        case Wa.Wasm.Instr.block{+bt, +body}:
           +R = Cr.Wasm.encode.instrs(rest, more)
           +B = Cr.Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), R})
-          +k1 = left(body, 1n+k)
-          +os = {Con{Wa.Wasm.Open{False{}, ys}, st} : List<&2, Wa.Wasm.Open>}
-          +g = after(rest, more, k1, Wa.Wasm.Instr.block{body}, ys, st)
-          %add.succ(List.length(&2, Word(8n), B), k) : {Wa.Wasm.decode.instrs.go(_, B, [], os) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>, Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), B), 1n+k), B, [], os),
+          +T = Cr.Wasm.encode.blocktype(bt)
+          +k0 = Nat.add(List.length(&2, Word(8n), T), k)
+          +k1 = left(body, k0)
+          +os = {Con{Wa.Wasm.Open{False{}, bt, ys}, st} : List<&2, Wa.Wasm.Open>}
+          +g = after(rest, more, k1, Wa.Wasm.Instr.block{bt, body}, ys, st)
+          %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>, Wa.Wasm.decode.blocktype(List.append(&2, Word(8n), T, B)), Some{Wa.Wasm.Decoded{bt, B}}, bt.round(bt, B)) :
+            {Wa.Wasm.decode.instrs.then(Wa.Wasm.decode.bind(Wa.Wasm.Blocktype, Wa.Wasm.Token, _, b => r => Some{Wa.Wasm.Decoded{Wa.Wasm.Token.start{False{}, b}, r}}), ys, st,
+              r => zs => st2 => Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), List.append(&2, Word(8n), T, B)), k), r, zs, st2)) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          %Equal.sym(Nat, Nat.add(List.length(&2, Word(8n), List.append(&2, Word(8n), T, B)), k), Nat.add(List.length(&2, Word(8n), B), k0), add.len(T, B, k)) :
+            {Wa.Wasm.decode.instrs.go(_, B, [], os) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>, Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), B), k0), B, [], os),
             Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(11), R}), k1), Con{Sd.Byte.from_u32(11), R}, List.reverse.go(&2, Wa.Wasm.Instr, body, []), os),
-            run(body, Con{Sd.Byte.from_u32(11), R}, 1n+k, [], os)) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          %rev2(body) : {Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), R), k1), R, Con{Wa.Wasm.Instr.block{_}, ys}, st) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          run(rest, more, k1, Con{Wa.Wasm.Instr.block{body}, ys}, st)
-        case Wa.Wasm.Instr.loop{+body}:
+            run(body, Con{Sd.Byte.from_u32(11), R}, k0, [], os)) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          %rev2(body) : {Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), R), k1), R, Con{Wa.Wasm.Instr.block{bt, _}, ys}, st) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          run(rest, more, k1, Con{Wa.Wasm.Instr.block{bt, body}, ys}, st)
+        case Wa.Wasm.Instr.loop{+bt, +body}:
           +R = Cr.Wasm.encode.instrs(rest, more)
           +B = Cr.Wasm.encode.instrs(body, Con{Sd.Byte.from_u32(11), R})
-          +k1 = left(body, 1n+k)
-          +os = {Con{Wa.Wasm.Open{True{}, ys}, st} : List<&2, Wa.Wasm.Open>}
-          +g = after(rest, more, k1, Wa.Wasm.Instr.loop{body}, ys, st)
-          %add.succ(List.length(&2, Word(8n), B), k) : {Wa.Wasm.decode.instrs.go(_, B, [], os) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>, Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), B), 1n+k), B, [], os),
+          +T = Cr.Wasm.encode.blocktype(bt)
+          +k0 = Nat.add(List.length(&2, Word(8n), T), k)
+          +k1 = left(body, k0)
+          +os = {Con{Wa.Wasm.Open{True{}, bt, ys}, st} : List<&2, Wa.Wasm.Open>}
+          +g = after(rest, more, k1, Wa.Wasm.Instr.loop{bt, body}, ys, st)
+          %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<Wa.Wasm.Blocktype>>, Wa.Wasm.decode.blocktype(List.append(&2, Word(8n), T, B)), Some{Wa.Wasm.Decoded{bt, B}}, bt.round(bt, B)) :
+            {Wa.Wasm.decode.instrs.then(Wa.Wasm.decode.bind(Wa.Wasm.Blocktype, Wa.Wasm.Token, _, b => r => Some{Wa.Wasm.Decoded{Wa.Wasm.Token.start{True{}, b}, r}}), ys, st,
+              r => zs => st2 => Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), List.append(&2, Word(8n), T, B)), k), r, zs, st2)) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          %Equal.sym(Nat, Nat.add(List.length(&2, Word(8n), List.append(&2, Word(8n), T, B)), k), Nat.add(List.length(&2, Word(8n), B), k0), add.len(T, B, k)) :
+            {Wa.Wasm.decode.instrs.go(_, B, [], os) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          %Equal.sym(Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>, Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), B), k0), B, [], os),
             Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), Con{Sd.Byte.from_u32(11), R}), k1), Con{Sd.Byte.from_u32(11), R}, List.reverse.go(&2, Wa.Wasm.Instr, body, []), os),
-            run(body, Con{Sd.Byte.from_u32(11), R}, 1n+k, [], os)) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          %rev2(body) : {Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), R), k1), R, Con{Wa.Wasm.Instr.loop{_}, ys}, st) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
-          run(rest, more, k1, Con{Wa.Wasm.Instr.loop{body}, ys}, st)
+            run(body, Con{Sd.Byte.from_u32(11), R}, k0, [], os)) : {_ == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          %rev2(body) : {Wa.Wasm.decode.instrs.go(Nat.add(List.length(&2, Word(8n), R), k1), R, Con{Wa.Wasm.Instr.loop{bt, _}, ys}, st) == g : Maybe<&2, Wa.Wasm.Decoded<List<&2, Wa.Wasm.Instr>>>}
+          run(rest, more, k1, Con{Wa.Wasm.Instr.loop{bt, body}, ys}, st)
         case Wa.Wasm.Instr.br{+l}:
           simple(12, Cr.Wasm.encode.uleb(l), rest, more, Wa.Wasm.Instr.br{l}, k, ys, st, tok.index(j => Wa.Wasm.Instr.br{j}, l, Cr.Wasm.encode.instrs(rest, more)),
             run(rest, more, Nat.add(List.length(&2, Word(8n), Cr.Wasm.encode.uleb(l)), k), Con{Wa.Wasm.Instr.br{l}, ys}, st))
