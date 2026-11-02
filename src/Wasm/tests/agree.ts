@@ -2,12 +2,13 @@
 // src/Wasm/impl.bend, AGENTS.md 3.9.1.3.3): on each case, the model, run by the Lean interpreter
 // (src/Wasm/scripts/Host.lean), and a real host, src/Compiler/tests/host.ts in bun's engine, give
 // the same outcome. A law cannot state it: the real host is not Bend. The cases are the paths of
-// host/cases.wasm, whose outcomes are also fixed here, and a few compiled programs, which the
-// compiler's own code compiles in the Lean interpreter, all on an engine that grants each grow
-// within 2^16 pages, as bun does. Bun never refuses a grow, so on engines that refuse some (fewer
-// pages, or answers that refuse a grow: AGENTS.md 3.9.1.2), the model alone runs the paths of
-// host/cases.wasm, and must give the outcome that the spec gives on that engine, fixed here. WORK is
-// a folder for what the tests write.
+// host/cases.wasm and the modules host/init.wasm and host/nomemory.wasm, whose outcomes are also
+// fixed here, and a few compiled programs, which the compiler's own code compiles in the Lean
+// interpreter, all on an engine that grants each grow within 2^16 pages, as bun does. Bun never
+// refuses a grow, so on engines that refuse some (fewer pages, or answers that refuse a grow:
+// AGENTS.md 3.9.1.2), the model alone runs paths of host/cases.wasm and a compiled program, and
+// must give the outcome that the spec gives on that engine, fixed here. WORK is a folder for what
+// the tests write.
 //
 //   bun src/Wasm/tests/agree.ts WORK
 
@@ -19,9 +20,10 @@ import { getArgs, getBend, getLake, getLower, REPO, run } from "../../Shared/sha
 
 // types
 
-// a case: a module (a .wasm file, or a program to compile) and an input; for a case of
-// host/cases.wasm, the outcome that it must give; and for a case of the model alone, its engine: its
-// pages and its answers to grows ('0' refuses a grow, '1' grants it; past them, it grants each)
+// a case: a module (a .wasm file, or a program to compile) and an input; for a case of a module of
+// host/ or of the model alone, the outcome that it must give; and for a case of the model alone,
+// its engine: its pages and its answers to grows ('0' refuses a grow, '1' grants it; past them, it
+// grants each)
 type Case = {
   readonly name: string;
   readonly module: { readonly wasm: string } | { readonly program: string };
@@ -35,36 +37,69 @@ type Case = {
 const HERE = import.meta.dir;
 const HOST = join(REPO, "src/Compiler/tests/host.ts");
 const CASES = join(HERE, "host", "cases.wasm");
+const INIT = join(HERE, "host", "init.wasm");
+const NOMEMORY = join(HERE, "host", "nomemory.wasm");
 
-// the paths of host/cases.wasm, picked by the input's first byte, and what they give: an outcome
-// is its name (Wasm.Outcome), with a result's bytes in hex
+// the paths of host/cases.wasm, picked by the input's first byte (alloc's, by its length), and of
+// host/init.wasm and host/nomemory.wasm, and what they give: an outcome is its name
+// (Wasm.Outcome), with a result's bytes in hex
 const HOSTED: readonly Case[] = [
   { name: "e", input: "ehello", want: `result ${Buffer.from("ehello").toString("hex")}` },
   { name: "o", input: "o", want: "out_of_memory" },
   { name: "n", input: "n", want: "no_result" },
   { name: "x", input: "x", want: "trap" },
   { name: "r", input: "r", want: "trap" },
+  { name: "w", input: "w", want: "trap" },
+  { name: "t", input: "t", want: "trap" },
   { name: "z", input: "z", want: "result " },
   { name: "m", input: "m\u0002", want: `result ${Buffer.from("3").toString("hex")}` },
   { name: "g", input: "g", want: `result ${Buffer.from("A").toString("hex")}` },
   { name: "h", input: "h", want: `result ${Buffer.from("B").toString("hex")}` },
   { name: "big", input: "b".repeat(60001), want: "out_of_memory" },
   { name: "empty", input: "", want: "no_result" },
-].map((c) => ({ ...c, module: { wasm: CASES } }));
+  { name: "alloc.trap", input: "aaa", want: "trap" },
+  { name: "alloc.out", input: "aaaa", want: "trap" },
+  { name: "init", input: "", want: "trap", wasm: INIT },
+  { name: "nomemory", input: "", want: "trap", wasm: NOMEMORY },
+].map(({ wasm = CASES, ...c }) => ({ ...c, module: { wasm } }));
 
-// the paths of host/cases.wasm that grow, on engines that refuse some grows: the model alone
+// paths of host/cases.wasm, and a compiled program, on engines that refuse some grows or give fewer
+// pages: the model alone
 const ENGINES: readonly Case[] = [
-  // the first grow, refused, takes the answer; the second, past the answers, is granted
-  { name: "g.0", input: "g", engine: { pages: 65536, grows: "0" }, want: "B" },
-  { name: "g.00", input: "g", engine: { pages: 65536, grows: "00" }, want: "A" },
-  { name: "g.10", input: "g", engine: { pages: 65536, grows: "10" }, want: "A" },
-  // a grow past the limit fails and takes no answer: the grow by 1 takes the refusal
-  { name: "h.0", input: "h", engine: { pages: 65536, grows: "0" }, want: "A" },
-  { name: "m.0", input: "m\u0002", engine: { pages: 65536, grows: "0" }, want: "1" },
-  // a grow past the engine's pages fails; one within them is granted
-  { name: "m.p2", input: "m\u0002", engine: { pages: 2, grows: "" }, want: "1" },
-  { name: "m.p3", input: "m\u0002", engine: { pages: 3, grows: "" }, want: "3" },
-].map((c) => ({ ...c, module: { wasm: CASES }, want: `result ${Buffer.from(c.want).toString("hex")}` }));
+  ...[
+    // the first grow, refused, takes the answer; the second, past the answers, is granted
+    { name: "g.0", input: "g", engine: { pages: 65536, grows: "0" }, want: "B" },
+    { name: "g.00", input: "g", engine: { pages: 65536, grows: "00" }, want: "A" },
+    { name: "g.10", input: "g", engine: { pages: 65536, grows: "10" }, want: "A" },
+    // a grow past the limit fails and takes no answer: the grow by 1 takes the refusal
+    { name: "h.0", input: "h", engine: { pages: 65536, grows: "0" }, want: "A" },
+    { name: "m.0", input: "m\u0002", engine: { pages: 65536, grows: "0" }, want: "1" },
+    // a grow past the engine's pages fails; one within them is granted
+    { name: "m.p2", input: "m\u0002", engine: { pages: 2, grows: "" }, want: "1" },
+    { name: "m.p3", input: "m\u0002", engine: { pages: 3, grows: "" }, want: "3" },
+  ].map((c) => ({
+    ...c,
+    module: { wasm: CASES },
+    want: `result ${Buffer.from(c.want).toString("hex")}`,
+  })),
+  // fewer pages than the memory's minimum: the module has no instance
+  {
+    name: "e.p0",
+    module: { wasm: CASES },
+    input: "ehello",
+    engine: { pages: 0, grows: "" },
+    want: "out_of_memory",
+  },
+  // alloc grows the memory for the input, and the engine refuses, as the spec lets it
+  // (memory.grow-fail): alloc gives -1
+  {
+    name: "echo.g0",
+    module: { program: "echo" },
+    input: "x".repeat(65536),
+    engine: { pages: 65536, grows: "0" },
+    want: "out_of_memory",
+  },
+];
 
 // compiled programs (src/Compiler/tests/progs) on inputs that the Lean interpreter runs in seconds
 const COMPILED: readonly Case[] = [
@@ -102,8 +137,9 @@ const at = (file: string) => join(work, file);
 mkdirSync(work, { recursive: true });
 
 run(getLower(at("main.bendtt")));
+const cases = [...HOSTED, ...COMPILED, ...ENGINES];
 const programs = [
-  ...new Set(COMPILED.flatMap((c) => ("program" in c.module ? [c.module.program] : []))),
+  ...new Set(cases.flatMap((c) => ("program" in c.module ? [c.module.program] : []))),
 ];
 programs.forEach((p) =>
   run(getBend(join(REPO, "src/Compiler/tests/progs", `${p}.bend`), at(`${p}.bendtt`))),
@@ -117,7 +153,6 @@ run({
   stdout: "ignore",
 });
 
-const cases = [...HOSTED, ...COMPILED, ...ENGINES];
 cases.forEach((c) => writeFileSync(at(`${c.name}.in`), c.input));
 writeFileSync(
   at("host.jobs"),

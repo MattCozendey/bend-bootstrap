@@ -4,7 +4,9 @@
 ;; A module for src/Wasm/tests/agree.ts: it follows the Host protocol of
 ;; src/Wasm/impl.bend (memory, alloc, run), and the first byte of its input
 ;; picks the path that it takes through the host. alloc gives -1 for an input
-;; of more than 60000 bytes, else address 4096. convert.ts writes cases.wasm.
+;; of more than 60000 bytes, traps for one of 3 bytes, gives address 65534,
+;; where it does not fit, for one of 4, else address 4096. convert.ts writes
+;; cases.wasm.
 ;; A grow's outcome depends on the engine, as the spec lets any grow fail:
 ;; agree.ts compares the model with bun on an engine that grants each grow
 ;; within its pages, and checks fixed outcomes of the model on engines that
@@ -16,7 +18,11 @@
     (local.set 1 (i32.const -1))
     (block
       (br_if 0 (i32.gt_u (local.get 0) (i32.const 60000)))
-      (local.set 1 (i32.const 4096)))
+      (local.set 1 (i32.const 4096))
+      (block (br_if 0 (i32.ne (local.get 0) (i32.const 3)))
+        (local.set 1 (i32.load (i32.const 65536))))
+      (block (br_if 0 (i32.ne (local.get 0) (i32.const 4)))
+        (local.set 1 (i32.const 65534))))
     (local.get 1))
   (func (export "run") (param i32 i32) (result i32) (local i32 i32)
     (local.set 2 (i32.load8_u (local.get 0)))
@@ -34,6 +40,13 @@
       (block (br_if 0 (i32.ne (local.get 2) (i32.const 114)))
         (i32.store (i32.const 0) (i32.const 65535)) (i32.store (i32.const 4) (i32.const 2))
         (local.set 3 (i32.const 0)) (br 1))
+      ;; 'w': an output whose end wraps past 2^32
+      (block (br_if 0 (i32.ne (local.get 2) (i32.const 119)))
+        (i32.store (i32.const 0) (i32.const -1)) (i32.store (i32.const 4) (i32.const 2))
+        (local.set 3 (i32.const 0)) (br 1))
+      ;; 't': a trap, a load past the end of the memory
+      (block (br_if 0 (i32.ne (local.get 2) (i32.const 116)))
+        (local.set 3 (i32.load (i32.const 65533))) (br 1))
       ;; 'z': an empty output at the very end of the memory
       (block (br_if 0 (i32.ne (local.get 2) (i32.const 122)))
         (i32.store (i32.const 0) (i32.const 65536)) (i32.store (i32.const 4) (i32.const 0))
