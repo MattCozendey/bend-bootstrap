@@ -25,18 +25,32 @@ const LAKE_ENV = {
   [PATH_KEY]: [join(homedir(), ".elan", "bin"), process.env[PATH_KEY]].join(delimiter),
 };
 
+// the bun that runs Bend: on Windows, WSL's (AGENTS.md 2.4.1), whose shell first turns each
+// Windows path (C:\…) into its WSL path
+const BEND_BUN =
+  process.platform === "win32"
+    ? [
+        "wsl.exe",
+        "-e",
+        "bash",
+        "-lc",
+        'for a; do case $a in [A-Za-z]:[\\\\/]*) a=$(wslpath -a "$a");; esac; set -- "$@" "$a"; shift; done; exec bun "$@"',
+        "bun",
+      ]
+    : [process.execPath];
+
 // functions
 
 // `bend file -o out`, with the Bend of the bend submodule
 export const getBend = (file: string, out: string) => ({
-  cmd: [process.execPath, join(REPO, "bend/bend2/main.ts"), file, "-o", out],
+  cmd: [...BEND_BUN, join(REPO, "bend/bend2/main.ts"), file, "-o", out],
   stdout: "ignore" as const,
 });
 
 // the BendTT lowering of src/main.bend into out, as `bend -o` writes it but for the holes
 // (src/Shared/lower.ts)
 export const getLower = (out: string) => ({
-  cmd: [process.execPath, "Shared/lower.ts", "main.bend", out],
+  cmd: [...BEND_BUN, "Shared/lower.ts", "main.bend", out],
   cwd: join(REPO, "src"),
   stdout: "ignore" as const,
 });
