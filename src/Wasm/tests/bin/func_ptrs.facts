@@ -1,0 +1,7 @@
+(outside 0 "imports" "instruction call")
+(pure 0)
+(cut 13 "\63\61\6c\6c\74" "instruction call_indirect")
+(cut 13 "\63\61\6c\6c\75" "instruction call_indirect")
+(pure 13 "\63\61\6c\6c\74" "\63\61\6c\6c\75")
+(cut 35 "\63\61\6c\6c\74" "instruction call_indirect")
+(pure 35 "\63\61\6c\6c\74")

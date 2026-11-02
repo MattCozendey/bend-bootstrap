@@ -174,9 +174,8 @@
   "too many locals"
 )
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\84\80\80\80\00\01\60"
-  "\00\00\03\82\80\80\80\00\01\00\0a\8a\80\80\80\00"
-  "\01\84\80\80\80\00\01\02\7d\0b"
+  "\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\02"
+  "\01\00\0a\0a\01\08\03\00\7f\00\7e\02\7d\0b"
 )
 (module instance)
 (assert_malformed
@@ -201,9 +200,9 @@
   )
   "function and code section have inconsistent lengths"
 )
-(module definition binary "\00\61\73\6d\01\00\00\00")
+(module definition binary "\00\61\73\6d\01\00\00\00\03\01\00")
 (module instance)
-(module definition binary "\00\61\73\6d\01\00\00\00")
+(module definition binary "\00\61\73\6d\01\00\00\00\0a\01\00")
 (module instance)
 (assert_malformed
   (module binary "\00\61\73\6d\01\00\00\00\0c\01\03\0b\05\02\01\00" "\01\00")
@@ -217,7 +216,7 @@
   (module binary "\00\61\73\6d\01\00\00\00\05\03\01\00\01\0c\01\01")
   "data count and data section have inconsistent lengths"
 )
-(module definition binary "\00\61\73\6d\01\00\00\00")
+(module definition binary "\00\61\73\6d\01\00\00\00\0c\01\00")
 (module instance)
 (assert_malformed
   (module binary
@@ -252,22 +251,18 @@
   "malformed reference type"
 )
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\84\80\80\80\00\01\60"
-  "\00\00\03\82\80\80\80\00\01\00\04\84\80\80\80\00"
-  "\01\70\00\00\05\83\80\80\80\00\01\00\00\09\87\80"
-  "\80\80\00\01\05\70\01\d2\00\0b\0a\88\80\80\80\00"
-  "\01\82\80\80\80\00\00\0b"
+  "\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\02"
+  "\01\00\04\04\01\70\00\00\05\03\01\00\00\09\07\01"
+  "\05\70\01\d2\00\0b\0a\04\01\02\00\0b"
 )
 (module instance)
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\84\80\80\80\00\01\60"
-  "\00\00\03\82\80\80\80\00\01\00\04\84\80\80\80\00"
-  "\01\70\00\00\05\83\80\80\80\00\01\00\00\09\87\80"
-  "\80\80\00\01\05\70\01\d0\70\0b\0a\88\80\80\80\00"
-  "\01\82\80\80\80\00\00\0b"
+  "\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\02"
+  "\01\00\04\04\01\70\00\00\05\03\01\00\00\09\07\01"
+  "\05\70\01\d0\70\0b\0a\04\01\02\00\0b"
 )
 (module instance)
-(module definition binary "\00\61\73\6d\01\00\00\00")
+(module definition binary "\00\61\73\6d\01\00\00\00\01\01\00")
 (module instance)
 (assert_malformed
   (module binary "\00\61\73\6d\01\00\00\00\01\07\02\60\00\00")
@@ -278,8 +273,8 @@
   "section size mismatch"
 )
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\85\80\80\80\00\01\60"
-  "\01\7f\00"
+  "\00\61\73\6d\01\00\00\00\01\05\01\60\01\7f\00\02"
+  "\01\00"
 )
 (module instance)
 (assert_malformed
@@ -323,7 +318,7 @@
   )
   "section size mismatch"
 )
-(module definition binary "\00\61\73\6d\01\00\00\00")
+(module definition binary "\00\61\73\6d\01\00\00\00\04\01\00")
 (module instance)
 (assert_malformed
   (module binary "\00\61\73\6d\01\00\00\00\04\01\01")
@@ -341,7 +336,7 @@
   (module binary "\00\61\73\6d\01\00\00\00\04\06\01\70\81\00\00\00")
   "malformed limits flags"
 )
-(module definition binary "\00\61\73\6d\01\00\00\00")
+(module definition binary "\00\61\73\6d\01\00\00\00\05\01\00")
 (module instance)
 (assert_malformed
   (module binary "\00\61\73\6d\01\00\00\00\05\01\01")
@@ -363,7 +358,7 @@
   (module binary "\00\61\73\6d\01\00\00\00\05\05\01\81\01\00\00")
   "malformed limits flags"
 )
-(module definition binary "\00\61\73\6d\01\00\00\00")
+(module definition binary "\00\61\73\6d\01\00\00\00\06\01\00")
 (module instance)
 (assert_malformed
   (module binary "\00\61\73\6d\01\00\00\00\06\06\02\7f\00\41\00\0b")
@@ -377,9 +372,8 @@
   "section size mismatch"
 )
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\84\80\80\80\00\01\60"
-  "\00\00\03\83\80\80\80\00\02\00\00\0a\8f\80\80\80"
-  "\00\02\82\80\80\80\00\00\0b\82\80\80\80\00\00\0b"
+  "\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\03"
+  "\02\00\00\07\01\00\0a\07\02\02\00\0b\02\00\0b"
 )
 (module instance)
 (assert_malformed
@@ -399,10 +393,9 @@
   "section size mismatch"
 )
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\84\80\80\80\00\01\60"
-  "\00\00\03\82\80\80\80\00\01\00\04\84\80\80\80\00"
-  "\01\70\00\01\0a\88\80\80\80\00\01\82\80\80\80\00"
-  "\00\0b"
+  "\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\02"
+  "\01\00\04\04\01\70\00\01\09\01\00\0a\04\01\02\00"
+  "\0b"
 )
 (module instance)
 (assert_malformed
@@ -429,10 +422,7 @@
   )
   "section size mismatch"
 )
-(module definition binary
-  "\00\61\73\6d\01\00\00\00\05\83\80\80\80\00\01\00"
-  "\01"
-)
+(module definition binary "\00\61\73\6d\01\00\00\00\05\03\01\00\01\0b\01\00")
 (module instance)
 (assert_malformed
   (module binary
@@ -463,9 +453,8 @@
   "section size mismatch"
 )
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\84\80\80\80\00\01\60"
-  "\00\00\03\82\80\80\80\00\01\00\0a\95\80\80\80\00"
-  "\01\8f\80\80\80\00\00\02\40\41\01\04\40\41\01\0e"
+  "\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\02"
+  "\01\00\0a\11\01\0f\00\02\40\41\01\04\40\41\01\0e"
   "\00\02\0b\0b\0b"
 )
 (module instance)
@@ -480,9 +469,8 @@
   "unexpected end of section or function"
 )
 (module definition binary
-  "\00\61\73\6d\01\00\00\00\01\84\80\80\80\00\01\60"
-  "\00\00\03\82\80\80\80\00\01\00\08\81\80\80\80\00"
-  "\00\0a\88\80\80\80\00\01\82\80\80\80\00\00\0b"
+  "\00\61\73\6d\01\00\00\00\01\04\01\60\00\00\03\02"
+  "\01\00\08\01\00\0a\04\01\02\00\0b"
 )
 (module instance)
 (assert_malformed
