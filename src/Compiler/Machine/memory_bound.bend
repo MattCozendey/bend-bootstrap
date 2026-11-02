@@ -362,12 +362,24 @@ def first.le(+i: List<&2, Word(8n)>, +k: U32, +len: U32, +first: U32,
 
 # the larger of a and b is at most c when both are
 def max.le(+a: Nat, +b: Nat, +c: Nat, ha: N.Le(a, c), hb: N.Le(b, c)) -> N.Le(Nat.max(a, b), c):
-  ?TODO
+  match a b c:
+    case 0n _ _:
+      hb
+    case 1n+p 0n _:
+      ha
+    case 1n+p 1n+q 0n:
+      Empty.absurd(N.Le(Nat.max(1n+p, 1n+q), 0n), ha)
+    case 1n+p 1n+q 1n+r:
+      max.le(p, q, r, ha, hb)
 
 # Peak holds the STATIC own cells and the nodes of one term (the state after
 # M.input: the cache and the start term)
 def peak.ge(+ds: List<&2, Bk.Def>, +C: Nat, +S: Nat, +a: Nat, h: N.Le(a, Nat.add(C, S))) -> N.Le(a, Peak(ds, C, S)):
-  ?TODO
+  +L3 = Nat.mul(3n, D.Defs.big(ds))
+  +S2 = Nat.mul(2n, S)
+  +hs = N.le_trans(S, S2, Nat.add(16n, Nat.add(S2, L3)), N.le_add_r(S, Nat.mul(1n, S)),
+    N.le_trans(S2, Nat.add(S2, L3), Nat.add(16n, Nat.add(S2, L3)), N.le_add_r(S2, L3), N.le_add_l(16n, Nat.add(S2, L3))))
+  N.le_trans(a, Nat.add(C, S), Peak(ds, C, S), h, N.add_mono(C, C, S, Nat.add(16n, Nat.add(S2, L3)), N.le_refl(C), hs))
 
 # a round from the state st, of the term t, needs at most Peak own cells,
 # when st has at most C STATIC own cells and t and its step at most S nodes
@@ -376,23 +388,39 @@ def need.peak(+ds: List<&2, Bk.Def>, +st: Cr.Cir.State, +t: Bk.Term, +C: Nat, +S
   ht: N.Le(Pg.Term.size(t), S),
   hu: N.Le(D.StepSize(ds, t), S)) ->
   N.Le(D.Need(ds, st, t), Peak(ds, C, S)):
-  ?TODO
+  +M = Nat.max(Pg.Term.size(t), D.StepSize(ds, t))
+  +L3 = Nat.mul(3n, D.Defs.big(ds))
+  N.add_mono(D.Stat(D.Mem.cells(st), D.St.cells(st), D.St.first(st)), C, Nat.add(16n, Nat.add(Nat.mul(2n, M), L3)),
+    Nat.add(16n, Nat.add(Nat.mul(2n, S), L3)), hst,
+    N.add_mono(16n, 16n, Nat.add(Nat.mul(2n, M), L3), Nat.add(Nat.mul(2n, S), L3), N.le_refl(16n),
+      N.add_mono(Nat.mul(2n, M), Nat.mul(2n, S), L3, L3, N.mul_mono_r(2n, M, S, max.le(Pg.Term.size(t), D.StepSize(ds, t), S, ht, hu)),
+        N.le_refl(L3))))
 
 # the bytes of Need are within Budget
 def need.bytes.le(+ds: List<&2, Bk.Def>, +st: Cr.Cir.State, +t: Bk.Term) ->
   N.Le(D.Need.bytes(ds, st, t), D.Budget(ds, st, t)):
-  ?TODO
+  max_l(D.Need.bytes(ds, st, t), Nat.add(Nat.mul(20n, U32.to_nat(D.St.next(st))), Pg.Term.size(t)))
 
 # and its budget is at most Room, when st has at most Peak own cells and its
 # first cell is at most X
 def budget.room(+ds: List<&2, Bk.Def>, +st: Cr.Cir.State, +t: Bk.Term, +X: Nat, +C: Nat, +S: Nat,
-  hfi: N.Le(U32.to_nat(D.St.first(st)), X),
+  +hfi: N.Le(U32.to_nat(D.St.first(st)), X),
   hst: N.Le(D.Stat(D.Mem.cells(st), D.St.cells(st), D.St.first(st)), C),
-  ht: N.Le(Pg.Term.size(t), S),
+  +ht: N.Le(Pg.Term.size(t), S),
   hu: N.Le(D.StepSize(ds, t), S),
   hm: N.Le(D.Mem.cells(st), Peak(ds, C, S))) ->
   N.Le(D.Budget(ds, st, t), Room(ds, X, C, S)):
-  ?TODO
+  +FI = U32.to_nat(D.St.first(st))
+  +NX = U32.to_nat(D.St.next(st))
+  +P = Peak(ds, C, S)
+  +T = Pg.Term.size(t)
+  +Q = Nat.add(X, P)
+  +h1 = N.add_mono(Nat.mul(20n, Nat.add(FI, D.Need(ds, st, t))), Nat.mul(20n, Q), T, S,
+    N.mul_mono_r(20n, Nat.add(FI, D.Need(ds, st, t)), Q, N.add_mono(FI, X, D.Need(ds, st, t), P, hfi, need.peak(ds, st, t, C, S, hst, ht, hu))),
+    ht)
+  +hn = N.le_trans(NX, Nat.add(FI, D.Mem.cells(st)), Q, sub_le(NX, FI), N.add_mono(FI, X, D.Mem.cells(st), P, hfi, hm))
+  +h2 = N.add_mono(Nat.mul(20n, NX), Nat.mul(20n, Q), T, S, N.mul_mono_r(20n, NX, Q, hn), ht)
+  max.le(D.Need.bytes(ds, st, t), Nat.add(Nat.mul(20n, NX), T), Room(ds, X, C, S), h1, h2)
 
 # so its limit has room for its budget (round.room's room) when the limit lim
 # has room for Room (room.lim): the loop's form, with no closed big number
@@ -405,14 +433,15 @@ def budget.lim(+ds: List<&2, Bk.Def>, +st: Cr.Cir.State, +t: Bk.Term, +X: Nat, +
   hm: N.Le(D.Mem.cells(st), Peak(ds, C, S)),
   hroom: N.Le(Room(ds, X, C, S), D.Lim.bytes(lim))) ->
   N.Le(D.Budget(ds, st, t), D.Lim.bytes(D.St.lim(st))):
-  ?TODO
+  %Equal.sym(U32, D.St.lim(st), lim, hlim) : N.Le(D.Budget(ds, st, t), D.Lim.bytes(_))
+  N.le_trans(D.Budget(ds, st, t), Room(ds, X, C, S), D.Lim.bytes(lim), budget.room(ds, st, t, X, C, S, hfi, hst, ht, hu, hm), hroom)
 
 # The run's memory
 # ----------------
 
 # 2^18 <= 2^24: the one comparison of two closed numbers
 def pow.le() -> N.Le(N.D(18n, 1n), 16777216n):
-  ?TODO
+  Unit{}
 
 # Room, for the first cell of the run (first.le), C <= 6144 STATIC own cells
 # and the run's largest term S, is at most F
