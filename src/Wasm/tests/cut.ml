@@ -50,12 +50,12 @@ and instr_ok (e : instr) =
 let subtypes (m : module_) =
   List.concat_map (fun (t : type_) -> let RecT sts = t.it in sts) m.it.types
 
-(* the type of a function, when it is of the subset: i32 parameters, and at
-   most one result, an i32 *)
+(* the type of a function, when it is of the subset: i32 parameters and
+   results *)
 let functype (m : module_) (Func (x, _, _)) =
   match List.nth_opt (subtypes m) (Int32.to_int x.it) with
   | Some (SubT (_, _, FuncT (ins, outs)))
-    when List.for_all is_i32 ins && List.for_all is_i32 outs && List.length outs <= 1 ->
+    when List.for_all is_i32 ins && List.for_all is_i32 outs ->
     Some (ins, outs)
   | _ -> None
 

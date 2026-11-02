@@ -1188,6 +1188,11 @@ type Wasm.Step is Data:
   Wasm.Step.done{results: List<&2, U32>, mem: Wasm.Memory}
   Wasm.Step.trap{mem: Wasm.Memory}
 
+# a function's n results: the n values on top of the stack, which holds the
+# top first; the first result first (spec 4.4.10)
+def Wasm.results(stack: List<&2, U32>, n: Nat) -> List<&2, U32>:
+  List.reverse(&2, U32, List.take(&2, U32, stack, n))
+
 # the end of a block (spec 4.4.8): its label goes, and the instructions after
 # it run; at the end of the function, it gives its results
 def Wasm.step.end(
@@ -1195,7 +1200,7 @@ def Wasm.step.end(
 ) -> Wasm.Step:
   match labels:
     case Nil{}:
-      Wasm.Step.done{List.take(&2, U32, stack, results), mem}
+      Wasm.Step.done{Wasm.results(stack, results), mem}
     case Con{Wasm.Label{_, after, _}, outer}:
       Wasm.Step.next{Wasm.Frame{after, outer, results, stack, locals}, mem}
 
@@ -1223,7 +1228,7 @@ def Wasm.step.br(
 ) -> Wasm.Step:
   match ls:
     case Nil{}:
-      Wasm.Step.done{List.take(&2, U32, stack, results), mem}
+      Wasm.Step.done{Wasm.results(stack, results), mem}
     case Con{Wasm.Label{loop, after, +h}, outer}:
       Wasm.step.br.to(loop, after, h, outer, results,
         List.drop(&2, U32, stack, Nat.sub(List.length(&2, U32, stack), h)), locals, mem)
