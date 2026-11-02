@@ -194,7 +194,7 @@ def tm.state(+fuel: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Te
       tm.bind(tm.of(fuel, cells, ks, img, tm.reg(regs, Mc.R.focus())),
         t => tm.plugs(fuel, cells, ks, img, tm.reg(regs, Mc.R.sp()), t))
 
-# the nodes of t in pre-order, as Img.term lays out their cells, then acc
+# the nodes of t in pre-order, as Img.go lays out their cells, then acc
 def tm.pre(+t: Bk.Term, acc: List<&2, Bk.Term>) -> List<&2, Bk.Term>:
   match t:
     case Bk.Term.Var{_}:

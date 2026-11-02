@@ -79,7 +79,7 @@ def Nodup(xs: List<&2, U32>) -> Bool:
 # Terms
 # -----
 
-# 1 + the highest free variable of t, 0 when it has none (Img.fv, unbounded)
+# 1 + the highest free variable of t, 0 when it has none (the fv of Img.go, unbounded)
 def Fv(t: Bk.Term) -> Nat:
   match t:
     case Bk.Term.Var{i}:

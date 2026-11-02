@@ -130,71 +130,71 @@ def shift(t: Bk.Term, +a: Nat, +b: Nat) -> {Nsz(t, Nat.add(a, b)) == Nat.add(Nsz
       {==}
 
 # the cells of a term: one per node
-def term_len(t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Mc.Img.Def>, +at: U32, +acc: List<&2, Cr.Cir.Cell>) ->
-  {List.length(&2, Cr.Cir.Cell, Mc.Img.term(t, ks, es, at, acc)) == Nsz(t, List.length(&2, Cr.Cir.Cell, acc)) : Nat}:
+def go_len(t: Bk.Term, +ids: Mc.Img.Trie, +refs: Mc.Img.Trie, +upto: U32, +acc: List<&2, Cr.Cir.Cell>) ->
+  {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(t, ids, refs, upto, acc))) == Nsz(t, List.length(&2, Cr.Cir.Cell, acc)) : Nat}:
   match t:
     case Bk.Term.Var{_}:
       {==}
     case Bk.Term.Ref{_}:
       {==}
-    case Bk.Term.Ann{+x, +T}:
-      %term_len(T, ks, es, U32.add(U32.inc(at), Mc.Img.size(x)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Ann{x, T}, ks, es, at, acc)) == 1n+Nsz(x, _) : Nat}
-      %term_len(x, ks, es, U32.inc(at), Mc.Img.term(T, ks, es, U32.add(U32.inc(at), Mc.Img.size(x)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Ann{x, T}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Ann{+x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Ann{x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Ann{x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.Let{+qq, +v, +f}:
-      %term_len(f, ks, es, U32.add(U32.inc(at), Mc.Img.size(v)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Let{qq, v, f}, ks, es, at, acc)) == 1n+Nsz(v, _) : Nat}
-      %term_len(v, ks, es, U32.inc(at), Mc.Img.term(f, ks, es, U32.add(U32.inc(at), Mc.Img.size(v)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Let{qq, v, f}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Let{+q, +x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Let{q, x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Let{q, x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.Typ{+q}:
-      %term_len(q, ks, es, U32.inc(at), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Typ{q}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Typ{+x}:
+      %go_len(x, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Typ{x}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.Min{+a0, +b0}:
-      %term_len(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Min{a0, b0}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
-      %term_len(a0, ks, es, U32.inc(at), Mc.Img.term(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Min{a0, b0}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Min{+x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Min{x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Min{x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.All{+qq, +A, +B}:
-      %term_len(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.All{qq, A, B}, ks, es, at, acc)) == 1n+Nsz(A, _) : Nat}
-      %term_len(A, ks, es, U32.inc(at), Mc.Img.term(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.All{qq, A, B}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.All{+q, +x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.All{q, x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.All{q, x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.Lam{+qq, +f}:
-      %term_len(f, ks, es, U32.inc(at), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Lam{qq, f}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Lam{+q, +x}:
+      %go_len(x, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Lam{q, x}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.App{+qq, +f, +x}:
-      %term_len(x, ks, es, U32.add(U32.inc(at), Mc.Img.size(f)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.App{qq, f, x}, ks, es, at, acc)) == 1n+Nsz(f, _) : Nat}
-      %term_len(f, ks, es, U32.inc(at), Mc.Img.term(x, ks, es, U32.add(U32.inc(at), Mc.Img.size(f)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.App{qq, f, x}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.App{+q, +x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.App{q, x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.App{q, x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.Sig{+qq, +A, +B}:
-      %term_len(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Sig{qq, A, B}, ks, es, at, acc)) == 1n+Nsz(A, _) : Nat}
-      %term_len(A, ks, es, U32.inc(at), Mc.Img.term(B, ks, es, U32.add(U32.inc(at), Mc.Img.size(A)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Sig{qq, A, B}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Sig{+q, +x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Sig{q, x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Sig{q, x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.Tup{+qq, +a0, +b0}:
-      %term_len(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Tup{qq, a0, b0}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
-      %term_len(a0, ks, es, U32.inc(at), Mc.Img.term(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Tup{qq, a0, b0}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Tup{+q, +x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Tup{q, x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Tup{q, x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
-    case Bk.Term.Prj{+h}:
-      %term_len(h, ks, es, U32.inc(at), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Prj{h}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Prj{+x}:
+      %go_len(x, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Prj{x}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
     case Bk.Term.Enu{_}:
       {==}
     case Bk.Term.Lab{_}:
       {==}
-    case Bk.Term.Mat{+qq, +h, +m}:
-      %term_len(m, ks, es, U32.add(U32.inc(at), Mc.Img.size(h)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Mat{qq, h, m}, ks, es, at, acc)) == 1n+Nsz(h, _) : Nat}
-      %term_len(h, ks, es, U32.inc(at), Mc.Img.term(m, ks, es, U32.add(U32.inc(at), Mc.Img.size(h)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Mat{qq, h, m}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Mat{+k, +x, +y}:
+      %go_len(y, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Mat{k, x, y}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Mat{k, x, y}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
     case Bk.Term.Efq{}:
       {==}
-    case Bk.Term.Eql{+a0, +b0, +T}:
-      %term_len(T, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.size(b0)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+Nsz(a0, Nsz(b0, _)) : Nat}
-      %term_len(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.term(T, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.size(b0)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+Nsz(a0, _) : Nat}
-      %term_len(a0, ks, es, U32.inc(at), Mc.Img.term(b0, ks, es, U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.term(T, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(a0)), Mc.Img.size(b0)), acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Eql{a0, b0, T}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Eql{+x, +y, +z}:
+      %go_len(z, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Eql{x, y, z}, ids, refs, upto, acc))) == 1n+Nsz(x, Nsz(y, _)) : Nat}
+      %go_len(y, ids, refs, Mc.Img.Out.at(Mc.Img.go(z, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(z, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Eql{x, y, z}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, Mc.Img.Out.at(Mc.Img.go(z, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(z, ids, refs, upto, acc)))), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, Mc.Img.Out.at(Mc.Img.go(z, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(z, ids, refs, upto, acc))))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Eql{x, y, z}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
     case Bk.Term.Rfl{}:
       {==}
-    case Bk.Term.Rwt{+e, +P, +f}:
-      %term_len(f, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.size(P)), acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+Nsz(e, Nsz(P, _)) : Nat}
-      %term_len(P, ks, es, U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.term(f, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.size(P)), acc)) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+Nsz(e, _) : Nat}
-      %term_len(e, ks, es, U32.inc(at), Mc.Img.term(P, ks, es, U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.term(f, ks, es, U32.add(U32.add(U32.inc(at), Mc.Img.size(e)), Mc.Img.size(P)), acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.term(Bk.Term.Rwt{e, P, f}, ks, es, at, acc)) == 1n+_ : Nat}
+    case Bk.Term.Rwt{+x, +y, +z}:
+      %go_len(z, ids, refs, upto, acc) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Rwt{x, y, z}, ids, refs, upto, acc))) == 1n+Nsz(x, Nsz(y, _)) : Nat}
+      %go_len(y, ids, refs, Mc.Img.Out.at(Mc.Img.go(z, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(z, ids, refs, upto, acc))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Rwt{x, y, z}, ids, refs, upto, acc))) == 1n+Nsz(x, _) : Nat}
+      %go_len(x, ids, refs, Mc.Img.Out.at(Mc.Img.go(y, ids, refs, Mc.Img.Out.at(Mc.Img.go(z, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(z, ids, refs, upto, acc)))), Mc.Img.Out.cells(Mc.Img.go(y, ids, refs, Mc.Img.Out.at(Mc.Img.go(z, ids, refs, upto, acc)), Mc.Img.Out.cells(Mc.Img.go(z, ids, refs, upto, acc))))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.Out.cells(Mc.Img.go(Bk.Term.Rwt{x, y, z}, ids, refs, upto, acc))) == 1n+_ : Nat}
       {==}
 
 # Nsz with no addend, the addend added after
@@ -1449,21 +1449,22 @@ def Bl(ds: List<&2, Bk.Def>, n: Nat) -> Nat:
       Nsz(v, Bl(rest, n))
 
 # the cells of the bodies: one per node
-def bodies_len(ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Mc.Img.Def>, +at: U32) ->
-  {List.length(&2, Cr.Cir.Cell, Mc.Img.bodies(ds, ks, es, at)) == Bl(ds, 0n) : Nat}:
+def bodies_len(ds: List<&2, Bk.Def>, +ids: Mc.Img.Trie, +refs: Mc.Img.Trie, +at: U32) ->
+  {List.length(&2, Cr.Cir.Cell, Mc.Img.bodies(ds, ids, refs, at)) == Bl(ds, 0n) : Nat}:
   match ds:
     case Nil{}:
       {==}
     case Con{Bk.Def{+kk, +TT, +v, +oo}, +rest}:
-      %bodies_len(rest, ks, es, U32.add(at, Mc.Img.size(v))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.bodies(Con{Bk.Def{kk, TT, v, oo}, rest}, ks, es, at)) == Nsz(v, _) : Nat}
-      term_len(v, ks, es, at, Mc.Img.bodies(rest, ks, es, U32.add(at, Mc.Img.size(v))))
+      %bodies_len(rest, ids, refs, U32.add(at, Mc.Img.size(v))) : {List.length(&2, Cr.Cir.Cell, Mc.Img.bodies(Con{Bk.Def{kk, TT, v, oo}, rest}, ids, refs, at)) == Nsz(v, _) : Nat}
+      go_len(v, ids, refs, U32.add(at, Mc.Img.size(v)), Mc.Img.bodies(rest, ids, refs, U32.add(at, Mc.Img.size(v))))
 
 # the cells of the image: 290, then one per node of the bodies
 def cells_len(+ds: List<&2, Bk.Def>) -> {List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)) == Nat.add(290n, Bl(ds, 0n)) : Nat}:
-  +ks = Mc.Img.known(Mc.Img.names.defs(ds))
   +es = Mc.Img.defs(ds, Mc.I.book())
-  %bodies_len(ds, ks, es, Mc.I.book()) : {List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)) == Nat.add(290n, _) : Nat}
-  prefix_len(Mc.Img.ref(es, Pg.Program.name.main()), Mc.Img.bodies(ds, ks, es, Mc.I.book()))
+  +ids = Mc.Img.ids(Mc.Img.known(Mc.Img.names.defs(ds)), 0, Mc.Img.Trie.none{})
+  +refs = Mc.Img.refs(es, Mc.Img.Trie.none{})
+  %bodies_len(ds, ids, refs, Mc.I.book()) : {List.length(&2, Cr.Cir.Cell, Mc.Img.cells(ds)) == Nat.add(290n, _) : Nat}
+  prefix_len(Mc.Img.ref(es, Pg.Program.name.main()), Mc.Img.bodies(ds, ids, refs, Mc.I.book()))
 
 # a node of a body moves through the bodies
 def bl_swap(ds: List<&2, Bk.Def>, +v: Bk.Term, +a: Nat) -> {Bl(ds, Nsz(v, a)) == Nsz(v, Bl(ds, a)) : Nat}:

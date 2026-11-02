@@ -1408,59 +1408,6 @@ def Img.size(t: Bk.Term) -> U32:
 def Img.down(+fv: U32, +k: U32) -> U32:
   Bool.pick(U32, U32.is_eq(fv, 524287), 524287, Bool.pick(U32, U32.is_gt(fv, k), U32.sub(fv, k), 0))
 
-# fv of a term: 1 + its highest free variable, 0 when it has none, at most
-# fv_max (M.var, M.finish)
-def Img.fv(t: Bk.Term) -> U32:
-  match t:
-    case Bk.Term.Var{i}:
-      +u = U32.from_nat(i)
-      Bool.pick(U32, U32.is_lt(u, 524286), U32.inc(u), 524287)
-    case Bk.Term.Ref{_}:
-      0
-    case Bk.Term.Ann{x, T}:
-      U32.max(Img.fv(x), Img.fv(T))
-    case Bk.Term.Let{_, v, f}:
-      U32.max(Img.fv(v), Img.down(Img.fv(f), 1))
-    case Bk.Term.Typ{q}:
-      Img.fv(q)
-    case Bk.Term.Min{a, b}:
-      U32.max(Img.fv(a), Img.fv(b))
-    case Bk.Term.All{_, A, B}:
-      U32.max(Img.fv(A), Img.down(Img.fv(B), 1))
-    case Bk.Term.Lam{_, f}:
-      Img.down(Img.fv(f), 1)
-    case Bk.Term.App{_, f, x}:
-      U32.max(Img.fv(f), Img.fv(x))
-    case Bk.Term.Sig{_, A, B}:
-      U32.max(Img.fv(A), Img.down(Img.fv(B), 1))
-    case Bk.Term.Tup{_, a, b}:
-      U32.max(Img.fv(a), Img.fv(b))
-    case Bk.Term.Prj{h}:
-      Img.fv(h)
-    case Bk.Term.Enu{_}:
-      0
-    case Bk.Term.Lab{_}:
-      0
-    case Bk.Term.Mat{_, h, m}:
-      U32.max(Img.fv(h), Img.fv(m))
-    case Bk.Term.Efq{}:
-      0
-    case Bk.Term.Eql{a, b, T}:
-      U32.max(Img.fv(a), U32.max(Img.fv(b), Img.fv(T)))
-    case Bk.Term.Rfl{}:
-      0
-    case Bk.Term.Rwt{e, P, f}:
-      U32.max(Img.fv(e), U32.max(Img.down(Img.fv(P), 2), Img.fv(f)))
-
-# a value by its form alone, with no call in it: the image flags such a pair
-# VALUE
-def Img.is_value(t: Bk.Term) -> Bool:
-  match t:
-    case Bk.Term.Tup{q, a, b}:
-      (Bool.not(El.Quan.live(q)) || Img.is_value(a)) && Img.is_value(b)
-    case u:
-      El.Term.is_former(u)
-
 # a cell's field 0: the tag t, the quantity q, the flags fl and fv
 def Img.header(+t: U32, +q: U32, +fl: U32, +fv: U32) -> U32:
   U32.or(U32.or(U32.or(t, U32.shln(q, 6n)), fl), U32.shln(fv, 13n))
@@ -1492,85 +1439,255 @@ def Img.id(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +i: U32) ->
     case Con{+n, rest}:
       Img.ref.if(Sd.Name.is_eq(n, k), i, u => Img.id(rest, k, U32.inc(i)))
 
-# the cells of the term t from the cell at, then acc
-def Img.term(t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Img.Def>, +at: U32, acc: List<&2, Cr.Cir.Cell>) ->
-  List<&2, Cr.Cir.Cell>:
+# Names, by their bits
+# --------------------
+#
+# A trie of names: a node's value is the name that ends there, its two
+# children the names that go on with a 0 or a 1 bit, a byte's lowest bit
+# first. It finds a name in time of its length, where a list would compare
+# it with each name before it.
+
+type Img.Trie is Data:
+  Img.Trie.none{}
+  Img.Trie.node{v: Maybe<&2, U32>, zero: Img.Trie, one: Img.Trie}
+
+def Img.trie.v(t: Img.Trie) -> Maybe<&2, U32>:
+  match t:
+    case Img.Trie.none{}:
+      None{}
+    case Img.Trie.node{v, _, _}:
+      v
+
+# the child of t for the bit b
+def Img.trie.bit(b: Bool, t: Img.Trie) -> Img.Trie:
+  match t:
+    case Img.Trie.none{}:
+      Img.Trie.none{}
+    case Img.Trie.node{_, z, o}:
+      Bool.pick(Img.Trie, b, o, z)
+
+# t with c as its child for the bit b
+def Img.trie.side(b: Bool, t: Img.Trie, c: Img.Trie) -> Img.Trie:
+  match b t:
+    case False{} Img.Trie.none{}:
+      Img.Trie.node{None{}, c, Img.Trie.none{}}
+    case True{} Img.Trie.none{}:
+      Img.Trie.node{None{}, Img.Trie.none{}, c}
+    case False{} Img.Trie.node{v, _, o}:
+      Img.Trie.node{v, c, o}
+    case True{} Img.Trie.node{v, z, _}:
+      Img.Trie.node{v, z, c}
+
+# the part of t under the n bits of w
+def Img.trie.at(n: Nat, w: Word(n), t: Img.Trie) -> Img.Trie:
+  match n:
+    case 0n:
+      t
+    case 1n+p:
+      match w:
+        case WCon{b, r}:
+          Img.trie.at(p, r, Img.trie.bit(b, t))
+
+# t with s as its part under the n bits of w
+def Img.trie.with(n: Nat, w: Word(n), +t: Img.Trie, s: Img.Trie) -> Img.Trie:
+  match n:
+    case 0n:
+      s
+    case 1n+p:
+      match w:
+        case WCon{+b, r}:
+          Img.trie.side(b, t, Img.trie.with(p, r, Img.trie.bit(b, t), s))
+
+# t with the value v at its root
+def Img.trie.set(t: Img.Trie, +v: U32) -> Img.Trie:
+  match t:
+    case Img.Trie.none{}:
+      Img.Trie.node{Some{v}, Img.Trie.none{}, Img.Trie.none{}}
+    case Img.Trie.node{_, z, o}:
+      Img.Trie.node{Some{v}, z, o}
+
+# the value of the name k
+def Img.trie.get(k: List<&2, Word(8n)>, t: Img.Trie) -> Maybe<&2, U32>:
+  match k:
+    case Nil{}:
+      Img.trie.v(t)
+    case Con{b, rest}:
+      Img.trie.get(rest, Img.trie.at(8n, b, t))
+
+# t with the value v for the name k
+def Img.trie.put(k: List<&2, Word(8n)>, +t: Img.Trie, +v: U32) -> Img.Trie:
+  match k:
+    case Nil{}:
+      Img.trie.set(t, v)
+    case Con{+b, rest}:
+      Img.trie.with(8n, b, t, Img.trie.put(rest, Img.trie.at(8n, b, t), v))
+
+def Img.trie.add.if(r: Maybe<&2, U32>, +t: Img.Trie, +k: List<&2, Word(8n)>, +v: U32) -> Img.Trie:
+  match r:
+    case None{}:
+      Img.trie.put(k, t, v)
+    case Some{_}:
+      t
+
+# t with the value v for the name k, unless k has one: the first stays
+def Img.trie.add(+t: Img.Trie, +k: List<&2, Word(8n)>, +v: U32) -> Img.Trie:
+  Img.trie.add.if(Img.trie.get(k, t), t, k, v)
+
+def Img.trie.find.of(r: Maybe<&2, U32>) -> U32:
+  match r:
+    case None{}:
+      0
+    case Some{v}:
+      v
+
+# the value of the name k, or 0 when it has none
+def Img.trie.find(+t: Img.Trie, +k: List<&2, Word(8n)>) -> U32:
+  Img.trie.find.of(Img.trie.get(k, t))
+
+# each name of ks with the place of its first copy, from i: Img.id
+def Img.ids(ks: List<&2, List<&2, Word(8n)>>, +i: U32, +t: Img.Trie) -> Img.Trie:
+  match ks:
+    case Nil{}:
+      t
+    case Con{+k, rest}:
+      Img.ids(rest, U32.inc(i), Img.trie.add(t, k, i))
+
+# each def's name with the first cell of the body of its first def: Img.ref
+def Img.refs(es: List<&2, Img.Def>, +t: Img.Trie) -> Img.Trie:
+  match es:
+    case Nil{}:
+      t
+    case Con{Img.Def{+k, +at}, rest}:
+      Img.refs(rest, Img.trie.add(t, k, at))
+
+# Terms, in one pass
+# ------------------
+
+# what the pass gives of a term: its cells in front of acc, its first cell,
+# its fv, and whether it is a value by its form alone (a former, or a pair of
+# such: the image flags such a pair VALUE) and Data (El.Term.is_data)
+type Img.Out is Data:
+  Img.Out{cells: List<&2, Cr.Cir.Cell>, at: U32, fv: U32, value: Bool, data: Bool}
+
+def Img.Out.cells(o: Img.Out) -> List<&2, Cr.Cir.Cell>:
+  match o:
+    case Img.Out{c, _, _, _, _}:
+      c
+
+def Img.Out.at(o: Img.Out) -> U32:
+  match o:
+    case Img.Out{_, a, _, _, _}:
+      a
+
+def Img.Out.fv(o: Img.Out) -> U32:
+  match o:
+    case Img.Out{_, _, f, _, _}:
+      f
+
+def Img.Out.value(o: Img.Out) -> Bool:
+  match o:
+    case Img.Out{_, _, _, v, _}:
+      v
+
+def Img.Out.data(o: Img.Out) -> Bool:
+  match o:
+    case Img.Out{_, _, _, _, d}:
+      d
+
+# a term's cell at the cell at, of the tag tg, the quantity q, the flags fl,
+# the fv f and the fields f2, f3 and f4, in front of acc
+def Img.node(+at: U32, +tg: U32, +q: U32, +fl: U32, +f: U32, +f2: U32, +f3: U32, +f4: U32, value: Bool, data: Bool,
+  acc: List<&2, Cr.Cir.Cell>) -> Img.Out:
+  Img.Out{Img.cell(Img.header(tg, q, fl, f), f2, f3, f4, acc), at, f, value, data}
+
+# the cells of the term t, in pre-order, that end before the cell upto, in
+# front of acc. One pass, from the last cell back: a node's first cell, fv,
+# VALUE and DATA come from its parts'. ids numbers the names of labels and
+# λ-matches (Img.id), refs places the bodies of Refs (Img.ref)
+def Img.go(t: Bk.Term, +ids: Img.Trie, +refs: Img.Trie, +upto: U32, acc: List<&2, Cr.Cir.Cell>) -> Img.Out:
   match t:
     case Bk.Term.Var{+i}:
-      Img.cell(Img.header(T.var(), 0, 1024, Img.fv(Bk.Term.Var{i})), U32.from_nat(i), 0, 0, acc)
+      +u = U32.from_nat(i)
+      Img.node(U32.sub(upto, 1), T.var(), 0, 1024, Bool.pick(U32, U32.is_lt(u, 524286), U32.inc(u), 524287), u, 0, 0,
+        False{}, False{}, acc)
     case Bk.Term.Ref{+k}:
-      Img.cell(Img.header(T.ref(), 0, 1024, 0), Img.ref(es, k), 0, 0, acc)
-    case Bk.Term.Ann{+x, +T}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(x))
-      Img.cell(Img.header(T.ann(), 0, 1024, Img.fv(Bk.Term.Ann{x, T})), a, b, 0,
-        Img.term(x, ks, es, a, Img.term(T, ks, es, b, acc)))
+      Img.node(U32.sub(upto, 1), T.ref(), 0, 1024, 0, Img.trie.find(refs, k), 0, 0, False{}, False{}, acc)
+    case Bk.Term.Ann{+x, +y}:
+      +oy = Img.go(y, ids, refs, upto, acc)
+      +ox = Img.go(x, ids, refs, Img.Out.at(oy), Img.Out.cells(oy))
+      Img.node(U32.sub(Img.Out.at(ox), 1), T.ann(), 0, 1024, U32.max(Img.Out.fv(ox), Img.Out.fv(oy)),
+        Img.Out.at(ox), Img.Out.at(oy), 0, False{}, False{}, Img.Out.cells(ox))
     case Bk.Term.Let{+q, +v, +f}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(v))
-      Img.cell(Img.header(T.let(), Img.quan(q), 1024, Img.fv(Bk.Term.Let{q, v, f})), a, b, 0,
-        Img.term(v, ks, es, a, Img.term(f, ks, es, b, acc)))
+      +of = Img.go(f, ids, refs, upto, acc)
+      +ov = Img.go(v, ids, refs, Img.Out.at(of), Img.Out.cells(of))
+      Img.node(U32.sub(Img.Out.at(ov), 1), T.let(), Img.quan(q), 1024, U32.max(Img.Out.fv(ov), Img.down(Img.Out.fv(of), 1)),
+        Img.Out.at(ov), Img.Out.at(of), 0, False{}, False{}, Img.Out.cells(ov))
     case Bk.Term.Typ{+x}:
-      +a = U32.inc(at)
-      Img.cell(Img.header(4, 0, 1024, Img.fv(x)), a, 0, 0, Img.term(x, ks, es, a, acc))
+      +ox = Img.go(x, ids, refs, upto, acc)
+      Img.node(U32.sub(Img.Out.at(ox), 1), 4, 0, 1024, Img.Out.fv(ox), Img.Out.at(ox), 0, 0, True{}, False{},
+        Img.Out.cells(ox))
     case Bk.Term.Min{+x, +y}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(x))
-      Img.cell(Img.header(T.min(), 0, 1024, Img.fv(Bk.Term.Min{x, y})), a, b, 0,
-        Img.term(x, ks, es, a, Img.term(y, ks, es, b, acc)))
-    case Bk.Term.All{+q, +A, +B}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(A))
-      Img.cell(Img.header(6, Img.quan(q), 1024, Img.fv(Bk.Term.All{q, A, B})), a, b, 0,
-        Img.term(A, ks, es, a, Img.term(B, ks, es, b, acc)))
+      +oy = Img.go(y, ids, refs, upto, acc)
+      +ox = Img.go(x, ids, refs, Img.Out.at(oy), Img.Out.cells(oy))
+      Img.node(U32.sub(Img.Out.at(ox), 1), T.min(), 0, 1024, U32.max(Img.Out.fv(ox), Img.Out.fv(oy)),
+        Img.Out.at(ox), Img.Out.at(oy), 0, False{}, False{}, Img.Out.cells(ox))
+    case Bk.Term.All{+q, +x, +y}:
+      +oy = Img.go(y, ids, refs, upto, acc)
+      +ox = Img.go(x, ids, refs, Img.Out.at(oy), Img.Out.cells(oy))
+      Img.node(U32.sub(Img.Out.at(ox), 1), 6, Img.quan(q), 1024, U32.max(Img.Out.fv(ox), Img.down(Img.Out.fv(oy), 1)),
+        Img.Out.at(ox), Img.Out.at(oy), 0, True{}, False{}, Img.Out.cells(ox))
     case Bk.Term.Lam{+q, +f}:
-      +a = U32.inc(at)
-      Img.cell(Img.header(T.lam(), Img.quan(q), 1024, Img.fv(Bk.Term.Lam{q, f})), a, 0, 0,
-        Img.term(f, ks, es, a, acc))
+      +of = Img.go(f, ids, refs, upto, acc)
+      Img.node(U32.sub(Img.Out.at(of), 1), T.lam(), Img.quan(q), 1024, Img.down(Img.Out.fv(of), 1), Img.Out.at(of), 0, 0,
+        True{}, False{}, Img.Out.cells(of))
     case Bk.Term.App{+q, +f, +x}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(f))
-      Img.cell(Img.header(T.app(), Img.quan(q), 1024, Img.fv(Bk.Term.App{q, f, x})), a, b, 0,
-        Img.term(f, ks, es, a, Img.term(x, ks, es, b, acc)))
-    case Bk.Term.Sig{+q, +A, +B}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(A))
-      Img.cell(Img.header(9, Img.quan(q), 1024, Img.fv(Bk.Term.Sig{q, A, B})), a, b, 0,
-        Img.term(A, ks, es, a, Img.term(B, ks, es, b, acc)))
+      +ox = Img.go(x, ids, refs, upto, acc)
+      +of = Img.go(f, ids, refs, Img.Out.at(ox), Img.Out.cells(ox))
+      Img.node(U32.sub(Img.Out.at(of), 1), T.app(), Img.quan(q), 1024, U32.max(Img.Out.fv(of), Img.Out.fv(ox)),
+        Img.Out.at(of), Img.Out.at(ox), 0, False{}, False{}, Img.Out.cells(of))
+    case Bk.Term.Sig{+q, +x, +y}:
+      +oy = Img.go(y, ids, refs, upto, acc)
+      +ox = Img.go(x, ids, refs, Img.Out.at(oy), Img.Out.cells(oy))
+      Img.node(U32.sub(Img.Out.at(ox), 1), 9, Img.quan(q), 1024, U32.max(Img.Out.fv(ox), Img.down(Img.Out.fv(oy), 1)),
+        Img.Out.at(ox), Img.Out.at(oy), 0, True{}, False{}, Img.Out.cells(ox))
     case Bk.Term.Tup{+q, +x, +y}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(x))
-      Img.cell(Img.header(T.tup(), Img.quan(q),
-          Img.flags(Img.is_value(Bk.Term.Tup{q, x, y}), El.Term.is_data(Bk.Term.Tup{q, x, y})), Img.fv(Bk.Term.Tup{q, x, y})),
-        a, b, 0, Img.term(x, ks, es, a, Img.term(y, ks, es, b, acc)))
+      +oy = Img.go(y, ids, refs, upto, acc)
+      +ox = Img.go(x, ids, refs, Img.Out.at(oy), Img.Out.cells(oy))
+      +dead = Bool.not(El.Quan.live(q))
+      +v = (dead || Img.Out.value(ox)) && Img.Out.value(oy)
+      +d = (dead || Img.Out.data(ox)) && Img.Out.data(oy)
+      Img.node(U32.sub(Img.Out.at(ox), 1), T.tup(), Img.quan(q), Img.flags(v, d), U32.max(Img.Out.fv(ox), Img.Out.fv(oy)),
+        Img.Out.at(ox), Img.Out.at(oy), 0, v, d, Img.Out.cells(ox))
     case Bk.Term.Prj{+h}:
-      +a = U32.inc(at)
-      Img.cell(Img.header(T.prj(), 0, 1024, Img.fv(h)), a, 0, 0, Img.term(h, ks, es, a, acc))
+      +oh = Img.go(h, ids, refs, upto, acc)
+      Img.node(U32.sub(Img.Out.at(oh), 1), T.prj(), 0, 1024, Img.Out.fv(oh), Img.Out.at(oh), 0, 0, True{}, False{},
+        Img.Out.cells(oh))
     case Bk.Term.Enu{_}:
-      Img.cell(Img.header(12, 0, 1024, 0), 0, 0, 0, acc)
+      Img.node(U32.sub(upto, 1), 12, 0, 1024, 0, 0, 0, 0, True{}, False{}, acc)
     case Bk.Term.Lab{+k}:
-      Img.cell(Img.header(T.lab(), 0, 1536, 0), Img.id(ks, k, 0), 0, 0, acc)
+      Img.node(U32.sub(upto, 1), T.lab(), 0, 1536, 0, Img.trie.find(ids, k), 0, 0, True{}, True{}, acc)
     case Bk.Term.Mat{+k, +h, +m}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(h))
-      Img.cell(Img.header(T.mat(), 0, 1024, Img.fv(Bk.Term.Mat{k, h, m})), Img.id(ks, k, 0), a, b,
-        Img.term(h, ks, es, a, Img.term(m, ks, es, b, acc)))
+      +om = Img.go(m, ids, refs, upto, acc)
+      +oh = Img.go(h, ids, refs, Img.Out.at(om), Img.Out.cells(om))
+      Img.node(U32.sub(Img.Out.at(oh), 1), T.mat(), 0, 1024, U32.max(Img.Out.fv(oh), Img.Out.fv(om)),
+        Img.trie.find(ids, k), Img.Out.at(oh), Img.Out.at(om), True{}, False{}, Img.Out.cells(oh))
     case Bk.Term.Efq{}:
-      Img.cell(Img.header(T.efq(), 0, 1024, 0), 0, 0, 0, acc)
-    case Bk.Term.Eql{+x, +y, +T}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(x))
-      +c = U32.add(b, Img.size(y))
-      Img.cell(Img.header(16, 0, 1024, Img.fv(Bk.Term.Eql{x, y, T})), a, b, c,
-        Img.term(x, ks, es, a, Img.term(y, ks, es, b, Img.term(T, ks, es, c, acc))))
+      Img.node(U32.sub(upto, 1), T.efq(), 0, 1024, 0, 0, 0, 0, True{}, False{}, acc)
+    case Bk.Term.Eql{+x, +y, +z}:
+      +oz = Img.go(z, ids, refs, upto, acc)
+      +oy = Img.go(y, ids, refs, Img.Out.at(oz), Img.Out.cells(oz))
+      +ox = Img.go(x, ids, refs, Img.Out.at(oy), Img.Out.cells(oy))
+      Img.node(U32.sub(Img.Out.at(ox), 1), 16, 0, 1024, U32.max(Img.Out.fv(ox), U32.max(Img.Out.fv(oy), Img.Out.fv(oz))),
+        Img.Out.at(ox), Img.Out.at(oy), Img.Out.at(oz), True{}, False{}, Img.Out.cells(ox))
     case Bk.Term.Rfl{}:
-      Img.cell(Img.header(T.rfl(), 0, 1536, 0), 0, 0, 0, acc)
-    case Bk.Term.Rwt{+e, +P, +f}:
-      +a = U32.inc(at)
-      +b = U32.add(a, Img.size(e))
-      +c = U32.add(b, Img.size(P))
-      Img.cell(Img.header(T.rwt(), 0, 1024, Img.fv(Bk.Term.Rwt{e, P, f})), a, b, c,
-        Img.term(e, ks, es, a, Img.term(P, ks, es, b, Img.term(f, ks, es, c, acc))))
+      Img.node(U32.sub(upto, 1), T.rfl(), 0, 1536, 0, 0, 0, 0, True{}, True{}, acc)
+    case Bk.Term.Rwt{+e, +p, +f}:
+      +of = Img.go(f, ids, refs, upto, acc)
+      +op = Img.go(p, ids, refs, Img.Out.at(of), Img.Out.cells(of))
+      +oe = Img.go(e, ids, refs, Img.Out.at(op), Img.Out.cells(op))
+      Img.node(U32.sub(Img.Out.at(oe), 1), T.rwt(), 0, 1024,
+        U32.max(Img.Out.fv(oe), U32.max(Img.down(Img.Out.fv(op), 2), Img.Out.fv(of))),
+        Img.Out.at(oe), Img.Out.at(op), Img.Out.at(of), False{}, False{}, Img.Out.cells(oe))
 
 # the names of the labels and λ-matches of t, then acc
 def Img.names(t: Bk.Term, acc: List<&2, List<&2, Word(8n)>>) -> List<&2, List<&2, Word(8n)>>:
@@ -1636,14 +1753,14 @@ def Img.defs(ds: List<&2, Bk.Def>, +at: U32) -> List<&2, Img.Def>:
     case Con{Bk.Def{k, _, v, _}, rest}:
       Con{Img.Def{k, at}, Img.defs(rest, U32.add(at, Img.size(v)))}
 
-# the cells of the bodies of ds, from the cell at, then acc
-def Img.bodies(ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +es: List<&2, Img.Def>, +at: U32) ->
-  List<&2, Cr.Cir.Cell>:
+# the cells of the bodies of ds, from the cell at
+def Img.bodies(ds: List<&2, Bk.Def>, +ids: Img.Trie, +refs: Img.Trie, +at: U32) -> List<&2, Cr.Cir.Cell>:
   match ds:
     case Nil{}:
       Nil{}
     case Con{Bk.Def{_, _, +v, _}, rest}:
-      Img.term(v, ks, es, at, Img.bodies(rest, ks, es, U32.add(at, Img.size(v))))
+      +upto = U32.add(at, Img.size(v))
+      Img.Out.cells(Img.go(v, ids, refs, upto, Img.bodies(rest, ids, refs, upto)))
 
 # the cells of the image: n labels, from the name i
 def Img.labels(n: Nat, +i: U32, acc: List<&2, Cr.Cir.Cell>) -> List<&2, Cr.Cir.Cell>:
@@ -1684,9 +1801,9 @@ def Img.prefix(main: U32, acc: List<&2, Cr.Cir.Cell>) -> List<&2, Cr.Cir.Cell>:
 
 # the cells of the image of the book ds
 def Img.cells(+ds: List<&2, Bk.Def>) -> List<&2, Cr.Cir.Cell>:
-  +ks = Img.known(Img.names.defs(ds))
   +es = Img.defs(ds, I.book())
-  Img.prefix(Img.ref(es, Pg.Program.name.main()), Img.bodies(ds, ks, es, I.book()))
+  +ids = Img.ids(Img.known(Img.names.defs(ds)), 0, Img.Trie.none{})
+  Img.prefix(Img.ref(es, Pg.Program.name.main()), Img.bodies(ds, ids, Img.refs(es, Img.Trie.none{}), I.book()))
 
 def Img.small.if(full: Bool, more: Unit -> Bool) -> Bool:
   match full:

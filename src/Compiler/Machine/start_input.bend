@@ -3233,7 +3233,8 @@ def In.main(+ds: List<&2, Bk.Def>) -> U32:
   Mc.Img.ref(Mc.Img.defs(ds, Mc.I.book()), Pg.Program.name.main())
 
 def In.bodies(+ds: List<&2, Bk.Def>) -> List<&2, Cr.Cir.Cell>:
-  Mc.Img.bodies(ds, Mc.Img.known(Mc.Img.names.defs(ds)), Mc.Img.defs(ds, Mc.I.book()), Mc.I.book())
+  Mc.Img.bodies(ds, Mc.Img.ids(Mc.Img.known(Mc.Img.names.defs(ds)), 0, Mc.Img.Trie.none{}),
+    Mc.Img.refs(Mc.Img.defs(ds, Mc.I.book()), Mc.Img.Trie.none{}), Mc.I.book())
 
 def In.cells.eq(+ds: List<&2, Bk.Def>) -> {Mc.Img.cells(ds) == Mc.Img.prefix(In.main(ds), In.bodies(ds)) : List<&2, Cr.Cir.Cell>}:
   {==}
