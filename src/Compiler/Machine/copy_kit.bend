@@ -1663,3 +1663,162 @@ def lt.new(+m: Cr.Cir.Cells, +F: U32, +nx: U32, +Q: List<&2, U32>,
     {Bool.and(D.Lt(n, M2, Q, F, N2), D.All.lt(_, N2)) == True{} : Bool}
   Bo.and_i(D.Lt(n, M2, Q, F, N2), True{},
     lt.set(n, m, nx, Cr.Cir.Cell.zero(), Q, F, nx, N2, Ar.ne.own(F, nx, hfn), hz, Ar.nx.up(nx, hb), h), {==})
+
+# AL across a new cell
+# --------------------
+
+# a pick of a or 0, with a giving a2 when b holds
+def Pk.b(b: Bool, +a1: U32, +a2: U32, e: {b == True{} : Bool} -> {a1 == a2 : U32}) ->
+  {Bool.pick(U32, b, a1, 0) == Bool.pick(U32, b, a2, 0) : U32}:
+  match b:
+    case True{}:
+      e({==})
+    case False{}:
+      {==}
+
+# a store to z, past the table, keeps the mask Am of another cell o of a
+# garbage cell's tag
+def am.set(+m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +o: U32, -hq: Bool, ne: {U32.is_eq(o, z) == False{} : Bool},
+  ht: {Bool.or(U32.is_le(U32.and(D.Fd(0n, m, o), 63), 18), Bool.and(U32.is_le(32, U32.and(D.Fd(0n, m, o), 63)), hq)) == True{} : Bool},
+  +hz: N.Le(291n, U32.to_nat(z))) -> {D.Am(Cr.Cir.Cells.set(m, z, x), o) == D.Am(m, o) : U32}:
+  +M2 = Cr.Cir.Cells.set(m, z, x)
+  +y = Cr.Cir.Cells.get(m, o)
+  +t = U32.and(Cr.Cir.Cell.get(0n, y), 63)
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, o), y, Cl.get_ne(m, o, z, x, ne)) :
+    {Bool.pick(U32, U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 32), Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(M2, U32.add(272, U32.and(Cr.Cir.Cell.get(0n, _), 63)))), 0) ==
+      D.Am(m, o) : U32}
+  Pk.b(U32.is_lt(t, 32), D.Fd(2n, M2, U32.add(272, t)), D.Fd(2n, m, U32.add(272, t)),
+    e => Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(2n, w), Cr.Cir.Cells.get(M2, U32.add(272, t)), Cr.Cir.Cells.get(m, U32.add(272, t)),
+      Cl.get_ne(m, U32.add(272, t), z, x, Ar.tbl.ne(t, z, Ar.t19(t, hq, e, ht), hz))))
+
+# a part of a garbage cell across the new cell nx, set to zeros
+def part.fresh(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +z: Nat, +am: U32, +bit: U32, +p: U32,
+  +K: U32, +F: U32, +nx: U32, +hP: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool},
+  +hk: N.Le(1n+U32.to_nat(K), U32.to_nat(nx)), +hm: N.Le(U32.to_nat(nx), U32.to_nat(U32.inc(nx))), +hz: N.Le(291n, U32.to_nat(nx)),
+  h: {D.AL.part(m, P, zs, z, am, bit, p, K, F, nx) == True{} : Bool}) ->
+  {D.AL.part(Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), P, zs, z, am, bit, p, K, F, U32.inc(nx)) == True{} : Bool}:
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  Bo.or3(U32.is_zero(U32.and(am, bit)), U32.is_zero(p), Cr.Cir.is_cell(p, K, F, nx),
+    Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))))),
+    Cr.Cir.is_cell(p, K, F, U32.inc(nx)),
+    Bool.or(D.Stc(M2, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, M2, p), U32.to_nat(D.Fd(1n, M2, p))))),
+    h, ec => cell.up(p, K, F, nx, U32.inc(nx), hm, ec),
+    ec => ed =>
+      (%Equal.sym(Nat, D.Pp(P, M2, p), D.Pp(P, m, p), pp.set(P, m, P, Q, zs, K, F, nx, nx, Cr.Cir.Cell.zero(), p, hP, N.le_refl(U32.to_nat(nx)), hz)) :
+        {Bool.or(D.Stc(M2, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(_, U32.to_nat(D.Fd(1n, M2, p))))) == True{} : Bool};
+      (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, p), Cr.Cir.Cells.get(m, p), Cl.get_ne(m, p, nx, Cr.Cir.Cell.zero(), cell.ne(p, K, F, nx, hk, ec))) :
+        {Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)),
+          Nat.is_lt(D.Pp(P, m, p), U32.to_nat(Cr.Cir.Cell.get(1n, _))))) == True{} : Bool};
+      ed)))
+
+# a garbage cell's own facts across the new cell nx
+def hd.fresh(+m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +F: U32, +nx: U32, +hm: N.Le(U32.to_nat(nx), U32.to_nat(U32.inc(nx))),
+  h: {AL.hd(m, Q, o, F, nx) == True{} : Bool}) -> {AL.hd(Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), Q, o, F, U32.inc(nx)) == True{} : Bool}:
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  +h2 = h
+  +ne = Ar.ne(o, nx, U.lt(o, nx, al.hd.lt(m, Q, o, F, nx, h2)))
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, o), Cr.Cir.Cells.get(m, o), Cl.get_ne(m, o, nx, Cr.Cir.Cell.zero(), ne)) :
+    {Bool.and(Bool.and(Bool.and(U32.is_le(F, o), U32.is_lt(o, U32.inc(nx))), Bool.not(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0))),
+      Bool.or(U32.is_le(U32.and(Cr.Cir.Cell.get(0n, _), 63), 18), Bool.and(U32.is_le(32, U32.and(Cr.Cir.Cell.get(0n, _), 63)), D.Has(Q, o)))) == True{} : Bool}
+  Bo.and4.b(U32.is_le(F, o), U32.is_lt(o, nx), Bool.not(D.Stc(m, o)),
+    Bool.or(U32.is_le(U32.and(D.Fd(0n, m, o), 63), 18), Bool.and(U32.is_le(32, U32.and(D.Fd(0n, m, o), 63)), D.Has(Q, o))),
+    U32.is_lt(o, U32.inc(nx)), h2, e => Ar.lt.up(o, nx, U32.inc(nx), e, hm))
+
+# a garbage cell's parts across the new cell nx
+def pt.fresh(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +o: U32, +K: U32, +F: U32, +nx: U32,
+  +hP: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool}, +hk: N.Le(1n+U32.to_nat(K), U32.to_nat(nx)),
+  +hm: N.Le(U32.to_nat(nx), U32.to_nat(U32.inc(nx))), +hz: N.Le(291n, U32.to_nat(nx)),
+  hd: {AL.hd(m, Q, o, F, nx) == True{} : Bool}, h: {AL.pt(m, P, zs, o, K, F, nx) == True{} : Bool}) ->
+  {AL.pt(Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), P, zs, o, K, F, U32.inc(nx)) == True{} : Bool}:
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  +N2 = U32.inc(nx)
+  +hd2 = hd
+  +ne = Ar.ne(o, nx, U.lt(o, nx, al.hd.lt(m, Q, o, F, nx, hd2)))
+  +am = D.Am(m, o)
+  +zz = D.Zz(zs, o)
+  +q1 = D.AL.part(m, P, zs, zz, am, 1, D.Fd(2n, m, o), K, F, nx)
+  +q2 = D.AL.part(m, P, zs, zz, am, 2, D.Fd(3n, m, o), K, F, nx)
+  +q4 = D.AL.part(m, P, zs, zz, am, 4, D.Fd(4n, m, o), K, F, nx)
+  +h2 = h
+  +r1 = Bo.and_r(q1, Bool.and(q2, q4), h2)
+  %Equal.sym(U32, D.Am(M2, o), am, am.set(m, nx, Cr.Cir.Cell.zero(), o, D.Has(Q, o), ne, al.hd.tg(m, Q, o, F, nx, hd2), hz)) :
+    {Bool.and(D.AL.part(M2, P, zs, zz, _, 1, D.Fd(2n, M2, o), K, F, N2), Bool.and(D.AL.part(M2, P, zs, zz, _, 2, D.Fd(3n, M2, o), K, F, N2),
+      D.AL.part(M2, P, zs, zz, _, 4, D.Fd(4n, M2, o), K, F, N2))) == True{} : Bool}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, o), Cr.Cir.Cells.get(m, o), Cl.get_ne(m, o, nx, Cr.Cir.Cell.zero(), ne)) :
+    {Bool.and(D.AL.part(M2, P, zs, zz, am, 1, Cr.Cir.Cell.get(2n, _), K, F, N2), Bool.and(D.AL.part(M2, P, zs, zz, am, 2, Cr.Cir.Cell.get(3n, _), K, F, N2),
+      D.AL.part(M2, P, zs, zz, am, 4, Cr.Cir.Cell.get(4n, _), K, F, N2))) == True{} : Bool}
+  Bo.and_i(D.AL.part(M2, P, zs, zz, am, 1, D.Fd(2n, m, o), K, F, N2),
+    Bool.and(D.AL.part(M2, P, zs, zz, am, 2, D.Fd(3n, m, o), K, F, N2), D.AL.part(M2, P, zs, zz, am, 4, D.Fd(4n, m, o), K, F, N2)),
+    part.fresh(m, P, Q, zs, zz, am, 1, D.Fd(2n, m, o), K, F, nx, hP, hk, hm, hz, Bo.and_l(q1, Bool.and(q2, q4), h2)),
+    Bo.and_i(D.AL.part(M2, P, zs, zz, am, 2, D.Fd(3n, m, o), K, F, N2), D.AL.part(M2, P, zs, zz, am, 4, D.Fd(4n, m, o), K, F, N2),
+      part.fresh(m, P, Q, zs, zz, am, 2, D.Fd(3n, m, o), K, F, nx, hP, hk, hm, hz, Bo.and_l(q2, q4, r1)),
+      part.fresh(m, P, Q, zs, zz, am, 4, D.Fd(4n, m, o), K, F, nx, hP, hk, hm, hz, Bo.and_r(q2, q4, r1))))
+
+# a garbage cell's counts across the new cell nx
+def ct.fresh(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +o: U32, +K: U32, +F: U32, +nx: U32,
+  +hP: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool}, +t0: {Cr.Cir.Cells.get(m, 272) == Cr.Cir.Cell{0, 0, 0, 0, 0} : Cr.Cir.Cell},
+  +hz: N.Le(291n, U32.to_nat(nx)), +hfn: {U32.is_le(F, nx) == True{} : Bool}, +hb: N.Le(1n+U32.to_nat(nx), U32.to_nat(214748364)),
+  ne: {U32.is_eq(o, nx) == False{} : Bool}, h: {AL.ct(m, P, Q, o, F, nx) == True{} : Bool}) ->
+  {AL.ct(Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), P, Q, o, F, U32.inc(nx)) == True{} : Bool}:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  +pp2 = D.Pp(P, M2, o)
+  +pp = D.Pp(P, m, o)
+  %Equal.sym(Nat, Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(F)), 1n+n, Ar.cnt.new(F, nx, hfn, hb)) :
+    {Bool.and(Nat.is_eq(D.Pc(_, M2, Q, F, o), pp2), Bool.pick(Bool, D.Has(Q, o), Nat.is_eq(pp2, 0n),
+      Bool.and(Nat.is_eq(pp2, U32.to_nat(D.Fd(1n, M2, o))), Nat.is_lt(0n, pp2)))) == True{} : Bool}
+  %Equal.sym(Nat, D.Pc(1n+n, M2, Q, F, o), D.Pc(n, m, Q, F, o), pc.new(m, F, nx, Q, o, t0, hz, hfn)) :
+    {Bool.and(Nat.is_eq(_, pp2), Bool.pick(Bool, D.Has(Q, o), Nat.is_eq(pp2, 0n),
+      Bool.and(Nat.is_eq(pp2, U32.to_nat(D.Fd(1n, M2, o))), Nat.is_lt(0n, pp2)))) == True{} : Bool}
+  %Equal.sym(Nat, pp2, pp, pp.set(P, m, P, Q, zs, K, F, nx, nx, Cr.Cir.Cell.zero(), o, hP, N.le_refl(U32.to_nat(nx)), hz)) :
+    {Bool.and(Nat.is_eq(D.Pc(n, m, Q, F, o), _), Bool.pick(Bool, D.Has(Q, o), Nat.is_eq(_, 0n),
+      Bool.and(Nat.is_eq(_, U32.to_nat(D.Fd(1n, M2, o))), Nat.is_lt(0n, _)))) == True{} : Bool}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, o), Cr.Cir.Cells.get(m, o), Cl.get_ne(m, o, nx, Cr.Cir.Cell.zero(), ne)) :
+    {Bool.and(Nat.is_eq(D.Pc(n, m, Q, F, o), pp), Bool.pick(Bool, D.Has(Q, o), Nat.is_eq(pp, 0n),
+      Bool.and(Nat.is_eq(pp, U32.to_nat(Cr.Cir.Cell.get(1n, _))), Nat.is_lt(0n, pp)))) == True{} : Bool}
+  h
+
+# the garbage cells os across the new cell nx
+def al.cells.fresh(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32,
+  +nx: U32, +hP: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool},
+  +t0: {Cr.Cir.Cells.get(m, 272) == Cr.Cir.Cell{0, 0, 0, 0, 0} : Cr.Cir.Cell}, +hz: N.Le(291n, U32.to_nat(nx)),
+  +hfn: {U32.is_le(F, nx) == True{} : Bool}, +hb: N.Le(1n+U32.to_nat(nx), U32.to_nat(214748364)),
+  +hk: N.Le(1n+U32.to_nat(K), U32.to_nat(nx)), +hm: N.Le(U32.to_nat(nx), U32.to_nat(U32.inc(nx))),
+  h: {D.AL.cells(os, m, P, Q, zs, K, F, nx) == True{} : Bool}) ->
+  {D.AL.cells(os, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), P, Q, zs, K, F, U32.inc(nx)) == True{} : Bool}:
+  match os:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+      +h2 = h
+      +hd = al.hd(o, rest, m, P, Q, zs, K, F, nx, h2)
+      +ne = Ar.ne(o, nx, U.lt(o, nx, al.hd.lt(m, Q, o, F, nx, hd)))
+      al.cons(o, rest, M2, P, Q, zs, K, F, U32.inc(nx), hd.fresh(m, Q, o, F, nx, hm, hd),
+        pt.fresh(m, P, Q, zs, o, K, F, nx, hP, hk, hm, hz, hd, al.pt(o, rest, m, P, Q, zs, K, F, nx, h2)),
+        ct.fresh(m, P, Q, zs, o, K, F, nx, hP, t0, hz, hfn, hb, ne, al.ct(o, rest, m, P, Q, zs, K, F, nx, h2)),
+        al.cells.fresh(rest, m, P, Q, zs, K, F, nx, hP, t0, hz, hfn, hb, hk, hm, al.rest(o, rest, m, P, Q, zs, K, F, nx, h2)))
+
+# AL with an empty pend list across the new cell nx, set to zeros
+def al.fresh(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  hal: {D.AL(m, 0, P, Nil{}, zs, K, F, nx) == True{} : Bool},
+  +t0: {Cr.Cir.Cells.get(m, 272) == Cr.Cir.Cell{0, 0, 0, 0, 0} : Cr.Cir.Cell}, +hz: N.Le(291n, U32.to_nat(nx)),
+  +hfn: {U32.is_le(F, nx) == True{} : Bool}, +hb: N.Le(1n+U32.to_nat(nx), U32.to_nat(214748364)),
+  +hk: N.Le(1n+U32.to_nat(K), U32.to_nat(nx))) ->
+  {D.AL(Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), 0, P, Nil{}, zs, K, F, U32.inc(nx)) == True{} : Bool}:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  +N2 = U32.inc(nx)
+  +hm = Ar.nx.up(nx, hb)
+  +C1 = D.AL.cells(P, m, P, Nil{}, zs, K, F, nx)
+  +L1 = D.Lt(n, m, Nil{}, F, nx)
+  +ha = {hal : {Bool.and(D.Nodup(P), Bool.and(C1, L1)) == True{} : Bool}}
+  +hr = Bo.and_r(D.Nodup(P), Bool.and(C1, L1), ha)
+  +hc = Bo.and_l(C1, L1, hr)
+  %Equal.sym(Nat, Nat.sub(U32.to_nat(N2), U32.to_nat(F)), 1n+n, Ar.cnt.new(F, nx, hfn, hb)) :
+    {Bool.and(D.Nodup(P), Bool.and(D.AL.cells(P, M2, P, Nil{}, zs, K, F, N2), D.Lt(_, M2, Nil{}, F, N2))) == True{} : Bool}
+  Bo.and_i(D.Nodup(P), Bool.and(D.AL.cells(P, M2, P, Nil{}, zs, K, F, N2), D.Lt(1n+n, M2, Nil{}, F, N2)),
+    Bo.and_l(D.Nodup(P), Bool.and(C1, L1), ha),
+    Bo.and_i(D.AL.cells(P, M2, P, Nil{}, zs, K, F, N2), D.Lt(1n+n, M2, Nil{}, F, N2),
+      al.cells.fresh(P, m, P, Nil{}, zs, K, F, nx, hc, t0, hz, hfn, hb, hk, hm, hc),
+      lt.new(m, F, nx, Nil{}, t0, hz, hfn, hb, Bo.and_r(C1, L1, hr))))
