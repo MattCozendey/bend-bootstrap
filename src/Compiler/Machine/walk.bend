@@ -543,6 +543,143 @@ def tag.ev(+regs1: List<&2, U32>, +m1: Cr.Cir.Cells, +nx1: U32, +fi: U32, +im: U
     {Bool.to_u32(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m1, Maybe.default(&2, U32, _, 0))), 63), K)) == Bool.to_u32(U32.is_eq(tg, K)) : U32};
    (%Equal.sym(U32, D.Tg(m1, c), tg, htg) : {Bool.to_u32(U32.is_eq(_, K)) == Bool.to_u32(U32.is_eq(tg, K)) : U32}; {==}))
 
+# The dispatch
+# ------------
+#
+# M.walk's loop runs W.body() while wres is 0: the tests of wt's tag pick
+# the round of a λ, a λ-match of pairs or of labels, an App, Efq, or a leaf
+# (W.e1() to W.e4() are the tests after the first).
+
+def sel.w(x: Cr.Cir.Stmt) -> Cr.Cir.Stmt:
+  match x:
+    case Cr.Cir.Stmt.while{_, b}:
+      b
+    case _:
+      Cr.Cir.Stmt.nop{}
+
+def W.loop() -> Cr.Cir.Stmt:
+  X.sel.a(X.sel.b(X.sel.b(X.sel.b(Mc.M.walk()))))
+
+def W.e4() -> Cr.Cir.Stmt:
+  Mc.M.if(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(Mc.T.efq())),
+    Mc.M.set(Mc.R.wres(), Mc.M.pick(Mc.M.eq(Mc.M.g(Mc.R.wargs()), Mc.M.c(0)), Mc.M.c(2), Mc.M.c(3))),
+    Mc.M.set(Mc.R.wres(), Mc.M.c(1)))
+
+def W.e3() -> Cr.Cir.Stmt:
+  Mc.M.if(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(Mc.T.app())), Mc.M.walk.app(), W.e4())
+
+def W.e2() -> Cr.Cir.Stmt:
+  Mc.M.if(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(Mc.T.mat())), Mc.M.walk.mat(), W.e3())
+
+def W.e1() -> Cr.Cir.Stmt:
+  Mc.M.if(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(Mc.T.prj())), Mc.M.walk.prj(), W.e2())
+
+def W.body() -> Cr.Cir.Stmt:
+  Mc.M.if(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(Mc.T.lam())), Mc.M.walk.lam(), W.e1())
+
+# M.walk's loop is a while on wres of W.body()
+def W.loop.eq() -> {W.loop() == Mc.M.while(Mc.M.eq(Mc.M.g(Mc.R.wres()), Mc.M.c(0)), W.body()) : Cr.Cir.Stmt}:
+  {==}
+
+def is.alloc(s: Cr.Cir.Stmt) -> Bool:
+  match s:
+    case Cr.Cir.Stmt.alloc{_}:
+      True{}
+    case _:
+      False{}
+
+# a test of wt's tag that fails: the else, for an else that is no alloc
+def disp.no(+e: Cr.Cir.Stmt, +g: Nat, +t: Cr.Cir.Stmt, +regs1: List<&2, U32>, +m1: Cr.Cir.Cells, +nx1: U32, +fi: U32, +im: U32,
+  +pg1: U32, +lim: U32, +inp: List<&2, Word(8n)>, -K: Cr.Cir.State -> Type, +B: Nat, +c: U32, +K0: U32, +tg: U32,
+  hea: {is.alloc(e) == False{} : Bool}, +hr: {List.get(&2, U32, regs1, 19n) == Some{c} : Maybe<&2, U32>},
+  hc: {Cr.Cir.is_cell(c, im, fi, nx1) == True{} : Bool}, htg: {D.Tg(m1, c) == tg : U32}, hn: {U32.is_eq(tg, K0) == False{} : Bool},
+  w: DW.WP(e, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => K(x), B, lim)) ->
+  DW.WP(Cr.Cir.Stmt.if{Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), t, e}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), K, B, lim):
+  match e:
+    case Cr.Cir.Stmt.alloc{+r}:
+      DW.ft(DW.WP(Cr.Cir.Stmt.if{Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), t, Cr.Cir.Stmt.alloc{r}}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), K, B, lim), hea)
+    case Cr.Cir.Stmt.nop{}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.nop{}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.nop{}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+    case Cr.Cir.Stmt.set{+r2, +e2}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.set{r2, e2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.set{r2, e2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+    case Cr.Cir.Stmt.store{+k2, +c2, +v2}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.store{k2, c2, v2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.store{k2, c2, v2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+    case Cr.Cir.Stmt.emit{+v2}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.emit{v2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.emit{v2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+    case Cr.Cir.Stmt.seq{+a2, +b2}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.seq{a2, b2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.seq{a2, b2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+    case Cr.Cir.Stmt.if{+c2, +t2, +e2}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.if{c2, t2, e2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.if{c2, t2, e2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+    case Cr.Cir.Stmt.while{+c2, +b2}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.while{c2, b2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.while{c2, b2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+    case Cr.Cir.Stmt.halt{+s2}:
+      (tag.ob(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, hr, hc),
+       (%Equal.sym(U32, DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K0)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)), Bool.to_u32(U32.is_eq(tg, K0)), tag.ev(regs1, m1, nx1, fi, im, pg1, lim, inp, c, K0, tg, hr, htg)) :
+          DW.IfQ(U32.is_zero(_), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.halt{s2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        %Equal.sym(Bool, U32.is_eq(tg, K0), False{}, hn) :
+          DW.IfQ(U32.is_zero(Bool.to_u32(_)), q => DW.WP(t, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), q => DW.WP(Cr.Cir.Stmt.halt{s2}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), x => q(x), B, lim), K);
+        w))
+
+# a set of a register below 63, then the end
+def wp.set.k(+g: Nat, +r: Nat, +v: U32, +regs1: List<&2, U32>, +m1: Cr.Cir.Cells, +nx1: U32, +fi: U32, +im: U32, +pg1: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, -K: Cr.Cir.State -> Type, +B: Nat, hl: {List.length(&2, U32, regs1) == 63n : Nat},
+  hr: {Nat.is_lt(r, 63n) == True{} : Bool}, k: K(X.X.st(List.set(&2, U32, regs1, r, v), m1, nx1, fi, im, pg1, lim, inp))) ->
+  DW.WP(Cr.Cir.Stmt.set{r, Cr.Cir.Expr.const{v}}, g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), K, B, lim):
+  (Unit{}, ((%Equal.sym(Nat, List.length(&2, U32, regs1), 63n, hl) : DW.Tr(Nat.is_lt(r, _)); (%Equal.sym(Bool, Nat.is_lt(r, 63n), True{}, hr) : DW.Tr(_); Unit{})), k))
+
+# a round at a leaf of none of the walk's kinds: wres gets 1
+def disp.other(+g: Nat, +regs1: List<&2, U32>, +m1: Cr.Cir.Cells, +nx1: U32, +fi: U32, +im: U32, +pg1: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, -K: Cr.Cir.State -> Type, +B: Nat, +c: U32, +tg: U32,
+  +hr: {List.get(&2, U32, regs1, 19n) == Some{c} : Maybe<&2, U32>}, +hc: {Cr.Cir.is_cell(c, im, fi, nx1) == True{} : Bool},
+  +htg: {D.Tg(m1, c) == tg : U32},
+  h7: {U32.is_eq(tg, Mc.T.lam()) == False{} : Bool}, h11: {U32.is_eq(tg, Mc.T.prj()) == False{} : Bool},
+  h14: {U32.is_eq(tg, Mc.T.mat()) == False{} : Bool}, h8: {U32.is_eq(tg, Mc.T.app()) == False{} : Bool},
+  h15: {U32.is_eq(tg, Mc.T.efq()) == False{} : Bool}, hl: {List.length(&2, U32, regs1) == 63n : Nat},
+  k: K(X.X.st(List.set(&2, U32, regs1, 26n, 1), m1, nx1, fi, im, pg1, lim, inp))) ->
+  DW.WP(W.body(), g, X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp), K, B, lim):
+  disp.no(W.e1(), g, Mc.M.walk.lam(), regs1, m1, nx1, fi, im, pg1, lim, inp, K, B, c, Mc.T.lam(), tg, {==}, hr, hc, htg, h7,
+    disp.no(W.e2(), g, Mc.M.walk.prj(), regs1, m1, nx1, fi, im, pg1, lim, inp, x => K(x), B, c, Mc.T.prj(), tg, {==}, hr, hc, htg, h11,
+      disp.no(W.e3(), g, Mc.M.walk.mat(), regs1, m1, nx1, fi, im, pg1, lim, inp, x => K(x), B, c, Mc.T.mat(), tg, {==}, hr, hc, htg, h14,
+        disp.no(W.e4(), g, Mc.M.walk.app(), regs1, m1, nx1, fi, im, pg1, lim, inp, x => K(x), B, c, Mc.T.app(), tg, {==}, hr, hc, htg, h8,
+          disp.no(Mc.M.set(Mc.R.wres(), Mc.M.c(1)), g, Mc.M.set(Mc.R.wres(), Mc.M.pick(Mc.M.eq(Mc.M.g(Mc.R.wargs()), Mc.M.c(0)), Mc.M.c(2), Mc.M.c(3))),
+            regs1, m1, nx1, fi, im, pg1, lim, inp, x => K(x), B, c, Mc.T.efq(), tg, {==}, hr, hc, htg, h15,
+            wp.set.k(g, 26n, 1, regs1, m1, nx1, fi, im, pg1, lim, inp, x => K(x), B, hl, {==}, k))))))
+
 # The premises walk.post and walk.done of move_kit.bend (U7; U0 left them as ?TODO)
 # ------------------------------------------------------------------------------
 
