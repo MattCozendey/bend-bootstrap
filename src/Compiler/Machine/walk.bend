@@ -12,6 +12,8 @@
 import Base
 import ../../Wasm/impl.bend as Wa
 import ../Cir/impl.bend as Cr
+import ./impl.bend as Mc
+import ./definitions.bend as D
 import ./statement_runs.bend as X
 import ./data_walk.bend as DW
 import ./move_kit.bend as K
@@ -460,6 +462,39 @@ def WP.of(+F: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type,
                   DW.OkMono(Cr.Cir.exec(g, Cr.Cir.Stmt.while{c, b}, t), Q, x => Q(x), B, lim, ht, u => p => p)))))
         case Cr.Cir.Stmt.halt{+v}:
           h
+
+# Registers
+# ---------
+#
+# A state of the walk is X.st of its 63 registers and its cells. The rounds
+# set registers of Walk.scr() only, so every register of keep stays (Kept);
+# a register's value is read through the sets after it (X.L.gs, X.L.go).
+
+# Nat.is_eq says equal: equal
+def nat.eq.t(+a: Nat, +b: Nat, h: {Nat.is_eq(a, b) == True{} : Bool}) -> {a == b : Nat}:
+  match a b:
+    case 0n 0n:
+      {==}
+    case 0n 1n+q:
+      DW.tf({0n == 1n+q : Nat}, h)
+    case 1n+p 0n:
+      DW.tf({1n+p == 0n : Nat}, h)
+    case 1n+p 1n+q:
+      Equal.cong(Nat, Nat, x => 1n+x, p, q, nat.eq.t(p, q, h))
+
+def mem.ne.b(b: Bool, +scr: List<&2, Nat>, +r: Nat, +j: Nat, eb: {Nat.is_eq(r, j) == b : Bool}, hr: {D.Nat.mem(scr, r) == True{} : Bool},
+  hj: {D.Nat.mem(scr, j) == False{} : Bool}) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      DW.tf({True{} == False{} : Bool}, Equal.trans(Bool, False{}, D.Nat.mem(scr, r), True{},
+        (%Equal.sym(Nat, r, j, nat.eq.t(r, j, eb)) : {False{} == D.Nat.mem(scr, _) : Bool}; Equal.sym(Bool, D.Nat.mem(scr, j), False{}, hj)), hr))
+
+# a register of scr is none of keep's, which Disj keeps out of scr
+def mem.ne(+scr: List<&2, Nat>, +r: Nat, +j: Nat, hr: {D.Nat.mem(scr, r) == True{} : Bool}, hj: {D.Nat.mem(scr, j) == False{} : Bool}) ->
+  {Nat.is_eq(r, j) == False{} : Bool}:
+  mem.ne.b(Nat.is_eq(r, j), scr, r, j, {==}, hr, hj)
 
 # The premises walk.post and walk.done of move_kit.bend (U7; U0 left them as ?TODO)
 # ------------------------------------------------------------------------------
