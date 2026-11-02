@@ -216,28 +216,32 @@ let rec commands = function
   | c :: rest -> (c, c) :: commands rest
   | [] -> []
 
-(* an instruction that changes nothing in the instance: it writes no memory,
-   table or global, drops no segment, and calls only functions i that are
-   pure i, or through a table only when the functions that the table may hold
-   are (indirect); any instruction not listed here counts as a change *)
+(* an instruction that changes nothing that a cut module holds, which is its
+   memory (its globals and tables are gone): it writes no memory, and calls
+   only functions i that are pure i, or through a table only when the
+   functions that the table may hold are (indirect); any instruction not
+   listed here counts as a change *)
 let rec instrs_pure pure indirect es = List.for_all (instr_pure pure indirect) es
 
 and instr_pure pure indirect (e : instr) =
   match e.it with
-  | Block (_, es) | Loop (_, es) -> instrs_pure pure indirect es
+  | Block (_, es) | Loop (_, es) | TryTable (_, _, es) -> instrs_pure pure indirect es
   | If (_, es1, es2) -> instrs_pure pure indirect es1 && instrs_pure pure indirect es2
   | Call x | ReturnCall x -> pure (Int32.to_int x.it)
   | CallIndirect _ | ReturnCallIndirect _ -> indirect
   | Unreachable | Nop | Drop | Select _ | Br _ | BrIf _ | BrTable _ | BrOnNull _
-  | BrOnNonNull _ | BrOnCast _ | BrOnCastFail _ | Return | LocalGet _ | LocalSet _
-  | LocalTee _ | GlobalGet _ | TableGet _ | TableSize _ | Load _ | VecLoad _
-  | VecLoadLane _ | MemorySize _ | RefNull _ | RefFunc _ | RefIsNull | RefAsNonNull
-  | RefTest _ | RefCast _ | RefEq | RefI31 | I31Get _ | StructGet _ | ArrayGet _
-  | ArrayLen | ExternConvert _ | Const _ | Test _ | Compare _ | Unary _ | Binary _
-  | Convert _ | VecConst _ | VecTest _ | VecCompare _ | VecUnary _ | VecBinary _
-  | VecTernary _ | VecConvert _ | VecShift _ | VecBitmask _ | VecTestBits _
-  | VecUnaryBits _ | VecBinaryBits _ | VecTernaryBits _ | VecSplat _ | VecExtract _
-  | VecReplace _ -> true
+  | BrOnNonNull _ | BrOnCast _ | BrOnCastFail _ | Return | Throw _ | ThrowRef
+  | LocalGet _ | LocalSet _ | LocalTee _ | GlobalGet _ | GlobalSet _ | TableGet _
+  | TableSet _ | TableSize _ | TableGrow _ | TableFill _ | TableCopy _ | TableInit _
+  | ElemDrop _ | DataDrop _ | Load _ | VecLoad _ | VecLoadLane _ | MemorySize _
+  | RefNull _ | RefFunc _ | RefIsNull | RefAsNonNull | RefTest _ | RefCast _ | RefEq
+  | RefI31 | I31Get _ | StructNew _ | StructGet _ | StructSet _ | ArrayNew _
+  | ArrayNewFixed _ | ArrayNewData _ | ArrayNewElem _ | ArrayGet _ | ArraySet _
+  | ArrayLen | ArrayCopy _ | ArrayFill _ | ArrayInitData _ | ArrayInitElem _
+  | ExternConvert _ | Const _ | Test _ | Compare _ | Unary _ | Binary _ | Convert _
+  | VecConst _ | VecTest _ | VecCompare _ | VecUnary _ | VecBinary _ | VecTernary _
+  | VecConvert _ | VecShift _ | VecBitmask _ | VecTestBits _ | VecUnaryBits _
+  | VecBinaryBits _ | VecTernaryBits _ | VecSplat _ | VecExtract _ | VecReplace _ -> true
   | _ -> false
 
 (* the functions whose references the module takes (ref.func, which element
