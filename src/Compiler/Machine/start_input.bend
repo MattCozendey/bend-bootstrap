@@ -3,11 +3,13 @@
 #
 # M.input, from Cir.result's start state, leaves the focus the cell of
 # Program.start(i): In.input.post (any fuel: next with In.Post, out of
-# memory, or out of fuel) and In.input.done (the fuel 10 + |i| ends it), in
-# the shapes of input.post and input.done of move_kit.bend, with In.Post
-# in place of InvIn and the premise 272 <= first.
+# memory only below the budget of first + 1 + 27 |i| cells, or out of fuel)
+# and In.input.done (the fuel 10 + |i| ends it), in the shapes of
+# input.post and input.done of move_kit.bend, with In.Post in place of InvIn
+# and the premise 272 <= first.
 #
-# Kit: In.Go(f, s, st, k, R), a run of s then k, in CPS (In.sq, In.set,
+# Kit: In.Go(f, s, st, k, R, Om), a run of s then k, in CPS, out of memory
+# only when Om holds (In.oom: below a budget of cells) (In.sq, In.set,
 # In.str, In.mk, In.wh, In.wh.end, In.ifT, In.ifF, In.nop). The facts of a
 # state: In.Fa (next is numbered N, F <= N, the image's cells 1 3 5 11 12
 # 13 14 15 and the cache's entries stand for their terms, reading only cells
@@ -179,14 +181,15 @@ def In.S(regs: List<&2, U32>, m: Cr.Cir.Cells, next: U32, F: U32, K: U32, pg: U3
   Cr.Cir.State{regs, m, next, F, K, pg, L, I, Nil{}, 0}
 
 # o ends after the statement with a state of which Q holds, or out of memory
-def In.Ok(o: Cr.Cir.Out, Q: Cr.Cir.State -> Type) -> Type:
+# when Om holds (the budget: In.oom)
+def In.Ok(o: Cr.Cir.Out, Q: Cr.Cir.State -> Type, Om: Type) -> Type:
   match o:
     case Cr.Cir.Out.next{st}:
       Q(st)
     case Cr.Cir.Out.halt{_, _}:
       Empty
     case Cr.Cir.Out.out_of_memory{}:
-      Unit
+      Om
     case Cr.Cir.Out.trap{}:
       Empty
     case Cr.Cir.Out.not_done{}:
@@ -200,14 +203,14 @@ def In.Is(st: Cr.Cir.State, regs: List<&2, U32>, m: Cr.Cir.Cells, next: U32, F: 
 
 # a statement, then more
 def In.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -R: Cr.Cir.State -> Type,
-  h: In.Ok(o, Q), g: @st: Cr.Cir.State -> Q(st) -> In.Ok(k(st), R)) -> In.Ok(Cr.Cir.exec.then(o, k), R):
+  -Om: Type, h: In.Ok(o, Q, Om), g: @st: Cr.Cir.State -> Q(st) -> In.Ok(k(st), R, Om)) -> In.Ok(Cr.Cir.exec.then(o, k), R, Om):
   match o:
     case Cr.Cir.Out.next{st}:
       g(st, h)
     case Cr.Cir.Out.halt{s, st}:
       match h:
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      h
     case Cr.Cir.Out.trap{}:
       match h:
     case Cr.Cir.Out.not_done{}:
@@ -215,22 +218,22 @@ def In.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, -Q: Cr.Cir.State -> T
 
 # a state of which Is holds, by its pages
 def In.at(st: Cr.Cir.State, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +next: U32, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -X: Type,
-  -R: Cr.Cir.State -> Type, -k: Cr.Cir.State -> Cr.Cir.Out, e: In.Is(st, regs, m, next, F, K, L, I, X),
-  g: @pg: U32 -> X -> In.Ok(k(In.S(regs, m, next, F, K, pg, L, I)), R)) -> In.Ok(k(st), R):
+  -R: Cr.Cir.State -> Type, -Om: Type, -k: Cr.Cir.State -> Cr.Cir.Out, e: In.Is(st, regs, m, next, F, K, L, I, X),
+  g: @pg: U32 -> X -> In.Ok(k(In.S(regs, m, next, F, K, pg, L, I)), R, Om)) -> In.Ok(k(st), R, Om):
   match st:
     case Cr.Cir.State{rg, ms, nx, fi, im, +pg, li, inp, out, outn}:
       (eq, x) = e
-      %eq : In.Ok(k(_), R)
+      %eq : In.Ok(k(_), R, Om)
       g(pg, x)
 
 # a then b, when a ends in the state of regs, m and next
 def In.seq(+f: Nat, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, st: Cr.Cir.State, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +next: U32, +F: U32, +K: U32, +L: U32,
   +I: List<&2, Word(8n)>, -X: Type, -R: Cr.Cir.State -> Type,
-  h: In.Ok(Cr.Cir.exec(1n+f, a, st), s => In.Is(s, regs, m, next, F, K, L, I, X)),
-  g: @pg: U32 -> X -> In.Ok(Cr.Cir.exec(1n+f, b, In.S(regs, m, next, F, K, pg, L, I)), R)) ->
-  In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), R):
-  In.then(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), s => In.Is(s, regs, m, next, F, K, L, I, X), R, h,
-    s => e => In.at(s, regs, m, next, F, K, L, I, X, R, t => Cr.Cir.exec(1n+f, b, t), e, g))
+  -Om: Type, h: In.Ok(Cr.Cir.exec(1n+f, a, st), s => In.Is(s, regs, m, next, F, K, L, I, X), Om),
+  g: @pg: U32 -> X -> In.Ok(Cr.Cir.exec(1n+f, b, In.S(regs, m, next, F, K, pg, L, I)), R, Om)) ->
+  In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), R, Om):
+  In.then(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), s => In.Is(s, regs, m, next, F, K, L, I, X), R, Om, h,
+    s => e => In.at(s, regs, m, next, F, K, L, I, X, R, Om, t => Cr.Cir.exec(1n+f, b, t), e, g))
 
 # The budget
 # ----------
@@ -516,6 +519,20 @@ def In.oomf(+next: U32, +pg: U32, +L: U32, hn: {U32.is_lt(next, 214748364) == Tr
   %Equal.sym(Nat, Nat.mul(20n, 1n+tn), FC.hw.t20(1n+tn), In.mul20(1n+tn)) : N.Le(1n+D.Lim.bytes(L), _)
   N.le_trans(D.Lim.bytes(L), U32.to_nat(b), 19n+FC.hw.t20(tn), h5, h7)
 
+# 20 a <= 20 b, for a <= b
+def In.mul20.mono(+a: Nat, +b: Nat, h: N.Le(a, b)) -> N.Le(Nat.mul(20n, a), Nat.mul(20n, b)):
+  %Equal.sym(Nat, Nat.mul(20n, a), FC.hw.t20(a), In.mul20(a)) : N.Le(_, Nat.mul(20n, b))
+  %Equal.sym(Nat, Nat.mul(20n, b), FC.hw.t20(b), In.mul20(b)) : N.Le(FC.hw.t20(a), _)
+  FC.hw.t20_mono(a, b, h)
+
+# out of memory below the budget a, so below a larger budget b
+def In.oom.up(+L: U32, +a: Nat, +b: Nat, h: N.Le(a, b), z: N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, a))) -> In.oom(L, b):
+  N.le_trans(1n+D.Lim.bytes(L), Nat.mul(20n, a), Nat.mul(20n, b), z, In.mul20.mono(a, b, h))
+
+# the cell next, numbered N, is below the budget Bc
+def In.hb(+next: U32, +N: Nat, +Bc: Nat, eN: {U32.to_nat(next) == N : Nat}, h: N.Le(1n+N, Bc)) -> N.Le(1n+U32.to_nat(next), Bc):
+  N.le_rw_l(1n+N, 1n+U32.to_nat(next), Bc, Equal.cong(Nat, Nat, z => 1n+z, N, U32.to_nat(next), Equal.sym(Nat, U32.to_nat(next), N, eN)), h)
+
 # Allocation
 # ----------
 
@@ -524,27 +541,30 @@ def In.z() -> Cr.Cir.Cell:
   Cr.Cir.Cell{0, 0, 0, 0, 0}
 
 def In.room(rm: Maybe<&2, U32>, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +next: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
-  +I: List<&2, Word(8n)>, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}, -X: Type, x: X) ->
+  +I: List<&2, Word(8n)>, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}, -X: Type, x: X, -Om: Type,
+  zf: {rm == None{} : Maybe<&2, U32>} -> Om) ->
   In.Ok(Cr.Cir.exec.bump.of(r, next, In.S(regs, m, next, F, K, pg, L, I), rm),
-    s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, L, I, X)):
+    s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, L, I, X), Om):
   match rm:
     case None{}:
-      Unit{}
+      zf({==})
     case Some{+p}:
       %rl : In.Ok(Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, next), Cr.Cir.State{regs, Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, p, L, I, [], 0}),
-        s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, L, I, X))
+        s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, L, I, X), Om)
       ({==}, x)
 
 def In.bump(b: Bool, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +next: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
-  +I: List<&2, Word(8n)>, eb: {U32.is_lt(next, 214748364) == b : Bool}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}) ->
+  +I: List<&2, Word(8n)>, +eb: {U32.is_lt(next, 214748364) == b : Bool}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool},
+  +Bc: Nat, +hb: N.Le(1n+U32.to_nat(next), Bc)) ->
   In.Ok(Cr.Cir.exec.bump.if(b, r, next, pg, L, In.S(regs, m, next, F, K, pg, L, I)),
     s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, L, I,
-      {U32.is_lt(next, 214748364) == True{} : Bool})):
+      {U32.is_lt(next, 214748364) == True{} : Bool}), In.oom(L, Bc)):
   match b:
     case False{}:
-      Unit{}
+      In.oom.up(L, 1n+U32.to_nat(next), Bc, hb, In.oomb(next, L, eb))
     case True{}:
-      In.room(Cr.Cir.room(U32.add(Cr.Cir.at(next), 19), pg, L), r, regs, m, next, F, K, pg, L, I, rl, {U32.is_lt(next, 214748364) == True{} : Bool}, eb)
+      In.room(Cr.Cir.room(U32.add(Cr.Cir.at(next), 19), pg, L), r, regs, m, next, F, K, pg, L, I, rl, {U32.is_lt(next, 214748364) == True{} : Bool}, eb,
+        In.oom(L, Bc), e => In.oom.up(L, 1n+U32.to_nat(next), Bc, hb, In.oomf(next, pg, L, eb, e)))
 
 # the code of a statement if c then t else e, its t
 def In.yes(s: Cr.Cir.Stmt) -> Cr.Cir.Stmt:
@@ -556,28 +576,28 @@ def In.yes(s: Cr.Cir.Stmt) -> Cr.Cir.Stmt:
 
 # a new cell, all zeros, when the pend list is empty
 def In.alloc(+f: Nat, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +next: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
-  +I: List<&2, Word(8n)>, p0: {Some{0} == List.get(&2, U32, regs, 3n) : Maybe<&2, U32>}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}) ->
+  +I: List<&2, Word(8n)>, p0: {Some{0} == List.get(&2, U32, regs, 3n) : Maybe<&2, U32>}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}, +Bc: Nat, hb: N.Le(1n+U32.to_nat(next), Bc)) ->
   In.Ok(Cr.Cir.exec(1n+f, Mc.M.alloc(r), In.S(regs, m, next, F, K, pg, L, I)),
     s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, L, I,
-      {U32.is_lt(next, 214748364) == True{} : Bool})):
+      {U32.is_lt(next, 214748364) == True{} : Bool}), In.oom(L, Bc)):
   %p0 : In.Ok(Cr.Cir.exec.if(Cr.Cir.eval.op(Wa.Wasm.Op.ne{}, _, Some{0}), u => Cr.Cir.exec(1n+f, In.yes(Mc.M.alloc(r)), In.S(regs, m, next, F, K, pg, L, I)),
       u => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.alloc{r}, In.S(regs, m, next, F, K, pg, L, I))),
     s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, In.z()), U32.inc(next), F, K, L, I,
-      {U32.is_lt(next, 214748364) == True{} : Bool}))
-  In.bump(U32.is_lt(next, 214748364), r, regs, m, next, F, K, pg, L, I, {==}, rl)
+      {U32.is_lt(next, 214748364) == True{} : Bool}), In.oom(L, Bc))
+  In.bump(U32.is_lt(next, 214748364), r, regs, m, next, F, K, pg, L, I, {==}, rl, Bc, hb)
 
 # field k of the cell i, which register r holds, gets the value of v
 def In.store(+f: Nat, +k: Nat, +r: Nat, +v: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +i: U32, +c: Cr.Cir.Cell, +x: U32, +nx: U32,
   +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>,
   er: {Some{i} == List.get(&2, U32, regs, r) : Maybe<&2, U32>},
   ev: {Some{x} == Cr.Cir.eval(v, In.S(regs, Cr.Cir.Cells.set(m, i, c), nx, F, K, pg, L, I)) : Maybe<&2, U32>},
-  ec: {True{} == Cr.Cir.is_cell(i, K, F, nx) : Bool}, -X: Type, xx: X) ->
+  ec: {True{} == Cr.Cir.is_cell(i, K, F, nx) : Bool}, -X: Type, -Om: Type, xx: X) ->
   In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.store{k, Cr.Cir.Expr.get{r}, v}, In.S(regs, Cr.Cir.Cells.set(m, i, c), nx, F, K, pg, L, I)),
-    s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X)):
+    s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X), Om):
   +st = In.S(regs, Cr.Cir.Cells.set(m, i, c), nx, F, K, pg, L, I)
-  %er : In.Ok(Cr.Cir.exec.store(k, _, Cr.Cir.eval(v, st), st), s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X))
-  %ev : In.Ok(Cr.Cir.exec.store(k, Some{i}, _, st), s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X))
-  %ec : In.Ok(Cr.Cir.exec.store.if(_, k, i, x, st), s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X))
+  %er : In.Ok(Cr.Cir.exec.store(k, _, Cr.Cir.eval(v, st), st), s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X), Om)
+  %ev : In.Ok(Cr.Cir.exec.store(k, Some{i}, _, st), s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X), Om)
+  %ec : In.Ok(Cr.Cir.exec.store.if(_, k, i, x, st), s => In.Is(s, regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, L, I, X), Om)
   %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, i, c), i), c, Cl.get_set(m, i, c)) :
     {In.S(regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(k, c, x)), nx, F, K, pg, L, I) == In.S(regs, Cr.Cir.Cells.set(Cr.Cir.Cells.set(m, i, c), i, Cr.Cir.Cell.set(k, _, x)), nx, F, K, pg, L, I) : Cr.Cir.State} & X
   %Cl.set_set(m, i, c, Cr.Cir.Cell.set(k, c, x)) :
@@ -591,7 +611,7 @@ def In.lt(+next: U32) -> Data:
 # the stores of M.make, after its alloc
 def In.make.stores(+f: Nat, +r: Nat, +h: Cr.Cir.Expr, +a: Cr.Cir.Expr, +b: Cr.Cir.Expr, +c: Cr.Cir.Expr, +rg: List<&2, U32>, +m: Cr.Cir.Cells,
   +next: U32, +n1: U32, +F: U32, +K: U32, +pg1: U32, +L: U32, +I: List<&2, Word(8n)>, +vh: U32, +va: U32, +vb: U32, +vc: U32,
-  +er: {Some{next} == List.get(&2, U32, rg, r) : Maybe<&2, U32>},
+  -Om: Type, +er: {Some{next} == List.get(&2, U32, rg, r) : Maybe<&2, U32>},
   +ok: {True{} == Cr.Cir.is_cell(next, K, F, n1) : Bool}, +lt: In.lt(next),
   eh: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vh} == Cr.Cir.eval(h, In.S(rg, m2, n1, F, K, pg2, L, I)) : Maybe<&2, U32>},
   ea: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{va} == Cr.Cir.eval(a, In.S(rg, m2, n1, F, K, pg2, L, I)) : Maybe<&2, U32>},
@@ -599,33 +619,33 @@ def In.make.stores(+f: Nat, +r: Nat, +h: Cr.Cir.Expr, +a: Cr.Cir.Expr, +b: Cr.Ci
   ef: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vc} == Cr.Cir.eval(c, In.S(rg, m2, n1, F, K, pg2, L, I)) : Maybe<&2, U32>}) ->
   In.Ok(Cr.Cir.exec(1n+f, Mc.M.do([Mc.M.st(0n, Mc.M.g(r), h), Mc.M.st(1n, Mc.M.g(r), Mc.M.c(1)), Mc.M.st(2n, Mc.M.g(r), a), Mc.M.st(3n, Mc.M.g(r), b), Mc.M.st(4n, Mc.M.g(r), c)]),
       In.S(rg, Cr.Cir.Cells.set(m, next, In.z()), n1, F, K, pg1, L, I)),
-    s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next))):
+    s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next)), Om):
   In.seq(f, Mc.M.st(0n, Mc.M.g(r), h), Mc.M.do([Mc.M.st(1n, Mc.M.g(r), Mc.M.c(1)), Mc.M.st(2n, Mc.M.g(r), a), Mc.M.st(3n, Mc.M.g(r), b), Mc.M.st(4n, Mc.M.g(r), c)]),
       In.S(rg, Cr.Cir.Cells.set(m, next, In.z()), n1, F, K, pg1, L, I), rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 0, 0, 0, 0}), n1, F, K, L, I, In.lt(next),
       s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next)),
-      In.store(f, 0n, r, h, rg, m, next, In.z(), vh, n1, F, K, pg1, L, I, er, eh(Cr.Cir.Cells.set(m, next, In.z()), pg1), ok, In.lt(next), lt),
+      Om, In.store(f, 0n, r, h, rg, m, next, In.z(), vh, n1, F, K, pg1, L, I, er, eh(Cr.Cir.Cells.set(m, next, In.z()), pg1), ok, In.lt(next), Om, lt),
       +pg2 => +lt => In.seq(f, Mc.M.st(1n, Mc.M.g(r), Mc.M.c(1)), Mc.M.do([Mc.M.st(2n, Mc.M.g(r), a), Mc.M.st(3n, Mc.M.g(r), b), Mc.M.st(4n, Mc.M.g(r), c)]),
       In.S(rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 0, 0, 0, 0}), n1, F, K, pg2, L, I), rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, 0, 0, 0}), n1, F, K, L, I, In.lt(next),
       s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next)),
-      In.store(f, 1n, r, Mc.M.c(1), rg, m, next, Cr.Cir.Cell{vh, 0, 0, 0, 0}, 1, n1, F, K, pg2, L, I, er, {==}, ok, In.lt(next), lt),
+      Om, In.store(f, 1n, r, Mc.M.c(1), rg, m, next, Cr.Cir.Cell{vh, 0, 0, 0, 0}, 1, n1, F, K, pg2, L, I, er, {==}, ok, In.lt(next), Om, lt),
       +pg3 => +lt => In.seq(f, Mc.M.st(2n, Mc.M.g(r), a), Mc.M.do([Mc.M.st(3n, Mc.M.g(r), b), Mc.M.st(4n, Mc.M.g(r), c)]),
       In.S(rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, 0, 0, 0}), n1, F, K, pg3, L, I), rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, 0, 0}), n1, F, K, L, I, In.lt(next),
       s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next)),
-      In.store(f, 2n, r, a, rg, m, next, Cr.Cir.Cell{vh, 1, 0, 0, 0}, va, n1, F, K, pg3, L, I, er, ea(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, 0, 0, 0}), pg3), ok, In.lt(next), lt),
+      Om, In.store(f, 2n, r, a, rg, m, next, Cr.Cir.Cell{vh, 1, 0, 0, 0}, va, n1, F, K, pg3, L, I, er, ea(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, 0, 0, 0}), pg3), ok, In.lt(next), Om, lt),
       +pg4 => +lt => In.seq(f, Mc.M.st(3n, Mc.M.g(r), b), Mc.M.do([Mc.M.st(4n, Mc.M.g(r), c)]),
       In.S(rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, 0, 0}), n1, F, K, pg4, L, I), rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, 0}), n1, F, K, L, I, In.lt(next),
       s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next)),
-      In.store(f, 3n, r, b, rg, m, next, Cr.Cir.Cell{vh, 1, va, 0, 0}, vb, n1, F, K, pg4, L, I, er, eb(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, 0, 0}), pg4), ok, In.lt(next), lt),
+      Om, In.store(f, 3n, r, b, rg, m, next, Cr.Cir.Cell{vh, 1, va, 0, 0}, vb, n1, F, K, pg4, L, I, er, eb(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, 0, 0}), pg4), ok, In.lt(next), Om, lt),
       +pg5 => +lt => In.seq(f, Mc.M.st(4n, Mc.M.g(r), c), Mc.M.do([]),
       In.S(rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, 0}), n1, F, K, pg5, L, I), rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next),
       s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next)),
-      In.store(f, 4n, r, c, rg, m, next, Cr.Cir.Cell{vh, 1, va, vb, 0}, vc, n1, F, K, pg5, L, I, er, ef(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, 0}), pg5), ok, In.lt(next), lt),
+      Om, In.store(f, 4n, r, c, rg, m, next, Cr.Cir.Cell{vh, 1, va, vb, 0}, vc, n1, F, K, pg5, L, I, er, ef(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, 0}), pg5), ok, In.lt(next), Om, lt),
       +pg6 => +lt => ({==}, lt))))))
 
 # M.make: register r gets a new cell, with the header h and the fields a, b, c
 def In.make(+f: Nat, +r: Nat, +h: Cr.Cir.Expr, +a: Cr.Cir.Expr, +b: Cr.Cir.Expr, +c: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
   +next: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +vh: U32, +va: U32, +vb: U32, +vc: U32,
-  p0: {Some{0} == List.get(&2, U32, regs, 3n) : Maybe<&2, U32>}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool},
+  +Bc: Nat, hb: N.Le(1n+U32.to_nat(next), Bc), p0: {Some{0} == List.get(&2, U32, regs, 3n) : Maybe<&2, U32>}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool},
   +er: {Some{next} == List.get(&2, U32, List.set(&2, U32, regs, r, next), r) : Maybe<&2, U32>},
   ec: In.lt(next) -> {True{} == Cr.Cir.is_cell(next, K, F, U32.inc(next)) : Bool},
   eh: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vh} == Cr.Cir.eval(h, In.S(List.set(&2, U32, regs, r, next), m2, U32.inc(next), F, K, pg2, L, I)) : Maybe<&2, U32>},
@@ -633,14 +653,14 @@ def In.make(+f: Nat, +r: Nat, +h: Cr.Cir.Expr, +a: Cr.Cir.Expr, +b: Cr.Cir.Expr,
   eb: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vb} == Cr.Cir.eval(b, In.S(List.set(&2, U32, regs, r, next), m2, U32.inc(next), F, K, pg2, L, I)) : Maybe<&2, U32>},
   ef: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vc} == Cr.Cir.eval(c, In.S(List.set(&2, U32, regs, r, next), m2, U32.inc(next), F, K, pg2, L, I)) : Maybe<&2, U32>}) ->
   In.Ok(Cr.Cir.exec(1n+f, Mc.M.make(r, h, a, b, c), In.S(regs, m, next, F, K, pg, L, I)),
-    s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), U32.inc(next), F, K, L, I, In.lt(next))):
+    s => In.Is(s, List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), U32.inc(next), F, K, L, I, In.lt(next)), In.oom(L, Bc)):
   +rg = List.set(&2, U32, regs, r, next)
   +n1 = U32.inc(next)
   In.seq(f, Mc.M.alloc(r), Mc.M.do([Mc.M.st(0n, Mc.M.g(r), h), Mc.M.st(1n, Mc.M.g(r), Mc.M.c(1)), Mc.M.st(2n, Mc.M.g(r), a), Mc.M.st(3n, Mc.M.g(r), b), Mc.M.st(4n, Mc.M.g(r), c)]),
     In.S(regs, m, next, F, K, pg, L, I), rg, Cr.Cir.Cells.set(m, next, In.z()), n1, F, K, L, I, In.lt(next),
     s => In.Is(s, rg, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), n1, F, K, L, I, In.lt(next)),
-    In.alloc(f, r, regs, m, next, F, K, pg, L, I, p0, rl),
-    ++pg1 => +lt => In.make.stores(f, r, h, a, b, c, rg, m, next, n1, F, K, pg1, L, I, vh, va, vb, vc, er, ec(lt), lt, eh, ea, eb, ef))
+    In.oom(L, Bc), In.alloc(f, r, regs, m, next, F, K, pg, L, I, p0, rl, Bc, hb),
+    ++pg1 => +lt => In.make.stores(f, r, h, a, b, c, rg, m, next, n1, F, K, pg1, L, I, vh, va, vb, vc, In.oom(L, Bc), er, ec(lt), lt, eh, ea, eb, ef))
 
 # Booleans
 # --------
@@ -2761,16 +2781,16 @@ def Im.bit(b: Bool, +f0: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +ks: List<&2, 
 
 # a round of a while whose condition holds
 def In.loop(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, -Q: Cr.Cir.State -> Type, -R: Cr.Cir.State -> Type,
-  ev: {Some{1} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, h: In.Ok(Cr.Cir.exec(f, body, st), Q),
-  g: @s: Cr.Cir.State -> Q(s) -> In.Ok(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, s), R)) ->
-  In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st), R):
-  %ev : In.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), R)
-  In.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t), Q, R, h, g)
+  -Om: Type, ev: {Some{1} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, h: In.Ok(Cr.Cir.exec(f, body, st), Q, Om),
+  g: @s: Cr.Cir.State -> Q(s) -> In.Ok(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, s), R, Om)) ->
+  In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st), R, Om):
+  %ev : In.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), R, Om)
+  In.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t), Q, R, Om, h, g)
 
 # the end of a while
 def In.loop.end(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, -R: Cr.Cir.State -> Type,
-  ev: {Some{0} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, k: R(st)) -> In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st), R):
-  %ev : In.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), R)
+  -Om: Type, ev: {Some{0} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, k: R(st)) -> In.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, st), R, Om):
+  %ev : In.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)), u => Cr.Cir.Out.next{st}), R, Om)
   k
 
 # Runs, then more
@@ -2778,12 +2798,12 @@ def In.loop.end(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State,
 
 # s runs from st with the fuel f, then k: the run ends with a state of which
 # R holds, or out of memory
-def In.Go(f: Nat, s: Cr.Cir.Stmt, st: Cr.Cir.State, k: Cr.Cir.State -> Cr.Cir.Out, R: Cr.Cir.State -> Type) -> Type:
-  In.Ok(Cr.Cir.exec.then(Cr.Cir.exec(f, s, st), k), R)
+def In.Go(f: Nat, s: Cr.Cir.Stmt, st: Cr.Cir.State, k: Cr.Cir.State -> Cr.Cir.Out, R: Cr.Cir.State -> Type, Om: Type) -> Type:
+  In.Ok(Cr.Cir.exec.then(Cr.Cir.exec(f, s, st), k), R, Om)
 
 # a run, then k1, then k2, regrouped
 def In.assoc(o: Cr.Cir.Out, -k1: Cr.Cir.State -> Cr.Cir.Out, -k2: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  h: In.Ok(Cr.Cir.exec.then(o, t => Cr.Cir.exec.then(k1(t), k2)), R)) -> In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.then(o, k1), k2), R):
+  -Om: Type, h: In.Ok(Cr.Cir.exec.then(o, t => Cr.Cir.exec.then(k1(t), k2)), R, Om)) -> In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.then(o, k1), k2), R, Om):
   match o:
     case Cr.Cir.Out.next{st}:
       h
@@ -2798,23 +2818,23 @@ def In.assoc(o: Cr.Cir.Out, -k1: Cr.Cir.State -> Cr.Cir.Out, -k2: Cr.Cir.State -
 
 # a then b
 def In.sq(+f: Nat, +a: Cr.Cir.Stmt, -b: Cr.Cir.Stmt, +st: Cr.Cir.State, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  h: In.Go(1n+f, a, st, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, b, t), k), R)) -> In.Go(1n+f, Cr.Cir.Stmt.seq{a, b}, st, k, R):
-  In.assoc(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), k, R, h)
+  -Om: Type, h: In.Go(1n+f, a, st, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, b, t), k), R, Om)) -> In.Go(1n+f, Cr.Cir.Stmt.seq{a, b}, st, k, R, Om):
+  In.assoc(Cr.Cir.exec(1n+f, a, st), t => Cr.Cir.exec(1n+f, b, t), k, R, Om, h)
 
 # nothing
-def In.nop(-f: Nat, -st: Cr.Cir.State, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, h: In.Ok(k(st), R)) ->
-  In.Go(1n+f, Cr.Cir.Stmt.nop{}, st, k, R):
+def In.nop(-f: Nat, -st: Cr.Cir.State, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, -Om: Type, h: In.Ok(k(st), R, Om)) ->
+  In.Go(1n+f, Cr.Cir.Stmt.nop{}, st, k, R, Om):
   h
 
 # register r gets the value v of e
 def In.set(+f: Nat, +r: Nat, -e: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +next: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
   +I: List<&2, Word(8n)>, +v: U32, ev: {Some{v} == Cr.Cir.eval(e, In.S(regs, m, next, F, K, pg, L, I)) : Maybe<&2, U32>},
   rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool}, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  h: In.Ok(k(In.S(List.set(&2, U32, regs, r, v), m, next, F, K, pg, L, I)), R)) ->
-  In.Go(1n+f, Cr.Cir.Stmt.set{r, e}, In.S(regs, m, next, F, K, pg, L, I), k, R):
+  -Om: Type, h: In.Ok(k(In.S(List.set(&2, U32, regs, r, v), m, next, F, K, pg, L, I)), R, Om)) ->
+  In.Go(1n+f, Cr.Cir.Stmt.set{r, e}, In.S(regs, m, next, F, K, pg, L, I), k, R, Om):
   +st = In.S(regs, m, next, F, K, pg, L, I)
-  %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.set(r, _, st), k), R)
-  %rl : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), st), k), R)
+  %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.set(r, _, st), k), R, Om)
+  %rl : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), st), k), R, Om)
   h
 
 # field kf of the cell i, the value of c, gets the value x of v
@@ -2823,50 +2843,50 @@ def In.str(+f: Nat, +kf: Nat, -c: Cr.Cir.Expr, -v: Cr.Cir.Expr, +regs: List<&2, 
   evc: {Some{i} == Cr.Cir.eval(c, In.S(regs, m, next, F, K, pg, L, I)) : Maybe<&2, U32>},
   evv: {Some{x} == Cr.Cir.eval(v, In.S(regs, m, next, F, K, pg, L, I)) : Maybe<&2, U32>},
   ec: {True{} == Cr.Cir.is_cell(i, K, F, next) : Bool}, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  h: In.Ok(k(In.S(regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(kf, Cr.Cir.Cells.get(m, i), x)), next, F, K, pg, L, I)), R)) ->
-  In.Go(1n+f, Cr.Cir.Stmt.store{kf, c, v}, In.S(regs, m, next, F, K, pg, L, I), k, R):
+  -Om: Type, h: In.Ok(k(In.S(regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.set(kf, Cr.Cir.Cells.get(m, i), x)), next, F, K, pg, L, I)), R, Om)) ->
+  In.Go(1n+f, Cr.Cir.Stmt.store{kf, c, v}, In.S(regs, m, next, F, K, pg, L, I), k, R, Om):
   +st = In.S(regs, m, next, F, K, pg, L, I)
-  %evc : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.store(kf, _, Cr.Cir.eval(v, st), st), k), R)
-  %evv : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.store(kf, Some{i}, _, st), k), R)
-  %ec : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.store.if(_, kf, i, x, st), k), R)
+  %evc : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.store(kf, _, Cr.Cir.eval(v, st), st), k), R, Om)
+  %evv : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.store(kf, Some{i}, _, st), k), R, Om)
+  %ec : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.store.if(_, kf, i, x, st), k), R, Om)
   h
 
 # a round of a while whose condition holds
 def In.wh(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  ev: {Some{1} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
-  h: In.Go(f, body, st, t => Cr.Cir.exec.then(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t), k), R)) ->
-  In.Go(1n+f, Cr.Cir.Stmt.while{c, body}, st, k, R):
+  -Om: Type, ev: {Some{1} == Cr.Cir.eval(c, st) : Maybe<&2, U32>},
+  h: In.Go(f, body, st, t => Cr.Cir.exec.then(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t), k), R, Om)) ->
+  In.Go(1n+f, Cr.Cir.Stmt.while{c, body}, st, k, R, Om):
   %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st}), k), R)
-  In.assoc(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t), k, R, h)
+    u => Cr.Cir.Out.next{st}), k), R, Om)
+  In.assoc(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t), k, R, Om, h)
 
 # the end of a while
 def In.wh.end(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  ev: {Some{0} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, h: In.Ok(k(st), R)) -> In.Go(1n+f, Cr.Cir.Stmt.while{c, body}, st, k, R):
+  -Om: Type, ev: {Some{0} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, h: In.Ok(k(st), R, Om)) -> In.Go(1n+f, Cr.Cir.Stmt.while{c, body}, st, k, R, Om):
   %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if(_, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, st), t => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, t)),
-    u => Cr.Cir.Out.next{st}), k), R)
+    u => Cr.Cir.Out.next{st}), k), R, Om)
   h
 
 # if c then t else e, when c is not 0
 def In.ifT(+f: Nat, +c: Cr.Cir.Expr, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: U32,
   ev: {Some{x} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, ez: {False{} == U32.is_zero(x) : Bool},
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, h: In.Go(1n+f, t, st, k, R)) -> In.Go(1n+f, Cr.Cir.Stmt.if{c, t, e}, st, k, R):
-  %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R)
-  %ez : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R)
+  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, -Om: Type, h: In.Go(1n+f, t, st, k, R, Om)) -> In.Go(1n+f, Cr.Cir.Stmt.if{c, t, e}, st, k, R, Om):
+  %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R, Om)
+  %ez : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R, Om)
   h
 
 # if c then t else e, when c is 0
 def In.ifF(+f: Nat, +c: Cr.Cir.Expr, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: U32,
   ev: {Some{x} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, ez: {True{} == U32.is_zero(x) : Bool},
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, h: In.Go(1n+f, e, st, k, R)) -> In.Go(1n+f, Cr.Cir.Stmt.if{c, t, e}, st, k, R):
-  %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R)
-  %ez : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R)
+  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, -Om: Type, h: In.Go(1n+f, e, st, k, R, Om)) -> In.Go(1n+f, Cr.Cir.Stmt.if{c, t, e}, st, k, R, Om):
+  %ev : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R, Om)
+  %ez : In.Ok(Cr.Cir.exec.then(Cr.Cir.exec.if.of(_, u => Cr.Cir.exec(1n+f, t, st), u => Cr.Cir.exec(1n+f, e, st)), k), R, Om)
   h
 
 # M.make, then k
 def In.mk(+f: Nat, +r: Nat, +h: Cr.Cir.Expr, +a: Cr.Cir.Expr, +b: Cr.Cir.Expr, +c: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
   +next: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +vh: U32, +va: U32, +vb: U32, +vc: U32,
-  p0: {Some{0} == List.get(&2, U32, regs, 3n) : Maybe<&2, U32>}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool},
+  +Bc: Nat, hb: N.Le(1n+U32.to_nat(next), Bc), p0: {Some{0} == List.get(&2, U32, regs, 3n) : Maybe<&2, U32>}, rl: {True{} == Nat.is_lt(r, List.length(&2, U32, regs)) : Bool},
   +er: {Some{next} == List.get(&2, U32, List.set(&2, U32, regs, r, next), r) : Maybe<&2, U32>},
   ec: In.lt(next) -> {True{} == Cr.Cir.is_cell(next, K, F, U32.inc(next)) : Bool},
   eh: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vh} == Cr.Cir.eval(h, In.S(List.set(&2, U32, regs, r, next), m2, U32.inc(next), F, K, pg2, L, I)) : Maybe<&2, U32>},
@@ -2874,14 +2894,14 @@ def In.mk(+f: Nat, +r: Nat, +h: Cr.Cir.Expr, +a: Cr.Cir.Expr, +b: Cr.Cir.Expr, +
   eb: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vb} == Cr.Cir.eval(b, In.S(List.set(&2, U32, regs, r, next), m2, U32.inc(next), F, K, pg2, L, I)) : Maybe<&2, U32>},
   ef: @m2: Cr.Cir.Cells -> @pg2: U32 -> {Some{vc} == Cr.Cir.eval(c, In.S(List.set(&2, U32, regs, r, next), m2, U32.inc(next), F, K, pg2, L, I)) : Maybe<&2, U32>},
   -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: @pg2: U32 -> In.lt(next) -> In.Ok(k(In.S(List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), U32.inc(next), F, K, pg2, L, I)), R)) ->
-  In.Go(1n+f, Mc.M.make(r, h, a, b, c), In.S(regs, m, next, F, K, pg, L, I), k, R):
+  g: @pg2: U32 -> In.lt(next) -> In.Ok(k(In.S(List.set(&2, U32, regs, r, next), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc}), U32.inc(next), F, K, pg2, L, I)), R, In.oom(L, Bc))) ->
+  In.Go(1n+f, Mc.M.make(r, h, a, b, c), In.S(regs, m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   +rg = List.set(&2, U32, regs, r, next)
   +ms = Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{vh, 1, va, vb, vc})
   In.then(Cr.Cir.exec(1n+f, Mc.M.make(r, h, a, b, c), In.S(regs, m, next, F, K, pg, L, I)), k,
     s => In.Is(s, rg, ms, U32.inc(next), F, K, L, I, In.lt(next)), R,
-    In.make(f, r, h, a, b, c, regs, m, next, F, K, pg, L, I, vh, va, vb, vc, p0, rl, er, ec, eh, ea, eb, ef),
-    s => e => In.at(s, rg, ms, U32.inc(next), F, K, L, I, In.lt(next), R, k, e, g))
+    In.oom(L, Bc), In.make(f, r, h, a, b, c, regs, m, next, F, K, pg, L, I, vh, va, vb, vc, Bc, hb, p0, rl, er, ec, eh, ea, eb, ef),
+    s => e => In.at(s, rg, ms, U32.inc(next), F, K, L, I, In.lt(next), R, In.oom(L, Bc), k, e, g))
 
 # The cells that the run keeps
 # ----------------------------
@@ -2976,10 +2996,10 @@ def In.evpick(+fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U
 # of ib at j in front of t, with the fuel fw and the count N
 def In.ir.K(+fo: U32, +ii: U32, +ib: U32, +il: U32, +j: U32, +N: Nat, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat,
   +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fw: Nat, +n: Nat, +t: Word(n), +fl: Nat, +bl: Bk.Term,
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type) -> Type:
+  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, +Bc: Nat) -> Type:
   @iu2: U32 -> @t12: U32 -> @t22: U32 -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> In.Fa(m2, nx2, N, F, f0, fc, ks, img) ->
     In.St(fw, m2, F, N, iu2, Pg.Program.word(1n+n, WCon{In.bit(ib, j), t}), ks, img) -> In.St(fl, m2, F, N, il, bl, ks, img) ->
-    In.Fr(m0, m2, F) -> In.Ok(k(In.S(In.R(fo, ii, ib, il, iu2, j, t12, t22), m2, nx2, F, K, pg2, L, I)), R)
+    In.Fr(m0, m2, F) -> In.Ok(k(In.S(In.R(fo, ii, ib, il, iu2, j, t12, t22), m2, nx2, F, K, pg2, L, I)), R, In.oom(L, Bc))
 
 # the third make of a round: iu gets WCon in front of the cell t2
 def In.ir.c(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +j: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells, +next: U32,
@@ -2988,17 +3008,17 @@ def In.ir.c(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +j: U32, 
   +hF: N.Le(272n, U32.to_nat(F)), +hw: N.Le(f0, fw), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
   +s2: In.St(fw, m, F, N, t2, Bk.Term.Tup{Bk.Quan.Q1{}, Pg.Program.bit(In.bit(ib, j)), Bk.Term.Tup{Bk.Quan.Q1{}, Pg.Program.word(n, t), Bk.Term.Lab{Pg.Program.name.unit()}}}, ks, img),
   +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F),
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.ir.K(fo, ii, ib, il, j, 1n+N, F, K, L, I, f0, fc, ks, img, m0, 1n+fw, n, t, fl, bl, k, R)) ->
-  In.Go(1n+f, Mc.M.do([In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, j, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +Bc: Nat, +hB: N.Le(1n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.ir.K(fo, ii, ib, il, j, 1n+N, F, K, L, I, f0, fc, ks, img, m0, 1n+fw, n, t, fl, bl, k, R, Bc)) ->
+  In.Go(1n+f, Mc.M.do([In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, j, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(f, In.c.i4(), Mc.M.do([]), In.S(In.R(fo, ii, ib, il, iu, j, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.mk(f, Mc.R.iu(), Mc.M.c(Mc.M.h.static()), Mc.M.c(Mc.I.lab(Mc.N.wcon())), Mc.M.g(Mc.R.t2()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, j, t1, t2), m, next,
+   In.oom(L, Bc), In.mk(f, Mc.R.iu(), Mc.M.c(Mc.M.h.static()), Mc.M.c(Mc.I.lab(Mc.N.wcon())), Mc.M.g(Mc.R.t2()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, j, t1, t2), m, next,
     F, K, pg, L, I, In.hd(True{}), 5, t2, 0,
-    {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
+    Bc, In.hb(next, N, Bc, Fa.eN(m, next, N, F, f0, fc, ks, img, fa), hB), {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
     m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([]), t), k), R,
     +pg3 => +lt3 =>
      In.nop(f, In.S(In.R(fo, ii, ib, il, next, j, t1, t2), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(True{}), 1, 5, t2, 0}), U32.inc(next), F, K, pg3, L, I), k, R,
-       g(next, t1, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(True{}), 1, 5, t2, 0}), U32.inc(next), pg3,
+       In.oom(L, Bc), g(next, t1, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(True{}), 1, 5, t2, 0}), U32.inc(next), pg3,
          Fa.step(m, next, N, F, f0, fc, ks, img, Cr.Cir.Cell{In.hd(True{}), 1, 5, t2, 0}, lt3, hF, fa),
          In.tup(True{}, fw, m, F, N, next, 5, t2, Bk.Term.Lab{Pg.Program.name.wcon()},
            Bk.Term.Tup{Bk.Quan.Q1{}, Pg.Program.bit(In.bit(ib, j)), Bk.Term.Tup{Bk.Quan.Q1{}, Pg.Program.word(n, t), Bk.Term.Lab{Pg.Program.name.unit()}}}, ks, img,
@@ -3014,13 +3034,13 @@ def In.ir.b(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +j: U32, 
   +hF: N.Le(272n, U32.to_nat(F)), +hw: N.Le(f0, fw), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
   +s1: In.St(fw, m, F, N, t1, Bk.Term.Tup{Bk.Quan.Q1{}, Pg.Program.word(n, t), Bk.Term.Lab{Pg.Program.name.unit()}}, ks, img),
   +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F),
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.ir.K(fo, ii, ib, il, j, 1n+(1n+N), F, K, L, I, f0, fc, ks, img, m0, 1n+(1n+fw), n, t, fl, bl, k, R)) ->
-  In.Go(1n+f, Mc.M.do([In.c.i3(), In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, j, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +Bc: Nat, +hB: N.Le(2n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.ir.K(fo, ii, ib, il, j, 1n+(1n+N), F, K, L, I, f0, fc, ks, img, m0, 1n+(1n+fw), n, t, fl, bl, k, R, Bc)) ->
+  In.Go(1n+f, Mc.M.do([In.c.i3(), In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, j, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(f, In.c.i3(), Mc.M.do([In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, j, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.mk(f, Mc.R.t2(), Mc.M.c(Mc.M.h.static()), In.c.pick(), Mc.M.g(Mc.R.t1()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, j, t1, t2), m, next,
+   In.oom(L, Bc), In.mk(f, Mc.R.t2(), Mc.M.c(Mc.M.h.static()), In.c.pick(), Mc.M.g(Mc.R.t1()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, j, t1, t2), m, next,
     F, K, pg, L, I, In.hd(True{}), Bool.pick(U32, In.bit(ib, j), 12, 13), t1, 0,
-    {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
+    Bc, In.hb(next, N, Bc, Fa.eN(m, next, N, F, f0, fc, ks, img, fa), N.weaken(1n+N, Bc, hB)), {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
     m4 => pg4 => {==}, m4 => pg4 => In.evpick(fo, ii, ib, il, iu, j, t1, next, m4, U32.inc(next), F, K, pg4, L, I),
     m4 => pg4 => {==}, m4 => pg4 => {==}, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([In.c.i4()]), t), k), R,
     +pg3 => +lt3 =>
@@ -3035,7 +3055,7 @@ def In.ir.b(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +j: U32, 
        St.step(fl, m, F, N, il, bl, ks, img, next, Cr.Cir.Cell{In.hd(True{}), 1, Bool.pick(U32, In.bit(ib, j), 12, 13), t1, 0},
          Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa), sl),
        Fr.step(m0, m, F, next, Cr.Cir.Cell{In.hd(True{}), 1, Bool.pick(U32, In.bit(ib, j), 12, 13), t1, 0}, hF, Fa.lF(m, next, N, F, f0, fc, ks, img, fa), fr),
-       k, R, g)))
+       Bc, hB, k, R, g)))
 
 # a round of the bits' loop: ij goes down by one, and iu gets the bit of ib
 # at ij in front
@@ -3044,16 +3064,16 @@ def In.ir(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +jp: U32, +
   -m0: Cr.Cir.Cells, +fw: Nat, +n: Nat, +t: Word(n), +fl: Nat, +bl: Bk.Term,
   +hF: N.Le(272n, U32.to_nat(F)), +hw: N.Le(f0, fw), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
   +sw: In.St(fw, m, F, N, iu, Pg.Program.word(n, t), ks, img), +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F),
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.ir.K(fo, ii, ib, il, U32.sub(jp, 1), 3n+N, F, K, L, I, f0, fc, ks, img, m0, 3n+fw, n, t, fl, bl, k, R)) ->
-  In.Go(1n+f, In.c.inner(), In.S(In.R(fo, ii, ib, il, iu, jp, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +Bc: Nat, +hB: N.Le(3n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.ir.K(fo, ii, ib, il, U32.sub(jp, 1), 3n+N, F, K, L, I, f0, fc, ks, img, m0, 3n+fw, n, t, fl, bl, k, R, Bc)) ->
+  In.Go(1n+f, In.c.inner(), In.S(In.R(fo, ii, ib, il, iu, jp, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(f, In.c.i1(), Mc.M.do([In.c.i2(), In.c.i3(), In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, jp, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.set(f, Mc.R.ij(), Mc.M.sub(Mc.M.g(Mc.R.ij()), Mc.M.c(1)), In.R(fo, ii, ib, il, iu, jp, t1, t2), m, next, F, K, pg, L, I, U32.sub(jp, 1), {==}, {==},
+   In.oom(L, Bc), In.set(f, Mc.R.ij(), Mc.M.sub(Mc.M.g(Mc.R.ij()), Mc.M.c(1)), In.R(fo, ii, ib, il, iu, jp, t1, t2), m, next, F, K, pg, L, I, U32.sub(jp, 1), {==}, {==},
     t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([In.c.i2(), In.c.i3(), In.c.i4()]), t), k), R,
-    In.sq(f, In.c.i2(), Mc.M.do([In.c.i3(), In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, U32.sub(jp, 1), t1, t2), m, next, F, K, pg, L, I), k, R,
-     In.mk(f, Mc.R.t1(), Mc.M.c(Mc.M.h.static()), Mc.M.g(Mc.R.iu()), Mc.M.c(Mc.I.lab(Mc.N.unit())), Mc.M.c(0), In.R(fo, ii, ib, il, iu, U32.sub(jp, 1), t1, t2),
+    In.oom(L, Bc), In.sq(f, In.c.i2(), Mc.M.do([In.c.i3(), In.c.i4()]), In.S(In.R(fo, ii, ib, il, iu, U32.sub(jp, 1), t1, t2), m, next, F, K, pg, L, I), k, R,
+     In.oom(L, Bc), In.mk(f, Mc.R.t1(), Mc.M.c(Mc.M.h.static()), Mc.M.g(Mc.R.iu()), Mc.M.c(Mc.I.lab(Mc.N.unit())), Mc.M.c(0), In.R(fo, ii, ib, il, iu, U32.sub(jp, 1), t1, t2),
       m, next, F, K, pg, L, I, In.hd(True{}), iu, 1, 0,
-      {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
+      Bc, In.hb(next, N, Bc, Fa.eN(m, next, N, F, f0, fc, ks, img, fa), N.weaken(1n+N, Bc, N.weaken(2n+N, Bc, hB))), {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
       m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([In.c.i3(), In.c.i4()]), t), k), R,
       +pg3 => +lt3 =>
        In.ir.b(f, fo, ii, ib, il, iu, U32.sub(jp, 1), next, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(True{}), 1, iu, 1, 0}),
@@ -3064,7 +3084,7 @@ def In.ir(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +jp: U32, +
            Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa), Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa)),
          St.step(fl, m, F, N, il, bl, ks, img, next, Cr.Cir.Cell{In.hd(True{}), 1, iu, 1, 0}, Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa), sl),
          Fr.step(m0, m, F, next, Cr.Cir.Cell{In.hd(True{}), 1, iu, 1, 0}, hF, Fa.lF(m, next, N, F, f0, fc, ks, img, fa), fr),
-         k, R, g)))))
+         Bc, hB, k, R, g)))))
 
 # the bits' loop
 def In.c.W() -> Cr.Cir.Stmt:
@@ -3090,44 +3110,44 @@ def St.cast(-f: Nat, -m: Cr.Cir.Cells, -F: U32, -N: Nat, -c: U32, -t: Bk.Term, -
 def In.il(+Z: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells, +next: U32,
   +N: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -m0: Cr.Cir.Cells, +fl: Nat, +bl: Bk.Term, +hF: N.Le(272n, U32.to_nat(F)), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
-  +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F), +Bc: Nat, +hB: N.Le(24n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
   g: @iu2: U32 -> @ij2: U32 -> @t12: U32 -> @t22: U32 -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> In.Fa(m2, nx2, 24n+N, F, f0, fc, ks, img) ->
     In.St(24n+f0, m2, F, 24n+N, iu2, Pg.Program.word(8n, In.wd(ib)), ks, img) -> In.St(fl, m2, F, 24n+N, il, bl, ks, img) -> In.Fr(m0, m2, F) ->
-    In.Ok(k(In.S(In.R(fo, ii, ib, il, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R)) ->
-  In.Go(9n+Z, In.c.W(), In.S(In.R(fo, ii, ib, il, 14, 8, t1, t2), m, next, F, K, pg, L, I), k, R):
-  In.wh(8n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, 14, 8, t1, t2), m, next, F, K, pg, L, I), k, R, {==},
+    In.Ok(k(In.S(In.R(fo, ii, ib, il, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R, In.oom(L, Bc))) ->
+  In.Go(9n+Z, In.c.W(), In.S(In.R(fo, ii, ib, il, 14, 8, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
+  In.wh(8n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, 14, 8, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc), {==},
    In.ir(7n+Z, fo, ii, ib, il, 14, 8, t1, t2, m, next, N, F, K, pg, L, I, f0, fc, ks, img, m0, f0, 0n, WNil{}, fl, bl, hF, N.le_refl(f0), fa, Im.g14(f0, m, F, N, ks, img, Fa.im(m, next, N, F, f0, fc, ks, img, fa)), sl, fr,
-    t => Cr.Cir.exec.then(Cr.Cir.exec(8n+Z, In.c.W(), t), k), R,
+    Bc, N.le_trans(3n+N, 24n+N, Bc, N.le_add_l(21n, 3n+N), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(8n+Z, In.c.W(), t), k), R,
     +iu1 => +ta1 => +tb1 => +m1 => +nx1 => +pg1 => +fa1 => +sw1 => +sl1 => fr1 =>
-     In.wh(7n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu1, U32.sub(8, 1), ta1, tb1), m1, nx1, F, K, pg1, L, I), k, R, {==},
+     In.wh(7n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu1, U32.sub(8, 1), ta1, tb1), m1, nx1, F, K, pg1, L, I), k, R, In.oom(L, Bc), {==},
       In.ir(6n+Z, fo, ii, ib, il, iu1, U32.sub(8, 1), ta1, tb1, m1, nx1, 3n+N, F, K, pg1, L, I, f0, fc, ks, img, m0, 3n+f0, 1n+0n, WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}, fl, bl, hF, N.le_add_l(3n, f0), fa1, sw1, sl1, fr1,
-       t => Cr.Cir.exec.then(Cr.Cir.exec(7n+Z, In.c.W(), t), k), R,
+       Bc, N.le_trans(3n+(3n+N), 24n+N, Bc, N.le_add_l(18n, 3n+(3n+N)), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(7n+Z, In.c.W(), t), k), R,
        +iu2 => +ta2 => +tb2 => +m2 => +nx2 => +pg2 => +fa2 => +sw2 => +sl2 => fr2 =>
-        In.wh(6n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu2, U32.sub(U32.sub(8, 1), 1), ta2, tb2), m2, nx2, F, K, pg2, L, I), k, R, {==},
+        In.wh(6n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu2, U32.sub(U32.sub(8, 1), 1), ta2, tb2), m2, nx2, F, K, pg2, L, I), k, R, In.oom(L, Bc), {==},
          In.ir(5n+Z, fo, ii, ib, il, iu2, U32.sub(U32.sub(8, 1), 1), ta2, tb2, m2, nx2, 6n+N, F, K, pg2, L, I, f0, fc, ks, img, m0, 6n+f0, 1n+(1n+0n), WCon{In.bit(ib, U32.sub(U32.sub(8, 1), 1)), WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}}, fl, bl, hF, N.le_add_l(6n, f0), fa2, sw2, sl2, fr2,
-          t => Cr.Cir.exec.then(Cr.Cir.exec(6n+Z, In.c.W(), t), k), R,
+          Bc, N.le_trans(3n+(6n+N), 24n+N, Bc, N.le_add_l(15n, 3n+(6n+N)), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(6n+Z, In.c.W(), t), k), R,
           +iu3 => +ta3 => +tb3 => +m3 => +nx3 => +pg3 => +fa3 => +sw3 => +sl3 => fr3 =>
-           In.wh(5n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu3, U32.sub(U32.sub(U32.sub(8, 1), 1), 1), ta3, tb3), m3, nx3, F, K, pg3, L, I), k, R, {==},
+           In.wh(5n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu3, U32.sub(U32.sub(U32.sub(8, 1), 1), 1), ta3, tb3), m3, nx3, F, K, pg3, L, I), k, R, In.oom(L, Bc), {==},
             In.ir(4n+Z, fo, ii, ib, il, iu3, U32.sub(U32.sub(U32.sub(8, 1), 1), 1), ta3, tb3, m3, nx3, 9n+N, F, K, pg3, L, I, f0, fc, ks, img, m0, 9n+f0, 1n+(1n+(1n+0n)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(8, 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(8, 1), 1)), WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}}}, fl, bl, hF, N.le_add_l(9n, f0), fa3, sw3, sl3, fr3,
-             t => Cr.Cir.exec.then(Cr.Cir.exec(5n+Z, In.c.W(), t), k), R,
+             Bc, N.le_trans(3n+(9n+N), 24n+N, Bc, N.le_add_l(12n, 3n+(9n+N)), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(5n+Z, In.c.W(), t), k), R,
              +iu4 => +ta4 => +tb4 => +m4 => +nx4 => +pg4 => +fa4 => +sw4 => +sl4 => fr4 =>
-              In.wh(4n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu4, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), ta4, tb4), m4, nx4, F, K, pg4, L, I), k, R, {==},
+              In.wh(4n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu4, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), ta4, tb4), m4, nx4, F, K, pg4, L, I), k, R, In.oom(L, Bc), {==},
                In.ir(3n+Z, fo, ii, ib, il, iu4, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), ta4, tb4, m4, nx4, 12n+N, F, K, pg4, L, I, f0, fc, ks, img, m0, 12n+f0, 1n+(1n+(1n+(1n+0n))), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(8, 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(8, 1), 1)), WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}}}}, fl, bl, hF, N.le_add_l(12n, f0), fa4, sw4, sl4, fr4,
-                t => Cr.Cir.exec.then(Cr.Cir.exec(4n+Z, In.c.W(), t), k), R,
+                Bc, N.le_trans(3n+(12n+N), 24n+N, Bc, N.le_add_l(9n, 3n+(12n+N)), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(4n+Z, In.c.W(), t), k), R,
                 +iu5 => +ta5 => +tb5 => +m5 => +nx5 => +pg5 => +fa5 => +sw5 => +sl5 => fr5 =>
-                 In.wh(3n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu5, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), ta5, tb5), m5, nx5, F, K, pg5, L, I), k, R, {==},
+                 In.wh(3n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu5, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), ta5, tb5), m5, nx5, F, K, pg5, L, I), k, R, In.oom(L, Bc), {==},
                   In.ir(2n+Z, fo, ii, ib, il, iu5, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), ta5, tb5, m5, nx5, 15n+N, F, K, pg5, L, I, f0, fc, ks, img, m0, 15n+f0, 1n+(1n+(1n+(1n+(1n+0n)))), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(8, 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(8, 1), 1)), WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}}}}}, fl, bl, hF, N.le_add_l(15n, f0), fa5, sw5, sl5, fr5,
-                   t => Cr.Cir.exec.then(Cr.Cir.exec(3n+Z, In.c.W(), t), k), R,
+                   Bc, N.le_trans(3n+(15n+N), 24n+N, Bc, N.le_add_l(6n, 3n+(15n+N)), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(3n+Z, In.c.W(), t), k), R,
                    +iu6 => +ta6 => +tb6 => +m6 => +nx6 => +pg6 => +fa6 => +sw6 => +sl6 => fr6 =>
-                    In.wh(2n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu6, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), ta6, tb6), m6, nx6, F, K, pg6, L, I), k, R, {==},
+                    In.wh(2n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu6, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), ta6, tb6), m6, nx6, F, K, pg6, L, I), k, R, In.oom(L, Bc), {==},
                      In.ir(1n+Z, fo, ii, ib, il, iu6, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), ta6, tb6, m6, nx6, 18n+N, F, K, pg6, L, I, f0, fc, ks, img, m0, 18n+f0, 1n+(1n+(1n+(1n+(1n+(1n+0n))))), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(8, 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(8, 1), 1)), WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}}}}}}, fl, bl, hF, N.le_add_l(18n, f0), fa6, sw6, sl6, fr6,
-                      t => Cr.Cir.exec.then(Cr.Cir.exec(2n+Z, In.c.W(), t), k), R,
+                      Bc, N.le_trans(3n+(18n+N), 24n+N, Bc, N.le_add_l(3n, 3n+(18n+N)), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(2n+Z, In.c.W(), t), k), R,
                       +iu7 => +ta7 => +tb7 => +m7 => +nx7 => +pg7 => +fa7 => +sw7 => +sl7 => fr7 =>
-                       In.wh(1n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu7, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1), ta7, tb7), m7, nx7, F, K, pg7, L, I), k, R, {==},
+                       In.wh(1n+Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu7, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1), ta7, tb7), m7, nx7, F, K, pg7, L, I), k, R, In.oom(L, Bc), {==},
                         In.ir(Z, fo, ii, ib, il, iu7, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1), ta7, tb7, m7, nx7, 21n+N, F, K, pg7, L, I, f0, fc, ks, img, m0, 21n+f0, 1n+(1n+(1n+(1n+(1n+(1n+(1n+0n)))))), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(8, 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(8, 1), 1)), WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}}}}}}}, fl, bl, hF, N.le_add_l(21n, f0), fa7, sw7, sl7, fr7,
-                         t => Cr.Cir.exec.then(Cr.Cir.exec(1n+Z, In.c.W(), t), k), R,
+                         Bc, hB, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+Z, In.c.W(), t), k), R,
                          +iu8 => +ta8 => +tb8 => +m8 => +nx8 => +pg8 => +fa8 => +sw8 => +sl8 => fr8 =>
-                          In.wh.end(Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu8, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1), 1), ta8, tb8), m8, nx8, F, K, pg8, L, I), k, R, {==},
+                          In.wh.end(Z, Mc.M.ne(Mc.M.g(Mc.R.ij()), Mc.M.c(0)), In.c.inner(), In.S(In.R(fo, ii, ib, il, iu8, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1), 1), ta8, tb8), m8, nx8, F, K, pg8, L, I), k, R, In.oom(L, Bc), {==},
                            g(iu8, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1), 1), ta8, tb8, m8, nx8, pg8, fa8, St.cast(24n+f0, m8, F, 24n+N, iu8, Pg.Program.word(1n+(1n+(1n+(1n+(1n+(1n+(1n+(1n+0n))))))), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(U32.sub(8, 1), 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(U32.sub(8, 1), 1), 1)), WCon{In.bit(ib, U32.sub(U32.sub(8, 1), 1)), WCon{In.bit(ib, U32.sub(8, 1)), WNil{}}}}}}}}}), Pg.Program.word(8n, In.wd(ib)), ks, img, In.wd.eq(ib), sw8), sl8, fr8))))))))))))))))))
 
 # The cache's new entry
@@ -3154,24 +3174,24 @@ def In.wd_u8(w8: Word(8n)) -> {Pg.Program.word(8n, In.wd(Sd.Byte.to_u32(w8))) ==
 # what the cache's new entry gives: the cell iu2 of the word of the byte w8,
 # in 24 new cells
 def In.cch.K(+fo: U32, +ii: U32, +w8: Word(8n), +il: U32, +N: Nat, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fl: Nat, +bl: Bk.Term, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type) -> Type:
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fl: Nat, +bl: Bk.Term, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, +Bc: Nat) -> Type:
   @iu2: U32 -> @ij2: U32 -> @t12: U32 -> @t22: U32 -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> In.Fa(m2, nx2, N, F, f0, fc, ks, img) ->
     In.St(fc, m2, F, N, iu2, Pg.Program.word(8n, w8), ks, img) -> In.St(fl, m2, F, N, il, bl, ks, img) -> In.Fr(m0, m2, F) ->
-    In.Ok(k(In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R)
+    In.Ok(k(In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R, In.oom(L, Bc))
 
 # the store of the cache's new entry
 def In.cch.c(+Z: Nat, +fo: U32, +ii: U32, +w8: Word(8n), +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells,
   +next: U32, +N: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fl: Nat, +bl: Bk.Term, +hF: N.Le(272n, U32.to_nat(F)), +hK: N.Le(271n, U32.to_nat(K)),
   +fa: In.Fa(m, next, N, F, f0, fc, ks, img), +sv: In.St(fc, m, F, N, iu, Pg.Program.word(8n, w8), ks, img),
-  +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.cch.K(fo, ii, w8, il, N, F, K, L, I, f0, fc, ks, img, m0, fl, bl, k, R)) ->
-  In.Go(1n+(8n+Z), Mc.M.do([In.c.c3()]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F), +Bc: Nat, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.cch.K(fo, ii, w8, il, N, F, K, L, I, f0, fc, ks, img, m0, fl, bl, k, R, Bc)) ->
+  In.Go(1n+(8n+Z), Mc.M.do([In.c.c3()]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(8n+Z, In.c.c3(), Mc.M.do([]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.str(8n+Z, 2n, Mc.M.add(Mc.M.c(Mc.I.cache()), Mc.M.g(Mc.R.ib())), Mc.M.g(Mc.R.iu()), In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next,
+   In.oom(L, Bc), In.str(8n+Z, 2n, Mc.M.add(Mc.M.c(Mc.I.cache()), Mc.M.g(Mc.R.ib())), Mc.M.g(Mc.R.iu()), In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next,
     F, K, pg, L, I, In.J(w8), iu, {==}, {==}, In.cellJ(w8, K, F, next, hK), t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([]), t), k), R,
-    In.nop(8n+Z, In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), In.cs(m, w8, iu), next, F, K, pg, L, I), k, R,
-     g(iu, ij, t1, t2, In.cs(m, w8, iu), next, pg, Fa.cs(m, next, N, F, f0, fc, ks, img, w8, iu, hF, sv, fa),
+    In.oom(L, Bc), In.nop(8n+Z, In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), In.cs(m, w8, iu), next, F, K, pg, L, I), k, R,
+     In.oom(L, Bc), g(iu, ij, t1, t2, In.cs(m, w8, iu), next, pg, Fa.cs(m, next, N, F, f0, fc, ks, img, w8, iu, hF, sv, fa),
        St.fr(fc, m, F, N, iu, Pg.Program.word(8n, w8), ks, img, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), iu), In.rdJ(w8, F, N, hF), sv),
        St.fr(fl, m, F, N, il, bl, ks, img, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), iu), In.rdJ(w8, F, N, hF), sl),
        Fr.cs(m0, m, F, w8, iu, fr)))))
@@ -3182,23 +3202,23 @@ def In.cch(+Z: Nat, +fo: U32, +ii: U32, +w8: Word(8n), +il: U32, +iu: U32, +ij: 
   +next: U32, +N: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fl: Nat, +bl: Bk.Term, +hF: N.Le(272n, U32.to_nat(F)), +hK: N.Le(271n, U32.to_nat(K)),
   hc: N.Le(24n+f0, fc), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
-  +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.cch.K(fo, ii, w8, il, 24n+N, F, K, L, I, f0, fc, ks, img, m0, fl, bl, k, R)) ->
-  In.Go(9n+Z, In.c.cache(), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F), +Bc: Nat, +hB: N.Le(24n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.cch.K(fo, ii, w8, il, 24n+N, F, K, L, I, f0, fc, ks, img, m0, fl, bl, k, R, Bc)) ->
+  In.Go(9n+Z, In.c.cache(), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(8n+Z, In.c.c1(), Mc.M.do([In.c.c2(), In.c.W(), In.c.c3()]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.set(8n+Z, Mc.R.iu(), Mc.M.c(Mc.I.wnil()), In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I, 14, {==}, {==},
+   In.oom(L, Bc), In.set(8n+Z, Mc.R.iu(), Mc.M.c(Mc.I.wnil()), In.R(fo, ii, Sd.Byte.to_u32(w8), il, iu, ij, t1, t2), m, next, F, K, pg, L, I, 14, {==}, {==},
     t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.c2(), In.c.W(), In.c.c3()]), t), k), R,
-    In.sq(8n+Z, In.c.c2(), Mc.M.do([In.c.W(), In.c.c3()]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, 14, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-     In.set(8n+Z, Mc.R.ij(), Mc.M.c(8), In.R(fo, ii, Sd.Byte.to_u32(w8), il, 14, ij, t1, t2), m, next, F, K, pg, L, I, 8, {==}, {==},
+    In.oom(L, Bc), In.sq(8n+Z, In.c.c2(), Mc.M.do([In.c.W(), In.c.c3()]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, 14, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
+     In.oom(L, Bc), In.set(8n+Z, Mc.R.ij(), Mc.M.c(8), In.R(fo, ii, Sd.Byte.to_u32(w8), il, 14, ij, t1, t2), m, next, F, K, pg, L, I, 8, {==}, {==},
       t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.W(), In.c.c3()]), t), k), R,
-      In.sq(8n+Z, In.c.W(), Mc.M.do([In.c.c3()]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, 14, 8, t1, t2), m, next, F, K, pg, L, I), k, R,
-       In.il(Z, fo, ii, Sd.Byte.to_u32(w8), il, t1, t2, m, next, N, F, K, pg, L, I, f0, fc, ks, img, m0, fl, bl, hF, fa, sl, fr,
-        t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.c3()]), t), k), R,
+      In.oom(L, Bc), In.sq(8n+Z, In.c.W(), Mc.M.do([In.c.c3()]), In.S(In.R(fo, ii, Sd.Byte.to_u32(w8), il, 14, 8, t1, t2), m, next, F, K, pg, L, I), k, R,
+       In.oom(L, Bc), In.il(Z, fo, ii, Sd.Byte.to_u32(w8), il, t1, t2, m, next, N, F, K, pg, L, I, f0, fc, ks, img, m0, fl, bl, hF, fa, sl, fr,
+        Bc, hB, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.c3()]), t), k), R,
         +iu2 => +ij2 => +t12 => +t22 => +m2 => +nx2 => +pg2 => +fa2 => +su2 => +sl2 => fr2 =>
          In.cch.c(Z, fo, ii, w8, il, iu2, ij2, t12, t22, m2, nx2, 24n+N, F, K, pg2, L, I, f0, fc, ks, img, m0, fl, bl, hF, hK, fa2,
           St.to(24n+f0, fc, hc, m2, F, 24n+N, iu2, Pg.Program.word(8n, w8), ks, img,
             St.cast(24n+f0, m2, F, 24n+N, iu2, Pg.Program.word(8n, In.wd(Sd.Byte.to_u32(w8))), Pg.Program.word(8n, w8), ks, img, In.wd_u8(w8), su2)),
-          sl2, fr2, k, R, g)))))))
+          sl2, fr2, Bc, k, R, g)))))))
 
 # The list's new cell
 # -------------------
@@ -3221,27 +3241,27 @@ def In.con.eq(+cu: Bk.Term, +bl: Bk.Term) ->
 # what the list's new cell gives: the cell il2 of Con with the fields cu and bl
 def In.lst.K(+fo: U32, +ii: U32, +ib: U32, +iu: U32, +ij: U32, +N: Nat, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat,
   +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fs: Nat, +cu: Bk.Term, +bl: Bk.Term,
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type) -> Type:
+  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, +Bc: Nat) -> Type:
   @il2: U32 -> @t12: U32 -> @t22: U32 -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> In.Fa(m2, nx2, N, F, f0, fc, ks, img) ->
     In.St(fs, m2, F, N, il2, Pg.Program.ctor(Pg.Program.name.con(), [cu, bl]), ks, img) -> In.Fr(m0, m2, F) ->
-    In.Ok(k(In.S(In.R(fo, ii, ib, il2, iu, ij, t12, t22), m2, nx2, F, K, pg2, L, I)), R)
+    In.Ok(k(In.S(In.R(fo, ii, ib, il2, iu, ij, t12, t22), m2, nx2, F, K, pg2, L, I)), R, In.oom(L, Bc))
 
 # the list's last make: il gets Con in front of the cell t2
 def In.lst.c(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells, +next: U32,
   +N: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -m0: Cr.Cir.Cells, +fs: Nat, +cu: Bk.Term, +bl: Bk.Term, +hF: N.Le(272n, U32.to_nat(F)), +hs: N.Le(f0, fs), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
   +s2: In.St(fs, m, F, N, t2, Bk.Term.Tup{Bk.Quan.Q1{}, cu, Bk.Term.Tup{Bk.Quan.Q1{}, bl, Bk.Term.Lab{Pg.Program.name.unit()}}}, ks, img), fr: In.Fr(m0, m, F),
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.lst.K(fo, ii, ib, iu, ij, 1n+N, F, K, L, I, f0, fc, ks, img, m0, 1n+fs, cu, bl, k, R)) ->
-  In.Go(1n+f, Mc.M.do([In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +Bc: Nat, +hB: N.Le(1n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.lst.K(fo, ii, ib, iu, ij, 1n+N, F, K, L, I, f0, fc, ks, img, m0, 1n+fs, cu, bl, k, R, Bc)) ->
+  In.Go(1n+f, Mc.M.do([In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(f, In.c.b7(), Mc.M.do([]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.mk(f, Mc.R.il(), Mc.M.c(Mc.M.h.data()), Mc.M.c(Mc.I.lab(Mc.N.con())), Mc.M.g(Mc.R.t2()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next,
+   In.oom(L, Bc), In.mk(f, Mc.R.il(), Mc.M.c(Mc.M.h.data()), Mc.M.c(Mc.I.lab(Mc.N.con())), Mc.M.g(Mc.R.t2()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next,
     F, K, pg, L, I, In.hd(False{}), 3, t2, 0,
-    {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
+    Bc, In.hb(next, N, Bc, Fa.eN(m, next, N, F, f0, fc, ks, img, fa), hB), {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
     m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([]), t), k), R,
     +pg3 => +lt3 =>
      In.nop(f, In.S(In.R(fo, ii, ib, next, iu, ij, t1, t2), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, 3, t2, 0}), U32.inc(next), F, K, pg3, L, I), k, R,
-       g(next, t1, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, 3, t2, 0}), U32.inc(next), pg3,
+       In.oom(L, Bc), g(next, t1, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, 3, t2, 0}), U32.inc(next), pg3,
          Fa.step(m, next, N, F, f0, fc, ks, img, Cr.Cir.Cell{In.hd(False{}), 1, 3, t2, 0}, lt3, hF, fa),
          St.cast(1n+fs, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, 3, t2, 0}), F, 1n+N, next,
            Bk.Term.Tup{Bk.Quan.Q1{}, Bk.Term.Lab{Pg.Program.name.con()}, Bk.Term.Tup{Bk.Quan.Q1{}, cu, Bk.Term.Tup{Bk.Quan.Q1{}, bl, Bk.Term.Lab{Pg.Program.name.unit()}}}},
@@ -3258,13 +3278,13 @@ def In.lst.b(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32
   -m0: Cr.Cir.Cells, +fs: Nat, +cu: Bk.Term, +bl: Bk.Term, +hF: N.Le(272n, U32.to_nat(F)), +hs: N.Le(f0, fs), hcs: N.Le(fc, fs),
   +fa: In.Fa(m, next, N, F, f0, fc, ks, img), +su: In.St(fc, m, F, N, iu, cu, ks, img),
   +s1: In.St(fs, m, F, N, t1, Bk.Term.Tup{Bk.Quan.Q1{}, bl, Bk.Term.Lab{Pg.Program.name.unit()}}, ks, img), fr: In.Fr(m0, m, F),
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.lst.K(fo, ii, ib, iu, ij, 1n+(1n+N), F, K, L, I, f0, fc, ks, img, m0, 1n+(1n+fs), cu, bl, k, R)) ->
-  In.Go(1n+f, Mc.M.do([In.c.b6(), In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +Bc: Nat, +hB: N.Le(2n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.lst.K(fo, ii, ib, iu, ij, 1n+(1n+N), F, K, L, I, f0, fc, ks, img, m0, 1n+(1n+fs), cu, bl, k, R, Bc)) ->
+  In.Go(1n+f, Mc.M.do([In.c.b6(), In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(f, In.c.b6(), Mc.M.do([In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.mk(f, Mc.R.t2(), Mc.M.c(Mc.M.h.data()), Mc.M.g(Mc.R.iu()), Mc.M.g(Mc.R.t1()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next,
+   In.oom(L, Bc), In.mk(f, Mc.R.t2(), Mc.M.c(Mc.M.h.data()), Mc.M.g(Mc.R.iu()), Mc.M.g(Mc.R.t1()), Mc.M.c(0), In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next,
     F, K, pg, L, I, In.hd(False{}), iu, t1, 0,
-    {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
+    Bc, In.hb(next, N, Bc, Fa.eN(m, next, N, F, f0, fc, ks, img, fa), N.weaken(1n+N, Bc, hB)), {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
     m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([In.c.b7()]), t), k), R,
     +pg3 => +lt3 =>
      In.lst.c(f, fo, ii, ib, il, iu, ij, t1, next, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, iu, t1, 0}), U32.inc(next), 1n+N,
@@ -3272,20 +3292,20 @@ def In.lst.b(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32
        Fa.step(m, next, N, F, f0, fc, ks, img, Cr.Cir.Cell{In.hd(False{}), 1, iu, t1, 0}, lt3, hF, fa),
        In.tup(False{}, fs, m, F, N, next, iu, t1, cu, Bk.Term.Tup{Bk.Quan.Q1{}, bl, Bk.Term.Lab{Pg.Program.name.unit()}}, ks, img,
          St.to(fc, fs, hcs, m, F, N, iu, cu, ks, img, su), s1, Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa), Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa)),
-       Fr.step(m0, m, F, next, Cr.Cir.Cell{In.hd(False{}), 1, iu, t1, 0}, hF, Fa.lF(m, next, N, F, f0, fc, ks, img, fa), fr), k, R, g)))
+       Fr.step(m0, m, F, next, Cr.Cir.Cell{In.hd(False{}), 1, iu, t1, 0}, hF, Fa.lF(m, next, N, F, f0, fc, ks, img, fa), fr), Bc, hB, k, R, g)))
 
 # the list's new cell: il gets Con of the cells iu and il
 def In.lst(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells, +next: U32,
   +N: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   -m0: Cr.Cir.Cells, +fl: Nat, +cu: Bk.Term, +bl: Bk.Term, +hF: N.Le(272n, U32.to_nat(F)), +hl: N.Le(f0, fl), hcl: N.Le(fc, 1n+fl),
   +fa: In.Fa(m, next, N, F, f0, fc, ks, img), +su: In.St(fc, m, F, N, iu, cu, ks, img), +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F),
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.lst.K(fo, ii, ib, iu, ij, 3n+N, F, K, L, I, f0, fc, ks, img, m0, 3n+fl, cu, bl, k, R)) ->
-  In.Go(1n+f, Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +Bc: Nat, +hB: N.Le(3n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.lst.K(fo, ii, ib, iu, ij, 3n+N, F, K, L, I, f0, fc, ks, img, m0, 3n+fl, cu, bl, k, R, Bc)) ->
+  In.Go(1n+f, Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(f, In.c.b5(), Mc.M.do([In.c.b6(), In.c.b7()]), In.S(In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.mk(f, Mc.R.t1(), Mc.M.c(Mc.M.h.data()), Mc.M.g(Mc.R.il()), Mc.M.c(Mc.I.lab(Mc.N.unit())), Mc.M.c(0), In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next,
+   In.oom(L, Bc), In.mk(f, Mc.R.t1(), Mc.M.c(Mc.M.h.data()), Mc.M.g(Mc.R.il()), Mc.M.c(Mc.I.lab(Mc.N.unit())), Mc.M.c(0), In.R(fo, ii, ib, il, iu, ij, t1, t2), m, next,
     F, K, pg, L, I, In.hd(False{}), il, 1, 0,
-    {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
+    Bc, In.hb(next, N, Bc, Fa.eN(m, next, N, F, f0, fc, ks, img, fa), N.weaken(1n+N, Bc, N.weaken(2n+N, Bc, hB))), {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
     m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([In.c.b6(), In.c.b7()]), t), k), R,
     +pg3 => +lt3 =>
      In.lst.b(f, fo, ii, ib, il, iu, ij, next, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, il, 1, 0}), U32.inc(next), 1n+N,
@@ -3295,7 +3315,7 @@ def In.lst(+f: Nat, +fo: U32, +ii: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32, 
        In.tup(False{}, fl, m, F, N, next, il, 1, bl, Bk.Term.Lab{Pg.Program.name.unit()}, ks, img, sl,
          St.to(f0, fl, hl, m, F, N, 1, Bk.Term.Lab{Pg.Program.name.unit()}, ks, img, Im.g1(f0, m, F, N, ks, img, Fa.im(m, next, N, F, f0, fc, ks, img, fa))),
          Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa), Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa)),
-       Fr.step(m0, m, F, next, Cr.Cir.Cell{In.hd(False{}), 1, il, 1, 0}, hF, Fa.lF(m, next, N, F, f0, fc, ks, img, fa), fr), k, R, g)))
+       Fr.step(m0, m, F, next, Cr.Cir.Cell{In.hd(False{}), 1, il, 1, 0}, hF, Fa.lF(m, next, N, F, f0, fc, ks, img, fa), fr), Bc, hB, k, R, g)))
 
 # The input's bytes
 # -----------------
@@ -3422,10 +3442,10 @@ def In.evc(+v: U32, -b: Bool, eb: {U32.is_eq(v, 0) == b : Bool}, +fo: U32, +ii: 
 # what a round of the input's loop gives: the cell il2 of the bytes bp, with
 # the fuel fs, in at most 27 new cells
 def In.or.K(+fo: U32, +p: Nat, +N: Nat, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fs: Nat, +bp: Bk.Term, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type) -> Type:
+  +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fs: Nat, +bp: Bk.Term, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, +Bc: Nat) -> Type:
   @ib2: U32 -> @il2: U32 -> @iu2: U32 -> @ij2: U32 -> @t12: U32 -> @t22: U32 -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @N2: Nat -> @pg2: U32 ->
     N.Le(N2, 27n+N) -> In.Fa(m2, nx2, N2, F, f0, fc, ks, img) -> In.St(fs, m2, F, N2, il2, bp, ks, img) -> In.Fr(m0, m2, F) ->
-    In.Ok(k(In.S(In.R(fo, U32.from_nat(p), ib2, il2, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R)
+    In.Ok(k(In.S(In.R(fo, U32.from_nat(p), ib2, il2, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R, In.oom(L, Bc))
 
 # the round, from the test of the cache's entry on
 def In.or.b4(b: Bool, +Z: Nat, +fo: U32, +p: Nat, +w8: Word(8n), +il: U32, +ij: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells, +next: U32,
@@ -3433,25 +3453,25 @@ def In.or.b4(b: Bool, +Z: Nat, +fo: U32, +p: Nat, +w8: Word(8n), +il: U32, +ij: 
   -m0: Cr.Cir.Cells, +fl: Nat, +bl: Bk.Term, +bp: Bk.Term, +hF: N.Le(272n, U32.to_nat(F)), +hK: N.Le(271n, U32.to_nat(K)), +hc: N.Le(24n+f0, fc),
   +hcl: N.Le(fc, fl), +fa: In.Fa(m, next, N, F, f0, fc, ks, img), +sl: In.St(fl, m, F, N, il, bl, ks, img), fr: In.Fr(m0, m, F),
   ebl: {Pg.Program.ctor(Pg.Program.name.con(), [Pg.Program.word(8n, w8), bl]) == bp : Bk.Term},
-  +eb: {U32.is_eq(Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), 0) == b : Bool}, -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.or.K(fo, p, N, F, K, L, I, f0, fc, ks, img, m0, 3n+fl, bp, k, R)) ->
+  +eb: {U32.is_eq(Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), 0) == b : Bool}, +Bc: Nat, +hB: N.Le(27n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.or.K(fo, p, N, F, K, L, I, f0, fc, ks, img, m0, 3n+fl, bp, k, R, Bc)) ->
   In.Go(1n+(8n+Z), Mc.M.do([In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]),
-    In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I), k, R):
+    In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   match b:
     case True{}:
       +hl = N.le_trans(f0, fc, fl, N.le_trans(f0, 24n+f0, fc, N.le_add_l(24n, f0), hc), hcl)
       +hcl1 = N.le_succ(fc, fl, hcl)
       In.sq(8n+Z, In.c.b4(), Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]),
        In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-       In.ifT(8n+Z, Mc.M.eq(Mc.M.g(Mc.R.iu()), Mc.M.c(0)), In.c.cache(), Cr.Cir.Stmt.nop{},
+       In.oom(L, Bc), In.ifT(8n+Z, Mc.M.eq(Mc.M.g(Mc.R.iu()), Mc.M.c(0)), In.c.cache(), Cr.Cir.Stmt.nop{},
         In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I), 1,
         In.evc(Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), True{}, eb, fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, ij, t1, t2, m, next, F, K, pg, L, I), {==},
         t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
-        In.cch(Z, fo, U32.from_nat(p), w8, il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2, m, next, N, F, K, pg, L, I, f0, fc, ks, img,
-         m0, fl, bl, hF, hK, hc, fa, sl, fr, t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
+        In.oom(L, Bc), In.cch(Z, fo, U32.from_nat(p), w8, il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2, m, next, N, F, K, pg, L, I, f0, fc, ks, img,
+         m0, fl, bl, hF, hK, hc, fa, sl, fr, Bc, N.le_trans(24n+N, 27n+N, Bc, N.le_add_l(3n, 24n+N), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
          +iu2 => +ij2 => +t12 => +t22 => +m2 => +nx2 => +pg2 => +fa2 => +su2 => +sl2 => fr2 =>
           In.lst(8n+Z, fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, iu2, ij2, t12, t22, m2, nx2, 24n+N, F, K, pg2, L, I, f0, fc, ks, img, m0, fl,
-           Pg.Program.word(8n, w8), bl, hF, hl, hcl1, fa2, su2, sl2, fr2, k, R,
+           Pg.Program.word(8n, w8), bl, hF, hl, hcl1, fa2, su2, sl2, fr2, Bc, hB, k, R,
            +il3 => +t13 => +t23 => +m3 => +nx3 => +pg3 => +fa3 => +sl3 => fr3 =>
             g(Sd.Byte.to_u32(w8), il3, iu2, ij2, t13, t23, m3, nx3, 3n+(24n+N), pg3, N.le_refl(27n+N), fa3,
               St.cast(3n+fl, m3, F, 3n+(24n+N), il3, Pg.Program.ctor(Pg.Program.name.con(), [Pg.Program.word(8n, w8), bl]), bp, ks, img, ebl, sl3), fr3)))))
@@ -3460,17 +3480,17 @@ def In.or.b4(b: Bool, +Z: Nat, +fo: U32, +p: Nat, +w8: Word(8n), +il: U32, +ij: 
       +hcl1 = N.le_succ(fc, fl, hcl)
       In.sq(8n+Z, In.c.b4(), Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]),
        In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-       In.ifF(8n+Z, Mc.M.eq(Mc.M.g(Mc.R.iu()), Mc.M.c(0)), In.c.cache(), Cr.Cir.Stmt.nop{},
+       In.oom(L, Bc), In.ifF(8n+Z, Mc.M.eq(Mc.M.g(Mc.R.iu()), Mc.M.c(0)), In.c.cache(), Cr.Cir.Stmt.nop{},
         In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I), 0,
         In.evc(Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), False{}, eb, fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, ij, t1, t2, m, next, F, K, pg, L, I), {==},
         t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
-        In.nop(8n+Z, In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I),
+        In.oom(L, Bc), In.nop(8n+Z, In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2), m, next, F, K, pg, L, I),
          t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
-         In.lst(8n+Z, fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2, m, next, N, F, K, pg, L, I,
+         In.oom(L, Bc), In.lst(8n+Z, fo, U32.from_nat(p), Sd.Byte.to_u32(w8), il, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t1, t2, m, next, N, F, K, pg, L, I,
           f0, fc, ks, img, m0, fl, Pg.Program.word(8n, w8), bl, hF, hl, hcl1, fa,
           In.hit(fc, m, F, N, w8, ks, img, eb, En.cast(fc, m, F, N, In.wl(In.push(8n, w8, [])), w8, ks, img,
             Equal.sym(Word(8n), w8, In.wl(In.push(8n, w8, [])), In.wl_push(w8)), CI.get(8n, [], fc, m, F, N, ks, img, w8, Fa.ci(m, next, N, F, f0, fc, ks, img, fa)))),
-          sl, fr, k, R,
+          sl, fr, Bc, N.le_trans(3n+N, 27n+N, Bc, N.le_add_l(24n, 3n+N), hB), k, R,
           +il3 => +t13 => +t23 => +m3 => +nx3 => +pg3 => +fa3 => +sl3 => fr3 =>
            g(Sd.Byte.to_u32(w8), il3, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(w8))), ij, t13, t23, m3, nx3, 3n+N, pg3, N.le_add_l(24n, N), fa3,
              St.cast(3n+fl, m3, F, 3n+N, il3, Pg.Program.ctor(Pg.Program.name.con(), [Pg.Program.word(8n, w8), bl]), bp, ks, img, ebl, sl3), fr3)))))
@@ -3482,28 +3502,28 @@ def In.or(+Z: Nat, +fo: U32, +p: Nat, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t
   -m0: Cr.Cir.Cells, +fl: Nat, +M: U32, +hF: N.Le(272n, U32.to_nat(F)), +hK: N.Le(271n, U32.to_nat(K)), +hc: N.Le(24n+f0, fc),
   +hcl: N.Le(fc, fl), +hpl: N.Le(1n+p, List.length(&2, Word(8n), I)), +hLM: N.Le(List.length(&2, Word(8n), I), U32.to_nat(M)),
   +fa: In.Fa(m, next, N, F, f0, fc, ks, img), +sl: In.St(fl, m, F, N, il, Pg.Program.bytes(List.drop(&2, Word(8n), I, 1n+p)), ks, img), fr: In.Fr(m0, m, F),
-  -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.or.K(fo, p, N, F, K, L, I, f0, fc, ks, img, m0, 3n+fl, Pg.Program.bytes(List.drop(&2, Word(8n), I, p)), k, R)) ->
-  In.Go(9n+Z, In.c.body(), In.S(In.R(fo, U32.from_nat(1n+p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R):
+  +Bc: Nat, +hB: N.Le(27n+N, Bc), -k: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.or.K(fo, p, N, F, K, L, I, f0, fc, ks, img, m0, 3n+fl, Pg.Program.bytes(List.drop(&2, Word(8n), I, p)), k, R, Bc)) ->
+  In.Go(9n+Z, In.c.body(), In.S(In.R(fo, U32.from_nat(1n+p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R, In.oom(L, Bc)):
   In.sq(8n+Z, In.c.b1(), Mc.M.do([In.c.b2(), In.c.b3(), In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]),
    In.S(In.R(fo, U32.from_nat(1n+p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-   In.set(8n+Z, Mc.R.ii(), Mc.M.sub(Mc.M.g(Mc.R.ii()), Mc.M.c(1)), In.R(fo, U32.from_nat(1n+p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I,
+   In.oom(L, Bc), In.set(8n+Z, Mc.R.ii(), Mc.M.sub(Mc.M.g(Mc.R.ii()), Mc.M.c(1)), In.R(fo, U32.from_nat(1n+p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I,
     U32.from_nat(p), Equal.cong(U32, Maybe<&2, U32>, z => Some{z}, U32.from_nat(p), U32.sub(U32.inc(U32.from_nat(p)), 1), PI.U32.inc_dec(U32.from_nat(p))), {==},
     t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b2(), In.c.b3(), In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
-    In.sq(8n+Z, In.c.b2(), Mc.M.do([In.c.b3(), In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]),
+    In.oom(L, Bc), In.sq(8n+Z, In.c.b2(), Mc.M.do([In.c.b3(), In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]),
      In.S(In.R(fo, U32.from_nat(p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-     In.set(8n+Z, Mc.R.ib(), Cr.Cir.Expr.byte{Mc.M.g(Mc.R.ii())}, In.R(fo, U32.from_nat(p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I,
+     In.oom(L, Bc), In.set(8n+Z, Mc.R.ib(), Cr.Cir.Expr.byte{Mc.M.g(Mc.R.ii())}, In.R(fo, U32.from_nat(p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I,
       Sd.Byte.to_u32(In.nth(I, p)), In.evb(I, p, M, hpl, hLM, fo, ib, il, iu, ij, t1, t2, m, next, F, K, pg, L), {==},
       t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b3(), In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
-      In.sq(8n+Z, In.c.b3(), Mc.M.do([In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]),
+      In.oom(L, Bc), In.sq(8n+Z, In.c.b3(), Mc.M.do([In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]),
        In.S(In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(In.nth(I, p)), il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k, R,
-       In.set(8n+Z, Mc.R.iu(), Mc.M.f(2n, Mc.M.add(Mc.M.c(Mc.I.cache()), Mc.M.g(Mc.R.ib()))), In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(In.nth(I, p)), il, iu, ij, t1, t2),
+       In.oom(L, Bc), In.set(8n+Z, Mc.R.iu(), Mc.M.f(2n, Mc.M.add(Mc.M.c(Mc.I.cache()), Mc.M.g(Mc.R.ib()))), In.R(fo, U32.from_nat(p), Sd.Byte.to_u32(In.nth(I, p)), il, iu, ij, t1, t2),
         m, next, F, K, pg, L, I, Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(In.nth(I, p)))),
         In.evf(In.nth(I, p), fo, U32.from_nat(p), il, iu, ij, t1, t2, m, next, F, K, pg, L, I, hK), {==},
         t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(8n+Z), Mc.M.do([In.c.b4(), In.c.b5(), In.c.b6(), In.c.b7()]), t), k), R,
-        In.or.b4(U32.is_eq(Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(In.nth(I, p)))), 0), Z, fo, p, In.nth(I, p), il, ij, t1, t2,
+        In.oom(L, Bc), In.or.b4(U32.is_eq(Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, In.J(In.nth(I, p)))), 0), Z, fo, p, In.nth(I, p), il, ij, t1, t2,
          m, next, N, F, K, pg, L, I, f0, fc, ks, img, m0, fl, Pg.Program.bytes(List.drop(&2, Word(8n), I, 1n+p)), Pg.Program.bytes(List.drop(&2, Word(8n), I, p)),
-         hF, hK, hc, hcl, fa, sl, fr, In.bytes.step(I, p, In.nth(I, p), In.drop_at(I, p, hpl)), {==}, k, R, g)))))))
+         hF, hK, hc, hcl, fa, sl, fr, In.bytes.step(I, p, In.nth(I, p), In.drop_at(I, p, hpl)), {==}, Bc, hB, k, R, g)))))))
 
 # The input's loop
 # ----------------
@@ -3541,6 +3561,23 @@ def In.cap.mono(k: Nat, +a: Nat, +b: Nat, h: N.Le(a, b)) -> N.Le(In.cap(k, a), I
     case 1n+(+p):
       In.cap.mono(p, 27n+a, 27n+b, h)
 
+def In.cap.ge(k: Nat, +N: Nat) -> N.Le(N, In.cap(k, N)):
+  match k:
+    case 0n:
+      N.le_refl(N)
+    case 1n+(+p):
+      N.le_trans(N, 27n+N, In.cap(p, 27n+N), N.le_add_l(27n, N), In.cap.ge(p, 27n+N))
+
+# the most cells, 27 a round
+def In.cap.eq(k: Nat, +N: Nat) -> {In.cap(k, N) == Nat.add(N, Nat.mul(27n, k)) : Nat}:
+  match k:
+    case 0n:
+      Equal.sym(Nat, Nat.add(N, 0n), N, N.add_zero(N))
+    case 1n+(+p):
+      %Equal.sym(Nat, Nat.mul(27n, 1n+p), Nat.add(27n, Nat.mul(27n, p)), In.mul_succ_r(27n, p)) : {In.cap(1n+p, N) == Nat.add(N, _) : Nat}
+      Equal.trans(Nat, In.cap(p, 27n+N), Nat.add(27n+N, Nat.mul(27n, p)), Nat.add(N, Nat.add(27n, Nat.mul(27n, p))), In.cap.eq(p, 27n+N),
+        Equal.sym(Nat, Nat.add(N, Nat.add(27n, Nat.mul(27n, p))), Nat.add(27n, Nat.add(N, Nat.mul(27n, p))), N.add_swap(N, 27n, Nat.mul(27n, p))))
+
 # the test of the input's loop, while ii is 1 + p
 def In.evne(+p: Nat, +M: U32, +h: N.Le(1n+p, U32.to_nat(M)), +fo: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U32,
   +m: Cr.Cir.Cells, +next: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>) ->
@@ -3554,10 +3591,10 @@ def In.evne(+p: Nat, +M: U32, +h: N.Le(1n+p, U32.to_nat(M)), +fo: U32, +ib: U32,
 
 # what the input's loop gives: the cell il2 of the input's bytes
 def In.ol.K(+fo: U32, +k: Nat, +N: Nat, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fs: Nat, -k_: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type) -> Type:
+  +img: List<&2, Bk.Term>, -m0: Cr.Cir.Cells, +fs: Nat, -k_: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type, +Bc: Nat) -> Type:
   @ib2: U32 -> @il2: U32 -> @iu2: U32 -> @ij2: U32 -> @t12: U32 -> @t22: U32 -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @N2: Nat -> @pg2: U32 ->
     N.Le(N2, In.cap(k, N)) -> In.Fa(m2, nx2, N2, F, f0, fc, ks, img) -> In.St(fs, m2, F, N2, il2, Pg.Program.bytes(List.drop(&2, Word(8n), I, 0n)), ks, img) ->
-    In.Fr(m0, m2, F) -> In.Ok(k_(In.S(In.R(fo, 0, ib2, il2, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R)
+    In.Fr(m0, m2, F) -> In.Ok(k_(In.S(In.R(fo, 0, ib2, il2, iu2, ij2, t12, t22), m2, nx2, F, K, pg2, L, I)), R, In.oom(L, Bc))
 
 # the input's loop, with k bytes still to read: il holds the bytes from k on
 def In.ol(k: Nat, +d: Nat, +fo: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells, +next: U32,
@@ -3565,21 +3602,21 @@ def In.ol(k: Nat, +d: Nat, +fo: U32, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1
   -m0: Cr.Cir.Cells, +fl: Nat, +M: U32, +hF: N.Le(272n, U32.to_nat(F)), +hK: N.Le(271n, U32.to_nat(K)), +hc: N.Le(24n+f0, fc),
   +hcl: N.Le(fc, fl), +hkl: N.Le(k, List.length(&2, Word(8n), I)), +hLM: N.Le(List.length(&2, Word(8n), I), U32.to_nat(M)),
   +fa: In.Fa(m, next, N, F, f0, fc, ks, img), +sl: In.St(fl, m, F, N, il, Pg.Program.bytes(List.drop(&2, Word(8n), I, k)), ks, img), fr: In.Fr(m0, m, F),
-  -k_: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
-  g: In.ol.K(fo, k, N, F, K, L, I, f0, fc, ks, img, m0, In.f3(k, fl), k_, R)) ->
-  In.Go(10n+Nat.add(k, d), In.c.OW(), In.S(In.R(fo, U32.from_nat(k), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k_, R):
+  +Bc: Nat, +hB: N.Le(1n+In.cap(k, N), Bc), -k_: Cr.Cir.State -> Cr.Cir.Out, -R: Cr.Cir.State -> Type,
+  g: In.ol.K(fo, k, N, F, K, L, I, f0, fc, ks, img, m0, In.f3(k, fl), k_, R, Bc)) ->
+  In.Go(10n+Nat.add(k, d), In.c.OW(), In.S(In.R(fo, U32.from_nat(k), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), k_, R, In.oom(L, Bc)):
   match k:
     case 0n:
       In.wh.end(9n+d, Mc.M.ne(Mc.M.g(Mc.R.ii()), Mc.M.c(0)), In.c.body(), In.S(In.R(fo, U32.from_nat(0n), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I),
-        k_, R, {==}, g(ib, il, iu, ij, t1, t2, m, next, N, pg, N.le_refl(N), fa, sl, fr))
+        k_, R, In.oom(L, Bc), {==}, g(ib, il, iu, ij, t1, t2, m, next, N, pg, N.le_refl(N), fa, sl, fr))
     case 1n+(+p):
       In.wh(9n+(1n+Nat.add(p, d)), Mc.M.ne(Mc.M.g(Mc.R.ii()), Mc.M.c(0)), In.c.body(), In.S(In.R(fo, U32.from_nat(1n+p), ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I),
-       k_, R, In.evne(p, M, N.le_trans(1n+p, List.length(&2, Word(8n), I), U32.to_nat(M), hkl, hLM), fo, ib, il, iu, ij, t1, t2, m, next, F, K, pg, L, I),
+       k_, R, In.oom(L, Bc), In.evne(p, M, N.le_trans(1n+p, List.length(&2, Word(8n), I), U32.to_nat(M), hkl, hLM), fo, ib, il, iu, ij, t1, t2, m, next, F, K, pg, L, I),
        In.or(1n+Nat.add(p, d), fo, p, ib, il, iu, ij, t1, t2, m, next, N, F, K, pg, L, I, f0, fc, ks, img, m0, fl, M, hF, hK, hc, hcl, hkl, hLM, fa, sl, fr,
-        t => Cr.Cir.exec.then(Cr.Cir.exec(9n+(1n+Nat.add(p, d)), In.c.OW(), t), k_), R,
+        Bc, N.le_trans(27n+N, 1n+In.cap(p, 27n+N), Bc, N.le_succ(27n+N, In.cap(p, 27n+N), In.cap.ge(p, 27n+N)), hB), t => Cr.Cir.exec.then(Cr.Cir.exec(9n+(1n+Nat.add(p, d)), In.c.OW(), t), k_), R,
         +ib2 => +il2 => +iu2 => +ij2 => +t12 => +t22 => +m2 => +nx2 => +N2 => +pg2 => +hN2 => +fa2 => +sl2 => fr2 =>
          In.ol(p, d, fo, ib2, il2, iu2, ij2, t12, t22, m2, nx2, N2, F, K, pg2, L, I, f0, fc, ks, img, m0, 3n+fl, M, hF, hK, hc,
-          N.le_succ(fc, 2n+fl, N.le_succ(fc, 1n+fl, N.le_succ(fc, fl, hcl))), N.weaken(p, List.length(&2, Word(8n), I), hkl), hLM, fa2, sl2, fr2, k_, R,
+          N.le_succ(fc, 2n+fl, N.le_succ(fc, 1n+fl, N.le_succ(fc, fl, hcl))), N.weaken(p, List.length(&2, Word(8n), I), hkl), hLM, fa2, sl2, fr2, Bc, N.le_trans(1n+In.cap(p, N2), 1n+In.cap(p, 27n+N), Bc, In.cap.mono(p, N2, 27n+N, hN2), hB), k_, R,
           +ib3 => +il3 => +iu3 => +ij3 => +t13 => +t23 => +m3 => +nx3 => +N3 => +pg3 => hN3 => +fa3 => +sl3 => fr3 =>
            g(ib3, il3, iu3, ij3, t13, t23, m3, nx3, N3, pg3,
              N.le_trans(N3, In.cap(p, N2), In.cap(p, 27n+N), hN3, In.cap.mono(p, N2, 27n+N, hN2)), fa3, sl3, fr3))))
@@ -3601,7 +3638,7 @@ def In.EC(-B: Cr.Cir.Cells -> Type) -> Type:
   Sigma<&2, &1, Cr.Cir.Cells, x => B(x)>
 
 # the end of a run, in a state of which R holds
-def In.top(o: Cr.Cir.Out, -R: Cr.Cir.State -> Type, h: In.Ok(Cr.Cir.exec.then(o, t => Cr.Cir.Out.next{t}), R)) -> In.Ok(o, R):
+def In.top(o: Cr.Cir.Out, -R: Cr.Cir.State -> Type, -Om: Type, h: In.Ok(Cr.Cir.exec.then(o, t => Cr.Cir.Out.next{t}), R, Om)) -> In.Ok(o, R, Om):
   match o:
     case Cr.Cir.Out.next{st}:
       h
@@ -3655,15 +3692,15 @@ def In.c.s4() -> Cr.Cir.Stmt:
 # the focus: main applied to the list
 def In.inp.end(+f: Nat, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U32, +m: Cr.Cir.Cells, +next: U32, +N: Nat,
   +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  -m0: Cr.Cir.Cells, +fl: Nat, +ncap: Nat, +hF: N.Le(272n, U32.to_nat(F)), +hl: N.Le(f0, fl), hN: N.Le(N, ncap),
+  -m0: Cr.Cir.Cells, +fl: Nat, +ncap: Nat, +hF: N.Le(272n, U32.to_nat(F)), +hl: N.Le(f0, fl), +hN: N.Le(N, ncap),
   +fa: In.Fa(m, next, N, F, f0, fc, ks, img), +sl: In.St(fl, m, F, N, il, Pg.Program.bytes(List.drop(&2, Word(8n), I, 0n)), ks, img), fr: In.Fr(m0, m, F)) ->
   In.Go(1n+f, Mc.M.do([In.c.s4()]), In.S(In.R(0, 0, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), t => Cr.Cir.Out.next{t},
-    s => In.Post(m0, F, K, L, I, f0, fc, ks, img, 1n+fl, 1n+ncap, s)):
+    s => In.Post(m0, F, K, L, I, f0, fc, ks, img, 1n+fl, 1n+ncap, s), In.oom(L, 1n+ncap)):
   In.sq(f, In.c.s4(), Mc.M.do([]), In.S(In.R(0, 0, ib, il, iu, ij, t1, t2), m, next, F, K, pg, L, I), t => Cr.Cir.Out.next{t},
    s => In.Post(m0, F, K, L, I, f0, fc, ks, img, 1n+fl, 1n+ncap, s),
-   In.mk(f, Mc.R.focus(), Mc.M.c(U32.or(Mc.T.app(), 64)), Mc.M.c(Mc.I.ref_main()), Mc.M.g(Mc.R.il()), Mc.M.c(0), In.R(0, 0, ib, il, iu, ij, t1, t2), m, next,
+   In.oom(L, 1n+ncap), In.mk(f, Mc.R.focus(), Mc.M.c(U32.or(Mc.T.app(), 64)), Mc.M.c(Mc.I.ref_main()), Mc.M.g(Mc.R.il()), Mc.M.c(0), In.R(0, 0, ib, il, iu, ij, t1, t2), m, next,
     F, K, pg, L, I, 72, 15, il, 0,
-    {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
+    1n+ncap, In.hb(next, N, 1n+ncap, Fa.eN(m, next, N, F, f0, fc, ks, img, fa), hN), {==}, {==}, {==}, lt => In.cellNew(next, K, F, lt, Fa.lF(m, next, N, F, f0, fc, ks, img, fa)),
     m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==}, m4 => pg4 => {==},
     t => Cr.Cir.exec.then(Cr.Cir.exec(1n+f, Mc.M.do([]), t), u => Cr.Cir.Out.next{u}), s => In.Post(m0, F, K, L, I, f0, fc, ks, img, 1n+fl, 1n+ncap, s),
     +pg3 => +lt3 =>
@@ -3676,7 +3713,7 @@ def In.inp.end(+f: Nat, +ib: U32, +il: U32, +iu: U32, +ij: U32, +t1: U32, +t2: U
          sl, Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa), Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa)))
      In.nop(f, In.S(In.R(next, 0, ib, il, iu, ij, t1, t2), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), U32.inc(next), F, K, pg3, L, I),
       t => Cr.Cir.Out.next{t}, s => In.Post(m0, F, K, L, I, f0, fc, ks, img, 1n+fl, 1n+ncap, s),
-      (next, (ib, (il, (iu, (ij, (t1, (t2, (Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), (U32.inc(next), (1n+N, (pg3,
+      In.oom(L, 1n+ncap), (next, (ib, (il, (iu, (ij, (t1, (t2, (Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), (U32.inc(next), (1n+N, (pg3,
         ({==}, (In.state(fl, next, ib, il, iu, ij, t1, t2, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), U32.inc(next), F, K, pg3, L, I,
                  ks, img, Pg.Program.start(I), In.p1({Some{Pg.Program.start(I)} == T.tm.of(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), ks, img, next) : Maybe<&2, Bk.Term>},
                    In.P({True{} == In.rds(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, 15, il, 0}), F, 1n+N, next) : Bool},
@@ -3691,34 +3728,34 @@ def In.inp(+d: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>,
   +M: U32, +m: Cr.Cir.Cells, +hF: N.Le(272n, U32.to_nat(F)), +hK: N.Le(271n, U32.to_nat(K)), +hc: N.Le(24n+f0, fc),
   +hLM: N.Le(List.length(&2, Word(8n), I), U32.to_nat(M)), +fa: In.Fa(m, F, U32.to_nat(F), F, f0, fc, ks, img)) ->
   In.Ok(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), I), d), Mc.M.input(), In.S(In.R(0, 0, 0, 0, 0, 0, 0, 0), m, F, F, K, pg, L, I)),
-    s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s)):
+    s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s), In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)))):
   +len = List.length(&2, Word(8n), I)
   +N0 = U32.to_nat(F)
   +hf = N.le_trans(f0, 24n+f0, fc, N.le_add_l(24n, f0), hc)
   In.top(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), I), d), Mc.M.input(), In.S(In.R(0, 0, 0, 0, 0, 0, 0, 0), m, F, F, K, pg, L, I)),
    s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s),
-   In.sq(9n+Nat.add(List.length(&2, Word(8n), I), d), In.c.s1(), Mc.M.do([In.c.s2(), In.c.OW(), In.c.s4()]), In.S(In.R(0, 0, 0, 0, 0, 0, 0, 0), m, F, F, K, pg, L, I),
+   In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F))), In.sq(9n+Nat.add(List.length(&2, Word(8n), I), d), In.c.s1(), Mc.M.do([In.c.s2(), In.c.OW(), In.c.s4()]), In.S(In.R(0, 0, 0, 0, 0, 0, 0, 0), m, F, F, K, pg, L, I),
     t => Cr.Cir.Out.next{t}, s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s),
-    In.set(9n+Nat.add(List.length(&2, Word(8n), I), d), Mc.R.il(), Mc.M.c(Mc.I.nil()), In.R(0, 0, 0, 0, 0, 0, 0, 0), m, F, F, K, pg, L, I, 11, {==}, {==},
+    In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F))), In.set(9n+Nat.add(List.length(&2, Word(8n), I), d), Mc.R.il(), Mc.M.c(Mc.I.nil()), In.R(0, 0, 0, 0, 0, 0, 0, 0), m, F, F, K, pg, L, I, 11, {==}, {==},
      t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(9n+Nat.add(List.length(&2, Word(8n), I), d)), Mc.M.do([In.c.s2(), In.c.OW(), In.c.s4()]), t), u => Cr.Cir.Out.next{u}),
      s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s),
-     In.sq(9n+Nat.add(List.length(&2, Word(8n), I), d), In.c.s2(), Mc.M.do([In.c.OW(), In.c.s4()]), In.S(In.R(0, 0, 0, 11, 0, 0, 0, 0), m, F, F, K, pg, L, I),
+     In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F))), In.sq(9n+Nat.add(List.length(&2, Word(8n), I), d), In.c.s2(), Mc.M.do([In.c.OW(), In.c.s4()]), In.S(In.R(0, 0, 0, 11, 0, 0, 0, 0), m, F, F, K, pg, L, I),
       t => Cr.Cir.Out.next{t}, s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s),
-      In.set(9n+Nat.add(List.length(&2, Word(8n), I), d), Mc.R.ii(), Cr.Cir.Expr.size{}, In.R(0, 0, 0, 11, 0, 0, 0, 0), m, F, F, K, pg, L, I,
+      In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F))), In.set(9n+Nat.add(List.length(&2, Word(8n), I), d), Mc.R.ii(), Cr.Cir.Expr.size{}, In.R(0, 0, 0, 11, 0, 0, 0, 0), m, F, F, K, pg, L, I,
        U32.from_nat(List.length(&2, Word(8n), I)),
        Equal.cong(U32, Maybe<&2, U32>, z => Some{z}, U32.from_nat(List.length(&2, Word(8n), I)), Cr.Wasm.encode.len(Word(8n), I), In.enc_len(I)), {==},
        t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(9n+Nat.add(List.length(&2, Word(8n), I), d)), Mc.M.do([In.c.OW(), In.c.s4()]), t), u => Cr.Cir.Out.next{u}),
        s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s),
-       In.sq(9n+Nat.add(List.length(&2, Word(8n), I), d), In.c.OW(), Mc.M.do([In.c.s4()]),
+       In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F))), In.sq(9n+Nat.add(List.length(&2, Word(8n), I), d), In.c.OW(), Mc.M.do([In.c.s4()]),
         In.S(In.R(0, U32.from_nat(List.length(&2, Word(8n), I)), 0, 11, 0, 0, 0, 0), m, F, F, K, pg, L, I),
         t => Cr.Cir.Out.next{t}, s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s),
-        In.ol(List.length(&2, Word(8n), I), d, 0, 0, 11, 0, 0, 0, 0, m, F, U32.to_nat(F), F, K, pg, L, I, f0, fc, ks, img, m, fc, M, hF, hK, hc,
+        In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F))), In.ol(List.length(&2, Word(8n), I), d, 0, 0, 11, 0, 0, 0, 0, m, F, U32.to_nat(F), F, K, pg, L, I, f0, fc, ks, img, m, fc, M, hF, hK, hc,
          N.le_refl(fc), N.le_refl(List.length(&2, Word(8n), I)), hLM, fa,
          St.cast(fc, m, F, U32.to_nat(F), 11, Pg.Program.bytes([]), Pg.Program.bytes(List.drop(&2, Word(8n), I, List.length(&2, Word(8n), I))), ks, img,
            Equal.cong(List<&2, Word(8n)>, Bk.Term, y => Pg.Program.bytes(y), [], List.drop(&2, Word(8n), I, List.length(&2, Word(8n), I)), In.drop_len(I)),
            St.to(f0, fc, hf, m, F, U32.to_nat(F), 11, Pg.Program.bytes([]), ks, img, Im.g11(f0, m, F, U32.to_nat(F), ks, img, Fa.im(m, F, U32.to_nat(F), F, f0, fc, ks, img, fa)))),
          Fr.refl(m, F),
-         t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(9n+Nat.add(List.length(&2, Word(8n), I), d)), Mc.M.do([In.c.s4()]), t), u => Cr.Cir.Out.next{u}),
+         1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), N.le_refl(1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F))), t => Cr.Cir.exec.then(Cr.Cir.exec(1n+(9n+Nat.add(List.length(&2, Word(8n), I), d)), Mc.M.do([In.c.s4()]), t), u => Cr.Cir.Out.next{u}),
          s => In.Post(m, F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc), 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s),
          +ib2 => +il2 => +iu2 => +ij2 => +t12 => +t22 => +m2 => +nx2 => +N2 => +pg2 => hN => +fa2 => +sl2 => fr2 =>
           In.inp.end(9n+Nat.add(List.length(&2, Word(8n), I), d), ib2, il2, iu2, ij2, t12, t22, m2, nx2, N2, F, K, pg2, L, I, f0, fc, ks, img, m,
@@ -4092,23 +4129,25 @@ def In.start(+ds: List<&2, Bk.Def>, +F: U32, +M: U32, +fc: Nat, +hsm: N.Le(1n+Li
 # M.input from Cir.result's start
 # -------------------------------
 
-# a run of which In.Ok holds may be what Post asks
+# a run of which In.Ok holds, out of memory below the budget Bc, may be what
+# PostB asks with the bytes B = 20 Bc
 def Ok.post(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -Q2: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, dn: Bool,
-  h: In.Ok(o, Q), c: @st: Cr.Cir.State -> Q(st) -> Q2(st)) -> D.Post(dn, o, Q2, H):
+  -L: U32, -Bc: Nat, -B: Nat, eB: {Nat.mul(20n, Bc) == B : Nat}, h: In.Ok(o, Q, In.oom(L, Bc)),
+  c: @st: Cr.Cir.State -> Q(st) -> Q2(st)) -> D.PostB(dn, o, Q2, H, B, L):
   match o:
     case Cr.Cir.Out.next{st}:
       c(st, h)
     case Cr.Cir.Out.halt{s, st}:
       Empty.absurd(H(s, st), h)
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      N.le_rw_r(1n+D.Lim.bytes(L), Nat.mul(20n, Bc), B, eB, h)
     case Cr.Cir.Out.trap{}:
       h
     case Cr.Cir.Out.not_done{}:
       Empty.absurd(D.ND(dn), h)
 
 # and it ends
-def Ok.ends(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, h: In.Ok(o, Q)) -> D.Ends(o):
+def Ok.ends(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -Om: Type, h: In.Ok(o, Q, Om)) -> D.Ends(o):
   match o:
     case Cr.Cir.Out.next{st}:
       Unit{}
@@ -4122,22 +4161,31 @@ def Ok.ends(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, h: In.Ok(o, Q)) -> D.Ends(o
       h
 
 # a run with less fuel: the same outcome, or out of fuel
-def In.post.of(o: Cr.Cir.Out, -o2: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
-  e: D.Ends(o) -> {o == o2 : Cr.Cir.Out}, h: D.Post(False{}, o2, Q, H)) -> D.Post(False{}, o, Q, H):
+def In.post.of(o: Cr.Cir.Out, -o2: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -B: Nat, -L: U32,
+  e: D.Ends(o) -> {o == o2 : Cr.Cir.Out}, h: D.PostB(False{}, o2, Q, H, B, L)) -> D.PostB(False{}, o, Q, H, B, L):
   match o:
     case Cr.Cir.Out.next{st}:
-      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.next{st}, o2, e(Unit{})) : D.Post(False{}, _, Q, H)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.next{st}, o2, e(Unit{})) : D.PostB(False{}, _, Q, H, B, L)
       h
     case Cr.Cir.Out.halt{s, st}:
-      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.halt{s, st}, o2, e(Unit{})) : D.Post(False{}, _, Q, H)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.halt{s, st}, o2, e(Unit{})) : D.PostB(False{}, _, Q, H, B, L)
       h
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.out_of_memory{}, o2, e(Unit{})) : D.PostB(False{}, _, Q, H, B, L)
+      h
     case Cr.Cir.Out.trap{}:
-      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.trap{}, o2, e(Unit{})) : D.Post(False{}, _, Q, H)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.Out.trap{}, o2, e(Unit{})) : D.PostB(False{}, _, Q, H, B, L)
       h
     case Cr.Cir.Out.not_done{}:
       Unit{}
+
+# the budget of M.input: 20 (1 + F + 27 n) bytes, as input.post counts them
+def In.budget.eq(+n: Nat, +first: U32) ->
+  {Nat.mul(20n, 1n+In.cap(n, U32.to_nat(first))) == D.Cells.bytes(first, 1n+Nat.mul(27n, n)) : Nat}:
+  Equal.cong(Nat, Nat, z => Nat.mul(20n, z), 1n+In.cap(n, U32.to_nat(first)), Nat.add(U32.to_nat(first), 1n+Nat.mul(27n, n)),
+    Equal.trans(Nat, 1n+In.cap(n, U32.to_nat(first)), 1n+Nat.add(U32.to_nat(first), Nat.mul(27n, n)), Nat.add(U32.to_nat(first), 1n+Nat.mul(27n, n)),
+      Equal.cong(Nat, Nat, z => 1n+z, In.cap(n, U32.to_nat(first)), Nat.add(U32.to_nat(first), Nat.mul(27n, n)), In.cap.eq(n, U32.to_nat(first))),
+      Equal.sym(Nat, Nat.add(U32.to_nat(first), 1n+Nat.mul(27n, n)), 1n+Nat.add(U32.to_nat(first), Nat.mul(27n, n)), N.add_succ_r(U32.to_nat(first), Nat.mul(27n, n)))))
 
 # the image's size, as a U32
 def In.enc_lenC(xs: List<&2, Cr.Cir.Cell>) -> {U32.from_nat(List.length(&2, Cr.Cir.Cell, xs)) == Cr.Wasm.encode.len(Cr.Cir.Cell, xs) : U32}:
@@ -4181,7 +4229,7 @@ def In.inp0(+d: Nat, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>
   +hLM: N.Le(List.length(&2, Word(8n), I), U32.to_nat(M)), +fa: In.Fa(Cr.Cir.load(cs, 1, Cr.Cir.Cells.none{}), F, U32.to_nat(F), F, f0, fc, ks, img)) ->
   In.Ok(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), I), d), Mc.M.input(), D.St0(Mc.Mach.regs(), cs, F, K, pg, L, I)),
     s => In.Post(Cr.Cir.load(cs, 1, Cr.Cir.Cells.none{}), F, K, L, I, f0, fc, ks, img, 1n+In.f3(List.length(&2, Word(8n), I), fc),
-      1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s)):
+      1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)), s), In.oom(L, 1n+In.cap(List.length(&2, Word(8n), I), U32.to_nat(F)))):
   In.inp(d, F, K, pg, L, I, f0, fc, ks, img, M, Cr.Cir.load(cs, 1, Cr.Cir.Cells.none{}), hF, hK, hc, hLM, fa)
 # M.input from St0, with the fuel 10 + (|i| + d)
 def In.input.ok(+d: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
@@ -4189,7 +4237,7 @@ def In.input.ok(+d: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List
   +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
   +hLM: N.Le(List.length(&2, Word(8n), i), U32.to_nat(M2))) ->
   In.Ok(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), d), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
-    s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s)):
+    s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), In.oom(lim, 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)))):
   In.inp0(d, first, k, pg, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), M2, Mc.Img.cells(ds), hF,
     In.k.ge(ds, k, 67108864, In.ek(Mc.Img.cells(ds), i, m, k, len, pg, lim, first, s), In.hsm(p, ds, rd, small)), Unit{}, hLM,
     In.start(ds, first, 67108864, 104n, In.hsm(p, ds, rd, small)))
@@ -4201,15 +4249,18 @@ def In.input.post.lm(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i:
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
   +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +M2: U32, +hF: N.Le(272n, U32.to_nat(first)),
   +hLM: N.Le(List.length(&2, Word(8n), i), U32.to_nat(M2))) ->
-  D.Post(False{}, Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)), s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty):
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)), s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty,
+    D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), lim):
   In.post.of(Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty,
+    D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), lim,
     dd => D.mono(f, 10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i),
       N.le_trans(f, Nat.add(List.length(&2, Word(8n), i), f), 10n+Nat.add(List.length(&2, Word(8n), i), f), N.le_add_l(List.length(&2, Word(8n), i), f),
         N.le_add_l(10n, Nat.add(List.length(&2, Word(8n), i), f))), dd),
     Ok.post(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), f), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
       s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), s2 => st2 => Empty, False{},
+      lim, 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), In.budget.eq(List.length(&2, Word(8n), i), first),
       In.input.ok(f, p, ds, i, m, k, len, pg, lim, first, rd, small, s, M2, hF, hLM), st => q => q))
 
 # input.done of move_kit.bend, with the same premises: the fuel 10 + |i|
@@ -4221,7 +4272,7 @@ def In.input.done.lm(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2,
   D.Ex(Nat, f => D.Ends(Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)))):
   (10n+Nat.add(List.length(&2, Word(8n), i), 0n),
    Ok.ends(Cr.Cir.exec(10n+Nat.add(List.length(&2, Word(8n), i), 0n), Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
-     s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), In.input.ok(0n, p, ds, i, m, k, len, pg, lim, first, rd, small, s, M2, hF, hLM)))
+     s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s), In.oom(lim, 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first))), In.input.ok(0n, p, ds, i, m, k, len, pg, lim, first, rd, small, s, M2, hF, hLM)))
 
 # The input's length
 # ------------------
@@ -4346,9 +4397,9 @@ def In.el(-cells: List<&2, Cr.Cir.Cell>, -i: List<&2, Word(8n)>, -m: U32, -k: U3
 def In.input.post(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32, +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}, +small: {Mc.Img.small(p, 0) == True{} : Bool},
   +s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), +hF: N.Le(272n, U32.to_nat(first))) ->
-  D.Post(False{}, Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.input(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)),
     s => In.Post(Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{}), first, k, lim, i, 80n, 104n, T.tm.names(ds), T.tm.img(ds), 1n+In.f3(List.length(&2, Word(8n), i), 104n), 1n+In.cap(List.length(&2, Word(8n), i), U32.to_nat(first)), s),
-    s2 => st2 => Empty):
+    s2 => st2 => Empty, D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), lim):
   In.input.post.lm(f, p, ds, i, m, k, len, pg, lim, first, rd, small, s, len, hF, L32(i, len, In.el(Mc.Img.cells(ds), i, m, k, len, pg, lim, first, s)))
 
 # input.done of move_kit.bend, with the premise hF: the fuel 10 + |i| ends
