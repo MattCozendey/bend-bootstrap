@@ -357,68 +357,68 @@ def X.wh0(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State,
 # --------
 
 # an outcome equal to one of which Ok holds
-def Ok.eq(-o1: Cr.Cir.Out, -o2: Cr.Cir.Out, -F: U32, -K: U32, -L: U32, -I: List<&2, Word(8n)>,
-  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, e: {o2 == o1 : Cr.Cir.Out}, h: D.Ok(o2, F, K, L, I, Q)) ->
-  D.Ok(o1, F, K, L, I, Q):
-  %e : D.Ok(_, F, K, L, I, Q)
+def Ok.eq(-o1: Cr.Cir.Out, -o2: Cr.Cir.Out, -F: U32, -K: U32, -L: U32, -I: List<&2, Word(8n)>, -B: Nat,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, e: {o2 == o1 : Cr.Cir.Out}, h: D.Ok(o2, F, K, L, I, B, Q)) ->
+  D.Ok(o1, F, K, L, I, B, Q):
+  %e : D.Ok(_, F, K, L, I, B, Q)
   h
 
 # a state of which Q holds
 def Ok.next(+rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>,
-  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, q: Q(rg, ms, nx, pg)) ->
-  D.Ok(Cr.Cir.Out.next{D.S(rg, ms, nx, F, K, pg, L, I)}, F, K, L, I, Q):
+  -B: Nat, -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, q: Q(rg, ms, nx, pg)) ->
+  D.Ok(Cr.Cir.Out.next{D.S(rg, ms, nx, F, K, pg, L, I)}, F, K, L, I, B, Q):
   ({==}, q)
 
 # a state of which At holds, by its parts
-def Ok.at(st: Cr.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
+def Ok.at(st: Cr.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -B: Nat, -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
   -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -k: Cr.Cir.State -> Cr.Cir.Out, h: D.At(st, F, K, L, I, Q),
-  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
-  D.Ok(k(st), F, K, L, I, R):
+  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, B, R)) ->
+  D.Ok(k(st), F, K, L, I, B, R):
   match st:
     case Cr.Cir.State{+rg, +ms, +nx, fi, im, +pg, li, inp, out, outn}:
       (eq, q) = h
-      %eq : D.Ok(k(_), F, K, L, I, R)
+      %eq : D.Ok(k(_), F, K, L, I, B, R)
       g(rg, ms, nx, pg, q)
 
 # a statement, then more
-def Ok.then(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -k: Cr.Cir.State -> Cr.Cir.Out,
+def Ok.then(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -B: Nat, -k: Cr.Cir.State -> Cr.Cir.Out,
   -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
-  h: D.Ok(o, F, K, L, I, Q),
-  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
-  D.Ok(Cr.Cir.exec.then(o, k), F, K, L, I, R):
+  h: D.Ok(o, F, K, L, I, B, Q),
+  g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) -> D.Ok(k(D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, B, R)) ->
+  D.Ok(Cr.Cir.exec.then(o, k), F, K, L, I, B, R):
   match o:
     case Cr.Cir.Out.next{st}:
-      Ok.at(st, F, K, L, I, Q, R, k, h, g)
+      Ok.at(st, F, K, L, I, B, Q, R, k, h, g)
     case Cr.Cir.Out.halt{s, st}:
       match h:
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      h
     case Cr.Cir.Out.trap{}:
       match h:
     case Cr.Cir.Out.not_done{}:
       match h:
 
 # a then b
-def Ok.seq(+f: Nat, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, st: Cr.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
+def Ok.seq(+f: Nat, a: Cr.Cir.Stmt, +b: Cr.Cir.Stmt, st: Cr.Cir.State, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, -B: Nat,
   -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
-  h: D.Ok(Cr.Cir.exec(1n+f, a, st), F, K, L, I, Q),
+  h: D.Ok(Cr.Cir.exec(1n+f, a, st), F, K, L, I, B, Q),
   g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) ->
-    D.Ok(Cr.Cir.exec(1n+f, b, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
-  D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), F, K, L, I, R):
-  Ok.then(Cr.Cir.exec(1n+f, a, st), F, K, L, I, t => Cr.Cir.exec(1n+f, b, t), Q, R, h, g)
+    D.Ok(Cr.Cir.exec(1n+f, b, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, B, R)) ->
+  D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{a, b}, st), F, K, L, I, B, R):
+  Ok.then(Cr.Cir.exec(1n+f, a, st), F, K, L, I, B, t => Cr.Cir.exec(1n+f, b, t), Q, R, h, g)
 
 # a round of a while, then the while again
 def Ok.loop(+f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: U32, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>,
-  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
+  -B: Nat, -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, -R: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type,
   ev: {Some{x} == Cr.Cir.eval(c, st) : Maybe<&2, U32>}, nz: {False{} == U32.is_zero(x) : Bool},
-  h: D.Ok(Cr.Cir.exec(1n+f, body, st), F, K, L, I, Q),
+  h: D.Ok(Cr.Cir.exec(1n+f, body, st), F, K, L, I, B, Q),
   g: @rg: List<&2, U32> -> @ms: Cr.Cir.Cells -> @nx: U32 -> @pg: U32 -> Q(rg, ms, nx, pg) ->
-    D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, R)) ->
-  D.Ok(Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st), F, K, L, I, R):
+    D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, D.S(rg, ms, nx, F, K, pg, L, I)), F, K, L, I, B, R)) ->
+  D.Ok(Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st), F, K, L, I, B, R):
   Ok.eq(Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st), Cr.Cir.exec.then(Cr.Cir.exec(1n+f, body, st), t => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, t)),
-    F, K, L, I, R, Equal.sym(Cr.Cir.Out, Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st),
+    F, K, L, I, B, R, Equal.sym(Cr.Cir.Out, Cr.Cir.exec(2n+f, Cr.Cir.Stmt.while{c, body}, st),
       Cr.Cir.exec.then(Cr.Cir.exec(1n+f, body, st), t => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, t)), X.wh1(1n+f, c, body, st, x, ev, nz)),
-    Ok.then(Cr.Cir.exec(1n+f, body, st), F, K, L, I, t => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, t), Q, R, h, g))
+    Ok.then(Cr.Cir.exec(1n+f, body, st), F, K, L, I, B, t => Cr.Cir.exec(1n+f, Cr.Cir.Stmt.while{c, body}, t), Q, R, h, g))
 
 # Order
 # -----
