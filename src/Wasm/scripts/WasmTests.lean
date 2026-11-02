@@ -59,6 +59,7 @@ partial def strBody (cs : List Char) (acc : Array UInt8) : Except String (List U
   | '"' :: rest => .ok (acc.toList, rest)
   | '\\' :: 'n' :: rest => strBody rest (acc.push 10)
   | '\\' :: 't' :: rest => strBody rest (acc.push 9)
+  | '\\' :: 'r' :: rest => strBody rest (acc.push 13)
   | '\\' :: '\\' :: rest => strBody rest (acc.push 92)
   | '\\' :: '\'' :: rest => strBody rest (acc.push 39)
   | '\\' :: '"' :: rest => strBody rest (acc.push 34)

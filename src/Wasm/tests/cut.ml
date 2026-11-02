@@ -104,6 +104,16 @@ let command (c : Script.command) =
     {c with it = Script.Module (x, {it = Script.Textual (cut m, []); at})}
   | _ -> c
 
+(* the commands, each cut; but the module of (assert_trap (module ...)) or
+   (assert_unlinkable (module ...)), which the parser puts just before the
+   assertion, stays whole: the assertion is about all of it *)
+let rec commands = function
+  | c :: ({it = Script.Assertion
+              {it = Script.AssertUninstantiable _ | Script.AssertUnlinkable _; _}; _} as a) :: rest ->
+    c :: a :: commands rest
+  | c :: rest -> command c :: commands rest
+  | [] -> []
+
 (* an instruction that changes nothing in the instance: it writes no memory,
    table or global, drops no segment, and calls only functions i that are
    pure i; any instruction not listed here counts as a change *)
@@ -168,4 +178,4 @@ let () =
           (String.concat "" (List.map (fun n -> " " ^ quoted n) (pure_exports m)))
       | _ -> ()) scr;
   close_out oc;
-  Print.script stdout 80 `Binary (List.map command scr)
+  Print.script stdout 80 `Binary (commands scr)

@@ -5,7 +5,8 @@
 // is pinned: the script refuses any other. It needs ocaml, dune and menhir. WORK is a folder for the
 // spec's clone and the build. The license, the tests (wast/), and their binary scripts and lists of
 // pure exports (bin/) go next to this script. Our own tests (own/, AGENTS.md 3.9.1.3) become
-// binary scripts there too, as own-x.bin.wast, once the spec's reference interpreter passes them.
+// binary scripts there too, as own-x.bin.wast, once the spec's reference interpreter passes them;
+// host/cases.wat, the module of agree.ts, becomes host/cases.wasm.
 //
 //   bun convert.ts WORK
 
@@ -24,7 +25,7 @@ const TESTS = [
   "memory", "memory_grow", "memory_size", "memory_trap", "data", "block", "loop", "br", "br_if",
   "br_table", "labels", "local_get", "local_set", "local_tee", "exports", "unreached-invalid",
 ];
-const OWN = ["stores", "loads", "branches"];
+const OWN = ["stores", "loads", "branches", "invalid"];
 const HERE = import.meta.dir;
 const DUNE_LANG = "(lang dune 3.14)\n";
 
@@ -90,3 +91,4 @@ OWN.forEach((test) => {
   run({ cmd: [wasmExe, wast] });
   writeBinary(cutExe, wast, `own-${test}`);
 });
+run({ cmd: [wasmExe, join(HERE, "host", "cases.wat"), "-o", join(HERE, "host", "cases.wasm")] });
