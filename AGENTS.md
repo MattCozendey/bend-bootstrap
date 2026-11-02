@@ -194,8 +194,9 @@ does with `Eval`. A program's own laws hold only after `--verdict` accepts that 
   - **3.6.1.2** `no_other_failure`: if `Eval` gives a result, the compiled program gives it, or runs
     out of memory.
   - **3.6.1.3** `enough_memory`: if `Eval` gives a result and the compiled program has at least F
-    bytes of memory (3.3.10), it gives that result. When F is more than the target can have, this
-    law promises nothing for that run.
+    bytes of memory (3.3.10), and the engine says yes each time the program asks for more memory up
+    to that limit, it gives that result. When F is more than the target can have, this law promises
+    nothing for that run.
 
 The theorems are written in Lean, because only Lean can see the kernel's `Eval` and its parser.
 
@@ -269,16 +270,21 @@ The entries:
     compact formal spec, and C's meaning is huge and full of undefined behavior.
   - **3.9.1.2** Meaning: our Bend version covers only the subset: the part of WASM that the
     compiler emits, its binary format included. It takes these parts in their general forms, so
-    that the official tests can run. The version is WASM 3.0, at the commit `6057acdb` of the
-    official spec (github.com/WebAssembly/spec), which the tests pin.
+    that the official tests can run, except for these narrowings: no instruction after a `br` in
+    its block, at most one data segment, no memory maximum, ASCII names, and 32-bit numbers where
+    3.0 reads 64 bits. A function may have any number of i32 results. Where the spec lets the
+    engine choose (the most memory that it gives, and which memory grows it refuses), the engine's
+    choices are an input of our version, and the laws hold for every choice. The version is WASM
+    3.0, at the commit `6057acdb` of the official spec (github.com/WebAssembly/spec), which the
+    tests pin.
   - **3.9.1.3** Trusted, and not proven, on the modules of the subset (3.9.1.2):
     - **3.9.1.3.1** A WASM engine follows the WASM spec.
-    - **3.9.1.3.2** Our Bend version gives what the spec gives. We know of no Lean or Bend version
-      of the spec, so it is reviewed against the spec and tested against it: each official test of
-      the pinned commit that stays inside the subset passes, and each instruction and module part
-      of the subset, in each form that the compiler emits, is run by a passing test. Where no
-      official test runs one, our own test does, and the spec's reference interpreter at the
-      pinned commit gives its expected result.
+    - **3.9.1.3.2** Our Bend version gives what the spec gives, for each engine choice (3.9.1.2).
+      We know of no Lean or Bend version of the spec, so it is reviewed against the spec and tested
+      against it: each official test of the pinned commit that stays inside the subset passes, and
+      each instruction and module part of the subset, in each form that the compiler emits, is run
+      by a passing test. Where no official test runs one, our own test does, and the spec's
+      reference interpreter at the pinned commit gives its expected result.
     - **3.9.1.3.3** The host follows the Host section of our Bend version. The host is the program
       that runs a compiled module on the PC: it gives the module its input, calls it, and reads its
       output. The WASM spec does not define it; we do. It is reviewed against the Host section.
@@ -292,6 +298,10 @@ The entries:
       bytes;
     - keeps its stack in WASM memory, not on the engine's call stack, because the spec lets an
       engine stop a program when its call stack runs out. Memory must be the only limit.
+
+    Known gap: an engine may refuse a module that is too large (browser engines refuse one over 1
+    GiB). Our version takes a module of any size, so for such a program `enough_memory` promises a
+    result that the engine does not give. The result is never wrong: the engine gives none.
   - **3.9.1.5** Extra steps: a Lean version of the official WASM semantics of the subset, made by a
     program from the spec's own formal source (SpecTec), and a Lean proof that our Bend version
     gives what it gives. Then we trust SpecTec's source and the translator instead of our review.
