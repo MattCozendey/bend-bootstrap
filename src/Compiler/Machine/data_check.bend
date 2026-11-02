@@ -1860,6 +1860,135 @@ def kv.flag(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +x: U32, +ns: List<
     case Bk.Term.Rwt{+o0, +o1, +o2}:
       fv.flag(U32.is_eq(x, y), m0, m, x, ns, y, {==}, k, hy)
 
+# The cell that M.alloc takes is none of v's tree
+# -----------------------------------------------
+
+# a number below another is not it
+def lt.neq.at(b: Bool, +x: U32, +y: U32, eb: {U32.is_eq(x, y) == b : Bool}, h: N.Le(1n+U32.to_nat(x), U32.to_nat(y))) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(U32.to_nat(y), (%PM.u32.eq(x, y, eb) : N.Le(1n+U32.to_nat(_), U32.to_nat(y)); h)))
+
+def lt.neq(+x: U32, +y: U32, h: N.Le(1n+U32.to_nat(x), U32.to_nat(y))) -> {U32.is_eq(x, y) == False{} : Bool}:
+  lt.neq.at(U32.is_eq(x, y), x, y, {==}, h)
+
+# a cell is not next, which is past the image and the cells from first
+def cell.nx(+x: U32, +im: U32, +fi: U32, +nx: U32, hc: {Cr.Cir.is_cell(x, im, fi, nx) == True{} : Bool},
+  +hif: {U32.is_lt(im, fi) == True{} : Bool}, +hfn: {U32.is_le(fi, nx) == True{} : Bool}) -> {U32.is_eq(x, nx) == False{} : Bool}:
+  PM.or.cases(Bool.and(Bool.not(U32.is_zero(x)), U32.is_le(x, im)), Bool.and(U32.is_le(fi, x), U32.is_lt(x, nx)),
+    {U32.is_eq(x, nx) == False{} : Bool}, hc,
+    e => lt.neq(x, nx, N.le_trans(1n+U32.to_nat(x), U32.to_nat(fi), U32.to_nat(nx),
+      N.le_trans(1n+U32.to_nat(x), 1n+U32.to_nat(im), U32.to_nat(fi),
+        PM.u.le(x, im, PM.and.r(Bool.not(U32.is_zero(x)), U32.is_le(x, im), e)), PM.u.lt(im, fi, hif)), PM.u.le(fi, nx, hfn))),
+    e => lt.neq(x, nx, PM.u.lt(x, nx, PM.and.r(U32.is_le(fi, x), U32.is_lt(x, nx), e))))
+
+# x, out of ps and not nx, is not z, which is in ps or nx
+def ne.z.at(b: Bool, +x: U32, +z: U32, +ps: List<&2, U32>, +nx: U32, eb: {U32.is_eq(x, z) == b : Bool},
+  hpx: {PM.Mem(ps, x) == False{} : Bool}, hnx: {U32.is_eq(x, nx) == False{} : Bool},
+  hz: {Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool}) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      +e = PM.u32.eq(x, z, eb)
+      Empty.absurd({True{} == False{} : Bool}, N.false_ne_true((%hnx : {Bool.or(False{}, _) == True{} : Bool};
+        (%hpx : {Bool.or(_, U32.is_eq(x, nx)) == True{} : Bool};
+          (%Equal.sym(U32, x, z, e) : {Bool.or(PM.Mem(ps, _), U32.is_eq(_, nx)) == True{} : Bool}; hz)))))
+
+def ne.z(+x: U32, +z: U32, +ps: List<&2, U32>, +nx: U32, hpx: {PM.Mem(ps, x) == False{} : Bool}, hnx: {U32.is_eq(x, nx) == False{} : Bool},
+  hz: {Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool}) -> {Bool.not(U32.is_eq(x, z)) == True{} : Bool}:
+  (%Equal.sym(Bool, U32.is_eq(x, z), False{}, ne.z.at(U32.is_eq(x, z), x, z, ps, nx, {==}, hpx, hnx, hz)) : {Bool.not(_) == True{} : Bool}; {==})
+
+# the cell x of a term, held, is not M.alloc's cell z
+def tn.nd(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
+  +fi: U32, +im: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +x: U32, +z: U32, +t: Bk.Term, +h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, x, t),
+  +hx: {PM.Hd(m, nx, fi, ps, rs, x) == True{} : Bool}, +hp: PM.PendOK(ps, ps, m, fi, nx, rs), +hif: {U32.is_lt(im, fi) == True{} : Bool},
+  +hfn: {U32.is_le(fi, nx) == True{} : Bool}, +hz: {Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool}) ->
+  {Bool.not(U32.is_eq(x, z)) == True{} : Bool}:
+  ne.z(x, z, ps, nx, hd.np(ps, ps, m, nx, fi, rs, x, hp, hx), cell.nx(x, im, fi, nx, isk.cell(dk, ds, m, im, fi, nx, ks, img, x, t, h), hif, hfn), hz)
+
+# the two parts of a pair of facts
+def fst2(-A: Data, -B: Data, p: PM.P2(A, B)) -> A:
+  match p:
+    case Tuple{a, _}:
+      a
+
+def snd2(-A: Data, -B: Data, p: PM.P2(A, B)) -> B:
+  match p:
+    case Tuple{_, b}:
+      b
+
+# M.alloc's cell z (in ps, or nx) is none of the tree of v at x, a held cell of v
+def tn.al(v: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m0: Cr.Cir.Cells,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +ps: List<&2, U32>, +rs: List<&2, U32>, +x: U32, +ns: List<&2, U32>, +z: U32,
+  k: KV(v, m0, m, x, ns), +h: PM.IsK(dk, ds, m, im, fi, nx, ks, img, x, v), +hx: {PM.Hd(m, nx, fi, ps, rs, x) == True{} : Bool},
+  +hp: PM.PendOK(ps, ps, m, fi, nx, rs), +tbl: PM.Tbl(m, im, fi, nx), +hif: {U32.is_lt(im, fi) == True{} : Bool},
+  +hfn: {U32.is_le(fi, nx) == True{} : Bool}, +hz: {Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool}) ->
+  {TN(v, m0, x, z) == True{} : Bool}:
+  match v:
+    case Bk.Term.Tup{+q, +a, +b}:
+      (f, r) = k
+      (_, fc) = f
+      (e2a, e3a) = fc
+      (ka, kb) = r
+      (nd, r1) = h
+      (hq, r2) = r1
+      (pa, pb) = r2
+      (spa, ia) = pa
+      (spb, ib) = pb
+      +e2 = {e2a : {PM.Fd(2n, m, x) == PM.Fd(2n, m0, x) : U32}}
+      +e3 = {e3a : {PM.Fd(3n, m, x) == PM.Fd(3n, m0, x) : U32}}
+      +hh = tup.hd(dk, ds, m, im, fi, nx, ks, img, ps, rs, x, q, a, b, tbl, h)
+      +x2 = PM.Fd(2n, m0, x)
+      +x3 = PM.Fd(3n, m0, x)
+      +ta = tn.al(a, dk, ds, ks, img, m0, m, nx, fi, im, ps, rs, x2, ns, z, ka, (%e2 : PM.IsK(dk, ds, m, im, fi, nx, ks, img, _, a); ia),
+        (%e2 : {PM.Hd(m, nx, fi, ps, rs, _) == True{} : Bool}; fst2({PM.Hd(m, nx, fi, ps, rs, PM.Fd(2n, m, x)) == True{} : Bool},
+          {PM.Hd(m, nx, fi, ps, rs, PM.Fd(3n, m, x)) == True{} : Bool}, hh)), hp, tbl, hif, hfn, hz)
+      +tb = tn.al(b, dk, ds, ks, img, m0, m, nx, fi, im, ps, rs, x3, ns, z, kb, (%e3 : PM.IsK(dk, ds, m, im, fi, nx, ks, img, _, b); ib),
+        (%e3 : {PM.Hd(m, nx, fi, ps, rs, _) == True{} : Bool}; snd2({PM.Hd(m, nx, fi, ps, rs, PM.Fd(2n, m, x)) == True{} : Bool},
+          {PM.Hd(m, nx, fi, ps, rs, PM.Fd(3n, m, x)) == True{} : Bool}, hh)), hp, tbl, hif, hfn, hz)
+      PM.and.i(Bool.not(U32.is_eq(x, z)), Bool.and(TN(a, m0, x2, z), TN(b, m0, x3, z)),
+        tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Tup{q, a, b}, h, hx, hp, hif, hfn, hz),
+        PM.and.i(TN(a, m0, x2, z), TN(b, m0, x3, z), ta, tb))
+    case Bk.Term.Var{+o0}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Var{o0}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Ref{+o0}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Ref{o0}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Ann{+o0, +o1}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Ann{o0, o1}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Let{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Typ{+o0}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Typ{o0}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Min{+o0, +o1}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Min{o0, o1}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.All{+o0, +o1, +o2}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.All{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Lam{+o0, +o1}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Lam{o0, o1}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.App{+o0, +o1, +o2}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.App{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Sig{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Prj{+o0}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Prj{o0}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Enu{+o0}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Enu{o0}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Lab{+o0}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Lab{o0}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Mat{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Efq{}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Efq{}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Eql{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Rfl{}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Rfl{}, h, hx, hp, hif, hfn, hz)
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Rwt{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
