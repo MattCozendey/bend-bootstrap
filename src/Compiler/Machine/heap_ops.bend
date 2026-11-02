@@ -1555,7 +1555,7 @@ def inc.go(b: Bool, +f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, Lis
               D.AccK(dk, ds, ks, img, m2, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs))))),
           s => st2 => Empty, 0n, lim)
       (m, ({==}, ({==}, (inc.hs.s(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, hos, hbs, hheld, hfrs, hheap, himg, hcd, eb),
-        AC.acc.root(dk, ds, ks, img, m, nx, fi, im, D.Rt{c, u}, os, xs, sp, fs, ps, zs, hac)))))
+        AC.acc.root(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, xs, zs, hs, hac)))))
     case False{}:
       +hs = {(hos, (hbs, (hheld, (hfrs, (hheap, himg))))) : D.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, u}, bs}, fs, sp, pend, ps)}
       +hu = D.Ex.fst(D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u), _ => D.RtsK(dk, ds, m, im, fi, nx, ks, img, bs), hbs)
@@ -1601,7 +1601,7 @@ def inc.go(b: Bool, +f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, Lis
           s => st2 => Empty, 0n, lim)
       (X.X.put(m, 1n, c, v), ({==}, (AC.stat.put1(n, [D.W1{c, v}], m, fi),
         ((%put1.one(m, c, v) : D.HSK(dk, ds, ks, img, _, nx, fi, im, Con{D.Rt{c, u}, os}, Con{D.Rt{c, u}, bs}, fs, sp, pend, ps); hsk),
-          AC.acc.inc(dk, ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, u}, bs}, fs, sp, pend, ps, c, u, v, xs, zs, hs, hac, ht)))))
+          AC.acc.inc(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, v, xs, zs, hs, hac, ht)))))
 
 # M.inc: the parts of HSK, and the flag STATIC of c
 def inc.top(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
