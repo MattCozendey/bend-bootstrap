@@ -33,10 +33,10 @@ def af.need(+k: U32, +len: U32) -> U32:
   U32.add(U32.shrn(U32.sub(af.E(k, len), 1), 16n), 1)
 
 def af.LB() -> Wa.Wasm.Label:
-  Wa.Wasm.Label{None{}, [Cr.Cir.i.get(2)], 0n}
+  Wa.Wasm.Label{0n, None{}, [Cr.Cir.i.get(2)], 0n}
 
 def af.LG(+k: U32) -> Wa.Wasm.Label:
-  Wa.Wasm.Label{None{}, [Cr.Cir.i.const(af.a(k)), Cr.Cir.i.set(2)], 0n}
+  Wa.Wasm.Label{0n, None{}, [Cr.Cir.i.const(af.a(k)), Cr.Cir.i.set(2)], 0n}
 
 # the inner block: the growth
 def af.G(+k: U32) -> List<&2, Wa.Wasm.Instr>:
@@ -52,7 +52,7 @@ def af.G1() -> List<&2, Wa.Wasm.Instr>:
 def af.B2(+k: U32) -> List<&2, Wa.Wasm.Instr>:
   [Cr.Cir.i.get(1), Cr.Cir.i.const(1), Cr.Cir.i.op(Wa.Wasm.Op.sub{}), Cr.Cir.i.const(16), Cr.Cir.i.op(Wa.Wasm.Op.shr_u{}),
    Cr.Cir.i.const(1), Cr.Cir.i.op(Wa.Wasm.Op.add{}), Cr.Cir.i.set(3),
-   Wa.Wasm.Instr.block{af.G(k)},
+   Cr.Cir.i.block(af.G(k)),
    Cr.Cir.i.const(af.a(k)), Cr.Cir.i.set(2)]
 
 def af.B1(+k: U32) -> List<&2, Wa.Wasm.Instr>:
@@ -361,18 +361,18 @@ def af.bnd(c: Wa.Wasm.Call, -rs: List<&2, U32>, -mm: Wa.Wasm.Memory, +N2: Nat, h
 def af.some(+k: U32, +len: U32, +p: U32, +lim: U32, +B: Wa.Wasm.Bytes, +F: Nat, hF: N.Le(41n, F), +p2: U32, +N2: Nat,
   h2: S.P2({PH.H.steps(N2, Wa.Wasm.Step.next{af.fr0(k, len), Wa.Wasm.Memory{p, lim, [], B}}) ==
     Wa.Wasm.Step.done{[af.a(k)], Wa.Wasm.Memory{p2, lim, [], B}} : Wa.Wasm.Step}, N.Le(N2, 41n))) ->
-  S.EX(j => S.P2({Wa.Wasm.call(F, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}) == Wa.Wasm.Call.done{[af.a(k)], Wa.Wasm.Memory{p2, lim, [], B}, j} : Wa.Wasm.Call}, N.Le(j, 41n))):
+  S.EX(j => S.P2({Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}) == Wa.Wasm.Call.done{[af.a(k)], Wa.Wasm.Memory{p2, lim, [], B}, j} : Wa.Wasm.Call}, N.Le(j, 41n))):
   (e, +hN) = h2
-  af.bnd(Wa.Wasm.call(F, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), [af.a(k)], Wa.Wasm.Memory{p2, lim, [], B}, N2, hN,
+  af.bnd(Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), [af.a(k)], Wa.Wasm.Memory{p2, lim, [], B}, N2, hN,
     S.run.call(N2, F, af.fr0(k, len), Wa.Wasm.Memory{p, lim, [], B}, [af.a(k)], Wa.Wasm.Memory{p2, lim, [], B}, e, N.le_trans(N2, 41n, F, hN, hF)))
 
 def af.call.go(r: Maybe<&2, U32>, +k: U32, +len: U32, +p: U32, +lim: U32, +B: Wa.Wasm.Bytes, +F: Nat, hF: N.Le(41n, F),
-  h: AFS(r, k, len, p, lim, B)) -> AFC(Wa.Wasm.call(F, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), r, k, len, p, lim, B):
+  h: AFS(r, k, len, p, lim, B)) -> AFC(Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), r, k, len, p, lim, B):
   match r:
     case None{}:
       (+N2, h1) = h
       (e, +hN) = h1
-      af.bnd(Wa.Wasm.call(F, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), [4294967295], Wa.Wasm.Memory{p, lim, [], B}, N2, hN,
+      af.bnd(Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), [4294967295], Wa.Wasm.Memory{p, lim, [], B}, N2, hN,
         S.run.call(N2, F, af.fr0(k, len), Wa.Wasm.Memory{p, lim, [], B}, [4294967295], Wa.Wasm.Memory{p, lim, [], B}, e, N.le_trans(N2, 41n, F, hN, hF)))
     case Some{+p2}:
       (+N2, h1) = h
@@ -382,5 +382,5 @@ def af.call.go(r: Maybe<&2, U32>, +k: U32, +len: U32, +p: U32, +lim: U32, +B: Wa
 # alloc(len), with the fuel F >= 41, in a memory of p pages, p not -1
 def af.call(+k: U32, +len: U32, +p: U32, +lim: U32, +B: Wa.Wasm.Bytes, +F: Nat, hF: N.Le(41n, F),
   +hp: {U32.is_eq(p, 4294967295) == False{} : Bool}, +hpl: {U32.is_le(p, lim) == True{} : Bool}) ->
-  AFC(Wa.Wasm.call(F, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), Cr.Cir.alloc.pages(k, len, p, lim), k, len, p, lim, B):
+  AFC(Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p, lim, [], B}), Cr.Cir.alloc.pages(k, len, p, lim), k, len, p, lim, B):
   af.call.go(Cr.Cir.alloc.pages(k, len, p, lim), k, len, p, lim, B, F, hF, af.steps(k, len, p, lim, B, hp, hpl))

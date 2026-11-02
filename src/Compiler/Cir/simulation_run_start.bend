@@ -35,10 +35,10 @@ def pr.LP() -> List<&2, Wa.Wasm.Instr>:
      Wa.Wasm.Instr.br{0}])}
 
 def pr.LLp() -> Wa.Wasm.Label:
-  Wa.Wasm.Label{Some{pr.LP()}, [], 0n}
+  Wa.Wasm.Label{0n, Some{pr.LP()}, [], 0n}
 
 def pr.LBk(+X: List<&2, Wa.Wasm.Instr>) -> Wa.Wasm.Label:
-  Wa.Wasm.Label{None{}, [Wa.Wasm.Instr.block{X}, Cr.Cir.i.get(Cr.Cir.l.status())], 0n}
+  Wa.Wasm.Label{0n, None{}, [Cr.Cir.i.block(X), Cr.Cir.i.get(Cr.Cir.l.status())], 0n}
 
 # the loop's start, with next = nx and tmp = t
 def pr.LC(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory) -> Wa.Wasm.Step:
@@ -51,7 +51,7 @@ def pr.TC(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +ad: U32, +rg
 
 # after the loop
 def pr.XC(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory, +x: U32) -> Wa.Wasm.Step:
-  Q.Cfg([Wa.Wasm.Instr.block{X}, Cr.Cir.i.get(Cr.Cir.l.status())], [], [], Q.Loc(a, n, 2, x, 0, x, 0, ad, rg), mm)
+  Q.Cfg([Cr.Cir.i.block(X), Cr.Cir.i.get(Cr.Cir.l.status())], [], [], Q.Loc(a, n, 2, x, 0, x, 0, ad, rg), mm)
 
 def pr.test(+X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +nx: U32, +t: U32, +ad: U32, +rg: List<&2, U32>, +mm: Wa.Wasm.Memory) ->
   {PH.H.steps(10n, pr.LC(X, a, n, nx, t, ad, rg, mm)) == pr.TC(X, a, n, nx, ad, rg, mm) : Wa.Wasm.Step}:

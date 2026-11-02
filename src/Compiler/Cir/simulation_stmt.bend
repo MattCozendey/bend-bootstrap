@@ -43,7 +43,7 @@ def EXM(-B: Wa.Wasm.Memory -> Data) -> Data:
 
 # the label of run's block: after it, run gives its status
 def RL() -> Wa.Wasm.Label:
-  Wa.Wasm.Label{None{}, [Wa.Wasm.Instr.local_get{2}], 0n}
+  Wa.Wasm.Label{0n, None{}, [Wa.Wasm.Instr.local_get{2}], 0n}
 
 # a configuration of run at a statement: an empty stack, the status 2
 def Cf(+X: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32,
@@ -515,7 +515,7 @@ def emit.AB(+v: Cr.Cir.Expr, +d: Nat, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2,
   +L1 = Q.Loc(a, n, 2, nx, on, nx, nd, A.eb(nx, on), rg)
   +vv = U32.and(Bool.to_u32(U32.is_lt(nx, 214748365)), Bool.to_u32(U32.is_ge(A.eb(nx, on), on)))
   +C0 = Cf(Cr.Cir.code.stmt(Cr.Cir.Stmt.emit{v}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-  +Cb = Q.Cfg(Con{Wa.Wasm.Instr.br_if{0}, [Cr.Cir.code.exit(1, 1n+d)]}, Con{Wa.Wasm.Label{None{}, A.ex1(v, d, K), 0n}, ls}, [vv], L1, M0)
+  +Cb = Q.Cfg(Con{Wa.Wasm.Instr.br_if{0}, [Cr.Cir.code.exit(1, 1n+d)]}, Con{Wa.Wasm.Label{0n, None{}, A.ex1(v, d, K), 0n}, ls}, [vv], L1, M0)
   +C1 = Q.Cfg(A.ex1(v, d, K), ls, [], L1, M0)
   +C2 = Q.Cfg(Cr.Cir.code.grow(d, A.ex2(v, K)), ls, [], Q.Loc(a, n, 2, nx, on, nx, A.nce(nx, on), A.eb(nx, on), rg), M0)
   S.steps.then(19n, 7n, C0, Cb, C2, A.emit.E1(v, d, K, ls, a, n, 2, nx, on, t, nd, ad, rg, M0),
@@ -606,7 +606,7 @@ def emit.ok(cc: Bool, +v: Cr.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: Cr.Cir.
       +M0 = {Wa.Wasm.Memory{pg, lm, [], m} : Wa.Wasm.Memory}
       +L1 = Q.Loc(a, n, 2, nx, on, nx, nd, A.eb(nx, on), rg)
       +vv = U32.and(Bool.to_u32(U32.is_lt(nx, 214748365)), Bool.to_u32(U32.is_ge(A.eb(nx, on), on)))
-      +Cb = Q.Cfg(Con{Wa.Wasm.Instr.br_if{0}, [Cr.Cir.code.exit(1, 1n+d)]}, Con{Wa.Wasm.Label{None{}, A.ex1(v, d, K), 0n}, ls}, [vv], L1, M0)
+      +Cb = Q.Cfg(Con{Wa.Wasm.Instr.br_if{0}, [Cr.Cir.code.exit(1, 1n+d)]}, Con{Wa.Wasm.Label{0n, None{}, A.ex1(v, d, K), 0n}, ls}, [vv], L1, M0)
       (Nat.add(19n, 7n), (M0, S.steps.then(19n, 7n, Cf(Cr.Cir.code.stmt(Cr.Cir.Stmt.emit{v}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m), Cb,
         Wa.Wasm.Step.done{[1], M0}, A.emit.E1(v, d, K, ls, a, n, 2, nx, on, t, nd, ad, rg, M0),
         A.un.fail(vv, A.and.fail(U32.is_lt(nx, 214748365), U32.is_ge(A.eb(nx, on), on), ecc), d, A.ex1(v, d, K), ls, hL, A.dep.n(d, 2n, MD, Unit{}, hd),
@@ -789,15 +789,15 @@ def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +
   +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat}, +hd: N.Le(Nat.add(d, 2n), U32.to_nat(MD)), +ez: {U32.is_zero(s0) == z : Bool}) ->
-  SPost.halt(s0, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on), Con{Wa.Wasm.Instr.block{Con{Cr.Cir.i.const(s0), Con{Cr.Cir.i.set(Cr.Cir.l.status()),
-    List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(z), [Wa.Wasm.Instr.br{U32.from_nat(1n+d)}])}}}, K}, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m):
+  SPost.halt(s0, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on), Con{Cr.Cir.i.block(Con{Cr.Cir.i.const(s0), Con{Cr.Cir.i.set(Cr.Cir.l.status()),
+    List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(z), [Wa.Wasm.Instr.br{U32.from_nat(1n+d)}])}}), K}, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m):
   match z:
     case False{}:
       +ej = M.tofrom(1n+d, MD, N.le_trans(1n+d, Nat.add(d, 2n), U32.to_nat(MD), N.lt_add(d, 1n), hd))
-      +LS = {Con{Wa.Wasm.Label{None{}, K, 0n}, ls} : List<&2, Wa.Wasm.Label>}
+      +LS = {Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls} : List<&2, Wa.Wasm.Label>}
       +BR = {[Wa.Wasm.Instr.br{U32.from_nat(1n+d)}] : List<&2, Wa.Wasm.Instr>}
       +L1 = Q.Loc(a, n, s0, nx, on, t, nd, ad, rg)
-      +X = {Con{Wa.Wasm.Instr.block{Con{Cr.Cir.i.const(s0), Con{Cr.Cir.i.set(Cr.Cir.l.status()), List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(False{}), BR)}}}, K} : List<&2, Wa.Wasm.Instr>}
+      +X = {Con{Cr.Cir.i.block(Con{Cr.Cir.i.const(s0), Con{Cr.Cir.i.set(Cr.Cir.l.status()), List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(False{}), BR)}}), K} : List<&2, Wa.Wasm.Instr>}
       +C0 = Cf(X, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
       +C1 = Q.Cfg(BR, LS, [], L1, Wa.Wasm.Memory{pg, lm, [], m})
       +mm = {Wa.Wasm.Memory{pg, lm, [], m} : Wa.Wasm.Memory}
@@ -808,7 +808,7 @@ def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +
       (6n, (mm, (S.steps.then(3n, 3n, C0, C1, Wa.Wasm.Step.done{[s0], mm}, {==}, exit.steps(1n+d, LS, hL, ej, L1, mm)), Inl{ok})))
     case True{}:
       +ej = M.tofrom(1n+d, MD, N.le_trans(1n+d, Nat.add(d, 2n), U32.to_nat(MD), N.lt_add(d, 1n), hd))
-      +LS = {Con{Wa.Wasm.Label{None{}, K, 0n}, ls} : List<&2, Wa.Wasm.Label>}
+      +LS = {Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls} : List<&2, Wa.Wasm.Label>}
       +BR = {[Wa.Wasm.Instr.br{U32.from_nat(1n+d)}] : List<&2, Wa.Wasm.Instr>}
       +L1 = Q.Loc(a, n, s0, nx, on, t, nd, ad, rg)
       +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
@@ -820,7 +820,7 @@ def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +
       +L2 = Q.Loc(a, n, s0, nx, on, nx, nd, ad, rg)
       +m1 = Wa.Wasm.write32(m, 0, A0)
       +m2 = Wa.Wasm.write32(m1, 4, on)
-      +X = {Con{Wa.Wasm.Instr.block{Con{Cr.Cir.i.const(s0), Con{Cr.Cir.i.set(Cr.Cir.l.status()), List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(True{}), BR)}}}, K} : List<&2, Wa.Wasm.Instr>}
+      +X = {Con{Cr.Cir.i.block(Con{Cr.Cir.i.const(s0), Con{Cr.Cir.i.set(Cr.Cir.l.status()), List.append(&2, Wa.Wasm.Instr, Cr.Cir.code.result(True{}), BR)}}), K} : List<&2, Wa.Wasm.Instr>}
       +C0 = Cf(X, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
       +C1 = Q.Cfg(Con{Wa.Wasm.Instr.store{0}, R2}, LS, [A0, 0], L2, Wa.Wasm.Memory{pg, lm, [], m})
       +C2 = Q.Cfg(R2, LS, [], L2, Wa.Wasm.Memory{pg, lm, [], m1})
@@ -869,20 +869,20 @@ def brif.go(+vc: U32, ez: {U32.is_zero(vc) == False{} : Bool}, +l: U32, +rest: L
 # eqz, then br_if 0, of 0: a branch to the end of the block
 def brif.br0(+vc: U32, ez: {U32.is_zero(vc) == True{} : Bool}, +rest: List<&2, Wa.Wasm.Instr>, +after: List<&2, Wa.Wasm.Instr>,
   +outer: List<&2, Wa.Wasm.Label>, +L: List<&2, U32>, +M: Wa.Wasm.Memory) ->
-  {PH.H.steps(2n, Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, rest}}, Con{Wa.Wasm.Label{None{}, after, 0n}, outer}, [vc], L, M)) ==
+  {PH.H.steps(2n, Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, rest}}, Con{Wa.Wasm.Label{0n, None{}, after, 0n}, outer}, [vc], L, M)) ==
     Q.Cfg(after, outer, [], L, M) : Wa.Wasm.Step}:
   %Equal.sym(Bool, U32.is_zero(vc), True{}, ez) :
-    {Wa.Wasm.step.br_if.if(U32.is_zero(Bool.to_u32(_)), 0, rest, Con{Wa.Wasm.Label{None{}, after, 0n}, outer}, 1n, [], L, M) ==
+    {Wa.Wasm.step.br_if.if(U32.is_zero(Bool.to_u32(_)), 0, rest, Con{Wa.Wasm.Label{0n, None{}, after, 0n}, outer}, 1n, [], L, M) ==
       Q.Cfg(after, outer, [], L, M) : Wa.Wasm.Step}
   {==}
 
 # eqz, then br_if 1, of 0: a branch to the end of the outer block
 def brif.br1(+vc: U32, ez: {U32.is_zero(vc) == True{} : Bool}, +rest: List<&2, Wa.Wasm.Instr>, +l0: Wa.Wasm.Label,
   +after: List<&2, Wa.Wasm.Instr>, +outer: List<&2, Wa.Wasm.Label>, +L: List<&2, U32>, +M: Wa.Wasm.Memory) ->
-  {PH.H.steps(2n, Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, rest}}, Con{l0, Con{Wa.Wasm.Label{None{}, after, 0n}, outer}}, [vc], L, M)) ==
+  {PH.H.steps(2n, Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, rest}}, Con{l0, Con{Wa.Wasm.Label{0n, None{}, after, 0n}, outer}}, [vc], L, M)) ==
     Q.Cfg(after, outer, [], L, M) : Wa.Wasm.Step}:
   %Equal.sym(Bool, U32.is_zero(vc), True{}, ez) :
-    {Wa.Wasm.step.br_if.if(U32.is_zero(Bool.to_u32(_)), 1, rest, Con{l0, Con{Wa.Wasm.Label{None{}, after, 0n}, outer}}, 1n, [], L, M) ==
+    {Wa.Wasm.step.br_if.if(U32.is_zero(Bool.to_u32(_)), 1, rest, Con{l0, Con{Wa.Wasm.Label{0n, None{}, after, 0n}, outer}}, 1n, [], L, M) ==
       Q.Cfg(after, outer, [], L, M) : Wa.Wasm.Step}
   {==}
 
@@ -934,8 +934,8 @@ def labels.ne(+l: Wa.Wasm.Label, +ls: List<&2, Wa.Wasm.Label>, e: {Con{l, ls} ==
 # neither x nor the step after it, are n - 2 steps from y
 def skip2(+N0: Nat, +fr: Wa.Wasm.Frame, +mm: Wa.Wasm.Memory, +fr1: Wa.Wasm.Frame, +m1: Wa.Wasm.Memory, +Yv: Wa.Wasm.Step, -Zv: Wa.Wasm.Step,
   e: {PH.H.steps(N0, Wa.Wasm.Step.next{fr, mm}) == Zv : Wa.Wasm.Step},
-  h1: {Wa.Wasm.step(fr, mm) == Wa.Wasm.Step.next{fr1, m1} : Wa.Wasm.Step},
-  h2: {Wa.Wasm.step(fr1, m1) == Yv : Wa.Wasm.Step},
+  h1: {Wa.Wasm.step(PH.H.TS(), fr, mm) == Wa.Wasm.Step.next{fr1, m1} : Wa.Wasm.Step},
+  h2: {Wa.Wasm.step(PH.H.TS(), fr1, m1) == Yv : Wa.Wasm.Step},
   ne0: {Wa.Wasm.Step.next{fr, mm} == Zv : Wa.Wasm.Step} -> Empty,
   ne1: {Wa.Wasm.Step.next{fr1, m1} == Zv : Wa.Wasm.Step} -> Empty) ->
   {PH.H.steps(Nat.sub(N0, 2n), Yv) == Zv : Wa.Wasm.Step}:
@@ -945,15 +945,15 @@ def skip2(+N0: Nat, +fr: Wa.Wasm.Frame, +mm: Wa.Wasm.Memory, +fr1: Wa.Wasm.Frame
     case 1n+N1:
       match N1:
         case 0n:
-          Empty.absurd({PH.H.steps(0n, Yv) == Zv : Wa.Wasm.Step}, ne1(Equal.trans(Wa.Wasm.Step, Wa.Wasm.Step.next{fr1, m1}, Wa.Wasm.step(fr, mm), Zv,
-            Equal.sym(Wa.Wasm.Step, Wa.Wasm.step(fr, mm), Wa.Wasm.Step.next{fr1, m1}, h1), e)))
+          Empty.absurd({PH.H.steps(0n, Yv) == Zv : Wa.Wasm.Step}, ne1(Equal.trans(Wa.Wasm.Step, Wa.Wasm.Step.next{fr1, m1}, Wa.Wasm.step(PH.H.TS(), fr, mm), Zv,
+            Equal.sym(Wa.Wasm.Step, Wa.Wasm.step(PH.H.TS(), fr, mm), Wa.Wasm.Step.next{fr1, m1}, h1), e)))
         case 1n+N2:
-          +e1 = Equal.trans(Wa.Wasm.Step, PH.H.steps(1n+N2, Wa.Wasm.Step.next{fr1, m1}), PH.H.steps(1n+N2, Wa.Wasm.step(fr, mm)), Zv,
-            Equal.cong(Wa.Wasm.Step, Wa.Wasm.Step, x => PH.H.steps(1n+N2, x), Wa.Wasm.Step.next{fr1, m1}, Wa.Wasm.step(fr, mm),
-              Equal.sym(Wa.Wasm.Step, Wa.Wasm.step(fr, mm), Wa.Wasm.Step.next{fr1, m1}, h1)), e)
+          +e1 = Equal.trans(Wa.Wasm.Step, PH.H.steps(1n+N2, Wa.Wasm.Step.next{fr1, m1}), PH.H.steps(1n+N2, Wa.Wasm.step(PH.H.TS(), fr, mm)), Zv,
+            Equal.cong(Wa.Wasm.Step, Wa.Wasm.Step, x => PH.H.steps(1n+N2, x), Wa.Wasm.Step.next{fr1, m1}, Wa.Wasm.step(PH.H.TS(), fr, mm),
+              Equal.sym(Wa.Wasm.Step, Wa.Wasm.step(PH.H.TS(), fr, mm), Wa.Wasm.Step.next{fr1, m1}, h1)), e)
           %Equal.sym(Nat, Nat.sub(N2, 0n), N2, Q.sub0(N2)) : {PH.H.steps(_, Yv) == Zv : Wa.Wasm.Step}
-          Equal.trans(Wa.Wasm.Step, PH.H.steps(N2, Yv), PH.H.steps(N2, Wa.Wasm.step(fr1, m1)), Zv,
-            Equal.cong(Wa.Wasm.Step, Wa.Wasm.Step, x => PH.H.steps(N2, x), Yv, Wa.Wasm.step(fr1, m1), Equal.sym(Wa.Wasm.Step, Wa.Wasm.step(fr1, m1), Yv, h2)), e1)
+          Equal.trans(Wa.Wasm.Step, PH.H.steps(N2, Yv), PH.H.steps(N2, Wa.Wasm.step(PH.H.TS(), fr1, m1)), Zv,
+            Equal.cong(Wa.Wasm.Step, Wa.Wasm.Step, x => PH.H.steps(N2, x), Yv, Wa.Wasm.step(PH.H.TS(), fr1, m1), Equal.sym(Wa.Wasm.Step, Wa.Wasm.step(PH.H.TS(), fr1, m1), Yv, h2)), e1)
 
 # Depths
 # ------
@@ -1031,32 +1031,32 @@ def if.z(z: Bool, +fuel: Nat, +c: Cr.Cir.Expr, +te: Cr.Cir.Stmt, +ee: Cr.Cir.Stm
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat},
   +ez: {U32.is_zero(vc) == z : Bool},
-  +ex: {PH.H.steps(E.cost(c), Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})) ==
-    Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}) : Wa.Wasm.Step},
-  pt: SPost(Cr.Cir.exec(fuel, te, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
-  pe: SPost(Cr.Cir.exec(fuel, ee, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, [], Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G)) ->
+  +ex: {PH.H.steps(E.cost(c), Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})) ==
+    Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}) : Wa.Wasm.Step},
+  pt: SPost(Cr.Cir.exec(fuel, te, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
+  pe: SPost(Cr.Cir.exec(fuel, ee, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, [], Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G)) ->
   SPost(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(fuel, te, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), u => Cr.Cir.exec(fuel, ee, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on))),
     Cr.Cir.code.stmt(Cr.Cir.Stmt.if{c, te, ee}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
   match z:
     case False{}:
       +C0 = Cf(Cr.Cir.code.stmt(Cr.Cir.Stmt.if{c, te, ee}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-      +C1 = Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
-      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
-      +C3 = Cf(Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m)
+      +C1 = Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
+      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
+      +C3 = Cf(Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m)
       post.wrap(Cr.Cir.exec(fuel, te, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(Cr.Cir.Stmt.if{c, te, ee}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G,
-        Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, Nat.add(2n, Nat.add(E.cost(c), 2n)),
+        Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, Nat.add(2n, Nat.add(E.cost(c), 2n)),
         S.steps.then(2n, Nat.add(E.cost(c), 2n), C0, C1, C3, {==}, S.steps.then(E.cost(c), 2n, C1, C2, C3, ex,
-          brif.go(vc, ez, 0, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))),
+          brif.go(vc, ez, 0, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))),
         1n, t2 => nd2 => ad2 => rg2 => nx2 => on2 => pg2 => lm2 => m2 => {==}, pt)
     case True{}:
       +C0 = Cf(Cr.Cir.code.stmt(Cr.Cir.Stmt.if{c, te, ee}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-      +C1 = Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
-      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
-      +C3 = Cf(Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m)
+      +C1 = Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
+      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
+      +C3 = Cf(Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m)
       post.wrap(Cr.Cir.exec(fuel, ee, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(Cr.Cir.Stmt.if{c, te, ee}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G,
-        Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, [], Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, Nat.add(2n, Nat.add(E.cost(c), 2n)),
+        Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, [], Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, Nat.add(2n, Nat.add(E.cost(c), 2n)),
         S.steps.then(2n, Nat.add(E.cost(c), 2n), C0, C1, C3, {==}, S.steps.then(E.cost(c), 2n, C1, C2, C3, ex,
-          brif.br0(vc, ez, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))),
+          brif.br0(vc, ez, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))),
         1n, t2 => nd2 => ad2 => rg2 => nx2 => on2 => pg2 => lm2 => m2 => {==}, pe)
 
 def if.of(mv: Maybe<&2, U32>, +fuel: Nat, +c: Cr.Cir.Expr, +te: Cr.Cir.Stmt, +ee: Cr.Cir.Stmt, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
@@ -1068,8 +1068,8 @@ def if.of(mv: Maybe<&2, U32>, +fuel: Nat, +c: Cr.Cir.Expr, +te: Cr.Cir.Stmt, +ee
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat},
   +okc: {V.ok.expr(c, R) == True{} : Bool}, ev: {Cr.Cir.eval(c, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)) == mv : Maybe<&2, U32>},
-  pt: SPost(Cr.Cir.exec(fuel, te, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
-  pe: SPost(Cr.Cir.exec(fuel, ee, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, [], Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G)) ->
+  pt: SPost(Cr.Cir.exec(fuel, te, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}]), Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
+  pe: SPost(Cr.Cir.exec(fuel, ee, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(ee, 1n+d, []), Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, [], Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G)) ->
   SPost(Cr.Cir.exec.if(mv, u => Cr.Cir.exec(fuel, te, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), u => Cr.Cir.exec(fuel, ee, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on))),
     Cr.Cir.code.stmt(Cr.Cir.Stmt.if{c, te, ee}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
   match mv:
@@ -1077,14 +1077,14 @@ def if.of(mv: Maybe<&2, U32>, +fuel: Nat, +c: Cr.Cir.Expr, +te: Cr.Cir.Stmt, +ee
       Unit{}
     case Some{+vc}:
       if.z(U32.is_zero(vc), fuel, c, te, ee, vc, rg, cl, nx, fi, im, pg, lm, inp, ou, on, d, K, ls, hL, R, MX, hR, MD, P, G, a, n, t, nd, ad, m, hI, W, hW, hP, hG, {==},
-        E.sim.expr(c, rg, cl, nx, fi, im, pg, lm, inp, ou, on, vc, ev, R, MX, okc, hR, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [], P, G, a, n, 2, t, nd, ad, m, hI, W, hW, hP, hG),
+        E.sim.expr(c, rg, cl, nx, fi, im, pg, lm, inp, ou, on, vc, ev, R, MX, okc, hR, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{0}, Cr.Cir.code.stmt(te, 2n+d, [Wa.Wasm.Instr.br{1}])}}, Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [], P, G, a, n, 2, t, nd, ad, m, hI, W, hW, hP, hG),
         pt, pe)
 
 # a run of the loop from its start, seen from the branch back to it
 def post.skip(o: Cr.Cir.Out, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +d: Nat, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>,
   +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes,
   +P: Nat, +G: Nat, p: SPost(o, Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G)) ->
-  SPost(o, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
+  SPost(o, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
   match o:
     case Cr.Cir.Out.next{st2}:
       match st2:
@@ -1098,14 +1098,14 @@ def post.skip(o: Cr.Cir.Out, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +d: Nat, +K: L
           +L = Q.Loc(a, n, 2, nx, on, t, nd, ad, rg)
           +mm = {Wa.Wasm.Memory{pg, lm, [], m} : Wa.Wasm.Memory}
           +fr = {Wa.Wasm.Frame{Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, 1n, [], L} : Wa.Wasm.Frame}
-          +fr1 = {Wa.Wasm.Frame{[Wa.Wasm.Instr.loop{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}], Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, 1n, [], L} : Wa.Wasm.Frame}
-          +Yv = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-          +Cb = Cf([Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+          +fr1 = {Wa.Wasm.Frame{[Cr.Cir.i.loop(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}))], Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, 1n, [], L} : Wa.Wasm.Frame}
+          +Yv = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+          +Cb = Cf([Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
           +END = Cf(K, ls, a, n, t3, nd3, ad3, rg3, nx3, on3, pg3, lm3, m3)
           +sk = skip2(N2, fr, mm, fr1, mm, Yv, END, eq, {==}, {==},
-            e => code.ne(Wa.Wasm.Instr.block{[Wa.Wasm.Instr.loop{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}]}, K,
+            e => code.ne(Cr.Cir.i.block([Cr.Cir.i.loop(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}))]), K,
               Equal.cong(Wa.Wasm.Step, List<&2, Wa.Wasm.Instr>, x => st.code(x), Wa.Wasm.Step.next{fr, mm}, END, e)),
-            e => labels.ne(Wa.Wasm.Label{None{}, K, 0n}, ls, Equal.cong(Wa.Wasm.Step, List<&2, Wa.Wasm.Label>, x => st.labels(x), Wa.Wasm.Step.next{fr1, mm}, END, e)))
+            e => labels.ne(Wa.Wasm.Label{0n, None{}, K, 0n}, ls, Equal.cong(Wa.Wasm.Step, List<&2, Wa.Wasm.Label>, x => st.labels(x), Wa.Wasm.Step.next{fr1, mm}, END, e)))
           (Nat.add(1n, Nat.sub(N2, 2n)), (t3, (nd3, (ad3, (m3, (S.steps.then(1n, Nat.sub(N2, 2n), Cb, Yv, END, {==}, sk), hI))))))
     case Cr.Cir.Out.halt{+s0, st2}:
       match st2:
@@ -1116,9 +1116,9 @@ def post.skip(o: Cr.Cir.Out, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +d: Nat, +K: L
           +L = Q.Loc(a, n, 2, nx, on, t, nd, ad, rg)
           +mm = {Wa.Wasm.Memory{pg, lm, [], m} : Wa.Wasm.Memory}
           +fr = {Wa.Wasm.Frame{Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, 1n, [], L} : Wa.Wasm.Frame}
-          +fr1 = {Wa.Wasm.Frame{[Wa.Wasm.Instr.loop{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}], Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, 1n, [], L} : Wa.Wasm.Frame}
-          +Yv = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-          +Cb = Cf([Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+          +fr1 = {Wa.Wasm.Frame{[Cr.Cir.i.loop(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}))], Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, 1n, [], L} : Wa.Wasm.Frame}
+          +Yv = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+          +Cb = Cf([Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
           +END = {Wa.Wasm.Step.done{[s0], mm2} : Wa.Wasm.Step}
           +sk = skip2(N2, fr, mm, fr1, mm, Yv, END, eq, {==}, {==}, e => S.next.not_done(fr, mm, [s0], mm2, e),
             e => S.next.not_done(fr1, mm, [s0], mm2, e))
@@ -1129,9 +1129,9 @@ def post.skip(o: Cr.Cir.Out, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +d: Nat, +K: L
       +L = Q.Loc(a, n, 2, nx, on, t, nd, ad, rg)
       +mm = {Wa.Wasm.Memory{pg, lm, [], m} : Wa.Wasm.Memory}
       +fr = {Wa.Wasm.Frame{Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, 1n, [], L} : Wa.Wasm.Frame}
-      +fr1 = {Wa.Wasm.Frame{[Wa.Wasm.Instr.loop{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}], Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, 1n, [], L} : Wa.Wasm.Frame}
-      +Yv = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-      +Cb = Cf([Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+      +fr1 = {Wa.Wasm.Frame{[Cr.Cir.i.loop(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}))], Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, 1n, [], L} : Wa.Wasm.Frame}
+      +Yv = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+      +Cb = Cf([Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
       +END = {Wa.Wasm.Step.done{[1], mm2} : Wa.Wasm.Step}
       +sk = skip2(N2, fr, mm, fr1, mm, Yv, END, eq, {==}, {==}, e => S.next.not_done(fr, mm, [1], mm2, e),
         e => S.next.not_done(fr1, mm, [1], mm2, e))
@@ -1150,35 +1150,35 @@ def while.z(z: Bool, +f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +vc: U32, +rg
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat},
   +ez: {U32.is_zero(vc) == z : Bool},
-  +ex: {PH.H.steps(E.cost(c), Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})) ==
-    Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}) : Wa.Wasm.Step},
-  pb: SPost(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
+  +ex: {PH.H.steps(E.cost(c), Q.Cfg(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [], Q.Loc(a, n, 2, nx, on, t, nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})) ==
+    Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}) : Wa.Wasm.Step},
+  pb: SPost(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
   kont: @rg2: List<&2, U32> -> @cl2: Cr.Cir.Cells -> @nx2: U32 -> @fi2: U32 -> @im2: U32 -> @pg2: U32 -> @lm2: U32 ->
     @inp2: List<&2, Word(8n)> -> @ou2: List<&2, Word(8n)> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: Wa.Wasm.Bytes ->
     Q.Inv(P, G, a, n, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2, m2) ->
-    SPost(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, Cr.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, K, ls,
+    SPost(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, Cr.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, K, ls,
       a, n, t2, nd2, ad2, rg2, nx2, on2, pg2, lm2, m2, P, G)) ->
   SPost(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), tt => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, tt)),
     u => Cr.Cir.Out.next{Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)}), Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
   match z:
     case True{}:
       +C0 = Cf(Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-      +Ch = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
+      +Ch = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
       +C3 = Cf(K, ls, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m)
       (Nat.add(2n, Nat.add(E.cost(c), 2n)), (E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), (nd, (ad, (m, (S.steps.then(2n, Nat.add(E.cost(c), 2n), C0, Ch, C3, {==},
         S.steps.then(E.cost(c), 2n, Ch, C2, C3, ex,
-          brif.br1(vc, ez, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, K, ls, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))), hI))))))
+          brif.br1(vc, ez, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, K, ls, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))), hI))))))
     case False{}:
       +C0 = Cf(Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-      +Ch = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
-      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
-      +C3 = Cf(Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m)
+      +Ch = Cf(Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
+      +C2 = Q.Cfg(Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [vc], Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m})
+      +C3 = Cf(Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m)
       post.pre(Cr.Cir.exec.then(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), tt => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, tt)), Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G,
-        Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, Nat.add(2n, Nat.add(E.cost(c), 2n)),
+        Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, Nat.add(2n, Nat.add(E.cost(c), 2n)),
         S.steps.then(2n, Nat.add(E.cost(c), 2n), C0, Ch, C3, {==}, S.steps.then(E.cost(c), 2n, Ch, C2, C3, ex,
-          brif.go(vc, ez, 1, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))),
-        post.then(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), tt => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, tt), Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}},
+          brif.go(vc, ez, 1, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, Q.Loc(a, n, 2, nx, on, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg), Wa.Wasm.Memory{pg, lm, [], m}))),
+        post.then(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), tt => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, tt), Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}},
           K, ls, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G, pb, kont))
 
 def while.of(mv: Maybe<&2, U32>, +f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
@@ -1190,11 +1190,11 @@ def while.of(mv: Maybe<&2, U32>, +f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat},
   +okc: {V.ok.expr(c, R) == True{} : Bool}, ev: {Cr.Cir.eval(c, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)) == mv : Maybe<&2, U32>},
-  pb: SPost(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
+  pb: SPost(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}]), Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, rg, nx, on, pg, lm, m, P, G),
   kont: @rg2: List<&2, U32> -> @cl2: Cr.Cir.Cells -> @nx2: U32 -> @fi2: U32 -> @im2: U32 -> @pg2: U32 -> @lm2: U32 ->
     @inp2: List<&2, Word(8n)> -> @ou2: List<&2, Word(8n)> -> @on2: U32 -> @t2: U32 -> @nd2: U32 -> @ad2: U32 -> @m2: Wa.Wasm.Bytes ->
     Q.Inv(P, G, a, n, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2, m2) ->
-    SPost(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, Cr.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, K, ls,
+    SPost(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, Cr.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, K, ls,
       a, n, t2, nd2, ad2, rg2, nx2, on2, pg2, lm2, m2, P, G)) ->
   SPost(Cr.Cir.exec.if(mv, u => Cr.Cir.exec.then(Cr.Cir.exec(f, body, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), tt => Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, tt)),
     u => Cr.Cir.Out.next{Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)}), Cr.Cir.code.stmt(Cr.Cir.Stmt.while{c, body}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
@@ -1203,7 +1203,7 @@ def while.of(mv: Maybe<&2, U32>, +f: Nat, +c: Cr.Cir.Expr, +body: Cr.Cir.Stmt, +
       Unit{}
     case Some{+vc}:
       while.z(U32.is_zero(vc), f, c, body, vc, rg, cl, nx, fi, im, pg, lm, inp, ou, on, d, K, ls, hL, R, MX, hR, MD, P, G, a, n, t, nd, ad, m, hI, W, hW, hP, hG, {==},
-        E.sim.expr(c, rg, cl, nx, fi, im, pg, lm, inp, ou, on, vc, ev, R, MX, okc, hR, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, [], P, G, a, n, 2, t, nd, ad, m, hI, W, hW, hP, hG),
+        E.sim.expr(c, rg, cl, nx, fi, im, pg, lm, inp, ou, on, vc, ev, R, MX, okc, hR, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}}, Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, [], P, G, a, n, 2, t, nd, ad, m, hI, W, hW, hP, hG),
         pb, kont)
 
 # The simulation of statements
@@ -1250,9 +1250,9 @@ def sim.stmt(+fuel: Nat, s: Cr.Cir.Stmt, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, 
       +okt = I.and.r(V.ok.expr(c, R), V.ok.stmt(te, R), c01)
       +oke = I.and.r(Bool.and(V.ok.expr(c, R), V.ok.stmt(te, R)), V.ok.stmt(ee, R), ok)
       if.of(Cr.Cir.eval(c, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), fuel, c, te, ee, rg, cl, nx, fi, im, pg, lm, inp, ou, on, d, K, ls, hL, R, MX, hR, MD, P, G, a, n, t, nd, ad, m, hI, W, hW, hP, hG, okc, {==},
-        sim.stmt(fuel, te, rg, cl, nx, fi, im, pg, lm, inp, ou, on, 2n+d, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, hL, R, MX, hR, MD, P, G,
+        sim.stmt(fuel, te, rg, cl, nx, fi, im, pg, lm, inp, ou, on, 2n+d, [Wa.Wasm.Instr.br{1}], Con{Wa.Wasm.Label{0n, None{}, Cr.Cir.code.stmt(ee, 1n+d, []), 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, hL, R, MX, hR, MD, P, G,
           a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, m, hI, W, hW, hP, hG, okt, dep.if.t(d, dep(te), dep(ee), MD, hd)),
-        sim.stmt(fuel, ee, rg, cl, nx, fi, im, pg, lm, inp, ou, on, 1n+d, [], Con{Wa.Wasm.Label{None{}, K, 0n}, ls}, hL, R, MX, hR, MD, P, G,
+        sim.stmt(fuel, ee, rg, cl, nx, fi, im, pg, lm, inp, ou, on, 1n+d, [], Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}, hL, R, MX, hR, MD, P, G,
           a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, m, hI, W, hW, hP, hG, oke, dep.if.e(d, dep(te), dep(ee), MD, hd)))
     case 0n Cr.Cir.Stmt.while{_, _}:
       Unit{}
@@ -1260,7 +1260,7 @@ def sim.stmt(+fuel: Nat, s: Cr.Cir.Stmt, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, 
       +okc = I.and.l(V.ok.expr(c, R), V.ok.stmt(body, R), ok)
       +okb = I.and.r(V.ok.expr(c, R), V.ok.stmt(body, R), ok)
       while.of(Cr.Cir.eval(c, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), f, c, body, rg, cl, nx, fi, im, pg, lm, inp, ou, on, d, K, ls, hL, R, MX, hR, MD, P, G, a, n, t, nd, ad, m, hI, W, hW, hP, hG, okc, {==},
-        sim.stmt(f, body, rg, cl, nx, fi, im, pg, lm, inp, ou, on, 2n+d, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{None{}, K, 0n}, ls}}, hL, R, MX, hR, MD, P, G,
+        sim.stmt(f, body, rg, cl, nx, fi, im, pg, lm, inp, ou, on, 2n+d, [Wa.Wasm.Instr.br{0}], Con{Wa.Wasm.Label{0n, Some{Cr.Cir.code.expr(c, Con{Wa.Wasm.Instr.eqz{}, Con{Wa.Wasm.Instr.br_if{1}, Cr.Cir.code.stmt(body, 2n+d, [Wa.Wasm.Instr.br{0}])}})}, [], 0n}, Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls}}, hL, R, MX, hR, MD, P, G,
           a, n, E.tmpE(c, t, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), nd, ad, m, hI, W, hW, hP, hG, okb, dep.two(d, dep(body), MD, hd)),
         +rg2 => +cl2 => +nx2 => +fi2 => +im2 => +pg2 => +lm2 => +inp2 => +ou2 => +on2 => +t2 => +nd2 => +ad2 => +m2 => hI2 =>
           post.skip(Cr.Cir.exec(f, Cr.Cir.Stmt.while{c, body}, Cr.Cir.State{rg2, cl2, nx2, fi2, im2, pg2, lm2, inp2, ou2, on2}), c, body, d, K, ls,

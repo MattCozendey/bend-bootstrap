@@ -87,7 +87,7 @@ def steps.add(a: Nat, +b: Nat, +st: Wa.Wasm.Step) ->
     case 1n+p:
       match st:
         case Wa.Wasm.Step.next{+fr, +m}:
-          steps.add(p, b, Wa.Wasm.step(fr, m))
+          steps.add(p, b, Wa.Wasm.step(PH.H.TS(), fr, m))
         case Wa.Wasm.Step.done{+rs, +m}:
           Equal.sym(Wa.Wasm.Step, PH.H.steps(b, Wa.Wasm.Step.done{rs, m}), Wa.Wasm.Step.done{rs, m}, steps.done(b, rs, m))
         case Wa.Wasm.Step.trap{+m}:
@@ -115,20 +115,20 @@ def steps.then_done(+a: Nat, +b: Nat, +st: Wa.Wasm.Step, -rs: List<&2, U32>, -m:
 def GD(F: Nat, st: Wa.Wasm.Step, -rs: List<&2, U32>, -m2: Wa.Wasm.Memory, n: Nat) -> Data:
   match st:
     case Wa.Wasm.Step.next{fr, m}:
-      EX(j => P2({Wa.Wasm.call.go(F, fr, m) == Wa.Wasm.Call.done{rs, m2, j} : Wa.Wasm.Call}, N.Le(j, n)))
+      EX(j => P2({Wa.Wasm.call.go(F, PH.H.TS(), fr, m) == Wa.Wasm.Call.done{rs, m2, j} : Wa.Wasm.Call}, N.Le(j, n)))
     case Wa.Wasm.Step.done{rs1, m1}:
       P2({rs1 == rs : List<&2, U32>}, {m1 == m2 : Wa.Wasm.Memory})
     case Wa.Wasm.Step.trap{_}:
       Empty
 
 def gd.stepped(F1: Nat, st: Wa.Wasm.Step, -rs: List<&2, U32>, -m2: Wa.Wasm.Memory, +n: Nat, q: GD(F1, st, rs, m2, n)) ->
-  EX(j => P2({Wa.Wasm.call.stepped(st, g => mm => Wa.Wasm.call.go(F1, g, mm)) == Wa.Wasm.Call.done{rs, m2, j} : Wa.Wasm.Call},
+  EX(j => P2({Wa.Wasm.call.stepped(st, g => mm => Wa.Wasm.call.go(F1, PH.H.TS(), g, mm)) == Wa.Wasm.Call.done{rs, m2, j} : Wa.Wasm.Call},
     N.Le(j, 1n+n))):
   match st:
     case Wa.Wasm.Step.next{g, mm}:
       (+j, r) = q
       (eq, le) = r
-      (1n+j, (Equal.cong(Wa.Wasm.Call, Wa.Wasm.Call, c => Wa.Wasm.call.plus(c), Wa.Wasm.call.go(F1, g, mm),
+      (1n+j, (Equal.cong(Wa.Wasm.Call, Wa.Wasm.Call, c => Wa.Wasm.call.plus(c), Wa.Wasm.call.go(F1, PH.H.TS(), g, mm),
         Wa.Wasm.Call.done{rs, m2, j}, eq), le))
     case Wa.Wasm.Step.done{rs1, m1}:
       (e1, e2) = q
@@ -164,7 +164,7 @@ def gd.ext(+n: Nat, +st: Wa.Wasm.Step, +F: Nat, -rs: List<&2, U32>, -m2: Wa.Wasm
             case 0n:
               Empty.absurd(GD(0n, Wa.Wasm.Step.next{fr, m}, rs, m2, 1n+p), h)
             case 1n+F1:
-              gd.stepped(F1, Wa.Wasm.step(fr, m), rs, m2, p, gd.ext(p, Wa.Wasm.step(fr, m), F1, rs, m2, e, h))
+              gd.stepped(F1, Wa.Wasm.step(PH.H.TS(), fr, m), rs, m2, p, gd.ext(p, Wa.Wasm.step(PH.H.TS(), fr, m), F1, rs, m2, e, h))
         case Wa.Wasm.Step.done{rs1, m1}:
           gd.done(rs1, m1, rs, m2, e)
         case Wa.Wasm.Step.trap{m}:
@@ -173,5 +173,5 @@ def gd.ext(+n: Nat, +st: Wa.Wasm.Step, +F: Nat, -rs: List<&2, U32>, -m2: Wa.Wasm
 # a call of a running frame that ends after n steps, with any fuel F >= n
 def run.call(+n: Nat, +F: Nat, +fr: Wa.Wasm.Frame, +m: Wa.Wasm.Memory, -rs: List<&2, U32>, -m2: Wa.Wasm.Memory,
   e: {PH.H.steps(n, Wa.Wasm.Step.next{fr, m}) == Wa.Wasm.Step.done{rs, m2} : Wa.Wasm.Step}, h: N.Le(n, F)) ->
-  EX(j => P2({Wa.Wasm.call.go(F, fr, m) == Wa.Wasm.Call.done{rs, m2, j} : Wa.Wasm.Call}, N.Le(j, n))):
+  EX(j => P2({Wa.Wasm.call.go(F, PH.H.TS(), fr, m) == Wa.Wasm.Call.done{rs, m2, j} : Wa.Wasm.Call}, N.Le(j, n))):
   gd.ext(n, Wa.Wasm.Step.next{fr, m}, F, rs, m2, e, h)
