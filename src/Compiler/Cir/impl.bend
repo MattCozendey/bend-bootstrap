@@ -911,7 +911,8 @@ def Cir.module(prog: Cir.Stmt, regs: Nat, +cells: List<&2, Cir.Cell>) -> Wa.Wasm
 # the host runs it (see Host): the memory of the module's minimum, when the host
 # allows that many pages; the input after the cells, when alloc can make
 # room for it; then the program, from the first cell after the input, until
-# it halts: with 0, its bytes; with 1, out of memory; with 2, no result.
+# it halts: with 0, its bytes, when they fit in the memory; with 1, out of
+# memory; with 2, no result.
 
 # the cells cs, from the cell i on
 def Cir.load(cs: List<&2, Cir.Cell>, +i: U32, m: Cir.Cells) -> Cir.Cells:
@@ -921,10 +922,19 @@ def Cir.load(cs: List<&2, Cir.Cell>, +i: U32, m: Cir.Cells) -> Cir.Cells:
     case Con{c, rest}:
       Cir.load(rest, U32.inc(i), Cir.Cells.set(m, i, c))
 
-def Cir.ended.halt(zero: Bool, one: Bool, two: Bool, out: List<&2, Word(8n)>) -> Wa.Wasm.Outcome:
+# the output, as the host reads it (Wasm.run.output.if): its bytes when they
+# fit in the memory, else a trap
+def Cir.ended.output(fits: Bool, out: List<&2, Word(8n)>) -> Wa.Wasm.Outcome:
+  match fits:
+    case True{}:
+      Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)}
+    case False{}:
+      Wa.Wasm.Outcome.trap{}
+
+def Cir.ended.halt(zero: Bool, one: Bool, two: Bool, fits: Bool, out: List<&2, Word(8n)>) -> Wa.Wasm.Outcome:
   match zero one two:
     case True{} _ _:
-      Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)}
+      Cir.ended.output(fits, out)
     case False{} True{} _:
       Wa.Wasm.Outcome.out_of_memory{}
     case False{} False{} True{}:
@@ -933,13 +943,14 @@ def Cir.ended.halt(zero: Bool, one: Bool, two: Bool, out: List<&2, Word(8n)>) ->
       Wa.Wasm.Outcome.trap{}
 
 # how a run ends, by how its program ended; past its end, run gives the
-# status 2
+# status 2. At halt 0, the host checks that the output, its outn bytes at
+# byte 20 × next, fits in the memory's pages (Wasm.run.output.n)
 def Cir.ended(r: Cir.Out) -> Wa.Wasm.Outcome:
   match r:
     case Cir.Out.next{_}:
       Wa.Wasm.Outcome.no_result{}
-    case Cir.Out.halt{+s, Cir.State{_, _, _, _, _, _, _, _, out, _}}:
-      Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out)
+    case Cir.Out.halt{+s, Cir.State{_, _, next, _, _, pages, _, _, out, outn}}:
+      Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pages, Cir.at(next), outn), out)
     case Cir.Out.out_of_memory{}:
       Wa.Wasm.Outcome.out_of_memory{}
     case Cir.Out.trap{}:

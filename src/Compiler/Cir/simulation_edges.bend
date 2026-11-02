@@ -8,9 +8,9 @@
 #    Cir.room pass), and so does the model's store8 since Wasm.fits takes an
 #    end of exactly 2^32 in 65536 pages: the two agree.
 # 2. A halt 0 with no output while the cells end past the memory (no cell
-#    taken yet, the input's end just below a page's end): Cir gives
-#    result{[]}, but the host's check of the output's place fails (trap). A
-#    run of Mach.code never halts so (see the report of layer A).
+#    taken yet, the input's end just below a page's end): the host's check of
+#    the output's place fails (trap), and Cir.ended makes the same check, so
+#    it gives a trap too: the two agree.
 
 import Base
 import ../../Wasm/impl.bend as Wa
@@ -43,7 +43,7 @@ def gap.halt.first() -> {Cr.Cir.first(0, U32.add(Cr.Cir.input.at(0), 65516)) == 
 def gap.halt.wasm() -> {Wa.Wasm.fits(1, Cr.Cir.at(3277), 0) == False{} : Bool}:
   {==}
 
-# 2: and Cir gives result{[]} for halt{0}
+# 2: and Cir gives a trap for halt{0}
 def gap.halt.cir() -> {Cr.Cir.ended(Cr.Cir.Out.halt{0, Cr.Cir.State{[], Cr.Cir.Cells.none{}, 3277, 3277, 0, 1, 65536, [], [], 0}}) ==
-  Wa.Wasm.Outcome.result{[]} : Wa.Wasm.Outcome}:
+  Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}:
   {==}

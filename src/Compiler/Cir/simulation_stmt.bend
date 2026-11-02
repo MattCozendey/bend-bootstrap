@@ -7,7 +7,7 @@
 #   next{st2}  it reaches the code K, with the labels ls again, an empty
 #              stack and a state that holds st2;
 #   halt{s}    it ends run with the results [s], with a memory from which
-#              the host reads Cir's outcome (HaltOK);
+#              the host reads what Cir.ended says (HaltOK);
 #   out_of_memory  it ends run with [1];
 #   trap, not_done  nothing.
 #
@@ -54,12 +54,10 @@ def Cf(+X: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +a: U32, +n: U
 # -----
 
 # the outcome that the host reads at the end of run, for the status s0: what
-# Cir.ended says, unless the output is empty and the cells end past the
-# memory of pg pages (the host's check of the output's place then fails)
-def HaltOK(+s0: U32, +nx: U32, +pg: U32, +ou: List<&2, Word(8n)>, +mem: Wa.Wasm.Memory) -> Data:
-  Either<&2, &2, {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mem) ==
-    Cr.Cir.ended.halt(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), ou) : Wa.Wasm.Outcome},
-    S.P2({ou == Nil{} : List<&2, Word(8n)>}, N.Le(1n+Q.PB(pg), PH.H.t20(U32.to_nat(nx))))>
+# Cir.ended says, of the output ou of on bytes at 20 × nx in pg pages
+def HaltOK(+s0: U32, +nx: U32, +pg: U32, +on: U32, +ou: List<&2, Word(8n)>, +mem: Wa.Wasm.Memory) -> Data:
+  {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mem) ==
+    Cr.Cir.ended.halt(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), on), ou) : Wa.Wasm.Outcome}
 
 def SPost.next(st2: Cr.Cir.State, +X: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +K: List<&2, Wa.Wasm.Instr>, +ls1: List<&2, Wa.Wasm.Label>,
   +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes,
@@ -74,9 +72,9 @@ def SPost.next(st2: Cr.Cir.State, +X: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.
 def SPost.halt(+s0: U32, st2: Cr.Cir.State, +X: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>,
   +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes) -> Data:
   match st2:
-    case Cr.Cir.State{_, _, +nx2, _, _, +pg2, _, _, +ou2, _}:
+    case Cr.Cir.State{_, _, +nx2, _, _, +pg2, _, _, +ou2, +on2}:
       S.EX(N2 => EXM(mm => S.P2({PH.H.steps(N2, Cf(X, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)) ==
-        Wa.Wasm.Step.done{[s0], mm} : Wa.Wasm.Step}, HaltOK(s0, nx2, pg2, ou2, mm))))
+        Wa.Wasm.Step.done{[s0], mm} : Wa.Wasm.Step}, HaltOK(s0, nx2, pg2, on2, ou2, mm))))
 
 # what the code X does in the labels ls, from a state that holds st, when
 # Cir.exec gives o; a next state is at the code K in the labels ls1
@@ -665,8 +663,8 @@ def exit.steps(+j: Nat, +ls2: List<&2, Wa.Wasm.Label>, +hj: {List.drop(&2, Wa.Wa
   {==}
 
 # a status other than 0 needs no output
-def status.nz(b1: Bool, b2: Bool, +mem: Wa.Wasm.Memory, +ou: List<&2, Word(8n)>) ->
-  {Wa.Wasm.run.status(False{}, b1, b2, mem) == Cr.Cir.ended.halt(False{}, b1, b2, ou) : Wa.Wasm.Outcome}:
+def status.nz(b1: Bool, b2: Bool, +mem: Wa.Wasm.Memory, +f: Bool, +ou: List<&2, Word(8n)>) ->
+  {Wa.Wasm.run.status(False{}, b1, b2, mem) == Cr.Cir.ended.halt(False{}, b1, b2, f, ou) : Wa.Wasm.Outcome}:
   match b1 b2:
     case True{} _:
       {==}
@@ -675,16 +673,35 @@ def status.nz(b1: Bool, b2: Bool, +mem: Wa.Wasm.Memory, +ou: List<&2, Word(8n)>)
     case False{} False{}:
       {==}
 
-# the host reads the output, at 20 × next, of on bytes
+# the host reads the output at A0, of on bytes, when it fits: what Cir.ended
+# says
+def hok.if(b: Bool, +m2: Wa.Wasm.Bytes, +A0: U32, +on: U32, +ou: List<&2, Word(8n)>,
+  rb: {Q.RB(U32.to_nat(on), m2, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}) ->
+  {Wa.Wasm.run.output.if(b, m2, A0, on) == Cr.Cir.ended.output(b, ou) : Wa.Wasm.Outcome}:
+  match b:
+    case True{}:
+      Equal.cong(List<&2, Word(8n)>, Wa.Wasm.Outcome, l => Wa.Wasm.Outcome.result{l}, Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0),
+        List.reverse(&2, Word(8n), ou),
+        Equal.trans(List<&2, Word(8n)>, Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0), Q.RB(U32.to_nat(on), m2, A0), List.reverse(&2, Word(8n), ou),
+          F.rb.read(U32.to_nat(on), m2, A0), rb))
+    case False{}:
+      {==}
+
+# the host reads the output from the address A0 at byte 0, of the length on
+# at byte 4
 def hok.fin(+pg: U32, +lm: U32, +m2: Wa.Wasm.Bytes, +A0: U32, +on: U32, +ou: List<&2, Word(8n)>,
   f8: {Wa.Wasm.fits(pg, 0, 8) == True{} : Bool}, v0: {Y.V32(m2, 0) == A0 : U32}, v4: {Y.V32(m2, 4) == on : U32},
-  fo: {Wa.Wasm.fits(pg, A0, on) == True{} : Bool}, rb: {Q.RB(U32.to_nat(on), m2, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}) ->
-  {Wa.Wasm.run.output(Wa.Wasm.Memory{pg, lm, [], m2}) == Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), ou)} : Wa.Wasm.Outcome}:
-  Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run.output(Wa.Wasm.Memory{pg, lm, [], m2}), Wa.Wasm.Outcome.result{Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0)},
-    Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), ou)}, F.out.ok(pg, lm, m2, A0, on, f8, v0, v4, fo),
-    Equal.cong(List<&2, Word(8n)>, Wa.Wasm.Outcome, l => Wa.Wasm.Outcome.result{l}, Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0), List.reverse(&2, Word(8n), ou),
-      Equal.trans(List<&2, Word(8n)>, Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0), Q.RB(U32.to_nat(on), m2, A0), List.reverse(&2, Word(8n), ou),
-        F.rb.read(U32.to_nat(on), m2, A0), rb)))
+  rb: {Q.RB(U32.to_nat(on), m2, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}) ->
+  {Wa.Wasm.run.output(Wa.Wasm.Memory{pg, lm, [], m2}) == Cr.Cir.ended.output(Wa.Wasm.fits(pg, A0, on), ou) : Wa.Wasm.Outcome}:
+  +R = Cr.Cir.ended.output(Wa.Wasm.fits(pg, A0, on), ou)
+  %Equal.sym(Bool, Wa.Wasm.fits(pg, 0, 8), True{}, f8) : {Wa.Wasm.run.output.at(_, pg, m2) == R : Wa.Wasm.Outcome}
+  %Equal.sym(Wa.Wasm.Peek<U32>, Wa.Wasm.read32(m2, 0), Wa.Wasm.Peek{Y.V32(m2, 0), m2}, Y.read32.eq(m2, 0)) :
+    {Wa.Wasm.run.output.a(pg, _) == R : Wa.Wasm.Outcome}
+  %Equal.sym(U32, Y.V32(m2, 0), A0, v0) : {Wa.Wasm.run.output.n(pg, _, Wa.Wasm.read32(m2, 4)) == R : Wa.Wasm.Outcome}
+  %Equal.sym(Wa.Wasm.Peek<U32>, Wa.Wasm.read32(m2, 4), Wa.Wasm.Peek{Y.V32(m2, 4), m2}, Y.read32.eq(m2, 4)) :
+    {Wa.Wasm.run.output.n(pg, A0, _) == R : Wa.Wasm.Outcome}
+  %Equal.sym(U32, Y.V32(m2, 4), on, v4) : {Wa.Wasm.run.output.if(Wa.Wasm.fits(pg, A0, _), m2, A0, _) == R : Wa.Wasm.Outcome}
+  hok.if(Wa.Wasm.fits(pg, A0, on), m2, A0, on, ou, rb)
 
 # the output after the writes of its place at bytes 0 to 7
 def hok.rb(+m: Wa.Wasm.Bytes, +A0: U32, +on: U32, +X: Nat, +ex: {U32.to_nat(A0) == X : Nat}, +ou: List<&2, Word(8n)>,
@@ -700,71 +717,35 @@ def hok.rb(+m: Wa.Wasm.Bytes, +A0: U32, +on: U32, +X: Nat, +ex: {U32.to_nat(A0) 
     Equal.trans(List<&2, Word(8n)>, Q.RB(ON, m1, A0), Q.RB(ON, m, A0), List.reverse(&2, Word(8n), ou),
       F.RB.w32(ON, m, 0, A0, A0, X, ex, W, hW, N.le_trans(4n, 16n, W, Unit{}, h16), hx, Inr{N.le_trans(4n, 8n, X, Unit{}, h8)}), ro))
 
-# no output: the host reads it when the cells end within the memory
-def hok.z(b: Bool, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes, +nx: U32, +on: U32, +ou: List<&2, Word(8n)>, +X: Nat,
-  +ex: {U32.to_nat(Cr.Cir.at(nx)) == X : Nat}, +eX: {X == PH.H.t20(U32.to_nat(nx)) : Nat}, +eb: {Nat.is_le(X, Q.PB(pg)) == b : Bool},
-  +eon: {U32.to_nat(on) == 0n : Nat}, +f8: {Wa.Wasm.fits(pg, 0, 8) == True{} : Bool},
-  +v0: {Y.V32(Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on), 0) == Cr.Cir.at(nx) : U32},
-  +v4: {Y.V32(Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on), 4) == on : U32},
-  +h20: N.Le(20n, X), +rb: {Q.RB(U32.to_nat(on), Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on), Cr.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>},
-  +ro: {Q.RB(U32.to_nat(on), m, Cr.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}) ->
-  HaltOK(0, nx, pg, ou, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on)}):
-  match b:
-    case True{}:
-      +A0 = Cr.Cir.at(nx)
-      +m2 = Wa.Wasm.write32(Wa.Wasm.write32(m, 0, A0), 4, on)
-      +e0 = Equal.trans(U32, on, U32.from_nat(U32.to_nat(on)), 0, Equal.sym(U32, U32.from_nat(U32.to_nat(on)), on, Z.from.to(on)),
-        Equal.cong(Nat, U32, z => U32.from_nat(z), U32.to_nat(on), 0n, eon))
-      +f0 = F.fits0(pg, A0, N.le_rw_l(1n, 1n, U32.to_nat(A0), {==}, N.le_rw_r(1n, X, U32.to_nat(A0), Equal.sym(Nat, U32.to_nat(A0), X, ex), N.le_trans(1n, 20n, X, Unit{}, h20))),
-        N.le_rw_l(X, U32.to_nat(A0), Q.PB(pg), Equal.sym(Nat, U32.to_nat(A0), X, ex), N.toLe(X, Q.PB(pg), eb)))
-      +fo = {(%Equal.sym(U32, on, 0, e0) : {Wa.Wasm.fits(pg, A0, _) == True{} : Bool}; f0) : {Wa.Wasm.fits(pg, A0, on) == True{} : Bool}}
-      Inl{hok.fin(pg, lm, m2, A0, on, ou, f8, v0, v4, fo, rb)}
-    case False{}:
-      +A0 = Cr.Cir.at(nx)
-      +ro0 = {(%eon : {Q.RB(_, m, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}; ro) :
-        {Q.RB(0n, m, A0) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>}}
-      Inr{(F.rev.nil(ou, ro0), N.le_rw_r(1n+Q.PB(pg), X, PH.H.t20(U32.to_nat(nx)), eX, F.nle.lt(X, Q.PB(pg), eb)))}
-
-# the output of on bytes: the host reads it, unless it is empty and the cells
-# end past the memory
-def hok.on(ON: Nat, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes, +nx: U32, +on: U32, +ou: List<&2, Word(8n)>, +X: Nat,
+# the output of ON = on bytes at X = 20 × nx ends below 2^32: it is empty, or
+# it ends within the memory
+def hok.hx(ON: Nat, +pg: U32, +nx: U32, +on: U32, +X: Nat,
   +ex: {U32.to_nat(Cr.Cir.at(nx)) == X : Nat}, +eX: {X == PH.H.t20(U32.to_nat(nx)) : Nat}, +eon: {U32.to_nat(on) == ON : Nat},
-  +f8: {Wa.Wasm.fits(pg, 0, 8) == True{} : Bool},
-  +v0: {Y.V32(Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on), 0) == Cr.Cir.at(nx) : U32},
-  +v4: {Y.V32(Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on), 4) == on : U32},
-  +h20: N.Le(20n, X), +ro: {Q.RB(U32.to_nat(on), m, Cr.Cir.at(nx)) == List.reverse(&2, Word(8n), ou) : List<&2, Word(8n)>},
-  +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  +hxw: N.Le(1n+X, W), +hb: N.Le(1n+Q.PB(pg), W), +hof: Q.OF(ON, U32.to_nat(nx), Q.PB(pg))) ->
-  HaltOK(0, nx, pg, ou, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on)}):
+  +W: Nat, +hxw: N.Le(1n+X, W), +hb: N.Le(1n+Q.PB(pg), W), +hof: Q.OF(ON, U32.to_nat(nx), Q.PB(pg))) ->
+  N.Le(1n+Nat.add(U32.to_nat(on), X), W):
   match ON:
     case 0n:
-      +A0 = Cr.Cir.at(nx)
-      +hx = {(%Equal.sym(Nat, U32.to_nat(on), 0n, eon) : N.Le(1n+Nat.add(_, X), W); hxw) : N.Le(1n+Nat.add(U32.to_nat(on), X), W)}
-      hok.z(Nat.is_le(X, Q.PB(pg)), pg, lm, m, nx, on, ou, X, ex, eX, {==}, eon, f8, v0, v4, h20,
-        hok.rb(m, A0, on, X, ex, ou, P, hP, W, hW, N.le_trans(8n, 20n, X, Unit{}, h20), hx, ro), ro)
+      {(%Equal.sym(Nat, U32.to_nat(on), 0n, eon) : N.Le(1n+Nat.add(_, X), W); hxw) : N.Le(1n+Nat.add(U32.to_nat(on), X), W)}
     case 1n+q:
       +A0 = Cr.Cir.at(nx)
-      +m2 = Wa.Wasm.write32(Wa.Wasm.write32(m, 0, A0), 4, on)
       +hend = N.le_rw_l(Nat.add(PH.H.t20(U32.to_nat(nx)), 1n+q), Nat.add(U32.to_nat(A0), U32.to_nat(on)), Q.PB(pg),
         Equal.trans(Nat, Nat.add(PH.H.t20(U32.to_nat(nx)), 1n+q), Nat.add(X, 1n+q), Nat.add(U32.to_nat(A0), U32.to_nat(on)),
           Equal.cong(Nat, Nat, z => Nat.add(z, 1n+q), PH.H.t20(U32.to_nat(nx)), X, Equal.sym(Nat, X, PH.H.t20(U32.to_nat(nx)), eX)),
           Equal.trans(Nat, Nat.add(X, 1n+q), Nat.add(U32.to_nat(A0), 1n+q), Nat.add(U32.to_nat(A0), U32.to_nat(on)),
             Equal.cong(Nat, Nat, z => Nat.add(z, 1n+q), X, U32.to_nat(A0), Equal.sym(Nat, U32.to_nat(A0), X, ex)),
             Equal.cong(Nat, Nat, z => Nat.add(U32.to_nat(A0), z), 1n+q, U32.to_nat(on), Equal.sym(Nat, U32.to_nat(on), 1n+q, eon)))), hof)
-      +hx = N.le_trans(1n+Nat.add(U32.to_nat(on), X), 1n+Q.PB(pg), W,
+      N.le_trans(1n+Nat.add(U32.to_nat(on), X), 1n+Q.PB(pg), W,
         N.le_rw_l(Nat.add(U32.to_nat(A0), U32.to_nat(on)), Nat.add(U32.to_nat(on), X), Q.PB(pg),
           Equal.trans(Nat, Nat.add(U32.to_nat(A0), U32.to_nat(on)), Nat.add(X, U32.to_nat(on)), Nat.add(U32.to_nat(on), X),
             Equal.cong(Nat, Nat, z => Nat.add(z, U32.to_nat(on)), U32.to_nat(A0), X, ex), Z.add.comm(X, U32.to_nat(on))), hend), hb)
-      +fo = F.fits.ok(pg, A0, on, W, hW, N.le_rw_r(1n, 1n+q, U32.to_nat(on), Equal.sym(Nat, U32.to_nat(on), 1n+q, eon), N.le_zero(q)), hend, hb)
-      Inl{hok.fin(pg, lm, m2, A0, on, ou, f8, v0, v4, fo, hok.rb(m, A0, on, X, ex, ou, P, hP, W, hW, N.le_trans(8n, 20n, X, Unit{}, h20), hx, ro))}
 
-# a halt with the status 0: the host reads the output, as Cir says, unless
-# it is empty and the cells end past the memory
+# a halt with the status 0: the host reads the output as Cir.ended says, or
+# traps where it says so
 def haltok0(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
   +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: Wa.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat},
   +hG: {N.D(16n, G) == W : Nat}) ->
-  HaltOK(0, nx, pg, ou, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on)}):
+  HaltOK(0, nx, pg, on, ou, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write32(Wa.Wasm.write32(m, 0, Cr.Cir.at(nx)), 4, on)}):
   +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
   +NX = U32.to_nat(nx)
   +X = PH.H.t20(NX)
@@ -777,9 +758,11 @@ def haltok0(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +fi
   +f8 = F.fits.ok(pg, 0, 8, W, hW, Unit{}, N.le_trans(8n, 20n, Q.PB(pg), Unit{}, F.b.pb20(P, G, a, nx, fi, im, pg, lm, inp, on, hB)), hb)
   +v0 = Equal.trans(U32, Y.V32(m2, 0), Y.V32(m1, 0), A0, Y.V32.out32(m1, 4, on, 0, F.d04()), Y.V32.same(m, 0, A0))
   +v4 = Y.V32.same(m1, 4, on)
-  hok.on(U32.to_nat(on), pg, lm, m, nx, on, ou, X, ex, {==}, {==}, f8, v0, v4, h20,
-    Q.inv.out(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI), P, hP, W, hW,
-    F.b.xw(G, a, nx, fi, im, pg, lm, inp, on, P, hP, W, hW, hB), hb, Q.b.of(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
+  +hx = hok.hx(U32.to_nat(on), pg, nx, on, X, ex, {==}, {==}, W, F.b.xw(G, a, nx, fi, im, pg, lm, inp, on, P, hP, W, hW, hB), hb,
+    Q.b.of(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
+  hok.fin(pg, lm, m2, A0, on, ou, f8, v0, v4,
+    hok.rb(m, A0, on, X, ex, ou, P, hP, W, hW, N.le_trans(8n, 20n, X, Unit{}, h20), hx,
+      Q.inv.out(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)))
 
 # halt{s0}, by the code of its result (z = s0 is 0)
 def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32,
@@ -801,11 +784,11 @@ def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +
       +C0 = Cf(X, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m)
       +C1 = Q.Cfg(BR, LS, [], L1, Wa.Wasm.Memory{pg, lm, [], m})
       +mm = {Wa.Wasm.Memory{pg, lm, [], m} : Wa.Wasm.Memory}
+      +fo = Wa.Wasm.fits(pg, Cr.Cir.at(nx), on)
       +ok = {(%Equal.sym(Bool, U32.is_zero(s0), False{}, ez) :
-          {Wa.Wasm.run.status(_, U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == Cr.Cir.ended.halt(_, U32.is_eq(s0, 1), U32.is_eq(s0, 2), ou) : Wa.Wasm.Outcome};
-          status.nz(U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm, ou)) :
-        {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == Cr.Cir.ended.halt(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), ou) : Wa.Wasm.Outcome}}
-      (6n, (mm, (S.steps.then(3n, 3n, C0, C1, Wa.Wasm.Step.done{[s0], mm}, {==}, exit.steps(1n+d, LS, hL, ej, L1, mm)), Inl{ok})))
+          {Wa.Wasm.run.status(_, U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == Cr.Cir.ended.halt(_, U32.is_eq(s0, 1), U32.is_eq(s0, 2), fo, ou) : Wa.Wasm.Outcome};
+          status.nz(U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm, fo, ou)) : HaltOK(s0, nx, pg, on, ou, mm)}
+      (6n, (mm, (S.steps.then(3n, 3n, C0, C1, Wa.Wasm.Step.done{[s0], mm}, {==}, exit.steps(1n+d, LS, hL, ej, L1, mm)), ok)))
     case True{}:
       +ej = M.tofrom(1n+d, MD, N.le_trans(1n+d, Nat.add(d, 2n), U32.to_nat(MD), N.lt_add(d, 1n), hd))
       +LS = {Con{Wa.Wasm.Label{0n, None{}, K, 0n}, ls} : List<&2, Wa.Wasm.Label>}
@@ -839,8 +822,8 @@ def halt.z(z: Bool, +s0: U32, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +
       +e25 = S.steps.then(1n, 6n, C1, C2, Wa.Wasm.Step.done{[s0], mm}, e2, e35)
       +e15 = S.steps.then(12n, 7n, C0, C1, Wa.Wasm.Step.done{[s0], mm}, e1, e25)
       +es0 = Y.U32.eq(s0, 0, ez)
-      +ok = {(%Equal.sym(U32, s0, 0, es0) : HaltOK(_, nx, pg, ou, mm);
-          haltok0(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI, W, hW, hP, hG)) : HaltOK(s0, nx, pg, ou, mm)}
+      +ok = {(%Equal.sym(U32, s0, 0, es0) : HaltOK(_, nx, pg, on, ou, mm);
+          haltok0(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI, W, hW, hP, hG)) : HaltOK(s0, nx, pg, on, ou, mm)}
       (19n, (mm, (e15, ok)))
 
 # halt{s}
