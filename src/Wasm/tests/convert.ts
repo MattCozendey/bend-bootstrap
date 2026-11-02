@@ -41,7 +41,7 @@ const TESTS = [
   "exports", "names", "unreached-invalid",
 ];
 const OWN = ["stores", "loads", "branches", "invalid", "results", "encodings"];
-const HOST = ["cases"];
+const HOST = ["cases", "init", "nomemory"];
 const HERE = import.meta.dir;
 const DUNE_LANG = "(lang dune 3.14)\n";
 
