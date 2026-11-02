@@ -45,7 +45,7 @@ def done.mem(st: Wa.Wasm.Step) -> Wa.Wasm.Memory:
     case Wa.Wasm.Step.done{_, m}:
       m
     case _:
-      Wa.Wasm.Memory{0, 0, Wa.Wasm.Bytes.zero{}}
+      Wa.Wasm.Memory{0, 0, [], Wa.Wasm.Bytes.zero{}}
 
 # a running frame is not done
 def next.not_done(-fr: Wa.Wasm.Frame, -m: Wa.Wasm.Memory, -rs: List<&2, U32>, -m2: Wa.Wasm.Memory,

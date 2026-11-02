@@ -611,21 +611,21 @@ def RC.w8(q: Nat, +m: Wa.Wasm.Bytes, +x: U32, +b: Word(8n), +c: U32, +Cn: Nat, +
 # a store of a word inside the memory
 def store.step(+o: U32, +x: U32, +v: U32, +k: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +stk: List<&2, U32>,
   +loc: List<&2, U32>, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes, hin: {Wa.Wasm.inside(pg, x, o, 4) == True{} : Bool}) ->
-  {PH.H.steps(1n, Q.Cfg(Con{Wa.Wasm.Instr.store{o}, k}, ls, Con{v, Con{x, stk}}, loc, Wa.Wasm.Memory{pg, lm, m})) ==
-    Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write32(m, U32.add(x, o), v)}) : Wa.Wasm.Step}:
+  {PH.H.steps(1n, Q.Cfg(Con{Wa.Wasm.Instr.store{o}, k}, ls, Con{v, Con{x, stk}}, loc, Wa.Wasm.Memory{pg, lm, [], m})) ==
+    Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write32(m, U32.add(x, o), v)}) : Wa.Wasm.Step}:
   %Equal.sym(Bool, Wa.Wasm.inside(pg, x, o, 4), True{}, hin) :
-    {Wa.Wasm.step.stored(_, U32.is_eq(4, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, Wa.Wasm.Memory{pg, lm, m}) ==
-      Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write32(m, U32.add(x, o), v)}) : Wa.Wasm.Step}
+    {Wa.Wasm.step.stored(_, U32.is_eq(4, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, Wa.Wasm.Memory{pg, lm, [], m}) ==
+      Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write32(m, U32.add(x, o), v)}) : Wa.Wasm.Step}
   {==}
 
 # a store of a byte inside the memory
 def store8.step(+o: U32, +x: U32, +v: U32, +k: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +stk: List<&2, U32>,
   +loc: List<&2, U32>, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes, hin: {Wa.Wasm.inside(pg, x, o, 1) == True{} : Bool}) ->
-  {PH.H.steps(1n, Q.Cfg(Con{Wa.Wasm.Instr.store8{o}, k}, ls, Con{v, Con{x, stk}}, loc, Wa.Wasm.Memory{pg, lm, m})) ==
-    Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write8(m, U32.add(x, o), Sd.Byte.from_u32(v))}) : Wa.Wasm.Step}:
+  {PH.H.steps(1n, Q.Cfg(Con{Wa.Wasm.Instr.store8{o}, k}, ls, Con{v, Con{x, stk}}, loc, Wa.Wasm.Memory{pg, lm, [], m})) ==
+    Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write8(m, U32.add(x, o), Sd.Byte.from_u32(v))}) : Wa.Wasm.Step}:
   %Equal.sym(Bool, Wa.Wasm.inside(pg, x, o, 1), True{}, hin) :
-    {Wa.Wasm.step.stored(_, U32.is_eq(1, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, Wa.Wasm.Memory{pg, lm, m}) ==
-      Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, Wa.Wasm.write8(m, U32.add(x, o), Sd.Byte.from_u32(v))}) : Wa.Wasm.Step}
+    {Wa.Wasm.step.stored(_, U32.is_eq(1, 4), U32.add(x, o), v, k, ls, 1n, stk, loc, Wa.Wasm.Memory{pg, lm, [], m}) ==
+      Q.Cfg(k, ls, stk, loc, Wa.Wasm.Memory{pg, lm, [], Wa.Wasm.write8(m, U32.add(x, o), Sd.Byte.from_u32(v))}) : Wa.Wasm.Step}
   {==}
 
 # Bytes that fit
@@ -705,7 +705,7 @@ def rb.read(q: Nat, +m: Wa.Wasm.Bytes, +x: U32) -> {Wa.Wasm.read.bytes(q, m, x) 
 def out.ok(+pg: U32, +lm: U32, +m2: Wa.Wasm.Bytes, +A0: U32, +on: U32,
   f8: {Wa.Wasm.fits(pg, 0, 8) == True{} : Bool}, v0: {Y.V32(m2, 0) == A0 : U32}, v4: {Y.V32(m2, 4) == on : U32},
   fo: {Wa.Wasm.fits(pg, A0, on) == True{} : Bool}) ->
-  {Wa.Wasm.run.output(Wa.Wasm.Memory{pg, lm, m2}) == Wa.Wasm.Outcome.result{Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0)} : Wa.Wasm.Outcome}:
+  {Wa.Wasm.run.output(Wa.Wasm.Memory{pg, lm, [], m2}) == Wa.Wasm.Outcome.result{Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0)} : Wa.Wasm.Outcome}:
   +R = {Wa.Wasm.Outcome.result{Wa.Wasm.read.bytes(U32.to_nat(on), m2, A0)} : Wa.Wasm.Outcome}
   %Equal.sym(Bool, Wa.Wasm.fits(pg, 0, 8), True{}, f8) : {Wa.Wasm.run.output.at(_, pg, m2) == R : Wa.Wasm.Outcome}
   %Equal.sym(Wa.Wasm.Peek<U32>, Wa.Wasm.read32(m2, 0), Wa.Wasm.Peek{Y.V32(m2, 0), m2}, Y.read32.eq(m2, 0)) :

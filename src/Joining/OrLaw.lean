@@ -201,7 +201,7 @@ theorem live_args (hk : Book.get B k = some d) (h : ∀ a ∈ xs, Term.Live B a.
   simp [Term.Live, Term.live, called, unspine, hj, index_lt hj]
 
 theorem typed_wasm (hB : Trusted B) (cl : Book.Closed B) :
-    Typed B [] (wasmOf f (compileOf p) i m) (Ref (impl "Wasm.Outcome")) := by
+    Typed B [] (wasmOf f (compileOf p) i m gs L) (Ref (impl "Wasm.Outcome")) := by
   have hT := hB.types
   have h1 := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion]))
   have h2 := Typed.ref (Γ := []) (σ := Var) (hB.get (d := «trustedVersion.Compiler.compile») (by simp [trustedVersion]))
@@ -210,7 +210,7 @@ theorem typed_wasm (hB : Trusted B) (cl : Book.Closed B) :
   have hc := Typed.app h2 (typed_bytes hT cl (bs := p))
   simp [Term.inst, Term.sub, Subst.one] at hc
   have := Typed.app (Typed.app (Typed.app (Typed.app h1 (typed_nat hT cl (n := f))) hc)
-    (typed_bytes hT cl (bs := i))) (typed_u32' hT cl (m := m))
+    (typed_bytes hT cl (bs := i))) (typed_engine hB cl (m := m) (gs := gs) (L := L))
   simpa [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, wasmOf, compileOf, spine] using this
 
 theorem typed_outcome (hB : Trusted B) : Typed B [] (Ref (impl "Wasm.Outcome")) T2 := by
@@ -219,7 +219,7 @@ theorem typed_outcome (hB : Trusted B) : Typed B [] (Ref (impl "Wasm.Outcome")) 
 
 theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
     (hg : Runs B (givesOf p i n) (Form.some (bytes o))) :
-    ∃ f, Runs B (wasmOf f (compileOf p) i m) (resultOf o) ∨ Runs B (wasmOf f (compileOf p) i m) outOfMemory := by
+    ∃ f, Runs B (wasmOf f (compileOf p) i m gs L) (resultOf o) ∨ Runs B (wasmOf f (compileOf p) i m gs L) outOfMemory := by
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
@@ -227,20 +227,20 @@ theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
   simp [Rename.term, «trustedVersion.Compiler_2f_spec.no_other_failure»] at h0
   have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_bytes hT cl (bs := p)))
     (typed_bytes hT cl (bs := i))) (typed_nat hT cl (n := n))) (typed_bytes hT cl (bs := o)))
-    (typed_u32' hT cl (m := m))
+    (typed_engine hB cl (m := m) (gs := gs) (L := L))
   simp [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren] at h1
   have hg' : Runs B (App Q1 (App Q1 (App Q1 (Ref (impl "Program.gives")) (bytes p)) (bytes i)) (Form.nat n))
       (Tup Q1 (Lab "Some") (Tup Q1 (bytes o) (Lab "()"))) := hg
   have h2 := Typed.app h1 (runs_rfl hc hg' (T := maybeList))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes, sub_nat, ren_nat,
-    sub_u32, ren_u32] at h2
+    sub_engine, ren_engine] at h2
   obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.Compiler_2f_spec.no_other_failure» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
     have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
     simpa [sub_var, «evalVersion.Nat»] using this
-  have pa : ∀ a ∈ [(Q2, bytes p), (Q2, bytes i), (Q2, Form.nat n), (Q2, bytes o), (Q2, Form.u32 m),
+  have pa : ∀ a ∈ [(Q2, bytes p), (Q2, bytes i), (Q2, Form.nat n), (Q2, bytes o), (Q2, engineOf m gs L),
       (Q1, Rfl)], Plain a.2 := by
-    simp [plain_nat, plain_bytes, plain_u32, Plain.rfl]
+    simp [plain_nat, plain_bytes, plain_engine, Plain.rfl]
   obtain ⟨w, dw, tw, cw⟩ := exists_or_conv hc hB.exists_ hB.ors (closed_call pa) (live_call' hd pa) h2 hN
   obtain ⟨f, rfl⟩ := canon_nat wt hT cl (data_value dw) tw
   have hk : Book.get B (impl "Wasm.run") = _ := hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion])
@@ -248,15 +248,15 @@ theorem law_no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
     hB.get (d := «trustedVersion.Compiler.compile») (by simp [trustedVersion])
   have pc : Term.Closed (compileOf p) := closed_call (xs := [(Q2, bytes p)]) (by simp [plain_bytes])
   have lc : Term.Live B (compileOf p) := live_call' (xs := [(Q2, bytes p)]) hcmp (by simp [plain_bytes])
-  have cw' : Term.Closed (wasmOf f (compileOf p) i m) :=
-    closed_spine.2 ⟨fun _ => rfl, by simp [plain_nat.closed, pc, plain_bytes.closed, plain_u32.closed]⟩
-  have lw : Term.Live B (wasmOf f (compileOf p) i m) :=
+  have cw' : Term.Closed (wasmOf f (compileOf p) i m gs L) :=
+    closed_spine.2 ⟨fun _ => rfl, by simp [plain_nat.closed, pc, plain_bytes.closed, plain_engine.closed]⟩
+  have lw : Term.Live B (wasmOf f (compileOf p) i m gs L) :=
     live_args hk (fun a ha => by
       simp only [wasmOf, List.mem_cons, List.not_mem_nil, or_false] at ha
       rcases ha with rfl | rfl | rfl | rfl <;>
-        first | exact lc | exact plain_nat.live | exact plain_bytes.live | exact plain_u32.live)
+        first | exact lc | exact plain_nat.live | exact plain_bytes.live | exact plain_engine.live)
   refine ⟨f, ?_⟩
-  simp only [Term.inst, Term.sub, Subst.one, sub_bytes, sub_u32, sub_nat] at cw
+  simp only [Term.inst, Term.sub, Subst.one, sub_bytes, sub_engine, sub_nat] at cw
   rcases cw with c | c
   · exact .inl (conv_runs hc cw' lw (typed_wasm hB cl) (typed_outcome hB)
       (plain_ctor (by simp [plain_bytes])) c)
@@ -267,17 +267,23 @@ def bigOf (p i : List UInt8) (n : Nat) (m : UInt32) : Term :=
   App Q1 (App Q1 (Ref (impl "Nat.is_le")) (spine (Ref (impl "Program.need")) [(Q2, bytes p), (Q1, bytes i),
     (Q1, Form.nat n)])) (App Q1 (Ref (impl "Program.memory")) (Form.u32 m))
 
+-- Nat.is_le(List.length(Compiler.compile(p)), L)
+def fitsOf (p : List UInt8) (L : Nat) : Term :=
+  App Q1 (App Q1 (Ref (impl "Nat.is_le")) (App Q1 (App Q0 (App Q0 (Ref (impl "List.length")) (Lab "Q2")) word8)
+    (compileOf p))) (Form.nat L)
+
 theorem law_enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)
-    (hg : Runs B (givesOf p i n) (Form.some (bytes o))) (hb : Runs B (bigOf p i n m) (Form.bool true)) :
-    ∃ f, Runs B (wasmOf f (compileOf p) i m) (resultOf o) := by
+    (hg : Runs B (givesOf p i n) (Form.some (bytes o))) (hb : Runs B (bigOf p i n m) (Form.bool true))
+    (hl : Runs B (fitsOf p L) (Form.bool true)) :
+    ∃ f, Runs B (wasmOf f (compileOf p) i m [] L) (resultOf o) := by
   have hT := hB.types
   have ⟨wt, lv⟩ := book_check B hc
   have cl := lv.1
   have h0 := hB.law (l := «trustedVersion.Compiler_2f_spec.enough_memory») (by simp [laws])
   simp [Rename.term, «trustedVersion.Compiler_2f_spec.enough_memory»] at h0
-  have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_bytes hT cl (bs := p)))
+  have h1 := Typed.app (Typed.app (Typed.app (Typed.app (Typed.app (Typed.app h0 (typed_bytes hT cl (bs := p)))
     (typed_bytes hT cl (bs := i))) (typed_nat hT cl (n := n))) (typed_bytes hT cl (bs := o)))
-    (typed_u32' hT cl (m := m))
+    (typed_u32' hT cl (m := m))) (typed_nat hT cl (n := L))
   simp [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren] at h1
   have hg' : Runs B (App Q1 (App Q1 (App Q1 (Ref (impl "Program.gives")) (bytes p)) (bytes i)) (Form.nat n))
       (Tup Q1 (Lab "Some") (Tup Q1 (bytes o) (Lab "()"))) := hg
@@ -290,26 +296,32 @@ theorem law_enough_memory (hc : Book.check B = .ok ()) (hB : Trusted B)
   have h3 := Typed.app h2 (runs_rfl hc hb' (T := Ref "Bool"))
   simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes, sub_nat, ren_nat,
     sub_u32, ren_u32] at h3
+  have hl' : Runs B (App Q1 (App Q1 (Ref (impl "Nat.is_le")) (App Q1 (App Q0 (App Q0 (Ref (impl "List.length")) (Lab "Q2"))
+      (App Q1 (Ref (impl "Word")) (Form.nat 8))) (App Q2 (Ref (impl "Compiler.compile")) (bytes p)))) (Form.nat L))
+      (Tup Q1 (Lab "True") (Lab "()")) := hl
+  have h4 := Typed.app h3 (runs_rfl hc hl' (T := Ref "Bool"))
+  simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren, sub_bytes, ren_bytes, sub_nat, ren_nat,
+    sub_u32, ren_u32] at h4
   obtain ⟨d, hd, -⟩ := hB.declares «trustedVersion.Compiler_2f_spec.enough_memory» (by simp [laws])
   have hN : Typed B [] (Ref "Nat") T2 := by
     have := Typed.ref (Γ := []) (σ := Var) (hT «evalVersion.Nat» (by simp [baseTypes]))
     simpa [sub_var, «evalVersion.Nat»] using this
   have pa : ∀ a ∈ [(Q2, bytes p), (Q2, bytes i), (Q2, Form.nat n), (Q2, bytes o), (Q2, Form.u32 m),
-      (Q1, Rfl), (Q1, Rfl)], Plain a.2 := by
+      (Q2, Form.nat L), (Q1, Rfl), (Q1, Rfl), (Q1, Rfl)], Plain a.2 := by
     simp [plain_nat, plain_bytes, plain_u32, Plain.rfl]
-  obtain ⟨w, dw, tw, cw⟩ := exists_conv hc hB.exists_ (closed_call pa) (live_call' hd pa) h3 hN
+  obtain ⟨w, dw, tw, cw⟩ := exists_conv hc hB.exists_ (closed_call pa) (live_call' hd pa) h4 hN
   obtain ⟨f, rfl⟩ := canon_nat wt hT cl (data_value dw) tw
   have hk : Book.get B (impl "Wasm.run") = _ := hB.get (d := «trustedVersion.Wasm.run») (by simp [trustedVersion])
   have hcmp : Book.get B (impl "Compiler.compile") = _ :=
     hB.get (d := «trustedVersion.Compiler.compile») (by simp [trustedVersion])
   have pc : Term.Closed (compileOf p) := closed_call (xs := [(Q2, bytes p)]) (by simp [plain_bytes])
   have lc : Term.Live B (compileOf p) := live_call' (xs := [(Q2, bytes p)]) hcmp (by simp [plain_bytes])
-  have cw' : Term.Closed (wasmOf f (compileOf p) i m) :=
-    closed_spine.2 ⟨fun _ => rfl, by simp [plain_nat.closed, pc, plain_bytes.closed, plain_u32.closed]⟩
-  have lw : Term.Live B (wasmOf f (compileOf p) i m) :=
+  have cw' : Term.Closed (wasmOf f (compileOf p) i m [] L) :=
+    closed_spine.2 ⟨fun _ => rfl, by simp [plain_nat.closed, pc, plain_bytes.closed, plain_engine.closed]⟩
+  have lw : Term.Live B (wasmOf f (compileOf p) i m [] L) :=
     live_args hk (fun a ha => by
       simp only [wasmOf, List.mem_cons, List.not_mem_nil, or_false] at ha
       rcases ha with rfl | rfl | rfl | rfl <;>
-        first | exact lc | exact plain_nat.live | exact plain_bytes.live | exact plain_u32.live)
+        first | exact lc | exact plain_nat.live | exact plain_bytes.live | exact plain_engine.live)
   simp only [Term.inst, Term.sub, Subst.one, sub_bytes, sub_u32, sub_nat] at cw
   exact ⟨f, conv_runs hc cw' lw (typed_wasm hB cl) (typed_outcome hB) (plain_ctor (by simp [plain_bytes])) cw⟩

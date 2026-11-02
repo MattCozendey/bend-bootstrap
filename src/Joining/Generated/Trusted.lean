@@ -14,22 +14,34 @@ def «trustedVersion.Wasm.Outcome» : Def :=
  "Wasm.Outcome.trap", "Wasm.Outcome.not_done"]) (Term.App Quan.Q1 (Term.Ref "Wasm.Outcome.arms") (Term.Var 0))),
     false⟩
 
-def «trustedVersion.Wasm.run» : Def :=
-  ⟨"Wasm.run",
-    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Ref "U32") (Term.Ref "Wasm.Outcome"))))),
-    (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run.made") (Term.Var 3)) (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.instantiate") (Term.Var 2)) (Term.Var 0))) (Term.Var 1)))))),
+def «trustedVersion.Wasm.Engine.arms» : Def :=
+  ⟨"Wasm.Engine.arms",
+    (Term.All Quan.Q1 (Term.Enu ["Wasm.Engine"]) (Term.Typ (Term.Lab "Q2"))),
+    (Term.Mat "Wasm.Engine" (Term.Sig Quan.Q1 (Term.Ref "U32") (Term.Sig Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.Ref "Bool")) (Term.Sig Quan.Q1 (Term.Ref "Nat") (Term.Enu ["()"])))) Term.Efq),
     false⟩
 
-def «trustedVersion.Compiler.compile» : Def :=
-  ⟨"Compiler.compile",
-    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8)))),
-    (Term.Lam Quan.Q2 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.compile.of") (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.module") (Term.Var 0)))) (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Img.small") (Term.Var 0)) (Term.Ref "U32.lit0"))) (Term.App Quan.Q1 (Term.Ref "Book.read") (Term.Var 0)))),
+def «trustedVersion.Wasm.Engine» : Def :=
+  ⟨"Wasm.Engine",
+    (Term.Typ (Term.Lab "Q2")),
+    (Term.Sig Quan.Q1 (Term.Enu ["Wasm.Engine"]) (Term.App Quan.Q1 (Term.Ref "Wasm.Engine.arms") (Term.Var 0))),
     false⟩
 
 def «trustedVersion.Nat.is_le» : Def :=
   ⟨"Nat.is_le",
     (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.Ref "Nat") (Term.Ref "Bool"))),
     (Term.Lam Quan.Q1 (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Cmp.is_le") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.cmp") (Term.Var 1)) (Term.Var 0))))),
+    false⟩
+
+def «trustedVersion.Wasm.run» : Def :=
+  ⟨"Wasm.run",
+    (Term.All Quan.Q1 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Ref "Wasm.Engine") (Term.Ref "Wasm.Outcome"))))),
+    (Term.Lam Quan.Q1 (Term.Lam Quan.Q2 (Term.Lam Quan.Q1 (Term.Prj (Term.Mat "Wasm.Engine" (Term.Prj (Term.Lam Quan.Q1 (Term.Prj (Term.Lam Quan.Q1 (Term.Prj (Term.Lam Quan.Q1 (Term.Mat "()" (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run.fits") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.is_le") (Term.App Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List.length") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.Var 4))) (Term.Var 0))) (Term.Var 5)) (Term.Var 4)) (Term.Var 3)) (Term.Var 2)) (Term.Var 1)) Term.Efq))))))) Term.Efq))))),
+    false⟩
+
+def «trustedVersion.Compiler.compile» : Def :=
+  ⟨"Compiler.compile",
+    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8)))),
+    (Term.Lam Quan.Q2 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.compile.of") (Term.Lam Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Compiler.module") (Term.Var 0)))) (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Img.small") (Term.Var 0)) (Term.Ref "U32.lit0"))) (Term.App Quan.Q1 (Term.Ref "Book.read") (Term.Var 0)))),
     false⟩
 
 def «trustedVersion.Either.arms» : Def :=
@@ -58,15 +70,15 @@ def «trustedVersion.main» : Def :=
 
 def «trustedVersion.Compiler_2f_spec.no_wrong_result» : String × Term :=
   ("Compiler_2f_spec.no_wrong_result",
-    (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "U32") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 4)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 3))) (Term.Var 2)) (Term.Var 1)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 0) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 5)) (Term.Var 4)) (Term.Var 0)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 2) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))))))))))))
+    (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Wasm.Engine") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 4)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 3))) (Term.Var 2)) (Term.Var 1)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 0) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 5)) (Term.Var 4)) (Term.Var 0)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 2) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))))))))))))
 
 def «trustedVersion.Compiler_2f_spec.no_other_failure» : String × Term :=
   ("Compiler_2f_spec.no_other_failure",
-    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 4)) (Term.Var 3)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 1) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Or") (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 6))) (Term.Var 5)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 3) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome"))) (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 6))) (Term.Var 5)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.out_of_memory") (Term.Lab "()")) (Term.Ref "Wasm.Outcome"))))))))))))
+    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Wasm.Engine") (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 4)) (Term.Var 3)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 1) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Or") (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 6))) (Term.Var 5)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 3) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome"))) (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 6))) (Term.Var 5)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.out_of_memory") (Term.Lab "()")) (Term.Ref "Wasm.Outcome"))))))))))))
 
 def «trustedVersion.Compiler_2f_spec.enough_memory» : String × Term :=
   ("Compiler_2f_spec.enough_memory",
-    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "U32") (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 4)) (Term.Var 3)) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 1) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))) (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.is_le") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q2 (Term.Ref "Program.need") (Term.Var 5)) (Term.Var 4)) (Term.Var 3))) (Term.App Quan.Q1 (Term.Ref "Program.memory") (Term.Var 1))) (Term.Tup Quan.Q1 (Term.Lab "True") (Term.Lab "()")) (Term.Ref "Bool")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 7))) (Term.Var 6)) (Term.Var 3)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 4) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome"))))))))))))
+    (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q2 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.All Quan.Q2 (Term.Ref "U32") (Term.All Quan.Q2 (Term.Ref "Nat") (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Program.gives") (Term.Var 5)) (Term.Var 4)) (Term.Var 3)) (Term.Tup Quan.Q1 (Term.Lab "Some") (Term.Tup Quan.Q1 (Term.Var 2) (Term.Lab "()"))) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Maybe") (Term.Lab "Q2")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))))) (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.is_le") (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q2 (Term.Ref "Program.need") (Term.Var 6)) (Term.Var 5)) (Term.Var 4))) (Term.App Quan.Q1 (Term.Ref "Program.memory") (Term.Var 2))) (Term.Tup Quan.Q1 (Term.Lab "True") (Term.Lab "()")) (Term.Ref "Bool")) (Term.All Quan.Q1 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.Ref "Nat.is_le") (Term.App Quan.Q1 (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "List.length") (Term.Lab "Q2")) (Term.App Quan.Q1 (Term.Ref "Word") (Form.nat 8))) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 7)))) (Term.Var 2)) (Term.Tup Quan.Q1 (Term.Lab "True") (Term.Lab "()")) (Term.Ref "Bool")) (Term.App Quan.Q0 (Term.App Quan.Q0 (Term.Ref "Exists") (Term.Ref "Nat")) (Term.Lam Quan.Q0 (Term.Eql (Term.App Quan.Q1 (Term.App Quan.Q1 (Term.App Quan.Q2 (Term.App Quan.Q1 (Term.Ref "Wasm.run") (Term.Var 0)) (Term.App Quan.Q2 (Term.Ref "Compiler.compile") (Term.Var 9))) (Term.Var 8)) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Engine") (Term.Tup Quan.Q1 (Term.Var 5) (Term.Tup Quan.Q1 (Term.Tup Quan.Q1 (Term.Lab "Nil") (Term.Lab "()")) (Term.Tup Quan.Q1 (Term.Var 4) (Term.Lab "()")))))) (Term.Tup Quan.Q1 (Term.Lab "Wasm.Outcome.result") (Term.Tup Quan.Q1 (Term.Var 6) (Term.Lab "()"))) (Term.Ref "Wasm.Outcome"))))))))))))))
 
 def trustedVersion.prefixes : List String :=
   ["Shared_2f_shared.", "Book_2f_impl.", "Eval_2f_impl.", "Wasm_2f_impl.", "Program_2f_impl.", "Compiler_2f_Cir_2f_impl.",
@@ -170,9 +182,10 @@ def trustedVersion.names : List String :=
  "Wasm_2f_impl.Wasm.step.tee", "Wasm_2f_impl.Wasm.step.op", "Wasm_2f_impl.Wasm.step.eqz", "Wasm_2f_impl.Wasm.load.of",
  "Wasm_2f_impl.Wasm.step.peeked", "Wasm_2f_impl.Wasm.step.loaded", "Wasm_2f_impl.Wasm.step.load",
  "Wasm_2f_impl.Wasm.store.of", "Wasm_2f_impl.Wasm.step.stored", "Wasm_2f_impl.Wasm.step.store",
- "Wasm_2f_impl.Wasm.step.size", "Wasm_2f_impl.Wasm.step.grown", "Wasm_2f_impl.Wasm.step.grow",
- "Wasm_2f_impl.Wasm.step.br_if.if", "Wasm_2f_impl.Wasm.step.br_if", "Wasm_2f_impl.Wasm.step.instr",
- "Wasm_2f_impl.Wasm.step", "Wasm_2f_impl.Wasm.Call.arms", "Wasm_2f_impl.Wasm.Call.done", "Wasm_2f_impl.Wasm.Call.trap",
+ "Wasm_2f_impl.Wasm.step.size", "Wasm_2f_impl.Wasm.step.grown", "Wasm_2f_impl.Wasm.grants",
+ "Wasm_2f_impl.Wasm.step.within", "Wasm_2f_impl.Wasm.step.grow", "Wasm_2f_impl.Wasm.step.br_if.if",
+ "Wasm_2f_impl.Wasm.step.br_if", "Wasm_2f_impl.Wasm.step.instr", "Wasm_2f_impl.Wasm.step",
+ "Wasm_2f_impl.Wasm.Call.arms", "Wasm_2f_impl.Wasm.Call.done", "Wasm_2f_impl.Wasm.Call.trap",
  "Wasm_2f_impl.Wasm.Call.not_done", "Wasm_2f_impl.Wasm.Call", "Wasm_2f_impl.Wasm.call.plus",
  "Wasm_2f_impl.Wasm.call.stepped", "Wasm_2f_impl.Wasm.call.go", "Wasm_2f_impl.Wasm.call",
  "Wasm_2f_impl.Wasm.Instance.arms", "Wasm_2f_impl.Wasm.Instance", "Wasm_2f_impl.Wasm.Made.arms",
@@ -193,7 +206,8 @@ def trustedVersion.names : List String :=
  "Wasm_2f_impl.Wasm.run.ran", "Wasm_2f_impl.Wasm.run.written", "Wasm_2f_impl.Wasm.run.input",
  "Wasm_2f_impl.Wasm.run.alloced.if", "Wasm_2f_impl.Wasm.run.alloced", "Wasm_2f_impl.Wasm.run.sized",
  "Wasm_2f_impl.Wasm.run.is_host", "Wasm_2f_impl.Wasm.run.instance", "Wasm_2f_impl.Wasm.run.made",
- "Wasm_2f_impl.Wasm.run", "Compiler_2f_Cir_2f_impl.Wasm.encode.leb.if", "Compiler_2f_Cir_2f_impl.Wasm.encode.uleb.go",
+ "Wasm_2f_impl.Wasm.Engine.arms", "Wasm_2f_impl.Wasm.Engine", "Wasm_2f_impl.Wasm.run.fits", "Wasm_2f_impl.Wasm.run",
+ "Compiler_2f_Cir_2f_impl.Wasm.encode.leb.if", "Compiler_2f_Cir_2f_impl.Wasm.encode.uleb.go",
  "Compiler_2f_Cir_2f_impl.Wasm.encode.uleb", "Compiler_2f_Cir_2f_impl.Wasm.encode.sign",
  "Compiler_2f_Cir_2f_impl.Wasm.encode.sleb.go", "Compiler_2f_Cir_2f_impl.Wasm.encode.sleb",
  "Compiler_2f_Cir_2f_impl.Wasm.encode.len", "Compiler_2f_Cir_2f_impl.Wasm.encode.vec",
@@ -376,9 +390,11 @@ def trustedVersion.names : List String :=
 
 def trustedVersion : List Def :=
   [«trustedVersion.Wasm.Outcome»,
+   «trustedVersion.Wasm.Engine.arms»,
+   «trustedVersion.Wasm.Engine»,
+   «trustedVersion.Nat.is_le»,
    «trustedVersion.Wasm.run»,
    «trustedVersion.Compiler.compile»,
-   «trustedVersion.Nat.is_le»,
    «trustedVersion.Either.arms»,
    «trustedVersion.Either»,
    «trustedVersion.Or»,

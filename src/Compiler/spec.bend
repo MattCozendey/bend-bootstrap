@@ -2,9 +2,11 @@
 # =====================================
 #
 # They hold for every program, not only for the ones that the kernel accepts
-# (AGENTS.md 3.6): Wasm.run is the Bend version of WASM's meaning (3.9.1.2),
-# Program.gives what a program gives by the Bend version of Eval (3.6.3 and
-# 3.3.3), and Program.need the memory F that 3.9.1.4 grants it (3.3.10).
+# (AGENTS.md 3.6), and the first two on every engine (Wasm.Engine: what an
+# engine decides that the spec leaves open). Wasm.run is the Bend version of
+# WASM's meaning (3.9.1.2), Program.gives what a program gives by the Bend
+# version of Eval (3.6.3 and 3.3.3), and Program.need the memory F that
+# 3.9.1.4 grants it (3.3.10).
 
 import Base
 import ../Wasm/impl.bend as Wa
@@ -17,9 +19,9 @@ law no_wrong_result:
   for +f: Nat
   for +p: List<&2, Word(8n)>
   for +i: List<&2, Word(8n)>
-  for +m: U32
+  for +eng: Wa.Wasm.Engine
   for +o: List<&2, Word(8n)>
-  for e: {Wa.Wasm.run(f, C.Compiler.compile(p), i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+  for e: {Wa.Wasm.run(f, C.Compiler.compile(p), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
   exs n: Nat
   {Pg.Program.gives(p, i, n) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}
 
@@ -30,21 +32,24 @@ law no_other_failure:
   for +i: List<&2, Word(8n)>
   for +n: Nat
   for +o: List<&2, Word(8n)>
-  for +m: U32
+  for +eng: Wa.Wasm.Engine
   for e: {Pg.Program.gives(p, i, n) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}
   exs f: Nat
-  {Wa.Wasm.run(f, C.Compiler.compile(p), i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome} |
-    {Wa.Wasm.run(f, C.Compiler.compile(p), i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
+  {Wa.Wasm.run(f, C.Compiler.compile(p), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome} |
+    {Wa.Wasm.run(f, C.Compiler.compile(p), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
 
 # LAW (AGENTS.md 3.6.1.3), enough memory: with the memory that
-# Program.need asks, the compiled program gives the result that Eval gives
+# Program.need asks, on an engine that grants each grow within m pages and
+# takes the module, the compiled program gives the result that Eval gives
 law enough_memory:
   for +p: List<&2, Word(8n)>
   for +i: List<&2, Word(8n)>
   for +n: Nat
   for +o: List<&2, Word(8n)>
   for +m: U32
+  for +L: Nat
   for e: {Pg.Program.gives(p, i, n) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}
   for big: {Nat.is_le(Pg.Program.need(p, i, n), Pg.Program.memory(m)) == True{} : Bool}
+  for fits: {Nat.is_le(List.length(&2, Word(8n), C.Compiler.compile(p)), L) == True{} : Bool}
   exs f: Nat
-  {Wa.Wasm.run(f, C.Compiler.compile(p), i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+  {Wa.Wasm.run(f, C.Compiler.compile(p), i, Wa.Wasm.Engine{m, [], L}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}

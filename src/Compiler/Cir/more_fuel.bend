@@ -316,9 +316,9 @@ def input.more(+f: Nat, +g: Nat, inst: Wa.Wasm.Instance, +a: U32, +n: U32, +i: L
   match inst:
     case Wa.Wasm.Instance{+module, mem}:
       match mem:
-        case Wa.Wasm.Memory{+p, +lim, +bytes}:
+        case Wa.Wasm.Memory{+p, +lim, +gs, +bytes}:
           written.more(Wa.Wasm.fits(p, a, n), f, g,
-            Wa.Wasm.Instance{module, Wa.Wasm.Memory{p, lim, Wa.Wasm.write.bytes(i, a, bytes)}}, a, n)
+            Wa.Wasm.Instance{module, Wa.Wasm.Memory{p, lim, gs, Wa.Wasm.write.bytes(i, a, bytes)}}, a, n)
 
 def alloced.if.more(full: Bool, +f: Nat, +g: Nat, +inst: Wa.Wasm.Instance, +a: U32, +n: U32, +i: List<&2, Word(8n)>) ->
   OM(Wa.Wasm.run.alloced.if(full, f, inst, a, n, i), Wa.Wasm.run.alloced.if(full, Nat.add(f, g), inst, a, n, i)):
@@ -379,9 +379,19 @@ def made.more(+f: Nat, +g: Nat, made: Wa.Wasm.Made, +i: List<&2, Word(8n)>) ->
     case Wa.Wasm.Made.trap{}:
       {==}
 
-def run.om(+f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32) ->
-  OM(Wa.Wasm.run(f, w, i, m), Wa.Wasm.run(Nat.add(f, g), w, i, m)):
-  made.more(f, g, Wa.Wasm.instantiate(w, m), i)
+def fits.more(ok: Bool, +f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>) ->
+  OM(Wa.Wasm.run.fits(ok, f, w, i, m, gs), Wa.Wasm.run.fits(ok, Nat.add(f, g), w, i, m, gs)):
+  match ok:
+    case True{}:
+      made.more(f, g, Wa.Wasm.instantiate(w, m, gs), i)
+    case False{}:
+      {==}
+
+def run.om(+f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, eng: Wa.Wasm.Engine) ->
+  OM(Wa.Wasm.run(f, w, i, eng), Wa.Wasm.run(Nat.add(f, g), w, i, eng)):
+  match eng:
+    case Wa.Wasm.Engine{+m, +gs, +size}:
+      fits.more(Nat.is_le(List.length(&2, Word(8n), w), size), f, g, w, i, m, gs)
 
 # The lemma
 # ---------
@@ -406,9 +416,9 @@ def OM.use(x: Wa.Wasm.Outcome, -b: Wa.Wasm.Outcome, nd: {done(x) == True{} : Boo
       Empty.absurd({b == Wa.Wasm.Outcome.not_done{} : Wa.Wasm.Outcome}, PN.false_ne_true(nd))
 
 # more fuel never changes an outcome that is not not_done
-def run.more(+f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +x: Wa.Wasm.Outcome,
+def run.more(+f: Nat, +g: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine, +x: Wa.Wasm.Outcome,
   nd: {done(x) == True{} : Bool},
-  e: {Wa.Wasm.run(f, w, i, m) == x : Wa.Wasm.Outcome}
-) -> {Wa.Wasm.run(Nat.add(f, g), w, i, m) == x : Wa.Wasm.Outcome}:
-  OM.use(x, Wa.Wasm.run(Nat.add(f, g), w, i, m), nd,
-    OM.rw(Wa.Wasm.run(f, w, i, m), x, Wa.Wasm.run(Nat.add(f, g), w, i, m), e, run.om(f, g, w, i, m)))
+  e: {Wa.Wasm.run(f, w, i, eng) == x : Wa.Wasm.Outcome}
+) -> {Wa.Wasm.run(Nat.add(f, g), w, i, eng) == x : Wa.Wasm.Outcome}:
+  OM.use(x, Wa.Wasm.run(Nat.add(f, g), w, i, eng), nd,
+    OM.rw(Wa.Wasm.run(f, w, i, eng), x, Wa.Wasm.run(Nat.add(f, g), w, i, eng), e, run.om(f, g, w, i, eng)))

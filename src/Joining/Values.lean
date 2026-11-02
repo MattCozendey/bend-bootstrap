@@ -6,9 +6,10 @@ import Eval.Generated.Eval
 -- ======
 --
 -- The Bend values that the theorems of Compiler.lean pass to a law: a Nat, a
--- list of bytes, a U32. They are closed, live, renamed as themselves, and
--- typed at Base's Nat, List<&2, Word(8n)> and U32 in a book that holds Base's
--- defs of those types; and a value of type Nat is the form of a Nat.
+-- list of bytes, a U32, a list of Bools. They are closed, live, renamed as
+-- themselves, and typed at Base's Nat, List<&2, Word(8n)>, U32 and
+-- List<&2, Bool> in a book that holds Base's defs of those types; and a value
+-- of type Nat is the form of a Nat.
 
 open Quan Term
 
@@ -16,6 +17,9 @@ set_option linter.unusedSimpArgs false
 
 -- a U32, as `bend -o` writes a value of Base's U32
 def Form.u32 (m : UInt32) : Term := ctor "U32" [bits 32 m.toNat]
+
+-- a list of Bools, as a value of Base's List<&2, Bool>
+def Form.bools (gs : List Bool) : Term := list (gs.map Form.bool)
 
 -- Plain terms (Join.lean)
 -- -----------------------
@@ -44,6 +48,11 @@ theorem plain_nat : Plain (Form.nat n) := by
   | succ n ih => exact plain_ctor (by simpa using ih)
 
 theorem plain_u32 : Plain (Form.u32 m) := plain_ctor (by simpa using plain_bits)
+
+theorem plain_bools : Plain (Form.bools gs) := plain_list (by
+  intro x hx
+  obtain ⟨b, -, rfl⟩ := List.mem_map.1 hx
+  exact plain_ctor nofun)
 
 theorem Plain.sub (h : Plain t) : Term.sub s t = t := by
   induction h <;> simp [Term.sub, *]
@@ -135,6 +144,13 @@ theorem impl_ctor (hk : impl k = k) : Rename.term impl (ctor k fs) = ctor k (fs.
 
 @[simp] theorem impl_u32 : Rename.term impl (Form.u32 m) = Form.u32 m := by simp [Form.u32, impl_ctor]
 
+@[simp] theorem impl_bools : Rename.term impl (Form.bools gs) = Form.bools gs := by
+  induction gs with
+  | nil => simp [Form.bools, list, impl_ctor]
+  | cons g gs ih =>
+    simp only [Form.bools, List.map_cons, list] at *
+    cases g <;> simp [impl_ctor, ih, Form.bool]
+
 @[simp] theorem impl_some : Rename.term impl (Form.some x) = Form.some (Rename.term impl x) := by
   simp [Form.some, impl_ctor]
 
@@ -156,6 +172,9 @@ def listBytes : Term := App Q0 (App Q0 (Ref "List") (Lab "Q2")) word8
 
 -- Base's Maybe<&2, List<&2, Word(8n)>>
 def maybeList : Term := App Q0 (App Q0 (Ref "Maybe") (Lab "Q2")) listBytes
+
+-- Base's List<&2, Bool>
+def listBools : Term := App Q0 (App Q0 (Ref "List") (Lab "Q2")) (Ref "Bool")
 
 section typing
 
@@ -284,6 +303,48 @@ theorem typed_bytes (hT : Contains B baseTypes) (cl : Book.Closed B) :
 
 theorem typed_u32' (hT : Contains B baseTypes) (cl : Book.Closed B) :
     Typed B [] (Form.u32 m) (Ref "U32") := typed_u32 hT cl
+
+theorem typed_bools (hT : Contains B baseTypes) (cl : Book.Closed B) :
+    Typed B [] (Form.bools gs) listBools := by
+  have hl : Pars B listBools (Sig Q1 (Enu ["Nil", "Con"])
+      (App Q1 (App Q0 (App Q0 (Ref "List.arms") (Lab "Q2")) (Ref "Bool")) (Var 0))) := by
+    refine .step (.app (.app (delta hT cl «evalVersion.List») par_refl) par_refl) ?_
+    refine .step (.app (.beta par_refl par_refl) par_refl) ?_
+    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+    refine .step (.beta par_refl par_refl) ?_
+    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+    exact .refl
+  induction gs with
+  | nil =>
+    refine tup1 (.lab (by simp)) ?_ hl
+    refine lab1 (ks := ["()"]) (by simp) ?_
+    simp only [Term.inst, Term.sub, Subst.one]
+    refine .step (.app (.app (.app (delta hT cl «evalVersion.List.arms») par_refl) par_refl) par_refl) ?_
+    refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
+    refine .step (.app (.beta par_refl par_refl) par_refl) ?_
+    simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+    exact .step (.hit par_refl) .refl
+  | cons g gs ih =>
+    refine tup1 (.lab (by simp)) ?_ hl
+    simp only [Term.inst, Term.sub, Subst.one]
+    refine tup1 (Bt := Sig Q1 (App Q0 (App Q0 (Ref "List") (Lab "Q2")) (Ref "Bool")) (Enu ["()"]))
+      (typed_bool hT cl (g = true)) ?_ ?_
+    · simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+      refine tup1 (Bt := Enu ["()"]) ih (lab1 (ks := ["()"]) (by simp) ?_) .refl
+      simp only [Term.inst, Term.sub]; exact .refl
+    · refine .step (.app (.app (.app (delta hT cl «evalVersion.List.arms») par_refl) par_refl) par_refl) ?_
+      refine .step (.app (.app (.beta par_refl par_refl) par_refl) par_refl) ?_
+      refine .step (.app (.beta par_refl par_refl) par_refl) ?_
+      simp only [Term.inst, Term.sub, Subst.one, Subst.up, Term.ren]
+      refine .step (.miss (by decide) par_refl) ?_
+      exact .step (.hit par_refl) .refl
+
+-- a pair at quantity 1, and a label, at types that reduce to their forms (for
+-- the values of other types, as Trusted.lean's Wasm.Engine)
+theorem typed_pair (ha : Typed B [] a A) (hb : Typed B [] b (Term.inst Bt a))
+    (c : Pars B T (Sig Q1 A Bt)) : Typed B [] (Tup Q1 a b) T := tup1 ha hb c
+
+theorem typed_label (h : k ∈ ks) (c : Pars B T (Enu ks)) : Typed B [] (Lab k) T := lab1 h c
 
 theorem typed_listBytes (hT : Contains B baseTypes) (cl : Book.Closed B) : Typed B [] listBytes T2 := by
   have h1 := Typed.ref (Γ := []) (σ := Var) (bt hT «evalVersion.List»)

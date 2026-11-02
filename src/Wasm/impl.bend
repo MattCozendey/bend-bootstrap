@@ -6,8 +6,10 @@ import ../Shared/shared.bend as Sd
 #
 # The part of WebAssembly that our compiler uses (AGENTS.md 3.9.1.2), as the
 # WebAssembly core spec defines it.
-# Wasm.run(f, w, i, m) runs the module of the bytes w on the input bytes i,
-# in at most f steps, with at most m pages (of 64 KiB) of memory. A module
+# Wasm.run(f, w, i, e) runs the module of the bytes w on the input bytes i,
+# in at most f steps, on the engine e (Host), which decides what the spec
+# leaves open: the most pages (of 64 KiB) of memory, the grows that it
+# refuses, and the largest module that it takes. A module
 # outside the subset gives unsupported and does not run. The subset is in
 # every version of the spec (1.0, 2.0, 3.0); where they decode a number with
 # more bits, the model reads the 32 bits of 1.0, so it accepts only what
@@ -1160,10 +1162,11 @@ def Wasm.op(o: Wasm.Op, +a: U32, +b: U32) -> U32:
     case Wasm.Op.ge_u{}:
       Bool.to_u32(U32.is_ge(a, b))
 
-# a memory (spec 4.2): its size and the limit of its growth, in pages, and
-# its bytes
+# a memory (spec 4.2): its size and the limit of its growth, in pages; the
+# engine's answers to its grows within that limit, in order (Wasm.Engine);
+# and its bytes
 type Wasm.Memory is Data:
-  Wasm.Memory{pages: U32, limit: U32, bytes: Wasm.Bytes}
+  Wasm.Memory{pages: U32, limit: U32, grows: List<&2, Bool>, bytes: Wasm.Bytes}
 
 # a label (spec 4.2): for a loop, its body, which a branch runs again; the
 # instructions after its block; and the stack's height when it began
@@ -1281,12 +1284,12 @@ def Wasm.load.of(wide: Bool, m: Wasm.Bytes, a: U32) -> Wasm.Peek<U32>:
       Wasm.peek.value(Wasm.read8(m, a))
 
 def Wasm.step.peeked(
-  r: Wasm.Peek<U32>, p: U32, lim: U32, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat,
-  s: List<&2, U32>, locals: List<&2, U32>
+  r: Wasm.Peek<U32>, p: U32, lim: U32, gs: List<&2, Bool>, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>,
+  results: Nat, s: List<&2, U32>, locals: List<&2, U32>
 ) -> Wasm.Step:
   match r:
     case Wasm.Peek{v, bytes}:
-      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{v, s}, locals}, Wasm.Memory{p, lim, bytes}}
+      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{v, s}, locals}, Wasm.Memory{p, lim, gs, bytes}}
 
 def Wasm.step.loaded(
   ok: Bool, wide: Bool, ea: U32, rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat,
@@ -1295,8 +1298,8 @@ def Wasm.step.loaded(
   match ok:
     case True{}:
       match mem:
-        case Wasm.Memory{p, lim, bytes}:
-          Wasm.step.peeked(Wasm.load.of(wide, bytes, ea), p, lim, rest, labels, results, s, locals)
+        case Wasm.Memory{p, lim, gs, bytes}:
+          Wasm.step.peeked(Wasm.load.of(wide, bytes, ea), p, lim, gs, rest, labels, results, s, locals)
     case False{}:
       Wasm.Step.trap{mem}
 
@@ -1309,9 +1312,9 @@ def Wasm.step.load(
   match stack:
     case Con{+a, s}:
       match mem:
-        case Wasm.Memory{+p, lim, bytes}:
+        case Wasm.Memory{+p, lim, gs, bytes}:
           Wasm.step.loaded(Wasm.inside(p, a, o, w), U32.is_eq(w, 4), U32.add(a, o),
-            rest, labels, results, s, locals, Wasm.Memory{p, lim, bytes})
+            rest, labels, results, s, locals, Wasm.Memory{p, lim, gs, bytes})
     case Nil{}:
       Wasm.Step.trap{mem}
 
@@ -1329,8 +1332,8 @@ def Wasm.step.stored(
   match ok:
     case True{}:
       match mem:
-        case Wasm.Memory{p, lim, bytes}:
-          Wasm.Step.next{Wasm.Frame{rest, labels, results, s, locals}, Wasm.Memory{p, lim, Wasm.store.of(wide, bytes, ea, v)}}
+        case Wasm.Memory{p, lim, gs, bytes}:
+          Wasm.Step.next{Wasm.Frame{rest, labels, results, s, locals}, Wasm.Memory{p, lim, gs, Wasm.store.of(wide, bytes, ea, v)}}
     case False{}:
       Wasm.Step.trap{mem}
 
@@ -1343,9 +1346,9 @@ def Wasm.step.store(
   match stack:
     case Con{v, Con{+a, s}}:
       match mem:
-        case Wasm.Memory{+p, lim, bytes}:
+        case Wasm.Memory{+p, lim, gs, bytes}:
           Wasm.step.stored(Wasm.inside(p, a, o, w), U32.is_eq(w, 4), U32.add(a, o), v,
-            rest, labels, results, s, locals, Wasm.Memory{p, lim, bytes})
+            rest, labels, results, s, locals, Wasm.Memory{p, lim, gs, bytes})
     case _:
       Wasm.Step.trap{mem}
 
@@ -1355,21 +1358,43 @@ def Wasm.step.size(
   locals: List<&2, U32>, mem: Wasm.Memory
 ) -> Wasm.Step:
   match mem:
-    case Wasm.Memory{+p, lim, bytes}:
-      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{p, stack}, locals}, Wasm.Memory{p, lim, bytes}}
+    case Wasm.Memory{+p, lim, gs, bytes}:
+      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{p, stack}, locals}, Wasm.Memory{p, lim, gs, bytes}}
 
 def Wasm.step.grown(
-  ok: Bool, p: U32, n: U32, lim: U32, bytes: Wasm.Bytes, rest: List<&2, Wasm.Instr>,
+  ok: Bool, p: U32, n: U32, lim: U32, gs: List<&2, Bool>, bytes: Wasm.Bytes, rest: List<&2, Wasm.Instr>,
   labels: List<&2, Wasm.Label>, results: Nat, s: List<&2, U32>, locals: List<&2, U32>
 ) -> Wasm.Step:
   match ok:
     case True{}:
-      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{p, s}, locals}, Wasm.Memory{n, lim, bytes}}
+      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{p, s}, locals}, Wasm.Memory{n, lim, gs, bytes}}
     case False{}:
-      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{4294967295, s}, locals}, Wasm.Memory{p, lim, bytes}}
+      Wasm.Step.next{Wasm.Frame{rest, labels, results, Con{4294967295, s}, locals}, Wasm.Memory{p, lim, gs, bytes}}
 
-# memory.grow (spec 4.4.7): by d pages, when the new size is within the
-# limit, giving the old size; else -1, with no change
+# the engine's answer to a grow within the limit: past its answers, it
+# grants it
+def Wasm.grants(gs: List<&2, Bool>) -> Bool:
+  match gs:
+    case Nil{}:
+      True{}
+    case Con{g, _}:
+      g
+
+# a grow within the limit (in) takes the engine's next answer; past the
+# limit, it fails, and takes none
+def Wasm.step.within(
+  in: Bool, p: U32, n: U32, lim: U32, +gs: List<&2, Bool>, bytes: Wasm.Bytes, rest: List<&2, Wasm.Instr>,
+  labels: List<&2, Wasm.Label>, results: Nat, s: List<&2, U32>, locals: List<&2, U32>
+) -> Wasm.Step:
+  match in:
+    case True{}:
+      Wasm.step.grown(Wasm.grants(gs), p, n, lim, List.drop(&2, Bool, gs, 1n), bytes, rest, labels, results, s, locals)
+    case False{}:
+      Wasm.step.grown(False{}, p, n, lim, gs, bytes, rest, labels, results, s, locals)
+
+# memory.grow (spec 4.4.7): by d pages, giving the old size, when the new
+# size is within the limit and the engine grants it; else -1, with no
+# change. The spec lets an engine refuse any grow (memory.grow-fail)
 def Wasm.step.grow(
   rest: List<&2, Wasm.Instr>, labels: List<&2, Wasm.Label>, results: Nat, stack: List<&2, U32>,
   locals: List<&2, U32>, mem: Wasm.Memory
@@ -1377,9 +1402,9 @@ def Wasm.step.grow(
   match stack:
     case Con{d, s}:
       match mem:
-        case Wasm.Memory{+p, +lim, bytes}:
+        case Wasm.Memory{+p, +lim, gs, bytes}:
           +n = U32.add(p, d)
-          Wasm.step.grown(U32.is_ge(n, p) && U32.is_le(n, lim), p, n, lim, bytes, rest, labels, results, s, locals)
+          Wasm.step.within(U32.is_ge(n, p) && U32.is_le(n, lim), p, n, lim, gs, bytes, rest, labels, results, s, locals)
     case Nil{}:
       Wasm.Step.trap{mem}
 
@@ -1533,14 +1558,15 @@ def Wasm.memory.of.if(ok: Bool, mem: Wasm.Memory) -> Maybe<&2, Wasm.Memory>:
       None{}
 
 # the memory of the limits, at its minimum, when that fits in m pages, and
-# whose growth stops at m pages and at 2^16 pages (4 GiB); a module without
-# one gets a memory of no pages, which it cannot use
-def Wasm.memory.of(l: Maybe<&2, Wasm.Limits>, +m: U32) -> Maybe<&2, Wasm.Memory>:
+# whose growth stops at m pages and at 2^16 pages (4 GiB), with the engine's
+# answers gs to its grows; a module without one gets a memory of no pages,
+# which it cannot use
+def Wasm.memory.of(l: Maybe<&2, Wasm.Limits>, +m: U32, gs: List<&2, Bool>) -> Maybe<&2, Wasm.Memory>:
   match l:
     case None{}:
-      Some{Wasm.Memory{0, 0, Wasm.Bytes.zero{}}}
+      Some{Wasm.Memory{0, 0, gs, Wasm.Bytes.zero{}}}
     case Some{Wasm.Limits{+min}}:
-      Wasm.memory.of.if(U32.is_le(min, m), Wasm.Memory{min, Wasm.min(m, 65536), Wasm.Bytes.zero{}})
+      Wasm.memory.of.if(U32.is_le(min, m), Wasm.Memory{min, Wasm.min(m, 65536), gs, Wasm.Bytes.zero{}})
 
 def Wasm.fits.len(+p: U32, +k: U32, n: Maybe<&2, U32>) -> Bool:
   match n:
@@ -1549,10 +1575,10 @@ def Wasm.fits.len(+p: U32, +k: U32, n: Maybe<&2, U32>) -> Bool:
     case Some{len}:
       Wasm.fits(p, k, len)
 
-def Wasm.memory.init.if(ok: Bool, p: U32, lim: U32, bytes: Wasm.Bytes) -> Maybe<&2, Wasm.Memory>:
+def Wasm.memory.init.if(ok: Bool, p: U32, lim: U32, gs: List<&2, Bool>, bytes: Wasm.Bytes) -> Maybe<&2, Wasm.Memory>:
   match ok:
     case True{}:
-      Some{Wasm.Memory{p, lim, bytes}}
+      Some{Wasm.Memory{p, lim, gs, bytes}}
     case False{}:
       None{}
 
@@ -1564,8 +1590,8 @@ def Wasm.memory.init(seg: Maybe<&2, Wasm.Segment>, mem: Wasm.Memory) -> Maybe<&2
       Some{mem}
     case Some{Wasm.Segment{+k, +xs}}:
       match mem:
-        case Wasm.Memory{+p, lim, bytes}:
-          Wasm.memory.init.if(Wasm.fits.len(p, k, Wasm.length32(xs)), p, lim, Wasm.write.bytes(xs, k, bytes))
+        case Wasm.Memory{+p, lim, gs, bytes}:
+          Wasm.memory.init.if(Wasm.fits.len(p, k, Wasm.length32(xs)), p, lim, gs, Wasm.write.bytes(xs, k, bytes))
 
 def Wasm.instantiate.made(m: Maybe<&2, Wasm.Memory>, module: Wasm.Module) -> Wasm.Made:
   match m:
@@ -1581,25 +1607,26 @@ def Wasm.instantiate.sized(m: Maybe<&2, Wasm.Memory>, seg: Maybe<&2, Wasm.Segmen
     case Some{mem}:
       Wasm.instantiate.made(Wasm.memory.init(seg, mem), module)
 
-def Wasm.instantiate.valid(ok: Bool, module: Wasm.Module, +m: U32) -> Wasm.Made:
+def Wasm.instantiate.valid(ok: Bool, module: Wasm.Module, +m: U32, gs: List<&2, Bool>) -> Wasm.Made:
   match ok:
     case False{}:
       Wasm.Made.unsupported{}
     case True{}:
       match module:
         case Wasm.Module{fs, +memory, es, +seg}:
-          Wasm.instantiate.sized(Wasm.memory.of(memory, m), seg, Wasm.Module{fs, memory, es, seg})
+          Wasm.instantiate.sized(Wasm.memory.of(memory, m, gs), seg, Wasm.Module{fs, memory, es, seg})
 
-def Wasm.instantiate.decoded(m: Maybe<&2, Wasm.Module>, +lim: U32) -> Wasm.Made:
+def Wasm.instantiate.decoded(m: Maybe<&2, Wasm.Module>, +lim: U32, gs: List<&2, Bool>) -> Wasm.Made:
   match m:
     case None{}:
       Wasm.Made.unsupported{}
     case Some{+module}:
-      Wasm.instantiate.valid(Wasm.valid.module(module), module, lim)
+      Wasm.instantiate.valid(Wasm.valid.module(module), module, lim, gs)
 
-# an instance of the module of the bytes w, with at most m pages of memory
-def Wasm.instantiate(w: List<&2, Word(8n)>, m: U32) -> Wasm.Made:
-  Wasm.instantiate.decoded(Wasm.decode.module(w), m)
+# an instance of the module of the bytes w, with at most m pages of memory,
+# and the engine's answers gs to the memory's grows
+def Wasm.instantiate(w: List<&2, Word(8n)>, m: U32, gs: List<&2, Bool>) -> Wasm.Made:
+  Wasm.instantiate.decoded(Wasm.decode.module(w), m, gs)
 
 def Wasm.export.find.if(hit: Bool, i: U32, more: Unit -> Maybe<&2, U32>) -> Maybe<&2, U32>:
   match hit:
@@ -1749,7 +1776,7 @@ def Wasm.run.output.at(ok: Bool, p: U32, bytes: Wasm.Bytes) -> Wasm.Outcome:
 # the output: the length at byte 4 of the bytes from the address at byte 0
 def Wasm.run.output(mem: Wasm.Memory) -> Wasm.Outcome:
   match mem:
-    case Wasm.Memory{+p, _, bytes}:
+    case Wasm.Memory{+p, _, _, bytes}:
       Wasm.run.output.at(Wasm.fits(p, 0, 8), p, bytes)
 
 def Wasm.run.status(zero: Bool, one: Bool, two: Bool, mem: Wasm.Memory) -> Wasm.Outcome:
@@ -1789,9 +1816,9 @@ def Wasm.run.input(f: Nat, inst: Wasm.Instance, +a: U32, +n: U32, i: List<&2, Wo
   match inst:
     case Wasm.Instance{module, mem}:
       match mem:
-        case Wasm.Memory{+p, lim, bytes}:
+        case Wasm.Memory{+p, lim, gs, bytes}:
           Wasm.run.written(Wasm.fits(p, a, n), f,
-            Wasm.Instance{module, Wasm.Memory{p, lim, Wasm.write.bytes(i, a, bytes)}}, a, n)
+            Wasm.Instance{module, Wasm.Memory{p, lim, gs, Wasm.write.bytes(i, a, bytes)}}, a, n)
 
 def Wasm.run.alloced.if(full: Bool, f: Nat, inst: Wasm.Instance, a: U32, n: U32, i: List<&2, Word(8n)>) -> Wasm.Outcome:
   match full:
@@ -1849,7 +1876,23 @@ def Wasm.run.made(f: Nat, made: Wasm.Made, i: List<&2, Word(8n)>) -> Wasm.Outcom
     case Wasm.Made.trap{}:
       Wasm.Outcome.trap{}
 
+# what an engine decides that the spec leaves open: the most pages that it
+# gives a memory; its answers to grows within that limit, in order (False
+# refuses one; past the list, it grants each); and the largest module, in
+# bytes, that it takes (a larger one gives out_of_memory)
+type Wasm.Engine is Data:
+  Wasm.Engine{pages: U32, grows: List<&2, Bool>, size: Nat}
+
+def Wasm.run.fits(ok: Bool, f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, m: U32, gs: List<&2, Bool>) -> Wasm.Outcome:
+  match ok:
+    case True{}:
+      Wasm.run.made(f, Wasm.instantiate(w, m, gs), i)
+    case False{}:
+      Wasm.Outcome.out_of_memory{}
+
 # a run of the module of the bytes w on the input bytes i, in at most f
-# steps of its functions, with at most m pages (64 KiB each) of memory
-def Wasm.run(f: Nat, w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, m: U32) -> Wasm.Outcome:
-  Wasm.run.made(f, Wasm.instantiate(w, m), i)
+# steps of its functions, on the engine e
+def Wasm.run(f: Nat, +w: List<&2, Word(8n)>, i: List<&2, Word(8n)>, e: Wasm.Engine) -> Wasm.Outcome:
+  match e:
+    case Wasm.Engine{m, gs, size}:
+      Wasm.run.fits(Nat.is_le(List.length(&2, Word(8n), w), size), f, w, i, m, gs)

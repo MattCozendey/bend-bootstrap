@@ -167,7 +167,7 @@ inductive Made where
   | unsupported | out_of_memory | trap | stuck
 
 def instantiate (c : Cfg) (w : List UInt8) : Made :=
-  match (evalTerm c (App Q1 (App Q1 (Ref "Wasm.instantiate") (bytes w)) c.limit)).bind unctor with
+  match (evalTerm c (App Q1 (App Q1 (App Q1 (Ref "Wasm.instantiate") (bytes w)) c.limit) (ctor "Nil" []))).bind unctor with
   | some ("Wasm.Made.instance", [i]) => .inst i
   | some ("Wasm.Made.unsupported", []) => .unsupported
   | some ("Wasm.Made.out_of_memory", []) => .out_of_memory
@@ -466,7 +466,8 @@ def main' : IO Unit := do
   let h ← IO.FS.Handle.mk (← Script.env "OUT") .write
   -- the model's fuel per invocation, enough for a loop over a page's 2^16
   -- bytes (memory_grow.wast), and its memory limit: 2^16 pages, the spec's own
-  -- limit for 32-bit memories
+  -- limit for 32-bit memories; the engine refuses no grow within it (no
+  -- answers), as the spec's interpreter does
   let c : Cfg := { B, fuel := Form.nat 2000000, limit := u32 65536 }
   let files := ((← System.FilePath.readDir dir).map (·.path.toString)).qsort (· < ·) |>.toList.filter fun p =>
     p.endsWith ".bin.wast" && (only.map fun ks => ks.any fun k => p.endsWith s!"/{k}.bin.wast").getD true
