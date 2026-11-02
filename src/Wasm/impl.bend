@@ -645,11 +645,25 @@ def Wasm.decode.data.if(ok: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Deco
     case False{}:
       None{}
 
-# a data segment (spec 5.4): 0, an active one of memory 0, then its offset,
-# which in the subset is the constant expression i32.const n end, then its
-# bytes
+# the memory of an active data segment, by its flag (spec 5.4): 0, of memory
+# 0; 2, of the memory index that follows. Another flag (1 is a passive
+# segment) leaves the subset
+def Wasm.decode.data.memory(zero: Bool, two: Bool, bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<U32>>:
+  match zero two:
+    case True{} _:
+      Some{Wasm.Decoded{0, bs}}
+    case False{} True{}:
+      Wasm.decode.u32(bs)
+    case False{} False{}:
+      None{}
+
+# a data segment (spec 5.4): its flag and its memory, which in the subset is
+# memory 0, then its offset, which in the subset is the constant expression
+# i32.const n end, then its bytes
 def Wasm.decode.data(bs: List<&2, Word(8n)>) -> Maybe<&2, Wasm.Decoded<Wasm.Segment>>:
-  Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.u32(bs), flag => r => Wasm.decode.data.if(U32.is_zero(flag), r))
+  Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.u32(bs), +flag => r =>
+    Wasm.decode.bind(U32, Wasm.Segment, Wasm.decode.data.memory(U32.is_zero(flag), U32.is_eq(flag, 2), r), +x => r2 =>
+      Wasm.decode.data.if(U32.is_zero(x), r2)))
 
 # a section (spec 5.4): its id, its size, then exactly that many bytes
 type Wasm.Section is Data:
