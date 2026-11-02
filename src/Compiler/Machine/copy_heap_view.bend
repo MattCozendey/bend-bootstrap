@@ -299,13 +299,14 @@ def sim.dec.s(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +v: Cr.C
       sim.dec.d(U32.is_eq(U32.sub(Cr.Cir.Cell.get(1n, Cr.Cir.Cells.get(m, x)), 1), 0), f, regs, m, v, nx, fi, im, pg, lim, inp, zs, x, pend,
         hl, h4, h3, a, hz, hc, hm, ex, eb, {==})
 
-# M.dec(dx) of the cell x in dx: 0, or a cell out of zs
+# M.dec(dx) of the cell x in dx: 0, or a cell out of zs, the same in both
+# (ex: Agr is used once, at the cells that M.dec writes)
 def sim.dec.z(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +v: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +zs: List<&2, U32>, +x: U32, +pend: U32,
   +hl: {List.length(&2, U32, regs) == 63n : Nat}, +h4: {List.get(&2, U32, regs, 4n) == Some{x} : Maybe<&2, U32>},
   +h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, a: Agr(m, v, zs),
   +hx: {Bool.or(U32.is_eq(x, 0), Bool.and(Bool.not(PM.Mem(zs, x)), Cr.Cir.is_cell(x, im, fi, nx))) == True{} : Bool},
-  +eb: {U32.is_eq(x, 0) == b : Bool}) ->
+  +ex: {Cr.Cir.Cells.get(m, x) == Cr.Cir.Cells.get(v, x) : Cr.Cir.Cell}, +eb: {U32.is_eq(x, 0) == b : Bool}) ->
   Two(f, Mc.M.dec(Mc.R.dx()), regs, m, v, nx, fi, im, pg, lim, inp, zs):
   match b:
     case True{}:
@@ -314,5 +315,9 @@ def sim.dec.z(b: Bool, +f: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +v: Cr.C
       two.id(f, Mc.M.dec(Mc.R.dx()), regs, m, v, nx, fi, im, pg, lim, inp, zs, a, hl,
         X.dec.eq.z(f, regs, m, nx, fi, im, pg, lim, inp, 4n, h40), X.dec.eq.z(f, regs, v, nx, fi, im, pg, lim, inp, 4n, h40))
     case False{}:
-      +hy = PM.or.f.l(U32.is_eq(x, 0), Bool.and(Bool.not(PM.Mem(zs, x)), Cr.Cir.is_cell(x, im, fi, nx)), eb)
-      ?TODO
+      +ok = {Bool.and(Bool.not(PM.Mem(zs, x)), Cr.Cir.is_cell(x, im, fi, nx)) : Bool}
+      +hy = {(%eb : {Bool.or(_, ok) == True{} : Bool}; hx) : {ok == True{} : Bool}}
+      +hm = PM.not.t(PM.Mem(zs, x), PM.and.l(Bool.not(PM.Mem(zs, x)), Cr.Cir.is_cell(x, im, fi, nx), hy))
+      +hc = PM.and.r(Bool.not(PM.Mem(zs, x)), Cr.Cir.is_cell(x, im, fi, nx), hy)
+      sim.dec.s(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x)), 1024), 0), f, regs, m, v, nx, fi, im, pg, lim, inp,
+        zs, x, pend, hl, h4, h3, a, eb, hc, hm, ex, {==})
