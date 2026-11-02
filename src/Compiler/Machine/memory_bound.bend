@@ -161,6 +161,52 @@ def tri_add(+a: Nat, +b: Nat) -> {Tri(Nat.add(a, b)) == Nat.add(Tri(a), Tri(b)) 
     case 1n+p:
       Equal.cong(Nat, Nat, x => 3n+x, Tri(Nat.add(p, b)), Nat.add(Tri(p), Tri(b)), tri_add(p, b))
 
+# a × (x + y) = a × x + a × y
+def mul_add(+a: Nat, +x: Nat, +y: Nat) -> {Nat.mul(a, Nat.add(x, y)) == Nat.add(Nat.mul(a, x), Nat.mul(a, y)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      +px = Nat.mul(p, x)
+      +py = Nat.mul(p, y)
+      Equal.trans(Nat, Nat.add(Nat.add(x, y), Nat.mul(p, Nat.add(x, y))), Nat.add(Nat.add(x, y), Nat.add(px, py)), Nat.add(Nat.add(x, px), Nat.add(y, py)),
+        Equal.cong(Nat, Nat, z => Nat.add(Nat.add(x, y), z), Nat.mul(p, Nat.add(x, y)), Nat.add(px, py), mul_add(p, x, y)),
+        Equal.trans(Nat, Nat.add(Nat.add(x, y), Nat.add(px, py)), Nat.add(x, Nat.add(px, Nat.add(y, py))), Nat.add(Nat.add(x, px), Nat.add(y, py)),
+          Equal.trans(Nat, Nat.add(Nat.add(x, y), Nat.add(px, py)), Nat.add(x, Nat.add(y, Nat.add(px, py))), Nat.add(x, Nat.add(px, Nat.add(y, py))),
+            N.add_assoc(x, y, Nat.add(px, py)),
+            Equal.cong(Nat, Nat, z => Nat.add(x, z), Nat.add(y, Nat.add(px, py)), Nat.add(px, Nat.add(y, py)), N.add_swap(y, px, py))),
+          Equal.sym(Nat, Nat.add(Nat.add(x, px), Nat.add(y, py)), Nat.add(x, Nat.add(px, Nat.add(y, py))), N.add_assoc(x, px, Nat.add(y, py)))))
+
+# (x + y) × c = x × c + y × c
+def mul_add_l(x: Nat, +y: Nat, +c: Nat) -> {Nat.mul(Nat.add(x, y), c) == Nat.add(Nat.mul(x, c), Nat.mul(y, c)) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+(+q):
+      Equal.trans(Nat, Nat.add(c, Nat.mul(Nat.add(q, y), c)), Nat.add(c, Nat.add(Nat.mul(q, c), Nat.mul(y, c))), Nat.add(Nat.add(c, Nat.mul(q, c)), Nat.mul(y, c)),
+        Equal.cong(Nat, Nat, z => Nat.add(c, z), Nat.mul(Nat.add(q, y), c), Nat.add(Nat.mul(q, c), Nat.mul(y, c)), mul_add_l(q, y, c)),
+        Equal.sym(Nat, Nat.add(Nat.add(c, Nat.mul(q, c)), Nat.mul(y, c)), Nat.add(c, Nat.add(Nat.mul(q, c), Nat.mul(y, c))), N.add_assoc(c, Nat.mul(q, c), Nat.mul(y, c))))
+
+# (a × b) × c = a × (b × c)
+def mul_assoc(a: Nat, +b: Nat, +c: Nat) -> {Nat.mul(Nat.mul(a, b), c) == Nat.mul(a, Nat.mul(b, c)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      Equal.trans(Nat, Nat.mul(Nat.add(b, Nat.mul(p, b)), c), Nat.add(Nat.mul(b, c), Nat.mul(Nat.mul(p, b), c)), Nat.add(Nat.mul(b, c), Nat.mul(p, Nat.mul(b, c))),
+        mul_add_l(b, Nat.mul(p, b), c),
+        Equal.cong(Nat, Nat, z => Nat.add(Nat.mul(b, c), z), Nat.mul(Nat.mul(p, b), c), Nat.mul(p, Nat.mul(b, c)), mul_assoc(p, b, c)))
+
+# 2^k a + 2^k b = 2^k (a + b)
+def D_plus(k: Nat, +a: Nat, +b: Nat) -> {Nat.add(N.D(k, a), N.D(k, b)) == N.D(k, Nat.add(a, b)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+q):
+      Equal.trans(Nat, Nat.add(Nat.double(N.D(q, a)), Nat.double(N.D(q, b))), Nat.double(Nat.add(N.D(q, a), N.D(q, b))), Nat.double(N.D(q, Nat.add(a, b))),
+        FC.hw.dd(N.D(q, a), N.D(q, b)),
+        Equal.cong(Nat, Nat, z => Nat.double(z), Nat.add(N.D(q, a), N.D(q, b)), N.D(q, Nat.add(a, b)), D_plus(q, a, b)))
+
 # 3 × x is Tri(x)
 def mul3(+x: Nat) -> {Nat.mul(3n, x) == Tri(x) : Nat}:
   match x:
@@ -880,6 +926,91 @@ def budget.lim(+ds: List<&2, Bk.Def>, +st: Cr.Cir.State, +t: Bk.Term, +X: Nat, +
 # 2^18 <= 2^24: the one comparison of two closed numbers
 def pow.le() -> N.Le(N.D(18n, 1n), 16777216n):
   Unit{}
+
+# the first cell and Peak, with k <= 290 + W, |i| <= S and Defs.big <= W, are
+# at most 307 + C + 4 W + 3 S
+def room.top(+K: Nat, +I: Nat, +W: Nat, +L: Nat, +C: Nat, +S: Nat,
+  hK: N.Le(K, Nat.add(290n, W)), hI: N.Le(I, S), hL: N.Le(L, W)) ->
+  N.Le(Nat.add(1n+Nat.add(K, I), Nat.add(C, Nat.add(16n, Nat.add(Nat.mul(2n, S), Nat.mul(3n, L))))),
+    Nat.add(Nat.add(307n, C), Nat.add(Nat.mul(4n, W), Nat.mul(3n, S)))):
+  +S2 = Nat.mul(2n, S)
+  +S3 = Nat.mul(3n, S)
+  +W3 = Nat.mul(3n, W)
+  +W4 = Nat.mul(4n, W)
+  +L3 = Nat.mul(3n, L)
+  +WS = Nat.add(W, S)
+  +R = Nat.add(S2, W3)
+  +X1 = {1n+Nat.add(Nat.add(290n, W), S) : Nat}
+  +P1 = Nat.add(C, Nat.add(16n, R))
+  +hX = N.add_mono(K, Nat.add(290n, W), I, S, hK, hI)
+  +hP = N.add_mono(C, C, Nat.add(16n, Nat.add(S2, L3)), Nat.add(16n, R), N.le_refl(C),
+    N.add_mono(16n, 16n, Nat.add(S2, L3), R, N.le_refl(16n), N.add_mono(S2, S2, L3, W3, N.le_refl(S2), N.mul_mono_r(3n, L, W, hL))))
+  +h1 = N.add_mono(1n+Nat.add(K, I), X1, Nat.add(C, Nat.add(16n, Nat.add(S2, L3))), P1, hX, hP)
+  +eSR = {Equal.sym(Nat, Nat.add(Nat.add(S, S2), W3), Nat.add(S, R), N.add_assoc(S, S2, W3)) : {Nat.add(S, R) == Nat.add(S3, W3) : Nat}}
+  +e4 = Equal.trans(Nat, Nat.add(WS, R), Nat.add(W, Nat.add(S, R)), Nat.add(W4, S3), N.add_assoc(W, S, R),
+    Equal.trans(Nat, Nat.add(W, Nat.add(S, R)), Nat.add(W, Nat.add(S3, W3)), Nat.add(W4, S3),
+      Equal.cong(Nat, Nat, x => Nat.add(W, x), Nat.add(S, R), Nat.add(S3, W3), eSR),
+      Equal.trans(Nat, Nat.add(W, Nat.add(S3, W3)), Nat.add(S3, W4), Nat.add(W4, S3), N.add_swap(W, S3, W3), FC.hf.add.comm(S3, W4))))
+  +eq = Equal.trans(Nat, Nat.add(WS, P1), Nat.add(C, Nat.add(WS, Nat.add(16n, R))), Nat.add(16n, Nat.add(C, Nat.add(W4, S3))),
+    N.add_swap(WS, C, Nat.add(16n, R)),
+    Equal.trans(Nat, Nat.add(C, Nat.add(WS, Nat.add(16n, R))), Nat.add(C, Nat.add(16n, Nat.add(WS, R))), Nat.add(16n, Nat.add(C, Nat.add(W4, S3))),
+      Equal.cong(Nat, Nat, x => Nat.add(C, x), Nat.add(WS, Nat.add(16n, R)), Nat.add(16n, Nat.add(WS, R)), FC.hw.add_k(WS, 16n, R)),
+      Equal.trans(Nat, Nat.add(C, Nat.add(16n, Nat.add(WS, R))), Nat.add(16n, Nat.add(C, Nat.add(WS, R))), Nat.add(16n, Nat.add(C, Nat.add(W4, S3))),
+        FC.hw.add_k(C, 16n, Nat.add(WS, R)),
+        Equal.cong(Nat, Nat, x => Nat.add(16n, Nat.add(C, x)), Nat.add(WS, R), Nat.add(W4, S3), e4))))
+  +eT = {Equal.cong(Nat, Nat, x => 291n+x, Nat.add(WS, P1), Nat.add(16n, Nat.add(C, Nat.add(W4, S3))), eq) :
+    {Nat.add(X1, P1) == Nat.add(Nat.add(307n, C), Nat.add(W4, S3)) : Nat}}
+  N.le_rw_r(Nat.add(1n+Nat.add(K, I), Nat.add(C, Nat.add(16n, Nat.add(S2, L3)))), Nat.add(X1, P1), Nat.add(Nat.add(307n, C), Nat.add(W4, S3)), eT, h1)
+
+# 20 (307 + C + 4 W + 3 S) + S <= 64 (z + S) + G, for C <= 6144, 3 W <= z and
+# 2^18 <= G (G is F's 2^24, a variable here)
+def top.need(+C: Nat, +W: Nat, +S: Nat, +z: Nat, +G: Nat, hC: N.Le(C, N.D(11n, 3n)), hW: N.Le(Nat.mul(3n, W), z),
+  hG: N.Le(N.D(18n, 1n), G)) ->
+  N.Le(Nat.add(Nat.mul(20n, Nat.add(Nat.add(307n, C), Nat.add(Nat.mul(4n, W), Nat.mul(3n, S)))), S), Nat.add(Nat.mul(64n, Nat.add(z, S)), G)):
+  +A0 = Nat.add(307n, C)
+  +W4 = Nat.mul(4n, W)
+  +S3 = Nat.mul(3n, S)
+  +Aa = Nat.mul(20n, A0)
+  +Bw = Nat.mul(20n, W4)
+  +Cs = Nat.mul(20n, S3)
+  +Z64 = Nat.mul(64n, z)
+  +S64 = Nat.mul(64n, S)
+  +hc0 = N.add_mono(307n, N.D(11n, 1n), C, N.D(11n, 3n), Unit{}, hC)
+  +e13 = Equal.trans(Nat, Nat.add(N.D(11n, 1n), N.D(11n, 3n)), N.D(11n, Nat.add(1n, 3n)), N.D(13n, 1n), D_plus(11n, 1n, 3n),
+    Equal.trans(Nat, N.D(11n, Nat.add(1n, 3n)), N.D(11n, N.D(2n, 1n)), N.D(13n, 1n),
+      Equal.cong(Nat, Nat, x => N.D(11n, x), Nat.add(1n, 3n), N.D(2n, 1n), {==}), N.D_add(11n, 2n, 13n, 1n, {==})))
+  +hc1 = N.le_rw_r(A0, Nat.add(N.D(11n, 1n), N.D(11n, 3n)), N.D(13n, 1n), e13, hc0)
+  +hc2 = N.le_trans(Aa, Nat.mul(20n, N.D(13n, 1n)), Nat.mul(N.D(5n, 1n), N.D(13n, 1n)), N.mul_mono_r(20n, A0, N.D(13n, 1n), hc1),
+    N.mul_mono_l(20n, N.D(5n, 1n), N.D(13n, 1n), Unit{}))
+  +e18 = Equal.trans(Nat, Nat.mul(N.D(5n, 1n), N.D(13n, 1n)), N.D(5n, N.D(13n, 1n)), N.D(18n, 1n), N.mul_D(5n, N.D(13n, 1n)),
+    N.D_add(5n, 13n, 18n, 1n, {==}))
+  +hA = N.le_trans(Aa, N.D(18n, 1n), G, N.le_rw_r(Aa, Nat.mul(N.D(5n, 1n), N.D(13n, 1n)), N.D(18n, 1n), e18, hc2), hG)
+  +hB = N.le_trans(Bw, Nat.mul(64n, Nat.mul(3n, W)), Z64,
+    N.le_rw_l(Nat.mul(Nat.mul(20n, 4n), W), Bw, Nat.mul(64n, Nat.mul(3n, W)), mul_assoc(20n, 4n, W),
+      N.le_rw_r(Nat.mul(Nat.mul(20n, 4n), W), Nat.mul(Nat.mul(64n, 3n), W), Nat.mul(64n, Nat.mul(3n, W)), mul_assoc(64n, 3n, W),
+        N.mul_mono_l(Nat.mul(20n, 4n), Nat.mul(64n, 3n), W, Unit{}))),
+    N.mul_mono_r(64n, Nat.mul(3n, W), z, hW))
+  +M60 = Nat.mul(Nat.mul(20n, 3n), S)
+  +hS = N.le_rw_l(Nat.add(S, M60), Nat.add(Cs, S), S64,
+    Equal.trans(Nat, Nat.add(S, M60), Nat.add(M60, S), Nat.add(Cs, S), FC.hf.add.comm(S, M60),
+      Equal.cong(Nat, Nat, x => Nat.add(x, S), M60, Cs, mul_assoc(20n, 3n, S))),
+    N.mul_mono_l(1n+Nat.mul(20n, 3n), 64n, S, Unit{}))
+  +e1 = Equal.trans(Nat, Nat.mul(20n, Nat.add(A0, Nat.add(W4, S3))), Nat.add(Aa, Nat.mul(20n, Nat.add(W4, S3))), Nat.add(Aa, Nat.add(Bw, Cs)),
+    mul_add(20n, A0, Nat.add(W4, S3)),
+    Equal.cong(Nat, Nat, x => Nat.add(Aa, x), Nat.mul(20n, Nat.add(W4, S3)), Nat.add(Bw, Cs), mul_add(20n, W4, S3)))
+  +e2 = Equal.trans(Nat, Nat.add(Nat.add(Aa, Nat.add(Bw, Cs)), S), Nat.add(Aa, Nat.add(Nat.add(Bw, Cs), S)), Nat.add(Aa, Nat.add(Bw, Nat.add(Cs, S))),
+    N.add_assoc(Aa, Nat.add(Bw, Cs), S),
+    Equal.cong(Nat, Nat, x => Nat.add(Aa, x), Nat.add(Nat.add(Bw, Cs), S), Nat.add(Bw, Nat.add(Cs, S)), N.add_assoc(Bw, Cs, S)))
+  +e3 = Equal.trans(Nat, Nat.add(Nat.mul(20n, Nat.add(A0, Nat.add(W4, S3))), S), Nat.add(Nat.add(Aa, Nat.add(Bw, Cs)), S), Nat.add(Aa, Nat.add(Bw, Nat.add(Cs, S))),
+    Equal.cong(Nat, Nat, x => Nat.add(x, S), Nat.mul(20n, Nat.add(A0, Nat.add(W4, S3))), Nat.add(Aa, Nat.add(Bw, Cs)), e1), e2)
+  +eF = Equal.trans(Nat, Nat.add(G, Nat.add(Z64, S64)), Nat.add(G, Nat.mul(64n, Nat.add(z, S))), Nat.add(Nat.mul(64n, Nat.add(z, S)), G),
+    Equal.cong(Nat, Nat, x => Nat.add(G, x), Nat.add(Z64, S64), Nat.mul(64n, Nat.add(z, S)),
+      Equal.sym(Nat, Nat.mul(64n, Nat.add(z, S)), Nat.add(Z64, S64), mul_add(64n, z, S))),
+    FC.hf.add.comm(G, Nat.mul(64n, Nat.add(z, S))))
+  +h = N.add_mono(Aa, G, Nat.add(Bw, Nat.add(Cs, S)), Nat.add(Z64, S64), hA, N.add_mono(Bw, Z64, Nat.add(Cs, S), S64, hB, hS))
+  N.le_rw_l(Nat.add(Aa, Nat.add(Bw, Nat.add(Cs, S))), Nat.add(Nat.mul(20n, Nat.add(A0, Nat.add(W4, S3))), S), Nat.add(Nat.mul(64n, Nat.add(z, S)), G),
+    Equal.sym(Nat, Nat.add(Nat.mul(20n, Nat.add(A0, Nat.add(W4, S3))), S), Nat.add(Aa, Nat.add(Bw, Nat.add(Cs, S))), e3),
+    N.le_rw_r(Nat.add(Aa, Nat.add(Bw, Nat.add(Cs, S))), Nat.add(G, Nat.add(Z64, S64)), Nat.add(Nat.mul(64n, Nat.add(z, S)), G), eF, h))
 
 # Room, for the first cell of the run (first.le), C <= 6144 STATIC own cells
 # and the run's largest term S, is at most F
