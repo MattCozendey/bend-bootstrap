@@ -13,6 +13,7 @@ import ./impl.bend as Mc
 import ../need_big.bend as N
 import ./definitions.bend as D
 import ./statement_runs.bend as X
+import ./accounting.bend as A
 import ./move_kit.bend as K
 
 # Kit
@@ -1001,6 +1002,156 @@ def eh.q(+k: U32, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +i
     Equal.trans(Maybe<&2, U32>, Some{Hd(k, qv)}, Some{Hd(k, D.QnW(f0))}, Some{Hd(k, Mc.Img.quan(q))},
       Equal.cong(U32, Maybe<&2, U32>, y => Some{Hd(k, D.QnW(y))}, f1, f0, hf),
       Equal.cong(U32, Maybe<&2, U32>, y => Some{Hd(k, y)}, D.QnW(f0), Mc.Img.quan(q), hq)))
+
+# The accounting of a frame push
+# ------------------------------
+
+# Clo of no temporary
+def clo.nil(n: Nat, +m: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>,
+  h: {D.Clo(n, m, c, ps, cs, hc) == True{} : Bool}) -> {D.Clo(n, m, c, ps, Nil{}, Nil{}) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      +h2 = h
+      +X = Bool.or(Bool.not(D.Fl(m, c, 1024)), D.All.static(D.Fs(m, ps, c), m))
+      +Y = Bool.or(Bool.not(D.Mem(cs, c)), D.All.held(D.Fs(m, ps, c), m, cs, hc))
+      +ha = D.and.l(Bool.and(X, Y), D.Clo(p, m, U32.inc(c), ps, cs, hc), h2)
+      D.and.i(D.Clo.at(m, c, ps, Nil{}, Nil{}), D.Clo(p, m, U32.inc(c), ps, Nil{}, Nil{}),
+        D.and.i(X, True{}, D.and.l(X, Y, ha), {==}),
+        clo.nil(p, m, U32.inc(c), ps, cs, hc, D.and.r(Bool.and(X, Y), D.Clo(p, m, U32.inc(c), ps, cs, hc), h2)))
+
+# the first two roots trade places (no temporary)
+def acc.swap(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, a: D.Rt, b: D.Rt, +os: List<&2, D.Rt>, +sp: U32, +fs: List<&2, D.AF>, +ps: List<&2, U32>,
+  +zs: List<&2, D.Rt>, h: D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{a, Con{b, os}}, Nil{}, sp, fs, ps, zs)) ->
+  D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{b, Con{a, os}}, Nil{}, sp, fs, ps, zs):
+  match h:
+    case Tuple{hz, Tuple{hh, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +C = List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs))
+      +XS = List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)
+      (hz, (hh, (hc, (Equal.trans(Bool, D.Cov(n, m, fi, Con{b, Con{a, C}}, XS), D.Cov(n, m, fi, Con{a, Con{b, C}}, XS), True{},
+        Equal.sym(Bool, D.Cov(n, m, fi, Con{a, Con{b, C}}, XS), D.Cov(n, m, fi, Con{b, Con{a, C}}, XS), A.cov.perm(n, m, fi, Nil{}, [a], [b], C, XS)),
+        hcov), (hclo, {==})))))
+
+# the temporary z that holds the frame's terms becomes the top frame
+def acc.frame(kind: D.FK, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +z: U32, +yc: U32, +va: Bk.Term, +bv: U32, +vb: Bk.Term,
+  +q: Bk.Quan, +sp: U32, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  h1: {D.Fd(1n, m, z) == sp : U32}, h2: {D.Fd(2n, m, z) == yc : U32}, h3: {D.Fd(3n, m, z) == bv : U32},
+  h: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, [D.TmpE{z, List.append(&2, D.Rt, Con{D.Rt{yc, va}, UB(kind, bv, vb)}, Nil{})}], sp, fs, ps, zs)) ->
+  D.AccK(dk, ds, ks, img, m, nx, fi, im, os, Nil{}, z, Con{D.AF{kind, q, False{}, va, vb}, fs}, ps, zs):
+  match kind:
+    case D.FK.arg{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
+    case D.FK.val{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
+    case D.FK.fun{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
+    case D.FK.let{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
+    case D.FK.tupb{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
+    case D.FK.tupa{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
+    case D.FK.rwt{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, Con{D.Rt{bv, vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, Con{D.Rt{bv, vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, Con{D.Rt{bv, vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, Con{D.Rt{bv, vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, Con{D.Rt{bv, vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, Con{D.Rt{D.Fd(3n, m, z), vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, Con{D.Rt{D.Fd(3n, m, z), vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(3n, m, z), bv, h3) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, Con{D.Rt{_, vb}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc, bv], hclo), {==})))))
+    case D.FK.minb{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
+    case D.FK.mina{}:
+      match h:
+        case Tuple{hz, Tuple{_, Tuple{hc, Tuple{hcov, Tuple{hclo, _}}}}}:
+          +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+          +FC = D.Fr.cells(fs, m, sp)
+          +cv = Equal.trans(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}),
+            D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})), True{},
+            Equal.sym(Bool, D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), List.append(&2, U32, FC, Con{z, ps})),
+              D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, FC, ps)}), A.cov.perm.x(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{yc, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Nil{}, FC, [z], ps)), hcov)
+          (hz, (Unit{}, (hc, ((%Equal.sym(U32, D.Fd(1n, m, z), sp, h1) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{D.Fd(2n, m, z), va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, _), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, _), ps)}) == True{} : Bool};
+            %Equal.sym(U32, D.Fd(2n, m, z), yc, h2) : {D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{D.Rt{_, va}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)}), Con{z, List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)}) == True{} : Bool};
+            cv), (clo.nil(n, m, fi, ps, [z], [yc], hclo), {==})))))
 
 # Runs that end, runs with no new cell
 # ------------------------------------
