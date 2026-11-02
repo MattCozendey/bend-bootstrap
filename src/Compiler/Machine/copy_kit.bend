@@ -7,6 +7,7 @@
 import Base
 import ../../Wasm/impl.bend as Wa
 import ../Cir/impl.bend as Cr
+import ./impl.bend as Mc
 import ./cell_terms.bend as T
 import ../need_big.bend as N
 import ./copy_substitution.bend as D
@@ -1822,3 +1823,81 @@ def al.fresh(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, 
     Bo.and_i(D.AL.cells(P, M2, P, Nil{}, zs, K, F, N2), D.Lt(1n+n, M2, Nil{}, F, N2),
       al.cells.fresh(P, m, P, Nil{}, zs, K, F, nx, hc, t0, hz, hfn, hb, hk, hm, hc),
       lt.new(m, F, nx, Nil{}, t0, hz, hfn, hb, Bo.and_r(C1, L1, hr))))
+
+# a cell keeps its fields 0 and 2 to 4
+def same.refl(+m: Cr.Cir.Cells, +c: U32) -> {D.Same.at(m, m, c) == True{} : Bool}:
+  Bo.and_i(U32.is_eq(D.Fd(0n, m, c), D.Fd(0n, m, c)), Bool.and(U32.is_eq(D.Fd(2n, m, c), D.Fd(2n, m, c)),
+    Bool.and(U32.is_eq(D.Fd(3n, m, c), D.Fd(3n, m, c)), U32.is_eq(D.Fd(4n, m, c), D.Fd(4n, m, c)))), U.eq_refl(D.Fd(0n, m, c)),
+    Bo.and_i(U32.is_eq(D.Fd(2n, m, c), D.Fd(2n, m, c)), Bool.and(U32.is_eq(D.Fd(3n, m, c), D.Fd(3n, m, c)), U32.is_eq(D.Fd(4n, m, c), D.Fd(4n, m, c))),
+      U.eq_refl(D.Fd(2n, m, c)), Bo.and_i(U32.is_eq(D.Fd(3n, m, c), D.Fd(3n, m, c)), U32.is_eq(D.Fd(4n, m, c), D.Fd(4n, m, c)),
+        U.eq_refl(D.Fd(3n, m, c)), U.eq_refl(D.Fd(4n, m, c)))))
+
+# the k cells from c, none of them nx, across the new cell nx set to zeros:
+# they keep their fields, and their counts and pointers (Kept, with the cells
+# from F to nx, then nx + 1)
+def kept.fresh(k: Nat, +m: Cr.Cir.Cells, +nx: U32, +c: U32, +P: List<&2, U32>, +F: U32,
+  +hn: {Ne(k, c, nx) == True{} : Bool}, +t0: {Cr.Cir.Cells.get(m, 272) == Cr.Cir.Cell{0, 0, 0, 0, 0} : Cr.Cir.Cell},
+  +hz: N.Le(291n, U32.to_nat(nx)), +hfn: {U32.is_le(F, nx) == True{} : Bool}) ->
+  {D.Kept(k, m, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), c, [nx], P, F, Nat.sub(U32.to_nat(nx), U32.to_nat(F)),
+    1n+Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Nil{}, Nil{}, Nil{}, Nil{}) == True{} : Bool}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+      +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+      +ne = Bo.not_t(U32.is_eq(c, nx), Bo.and_l(Bool.not(U32.is_eq(c, nx)), Ne(p, U32.inc(c), nx), hn))
+      +X = Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(n, m, Nil{}, F, c), D.Occ(Nil{}, c)))
+      +G = Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(P, c)))
+      +R = Bool.and(D.Same.at(m, M2, c), Bool.or(G, Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, M2, c)), Nat.add(D.Pc(n, m, Nil{}, F, c), D.Occ(Nil{}, c))),
+        Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(1n+n, M2, Nil{}, F, c), D.Occ(Nil{}, c))))))
+      Bo.and_i(Bool.or(D.Has([nx], c), R), D.Kept(p, m, M2, U32.inc(c), [nx], P, F, n, 1n+n, Nil{}, Nil{}, Nil{}, Nil{}),
+        Bo.or_ir(D.Has([nx], c), R,
+          (%Equal.sym(Nat, D.Pc(1n+n, M2, Nil{}, F, c), D.Pc(n, m, Nil{}, F, c), pc.new(m, F, nx, Nil{}, c, t0, hz, hfn)) :
+            {Bool.and(D.Same.at(m, M2, c), Bool.or(G, Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, M2, c)), Nat.add(D.Pc(n, m, Nil{}, F, c), D.Occ(Nil{}, c))),
+              Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(_, D.Occ(Nil{}, c)))))) == True{} : Bool};
+          (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, c), Cr.Cir.Cells.get(m, c), Cl.get_ne(m, c, nx, Cr.Cir.Cell.zero(), ne)) :
+            {Bool.and(Bool.and(U32.is_eq(Cr.Cir.Cell.get(0n, _), D.Fd(0n, m, c)), Bool.and(U32.is_eq(Cr.Cir.Cell.get(2n, _), D.Fd(2n, m, c)),
+              Bool.and(U32.is_eq(Cr.Cir.Cell.get(3n, _), D.Fd(3n, m, c)), U32.is_eq(Cr.Cir.Cell.get(4n, _), D.Fd(4n, m, c))))),
+              Bool.or(G, Nat.is_eq(Nat.add(U32.to_nat(Cr.Cir.Cell.get(1n, _)), Nat.add(D.Pc(n, m, Nil{}, F, c), D.Occ(Nil{}, c))), X))) == True{} : Bool};
+          Bo.and_i(D.Same.at(m, m, c), Bool.or(G, Nat.is_eq(X, X)), same.refl(m, c), Bo.or_ir(G, Nat.is_eq(X, X), Na.eq_refl(X)))))),
+        kept.fresh(p, m, nx, U32.inc(c), P, F, Bo.and_r(Bool.not(U32.is_eq(c, nx)), Ne(p, U32.inc(c), nx), hn), t0, hz, hfn))
+
+# the table's cells, before z, across a store to z
+def tbgo.set(cs: List<&2, Cr.Cir.Cell>, +m: Cr.Cir.Cells, +i: U32, +z: U32, +x: Cr.Cir.Cell,
+  h: N.Le(Nat.add(U32.to_nat(i), List.length(&2, Cr.Cir.Cell, cs)), U32.to_nat(z)), t: D.Tb.go(m, i, cs)) ->
+  D.Tb.go(Cr.Cir.Cells.set(m, z, x), i, cs):
+  match cs:
+    case Nil{}:
+      Unit{}
+    case Con{+c, +rest}:
+      (e, t2) = t
+      +xi = U32.to_nat(i)
+      +k = List.length(&2, Cr.Cir.Cell, rest)
+      +h1 = N.le_rw_l(Nat.add(xi, 1n+k), 1n+Nat.add(xi, k), U32.to_nat(z), N.add_succ_r(xi, k), h)
+      +lt = N.le_trans(1n+xi, 1n+Nat.add(xi, k), U32.to_nat(z), N.le_add_r(1n+xi, k), h1)
+      +ei = Ar.u.inc(i, z, lt)
+      +h2 = N.le_rw_l(1n+Nat.add(xi, k), Nat.add(U32.to_nat(U32.inc(i)), k), U32.to_nat(z),
+        Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(i)), k), 1n+Nat.add(xi, k),
+          Equal.cong(Nat, Nat, y => Nat.add(y, k), U32.to_nat(U32.inc(i)), 1n+xi, ei)), h1)
+      (Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, x), i), Cr.Cir.Cells.get(m, i), c,
+          Cl.get_ne(m, i, z, x, Ar.ne(i, z, lt)), e),
+        tbgo.set(rest, m, U32.inc(i), z, x, h2, t2))
+
+# the table across a store past it
+def tb.set(+m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, hz: N.Le(291n, U32.to_nat(z)), t: D.Tb(m)) -> D.Tb(Cr.Cir.Cells.set(m, z, x)):
+  tbgo.set(Mc.Img.table([]), m, 272, z, x, hz, t)
+
+# a cell at or past next N is no garbage cell
+def has.lt(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32,
+  +N: U32, +z: U32, +hzn: N.Le(U32.to_nat(N), U32.to_nat(z)), h: {D.AL.cells(os, m, P, Q, zs, K, F, N) == True{} : Bool}) ->
+  {D.Has(os, z) == False{} : Bool}:
+  match os:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      +h2 = h
+      +ne = Ar.ne(o, z, N.le_trans(1n+U32.to_nat(o), U32.to_nat(N), U32.to_nat(z),
+        U.lt(o, N, al.hd.lt(m, Q, o, F, N, al.hd(o, rest, m, P, Q, zs, K, F, N, h2))), hzn))
+      %Equal.sym(Bool, U32.is_eq(o, z), False{}, ne) : {Bool.or(_, D.Has(rest, z)) == False{} : Bool}
+      has.lt(rest, m, P, Q, zs, K, F, N, z, hzn, al.rest(o, rest, m, P, Q, zs, K, F, N, h2))
