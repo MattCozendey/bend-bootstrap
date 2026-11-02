@@ -21,12 +21,14 @@ import Base
 import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
 import ../Cir/impl.bend as Cr
+import ./impl.bend as Mc
 import ./cell_terms.bend as T
 import ../need_big.bend as N
 import ./definitions.bend as PM
 import ./statement_runs.bend as X
 import ./move_kit.bend as K
 import ./data_walk.bend as W
+import ./heap_ops.bend as HO
 
 # Kit
 # ---
@@ -1509,6 +1511,82 @@ def ft.trans(v: Bk.Term, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +m1: Cr.Cir.Cells,
       ff.trans(m, m1, m2, x, a, b)
     case Bk.Term.Rwt{+o0, +o1, +o2}:
       ff.trans(m, m1, m2, x, a, b)
+
+# Allocation
+# ----------
+#
+# M.alloc by alloc.post, within a budget B: with a cell in the pend list
+# (pend /= 0) M.alloc takes it and runs no Stmt.alloc, so it does not run out
+# of memory; with none (pend = 0, so ps is empty) out of memory needs fewer
+# than 20 (nx + 1) bytes, which the caller's hb puts within B.
+
+# what alloc.post says of the state st2 after M.alloc(r)
+def AlQ(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps: List<&2, U32>, +xs: List<&2, PM.TmpE>,
+  +st2: Cr.Cir.State) -> Type:
+  PM.P2(PM.Same(regs, fi, im, lim, inp, keep, st2),
+    PM.Ex(U32, z => PM.Ex(U32, pend2 => PM.Ex(List<&2, U32>, ps2 =>
+      PM.P2(PM.Reg(st2, r, z), PM.P2(PM.Reg(st2, 3n, pend2),
+      PM.P2({Cr.Cir.Cells.get(PM.St.cells(st2), z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
+      PM.P2({PM.Own(fi, PM.St.next(st2), z) == True{} : Bool}, PM.P2({PM.Mem(ps2, z) == False{} : Bool},
+      PM.P2({Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool},
+      PM.P2({Bool.or(Bool.and(PM.Mem(ps, z), U32.is_eq(PM.St.next(st2), nx)),
+           Bool.and(PM.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(PM.St.next(st2), U32.inc(nx))))) == True{} : Bool},
+      PM.P2(PM.Ex(List<&2, PM.W1>, ws => PM.P2({PM.St.cells(st2) == Cr.Cir.Cells.set(PM.Put1(ws, m), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells},
+        {PM.Took(ws, ps, m) == True{} : Bool})),
+      PM.P2({PM.PsSub(ps2, ps, m) == True{} : Bool},
+      PM.P2({PM.Ptr(Nat.sub(U32.to_nat(PM.St.next(st2)), U32.to_nat(fi)), PM.St.cells(st2), fi, ps2, PM.Rt.cells(os), z) == 0n : Nat},
+      PM.P2(PM.HSK(dk, ds, ks, img, PM.St.cells(st2), PM.St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2),
+        PM.Ex(List<&2, PM.Rt>, zs2 => PM.AccK(dk, ds, ks, img, PM.St.cells(st2), PM.St.next(st2), fi, im, os, Con{PM.TmpE{z, Nil{}}, xs}, sp, fs, ps2, zs2))))))))))))))))) & PM.AlFr(m, ps, nx, st2)
+
+# with a cell in the pend list, M.alloc runs no Stmt.alloc
+def al.nooom(+F: Nat, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +pend: U32, hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  hz: {U32.is_eq(pend, 0) == False{} : Bool}) -> PM.NoOom(Cr.Cir.exec(F, Mc.M.alloc(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp))):
+  +S = X.X.st(regs, m, nx, fi, im, pg, lim, inp)
+  +a = Mc.M.alloc(r)
+  %X.rw.if.t(F, X.sel.c(a), X.sel.t(a), X.sel.e(a), S, 1, X.ev.ne0(3n, S, pend, hp, hz), {==}) : PM.NoOom(_)
+  noal(F, X.sel.t(a), S, {==})
+
+# alloc.post's PostB within the budget B
+def al.bud(b: Bool, +F: Nat, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +pend: U32, +ps: List<&2, U32>, -Q: Cr.Cir.State -> Type, +B: Nat,
+  eb: {U32.is_eq(pend, 0) == b : Bool}, hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, hc: PM.Chain(ps, m, pend),
+  hb: {PM.Pend.none(ps) == True{} : Bool} -> N.Le(Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), B),
+  h: PM.PostB(False{}, Cr.Cir.exec(F, Mc.M.alloc(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), Q, s => st2 => Empty,
+    Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim)) ->
+  PM.PostB(False{}, Cr.Cir.exec(F, Mc.M.alloc(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), Q, s => st2 => Empty, B, lim):
+  match b:
+    case True{}:
+      PM.postb.wk(False{}, Cr.Cir.exec(F, Mc.M.alloc(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), Q, s => st2 => Empty,
+        Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), B, lim, h, hb(chain.none(ps, m, pend, hc, eb)))
+    case False{}:
+      postb.no(Cr.Cir.exec(F, Mc.M.alloc(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), Q, s => st2 => Empty,
+        Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), B, lim, h, al.nooom(F, r, regs, m, nx, fi, im, pg, lim, inp, pend, hp, eb))
+
+# M.alloc(r) gives what alloc.post says, within the budget B when a new cell
+# fits it
+def al.ok(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +xs: List<&2, PM.TmpE>,
+  +zs: List<&2, PM.Rt>, -R: Cr.Cir.State -> Type, +B: Nat,
+  +hs: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
+  hac: PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs),
+  hl: {List.length(&2, U32, regs) == 63n : Nat},
+  +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n))) == True{} : Bool},
+  hk: {PM.Disj(keep, [r, 3n, 4n, 5n, 6n, 7n]) == True{} : Bool},
+  hb: {PM.Pend.none(ps) == True{} : Bool} -> N.Le(Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), B),
+  k: @st2: Cr.Cir.State -> AlQ(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, ps, xs, st2) -> R(st2)) ->
+  W.Ok(Cr.Cir.exec(F, Mc.M.alloc(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), R, B, lim):
+  +o = Cr.Cir.exec(F, Mc.M.alloc(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp))
+  W.OkMono(o, st2 => AlQ(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, ps, xs, st2), R, B, lim,
+    al.bud(U32.is_eq(pend, 0), F, r, regs, m, nx, fi, im, pg, lim, inp, pend, ps,
+      st2 => AlQ(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, ps, xs, st2), B, {==}, hp,
+      heap.chain(m, nx, fi, im, PM.Rt.cells(os), pend, ps, hsk.heap(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, hs)), hb,
+      PM.alloc.post(F, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, ps, xs, zs, hs, hac, hl, hp, hr, hk)),
+    k)
 
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
