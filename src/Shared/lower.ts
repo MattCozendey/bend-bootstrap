@@ -5,8 +5,9 @@
 // file whose book bend2 checks but for its holes (?TODO): each hole is read as
 // a call of its own def, so that the defs that name a hole stay in the output.
 // Only the defs with a hole, and the proofs that call them, differ from what
-// `bend -o` will write once the holes are filled; src/Shared/scripts/Defs.lean writes Lean versions of
-// from it only defs and types that name no hole (src/Joining/Generated/Trusted.lean).
+// `bend -o` will write once the holes are filled; from its output,
+// src/Shared/scripts/Defs.lean writes Lean versions of only the defs and types
+// that name no hole (src/Joining/Generated/Trusted.lean).
 // Temporary: once no hole is left, delete this file, and `getLower` becomes `getBend` on
 // `main.bend`.
 //
