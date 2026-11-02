@@ -326,13 +326,13 @@ def W1s(ws: List<&2, W1>, +m: Cr.Cir.Cells) -> Cr.Cir.Cells:
     case Con{W1{+x, v}, rest}:
       W1s(rest, Cr.Cir.Cells.set(m, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x), v)))
 
-# each write is to a cell of P
-def W1s.in(ws: List<&2, W1>, +P: List<&2, U32>) -> Bool:
+# each write is to a part of the cell c (by its mask, D.Ow)
+def W1s.pt(ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> Bool:
   match ws:
     case Nil{}:
       True{}
     case Con{W1{+x, _}, rest}:
-      Bool.and(D.Has(P, x), W1s.in(rest, P))
+      Bool.and(Nat.is_lt(0n, D.Ow(m, c, x)), W1s.pt(rest, m, c))
 
 # xs without its first x
 def Del(xs: List<&2, U32>, +x: U32) -> List<&2, U32>:
@@ -343,8 +343,9 @@ def Del(xs: List<&2, U32>, +x: U32) -> List<&2, U32>:
       Bool.pick(List<&2, U32>, U32.is_eq(y, x), rest, Con{y, Del(rest, x)})
 
 # what M.alloc did: the cell c, a new one (fresh) or the first of the pend
-# list, after the counts ws of the garbage's cells that its reuse dropped;
-# the garbage P2 and pend list Q2 after it, and the registers 3 to 7
+# list, after the writes ws of field 1 (counts and links) of the parts that
+# its reuse dropped; the garbage P2 and pend list Q2 after it, and the
+# registers 3 to 7
 type Aw is Data:
   Aw{c: U32, fresh: Bool, P2: List<&2, U32>, Q2: List<&2, U32>, ws: List<&2, W1>, a: List<&2, U32>}
 
@@ -357,17 +358,22 @@ def Al.how(fresh: Bool, +P: List<&2, U32>, +c: U32, +P2: List<&2, U32>, +nx: U32
       D.P2({D.Has(P, c) == True{} : Bool}, D.P2({P2 == Del(P, c) : List<&2, U32>}, {nx2 == nx : U32}))
 
 def Al.post(+r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +K: U32, +F: U32, +P: List<&2, U32>,
-  +zs: List<&2, D.Zs>, w: Aw, +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx2: U32) -> Data:
+  +Q: List<&2, U32>, +zs: List<&2, D.Zs>, w: Aw, +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx2: U32) -> Data:
   match w:
     case Aw{+c, +fresh, +P2, +Q2, +ws, +a}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+      +n2 = Nat.sub(U32.to_nat(nx2), U32.to_nat(F))
       D.P2({rg == List.set(&2, U32, Rp(a, D.Rg.ex(63n, R, 0n)), r, c) : List<&2, U32>},
       D.P2({ms == Cr.Cir.Cells.set(W1s(ws, m), c, Cr.Cir.Cell.zero()) : Cr.Cir.Cells},
-      D.P2({W1s.in(ws, P) == True{} : Bool},
+      D.P2({W1s.pt(ws, m, c) == True{} : Bool},
       D.P2(Al.how(fresh, P, c, P2, nx, nx2),
       D.P2({D.AL(ms, T.tm.reg(a, 0n), P2, Q2, zs, K, F, nx2) == True{} : Bool},
       D.P2({U32.is_le(F, c) == True{} : Bool},
       D.P2({Cr.Cir.is_cell(c, K, F, nx2) == True{} : Bool},
-      D.P2({D.Has(P2, c) == False{} : Bool}, D.Tb(ms)))))))))
+      D.P2({D.Has(P2, c) == False{} : Bool},
+      D.P2(D.Tb(ms),
+      D.P2({D.Kept(n, m, ms, F, [c], P2, F, n, n2, Q, Q2, Nil{}, Nil{}) == True{} : Bool},
+        {D.Pc(n2, ms, Q2, F, c) == 0n : Nat}))))))))))
 
 # the budget of an allocation from the pend list Q at next nx: a new cell
 # is taken only when Q is empty, and needs 20 (nx + 1) bytes
@@ -380,7 +386,9 @@ def Al.b(+Q: List<&2, U32>, +nx: U32) -> Nat:
 
 # M.alloc(r): the cell that it gives is a new one or the first of the pend
 # list, whose reuse drops the counts of its parts; the allocation's invariant
-# holds again, without that cell; it runs out of memory only for a new cell
+# holds again, without that cell; the other cells keep their fields 0, 2 to 4
+# and their counts follow their pointers (Kept), and none points to the cell;
+# it runs out of memory only for a new cell
 def Al.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
   +I: List<&2, Word(8n)>, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>,
   hal: {D.AL(m, T.tm.reg(R, 3n), P, Q, zs, K, F, nx) == True{} : Bool},
@@ -388,7 +396,7 @@ def Al.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U
   hk: {U32.is_le(290, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool}, hfn: {U32.is_le(F, nx) == True{} : Bool},
   tb: D.Tb(m)) ->
   D.Ok(Cr.Cir.exec(1n+f, Mc.M.alloc(r), D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I, Al.b(Q, nx),
-    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, zs, w, rg, ms, nx2))):
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Q, zs, w, rg, ms, nx2))):
   ?TODO
 
 # no garbage cell of P points to the cells ns
