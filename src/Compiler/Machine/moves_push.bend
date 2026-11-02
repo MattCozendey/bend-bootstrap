@@ -8,6 +8,7 @@ import Base
 import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
 import ../../Wasm/impl.bend as Wa
+import ../../Program/impl.bend as Pg
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
 import ../need_big.bend as N
@@ -2260,6 +2261,135 @@ def frame2.mv(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>,
     D.postb.wk(False{}, Cr.Cir.exec(f, Mc.M.inc(11n), SY), st2 => IncQ(ds, ks, img, List.set(&2, U32, List.set(&2, U32, regs, 11n, xc), 12n, yc), m, nx, fi, im, pg, lim, inp, [D.Rt{foc, F}], [D.Rt{yc, va}], fs, sp, pend, ps, xc, vf, Nil{}, zs, st2), s => st2 => Empty, 0n, B, lim, hi, N.le_zero(B)),
     s => st2 => e => Empty.absurd(D.HR(ds, t, s, st2), e),
     +stA => qi => frame2.incy(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, foc, F, xc, vf, yc, va, vb, kind, q, hv, fs, sp, ps, pg, st0, t, w, hexp, B, pend, zs, a, b, hub, hroom, hnd, hmc, et2, ew2, afs2, hl, h1, h2, h3, h8, eh, hok, stA, qi))
+
+
+# The bounds of a round
+# ---------------------
+
+# three times
+def A3(+y: Nat) -> Nat:
+  Nat.add(y, Nat.add(y, y))
+
+def a3.succ(+P: Nat) -> {A3(1n+P) == 3n+A3(P) : Nat}:
+  +e4 = Equal.trans(Nat, Nat.add(P, Nat.add(P, 1n+P)), Nat.add(P, 1n+Nat.add(P, P)), 1n+A3(P),
+    Equal.cong(Nat, Nat, z => Nat.add(P, z), Nat.add(P, 1n+P), 1n+Nat.add(P, P), N.add_succ_r(P, P)), N.add_succ_r(P, Nat.add(P, P)))
+  +e6 = Equal.trans(Nat, Nat.add(P, 1n+Nat.add(P, 1n+P)), 1n+Nat.add(P, Nat.add(P, 1n+P)), 2n+A3(P),
+    N.add_succ_r(P, Nat.add(P, 1n+P)), Equal.cong(Nat, Nat, z => 1n+z, Nat.add(P, Nat.add(P, 1n+P)), 1n+A3(P), e4))
+  Equal.cong(Nat, Nat, z => 1n+z, Nat.add(P, 1n+Nat.add(P, 1n+P)), 2n+A3(P), e6)
+
+def a3.split(+G: Nat, +X: Nat) -> {A3(Nat.add(G, X)) == Nat.add(A3(G), A3(X)) : Nat}:
+  Equal.trans(Nat, A3(Nat.add(G, X)), Nat.add(Nat.add(G, X), Nat.add(Nat.add(G, G), Nat.add(X, X))), Nat.add(A3(G), A3(X)),
+    Equal.cong(Nat, Nat, z => Nat.add(Nat.add(G, X), z), Nat.add(Nat.add(G, X), Nat.add(G, X)), Nat.add(Nat.add(G, G), Nat.add(X, X)),
+      A.add4(G, X, G, X)),
+    A.add4(G, X, Nat.add(G, G), Nat.add(X, X)))
+
+# a frame pushed around a part of the focus costs less than the focus: 3 its
+# nodes, and its frame at most 2 + 3 the other part's
+def w.lt(+G: Nat, +X: Nat, +S: Nat, +W: Nat, +FR: Nat, hS: {S == 1n+Nat.add(G, X) : Nat}, hfr: N.Le(FR, 2n+A3(X))) ->
+  N.Le(1n+Nat.add(A3(G), Nat.add(FR, W)), Nat.add(A3(S), W)):
+  +AG = A3(G)
+  +AX = A3(X)
+  +Y = Nat.add(AX, W)
+  +RHS = {2n+Nat.add(AG, Y) : Nat}
+  +e = Equal.trans(Nat, Nat.add(AG, 2n+Y), 1n+Nat.add(AG, 1n+Y), RHS, N.add_succ_r(AG, 1n+Y),
+    Equal.cong(Nat, Nat, z => 1n+z, Nat.add(AG, 1n+Y), 1n+Nat.add(AG, Y), N.add_succ_r(AG, Y)))
+  +h = N.le_rw_r(Nat.add(AG, Nat.add(FR, W)), Nat.add(AG, 2n+Y), RHS, e,
+    N.add_mono(AG, AG, Nat.add(FR, W), Nat.add(2n+AX, W), N.le_refl(AG), N.add_mono(FR, 2n+AX, W, W, hfr, N.le_refl(W))))
+  %Equal.sym(Nat, S, 1n+Nat.add(G, X), hS) : N.Le(1n+Nat.add(AG, Nat.add(FR, W)), Nat.add(A3(_), W))
+  %Equal.sym(Nat, A3(1n+Nat.add(G, X)), 3n+A3(Nat.add(G, X)), a3.succ(Nat.add(G, X))) : N.Le(1n+Nat.add(AG, Nat.add(FR, W)), Nat.add(_, W))
+  %Equal.sym(Nat, A3(Nat.add(G, X)), Nat.add(AG, AX), a3.split(G, X)) : N.Le(1n+Nat.add(AG, Nat.add(FR, W)), 3n+Nat.add(_, W))
+  %Equal.sym(Nat, Nat.add(Nat.add(AG, AX), W), Nat.add(AG, Y), add.assoc(AG, AX, W)) : N.Le(1n+Nat.add(AG, Nat.add(FR, W)), 3n+_)
+  h
+
+# Need's round bound from Acc's: 1 + the own cells, with the term's nodes
+def need.arith(+S: Nat, +F: Nat, +R: Nat, +L: Nat, +T: Nat, +n: Nat, +X: Nat,
+  h1: N.Le(n, Nat.add(S, Nat.add(Nat.add(F, 0n), Nat.add(R, Nat.add(L, 0n))))), h2: {T == Nat.add(F, Nat.add(R, L)) : Nat}, h3: N.Le(T, X)) ->
+  N.Le(1n+n, Nat.add(S, Nat.add(16n, X))):
+  +e1 = Equal.trans(Nat, Nat.add(S, Nat.add(Nat.add(F, 0n), Nat.add(R, Nat.add(L, 0n)))), Nat.add(S, Nat.add(F, Nat.add(R, Nat.add(L, 0n)))),
+    Nat.add(S, Nat.add(F, Nat.add(R, L))),
+    Equal.cong(Nat, Nat, z => Nat.add(S, Nat.add(z, Nat.add(R, Nat.add(L, 0n)))), Nat.add(F, 0n), F, N.add_zero(F)),
+    Equal.cong(Nat, Nat, z => Nat.add(S, Nat.add(F, Nat.add(R, z))), Nat.add(L, 0n), L, N.add_zero(L)))
+  +h1a = N.le_rw_r(n, Nat.add(S, Nat.add(Nat.add(F, 0n), Nat.add(R, Nat.add(L, 0n)))), Nat.add(S, Nat.add(F, Nat.add(R, L))), e1, h1)
+  +h1b = N.le_rw_r(n, Nat.add(S, Nat.add(F, Nat.add(R, L))), Nat.add(S, T),
+    Equal.cong(Nat, Nat, z => Nat.add(S, z), Nat.add(F, Nat.add(R, L)), T, Equal.sym(Nat, T, Nat.add(F, Nat.add(R, L)), h2)), h1a)
+  N.le_trans(1n+n, Nat.add(S, 1n+T), Nat.add(S, Nat.add(16n, X)),
+    N.le_rw_r(1n+n, 1n+Nat.add(S, T), Nat.add(S, 1n+T), Equal.sym(Nat, Nat.add(S, 1n+T), 1n+Nat.add(S, T), N.add_succ_r(S, T)), h1b),
+    N.add_mono(S, S, 1n+T, Nat.add(16n, X), N.le_refl(S), N.le_trans(T, X, Nat.add(15n, X), h3, N.le_add_l(15n, X))))
+
+# the term's nodes are within Need's twice the larger of the term and its step
+def tx.le(+T: Nat, +SS: Nat, +DB: Nat) -> N.Le(T, Nat.add(Nat.mul(2n, Nat.max(T, SS)), Nat.mul(3n, DB))):
+  +M = Nat.max(T, SS)
+  N.le_trans(T, M, Nat.add(Nat.mul(2n, M), Nat.mul(3n, DB)), le.max(T, SS),
+    N.le_trans(M, Nat.mul(2n, M), Nat.add(Nat.mul(2n, M), Nat.mul(3n, DB)), N.le_add_r(M, Nat.mul(1n, M)),
+      N.le_add_r(Nat.mul(2n, M), Nat.mul(3n, DB))))
+
+# with no pending cell, a new cell fits in Need: the own cells are at most
+# the STATIC ones and the term's nodes (acc.count, plugs.size)
+def need.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +foc: U32, +F: Bk.Term, +sp: U32, +fs: List<&2, D.AF>,
+  ps: List<&2, U32>, +zs: List<&2, D.Rt>, +t: Bk.Term, +et: {D.A.plugs(fs, F) == t : Bk.Term},
+  hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, F}], Nil{}, sp, fs, ps, zs), e: {D.Pend.none(ps) == True{} : Bool}) ->
+  N.Le(1n+Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), D.Need(ds, Cr.Cir.State{regs0, m, nx, fi, im, pg, lim, inp, Nil{}, 0}, t)):
+  match ps:
+    case Nil{}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +R = D.Rts.size(D.Fr.rts(fs, m, sp))
+      +L = List.length(&2, U32, D.Fr.cells(fs, m, sp))
+      +FF = Pg.Term.size(F)
+      +T = Pg.Term.size(t)
+      +h2 = Equal.trans(Nat, T, Pg.Term.size(D.A.plugs(fs, F)), Nat.add(FF, Nat.add(R, L)),
+        Equal.cong(Bk.Term, Nat, u => Pg.Term.size(u), t, D.A.plugs(fs, F), Equal.sym(Bk.Term, D.A.plugs(fs, F), t, et)), A.plugs.size(fs, m, sp, F))
+      need.arith(D.Stat(n, m, fi), FF, R, L, T, n, Nat.add(Nat.mul(2n, Nat.max(T, D.StepSize(ds, t))), Nat.mul(3n, D.Defs.big(ds))),
+        A.acc.count(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, F}], Nil{}, sp, fs, zs, hac), h2, tx.le(T, D.StepSize(ds, t), D.Defs.big(ds)))
+    case Con{p, r}:
+      D.bool.ft(N.Le(1n+Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), D.Need(ds, Cr.Cir.State{regs0, m, nx, fi, im, pg, lim, inp, Nil{}, 0}, t)), e)
+
+# 20 (nx + 1) bytes: within Budget, when a new cell fits in Need
+def budget.of(+nx: U32, +fi: U32, +Nd: Nat, +T: Nat, +Y: Nat, hn: N.Le(1n+Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), Nd),
+  hf: N.Le(U32.to_nat(fi), U32.to_nat(nx))) ->
+  N.Le(Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), Nat.max(Nat.add(Nat.mul(20n, Nat.add(U32.to_nat(fi), Nd)), T), Y)):
+  +F = U32.to_nat(fi)
+  +X = U32.to_nat(nx)
+  +n = Nat.sub(X, F)
+  +e1 = Equal.trans(Nat, Nat.add(n, 1n), 1n+Nat.add(n, 0n), 1n+n, N.add_succ_r(n, 0n), Equal.cong(Nat, Nat, z => 1n+z, Nat.add(n, 0n), n, N.add_zero(n)))
+  +e2 = Equal.trans(Nat, Nat.add(F, 1n+n), Nat.add(F, Nat.add(n, 1n)), Nat.add(X, 1n),
+    Equal.cong(Nat, Nat, z => Nat.add(F, z), 1n+n, Nat.add(n, 1n), Equal.sym(Nat, Nat.add(n, 1n), 1n+n, e1)),
+    Equal.trans(Nat, Nat.add(F, Nat.add(n, 1n)), Nat.add(Nat.add(F, n), 1n), Nat.add(X, 1n),
+      Equal.sym(Nat, Nat.add(Nat.add(F, n), 1n), Nat.add(F, Nat.add(n, 1n)), add.assoc(F, n, 1n)),
+      Equal.cong(Nat, Nat, z => Nat.add(z, 1n), Nat.add(F, n), X, D.add.sub(F, X, hf))))
+  +h1 = N.le_rw_l(Nat.add(F, 1n+n), Nat.add(X, 1n), Nat.add(F, Nd), e2, N.add_mono(F, F, 1n+n, Nd, N.le_refl(F), hn))
+  N.le_trans(Nat.mul(20n, Nat.add(X, 1n)), Nat.add(Nat.mul(20n, Nat.add(F, Nd)), T), Nat.max(Nat.add(Nat.mul(20n, Nat.add(F, Nd)), T), Y),
+    N.le_trans(Nat.mul(20n, Nat.add(X, 1n)), Nat.mul(20n, Nat.add(F, Nd)), Nat.add(Nat.mul(20n, Nat.add(F, Nd)), T),
+      N.mul_mono_r(20n, Nat.add(X, 1n), Nat.add(F, Nd), h1), N.le_add_r(Nat.mul(20n, Nat.add(F, Nd)), T)),
+    le.max(Nat.add(Nat.mul(20n, Nat.add(F, Nd)), T), Y))
+
+# the heap's first cell is at most next
+def heap.finx(-m: Cr.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -rs: List<&2, U32>, -pend: U32, -ps: List<&2, U32>,
+  h: D.Heap(m, nx, fi, im, rs, pend, ps)) -> {U32.is_le(fi, nx) == True{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, e}}}}}:
+      e
+
+# a pend list's first cell is not 0
+def chain.ne(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, U32>, +pend: U32, +p: U32, +r: List<&2, U32>,
+  h: D.Heap(m, nx, fi, im, rs, pend, Con{p, r})) -> {U32.is_eq(pend, 0) == False{} : Bool}:
+  match h:
+    case Tuple{Tuple{e, Tuple{n0, _}}, _}:
+      %Equal.sym(U32, pend, p, e) : {U32.is_eq(_, 0) == False{} : Bool}
+      n0
+
+# the round's room for M.alloc: a new cell only with pend 0, when it fits
+def room.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +foc: U32, +F: Bk.Term, +sp: U32, +fs: List<&2, D.AF>,
+  ps: List<&2, U32>, +pend: U32, +zs: List<&2, D.Rt>, +t: Bk.Term, +et: {D.A.plugs(fs, F) == t : Bk.Term},
+  hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, F}], Nil{}, sp, fs, ps, zs), hp: D.Heap(m, nx, fi, im, [foc], pend, ps)) ->
+  Or(N.Le(Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), D.Budget(ds, Cr.Cir.State{regs0, m, nx, fi, im, pg, lim, inp, Nil{}, 0}, t)), {U32.is_eq(pend, 0) == False{} : Bool}):
+  match ps:
+    case Nil{}:
+      Inl{budget.of(nx, fi, D.Need(ds, Cr.Cir.State{regs0, m, nx, fi, im, pg, lim, inp, Nil{}, 0}, t), Pg.Term.size(t), Nat.add(Nat.mul(20n, U32.to_nat(nx)), Pg.Term.size(t)),
+        need.of(ds, ks, img, regs0, m, nx, fi, im, pg, lim, inp, foc, F, sp, fs, Nil{}, zs, t, et, hac, {==}), D.u.le(fi, nx, heap.finx(m, nx, fi, im, [foc], pend, Nil{}, hp)))}
+    case Con{+p, +r}:
+      Inr{chain.ne(m, nx, fi, im, [foc], pend, p, r, hp)}
 
 
 # The moves to mode 1
