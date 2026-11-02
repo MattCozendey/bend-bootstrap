@@ -140,9 +140,9 @@ def CB.plus(+k: Nat, c: Wa.Wasm.Call, h: CB(k, c)) -> CB(1n+k, Wa.Wasm.call.plus
       h
 
 # the steps after st, with the fuel k and k + g
-def go.st(+k: Nat, +g: Nat, st: Wa.Wasm.Step) ->
-  CM(Wa.Wasm.call.stepped(st, fr => mm => Wa.Wasm.call.go(k, fr, mm)),
-     Wa.Wasm.call.stepped(st, fr => mm => Wa.Wasm.call.go(Nat.add(k, g), fr, mm))):
+def go.st(+k: Nat, +g: Nat, +ts: List<&2, Wa.Wasm.Type>, st: Wa.Wasm.Step) ->
+  CM(Wa.Wasm.call.stepped(st, fr => mm => Wa.Wasm.call.go(k, ts, fr, mm)),
+     Wa.Wasm.call.stepped(st, fr => mm => Wa.Wasm.call.go(Nat.add(k, g), ts, fr, mm))):
   match k:
     case 0n:
       match st:
@@ -155,22 +155,22 @@ def go.st(+k: Nat, +g: Nat, st: Wa.Wasm.Step) ->
     case 1n+p:
       match st:
         case Wa.Wasm.Step.next{+fr, +m}:
-          CM.plus(Wa.Wasm.call.go(1n+p, fr, m), Wa.Wasm.call.go(Nat.add(1n+p, g), fr, m), go.st(p, g, Wa.Wasm.step(fr, m)))
+          CM.plus(Wa.Wasm.call.go(1n+p, ts, fr, m), Wa.Wasm.call.go(Nat.add(1n+p, g), ts, fr, m), go.st(p, g, ts, Wa.Wasm.step(ts, fr, m)))
         case Wa.Wasm.Step.done{+rs, +m}:
           {==}
         case Wa.Wasm.Step.trap{+m}:
           {==}
 
-def go.more(+k: Nat, +g: Nat, +f: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) ->
-  CM(Wa.Wasm.call.go(k, f, mem), Wa.Wasm.call.go(Nat.add(k, g), f, mem)):
+def go.more(+k: Nat, +g: Nat, +ts: List<&2, Wa.Wasm.Type>, +f: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) ->
+  CM(Wa.Wasm.call.go(k, ts, f, mem), Wa.Wasm.call.go(Nat.add(k, g), ts, f, mem)):
   match k:
     case 0n:
       Unit{}
     case 1n+p:
-      go.st(p, g, Wa.Wasm.step(f, mem))
+      go.st(p, g, ts, Wa.Wasm.step(ts, f, mem))
 
-def go.st.bound(+k: Nat, st: Wa.Wasm.Step) ->
-  CB(1n+k, Wa.Wasm.call.stepped(st, fr => mm => Wa.Wasm.call.go(k, fr, mm))):
+def go.st.bound(+k: Nat, +ts: List<&2, Wa.Wasm.Type>, st: Wa.Wasm.Step) ->
+  CB(1n+k, Wa.Wasm.call.stepped(st, fr => mm => Wa.Wasm.call.go(k, ts, fr, mm))):
   match k:
     case 0n:
       match st:
@@ -183,30 +183,30 @@ def go.st.bound(+k: Nat, st: Wa.Wasm.Step) ->
     case 1n+p:
       match st:
         case Wa.Wasm.Step.next{+fr, +m}:
-          CB.plus(1n+p, Wa.Wasm.call.go(1n+p, fr, m), go.st.bound(p, Wa.Wasm.step(fr, m)))
+          CB.plus(1n+p, Wa.Wasm.call.go(1n+p, ts, fr, m), go.st.bound(p, ts, Wa.Wasm.step(ts, fr, m)))
         case Wa.Wasm.Step.done{rs, m}:
           Unit{}
         case Wa.Wasm.Step.trap{m}:
           Unit{}
 
-def go.bound(+k: Nat, +f: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) -> CB(k, Wa.Wasm.call.go(k, f, mem)):
+def go.bound(+k: Nat, +ts: List<&2, Wa.Wasm.Type>, +f: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) -> CB(k, Wa.Wasm.call.go(k, ts, f, mem)):
   match k:
     case 0n:
       Unit{}
     case 1n+p:
-      go.st.bound(p, Wa.Wasm.step(f, mem))
+      go.st.bound(p, ts, Wa.Wasm.step(ts, f, mem))
 
-def call.more(+k: Nat, +g: Nat, func: Wa.Wasm.Func, +args: List<&2, U32>, +mem: Wa.Wasm.Memory) ->
-  CM(Wa.Wasm.call(k, func, args, mem), Wa.Wasm.call(Nat.add(k, g), func, args, mem)):
+def call.more(+k: Nat, +g: Nat, +ts: List<&2, Wa.Wasm.Type>, +q: Nat, func: Wa.Wasm.Func, +args: List<&2, U32>, +mem: Wa.Wasm.Memory) ->
+  CM(Wa.Wasm.call(k, ts, q, func, args, mem), Wa.Wasm.call(Nat.add(k, g), ts, q, func, args, mem)):
   match func:
-    case Wa.Wasm.Func{a, +q, +n, +body}:
-      go.more(k, g, Wa.Wasm.Frame{body, Nil{}, q, Nil{}, List.append(&2, U32, args, List.replicate(U32, n, 0))}, mem)
+    case Wa.Wasm.Func{a, +n, +body}:
+      go.more(k, g, ts, Wa.Wasm.Frame{body, Nil{}, q, Nil{}, List.append(&2, U32, args, List.replicate(U32, n, 0))}, mem)
 
-def call.bound(+k: Nat, func: Wa.Wasm.Func, +args: List<&2, U32>, +mem: Wa.Wasm.Memory) ->
-  CB(k, Wa.Wasm.call(k, func, args, mem)):
+def call.bound(+k: Nat, +ts: List<&2, Wa.Wasm.Type>, +q: Nat, func: Wa.Wasm.Func, +args: List<&2, U32>, +mem: Wa.Wasm.Memory) ->
+  CB(k, Wa.Wasm.call(k, ts, q, func, args, mem)):
   match func:
-    case Wa.Wasm.Func{a, +q, +n, +body}:
-      go.bound(k, Wa.Wasm.Frame{body, Nil{}, q, Nil{}, List.append(&2, U32, args, List.replicate(U32, n, 0))}, mem)
+    case Wa.Wasm.Func{a, +n, +body}:
+      go.bound(k, ts, Wa.Wasm.Frame{body, Nil{}, q, Nil{}, List.append(&2, U32, args, List.replicate(U32, n, 0))}, mem)
 
 # Invocations
 # -----------
@@ -233,57 +233,73 @@ def invoked.bound(-k: Nat, c: Wa.Wasm.Call, h: CB(k, c), -module: Wa.Wasm.Module
     case Wa.Wasm.Call.not_done{}:
       h
 
-def arity.more(ok: Bool, +fn: Wa.Wasm.Func, +k: Nat, +g: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
-  IM(Wa.Wasm.invoke.arity(ok, fn, k, args, mem, module), Wa.Wasm.invoke.arity(ok, fn, Nat.add(k, g), args, mem, module)):
+def arity.more(ok: Bool, +ts: List<&2, Wa.Wasm.Type>, +q: Nat, +fn: Wa.Wasm.Func, +k: Nat, +g: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
+  IM(Wa.Wasm.invoke.arity(ok, ts, q, fn, k, args, mem, module), Wa.Wasm.invoke.arity(ok, ts, q, fn, Nat.add(k, g), args, mem, module)):
   match ok:
     case True{}:
-      invoked.more(Wa.Wasm.call(k, fn, args, mem), Wa.Wasm.call(Nat.add(k, g), fn, args, mem), call.more(k, g, fn, args, mem), module)
+      invoked.more(Wa.Wasm.call(k, ts, q, fn, args, mem), Wa.Wasm.call(Nat.add(k, g), ts, q, fn, args, mem), call.more(k, g, ts, q, fn, args, mem), module)
     case False{}:
       {==}
 
-def arity.bound(ok: Bool, +fn: Wa.Wasm.Func, +k: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
-  IB(k, Wa.Wasm.invoke.arity(ok, fn, k, args, mem, module)):
+def arity.bound(ok: Bool, +ts: List<&2, Wa.Wasm.Type>, +q: Nat, +fn: Wa.Wasm.Func, +k: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
+  IB(k, Wa.Wasm.invoke.arity(ok, ts, q, fn, k, args, mem, module)):
   match ok:
     case True{}:
-      invoked.bound(k, Wa.Wasm.call(k, fn, args, mem), call.bound(k, fn, args, mem), module)
+      invoked.bound(k, Wa.Wasm.call(k, ts, q, fn, args, mem), call.bound(k, ts, q, fn, args, mem), module)
     case False{}:
       Unit{}
 
-def found.more(fm: Maybe<&2, Wa.Wasm.Func>, +k: Nat, +g: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
-  IM(Wa.Wasm.invoke.found(fm, k, args, mem, module), Wa.Wasm.invoke.found(fm, Nat.add(k, g), args, mem, module)):
+def typed.more(t: Maybe<&2, Wa.Wasm.Type>, +ts: List<&2, Wa.Wasm.Type>, +fn: Wa.Wasm.Func, +k: Nat, +g: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
+  IM(Wa.Wasm.invoke.typed(t, ts, fn, k, args, mem, module), Wa.Wasm.invoke.typed(t, ts, fn, Nat.add(k, g), args, mem, module)):
+  match t:
+    case None{}:
+      {==}
+    case Some{Wa.Wasm.Type{+p, +q}}:
+      arity.more(Nat.is_eq(p, List.length(&2, U32, args)), ts, q, fn, k, g, args, mem, module)
+
+def found.more(fm: Maybe<&2, Wa.Wasm.Func>, +ts: List<&2, Wa.Wasm.Type>, +k: Nat, +g: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
+  IM(Wa.Wasm.invoke.found(fm, ts, k, args, mem, module), Wa.Wasm.invoke.found(fm, ts, Nat.add(k, g), args, mem, module)):
   match fm:
     case None{}:
       {==}
     case Some{fn}:
       match fn:
-        case Wa.Wasm.Func{+p, +q, +n, +body}:
-          arity.more(Nat.is_eq(p, List.length(&2, U32, args)), Wa.Wasm.Func{p, q, n, body}, k, g, args, mem, module)
+        case Wa.Wasm.Func{+x, +n, +body}:
+          typed.more(Wa.Wasm.type.at(ts, x), ts, Wa.Wasm.Func{x, n, body}, k, g, args, mem, module)
 
-def found.bound(fm: Maybe<&2, Wa.Wasm.Func>, +k: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
-  IB(k, Wa.Wasm.invoke.found(fm, k, args, mem, module)):
+def typed.bound(t: Maybe<&2, Wa.Wasm.Type>, +ts: List<&2, Wa.Wasm.Type>, +fn: Wa.Wasm.Func, +k: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
+  IB(k, Wa.Wasm.invoke.typed(t, ts, fn, k, args, mem, module)):
+  match t:
+    case None{}:
+      Unit{}
+    case Some{Wa.Wasm.Type{+p, +q}}:
+      arity.bound(Nat.is_eq(p, List.length(&2, U32, args)), ts, q, fn, k, args, mem, module)
+
+def found.bound(fm: Maybe<&2, Wa.Wasm.Func>, +ts: List<&2, Wa.Wasm.Type>, +k: Nat, +args: List<&2, U32>, +mem: Wa.Wasm.Memory, +module: Wa.Wasm.Module) ->
+  IB(k, Wa.Wasm.invoke.found(fm, ts, k, args, mem, module)):
   match fm:
     case None{}:
       Unit{}
     case Some{fn}:
       match fn:
-        case Wa.Wasm.Func{+p, +q, +n, +body}:
-          arity.bound(Nat.is_eq(p, List.length(&2, U32, args)), Wa.Wasm.Func{p, q, n, body}, k, args, mem, module)
+        case Wa.Wasm.Func{+x, +n, +body}:
+          typed.bound(Wa.Wasm.type.at(ts, x), ts, Wa.Wasm.Func{x, n, body}, k, args, mem, module)
 
 def invoke.more(+k: Nat, +g: Nat, inst: Wa.Wasm.Instance, +name: List<&2, Word(8n)>, +args: List<&2, U32>) ->
   IM(Wa.Wasm.invoke(k, inst, name, args), Wa.Wasm.invoke(Nat.add(k, g), inst, name, args)):
   match inst:
     case Wa.Wasm.Instance{module, +mem}:
       match module:
-        case Wa.Wasm.Module{+fs, +memory, +es, +seg}:
-          found.more(Wa.Wasm.export.func(fs, es, name), k, g, args, mem, Wa.Wasm.Module{fs, memory, es, seg})
+        case Wa.Wasm.Module{+ts, +fs, +memory, +es, +seg}:
+          found.more(Wa.Wasm.export.func(fs, es, name), ts, k, g, args, mem, Wa.Wasm.Module{ts, fs, memory, es, seg})
 
 def invoke.bound(+k: Nat, inst: Wa.Wasm.Instance, +name: List<&2, Word(8n)>, +args: List<&2, U32>) ->
   IB(k, Wa.Wasm.invoke(k, inst, name, args)):
   match inst:
     case Wa.Wasm.Instance{module, +mem}:
       match module:
-        case Wa.Wasm.Module{+fs, +memory, +es, +seg}:
-          found.bound(Wa.Wasm.export.func(fs, es, name), k, args, mem, Wa.Wasm.Module{fs, memory, es, seg})
+        case Wa.Wasm.Module{+ts, +fs, +memory, +es, +seg}:
+          found.bound(Wa.Wasm.export.func(fs, es, name), ts, k, args, mem, Wa.Wasm.Module{ts, fs, memory, es, seg})
 
 # The host
 # --------
