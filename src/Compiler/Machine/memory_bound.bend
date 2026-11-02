@@ -60,6 +60,18 @@ def max_r(+a: Nat, +b: Nat) -> N.Le(b, Nat.max(a, b)):
     case 1n+p 1n+q:
       max_r(p, q)
 
+# the larger of a and b is at most c when both are
+def max.le(+a: Nat, +b: Nat, +c: Nat, ha: N.Le(a, c), hb: N.Le(b, c)) -> N.Le(Nat.max(a, b), c):
+  match a b c:
+    case 0n _ _:
+      hb
+    case 1n+p 0n _:
+      ha
+    case 1n+p 1n+q 0n:
+      Empty.absurd(N.Le(Nat.max(1n+p, 1n+q), 0n), ha)
+    case 1n+p 1n+q 1n+r:
+      max.le(p, q, r, ha, hb)
+
 # x <= y + (x - y)
 def sub_le(+x: Nat, +y: Nat) -> N.Le(x, Nat.add(y, Nat.sub(x, y))):
   match x y:
@@ -116,6 +128,47 @@ def OIsNone(m: Maybe<&2, List<&2, Word(8n)>>) -> Type:
 def osome.ne(-o: List<&2, Word(8n)>, e: {None{} == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) -> Empty:
   %e : OIsNone(_)
   Unit{}
+
+# x + 1 = 1 + x
+def add_one(+x: Nat) -> {Nat.add(x, 1n) == 1n+x : Nat}:
+  Equal.trans(Nat, Nat.add(x, 1n), 1n+Nat.add(x, 0n), 1n+x, N.add_succ_r(x, 0n),
+    Equal.cong(Nat, Nat, y => 1n+y, Nat.add(x, 0n), x, N.add_zero(x)))
+
+# a × (1 + b) = a + a × b
+def mul_succ_r(+a: Nat, +b: Nat) -> {Nat.mul(a, 1n+b) == Nat.add(a, Nat.mul(a, b)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 1n+x, Nat.add(b, Nat.mul(p, 1n+b)), Nat.add(p, Nat.add(b, Nat.mul(p, b))),
+        Equal.trans(Nat, Nat.add(b, Nat.mul(p, 1n+b)), Nat.add(b, Nat.add(p, Nat.mul(p, b))), Nat.add(p, Nat.add(b, Nat.mul(p, b))),
+          Equal.cong(Nat, Nat, x => Nat.add(b, x), Nat.mul(p, 1n+b), Nat.add(p, Nat.mul(p, b)), mul_succ_r(p, b)),
+          N.add_swap(b, p, Nat.mul(p, b))))
+
+# 3 × x, one 3 a unit
+def Tri(x: Nat) -> Nat:
+  match x:
+    case 0n:
+      0n
+    case 1n+p:
+      3n+Tri(p)
+
+# 3 (a + b) = 3 a + 3 b
+def tri_add(+a: Nat, +b: Nat) -> {Tri(Nat.add(a, b)) == Nat.add(Tri(a), Tri(b)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, x => 3n+x, Tri(Nat.add(p, b)), Nat.add(Tri(p), Tri(b)), tri_add(p, b))
+
+# 3 × x is Tri(x)
+def mul3(+x: Nat) -> {Nat.mul(3n, x) == Tri(x) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.trans(Nat, Nat.mul(3n, 1n+p), Nat.add(3n, Nat.mul(3n, p)), 3n+Tri(p), mul_succ_r(3n, p),
+        Equal.cong(Nat, Nat, y => Nat.add(3n, y), Nat.mul(3n, p), Tri(p), mul3(p)))
 
 # The bounds
 # ----------
@@ -296,15 +349,63 @@ def largest.ge.step(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, 
 
 # the start term, main applied to the input's bytes, has 72 nodes a byte and
 # 5 more
+def bit.size(b: Bool) -> {Pg.Term.size(Pg.Program.bit(b)) == 3n : Nat}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+# a word of n bits has 8 nodes a bit and 3 more
+def word.size(n: Nat, w: Word(n)) -> {Pg.Term.size(Pg.Program.word(n, w)) == 3n+Nat.mul(8n, n) : Nat}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+(+p):
+      match w:
+        case WCon{+b, +t}:
+          +W = Pg.Term.size(Pg.Program.word(p, t))
+          %Equal.sym(Nat, Pg.Term.size(Pg.Program.bit(b)), 3n, bit.size(b)) :
+            {3n+Nat.add(_, 1n+Nat.add(W, 1n)) == 3n+Nat.mul(8n, 1n+p) : Nat}
+          Equal.trans(Nat, 7n+Nat.add(W, 1n), 8n+W, 3n+Nat.mul(8n, 1n+p),
+            Equal.cong(Nat, Nat, x => 7n+x, Nat.add(W, 1n), 1n+W, add_one(W)),
+            Equal.trans(Nat, 8n+W, 11n+Nat.mul(8n, p), 3n+Nat.mul(8n, 1n+p),
+              Equal.cong(Nat, Nat, x => 8n+x, W, 3n+Nat.mul(8n, p), word.size(p, t)),
+              Equal.sym(Nat, 3n+Nat.mul(8n, 1n+p), 11n+Nat.mul(8n, p),
+                Equal.cong(Nat, Nat, x => 3n+x, Nat.mul(8n, 1n+p), Nat.add(8n, Nat.mul(8n, p)), mul_succ_r(8n, p)))))
+
+# the bytes of a list: 72 nodes a byte and 3 more
+def bytes.size(i: List<&2, Word(8n)>) -> {Pg.Term.size(Pg.Program.bytes(i)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), i)) : Nat}:
+  match i:
+    case Nil{}:
+      {==}
+    case Con{+b, +rest}:
+      +B = Pg.Term.size(Pg.Program.bytes(rest))
+      +l = List.length(&2, Word(8n), rest)
+      %Equal.sym(Nat, Pg.Term.size(Pg.Program.word(8n, b)), 3n+Nat.mul(8n, 8n), word.size(8n, b)) :
+        {3n+Nat.add(_, 1n+Nat.add(B, 1n)) == 3n+Nat.mul(72n, 1n+l) : Nat}
+      Equal.trans(Nat, 71n+Nat.add(B, 1n), 72n+B, 3n+Nat.mul(72n, 1n+l),
+        Equal.cong(Nat, Nat, x => 71n+x, Nat.add(B, 1n), 1n+B, add_one(B)),
+        Equal.trans(Nat, 72n+B, 75n+Nat.mul(72n, l), 3n+Nat.mul(72n, 1n+l),
+          Equal.cong(Nat, Nat, x => 72n+x, B, 3n+Nat.mul(72n, l), bytes.size(rest)),
+          Equal.sym(Nat, 3n+Nat.mul(72n, 1n+l), 75n+Nat.mul(72n, l),
+            Equal.cong(Nat, Nat, x => 3n+x, Nat.mul(72n, 1n+l), Nat.add(72n, Nat.mul(72n, l)), mul_succ_r(72n, l)))))
+
 def start.size(+i: List<&2, Word(8n)>) ->
   {Pg.Term.size(Pg.Program.start(i)) == 5n+Nat.mul(72n, List.length(&2, Word(8n), i)) : Nat}:
-  ?TODO
+  Equal.cong(Nat, Nat, x => 2n+x, Pg.Term.size(Pg.Program.bytes(i)), 3n+Nat.mul(72n, List.length(&2, Word(8n), i)), bytes.size(i))
 
 # so the input has at most S / 72 bytes
 def start.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}) ->
   N.Le(5n+Nat.mul(72n, List.length(&2, Word(8n), i)), Pg.Program.largest(p, i, n)):
-  ?TODO
+  +t = Pg.Program.start(i)
+  +h = N.le_rw_l(Pg.Term.size(t), 5n+Nat.mul(72n, List.length(&2, Word(8n), i)), Pg.Program.largest.go(n, ds, t), start.size(i),
+    largest.self(n, ds, t))
+  N.le_rw_r(5n+Nat.mul(72n, List.length(&2, Word(8n), i)), Pg.Program.largest.go(n, ds, t), Pg.Program.largest(p, i, n),
+    Equal.sym(Nat, Pg.Program.largest(p, i, n), Pg.Program.largest.go(n, ds, t), largest.eq(p, ds, i, n, rd)), h)
 
 # a term that Program.unbytes reads as the bytes o has 72 nodes a byte and 3
 # more
@@ -323,22 +424,226 @@ def out.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>
 # The book
 # --------
 
+# a node above two parts: Nsz is the nodes plus the addend
+def nsz.two(+A: Nat, +B: Nat, +X: Nat, +Y: Nat, +n: Nat, ex: {X == Nat.add(A, Y) : Nat}, ey: {Y == Nat.add(B, n) : Nat}) ->
+  {1n+X == 1n+Nat.add(Nat.add(A, B), n) : Nat}:
+  Equal.cong(Nat, Nat, x => 1n+x, X, Nat.add(Nat.add(A, B), n),
+    Equal.trans(Nat, X, Nat.add(A, Y), Nat.add(Nat.add(A, B), n), ex,
+      Equal.trans(Nat, Nat.add(A, Y), Nat.add(A, Nat.add(B, n)), Nat.add(Nat.add(A, B), n),
+        Equal.cong(Nat, Nat, x => Nat.add(A, x), Y, Nat.add(B, n), ey),
+        Equal.sym(Nat, Nat.add(Nat.add(A, B), n), Nat.add(A, Nat.add(B, n)), N.add_assoc(A, B, n)))))
+
+# a node above three parts
+def nsz.three(+A: Nat, +B: Nat, +E: Nat, +X: Nat, +Y: Nat, +Z: Nat, +n: Nat, ex: {X == Nat.add(A, Y) : Nat},
+  ey: {Y == Nat.add(B, Z) : Nat}, ez: {Z == Nat.add(E, n) : Nat}) ->
+  {1n+X == 1n+Nat.add(Nat.add(A, Nat.add(B, E)), n) : Nat}:
+  Equal.cong(Nat, Nat, x => 1n+x, X, Nat.add(Nat.add(A, Nat.add(B, E)), n),
+    Equal.trans(Nat, X, Nat.add(A, Y), Nat.add(Nat.add(A, Nat.add(B, E)), n), ex,
+      Equal.trans(Nat, Nat.add(A, Y), Nat.add(A, Nat.add(Nat.add(B, E), n)), Nat.add(Nat.add(A, Nat.add(B, E)), n),
+        Equal.cong(Nat, Nat, x => Nat.add(A, x), Y, Nat.add(Nat.add(B, E), n),
+          Equal.trans(Nat, Y, Nat.add(B, Z), Nat.add(Nat.add(B, E), n), ey,
+            Equal.trans(Nat, Nat.add(B, Z), Nat.add(B, Nat.add(E, n)), Nat.add(Nat.add(B, E), n),
+              Equal.cong(Nat, Nat, x => Nat.add(B, x), Z, Nat.add(E, n), ez),
+              Equal.sym(Nat, Nat.add(Nat.add(B, E), n), Nat.add(B, Nat.add(E, n)), N.add_assoc(B, E, n))))),
+        Equal.sym(Nat, Nat.add(Nat.add(A, Nat.add(B, E)), n), Nat.add(A, Nat.add(Nat.add(B, E), n)), N.add_assoc(A, Nat.add(B, E), n)))))
+
+# img_small's Nsz(t, n) is t's nodes plus n
+def size.nsz(t: Bk.Term, +n: Nat) -> {PG.Nsz(t, n) == Nat.add(Pg.Term.size(t), n) : Nat}:
+  match t:
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Ref{_}:
+      {==}
+    case Bk.Term.Ann{+x, +T}:
+      nsz.two(Pg.Term.size(x), Pg.Term.size(T), PG.Nsz(x, PG.Nsz(T, n)), PG.Nsz(T, n), n, size.nsz(x, PG.Nsz(T, n)), size.nsz(T, n))
+    case Bk.Term.Let{_, +v, +f}:
+      nsz.two(Pg.Term.size(v), Pg.Term.size(f), PG.Nsz(v, PG.Nsz(f, n)), PG.Nsz(f, n), n, size.nsz(v, PG.Nsz(f, n)), size.nsz(f, n))
+    case Bk.Term.Typ{+q}:
+      Equal.cong(Nat, Nat, x => 1n+x, PG.Nsz(q, n), Nat.add(Pg.Term.size(q), n), size.nsz(q, n))
+    case Bk.Term.Min{+a, +b}:
+      nsz.two(Pg.Term.size(a), Pg.Term.size(b), PG.Nsz(a, PG.Nsz(b, n)), PG.Nsz(b, n), n, size.nsz(a, PG.Nsz(b, n)), size.nsz(b, n))
+    case Bk.Term.All{_, +A, +B}:
+      nsz.two(Pg.Term.size(A), Pg.Term.size(B), PG.Nsz(A, PG.Nsz(B, n)), PG.Nsz(B, n), n, size.nsz(A, PG.Nsz(B, n)), size.nsz(B, n))
+    case Bk.Term.Lam{_, +f}:
+      Equal.cong(Nat, Nat, x => 1n+x, PG.Nsz(f, n), Nat.add(Pg.Term.size(f), n), size.nsz(f, n))
+    case Bk.Term.App{_, +f, +x}:
+      nsz.two(Pg.Term.size(f), Pg.Term.size(x), PG.Nsz(f, PG.Nsz(x, n)), PG.Nsz(x, n), n, size.nsz(f, PG.Nsz(x, n)), size.nsz(x, n))
+    case Bk.Term.Sig{_, +A, +B}:
+      nsz.two(Pg.Term.size(A), Pg.Term.size(B), PG.Nsz(A, PG.Nsz(B, n)), PG.Nsz(B, n), n, size.nsz(A, PG.Nsz(B, n)), size.nsz(B, n))
+    case Bk.Term.Tup{_, +a, +b}:
+      nsz.two(Pg.Term.size(a), Pg.Term.size(b), PG.Nsz(a, PG.Nsz(b, n)), PG.Nsz(b, n), n, size.nsz(a, PG.Nsz(b, n)), size.nsz(b, n))
+    case Bk.Term.Prj{+h}:
+      Equal.cong(Nat, Nat, x => 1n+x, PG.Nsz(h, n), Nat.add(Pg.Term.size(h), n), size.nsz(h, n))
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_}:
+      {==}
+    case Bk.Term.Mat{_, +h, +m}:
+      nsz.two(Pg.Term.size(h), Pg.Term.size(m), PG.Nsz(h, PG.Nsz(m, n)), PG.Nsz(m, n), n, size.nsz(h, PG.Nsz(m, n)), size.nsz(m, n))
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+a, +b, +T}:
+      nsz.three(Pg.Term.size(a), Pg.Term.size(b), Pg.Term.size(T), PG.Nsz(a, PG.Nsz(b, PG.Nsz(T, n))), PG.Nsz(b, PG.Nsz(T, n)),
+        PG.Nsz(T, n), n, size.nsz(a, PG.Nsz(b, PG.Nsz(T, n))), size.nsz(b, PG.Nsz(T, n)), size.nsz(T, n))
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+e, +P, +f}:
+      nsz.three(Pg.Term.size(e), Pg.Term.size(P), Pg.Term.size(f), PG.Nsz(e, PG.Nsz(P, PG.Nsz(f, n))), PG.Nsz(P, PG.Nsz(f, n)),
+        PG.Nsz(f, n), n, size.nsz(e, PG.Nsz(P, PG.Nsz(f, n))), size.nsz(P, PG.Nsz(f, n)), size.nsz(f, n))
+
+# a constructor of k fields, of form X, has 3 nodes more than 3 A when X
+# has A's
+def ft.k(+A: Nat, +X: Nat, +k: Nat, h: N.Le(A, X)) -> N.Le(3n+A, Pg.Form.size.ctor(k, X)):
+  N.le_trans(A, X, Nat.add(k, X), h, N.le_add_l(k, X))
+
+# two parts of a term, a field between them (a name, or a quantity's 3)
+def ft.two(+A: Nat, +B: Nat, +X: Nat, +Y: Nat, +E: Nat, ha: N.Le(A, X), hb: N.Le(B, Y)) ->
+  N.Le(Nat.add(A, B), Nat.add(E, Nat.add(X, Y))):
+  N.le_trans(Nat.add(A, B), Nat.add(X, Y), Nat.add(E, Nat.add(X, Y)), N.add_mono(A, X, B, Y, ha, hb), N.le_add_l(E, Nat.add(X, Y)))
+
+# each node of a term is 3 nodes or more of its data form
+def ft.ge(t: Bk.Term) -> N.Le(Tri(Pg.Term.size(t)), Pg.Form.size.term(t)):
+  match t:
+    case Bk.Term.Var{_}:
+      Unit{}
+    case Bk.Term.Ref{_}:
+      Unit{}
+    case Bk.Term.Ann{+x, +T}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(x), Pg.Term.size(T))), Nat.add(Tri(Pg.Term.size(x)), Tri(Pg.Term.size(T))), tri_add(Pg.Term.size(x), Pg.Term.size(T))) :
+        N.Le(3n+_, Pg.Form.size.ctor(2n, Nat.add(Pg.Form.size.term(x), Pg.Form.size.term(T))))
+      ft.k(Nat.add(Tri(Pg.Term.size(x)), Tri(Pg.Term.size(T))), Nat.add(Pg.Form.size.term(x), Pg.Form.size.term(T)), 2n,
+        N.add_mono(Tri(Pg.Term.size(x)), Pg.Form.size.term(x), Tri(Pg.Term.size(T)), Pg.Form.size.term(T), ft.ge(x), ft.ge(T)))
+    case Bk.Term.Let{_, +v, +f}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(v), Pg.Term.size(f))), Nat.add(Tri(Pg.Term.size(v)), Tri(Pg.Term.size(f))), tri_add(Pg.Term.size(v), Pg.Term.size(f))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, 3n+Nat.add(Pg.Form.size.term(v), Pg.Form.size.term(f))))
+      ft.k(Nat.add(Tri(Pg.Term.size(v)), Tri(Pg.Term.size(f))), 3n+Nat.add(Pg.Form.size.term(v), Pg.Form.size.term(f)), 3n,
+        ft.two(Tri(Pg.Term.size(v)), Tri(Pg.Term.size(f)), Pg.Form.size.term(v), Pg.Form.size.term(f), 3n, ft.ge(v), ft.ge(f)))
+    case Bk.Term.Typ{+q}:
+      ft.k(Tri(Pg.Term.size(q)), Pg.Form.size.term(q), 1n, ft.ge(q))
+    case Bk.Term.Min{+a, +b}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(a), Pg.Term.size(b))), Nat.add(Tri(Pg.Term.size(a)), Tri(Pg.Term.size(b))), tri_add(Pg.Term.size(a), Pg.Term.size(b))) :
+        N.Le(3n+_, Pg.Form.size.ctor(2n, Nat.add(Pg.Form.size.term(a), Pg.Form.size.term(b))))
+      ft.k(Nat.add(Tri(Pg.Term.size(a)), Tri(Pg.Term.size(b))), Nat.add(Pg.Form.size.term(a), Pg.Form.size.term(b)), 2n,
+        N.add_mono(Tri(Pg.Term.size(a)), Pg.Form.size.term(a), Tri(Pg.Term.size(b)), Pg.Form.size.term(b), ft.ge(a), ft.ge(b)))
+    case Bk.Term.All{_, +A, +B}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(A), Pg.Term.size(B))), Nat.add(Tri(Pg.Term.size(A)), Tri(Pg.Term.size(B))), tri_add(Pg.Term.size(A), Pg.Term.size(B))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, 3n+Nat.add(Pg.Form.size.term(A), Pg.Form.size.term(B))))
+      ft.k(Nat.add(Tri(Pg.Term.size(A)), Tri(Pg.Term.size(B))), 3n+Nat.add(Pg.Form.size.term(A), Pg.Form.size.term(B)), 3n,
+        ft.two(Tri(Pg.Term.size(A)), Tri(Pg.Term.size(B)), Pg.Form.size.term(A), Pg.Form.size.term(B), 3n, ft.ge(A), ft.ge(B)))
+    case Bk.Term.Lam{_, +f}:
+      ft.k(Tri(Pg.Term.size(f)), 3n+Pg.Form.size.term(f), 2n,
+        N.le_trans(Tri(Pg.Term.size(f)), Pg.Form.size.term(f), 3n+Pg.Form.size.term(f), ft.ge(f), N.le_add_l(3n, Pg.Form.size.term(f))))
+    case Bk.Term.App{_, +f, +x}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(f), Pg.Term.size(x))), Nat.add(Tri(Pg.Term.size(f)), Tri(Pg.Term.size(x))), tri_add(Pg.Term.size(f), Pg.Term.size(x))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, 3n+Nat.add(Pg.Form.size.term(f), Pg.Form.size.term(x))))
+      ft.k(Nat.add(Tri(Pg.Term.size(f)), Tri(Pg.Term.size(x))), 3n+Nat.add(Pg.Form.size.term(f), Pg.Form.size.term(x)), 3n,
+        ft.two(Tri(Pg.Term.size(f)), Tri(Pg.Term.size(x)), Pg.Form.size.term(f), Pg.Form.size.term(x), 3n, ft.ge(f), ft.ge(x)))
+    case Bk.Term.Sig{_, +A, +B}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(A), Pg.Term.size(B))), Nat.add(Tri(Pg.Term.size(A)), Tri(Pg.Term.size(B))), tri_add(Pg.Term.size(A), Pg.Term.size(B))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, 3n+Nat.add(Pg.Form.size.term(A), Pg.Form.size.term(B))))
+      ft.k(Nat.add(Tri(Pg.Term.size(A)), Tri(Pg.Term.size(B))), 3n+Nat.add(Pg.Form.size.term(A), Pg.Form.size.term(B)), 3n,
+        ft.two(Tri(Pg.Term.size(A)), Tri(Pg.Term.size(B)), Pg.Form.size.term(A), Pg.Form.size.term(B), 3n, ft.ge(A), ft.ge(B)))
+    case Bk.Term.Tup{_, +a, +b}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(a), Pg.Term.size(b))), Nat.add(Tri(Pg.Term.size(a)), Tri(Pg.Term.size(b))), tri_add(Pg.Term.size(a), Pg.Term.size(b))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, 3n+Nat.add(Pg.Form.size.term(a), Pg.Form.size.term(b))))
+      ft.k(Nat.add(Tri(Pg.Term.size(a)), Tri(Pg.Term.size(b))), 3n+Nat.add(Pg.Form.size.term(a), Pg.Form.size.term(b)), 3n,
+        ft.two(Tri(Pg.Term.size(a)), Tri(Pg.Term.size(b)), Pg.Form.size.term(a), Pg.Form.size.term(b), 3n, ft.ge(a), ft.ge(b)))
+    case Bk.Term.Prj{+h}:
+      ft.k(Tri(Pg.Term.size(h)), Pg.Form.size.term(h), 1n, ft.ge(h))
+    case Bk.Term.Enu{_}:
+      Unit{}
+    case Bk.Term.Lab{_}:
+      Unit{}
+    case Bk.Term.Mat{+k, +h, +m}:
+      %Equal.sym(Nat, Tri(Nat.add(Pg.Term.size(h), Pg.Term.size(m))), Nat.add(Tri(Pg.Term.size(h)), Tri(Pg.Term.size(m))), tri_add(Pg.Term.size(h), Pg.Term.size(m))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, Nat.add(Pg.Form.size.name(k), Nat.add(Pg.Form.size.term(h), Pg.Form.size.term(m)))))
+      ft.k(Nat.add(Tri(Pg.Term.size(h)), Tri(Pg.Term.size(m))), Nat.add(Pg.Form.size.name(k), Nat.add(Pg.Form.size.term(h), Pg.Form.size.term(m))), 3n,
+        ft.two(Tri(Pg.Term.size(h)), Tri(Pg.Term.size(m)), Pg.Form.size.term(h), Pg.Form.size.term(m), Pg.Form.size.name(k), ft.ge(h), ft.ge(m)))
+    case Bk.Term.Efq{}:
+      Unit{}
+    case Bk.Term.Eql{+a, +b, +T}:
+      +sa = Pg.Term.size(a)
+      +sb = Pg.Term.size(b)
+      +sT = Pg.Term.size(T)
+      %Equal.sym(Nat, Tri(Nat.add(sa, Nat.add(sb, sT))), Nat.add(Tri(sa), Tri(Nat.add(sb, sT))), tri_add(sa, Nat.add(sb, sT))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, Nat.add(Pg.Form.size.term(a), Nat.add(Pg.Form.size.term(b), Pg.Form.size.term(T)))))
+      %Equal.sym(Nat, Tri(Nat.add(sb, sT)), Nat.add(Tri(sb), Tri(sT)), tri_add(sb, sT)) :
+        N.Le(3n+Nat.add(Tri(sa), _), Pg.Form.size.ctor(3n, Nat.add(Pg.Form.size.term(a), Nat.add(Pg.Form.size.term(b), Pg.Form.size.term(T)))))
+      ft.k(Nat.add(Tri(sa), Nat.add(Tri(sb), Tri(sT))), Nat.add(Pg.Form.size.term(a), Nat.add(Pg.Form.size.term(b), Pg.Form.size.term(T))), 3n,
+        N.add_mono(Tri(sa), Pg.Form.size.term(a), Nat.add(Tri(sb), Tri(sT)), Nat.add(Pg.Form.size.term(b), Pg.Form.size.term(T)), ft.ge(a),
+          N.add_mono(Tri(sb), Pg.Form.size.term(b), Tri(sT), Pg.Form.size.term(T), ft.ge(b), ft.ge(T))))
+    case Bk.Term.Rfl{}:
+      Unit{}
+    case Bk.Term.Rwt{+e, +P, +f}:
+      +se = Pg.Term.size(e)
+      +sP = Pg.Term.size(P)
+      +sf = Pg.Term.size(f)
+      %Equal.sym(Nat, Tri(Nat.add(se, Nat.add(sP, sf))), Nat.add(Tri(se), Tri(Nat.add(sP, sf))), tri_add(se, Nat.add(sP, sf))) :
+        N.Le(3n+_, Pg.Form.size.ctor(3n, Nat.add(Pg.Form.size.term(e), Nat.add(Pg.Form.size.term(P), Pg.Form.size.term(f)))))
+      %Equal.sym(Nat, Tri(Nat.add(sP, sf)), Nat.add(Tri(sP), Tri(sf)), tri_add(sP, sf)) :
+        N.Le(3n+Nat.add(Tri(se), _), Pg.Form.size.ctor(3n, Nat.add(Pg.Form.size.term(e), Nat.add(Pg.Form.size.term(P), Pg.Form.size.term(f)))))
+      ft.k(Nat.add(Tri(se), Nat.add(Tri(sP), Tri(sf))), Nat.add(Pg.Form.size.term(e), Nat.add(Pg.Form.size.term(P), Pg.Form.size.term(f))), 3n,
+        N.add_mono(Tri(se), Pg.Form.size.term(e), Nat.add(Tri(sP), Tri(sf)), Nat.add(Pg.Form.size.term(P), Pg.Form.size.term(f)), ft.ge(e),
+          N.add_mono(Tri(sP), Pg.Form.size.term(P), Tri(sf), Pg.Form.size.term(f), ft.ge(P), ft.ge(f))))
+
 # the image's k cells: 290, then one a node of the def bodies (W)
 def k.le(+ds: List<&2, Bk.Def>, +k: U32,
   ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, Mc.Img.cells(ds)) : U32}) ->
   N.Le(U32.to_nat(k), Nat.add(290n, PG.Bl(ds, 0n))):
-  ?TODO
+  +cells = Mc.Img.cells(ds)
+  %Equal.sym(U32, k, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), ek) : N.Le(U32.to_nat(_), Nat.add(290n, PG.Bl(ds, 0n)))
+  N.le_rw_r(U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), List.length(&2, Cr.Cir.Cell, cells), Nat.add(290n, PG.Bl(ds, 0n)),
+    PG.cells_len(ds), PG.enc_len_le(cells))
 
 # the largest def body has at most W nodes
+def big.go(ds: List<&2, Bk.Def>, +a: Nat) -> N.Le(D.Defs.big(ds), PG.Bl(ds, a)):
+  match ds:
+    case Nil{}:
+      N.le_zero(a)
+    case Con{Bk.Def{_, _, +v, _}, +rest}:
+      +sv = Pg.Term.size(v)
+      +b = PG.Bl(rest, a)
+      N.le_rw_r(Nat.max(sv, D.Defs.big(rest)), Nat.add(sv, b), PG.Nsz(v, b), Equal.sym(Nat, PG.Nsz(v, b), Nat.add(sv, b), size.nsz(v, b)),
+        max.le(sv, D.Defs.big(rest), Nat.add(sv, b), N.le_add_r(sv, b),
+          N.le_trans(D.Defs.big(rest), b, Nat.add(sv, b), big.go(rest, a), N.le_add_l(sv, b))))
+
 def big.le(+ds: List<&2, Bk.Def>) -> N.Le(D.Defs.big(ds), PG.Bl(ds, 0n)):
-  ?TODO
+  big.go(ds, 0n)
+
+# with the addend a: 3 Bl(ds, a) <= the data form's nodes + 3 a
+def w.go(ds: List<&2, Bk.Def>, +a: Nat) -> N.Le(Tri(PG.Bl(ds, a)), Nat.add(Pg.Form.size.defs(ds), Tri(a))):
+  match ds:
+    case Nil{}:
+      N.le_add_l(3n, Tri(a))
+    case Con{Bk.Def{+k, +T, +v, _}, +rest}:
+      +b = PG.Bl(rest, a)
+      +fv = Pg.Form.size.term(v)
+      +fr = Pg.Form.size.defs(rest)
+      +X = Pg.Form.size.ctor(4n, 3n+Nat.add(Pg.Form.size.name(k), Nat.add(Pg.Form.size.term(T), fv)))
+      +hX = N.le_trans(fv, Nat.add(Pg.Form.size.name(k), Nat.add(Pg.Form.size.term(T), fv)), X,
+        N.le_trans(fv, Nat.add(Pg.Form.size.term(T), fv), Nat.add(Pg.Form.size.name(k), Nat.add(Pg.Form.size.term(T), fv)),
+          N.le_add_l(Pg.Form.size.term(T), fv), N.le_add_l(Pg.Form.size.name(k), Nat.add(Pg.Form.size.term(T), fv))),
+        N.le_add_l(10n, Nat.add(Pg.Form.size.name(k), Nat.add(Pg.Form.size.term(T), fv))))
+      +e1 = Equal.trans(Nat, Tri(PG.Nsz(v, b)), Tri(Nat.add(Pg.Term.size(v), b)), Nat.add(Tri(Pg.Term.size(v)), Tri(b)),
+        Equal.cong(Nat, Nat, x => Tri(x), PG.Nsz(v, b), Nat.add(Pg.Term.size(v), b), size.nsz(v, b)), tri_add(Pg.Term.size(v), b))
+      +h1 = N.add_mono(Tri(Pg.Term.size(v)), X, Tri(b), Nat.add(fr, Tri(a)), N.le_trans(Tri(Pg.Term.size(v)), fv, X, ft.ge(v), hX), w.go(rest, a))
+      +h2 = N.le_rw_r(Nat.add(Tri(Pg.Term.size(v)), Tri(b)), Nat.add(X, Nat.add(fr, Tri(a))), Nat.add(Nat.add(X, fr), Tri(a)),
+        Equal.sym(Nat, Nat.add(Nat.add(X, fr), Tri(a)), Nat.add(X, Nat.add(fr, Tri(a))), N.add_assoc(X, fr, Tri(a))), h1)
+      N.le_rw_l(Nat.add(Tri(Pg.Term.size(v)), Tri(b)), Tri(PG.Nsz(v, b)), Nat.add(5n+Nat.add(X, fr), Tri(a)),
+        Equal.sym(Nat, Tri(PG.Nsz(v, b)), Nat.add(Tri(Pg.Term.size(v)), Tri(b)), e1),
+        N.le_trans(Nat.add(Tri(Pg.Term.size(v)), Tri(b)), Nat.add(Nat.add(X, fr), Tri(a)), Nat.add(5n+Nat.add(X, fr), Tri(a)), h2,
+          N.le_add_l(5n, Nat.add(Nat.add(X, fr), Tri(a)))))
 
 # each node of a def body is 3 nodes or more of the book's data form: 3 W is
 # at most the program's size
 def w.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}) ->
   N.Le(Nat.mul(3n, PG.Bl(ds, 0n)), Pg.Program.size(p)):
-  ?TODO
+  +b = PG.Bl(ds, 0n)
+  +f = Pg.Form.size.defs(ds)
+  +h = N.le_rw_r(Tri(b), Nat.add(f, Tri(0n)), f, N.add_zero(f), w.go(ds, 0n))
+  N.le_rw_r(Nat.mul(3n, b), f, Pg.Program.size(p), N.size.eq(p, ds, rd),
+    N.le_rw_l(Tri(b), Nat.mul(3n, b), f, Equal.sym(Nat, Nat.mul(3n, b), Tri(b), mul3(b)), h))
 
 # The first cell
 # --------------
@@ -359,18 +664,6 @@ def first.le(+i: List<&2, Word(8n)>, +k: U32, +len: U32, +first: U32,
 
 # A round
 # -------
-
-# the larger of a and b is at most c when both are
-def max.le(+a: Nat, +b: Nat, +c: Nat, ha: N.Le(a, c), hb: N.Le(b, c)) -> N.Le(Nat.max(a, b), c):
-  match a b c:
-    case 0n _ _:
-      hb
-    case 1n+p 0n _:
-      ha
-    case 1n+p 1n+q 0n:
-      Empty.absurd(N.Le(Nat.max(1n+p, 1n+q), 0n), ha)
-    case 1n+p 1n+q 1n+r:
-      max.le(p, q, r, ha, hb)
 
 # Peak holds the STATIC own cells and the nodes of one term (the state after
 # M.input: the cache and the start term)
