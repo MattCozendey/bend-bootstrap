@@ -320,19 +320,18 @@ def dec.nat(+x: U32, h: N.Le(1n, U32.to_nat(x))) -> {1n+U32.to_nat(U32.sub(x, 1)
     Equal.sym(Nat, U32.to_nat(U32.inc(d)), 1n+U32.to_nat(d), I.U32.inc_nat(d, ez)),
     Equal.cong(U32, Nat, z => U32.to_nat(z), U32.inc(d), x, u32.dec_inc(x)))
 
-# an access of w bytes at x + o is inside the memory of p pages when it ends
-# within them, and the memory is below W = 2^32
-def inside.ok(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+# an access of w bytes at x + o that ends within the memory of p pages, and
+# below W = 2^32, is inside it
+def inside.lt(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hw: N.Le(1n, U32.to_nat(w)),
   +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
-  hb: N.Le(1n+N.D(16n, U32.to_nat(p)), W)) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
+  +hS1: N.Le(1n+Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), W)) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
   +X = U32.to_nat(x)
   +O = U32.to_nat(o)
   +Wn = U32.to_nat(w)
   +XO = Nat.add(X, O)
   +Sm = Nat.add(XO, Wn)
   +PBn = N.D(16n, U32.to_nat(p))
-  +hS1 = N.le_trans(1n+Sm, 1n+PBn, W, h, hb)
   +hXS = N.le_trans(1n+XO, Nat.add(XO, 1n), Sm, N.le_succ_add(XO), N.add_mono(XO, XO, 1n, Wn, N.le_refl(XO), hw))
   +hXO = N.le_trans(1n+XO, Sm, W, hXS, N.weaken(Sm, W, hS1))
   +ea = U32.add(x, o)
@@ -356,3 +355,179 @@ def inside.ok(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n
   %Equal.sym(Bool, U32.is_lt(E, ea), False{}, c2) : {Wa.Wasm.fits.end(_, p, E) == True{} : Bool}
   %Equal.sym(Bool, U32.is_lt(sh, p), True{}, c3) : {Bool.or(U32.is_zero(E), _) == True{} : Bool}
   or.true(U32.is_zero(E))
+
+# a <= b: a < b, or a = b
+def le.split.up(+p: Nat, +q: Nat, r: Either<&2, &2, N.Le(1n+p, q), {p == q : Nat}>) ->
+  Either<&2, &2, N.Le(2n+p, 1n+q), {1n+p == 1n+q : Nat}>:
+  match r:
+    case Inl{l}:
+      Inl{l}
+    case Inr{e}:
+      Inr{Equal.cong(Nat, Nat, z => 1n+z, p, q, e)}
+
+def le.split(a: Nat, b: Nat, h: N.Le(a, b)) -> Either<&2, &2, N.Le(1n+a, b), {a == b : Nat}>:
+  match a b:
+    case 0n 0n:
+      Inr{{==}}
+    case 0n 1n+q:
+      Inl{N.le_zero(q)}
+    case 1n+p 0n:
+      Empty.absurd(Either<&2, &2, N.Le(2n+p, 0n), {1n+p == 0n : Nat}>, h)
+    case 1n+(+p) 1n+(+q):
+      le.split.up(p, q, le.split(p, q, h))
+
+# c + a <= c + b gives a <= b
+def le.cancel_l(c: Nat, +a: Nat, +b: Nat, h: N.Le(Nat.add(c, a), Nat.add(c, b))) -> N.Le(a, b):
+  match c:
+    case 0n:
+      h
+    case 1n+d:
+      le.cancel_l(d, a, b, h)
+
+# 2a <= 2b gives a <= b
+def half.le(a: Nat, b: Nat, h: N.Le(Nat.double(a), Nat.double(b))) -> N.Le(a, b):
+  match a b:
+    case 0n _:
+      N.le_zero(b)
+    case 1n+p 0n:
+      Empty.absurd(N.Le(1n+p, 0n), h)
+    case 1n+p 1n+q:
+      half.le(p, q, h)
+
+# 2^k a <= 2^k b gives a <= b
+def dle(k: Nat, +a: Nat, +b: Nat, h: N.Le(N.D(k, a), N.D(k, b))) -> N.Le(a, b):
+  match k:
+    case 0n:
+      h
+    case 1n+(+q):
+      dle(q, a, b, half.le(N.D(q, a), N.D(q, b), h))
+
+# a <= b on numbers gives a <= b on U32
+def le.rel(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(x, y)) -> {Cmp.is_le(c) == True{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h)))
+
+def le.to(+a: U32, +b: U32, h: N.Le(U32.to_nat(a), U32.to_nat(b))) -> {U32.is_le(a, b) == True{} : Bool}:
+  le.rel(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), h)
+
+# a U32 of the number 0 is 0
+def z.to(+a: U32, e: {U32.to_nat(a) == 0n : Nat}) -> {U32.is_zero(a) == True{} : Bool}:
+  +ea = Equal.trans(U32, a, U32.from_nat(U32.to_nat(a)), U32.from_nat(0n), Equal.sym(U32, U32.from_nat(U32.to_nat(a)), a, from.to(a)),
+    Equal.cong(Nat, U32, z => U32.from_nat(z), U32.to_nat(a), 0n, e))
+  %Equal.sym(U32, a, U32.from_nat(0n), ea) : {U32.is_zero(_) == True{} : Bool}
+  {==}
+
+# 2^n, as H.W and as D
+def w.d(+n: Nat) -> {PH.H.W(n) == N.D(n, PH.H.bn(True{})) : Nat}:
+  {==}
+
+# 2^32 is W, with no number of 32 bits computed
+def d32.w(+W: Nat, +hW: {W == PH.H.W(32n) : Nat}) -> {N.D(32n, 1n) == W : Nat}:
+  Equal.trans(Nat, N.D(32n, 1n), N.D(32n, PH.H.bn(True{})), W, Equal.cong(Nat, Nat, z => N.D(32n, z), 1n, PH.H.bn(True{}), {==}),
+    Equal.trans(Nat, N.D(32n, PH.H.bn(True{})), PH.H.W(32n), W, Equal.sym(Nat, PH.H.W(32n), N.D(32n, PH.H.bn(True{})), w.d(32n)),
+      Equal.sym(Nat, W, PH.H.W(32n), hW)))
+
+# a U32 is below W = 2^32
+def u32.w(+x: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}) -> N.Le(1n+U32.to_nat(x), W):
+  N.le_rw_r(1n+U32.to_nat(x), N.D(32n, 1n), W, d32.w(W, hW), V.u32.lt(x))
+
+# V + W = W gives V = 0
+def add.w0(V: Nat, +W: Nat, e: {Nat.add(V, W) == W : Nat}) -> {V == 0n : Nat}:
+  match V:
+    case 0n:
+      {==}
+    case 1n+v:
+      Empty.absurd({1n+v == 0n : Nat}, N.not_succ_le(W, N.le_rw_r(1n+W, 1n+Nat.add(v, W), W, e, N.le_add_l(v, W))))
+
+# the value of a sum of exactly 2^32, with its carry o
+def top.go(o: Bool, +V: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, e: {Nat.add(V, N.D(32n, PH.H.bn(o))) == W : Nat},
+  hV: N.Le(1n+V, W)) -> {V == 0n : Nat}:
+  match o:
+    case False{}:
+      Empty.absurd({V == 0n : Nat}, N.not_succ_le(W, N.le_rw_l(1n+V, 1n+W, W,
+        Equal.cong(Nat, Nat, z => 1n+z, V, W, Equal.trans(Nat, V, Nat.add(V, N.D(32n, 0n)), W, PH.H.noc.z(32n, V), e)), hV)))
+    case True{}:
+      add.w0(V, W, Equal.trans(Nat, Nat.add(V, W), Nat.add(V, N.D(32n, PH.H.bn(True{}))), W,
+        Equal.cong(Nat, Nat, z => Nat.add(V, z), W, N.D(32n, PH.H.bn(True{})),
+          Equal.trans(Nat, W, PH.H.W(32n), N.D(32n, PH.H.bn(True{})), hW, w.d(32n))), e))
+
+# a sum of exactly W = 2^32 wraps to 0
+def u32.add_top(+x: U32, +y: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  e: {Nat.add(U32.to_nat(x), U32.to_nat(y)) == W : Nat}) -> {U32.to_nat(U32.add(x, y)) == 0n : Nat}:
+  match x y:
+    case U32{+xw} U32{+yw}:
+      +V = Word.to_nat(32n, Word.add(32n, xw, yw))
+      top.go(PH.H.cout(32n, xw, yw, False{}), V, W, hW, Equal.trans(Nat, Nat.add(V, N.D(32n, PH.H.bn(PH.H.cout(32n, xw, yw, False{})))),
+        Nat.add(Word.to_nat(32n, xw), Word.to_nat(32n, yw)), W, PH.H.adc(32n, xw, yw, False{}), e),
+        u32.w(U32{Word.add(32n, xw, yw)}, W, hW))
+
+# an access of w bytes at x + o that ends at W = 2^32 exactly, in p pages:
+# its end wraps to 0, and the memory is all of 2^16 pages
+def inside.top(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +hw: N.Le(1n, U32.to_nat(w)),
+  +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
+  +eS: {Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)) == W : Nat}) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
+  +X = U32.to_nat(x)
+  +O = U32.to_nat(o)
+  +Wn = U32.to_nat(w)
+  +XO = Nat.add(X, O)
+  +Sm = Nat.add(XO, Wn)
+  +hXS = N.le_trans(1n+XO, Nat.add(XO, 1n), Sm, N.le_succ_add(XO), N.add_mono(XO, XO, 1n, Wn, N.le_refl(XO), hw))
+  +hXO = N.le_rw_r(1n+XO, Sm, W, eS, hXS)
+  +ea = U32.add(x, o)
+  +eao = u32.add_ex(x, o, W, hW, hXO)
+  +E = U32.add(ea, w)
+  +eW = Equal.trans(Nat, Nat.add(U32.to_nat(ea), Wn), Sm, W, Equal.cong(Nat, Nat, z => Nat.add(z, Wn), U32.to_nat(ea), XO, eao), eS)
+  +eE = u32.add_top(ea, w, W, hW, eW)
+  +c1 = nlt.of(ea, x, N.le_rw_r(X, XO, U32.to_nat(ea), Equal.sym(Nat, U32.to_nat(ea), XO, eao), N.le_add_r(X, O)))
+  # w is below 2^32, so x + o is at least 1
+  +h1w = N.le_rw_r(1n+Wn, W, Nat.add(U32.to_nat(ea), Wn), Equal.sym(Nat, Nat.add(U32.to_nat(ea), Wn), W, eW), u32.w(w, W, hW))
+  +h1ea = le.cancel_l(Wn, 1n, U32.to_nat(ea),
+    N.le_rw_l(1n+Wn, Nat.add(Wn, 1n), Nat.add(Wn, U32.to_nat(ea)), add.comm(1n, Wn),
+      N.le_rw_r(1n+Wn, Nat.add(U32.to_nat(ea), Wn), Nat.add(Wn, U32.to_nat(ea)), add.comm(U32.to_nat(ea), Wn), h1w)))
+  +c2 = lt.to(E, ea, N.le_rw_l(1n, 1n+U32.to_nat(E), U32.to_nat(ea),
+    Equal.cong(Nat, Nat, z => 1n+z, 0n, U32.to_nat(E), Equal.sym(Nat, U32.to_nat(E), 0n, eE)), h1ea))
+  +ez = z.to(E, eE)
+  # 2^32 <= 2^16 p, so 2^16 <= p
+  +eW16 = Equal.trans(Nat, W, N.D(32n, 1n), N.D(16n, N.D(16n, 1n)), Equal.sym(Nat, N.D(32n, 1n), W, d32.w(W, hW)),
+    Equal.sym(Nat, N.D(16n, N.D(16n, 1n)), N.D(32n, 1n), N.D_add(16n, 16n, 32n, 1n, {==})))
+  +hPB = N.le_rw_l(Sm, N.D(16n, N.D(16n, 1n)), N.D(16n, U32.to_nat(p)), Equal.trans(Nat, Sm, W, N.D(16n, N.D(16n, 1n)), eS, eW16), h)
+  +h65 = N.le_rw_l(N.D(16n, 1n), U32.to_nat(65536), U32.to_nat(p), Equal.sym(Nat, U32.to_nat(65536), N.D(16n, 1n), N.val_65536()),
+    dle(16n, N.D(16n, 1n), U32.to_nat(p), hPB))
+  +hp = le.to(65536, p, h65)
+  %Equal.sym(Bool, U32.is_lt(ea, x), False{}, c1) : {Bool.and(Bool.not(_), Wa.Wasm.fits(p, ea, w)) == True{} : Bool}
+  %Equal.sym(Bool, U32.is_lt(E, ea), True{}, c2) : {Wa.Wasm.fits.end(_, p, E) == True{} : Bool}
+  %Equal.sym(Bool, U32.is_zero(E), True{}, ez) : {Bool.and(_, U32.is_le(65536, p)) == True{} : Bool}
+  hp
+
+def inside.of(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hw: N.Le(1n, U32.to_nat(w)),
+  +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
+  s: Either<&2, &2, N.Le(1n+Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), W),
+    {Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)) == W : Nat}>) ->
+  {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
+  match s:
+    case Inl{hS1}:
+      inside.lt(p, x, o, w, W, hW, hw, h, hS1)
+    case Inr{eS}:
+      inside.top(p, x, o, w, W, hW, hw, h, eS)
+
+# an access of w bytes at x + o is inside the memory of p pages when it ends
+# within them, and the memory is at most W = 2^32
+def inside.le(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +hw: N.Le(1n, U32.to_nat(w)),
+  +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
+  hb: N.Le(N.D(16n, U32.to_nat(p)), W)) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
+  +Sm = Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w))
+  inside.of(p, x, o, w, W, hW, hw, h, le.split(Sm, W, N.le_trans(Sm, N.D(16n, U32.to_nat(p)), W, h, hb)))
+
+# the same, when the memory is below W
+def inside.ok(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +hw: N.Le(1n, U32.to_nat(w)),
+  +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
+  hb: N.Le(1n+N.D(16n, U32.to_nat(p)), W)) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
+  inside.le(p, x, o, w, W, hW, hw, h, N.weaken(N.D(16n, U32.to_nat(p)), W, hb))
