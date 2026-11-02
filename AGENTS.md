@@ -123,7 +123,8 @@ TypeScript compiler or from `base.bend`.
   - **3.3.1.2** byte: 8 bits, lowest first: `(.WCon, (bit, (rest, ())))` 8 times, then
     `(.WNil, ())`.
   - **3.3.1.3** bit: `(.False, ())` is 0, `(.True, ())` is 1.
-- **3.3.2** Program: a Book with a def named `main`. A Book without `main` does not compile.
+- **3.3.2** Program: a Book with a def named `main`. The compiler compiles a Book without `main`
+  too: its module gives no result.
 - **3.3.3** Run: a run of a program on an input (a list of bytes) is what `Eval` does from the start
   term `(main input)`, that is `App Q1 (Ref "main") input`. Why: the kernel has no entry point.
 - **3.3.4** Result: if the run reaches a value that is a list of bytes, that list is the result.
@@ -134,11 +135,11 @@ TypeScript compiler or from `base.bend`.
 - **3.3.6** Bend version of X: a Bend function that does what X does, where X is written in another
   language (for example `Eval`, or a target's meaning). Each one comes with a Lean theorem that it
   agrees with X.
-- **3.3.7** Term size: the number of distinct subterms of a term. Each constructor of the kernel's
-  `Term` is one node, and equal subterms count once; a name is part of its node. Why: a machine can
-  store an equal subterm once, so counting every copy overcounts. A list of bytes would count about
-  72 nodes per byte, where a machine needs one cell per byte. `Eval` never makes a name, it only
-  copies names from the program, and the program size (3.3.8) already counts each name's bytes.
+- **3.3.7** Term size: the number of nodes of a term. Each constructor of the kernel's `Term` is one
+  node; a name is part of its node. Why: our machine shares only what a copy leaves unchanged, so it
+  may need a cell for each node; a count of distinct subterms would force it to merge equal values
+  (3.4.2 allows such a stronger F later). `Eval` never makes a name, it only copies names from the
+  program, and the program size (3.3.8) already counts each name's bytes.
 - **3.3.8** Program size: the term size of the program's data form. Why: the data form writes each
   name as its bytes and each `Var` index as a unary number, so long names and huge indices count. A
   plain node count misses both.
@@ -158,8 +159,8 @@ TypeScript compiler or from `base.bend`.
     Book.
   - **3.4.1.3** Running it: the trust reaches the binary that runs on the PC. We accept slowness, or
     a Bend interpreter or compiler written in Lean, on the way there.
-  - **3.4.1.4** Self-hosting fits: on each target, the compiler compiling itself needs no more than
-    the target can have (its F is below the target's limit).
+  - **3.4.1.4** Self-hosting fits: on each target, the compiled compiler compiles itself within the
+    target's limit. This is measured, not proven: its F may be above the limit (3.4.2).
 - **3.4.2** It can grow. We can add optimizations, features beyond Bend, new internal
   representations and new targets. The laws stay exactly as they are and must still pass
   `--verdict`. A target may add a stronger F later, next to its first one. So the compiler always
