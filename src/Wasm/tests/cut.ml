@@ -21,7 +21,11 @@ open Source
 
 let is_i32 (t : valtype) = t = NumT I32T
 
-let rec instrs_ok es = List.for_all instr_ok es
+(* the instructions of a block of the subset, which has none after a br *)
+let rec instrs_ok es =
+  match es with
+  | [] -> true
+  | e :: rest -> instr_ok e && (match e.it with Br _ -> rest = [] | _ -> instrs_ok rest)
 
 (* the instructions of the subset *)
 and instr_ok (e : instr) =

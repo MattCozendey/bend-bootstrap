@@ -24,7 +24,7 @@ const TESTS = [
   "memory", "memory_grow", "memory_size", "memory_trap", "data", "block", "loop", "br", "br_if",
   "br_table", "labels", "local_get", "local_set", "local_tee", "exports", "unreached-invalid",
 ];
-const OWN = ["stores"];
+const OWN = ["stores", "loads", "branches"];
 const HERE = import.meta.dir;
 const DUNE_LANG = "(lang dune 3.14)\n";
 
