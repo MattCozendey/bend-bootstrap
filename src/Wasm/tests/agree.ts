@@ -3,7 +3,11 @@
 // (src/Wasm/scripts/Host.lean), and a real host, src/Compiler/tests/host.ts in bun's engine, give
 // the same outcome. A law cannot state it: the real host is not Bend. The cases are the paths of
 // host/cases.wasm, whose outcomes are also fixed here, and a few compiled programs, which the
-// compiler's own code compiles in the Lean interpreter. WORK is a folder for what the tests write.
+// compiler's own code compiles in the Lean interpreter, all on an engine that grants each grow
+// within 2^16 pages, as bun does. Bun never refuses a grow, so on engines that refuse some (fewer
+// pages, or answers that refuse a grow: AGENTS.md 3.9.1.2), the model alone runs the paths of
+// host/cases.wasm, and must give the outcome that the spec gives on that engine, fixed here. WORK is
+// a folder for what the tests write.
 //
 //   bun src/Wasm/tests/agree.ts WORK
 
@@ -16,12 +20,14 @@ import { getArgs, getBend, getLake, getLower, REPO, run } from "../../Shared/sha
 // types
 
 // a case: a module (a .wasm file, or a program to compile) and an input; for a case of
-// host/cases.wasm, the outcome that it must give
+// host/cases.wasm, the outcome that it must give; and for a case of the model alone, its engine: its
+// pages and its answers to grows ('0' refuses a grow, '1' grants it; past them, it grants each)
 type Case = {
   readonly name: string;
   readonly module: { readonly wasm: string } | { readonly program: string };
   readonly input: string;
   readonly want?: string;
+  readonly engine?: { readonly pages: number; readonly grows: string };
 };
 
 // constants
@@ -40,9 +46,25 @@ const HOSTED: readonly Case[] = [
   { name: "r", input: "r", want: "trap" },
   { name: "z", input: "z", want: "result " },
   { name: "m", input: "m\u0002", want: `result ${Buffer.from("3").toString("hex")}` },
+  { name: "g", input: "g", want: `result ${Buffer.from("A").toString("hex")}` },
+  { name: "h", input: "h", want: `result ${Buffer.from("B").toString("hex")}` },
   { name: "big", input: "b".repeat(60001), want: "out_of_memory" },
   { name: "empty", input: "", want: "no_result" },
 ].map((c) => ({ ...c, module: { wasm: CASES } }));
+
+// the paths of host/cases.wasm that grow, on engines that refuse some grows: the model alone
+const ENGINES: readonly Case[] = [
+  // the first grow, refused, takes the answer; the second, past the answers, is granted
+  { name: "g.0", input: "g", engine: { pages: 65536, grows: "0" }, want: "B" },
+  { name: "g.00", input: "g", engine: { pages: 65536, grows: "00" }, want: "A" },
+  { name: "g.10", input: "g", engine: { pages: 65536, grows: "10" }, want: "A" },
+  // a grow past the limit fails and takes no answer: the grow by 1 takes the refusal
+  { name: "h.0", input: "h", engine: { pages: 65536, grows: "0" }, want: "A" },
+  { name: "m.0", input: "m\u0002", engine: { pages: 65536, grows: "0" }, want: "1" },
+  // a grow past the engine's pages fails; one within them is granted
+  { name: "m.p2", input: "m\u0002", engine: { pages: 2, grows: "" }, want: "1" },
+  { name: "m.p3", input: "m\u0002", engine: { pages: 3, grows: "" }, want: "3" },
+].map((c) => ({ ...c, module: { wasm: CASES }, want: `result ${Buffer.from(c.want).toString("hex")}` }));
 
 // compiled programs (src/Compiler/tests/progs) on inputs that the Lean interpreter runs in seconds
 const COMPILED: readonly Case[] = [
@@ -95,14 +117,15 @@ run({
   stdout: "ignore",
 });
 
-const cases = [...HOSTED, ...COMPILED];
+const cases = [...HOSTED, ...COMPILED, ...ENGINES];
 cases.forEach((c) => writeFileSync(at(`${c.name}.in`), c.input));
 writeFileSync(
   at("host.jobs"),
   cases
     .map((c) => {
       const module = "wasm" in c.module ? c.module.wasm : at(`${c.module.program}.book`);
-      return `${module}\t${at(`${c.name}.in`)}\t${at(`${c.name}.model`)}\n`;
+      const engine = c.engine === undefined ? "" : `\t${c.engine.pages}\t${c.engine.grows}`;
+      return `${module}\t${at(`${c.name}.in`)}\t${at(`${c.name}.model`)}${engine}\n`;
     })
     .join(""),
 );
@@ -116,9 +139,15 @@ run(
 const failures = cases.filter((c) => {
   const wasm = "wasm" in c.module ? c.module.wasm : at(`${c.name}.model.wasm`);
   const model = getModelOutcome(at(`${c.name}.model`));
+  const want = c.want === undefined ? "" : `, want ${c.want}`;
+  if (c.engine !== undefined) {
+    const ok = model === c.want;
+    const { pages, grows } = c.engine;
+    console.log(`${ok ? "ok  " : "FAIL"} ${c.name}: model ${model}${want} (${pages} pages, answers "${grows}")`);
+    return !ok;
+  }
   const real = getRealOutcome(wasm, at(`${c.name}.in`), at(`${c.name}.bun`));
   const ok = model === real && (c.want === undefined || model === c.want);
-  const want = c.want === undefined ? "" : `, want ${c.want}`;
   console.log(`${ok ? "ok  " : "FAIL"} ${c.name}: model ${model}, bun ${real}${want}`);
   return !ok;
 });

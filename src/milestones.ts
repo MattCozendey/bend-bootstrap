@@ -10,7 +10,8 @@
 //      fuel, and passing assertions run each form of instruction that the compiler emits
 //      (AGENTS.md 3.9.1.3.2). Milestone 4.
 //   4. src/Wasm/tests/agree.ts: the model's Host section and a real host give the same outcome on
-//      each of its cases (AGENTS.md 3.9.1.3.3). Milestone 4.
+//      each of its cases (AGENTS.md 3.9.1.3.3), and on engines that refuse some grows, the model
+//      gives the spec's outcome, fixed in agree.ts (3.9.1.2). Milestone 4.
 //
 //   bun src/milestones.ts WORK
 
@@ -62,4 +63,4 @@ if (failed !== "0" || notDone !== "0" || notRun !== "") {
 console.log("3. ok: no WASM test fails or runs out of fuel; passing tests run each emitted form");
 
 run({ cmd: [process.execPath, join(REPO, "src/Wasm/tests/agree.ts"), at("agree")] });
-console.log("4. ok: the model's Host section and a real host agree on each case");
+console.log("4. ok: the model's Host section and a real host agree on each case; engine cases ok");

@@ -5,8 +5,10 @@
 ;; src/Wasm/impl.bend (memory, alloc, run), and the first byte of its input
 ;; picks the path that it takes through the host. alloc gives -1 for an input
 ;; of more than 60000 bytes, else address 4096. convert.ts writes cases.wasm.
-;; A grow that fails is left out: the spec lets any grow fail, so its outcome
-;; is not fixed.
+;; A grow's outcome depends on the engine, as the spec lets any grow fail:
+;; agree.ts compares the model with bun on an engine that grants each grow
+;; within its pages, and checks fixed outcomes of the model on engines that
+;; refuse some.
 
 (module
   (memory (export "memory") 1)
@@ -35,6 +37,25 @@
       ;; 'z': an empty output at the very end of the memory
       (block (br_if 0 (i32.ne (local.get 2) (i32.const 122)))
         (i32.store (i32.const 0) (i32.const 65536)) (i32.store (i32.const 4) (i32.const 0))
+        (local.set 3 (i32.const 0)) (br 1))
+      ;; 'g': "A", unless a grow by 1 fails and the next grow by 1 succeeds: then "B"
+      (block (br_if 0 (i32.ne (local.get 2) (i32.const 103)))
+        (i32.store8 (i32.const 256) (i32.const 65))
+        (block
+          (br_if 0 (i32.ne (memory.grow (i32.const 1)) (i32.const -1)))
+          (br_if 0 (i32.eq (memory.grow (i32.const 1)) (i32.const -1)))
+          (i32.store8 (i32.const 256) (i32.const 66)))
+        (i32.store (i32.const 0) (i32.const 256)) (i32.store (i32.const 4) (i32.const 1))
+        (local.set 3 (i32.const 0)) (br 1))
+      ;; 'h': a grow by 2^16 pages, past every limit, fails; then "B" when a grow by 1
+      ;; succeeds, else "A"
+      (block (br_if 0 (i32.ne (local.get 2) (i32.const 104)))
+        (i32.store8 (i32.const 256) (i32.const 65))
+        (block
+          (br_if 0 (i32.ne (memory.grow (i32.const 65536)) (i32.const -1)))
+          (br_if 0 (i32.eq (memory.grow (i32.const 1)) (i32.const -1)))
+          (i32.store8 (i32.const 256) (i32.const 66)))
+        (i32.store (i32.const 0) (i32.const 256)) (i32.store (i32.const 4) (i32.const 1))
         (local.set 3 (i32.const 0)) (br 1))
       ;; 'm': the memory's size in pages after a grow by the input's second byte, as one byte
       (block (br_if 0 (i32.ne (local.get 2) (i32.const 109)))
