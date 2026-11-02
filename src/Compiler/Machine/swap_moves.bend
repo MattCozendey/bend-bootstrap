@@ -1977,23 +1977,20 @@ def step.plugs(+ds: List<&2, Bk.Def>, fs: List<&2, D.AF>, +u: Bk.Term, +u2: Bk.T
 # The heap and the accounting see the owned roots as a set: after M.inc of a
 # part, the new root is first, and M.dec of the old one wants it first.
 
-def add01(x: Bool, y: Bool) -> {Nat.add(D.Nat.of(x), Nat.add(D.Nat.of(y), 0n)) == Nat.add(D.Nat.of(y), Nat.add(D.Nat.of(x), 0n)) : Nat}:
-  match x y:
-    case True{} True{}:
-      {==}
-    case True{} False{}:
-      {==}
-    case False{} True{}:
-      {==}
-    case False{} False{}:
-      {==}
+# x + (y + z) = y + (x + z)
+def add.sw(+x: Nat, +y: Nat, +z: Nat) -> {Nat.add(x, Nat.add(y, z)) == Nat.add(y, Nat.add(x, z)) : Nat}:
+  Equal.trans(Nat, Nat.add(x, Nat.add(y, z)), Nat.add(Nat.add(x, y), z), Nat.add(y, Nat.add(x, z)),
+    Equal.sym(Nat, Nat.add(Nat.add(x, y), z), Nat.add(x, Nat.add(y, z)), add.assoc(x, y, z)),
+    Equal.trans(Nat, Nat.add(Nat.add(x, y), z), Nat.add(Nat.add(y, x), z), Nat.add(y, Nat.add(x, z)),
+      Equal.cong(Nat, Nat, w => Nat.add(w, z), Nat.add(x, y), Nat.add(y, x), add.comm(x, y)), add.assoc(y, x, z)))
 
-def ptr.sw2(+N: Nat, +m: Cr.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +a: U32, +b: U32, +c: U32) ->
-  {D.Ptr(N, m, fi, ps, [a, b], c) == D.Ptr(N, m, fi, ps, [b, a], c) : Nat}:
-  Equal.cong(Nat, Nat, z => Nat.add(D.Pc(N, m, ps, fi, c), z), D.RcL([a, b], c), D.RcL([b, a], c), add01(U32.is_eq(a, c), U32.is_eq(b, c)))
+def ptr.sw2(+N: Nat, +m: Cr.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +a: U32, +b: U32, +rs: List<&2, U32>, +c: U32) ->
+  {D.Ptr(N, m, fi, ps, Con{a, Con{b, rs}}, c) == D.Ptr(N, m, fi, ps, Con{b, Con{a, rs}}, c) : Nat}:
+  Equal.cong(Nat, Nat, z => Nat.add(D.Pc(N, m, ps, fi, c), z), D.RcL(Con{a, Con{b, rs}}, c), D.RcL(Con{b, Con{a, rs}}, c),
+    add.sw(D.Nat.of(U32.is_eq(a, c)), D.Nat.of(U32.is_eq(b, c)), D.RcL(rs, c)))
 
-def pendok.sw2(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +a: U32, +b: U32,
-  h: D.PendOK(qs, ps, m, fi, nx, [a, b])) -> D.PendOK(qs, ps, m, fi, nx, [b, a]):
+def pendok.sw2(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +a: U32, +b: U32, +rs: List<&2, U32>,
+  h: D.PendOK(qs, ps, m, fi, nx, Con{a, Con{b, rs}})) -> D.PendOK(qs, ps, m, fi, nx, Con{b, Con{a, rs}}):
   match qs:
     case Nil{}:
       Unit{}
@@ -2003,57 +2000,56 @@ def pendok.sw2(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +fi: U32
       (ht, r3) = r2
       (h0, hr) = r3
       +N = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
-      (ho, (hs, (ht, ((%ptr.sw2(N, m, fi, ps, a, b, p) : {_ == 0n : Nat}; h0), pendok.sw2(rest, ps, m, fi, nx, a, b, hr)))))
+      (ho, (hs, (ht, ((%ptr.sw2(N, m, fi, ps, a, b, rs, p) : {_ == 0n : Nat}; h0), pendok.sw2(rest, ps, m, fi, nx, a, b, rs, hr)))))
 
-def cnt.sw2(k: Nat, +m: Cr.Cir.Cells, +c: U32, +N: Nat, +fi: U32, +ps: List<&2, U32>, +a: U32, +b: U32,
-  h: {D.Cnt(k, m, c, N, fi, ps, [a, b]) == True{} : Bool}) -> {D.Cnt(k, m, c, N, fi, ps, [b, a]) == True{} : Bool}:
+def cnt.sw2(k: Nat, +m: Cr.Cir.Cells, +c: U32, +N: Nat, +fi: U32, +ps: List<&2, U32>, +a: U32, +b: U32, +rs: List<&2, U32>,
+  h: {D.Cnt(k, m, c, N, fi, ps, Con{a, Con{b, rs}}) == True{} : Bool}) -> {D.Cnt(k, m, c, N, fi, ps, Con{b, Con{a, rs}}) == True{} : Bool}:
   match k:
     case 0n:
       {==}
     case 1n+(+j):
       +h2 = h
-      +T = Bool.or(Bool.not(U32.is_lt(D.Tg(m, c), 19)), Bool.or(D.Fl(m, c, 1024), D.Mem(ps, c)))
-      +P1 = D.Ptr(N, m, fi, ps, [a, b], c)
-      +P2 = D.Ptr(N, m, fi, ps, [b, a], c)
+      +P1 = D.Ptr(N, m, fi, ps, Con{a, Con{b, rs}}, c)
+      +P2 = D.Ptr(N, m, fi, ps, Con{b, Con{a, rs}}, c)
       +V = U32.to_nat(D.Fd(1n, m, c))
       +A0 = Bool.or(Bool.not(U32.is_lt(D.Tg(m, c), 19)), Bool.or(D.Fl(m, c, 1024), Bool.or(D.Mem(ps, c), Nat.is_eq(V, P1))))
       D.and.i(Bool.or(Bool.not(U32.is_lt(D.Tg(m, c), 19)), Bool.or(D.Fl(m, c, 1024), Bool.or(D.Mem(ps, c), Nat.is_eq(V, P2)))),
-        D.Cnt(j, m, U32.inc(c), N, fi, ps, [b, a]),
-        (%ptr.sw2(N, m, fi, ps, a, b, c) :
+        D.Cnt(j, m, U32.inc(c), N, fi, ps, Con{b, Con{a, rs}}),
+        (%ptr.sw2(N, m, fi, ps, a, b, rs, c) :
             {Bool.or(Bool.not(U32.is_lt(D.Tg(m, c), 19)), Bool.or(D.Fl(m, c, 1024), Bool.or(D.Mem(ps, c), Nat.is_eq(V, _)))) == True{} : Bool};
-          D.and.l(A0, D.Cnt(j, m, U32.inc(c), N, fi, ps, [a, b]), h2)),
-        cnt.sw2(j, m, U32.inc(c), N, fi, ps, a, b, D.and.r(A0, D.Cnt(j, m, U32.inc(c), N, fi, ps, [a, b]), h2)))
+          D.and.l(A0, D.Cnt(j, m, U32.inc(c), N, fi, ps, Con{a, Con{b, rs}}), h2)),
+        cnt.sw2(j, m, U32.inc(c), N, fi, ps, a, b, rs, D.and.r(A0, D.Cnt(j, m, U32.inc(c), N, fi, ps, Con{a, Con{b, rs}}), h2)))
 
-def heap.sw2(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +a: U32, +b: U32, +pend: U32, +ps: List<&2, U32>,
-  h: D.Heap(m, nx, fi, im, [a, b], pend, ps)) -> D.Heap(m, nx, fi, im, [b, a], pend, ps):
+def heap.sw2(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +a: U32, +b: U32, +rs: List<&2, U32>, +pend: U32, +ps: List<&2, U32>,
+  h: D.Heap(m, nx, fi, im, Con{a, Con{b, rs}}, pend, ps)) -> D.Heap(m, nx, fi, im, Con{b, Con{a, rs}}, pend, ps):
   (hc, r1) = h
   (hp, r2) = r1
   (hcn, r3) = r2
   +N = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
-  (hc, (pendok.sw2(ps, ps, m, fi, nx, a, b, hp), (cnt.sw2(N, m, fi, N, fi, ps, a, b, hcn), r3)))
+  (hc, (pendok.sw2(ps, ps, m, fi, nx, a, b, rs, hp), (cnt.sw2(N, m, fi, N, fi, ps, a, b, rs, hcn), r3)))
 
-# HS with the two roots traded, and no borrowed term
+# HS with the first two roots traded, and no borrowed term
 def hsk.sw2(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
-  +fi: U32, +im: U32, +c1: U32, +u1: Bk.Term, +c2: U32, +u2: Bk.Term, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32,
-  +ps: List<&2, U32>, h: D.HS(ds, ks, img, m, nx, fi, im, [D.Rt{c1, u1}, D.Rt{c2, u2}], bs, fs, sp, pend, ps)) ->
-  D.HS(ds, ks, img, m, nx, fi, im, [D.Rt{c2, u2}, D.Rt{c1, u1}], Nil{}, fs, sp, pend, ps):
+  +fi: U32, +im: U32, +c1: U32, +u1: Bk.Term, +c2: U32, +u2: Bk.Term, +R: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
+  +sp: U32, +pend: U32, +ps: List<&2, U32>, h: D.HS(ds, ks, img, m, nx, fi, im, Con{D.Rt{c1, u1}, Con{D.Rt{c2, u2}, R}}, bs, fs, sp, pend, ps)) ->
+  D.HS(ds, ks, img, m, nx, fi, im, Con{D.Rt{c2, u2}, Con{D.Rt{c1, u1}, R}}, Nil{}, fs, sp, pend, ps):
   match h:
-    case Tuple{Tuple{i1, Tuple{i2, _}}, Tuple{_, Tuple{_, Tuple{hf, Tuple{hp, hi}}}}}:
-      ((i2, (i1, Unit{})), (Unit{}, (Unit{}, (hf, (heap.sw2(m, nx, fi, im, c1, c2, pend, ps, hp), hi)))))
+    case Tuple{Tuple{i1, Tuple{i2, ir}}, Tuple{_, Tuple{_, Tuple{hf, Tuple{hp, hi}}}}}:
+      ((i2, (i1, ir)), (Unit{}, (Unit{}, (hf, (heap.sw2(m, nx, fi, im, c1, c2, D.Rt.cells(R), pend, ps, hp), hi)))))
 
-# Acc with the two roots traded (no temporary)
+# Acc with the first two roots traded (no temporary)
 def acc.sw2(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
-  +fi: U32, +im: U32, +c1: U32, +u1: Bk.Term, +c2: U32, +u2: Bk.Term, +sp: U32, +fs: List<&2, D.AF>,
+  +fi: U32, +im: U32, +c1: U32, +u1: Bk.Term, +c2: U32, +u2: Bk.Term, +R: List<&2, D.Rt>, +sp: U32, +fs: List<&2, D.AF>,
   +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
-  h: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{c1, u1}, D.Rt{c2, u2}], Nil{}, sp, fs, ps, zs)) ->
-  D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{c2, u2}, D.Rt{c1, u1}], Nil{}, sp, fs, ps, zs):
+  h: D.AccK(True{}, ds, ks, img, m, nx, fi, im, Con{D.Rt{c1, u1}, Con{D.Rt{c2, u2}, R}}, Nil{}, sp, fs, ps, zs)) ->
+  D.AccK(True{}, ds, ks, img, m, nx, fi, im, Con{D.Rt{c2, u2}, Con{D.Rt{c1, u1}, R}}, Nil{}, sp, fs, ps, zs):
   (h1, r1) = h
   (h2, r2) = r1
   (h3, r3) = r2
   (hcov, r4) = r3
   (hclo, _) = r4
   +N = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
-  +C = List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)
+  +C = List.append(&2, D.Rt, R, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs))
   +XS = List.append(&2, U32, D.Fr.cells(fs, m, sp), ps)
   (h1, (h2, (h3, (A.cov.mv(D.Cov(N, m, fi, Con{D.Rt{c1, u1}, Con{D.Rt{c2, u2}, C}}, XS), D.Cov(N, m, fi, Con{D.Rt{c2, u2}, Con{D.Rt{c1, u1}, C}}, XS),
     A.cov.perm(N, m, fi, Nil{}, [D.Rt{c1, u1}], [D.Rt{c2, u2}], C, XS), hcov), (hclo, {==})))))
@@ -2274,8 +2270,8 @@ def ann.dec(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
       +stA = X.X.st(R3, m2, nx, fi, im, pg, lim, inp)
       +hc8 = X.L.go(R2, 15n, 8n, n, foc, {==}, eg8b)
       +hp3 = X.L.go(R2, 15n, 3n, n, pend, {==}, X.L.go(R1, 10n, 3n, TG, pend, {==}, X.L.go(R0, 8n, 3n, foc, pend, {==}, {==})))
-      +hs2 = hsk.sw2(ds, ks, img, m2, nx, fi, im, n, x, foc, AN, [D.Rt{n, x}], fs, sp, pend, ps, hs1)
-      +hac2 = acc.sw2(ds, ks, img, m2, nx, fi, im, n, x, foc, AN, sp, fs, ps, zs, hac1)
+      +hs2 = hsk.sw2(ds, ks, img, m2, nx, fi, im, n, x, foc, AN, Nil{}, [D.Rt{n, x}], fs, sp, pend, ps, hs1)
+      +hac2 = acc.sw2(ds, ks, img, m2, nx, fi, im, n, x, foc, AN, Nil{}, sp, fs, ps, zs, hac1)
       hdec = D.dec.post(f, True{}, ds, ks, img, R3, m2, nx, fi, im, pg, lim, inp, 8n, [D.Rt{n, x}], Nil{}, fs, sp, pend, ps, foc, AN, Nil{}, zs,
         hs2, hac2, Unit{}, hl3, hc8, hp3, {==})
       +B = D.Budget(ds, D.S(foc, 0, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t)
@@ -2870,6 +2866,378 @@ def pop.post(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
             Equal.sym(List<&2, U32>, D.Pend.terms(Con{sp, ps}, M1), D.Pend.terms(ps, m), ept)),
           (c4, (clo1, {==}))))))
 
+
+# Rwt □ P f
+# ---------
+#
+# mode 1, Rwt □ P f with the value v: when v is Rfl (its tag is rfl), y and
+# n get P's and f's cells, M.pop moves the frame to the pend list (its
+# terms become roots, pop.post), M.dec drops P and v, and f is the focus: a
+# step (Rwt Rfl P f steps to f). Else a halt with 2: Rwt v P f is stuck.
+
+# a node's tag
+def nd.tag(-ds: List<&2, Bk.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, -x: Cr.Cir.Cell, -t: Bk.Term, -tag: U32,
+  nd: D.Nd(ds, im, fi, nx, c, x, t, tag)) -> {D.TgW(Cr.Cir.Cell.get(0n, x)) == tag : U32}:
+  match nd:
+    case Tuple{_, Tuple{_, Tuple{e, _}}}:
+      e
+
+# the registers after the Rwt step
+def R59.rwt(x: D.R59, +sp: U32, +Q: U32, +y: U32, +n: U32, +d: U32) -> D.R59:
+  match x:
+    case D.R59{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62}:
+      D.R59{r4, d, r6, r7, r8, sp, 38, r11, y, r13, Q, n, sp, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45, r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56, r57, r58, r59, r60, r61, r62}
+
+def rwt.regs(x: D.R59, +foc: U32, +sp: U32, +pend: U32, +Q: U32, +y: U32, +n: U32, +f1: U32, +d1: U32, +p1: U32, +d2: U32, +p2: U32) ->
+  {X.X.set(X.X.set(List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32,
+      X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(x)), 9n, sp), 10n, 38), 14n, Q), 12n, y), 15n, n),
+        16n, sp), 2n, f1), 3n, sp), 5n, d1), 3n, p1), 5n, d2), 3n, p2), 0n, n), 1n, 0) ==
+    D.RG(n, 0, f1, p2, D.R59.list(R59.rwt(x, sp, Q, y, n, d2))) : List<&2, U32>}:
+  match x:
+    case D.R59{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62}:
+      {==}
+
+def plain.rwt() -> {Plain(Mc.M.ret.rwt()) == True{} : Bool}:
+  {==}
+
+# Eval: Rwt v P f with a value v that is not Rfl has no cast
+def cast.none(v: Bk.Term, +f: Bk.Term, hne: {U32.is_eq(D.A.tag(v), 17) == False{} : Bool}) -> {El.Eval.step.cast(v, f) == None{} : Maybe<Bk.Term>}:
+  match v:
+    case Bk.Term.Rfl{}:
+      D.bool.ft({Some{f} == None{} : Maybe<Bk.Term>}, Equal.sym(Bool, True{}, False{}, hne))
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Ref{_}:
+      {==}
+    case Bk.Term.Ann{_, _}:
+      {==}
+    case Bk.Term.Let{_, _, _}:
+      {==}
+    case Bk.Term.Typ{_}:
+      {==}
+    case Bk.Term.Min{_, _}:
+      {==}
+    case Bk.Term.All{_, _, _}:
+      {==}
+    case Bk.Term.Lam{_, _}:
+      {==}
+    case Bk.Term.App{_, _, _}:
+      {==}
+    case Bk.Term.Sig{_, _, _}:
+      {==}
+    case Bk.Term.Tup{_, _, _}:
+      {==}
+    case Bk.Term.Prj{_}:
+      {==}
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_}:
+      {==}
+    case Bk.Term.Mat{_, _, _}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{_, _, _}:
+      {==}
+    case Bk.Term.Rwt{_, _, _}:
+      {==}
+
+# a round from mode 1 with a Rwt □ P f frame on top: M.ret.rwt
+def rwt.E(+f: Nat, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32,
+  +lim: U32, +inp: List<&2, Word(8n)>, hz: {U32.is_eq(sp, 0) == False{} : Bool}, +hc: {Cr.Cir.is_cell(sp, im, fi, nx) == True{} : Bool},
+  ht: {D.Tg(m, sp) == 38 : U32}) ->
+  {Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)) == Cr.Cir.exec(f, Mc.M.ret.rwt(), X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}:
+  X.ret.disp.rwt(f, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, pg, lim, inp, sp, rg.len(rest, foc, 1, sp, pend), {==}, {==}, hz, hc, ht)
+
+# the Rwt step's last statements, after the M.dec of v: f is the focus, mode 0
+def rwt.fin(+f: Nat, +m2: Cr.Cir.Cells, +d1: U32, +p1: U32, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>,
+  +et: {D.A.plugs(Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, Bk.Term.Rfl{}) == t : Bk.Term}, +afs: D.AFs.ok(ds, fs), +s2: Cr.Cir.State,
+  q2: (st2 => D.Ex(Cr.Cir.Cells, m3 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 => D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 12n, D.Fd(2n, m, sp)), 15n, D.Fd(3n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 5n, d1), 3n, p1), 5n, d), 3n, pend2), m3, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State}, D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m3, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) : Nat}, D.P2(D.HSK(True{}, ds, ks, img, m3, nx, fi, im, [D.Rt{D.Fd(3n, m, sp), b}], Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2), D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m3, nx, fi, im, [D.Rt{D.Fd(3n, m, sp), b}], Nil{}, D.Fd(1n, m, sp), fs, ps2, zs2))))))))))(s2)) -> D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))), s2), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match q2:
+    case Tuple{+m3, Tuple{+d2, Tuple{+p2, Tuple{+ps2, Tuple{es, Tuple{_, Tuple{Tuple{Tuple{isn, _}, Tuple{_, Tuple{_, Tuple{frs3, Tuple{heap3, img3}}}}}, Tuple{+zs2, hac3}}}}}}}}:
+      +n2 = D.Fd(2n, m, sp)
+      +n3 = D.Fd(3n, m, sp)
+      +f1 = D.Fd(1n, m, sp)
+      +QQ = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+      +RG0 = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+      +R3 = X.X.set(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, QQ)
+      +R4 = X.X.set(R3, 12n, n2)
+      +R5 = X.X.set(R4, 15n, n3)
+      +R6 = X.X.set(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, sp)
+      +hl0 = rg.len(rest, foc, 1, sp, pend)
+      +hl3 = X.L.len(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, QQ, 63n, X.L.len(X.X.set(RG0, 9n, sp), 10n, 38, 63n, X.L.len(RG0, 9n, sp, 63n, hl0)))
+      +hl5 = X.L.len(R4, 15n, n3, 63n, X.L.len(R3, 12n, n2, 63n, hl3))
+      +hl6 = X.L.len(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, sp, 63n, X.L.len(X.X.set(R5, 16n, sp), 2n, f1, 63n, X.L.len(R5, 16n, sp, 63n, hl5)))
+      +eg0 = X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 0n, QQ, foc, {==}, X.L.go(X.X.set(RG0, 9n, sp), 10n, 0n, 38, foc, {==},
+        X.L.go(RG0, 9n, 0n, sp, foc, {==}, {==})))
+      +eg9 = X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 9n, QQ, sp, {==}, X.L.go(X.X.set(RG0, 9n, sp), 10n, 9n, 38, sp, {==},
+        X.L.gs(RG0, 9n, sp, X.L.lt(RG0, 9n, hl0, {==}))))
+      +R7 = List.set(&2, U32, List.set(&2, U32, R6, 5n, d1), 3n, p1)
+      +R8 = List.set(&2, U32, List.set(&2, U32, R7, 5n, d2), 3n, p2)
+      +hl8 = X.L.len(List.set(&2, U32, R7, 5n, d2), 3n, p2, 63n, X.L.len(R7, 5n, d2, 63n,
+        X.L.len(List.set(&2, U32, R6, 5n, d1), 3n, p1, 63n, X.L.len(R6, 5n, d1, 63n, hl6))))
+      +R9 = X.X.set(R8, 0n, n3)
+      +st8 = X.X.st(R8, m3, nx, fi, im, pg, lim, inp)
+      +st9 = X.X.st(R9, m3, nx, fi, im, pg, lim, inp)
+      +st10 = X.X.st(X.X.set(R9, 1n, 0), m3, nx, fi, im, pg, lim, inp)
+      +S0 = D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)
+      +g15a = X.L.go(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, 15n, sp, n3, {==}, X.L.go(X.X.set(R5, 16n, sp), 2n, 15n, f1, n3, {==},
+        X.L.go(R5, 16n, 15n, sp, n3, {==}, X.L.gs(R4, 15n, n3, X.L.lt(R4, 15n, X.L.len(R3, 12n, n2, 63n, hl3), {==})))))
+      +g15 = X.L.go(List.set(&2, U32, R7, 5n, d2), 3n, 15n, p2, n3, {==}, X.L.go(R7, 5n, 15n, d2, n3, {==},
+        X.L.go(List.set(&2, U32, R6, 5n, d1), 3n, 15n, p1, n3, {==}, X.L.go(R6, 5n, 15n, d1, n3, {==}, g15a))))
+      +e_s0 = D.eq.set(f, 0n, Mc.M.g(Mc.R.n()), st8, n3, g15, X.L.lt(R8, 0n, hl8, {==}))
+      +e_s1 = D.eq.set(f, 1n, Mc.M.c(0), st9, 0, {==}, X.L.lt(R9, 1n, X.L.len(R8, 0n, n3, 63n, hl8), {==}))
+      +u = D.A.plugs(fs, b)
+      +w2 = D.A.w(False{}, b, fs)
+      +estep = {(%et : {El.Eval.step(ds, _) == Some{u} : Maybe<Bk.Term>}; step.plugs(ds, fs, Bk.Term.Rwt{Bk.Term.Rfl{}, a, b}, b, afs, {==})) :
+        {El.Eval.step(ds, t) == Some{u} : Maybe<Bk.Term>}}
+      +pk = le.max.l(D.Mem.cells(S0), D.Need(ds, S0, t))
+      +inv = {(D.Wit{False{}, b, fs, n3, f1, p2, ps2, R59.rwt(rest, sp, QQ, n2, n3, d2)},
+        (({==}, ({==}, ({==}, (afs, (rwt.regs(rest, foc, sp, pend, QQ, n2, n3, f1, d1, p1, d2, p2), (isn, (frs3, (heap3, (img3, ({==}, {==})))))))))), (zs2, hac3))) :
+        D.Inv(ds, ks, img, st10, u, w2)}
+      %Equal.sym(Cr.Cir.State, s2, st8, es) : D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))), _), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))))))), X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))))))), st8, st9, e_s0) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))))), X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))))), st9, st10, e_s1) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))))), st10), Cr.Cir.Out.next{st10}, D.eq.nop(f, st10)) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      (Inr{(u, (estep, (w2, inv)))}, pk)
+
+# the M.dec of v, after the M.dec of P
+def rwt.dec2(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>,
+  +et: {D.A.plugs(Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, Bk.Term.Rfl{}) == t : Bk.Term}, +afs: D.AFs.ok(ds, fs), +s: Cr.Cir.State,
+  qd: (st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 => D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 12n, D.Fd(2n, m, sp)), 15n, D.Fd(3n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State}, D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), D.Put1([D.W1{sp, pend}], m), fi) : Nat}, D.P2(D.HSK(True{}, ds, ks, img, m2, nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, [D.Rt{D.Fd(3n, m, sp), b}]}, Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2), D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m2, nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, [D.Rt{D.Fd(3n, m, sp), b}]}, Nil{}, D.Fd(1n, m, sp), fs, ps2, zs2))))))))))(s)) -> D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))))), s), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match qd:
+    case Tuple{+m2, Tuple{+d1, Tuple{+p1, Tuple{+ps1, Tuple{es, Tuple{_, Tuple{hs1, Tuple{+zs1, hac1}}}}}}}}:
+      +n2 = D.Fd(2n, m, sp)
+      +n3 = D.Fd(3n, m, sp)
+      +f1 = D.Fd(1n, m, sp)
+      +QQ = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+      +RG0 = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+      +R3 = X.X.set(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, QQ)
+      +R4 = X.X.set(R3, 12n, n2)
+      +R5 = X.X.set(R4, 15n, n3)
+      +R6 = X.X.set(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, sp)
+      +hl0 = rg.len(rest, foc, 1, sp, pend)
+      +hl3 = X.L.len(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, QQ, 63n, X.L.len(X.X.set(RG0, 9n, sp), 10n, 38, 63n, X.L.len(RG0, 9n, sp, 63n, hl0)))
+      +hl5 = X.L.len(R4, 15n, n3, 63n, X.L.len(R3, 12n, n2, 63n, hl3))
+      +hl6 = X.L.len(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, sp, 63n, X.L.len(X.X.set(R5, 16n, sp), 2n, f1, 63n, X.L.len(R5, 16n, sp, 63n, hl5)))
+      +eg0 = X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 0n, QQ, foc, {==}, X.L.go(X.X.set(RG0, 9n, sp), 10n, 0n, 38, foc, {==},
+        X.L.go(RG0, 9n, 0n, sp, foc, {==}, {==})))
+      +eg9 = X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 9n, QQ, sp, {==}, X.L.go(X.X.set(RG0, 9n, sp), 10n, 9n, 38, sp, {==},
+        X.L.gs(RG0, 9n, sp, X.L.lt(RG0, 9n, hl0, {==}))))
+      +R7 = List.set(&2, U32, List.set(&2, U32, R6, 5n, d1), 3n, p1)
+      +hl7 = X.L.len(List.set(&2, U32, R6, 5n, d1), 3n, p1, 63n, X.L.len(R6, 5n, d1, 63n, hl6))
+      +st7 = X.X.st(R7, m2, nx, fi, im, pg, lim, inp)
+      +g0 = X.L.go(List.set(&2, U32, R6, 5n, d1), 3n, 0n, p1, foc, {==}, X.L.go(R6, 5n, 0n, d1, foc, {==},
+        X.L.go(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, 0n, sp, foc, {==}, X.L.go(X.X.set(R5, 16n, sp), 2n, 0n, f1, foc, {==},
+          X.L.go(R5, 16n, 0n, sp, foc, {==}, X.L.go(R4, 15n, 0n, n3, foc, {==}, X.L.go(R3, 12n, 0n, n2, foc, {==}, eg0)))))))
+      +g3 = X.L.gs(List.set(&2, U32, R6, 5n, d1), 3n, p1, X.L.lt(List.set(&2, U32, R6, 5n, d1), 3n, X.L.len(R6, 5n, d1, 63n, hl6), {==}))
+      hdec = D.dec.post(f, True{}, ds, ks, img, R7, m2, nx, fi, im, pg, lim, inp, 0n, [D.Rt{D.Fd(3n, m, sp), b}], Nil{}, fs, f1, p1, ps1, foc, Bk.Term.Rfl{}, Nil{}, zs1,
+        hs1, hac1, Unit{}, hl7, g0, g3, {==})
+      +B = D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t)
+      %Equal.sym(Cr.Cir.State, s, st7, es) : D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))))), _), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      D.postb.seq(f, False{}, X.sel.a(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))), X.sel.b(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))), st7, st2 => D.Ex(Cr.Cir.Cells, m3 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 => D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 12n, D.Fd(2n, m, sp)), 15n, D.Fd(3n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 5n, d1), 3n, p1), 5n, d), 3n, pend2), m3, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State}, D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m3, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) : Nat}, D.P2(D.HSK(True{}, ds, ks, img, m3, nx, fi, im, [D.Rt{D.Fd(3n, m, sp), b}], Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2), D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m3, nx, fi, im, [D.Rt{D.Fd(3n, m, sp), b}], Nil{}, D.Fd(1n, m, sp), fs, ps2, zs2))))))))), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st2 => Empty, s => st3 => D.HR(ds, t, s, st3), B, D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)),
+        D.postb.wk(False{}, Cr.Cir.exec(f, X.sel.a(X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))))), st7), st2 => D.Ex(Cr.Cir.Cells, m3 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 => D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 12n, D.Fd(2n, m, sp)), 15n, D.Fd(3n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 5n, d1), 3n, p1), 5n, d), 3n, pend2), m3, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State}, D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m3, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) : Nat}, D.P2(D.HSK(True{}, ds, ks, img, m3, nx, fi, im, [D.Rt{D.Fd(3n, m, sp), b}], Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2), D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m3, nx, fi, im, [D.Rt{D.Fd(3n, m, sp), b}], Nil{}, D.Fd(1n, m, sp), fs, ps2, zs2))))))))), s => st2 => Empty, 0n, B, D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), hdec, N.le_zero(B)),
+        s => st3 => e => Empty.absurd(D.HR(ds, t, s, st3), e), s2 => q2 => rwt.fin(f, m2, d1, p1, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, et, afs, s2, q2))
+
+# Rfl: y and n set, M.pop, the M.dec of P
+def rwt.yes(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>,
+  +iv: D.InvOf(ds, ks, img, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, Nil{}, 0, t, w, True{}, Bk.Term.Rfl{}, Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, foc, sp, pend, ps, rest),
+  hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, Bk.Term.Rfl{}}], Nil{}, sp, Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, ps, zs)) ->
+  D.PostB(False{}, Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match iv:
+    case Tuple{+et, Tuple{_, Tuple{_, Tuple{+afs, Tuple{_, Tuple{+isf, Tuple{+frs, Tuple{+hp, Tuple{+io, _}}}}}}}}}:
+      +n2 = D.Fd(2n, m, sp)
+      +n3 = D.Fd(3n, m, sp)
+      +f1 = D.Fd(1n, m, sp)
+      +QQ = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+      +RG0 = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+      +R3 = X.X.set(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, QQ)
+      +R4 = X.X.set(R3, 12n, n2)
+      +R5 = X.X.set(R4, 15n, n3)
+      +R6 = X.X.set(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, sp)
+      +hl0 = rg.len(rest, foc, 1, sp, pend)
+      +hl3 = X.L.len(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, QQ, 63n, X.L.len(X.X.set(RG0, 9n, sp), 10n, 38, 63n, X.L.len(RG0, 9n, sp, 63n, hl0)))
+      +hl5 = X.L.len(R4, 15n, n3, 63n, X.L.len(R3, 12n, n2, 63n, hl3))
+      +hl6 = X.L.len(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, sp, 63n, X.L.len(X.X.set(R5, 16n, sp), 2n, f1, 63n, X.L.len(R5, 16n, sp, 63n, hl5)))
+      +eg0 = X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 0n, QQ, foc, {==}, X.L.go(X.X.set(RG0, 9n, sp), 10n, 0n, 38, foc, {==},
+        X.L.go(RG0, 9n, 0n, sp, foc, {==}, {==})))
+      +eg9 = X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 9n, QQ, sp, {==}, X.L.go(X.X.set(RG0, 9n, sp), 10n, 9n, 38, sp, {==},
+        X.L.gs(RG0, 9n, sp, X.L.lt(RG0, 9n, hl0, {==}))))
+      +S0 = D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)
+      +st3 = X.X.st(R3, m, nx, fi, im, pg, lim, inp)
+      +st4 = X.X.st(R4, m, nx, fi, im, pg, lim, inp)
+      +st5 = X.X.st(R5, m, nx, fi, im, pg, lim, inp)
+      +st6 = X.X.st(R6, D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)
+      +KD = {D.FK.rwt{} : D.FK}
+      +hz = fr.nz(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +hc = fr.cell(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +ht = fr.tag(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +nd = D.is.nd(ds, m, im, fi, nx, ks, img, foc, Bk.Term.Rfl{}, isf)
+      +valid = nd.cell(True{}, ds, im, fi, nx, foc, Cr.Cir.Cells.get(m, foc), Bk.Term.Rfl{}, 17, nd)
+      +etag = nd.tag(ds, im, fi, nx, foc, Cr.Cir.Cells.get(m, foc), Bk.Term.Rfl{}, 17, nd)
+      +f0 = D.Fd(0n, m, foc)
+      +ef = D.ev.fld(0n, Mc.M.g(Mc.R.focus()), R3, m, nx, fi, im, pg, lim, inp, Nil{}, 0, foc, eg0, valid)
+      +etg = D.ev.op(Wa.Wasm.Op.and{}, Mc.M.f(0n, Mc.M.g(Mc.R.focus())), Mc.M.c(63), st3, f0, 63, ef, {==})
+      +ec = D.ev.op(Wa.Wasm.Op.eq{}, Mc.M.tag(Mc.M.g(Mc.R.focus())), Mc.M.c(17), st3, Wa.Wasm.op(Wa.Wasm.Op.and{}, f0, 63), 17, etg, {==})
+      +nz = {(%Equal.sym(U32, D.TgW(f0), 17, etag) : {U32.is_zero(Wa.Wasm.op(Wa.Wasm.Op.eq{}, _, 17)) == False{} : Bool}; {==}) :
+        {U32.is_zero(Wa.Wasm.op(Wa.Wasm.Op.eq{}, D.TgW(f0), 17)) == False{} : Bool}}
+      +e_if = D.eq.if.t(f, K.stmt.cond(Mc.M.ret.rwt()), K.stmt.then(Mc.M.ret.rwt()), K.stmt.else(Mc.M.ret.rwt()), st3, Wa.Wasm.op(Wa.Wasm.Op.eq{}, D.TgW(f0), 17), ec, nz)
+      +e_y = D.eq.set(f, 12n, Mc.M.f(2n, Mc.M.g(Mc.R.h())), st3, n2, D.ev.fld(2n, Mc.M.g(Mc.R.h()), R3, m, nx, fi, im, pg, lim, inp, Nil{}, 0, sp, eg9, hc),
+        X.L.lt(R3, 12n, hl3, {==}))
+      +eg9b = X.L.go(R3, 12n, 9n, n2, sp, {==}, eg9)
+      +e_n = D.eq.set(f, 15n, Mc.M.f(3n, Mc.M.g(Mc.R.h())), st4, n3, D.ev.fld(3n, Mc.M.g(Mc.R.h()), R4, m, nx, fi, im, pg, lim, inp, Nil{}, 0, sp, eg9b, hc),
+        X.L.lt(R4, 15n, X.L.len(R3, 12n, n2, 63n, hl3), {==}))
+      +g2 = X.L.go(R4, 15n, 2n, n3, sp, {==}, X.L.go(R3, 12n, 2n, n2, sp, {==}, X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 2n, QQ, sp, {==},
+        X.L.go(X.X.set(RG0, 9n, sp), 10n, 2n, 38, sp, {==}, X.L.go(RG0, 9n, 2n, sp, sp, {==}, {==})))))
+      +g3 = X.L.go(R4, 15n, 3n, n3, pend, {==}, X.L.go(R3, 12n, 3n, n2, pend, {==}, X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 3n, QQ, pend, {==},
+        X.L.go(X.X.set(RG0, 9n, sp), 10n, 3n, 38, pend, {==}, X.L.go(RG0, 9n, 3n, sp, pend, {==}, {==})))))
+      +e_pop = X.pop.eq(f, R5, m, nx, fi, im, pg, lim, inp, sp, pend, hl5, g2, g3, hc)
+      +pp = pop.post(ds, ks, img, m, nx, fi, im, Bk.Term.Rfl{}, fs, foc, sp, pend, ps, KD, q, k, a, b, zs, isf, hp, io, frs, hac)
+      +hs6 = hsk.sw2(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, foc, Bk.Term.Rfl{}, n2, a, [D.Rt{n3, b}], Nil{}, fs, f1, sp, Con{sp, ps},
+        D.Ex.fst(D.HS(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, Con{D.Rt{n2, a}, [D.Rt{n3, b}]}}, Nil{}, fs, f1, sp, Con{sp, ps}),
+          _ => D.AccK(True{}, ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, Con{D.Rt{n2, a}, [D.Rt{n3, b}]}}, Nil{}, f1, fs, Con{sp, ps}, zs), pp))
+      +hac6 = acc.sw2(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, foc, Bk.Term.Rfl{}, n2, a, [D.Rt{n3, b}], f1, fs, Con{sp, ps}, zs,
+        D.Ex.snd(D.HS(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, Con{D.Rt{n2, a}, [D.Rt{n3, b}]}}, Nil{}, fs, f1, sp, Con{sp, ps}),
+          _ => D.AccK(True{}, ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, Con{D.Rt{n2, a}, [D.Rt{n3, b}]}}, Nil{}, f1, fs, Con{sp, ps}, zs), pp))
+      +g12 = X.L.go(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, 12n, sp, n2, {==}, X.L.go(X.X.set(R5, 16n, sp), 2n, 12n, f1, n2, {==},
+        X.L.go(R5, 16n, 12n, sp, n2, {==}, X.L.go(R4, 15n, 12n, n3, n2, {==}, X.L.gs(R3, 12n, n2, X.L.lt(R3, 12n, hl3, {==}))))))
+      +g3b = X.L.gs(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n, sp, X.L.lt(X.X.set(X.X.set(R5, 16n, sp), 2n, f1), 3n,
+        X.L.len(X.X.set(R5, 16n, sp), 2n, f1, 63n, X.L.len(R5, 16n, sp, 63n, hl5)), {==}))
+      hdec = D.dec.post(f, True{}, ds, ks, img, R6, D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp, 12n, Con{D.Rt{foc, Bk.Term.Rfl{}}, [D.Rt{D.Fd(3n, m, sp), b}]}, Nil{}, fs, f1, sp, Con{sp, ps}, n2, a, Nil{}, zs,
+        hs6, hac6, Unit{}, hl6, g12, g3b, {==})
+      +B = D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t)
+      +afs2 = p2.snd(D.AF.ok(ds, D.AF{D.FK.rwt{}, q, k, a, b}), D.AFs.ok(ds, fs), afs)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, D.B.body(), S0), Cr.Cir.exec(f, Mc.M.ret.rwt(), st3), rwt.E(f, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) :
+        D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.ret.rwt(), st3), Cr.Cir.exec(f, K.stmt.then(Mc.M.ret.rwt()), st3), e_if) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(K.stmt.then(Mc.M.ret.rwt())), X.sel.b(K.stmt.then(Mc.M.ret.rwt())), st3, st4, e_y) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))), X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))), st4, st5, e_n) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))), X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt())))), st5, st6, e_pop) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      D.postb.seq(f, False{}, X.sel.a(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))))), X.sel.b(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))))), st6, st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 => D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 12n, D.Fd(2n, m, sp)), 15n, D.Fd(3n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State}, D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), D.Put1([D.W1{sp, pend}], m), fi) : Nat}, D.P2(D.HSK(True{}, ds, ks, img, m2, nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, [D.Rt{D.Fd(3n, m, sp), b}]}, Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2), D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m2, nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, [D.Rt{D.Fd(3n, m, sp), b}]}, Nil{}, D.Fd(1n, m, sp), fs, ps2, zs2))))))))), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st2 => Empty, s => st3 => D.HR(ds, t, s, st3), B, D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)),
+        D.postb.wk(False{}, Cr.Cir.exec(f, X.sel.a(X.sel.b(X.sel.b(X.sel.b(K.stmt.then(Mc.M.ret.rwt()))))), st6), st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 => D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 12n, D.Fd(2n, m, sp)), 15n, D.Fd(3n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State}, D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), D.Put1([D.W1{sp, pend}], m), fi) : Nat}, D.P2(D.HSK(True{}, ds, ks, img, m2, nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, [D.Rt{D.Fd(3n, m, sp), b}]}, Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2), D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m2, nx, fi, im, Con{D.Rt{foc, Bk.Term.Rfl{}}, [D.Rt{D.Fd(3n, m, sp), b}]}, Nil{}, D.Fd(1n, m, sp), fs, ps2, zs2))))))))), s => st2 => Empty, 0n, B, D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), hdec, N.le_zero(B)),
+        s => st3 => e => Empty.absurd(D.HR(ds, t, s, st3), e), s => q2 => rwt.dec2(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, et, afs2, s, q2))
+
+# v is no Rfl: the round halts with 2, as Rwt v P f is stuck
+def rwt.no.E(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, +v: Bk.Term,
+  +nd: D.Nd(ds, im, fi, nx, foc, Cr.Cir.Cells.get(m, foc), v, D.A.tag(v)),
+  +hz: {U32.is_eq(sp, 0) == False{} : Bool}, +hc: {Cr.Cir.is_cell(sp, im, fi, nx) == True{} : Bool}, +ht: {D.Tg(m, sp) == 38 : U32},
+  +hne: {U32.is_eq(D.A.tag(v), 17) == False{} : Bool}) ->
+  {Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)) == Cr.Cir.Out.halt{2, X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)} : Cr.Cir.Out}:
+  match nd:
+    case Tuple{+valid, Tuple{_, Tuple{+etag, _}}}:
+      +RG0 = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+      +QQ = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+      +st3 = X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)
+      +f0 = D.Fd(0n, m, foc)
+      +eg0 = X.L.go(X.X.set(X.X.set(RG0, 9n, sp), 10n, 38), 14n, 0n, QQ, foc, {==}, X.L.go(X.X.set(RG0, 9n, sp), 10n, 0n, 38, foc, {==},
+        X.L.go(RG0, 9n, 0n, sp, foc, {==}, {==})))
+      +ef = D.ev.fld(0n, Mc.M.g(Mc.R.focus()), X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp, Nil{}, 0, foc, eg0, valid)
+      +etg = D.ev.op(Wa.Wasm.Op.and{}, Mc.M.f(0n, Mc.M.g(Mc.R.focus())), Mc.M.c(63), st3, f0, 63, ef, {==})
+      +ec = D.ev.op(Wa.Wasm.Op.eq{}, Mc.M.tag(Mc.M.g(Mc.R.focus())), Mc.M.c(17), st3, Wa.Wasm.op(Wa.Wasm.Op.and{}, f0, 63), 17, etg, {==})
+      Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), Cr.Cir.exec(f, Mc.M.ret.rwt(), st3), Cr.Cir.Out.halt{2, st3},
+        rwt.E(f, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht),
+        Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.ret.rwt(), st3), Cr.Cir.exec(f, K.stmt.else(Mc.M.ret.rwt()), st3), Cr.Cir.Out.halt{2, st3},
+          D.eq.if.e(f, K.stmt.cond(Mc.M.ret.rwt()), K.stmt.then(Mc.M.ret.rwt()), K.stmt.else(Mc.M.ret.rwt()), st3, Wa.Wasm.op(Wa.Wasm.Op.eq{}, D.TgW(f0), 17), ec,
+            K.tag.ne(f0, D.A.tag(v), 17, etag, hne)),
+          K.eq.halt(f, 2, st3)))
+
+def rwt.no(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, +v: Bk.Term,
+  +iv: D.InvOf(ds, ks, img, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, Nil{}, 0, t, w, True{}, v, Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, foc, sp, pend, ps, rest),
+  +hne: {U32.is_eq(D.A.tag(v), 17) == False{} : Bool}) -> D.PostB(False{}, Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match iv:
+    case Tuple{+et, Tuple{_, Tuple{+evv, Tuple{+afs, Tuple{_, Tuple{+isf, Tuple{+frs, _}}}}}}}:
+      +KD = {D.FK.rwt{} : D.FK}
+      +hz = fr.nz(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +hc = fr.cell(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +ht = fr.tag(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +nd = D.is.nd(ds, m, im, fi, nx, ks, img, foc, v, isf)
+      +st3 = X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)
+      +RW = {Bk.Term.Rwt{v, a, b} : Bk.Term}
+      +hs = {(%Equal.sym(Maybe<Bk.Term>, El.Eval.step(ds, v), None{}, K.ev.stops(ds, v, evv)) :
+            {El.Eval.step.rwt(v, a, b, _, El.Eval.vals(ds, v, False{})) == None{} : Maybe<Bk.Term>};
+          %Equal.sym(Bool, El.Eval.vals(ds, v, False{}), True{}, evv) : {El.Eval.step.rwt(v, a, b, None{}, _) == None{} : Maybe<Bk.Term>};
+          cast.none(v, b, hne)) : {El.Eval.step(ds, RW) == None{} : Maybe<Bk.Term>}}
+      +stk = K.ev.stuck(ds, fs, RW, p2.snd(D.AF.ok(ds, D.AF{D.FK.rwt{}, q, k, a, b}), D.AFs.ok(ds, fs), afs), hs, {==})
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), Cr.Cir.Out.halt{2, st3},
+        rwt.no.E(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, nd, hz, hc, ht, hne)) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      K.hr.stuck(ds, t, st3, (%et : D.P2({El.Eval.step(ds, _) == None{} : Maybe<Bk.Term>}, {El.Eval.vals(ds, _, False{}) == False{} : Bool}); stk))
+
+# the round from a Rwt □ P f frame, for any fuel, by the focus' form
+def rwt.round(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, v: Bk.Term,
+  +iv: D.InvOf(ds, ks, img, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, Nil{}, 0, t, w, True{}, v, Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, foc, sp, pend, ps, rest),
+  hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, v}], Nil{}, sp, Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, ps, zs)) ->
+  D.PostB(False{}, Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match v:
+    case Bk.Term.Var{+i}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Var{i}, iv, {==})
+    case Bk.Term.Ref{+k2}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Ref{k2}, iv, {==})
+    case Bk.Term.Ann{+x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Ann{x, y}, iv, {==})
+    case Bk.Term.Let{+q2, +x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Let{q2, x, y}, iv, {==})
+    case Bk.Term.Typ{+y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Typ{y}, iv, {==})
+    case Bk.Term.Min{+x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Min{x, y}, iv, {==})
+    case Bk.Term.All{+q2, +x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.All{q2, x, y}, iv, {==})
+    case Bk.Term.Lam{+q2, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Lam{q2, y}, iv, {==})
+    case Bk.Term.App{+q2, +x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.App{q2, x, y}, iv, {==})
+    case Bk.Term.Sig{+q2, +x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Sig{q2, x, y}, iv, {==})
+    case Bk.Term.Tup{+q2, +x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Tup{q2, x, y}, iv, {==})
+    case Bk.Term.Prj{+y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Prj{y}, iv, {==})
+    case Bk.Term.Enu{+e}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Enu{e}, iv, {==})
+    case Bk.Term.Lab{+k2}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Lab{k2}, iv, {==})
+    case Bk.Term.Mat{+k2, +x, +y}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Mat{k2, x, y}, iv, {==})
+    case Bk.Term.Efq{}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Efq{}, iv, {==})
+    case Bk.Term.Eql{+x, +y, +z}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Eql{x, y, z}, iv, {==})
+    case Bk.Term.Rwt{+x, +y, +z}:
+      rwt.no(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, Bk.Term.Rwt{x, y, z}, iv, {==})
+    case Bk.Term.Rfl{}:
+      rwt.yes(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, iv, hac)
+
+# mode 1, Rwt □ P f, with the value v: f when v is Rfl, a step; else halt 2
+def rwt.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, v: Bk.Term,
+  +iv: D.InvOf(ds, ks, img, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, Nil{}, 0, t, w, True{}, v, Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, foc, sp, pend, ps, rest),
+  +hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, v}], Nil{}, sp, Con{D.AF{D.FK.rwt{}, q, k, a, b}, fs}, ps, zs)) ->
+  K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  match iv:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{+frs, _}}}}}}}:
+      +KD = {D.FK.rwt{} : D.FK}
+      +hz = fr.nz(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +hc = fr.cell(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +ht = fr.tag(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +st3 = X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 38), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)
+      (f => rwt.round(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, iv, hac),
+        (0n, (%Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), Cr.Cir.exec(0n, Mc.M.ret.rwt(), st3),
+            rwt.E(0n, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) : D.Ends(_);
+          ends.plain(Mc.M.ret.rwt(), st3, plain.rwt()))))
+
 # The moves of move_kit.bend that this file proves (U11; U0 left them as ?TODO)
 # --------------------------------------------------------------------------
 
@@ -2892,7 +3260,9 @@ def K.mv.ret.tupa(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp,
   ?TODO
 
 def K.mv.ret.rwt(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
-  ?TODO
+  match iv:
+    case Tuple{io, Tuple{zs, hac}}:
+      rwt.go(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, focus, io, hac)
 
 def K.mv.ret.minb(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
   match iv:
