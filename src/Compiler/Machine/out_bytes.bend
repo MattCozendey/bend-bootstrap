@@ -2352,12 +2352,18 @@ def D2(-A: Data, -B: Data, +p: PD(A, B)) -> B:
   (a, b) = p
   b
 
+# K at the bit x, then w. Good and HKT apply their functions only through it: bend -o writes a
+# function argument η-long, and a call of that λ on a constructor, opened in a type the kernel
+# checks, is a term the kernel cannot infer
+def Kb(x: Bool, -q: Nat, K: Word(1n+q) -> Word(8n), w: Word(q)) -> Word(8n):
+  K(WCon{x, w})
+
 def Good(r: Nat, +idx: U32, Kz: Word(r) -> Word(8n)) -> Data:
   match r:
     case 0n:
       {U32.is_lt(idx, 8) == False{} : Bool}
     case 1n+q:
-      PD({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)})) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kz(WCon{False{}, y}))))
+      PD({U32.is_lt(idx, 8) == True{} : Bool}, PD({Sd.Byte.to_u32(Kb(True{}, q, Kz, zeros(q))) == SH(idx) : U32}, Good(q, U32.add(idx, 1), y => Kb(False{}, q, Kz, y))))
 
 # the value with a bit set is the value with it clear, or-ed with the bit
 # alone, for each choice of the bits not yet read: a tree, by those bits
@@ -2366,8 +2372,8 @@ def HKT(r: Nat, K: Word(r) -> Word(8n), Kz: Word(r) -> Word(8n)) -> Data:
     case 0n:
       Unit
     case 1n+q:
-      PD({Sd.Byte.to_u32(K(WCon{True{}, zeros(q)})) == U32.or(Sd.Byte.to_u32(K(WCon{False{}, zeros(q)})), Sd.Byte.to_u32(Kz(WCon{True{}, zeros(q)}))) : U32},
-        PD(HKT(q, y => K(WCon{True{}, y}), y => Kz(WCon{False{}, y})), HKT(q, y => K(WCon{False{}, y}), y => Kz(WCon{False{}, y}))))
+      PD({Sd.Byte.to_u32(Kb(True{}, q, K, zeros(q))) == U32.or(Sd.Byte.to_u32(Kb(False{}, q, K, zeros(q))), Sd.Byte.to_u32(Kb(True{}, q, Kz, zeros(q)))) : U32},
+        PD(HKT(q, y => Kb(True{}, q, K, y), y => Kb(False{}, q, Kz, y)), HKT(q, y => Kb(False{}, q, K, y), y => Kb(False{}, q, Kz, y))))
 
 # the low n bits of w, then m bits 0, are w
 def low_pad(+n: Nat, +m: Nat, w: Word(n)) -> {Sd.Word.low(n, m, Sd.Word.pad(n, m, w)) == w : Word(n)}:
