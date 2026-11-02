@@ -11,6 +11,7 @@ import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
+import ../need_big.bend as N
 import ./definitions.bend as D
 
 # Parts of nodes
@@ -772,6 +773,181 @@ def chain.p1(qs: List<&2, U32>, +ws: List<&2, D.W1>, +m: Cr.Cir.Cells, +p: U32, 
                 D.put1.out(ws, m, y, D.not.t(D.Mem(D.W1.cells(ws), y), D.and.l(nm, Out(rest, D.W1.cells(ws)), hq2))))) :
               D.Chain(rest, M2, _);
             chain.p1(rest, ws, m, D.Fd(1n, m, y), D.and.r(nm, Out(rest, D.W1.cells(ws)), hq2), r2))))
+
+# Numbers
+# -------
+#
+# A count never wraps: it is at most 3 × the machine's cells + 64 roots
+# (D.ptr.bound), and next is at most 214748364 (Heap's Room), below 2^28;
+# so a count + 2 is at most 2^32 (cnt.fits), and M.inc's + 1 adds 1.
+
+# w + 0 with no carry is w; with a carry, w + 1
+def adc.z(n: Nat, +w: Word(n)) -> {Word.adc(n, w, Word.zero(n), False{}, False{}) == w : Word(n)}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+(+p):
+      match w:
+        case WCon{False{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, t, Word.zero(p), False{}, False{}), t, adc.z(p, t))
+        case WCon{True{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, t, Word.zero(p), False{}, False{}), t, adc.z(p, t))
+
+def adc.c(n: Nat, +w: Word(n)) -> {Word.adc(n, w, Word.zero(n), False{}, True{}) == Word.inc(n, w) : Word(n)}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+(+p):
+      match w:
+        case WCon{False{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, t, Word.zero(p), False{}, False{}), t, adc.z(p, t))
+        case WCon{True{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, t, Word.zero(p), False{}, True{}), Word.inc(p, t), adc.c(p, t))
+
+# x + 1 is U32.inc(x)
+def add1.inc(+x: U32) -> {U32.add(x, 1) == U32.inc(x) : U32}:
+  match x:
+    case U32{+w}:
+      match w:
+        case WCon{False{}, +t}:
+          Equal.cong(Word(31n), U32, z => U32{WCon{True{}, z}}, Word.adc(31n, t, Word.zero(31n), False{}, False{}), t, adc.z(31n, t))
+        case WCon{True{}, +t}:
+          Equal.cong(Word(31n), U32, z => U32{WCon{False{}, z}}, Word.adc(31n, t, Word.zero(31n), False{}, True{}), Word.inc(31n, t), adc.c(31n, t))
+
+# 1 + 2a <= 2b gives 1 + a <= b
+def dle.odd(a: Nat, b: Nat, h: N.Le(1n+Nat.double(a), Nat.double(b))) -> N.Le(1n+a, b):
+  match a:
+    case 0n:
+      match b:
+        case 0n:
+          Empty.absurd(N.Le(1n, 0n), h)
+        case 1n+(+q):
+          N.le_zero(q)
+    case 1n+(+p):
+      match b:
+        case 0n:
+          Empty.absurd(N.Le(2n+p, 0n), h)
+        case 1n+(+q):
+          dle.odd(p, q, h)
+
+# the increment of an n-bit word below 2^n - 1 adds 1
+def inc.fits(n: Nat, w: Word(n), h: N.Le(2n+Word.to_nat(n, w), N.D(n, 1n))) ->
+  {Word.to_nat(n, Word.inc(n, w)) == 1n+Word.to_nat(n, w) : Nat}:
+  match n:
+    case 0n:
+      Empty.absurd({Word.to_nat(0n, Word.inc(0n, w)) == 1n+Word.to_nat(0n, w) : Nat}, h)
+    case 1n+(+p):
+      match w:
+        case WCon{False{}, +t}:
+          {==}
+        case WCon{True{}, +t}:
+          +x = Word.to_nat(p, t)
+          %Equal.sym(Nat, Word.to_nat(p, Word.inc(p, t)), 1n+x, inc.fits(p, t, dle.odd(1n+x, N.D(p, 1n), h))) :
+            {Nat.double(_) == 2n+Nat.double(x) : Nat}
+          {==}
+
+# a <= 2a
+def le.dbl(a: Nat) -> N.Le(a, Nat.double(a)):
+  match a:
+    case 0n:
+      Unit{}
+    case 1n+(+p):
+      N.le_succ(p, Nat.double(p), le.dbl(p))
+
+# x <= 2^k x
+def le.dk(k: Nat, +x: Nat) -> N.Le(x, N.D(k, x)):
+  match k:
+    case 0n:
+      N.le_refl(x)
+    case 1n+(+q):
+      N.le_trans(x, N.D(q, x), Nat.double(N.D(q, x)), le.dk(q, x), le.dbl(N.D(q, x)))
+
+# a + b = b + a
+def add.comm(a: Nat, +b: Nat) -> {Nat.add(a, b) == Nat.add(b, a) : Nat}:
+  match a:
+    case 0n:
+      Equal.sym(Nat, Nat.add(b, 0n), b, N.add_zero(b))
+    case 1n+(+p):
+      Equal.trans(Nat, 1n+Nat.add(p, b), 1n+Nat.add(b, p), Nat.add(b, 1n+p),
+        Equal.cong(Nat, Nat, z => 1n+z, Nat.add(p, b), Nat.add(b, p), add.comm(p, b)),
+        Equal.sym(Nat, Nat.add(b, 1n+p), 1n+Nat.add(b, p), N.add_succ_r(b, p)))
+
+# a - f <= a
+def sub.le(a: Nat, f: Nat) -> N.Le(Nat.sub(a, f), a):
+  match a:
+    case 0n:
+      Unit{}
+    case 1n+(+p):
+      match f:
+        case 0n:
+          N.le_refl(1n+p)
+        case 1n+(+q):
+          N.le_succ(Nat.sub(p, q), p, sub.le(p, q))
+
+# 2 + 3N + L <= 4X, for N < X, L <= 64 and 66 <= X
+def cnt.room(+n: Nat, +l: Nat, +x: Nat, hn: N.Le(1n+n, x), hl: N.Le(l, 64n), hx: N.Le(66n, x)) ->
+  N.Le(2n+Nat.add(Nat.mul(3n, n), l), Nat.mul(N.D(2n, 1n), x)):
+  +s = Nat.mul(3n, n)
+  +e66 = Equal.trans(Nat, Nat.add(s, 66n), 1n+Nat.add(s, 65n), 2n+Nat.add(s, 64n), N.add_succ_r(s, 65n),
+    Equal.cong(Nat, Nat, z => 1n+z, Nat.add(s, 65n), 1n+Nat.add(s, 64n), N.add_succ_r(s, 64n)))
+  +h1 = N.add_mono(s, s, l, 64n, N.le_refl(s), hl)
+  +h2 = N.le_rw_r(2n+Nat.add(s, 64n), 2n+Nat.add(s, 64n), Nat.add(66n, s),
+    Equal.trans(Nat, 2n+Nat.add(s, 64n), Nat.add(s, 66n), Nat.add(66n, s), Equal.sym(Nat, Nat.add(s, 66n), 2n+Nat.add(s, 64n), e66), add.comm(s, 66n)),
+    N.le_refl(2n+Nat.add(s, 64n)))
+  +h3 = N.add_mono(66n, x, s, Nat.mul(3n, x), hx, N.mul_mono_r(3n, n, x, N.weaken(n, x, hn)))
+  N.le_trans(2n+Nat.add(s, l), 2n+Nat.add(s, 64n), Nat.mul(N.D(2n, 1n), x), h1,
+    N.le_trans(2n+Nat.add(s, 64n), Nat.add(66n, s), Nat.mul(N.D(2n, 1n), x), h2, h3))
+
+# 66 <= 2^k × 128
+def le66.d(+k: Nat) -> N.Le(66n, N.D(k, N.D(7n, 1n))):
+  N.le_trans(66n, N.D(7n, 1n), N.D(k, N.D(7n, 1n)), Unit{}, le.dk(k, N.D(7n, 1n)))
+
+# 4x <= 16x
+def le.d4(+x: Nat) -> N.Le(Nat.mul(N.D(2n, 1n), x), N.D(4n, x)):
+  N.le_rw_l(N.D(2n, x), Nat.mul(N.D(2n, 1n), x), N.D(4n, x), Equal.sym(Nat, Nat.mul(N.D(2n, 1n), x), N.D(2n, x), N.mul_D(2n, x)),
+    N.le_rw_r(N.D(2n, x), N.D(2n, N.D(2n, x)), N.D(4n, x), N.D_add(2n, 2n, 4n, x, {==}), le.dk(2n, N.D(2n, x))))
+
+# 1 + a <= c, from a <= b < c
+def lt.trans.le(+a: Nat, +b: Nat, +c: Nat, h1: N.Le(a, b), h2: N.Le(1n+b, c)) -> N.Le(1n+a, c):
+  N.le_trans(1n+a, 1n+b, c, h1, h2)
+
+# next, at most 214748364, is below 2^28
+def nx.d28(+nx: U32, hr: {U32.is_le(nx, 214748364) == True{} : Bool}) -> N.Le(1n+U32.to_nat(nx), N.D(28n, 1n)):
+  +b28 = {U32{N.bit(32n, 28n)} : U32}
+  N.le_rw_r(1n+U32.to_nat(nx), U32.to_nat(b28), N.D(28n, 1n),
+    Equal.trans(Nat, U32.to_nat(b28), Word.to_nat(32n, N.bit(32n, 28n)), N.D(28n, 1n), N.u32_to_nat(N.bit(32n, 28n)), N.bit_val(32n, 28n, Unit{})),
+    lt.trans.le(U32.to_nat(nx), U32.to_nat(214748364), U32.to_nat(b28), D.u.le(nx, 214748364, hr), D.u.lt(214748364, b28, {==})))
+
+# a U32 below 2^32 - 1 gains 1 with no wrap
+def u32.inc.fits(v: U32, h: N.Le(2n+U32.to_nat(v), N.D(32n, 1n))) -> {U32.to_nat(U32.inc(v)) == 1n+U32.to_nat(v) : Nat}:
+  match v:
+    case U32{+w}:
+      inc.fits(32n, w, (%N.u32_to_nat(w) : N.Le(2n+_, N.D(32n, 1n)); h))
+
+# a count of at most 3 (nx - fi) + L, L <= 64, with nx below x = 2^k × 128 and
+# 16x = 2^32, gains 1 with no wrap (every power of two is a variable here,
+# so that no tool computes one)
+def cnt.fits.g(+v: U32, +nx: U32, +fi: U32, +l: Nat, +x: Nat, +k: Nat,
+  hv: N.Le(U32.to_nat(v), Nat.add(Nat.mul(3n, Nat.sub(U32.to_nat(nx), U32.to_nat(fi))), l)), hl: N.Le(l, 64n),
+  hnx: N.Le(1n+U32.to_nat(nx), x), ex: {N.D(k, N.D(7n, 1n)) == x : Nat}, e32: {N.D(4n, x) == N.D(32n, 1n) : Nat}) ->
+  {U32.to_nat(U32.add(v, 1)) == 1n+U32.to_nat(v) : Nat}:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +hn = N.le_trans(1n+n, 1n+U32.to_nat(nx), x, sub.le(U32.to_nat(nx), U32.to_nat(fi)), hnx)
+  +hx = N.le_rw_r(66n, N.D(k, N.D(7n, 1n)), x, ex, le66.d(k))
+  +h4 = N.le_rw_r(2n+U32.to_nat(v), N.D(4n, x), N.D(32n, 1n), e32,
+    N.le_trans(2n+U32.to_nat(v), 2n+Nat.add(Nat.mul(3n, n), l), N.D(4n, x), hv,
+      N.le_trans(2n+Nat.add(Nat.mul(3n, n), l), Nat.mul(N.D(2n, 1n), x), N.D(4n, x), cnt.room(n, l, x, hn, hl, hx), le.d4(x))))
+  %Equal.sym(U32, U32.add(v, 1), U32.inc(v), add1.inc(v)) : {U32.to_nat(_) == 1n+U32.to_nat(v) : Nat}
+  u32.inc.fits(v, h4)
+
+# a count of at most 3 (nx - fi) + L, L <= 64, gains 1 with no wrap
+def cnt.fits(+v: U32, +nx: U32, +fi: U32, +l: Nat, hv: N.Le(U32.to_nat(v), Nat.add(Nat.mul(3n, Nat.sub(U32.to_nat(nx), U32.to_nat(fi))), l)),
+  hl: N.Le(l, 64n), hr: {U32.is_le(nx, 214748364) == True{} : Bool}) -> {U32.to_nat(U32.add(v, 1)) == 1n+U32.to_nat(v) : Nat}:
+  cnt.fits.g(v, nx, fi, l, N.D(28n, 1n), 21n, hv, hl, nx.d28(nx, hr), N.D_add(21n, 7n, 28n, 1n, {==}), N.D_add(4n, 28n, 32n, 1n, {==}))
 
 # The laws
 # --------
