@@ -496,6 +496,53 @@ def mem.ne(+scr: List<&2, Nat>, +r: Nat, +j: Nat, hr: {D.Nat.mem(scr, r) == True
   {Nat.is_eq(r, j) == False{} : Bool}:
   mem.ne.b(Nat.is_eq(r, j), scr, r, j, {==}, hr, hj)
 
+# a set of r keeps the register j
+def l.go(xs: List<&2, U32>, r: Nat, j: Nat, +v: U32, ne: {Nat.is_eq(r, j) == False{} : Bool}) ->
+  {List.get(&2, U32, List.set(&2, U32, xs, r, v), j) == List.get(&2, U32, xs, j) : Maybe<&2, U32>}:
+  match xs r j:
+    case Nil{} _ _:
+      {==}
+    case Con{x, t} 0n 0n:
+      DW.ft({Some{v} == Some{x} : Maybe<&2, U32>}, ne)
+    case Con{x, t} 0n 1n+q:
+      {==}
+    case Con{x, t} 1n+p 0n:
+      {==}
+    case Con{x, t} 1n+p 1n+q:
+      l.go(t, p, q, v, ne)
+
+# a set of a register of scr keeps the registers of keep, which Disj keeps out of scr
+def kept.set(+regs: List<&2, U32>, +regs1: List<&2, U32>, keep: List<&2, Nat>, +scr: List<&2, Nat>, +r: Nat, +v: U32,
+  +hk: {D.Disj(keep, scr) == True{} : Bool}, +hr: {D.Nat.mem(scr, r) == True{} : Bool}, h: D.Kept(regs, regs1, keep)) ->
+  D.Kept(regs, List.set(&2, U32, regs1, r, v), keep):
+  match keep:
+    case Nil{}:
+      Unit{}
+    case Con{+j, rest}:
+      (hj, hrs) = h
+      (Equal.trans(Maybe<&2, U32>, List.get(&2, U32, List.set(&2, U32, regs1, r, v), j), List.get(&2, U32, regs1, j), List.get(&2, U32, regs, j),
+         l.go(regs1, r, j, v, mem.ne(scr, r, j, hr, D.not.t(D.Nat.mem(scr, j), D.and.l(Bool.not(D.Nat.mem(scr, j)), D.Disj(rest, scr), hk)))), hj),
+       kept.set(regs, regs1, rest, scr, r, v, D.and.r(Bool.not(D.Nat.mem(scr, j)), D.Disj(rest, scr), hk), hr, hrs))
+
+# Tests of the walk's code
+# -----------------------
+
+# the test of wt's tag against K, with the cell c in wt: Cir allows it
+def tag.ob(+regs1: List<&2, U32>, +m1: Cr.Cir.Cells, +nx1: U32, +fi: U32, +im: U32, +pg1: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +c: U32, +K: U32, hr: {List.get(&2, U32, regs1, 19n) == Some{c} : Maybe<&2, U32>}, hc: {Cr.Cir.is_cell(c, im, fi, nx1) == True{} : Bool}) ->
+  DW.Ob(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)):
+  (%Equal.sym(Maybe<&2, U32>, List.get(&2, U32, regs1, 19n), Some{c}, hr) :
+    ((DW.IsSome(_) & DW.CellOk(Maybe.default(&2, U32, _, 0), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp))) & Unit) & Unit;
+   (((Unit{}, Equal.sym(Bool, Cr.Cir.is_cell(c, im, fi, nx1), True{}, hc)), Unit{}), Unit{}))
+
+# its value, for the tag tg of c
+def tag.ev(+regs1: List<&2, U32>, +m1: Cr.Cir.Cells, +nx1: U32, +fi: U32, +im: U32, +pg1: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +c: U32, +K: U32, +tg: U32, hr: {List.get(&2, U32, regs1, 19n) == Some{c} : Maybe<&2, U32>}, htg: {D.Tg(m1, c) == tg : U32}) ->
+  {DW.Ev(Mc.M.eq(Mc.M.tag(Mc.M.g(Mc.R.wt())), Mc.M.c(K)), X.X.st(regs1, m1, nx1, fi, im, pg1, lim, inp)) == Bool.to_u32(U32.is_eq(tg, K)) : U32}:
+  (%Equal.sym(Maybe<&2, U32>, List.get(&2, U32, regs1, 19n), Some{c}, hr) :
+    {Bool.to_u32(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m1, Maybe.default(&2, U32, _, 0))), 63), K)) == Bool.to_u32(U32.is_eq(tg, K)) : U32};
+   (%Equal.sym(U32, D.Tg(m1, c), tg, htg) : {Bool.to_u32(U32.is_eq(_, K)) == Bool.to_u32(U32.is_eq(tg, K)) : U32}; {==}))
+
 # The premises walk.post and walk.done of move_kit.bend (U7; U0 left them as ?TODO)
 # ------------------------------------------------------------------------------
 
