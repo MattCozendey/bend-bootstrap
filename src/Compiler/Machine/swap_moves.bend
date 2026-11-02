@@ -20,6 +20,7 @@
 # (ends.plain), and two owned roots trade places (hsk.sw2, acc.sw2).
 
 import Base
+import ../../Shared/shared.bend as Sd
 import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
 import ../../Wasm/impl.bend as Wa
@@ -30,6 +31,7 @@ import ./definitions.bend as D
 import ./accounting.bend as A
 import ./statement_runs.bend as X
 import ./move_kit.bend as K
+import ./cell_terms.bend as T
 import ./heap_ops.bend as U2
 
 # Kit
@@ -3237,6 +3239,222 @@ def rwt.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
         (0n, (%Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), Cr.Cir.exec(0n, Mc.M.ret.rwt(), st3),
             rwt.E(0n, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) : D.Ends(_);
           ends.plain(Mc.M.ret.rwt(), st3, plain.rwt()))))
+
+# Quantity labels
+# ---------------
+#
+# The image's names start with the machine's (Img.known): Q0, Q1 and Q2 are
+# the names 7, 8 and 9, and the image's cells 8, 9 and 10 are their labels
+# (ImgOK). A label's cell holds its name's number (Nm), so the machine's
+# test 7 <= p <= 9 holds exactly of the labels that Quan.read reads.
+
+# equal bytes, by Byte.is_eq
+def byte.eq(+x: Word(8n), +y: Word(8n), h: {Sd.Byte.is_eq(x, y) == True{} : Bool}) -> {x == y : Word(8n)}:
+  D.weq.eq(8n, x, y, Equal.trans(Bool, D.Weq(8n, x, y), Cmp.is_eq(Word.cmp(8n, x, y)), True{},
+    Equal.sym(Bool, Cmp.is_eq(Word.cmp(8n, x, y)), D.Weq(8n, x, y), D.weq.cmp(8n, x, y)), h))
+
+# equal names, by Name.is_eq
+def name.eq(a: List<&2, Word(8n)>, b: List<&2, Word(8n)>, h: {Sd.Name.is_eq(a, b) == True{} : Bool}) -> {a == b : List<&2, Word(8n)>}:
+  match a b:
+    case Nil{} Nil{}:
+      {==}
+    case Con{+x, +xs} Con{+y, +ys}:
+      +h2 = h
+      +ex = byte.eq(x, y, D.and.l(Sd.Byte.is_eq(x, y), Sd.Name.is_eq(xs, ys), h2))
+      +ets = name.eq(xs, ys, D.and.r(Sd.Byte.is_eq(x, y), Sd.Name.is_eq(xs, ys), h2))
+      %ex : {Con{x, xs} == Con{_, ys} : List<&2, Word(8n)>}
+      %ets : {Con{x, xs} == Con{x, _} : List<&2, Word(8n)>}
+      {==}
+    case Nil{} Con{+y, +ys}:
+      D.bool.ft({Nil{} == Con{y, ys} : List<&2, Word(8n)>}, h)
+    case Con{+x, +xs} Nil{}:
+      D.bool.ft({Con{x, xs} == Nil{} : List<&2, Word(8n)>}, h)
+
+def mq.none(x: Maybe<Bk.Quan>) -> Type:
+  match x:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+def mq.ne(-q: Bk.Quan, e: {None{} == Some{q} : Maybe<Bk.Quan>}) -> Empty:
+  %e : mq.none(_)
+  Unit{}
+
+def mq.get(x: Maybe<Bk.Quan>, +d: Bk.Quan) -> Bk.Quan:
+  match x:
+    case Some{y}:
+      y
+    case None{}:
+      d
+
+def read.some.b(b0: Bool, b1: Bool, b2: Bool, +i: List<&2, Word(8n)>, +q: Bk.Quan,
+  e0: {Sd.Name.is_eq(i, El.Quan.name(Bk.Quan.Q0{})) == b0 : Bool}, e1: {Sd.Name.is_eq(i, El.Quan.name(Bk.Quan.Q1{})) == b1 : Bool},
+  e2: {Sd.Name.is_eq(i, El.Quan.name(Bk.Quan.Q2{})) == b2 : Bool},
+  h: {El.Quan.read.if(b0, Bk.Quan.Q0{}, El.Quan.read.if(b1, Bk.Quan.Q1{}, El.Quan.read.if(b2, Bk.Quan.Q2{}, None{}))) == Some{q} : Maybe<Bk.Quan>}) ->
+  {i == El.Quan.name(q) : List<&2, Word(8n)>}:
+  match b0:
+    case True{}:
+      %Equal.cong(Maybe<Bk.Quan>, Bk.Quan, x => mq.get(x, Bk.Quan.Q0{}), Some{Bk.Quan.Q0{}}, Some{q}, h) : {i == El.Quan.name(_) : List<&2, Word(8n)>}
+      name.eq(i, El.Quan.name(Bk.Quan.Q0{}), e0)
+    case False{}:
+      match b1:
+        case True{}:
+          %Equal.cong(Maybe<Bk.Quan>, Bk.Quan, x => mq.get(x, Bk.Quan.Q1{}), Some{Bk.Quan.Q1{}}, Some{q}, h) : {i == El.Quan.name(_) : List<&2, Word(8n)>}
+          name.eq(i, El.Quan.name(Bk.Quan.Q1{}), e1)
+        case False{}:
+          match b2:
+            case True{}:
+              %Equal.cong(Maybe<Bk.Quan>, Bk.Quan, x => mq.get(x, Bk.Quan.Q2{}), Some{Bk.Quan.Q2{}}, Some{q}, h) : {i == El.Quan.name(_) : List<&2, Word(8n)>}
+              name.eq(i, El.Quan.name(Bk.Quan.Q2{}), e2)
+            case False{}:
+              Empty.absurd({i == El.Quan.name(q) : List<&2, Word(8n)>},
+                mq.ne(q, h))
+
+# a name that Quan.read reads is the quantity's name
+def read.some(+i: List<&2, Word(8n)>, +q: Bk.Quan, h: {El.Quan.read(i) == Some{q} : Maybe<Bk.Quan>}) -> {i == El.Quan.name(q) : List<&2, Word(8n)>}:
+  read.some.b(Sd.Name.is_eq(i, El.Quan.name(Bk.Quan.Q0{})), Sd.Name.is_eq(i, El.Quan.name(Bk.Quan.Q1{})), Sd.Name.is_eq(i, El.Quan.name(Bk.Quan.Q2{})),
+    i, q, {==}, {==}, {==}, h)
+
+# the number of a quantity's name
+def qid(q: Bk.Quan) -> U32:
+  match q:
+    case Bk.Quan.Q0{}:
+      7
+    case Bk.Quan.Q1{}:
+      8
+    case Bk.Quan.Q2{}:
+      9
+
+def id.q(+ks2: List<&2, List<&2, Word(8n)>>, q: Bk.Quan) -> {Mc.Img.id(Mc.Img.known(ks2), El.Quan.name(q), 0) == qid(q) : U32}:
+  match q:
+    case Bk.Quan.Q0{}:
+      {==}
+    case Bk.Quan.Q1{}:
+      {==}
+    case Bk.Quan.Q2{}:
+      {==}
+
+# the name of the number n of the image's names, for n = 7, 8, 9
+def name.q(+ks2: List<&2, List<&2, Word(8n)>>, q: Bk.Quan) ->
+  {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), U32.to_nat(qid(q))) == Some{El.Quan.name(q)} : Maybe<&2, List<&2, Word(8n)>>}:
+  match q:
+    case Bk.Quan.Q0{}:
+      {==}
+    case Bk.Quan.Q1{}:
+      {==}
+    case Bk.Quan.Q2{}:
+      {==}
+
+def read.q(q: Bk.Quan) -> {El.Quan.read(El.Quan.name(q)) == Some{q} : Maybe<Bk.Quan>}:
+  match q:
+    case Bk.Quan.Q0{}:
+      {==}
+    case Bk.Quan.Q1{}:
+      {==}
+    case Bk.Quan.Q2{}:
+      {==}
+
+
+# ge as Le
+def rel.ge(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.T(Cmp.is_ge(c))) -> N.Le(y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(N.Le(y, x), h)
+    case EQ{}:
+      %r : N.Le(_, x)
+      N.le_refl(x)
+    case GT{}:
+      N.weaken(y, x, r)
+
+def u.ge(+a: U32, +b: U32, e: {U32.is_ge(a, b) == True{} : Bool}) -> N.Le(U32.to_nat(b), U32.to_nat(a)):
+  rel.ge(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), N.toT(U32.is_ge(a, b), e))
+
+# a name number p between 7 and 9 names a quantity: Quan.read reads its name
+def quan.at(+ks2: List<&2, List<&2, Word(8n)>>, +i: List<&2, Word(8n)>, +p: U32, +q: Bk.Quan,
+  en: {T.tm.name(Mc.Img.known(ks2), p) == Some{i} : Maybe<&2, List<&2, Word(8n)>>}, ep: {U32.to_nat(p) == U32.to_nat(qid(q)) : Nat},
+  hr: {El.Quan.read(i) == None{} : Maybe<Bk.Quan>}) -> Empty:
+  +ei = D.mb.inj(El.Quan.name(q), i, Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Some{El.Quan.name(q)},
+    List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), U32.to_nat(qid(q))), Some{i},
+    Equal.sym(Maybe<&2, List<&2, Word(8n)>>, List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), U32.to_nat(qid(q))), Some{El.Quan.name(q)}, name.q(ks2, q)),
+    (%ep : {List.get(&2, List<&2, Word(8n)>, Mc.Img.known(ks2), _) == Some{i} : Maybe<&2, List<&2, Word(8n)>>}; en)))
+  mq.ne(q, Equal.trans(Maybe<Bk.Quan>, None{}, El.Quan.read(i), Some{q}, Equal.sym(Maybe<Bk.Quan>, El.Quan.read(i), None{}, hr),
+    (%ei : {El.Quan.read(_) == Some{q} : Maybe<Bk.Quan>}; read.q(q))))
+
+def quan.rng(x: Nat, +ks2: List<&2, List<&2, Word(8n)>>, +i: List<&2, Word(8n)>, +p: U32, ex: {U32.to_nat(p) == x : Nat},
+  +en: {T.tm.name(Mc.Img.known(ks2), p) == Some{i} : Maybe<&2, List<&2, Word(8n)>>}, +hr: {El.Quan.read(i) == None{} : Maybe<Bk.Quan>},
+  h1: N.Le(7n, x), h2: N.Le(x, 9n)) -> Empty:
+  match x:
+    case 0n:
+      h1
+    case 1n+x1:
+      match x1:
+        case 0n:
+          h1
+        case 1n+x2:
+          match x2:
+            case 0n:
+              h1
+            case 1n+x3:
+              match x3:
+                case 0n:
+                  h1
+                case 1n+x4:
+                  match x4:
+                    case 0n:
+                      h1
+                    case 1n+x5:
+                      match x5:
+                        case 0n:
+                          h1
+                        case 1n+x6:
+                          match x6:
+                            case 0n:
+                              h1
+                            case 1n+x7:
+                              match x7:
+                                case 0n:
+                                  quan.at(ks2, i, p, Bk.Quan.Q0{}, en, ex, hr)
+                                case 1n+x8:
+                                  match x8:
+                                    case 0n:
+                                      quan.at(ks2, i, p, Bk.Quan.Q1{}, en, ex, hr)
+                                    case 1n+x9:
+                                      match x9:
+                                        case 0n:
+                                          quan.at(ks2, i, p, Bk.Quan.Q2{}, en, ex, hr)
+                                        case 1n+x10:
+                                          h2
+
+# so the machine's test on a name that Quan.read does not read fails
+def quan.no.b(bb: Bool, +ks2: List<&2, List<&2, Word(8n)>>, +i: List<&2, Word(8n)>, +p: U32,
+  +eb: {Bool.and(U32.is_ge(p, 7), U32.is_le(p, 9)) == bb : Bool},
+  en: {T.tm.name(Mc.Img.known(ks2), p) == Some{i} : Maybe<&2, List<&2, Word(8n)>>}, hr: {El.Quan.read(i) == None{} : Maybe<Bk.Quan>}) ->
+  {Bool.and(U32.is_ge(p, 7), U32.is_le(p, 9)) == False{} : Bool}:
+  match bb:
+    case False{}:
+      eb
+    case True{}:
+      Empty.absurd({Bool.and(U32.is_ge(p, 7), U32.is_le(p, 9)) == False{} : Bool},
+        quan.rng(U32.to_nat(p), ks2, i, p, {==}, en, hr, u.ge(p, 7, D.and.l(U32.is_ge(p, 7), U32.is_le(p, 9), eb)),
+          D.u.le(p, 9, D.and.r(U32.is_ge(p, 7), U32.is_le(p, 9), eb))))
+
+def quan.no(+ks2: List<&2, List<&2, Word(8n)>>, +i: List<&2, Word(8n)>, +p: U32,
+  en: {T.tm.name(Mc.Img.known(ks2), p) == Some{i} : Maybe<&2, List<&2, Word(8n)>>}, hr: {El.Quan.read(i) == None{} : Maybe<Bk.Quan>}) ->
+  {Bool.and(U32.is_ge(p, 7), U32.is_le(p, 9)) == False{} : Bool}:
+  quan.no.b(Bool.and(U32.is_ge(p, 7), U32.is_le(p, 9)), ks2, i, p, {==}, en, hr)
+
+# 0 or 1 and 0 or 1
+def and.u32(a: Bool, b: Bool) -> {U32.and(Bool.to_u32(a), Bool.to_u32(b)) == Bool.to_u32(Bool.and(a, b)) : U32}:
+  match a b:
+    case True{} True{}:
+      {==}
+    case True{} False{}:
+      {==}
+    case False{} True{}:
+      {==}
+    case False{} False{}:
+      {==}
 
 # The moves of move_kit.bend that this file proves (U11; U0 left them as ?TODO)
 # --------------------------------------------------------------------------
