@@ -607,6 +607,183 @@ def rg.of(+xs: List<&2, U32>, hl: {List.length(&2, U32, xs) == 63n : Nat}) -> {x
   rg.go(xs, has.len(xs, 63n, hl))
 
 
+# The round to M.redex
+# --------------------
+#
+# From mode 1 with the top frame sp: M.ret's tests take the frame's branch
+# (App q □ a with q dead or a known, or App q g □), registers x and y get
+# the function and the argument, M.pop moves sp to the pend list, and the
+# round goes on with M.redex (pre.app, pre.fun).
+
+# the registers when M.redex starts: h, tag, q, x, y, fr set, sp the next
+# frame, pend the old top frame
+def R.pre(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +sp: U32, +T: U32, +vx: U32, +vy: U32) -> List<&2, U32>:
+  X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(regs, 9n, sp), 10n, T), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)),
+    11n, vx), 12n, vy), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp)
+
+# the state when M.redex starts
+def S.pre(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +sp: U32, +pend: U32, +T: U32, +vx: U32, +vy: U32) -> Cr.Cir.State:
+  X.X.st(R.pre(regs, m, sp, T, vx, vy), X.X.put(m, 1n, sp, pend), nx, fi, im, pg, lim, inp)
+
+# x and y set, M.pop, then M.redex
+def pre.tail(+f: Nat, +ex: Cr.Cir.Expr, +ey: Cr.Cir.Expr, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32,
+  +lim: U32, +inp: List<&2, Word(8n)>, +sp: U32, +pend: U32, +T: U32, +vx: U32, +vy: U32,
+  hl: {List.length(&2, U32, regs) == 63n : Nat},
+  h2: {List.get(&2, U32, regs, 2n) == Some{sp} : Maybe<&2, U32>}, h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  hc: {Cr.Cir.is_cell(sp, im, fi, nx) == True{} : Bool},
+  ehx: {Cr.Cir.eval(ex, X.X.st(X.X.set(X.X.set(X.X.set(regs, 9n, sp), 10n, T), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)) == Some{vx} : Maybe<&2, U32>},
+  ehy: {Cr.Cir.eval(ey, X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(regs, 9n, sp), 10n, T), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, vx), m, nx, fi, im, pg, lim, inp)) == Some{vy} : Maybe<&2, U32>}) ->
+  {Cr.Cir.exec(f, Mc.M.redex(), S.pre(regs, m, nx, fi, im, pg, lim, inp, sp, pend, T, vx, vy)) ==
+    Cr.Cir.exec(f, Mc.M.do([Mc.M.set(11n, ex), Mc.M.set(12n, ey), Mc.M.pop(), Mc.M.redex()]),
+      X.X.st(X.X.set(X.X.set(X.X.set(regs, 9n, sp), 10n, T), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}:
+  +Q = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+  +r1 = X.X.set(regs, 9n, sp)
+  +r2 = X.X.set(r1, 10n, T)
+  +r3 = X.X.set(r2, 14n, Q)
+  +r4 = X.X.set(r3, 11n, vx)
+  +r5 = X.X.set(r4, 12n, vy)
+  +l3 = X.L.len(r2, 14n, Q, 63n, X.L.len(r1, 10n, T, 63n, X.L.len(regs, 9n, sp, 63n, hl)))
+  +l4 = X.L.len(r3, 11n, vx, 63n, l3)
+  +l5 = X.L.len(r4, 12n, vy, 63n, l4)
+  +s3 = X.X.st(r3, m, nx, fi, im, pg, lim, inp)
+  +s4 = X.X.st(r4, m, nx, fi, im, pg, lim, inp)
+  +s5 = X.X.st(r5, m, nx, fi, im, pg, lim, inp)
+  +g2 = X.L.go(r4, 12n, 2n, vy, sp, {==}, X.L.go(r3, 11n, 2n, vx, sp, {==}, X.L.go(r2, 14n, 2n, Q, sp, {==},
+    X.L.go(r1, 10n, 2n, T, sp, {==}, X.L.go(regs, 9n, 2n, sp, sp, {==}, h2)))))
+  +g3 = X.L.go(r4, 12n, 3n, vy, pend, {==}, X.L.go(r3, 11n, 3n, vx, pend, {==}, X.L.go(r2, 14n, 3n, Q, pend, {==},
+    X.L.go(r1, 10n, 3n, T, pend, {==}, X.L.go(regs, 9n, 3n, sp, pend, {==}, h3)))))
+  +lhs = {Cr.Cir.exec(f, Mc.M.redex(), S.pre(regs, m, nx, fi, im, pg, lim, inp, sp, pend, T, vx, vy)) : Cr.Cir.Out}
+  +b1 = Mc.M.do([Mc.M.set(12n, ey), Mc.M.pop(), Mc.M.redex()])
+  +b2 = Mc.M.do([Mc.M.pop(), Mc.M.redex()])
+  +b3 = Mc.M.do([Mc.M.redex()])
+  %X.rw.seq(f, Mc.M.set(11n, ex), b1, s3, s4, X.run.set(f, 11n, ex, s3, vx, ehx, l3, {==})) : {lhs == _ : Cr.Cir.Out}
+  %X.rw.seq(f, Mc.M.set(12n, ey), b2, s4, s5, X.run.set(f, 12n, ey, s4, vy, ehy, l4, {==})) : {lhs == _ : Cr.Cir.Out}
+  %X.rw.seq(f, Mc.M.pop(), b3, s5, S.pre(regs, m, nx, fi, im, pg, lim, inp, sp, pend, T, vx, vy),
+    X.pop.eq(f, r5, m, nx, fi, im, pg, lim, inp, sp, pend, l5, g2, g3, hc)) : {lhs == _ : Cr.Cir.Out}
+  X.rw.seq_nop(f, Mc.M.redex(), S.pre(regs, m, nx, fi, im, pg, lim, inp, sp, pend, T, vx, vy))
+
+# 63 registers
+def rg.len(rest: D.R59, +foc: U32, +md: U32, +sp: U32, +pend: U32) -> {List.length(&2, U32, D.RG(foc, md, sp, pend, D.R59.list(rest))) == 63n : Nat}:
+  match rest:
+    case D.R59{r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30, r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45, r46, r47, r48, r49, r50, r51, r52, r53, r54, r55, r56, r57, r58, r59, r60, r61, r62}:
+      {==}
+
+# the test of App q □ a, when q is dead or a known: 0
+def cond0(q: Bk.Quan, k: Bool, hs: {Bool.and(El.Quan.live(q), Bool.not(k)) == False{} : Bool}) ->
+  {Wa.Wasm.op(Wa.Wasm.Op.and{}, Wa.Wasm.op(Wa.Wasm.Op.ne{}, Mc.Img.quan(q), 0), Bool.to_u32(U32.is_zero(Bool.to_u32(k)))) == 0 : U32}:
+  match q k:
+    case Bk.Quan.Q0{} True{}:
+      {==}
+    case Bk.Quan.Q0{} False{}:
+      {==}
+    case Bk.Quan.Q1{} True{}:
+      {==}
+    case Bk.Quan.Q1{} False{}:
+      D.bool.ft({Wa.Wasm.op(Wa.Wasm.Op.and{}, Wa.Wasm.op(Wa.Wasm.Op.ne{}, 1, 0), Bool.to_u32(U32.is_zero(Bool.to_u32(False{})))) == 0 : U32}, Equal.sym(Bool, True{}, False{}, hs))
+    case Bk.Quan.Q2{} True{}:
+      {==}
+    case Bk.Quan.Q2{} False{}:
+      D.bool.ft({Wa.Wasm.op(Wa.Wasm.Op.and{}, Wa.Wasm.op(Wa.Wasm.Op.ne{}, 2, 0), Bool.to_u32(U32.is_zero(Bool.to_u32(False{})))) == 0 : U32}, Equal.sym(Bool, True{}, False{}, hs))
+
+# M.ret's tests, to an App q □ a frame: its branch
+def disp.app(+f: Nat, kind: D.FK, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +sp: U32, hk: {K.FK.isapp(kind) == True{} : Bool}, hl: {List.length(&2, U32, regs) == 63n : Nat},
+  h1: {List.get(&2, U32, regs, 1n) == Some{1} : Maybe<&2, U32>}, h2: {List.get(&2, U32, regs, 2n) == Some{sp} : Maybe<&2, U32>},
+  hz: {U32.is_eq(sp, 0) == False{} : Bool}, hc: {Cr.Cir.is_cell(sp, im, fi, nx) == True{} : Bool},
+  ht: {D.Tg(m, sp) == D.FK.tag(kind) : U32}) ->
+  {Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, D.FK.tag(kind))) ==
+    Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}:
+  match kind:
+    case D.FK.arg{}:
+      Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)),
+        Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 32)),
+        X.ret.disp.app(f, regs, m, nx, fi, im, pg, lim, inp, sp, hl, h1, h2, hz, hc, ht))
+    case D.FK.val{}:
+      Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)),
+        Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 33)),
+        X.ret.disp.val(f, regs, m, nx, fi, im, pg, lim, inp, sp, hl, h1, h2, hz, hc, ht))
+    case D.FK.fun{}:
+      D.bool.ft({Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 34)) ==
+        Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}, hk)
+    case D.FK.let{}:
+      D.bool.ft({Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 35)) ==
+        Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}, hk)
+    case D.FK.tupb{}:
+      D.bool.ft({Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 36)) ==
+        Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}, hk)
+    case D.FK.tupa{}:
+      D.bool.ft({Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 37)) ==
+        Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}, hk)
+    case D.FK.rwt{}:
+      D.bool.ft({Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 38)) ==
+        Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}, hk)
+    case D.FK.minb{}:
+      D.bool.ft({Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 39)) ==
+        Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}, hk)
+    case D.FK.mina{}:
+      D.bool.ft({Cr.Cir.exec(f, X.sel.t(X.X.chain(0n)), X.ret.st(regs, m, nx, fi, im, pg, lim, inp, sp, 40)) ==
+        Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}, hk)
+
+# a round from mode 1 with App q □ a on top, q dead or a known: M.redex of
+# the focus and a
+def pre.app(+f: Nat, +kind: D.FK, +rest: D.R59, +foc: U32, +sp: U32, +pend: U32, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +q: Bk.Quan, +k: Bool, hk: {K.FK.isapp(kind) == True{} : Bool},
+  hs: {Bool.and(El.Quan.live(q), Bool.not(k)) == False{} : Bool}, hz: {U32.is_eq(sp, 0) == False{} : Bool},
+  +hc: {Cr.Cir.is_cell(sp, im, fi, nx) == True{} : Bool}, ht: {D.Tg(m, sp) == D.FK.tag(kind) : U32},
+  hq: D.Qs(Cr.Cir.Cells.get(m, sp), q), hkn: {D.Fl(m, sp, 2048) == k : Bool}) ->
+  {Cr.Cir.exec(f, Mc.M.redex(), S.pre(D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, pg, lim, inp, sp, pend, D.FK.tag(kind), foc, D.Fd(2n, m, sp))) ==
+    Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}:
+  +regs = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+  +hl = rg.len(rest, foc, 1, sp, pend)
+  +T = D.FK.tag(kind)
+  +Q = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+  +r1 = X.X.set(regs, 9n, sp)
+  +r2 = X.X.set(r1, 10n, T)
+  +r3 = X.X.set(r2, 14n, Q)
+  +l2 = X.L.len(r1, 10n, T, 63n, X.L.len(regs, 9n, sp, 63n, hl))
+  +s3 = X.X.st(r3, m, nx, fi, im, pg, lim, inp)
+  +T0 = X.sel.t(X.X.chain(0n))
+  +g9 = X.L.go(r2, 14n, 9n, Q, sp, {==}, X.L.go(r1, 10n, 9n, T, sp, {==}, X.L.gs(regs, 9n, sp, X.L.lt(regs, 9n, hl, {==}))))
+  +g14 = X.L.gs(r2, 14n, Q, X.L.lt(r2, 14n, l2, {==}))
+  +ev = X.ev.op(Wa.Wasm.Op.and{}, Mc.M.ne(Mc.M.g(14n), Mc.M.c(0)), Mc.M.not(Mc.M.flag(Mc.M.g(9n), 2048)), s3,
+    Wa.Wasm.op(Wa.Wasm.Op.ne{}, Q, 0), Bool.to_u32(U32.is_zero(Bool.to_u32(k))),
+    X.ev.op(Wa.Wasm.Op.ne{}, Mc.M.g(14n), Mc.M.c(0), s3, Q, 0, g14, {==}),
+    X.ev.notflag(9n, s3, sp, 2048, k, g9, hc, hkn))
+  +ev0 = {(%cond0(q, k, hs) : {Cr.Cir.eval(X.sel.c(T0), s3) == Some{_} : Maybe<&2, U32>};
+    %hq : {Cr.Cir.eval(X.sel.c(T0), s3) == Some{Wa.Wasm.op(Wa.Wasm.Op.and{}, Wa.Wasm.op(Wa.Wasm.Op.ne{}, _, 0), Bool.to_u32(U32.is_zero(Bool.to_u32(k))))} : Maybe<&2, U32>};
+    ev) : {Cr.Cir.eval(X.sel.c(T0), s3) == Some{0} : Maybe<&2, U32>}}
+  +g9b = X.L.go(r3, 11n, 9n, foc, sp, {==}, g9)
+  +e1 = disp.app(f, kind, regs, m, nx, fi, im, pg, lim, inp, sp, hk, hl, {==}, {==}, hz, hc, ht)
+  +e2 = X.rw.if.e(f, X.sel.c(T0), X.sel.t(T0), X.sel.e(T0), s3, ev0)
+  +e3 = pre.tail(f, Mc.M.g(0n), Mc.M.f(2n, Mc.M.g(9n)), regs, m, nx, fi, im, pg, lim, inp, sp, pend, T, foc, D.Fd(2n, m, sp), hl, {==}, {==}, hc,
+    {==}, X.ev.fld(2n, Mc.M.g(9n), X.X.st(X.X.set(r3, 11n, foc), m, nx, fi, im, pg, lim, inp), sp, g9b, hc))
+  Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.redex(), S.pre(regs, m, nx, fi, im, pg, lim, inp, sp, pend, T, foc, D.Fd(2n, m, sp))),
+    Cr.Cir.exec(f, X.sel.e(T0), s3), Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), e3,
+    Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f, X.sel.e(T0), s3), Cr.Cir.exec(f, T0, s3),
+      Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), e2, e1))
+
+# a round from mode 1 with App q g □ on top: M.redex of g and the focus
+def pre.fun(+f: Nat, +rest: D.R59, +foc: U32, +sp: U32, +pend: U32, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, hz: {U32.is_eq(sp, 0) == False{} : Bool},
+  +hc: {Cr.Cir.is_cell(sp, im, fi, nx) == True{} : Bool}, ht: {D.Tg(m, sp) == 34 : U32}) ->
+  {Cr.Cir.exec(f, Mc.M.redex(), S.pre(D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, pg, lim, inp, sp, pend, 34, D.Fd(2n, m, sp), foc)) ==
+    Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}:
+  +regs = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+  +hl = rg.len(rest, foc, 1, sp, pend)
+  +Q = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+  +r1 = X.X.set(regs, 9n, sp)
+  +r2 = X.X.set(r1, 10n, 34)
+  +r3 = X.X.set(r2, 14n, Q)
+  +s3 = X.X.st(r3, m, nx, fi, im, pg, lim, inp)
+  +g9 = X.L.go(r2, 14n, 9n, Q, sp, {==}, X.L.go(r1, 10n, 9n, 34, sp, {==}, X.L.gs(regs, 9n, sp, X.L.lt(regs, 9n, hl, {==}))))
+  +e1 = Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, X.X.body(), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), Cr.Cir.exec(f, X.sel.t(X.X.chain(1n)), s3),
+    X.ret.disp.fun(f, regs, m, nx, fi, im, pg, lim, inp, sp, hl, {==}, {==}, hz, hc, ht))
+  +e3 = pre.tail(f, Mc.M.f(2n, Mc.M.g(9n)), Mc.M.g(0n), regs, m, nx, fi, im, pg, lim, inp, sp, pend, 34, D.Fd(2n, m, sp), foc, hl, {==}, {==}, hc,
+    X.ev.fld(2n, Mc.M.g(9n), s3, sp, g9, hc), {==})
+  Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.redex(), S.pre(regs, m, nx, fi, im, pg, lim, inp, sp, pend, 34, D.Fd(2n, m, sp), foc)),
+    Cr.Cir.exec(f, X.sel.t(X.X.chain(1n)), s3), Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), e3, e1)
+
 # The moves of move_kit.bend that this file proves
 # ------------------------------------------------
 
