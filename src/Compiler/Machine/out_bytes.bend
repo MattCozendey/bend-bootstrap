@@ -5862,6 +5862,47 @@ def out.post.of(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U
   PostO.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v, OBn(lim, nx, Nat.add(U32.to_nat(0), n)),
     out.any(n, F, regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0, c, ks, img, v, hreg, hlen, htm, ok.known(n, m, ks, ks2, img, c, im, fs, nx, hk, hok)))
 
+# PostO, with what an out of memory gives (O)
+def PostOB(o: Cr.Cir.Out, +v: Bk.Term, O: Type) -> Type:
+  match o:
+    case Cr.Cir.Out.next{st}:
+      Empty
+    case Cr.Cir.Out.halt{s, st}:
+      OutH(v, s, st)
+    case Cr.Cir.Out.out_of_memory{}:
+      O
+    case Cr.Cir.Out.trap{}:
+      Empty
+    case Cr.Cir.Out.not_done{}:
+      Unit
+
+def PostOB.of(o: Cr.Cir.Out, +v: Bk.Term, -O: Type, g: GivesF(o, Pg.Program.unbytes(v), Nil{}, 0, O)) -> PostOB(o, v, O):
+  match o:
+    case Cr.Cir.Out.next{st}:
+      match g:
+    case Cr.Cir.Out.halt{+s, +st}:
+      OutH.of(Pg.Program.unbytes(v), v, s, st, {==}, g)
+    case Cr.Cir.Out.out_of_memory{}:
+      g
+    case Cr.Cir.Out.trap{}:
+      match g:
+    case Cr.Cir.Out.not_done{}:
+      Unit{}
+
+# out.post.of with the budget: M.out runs out of memory only when the limit
+# has fewer bytes than 20 next + n
+def out.postb.of(+n: Nat, +F: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
+  +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +c: U32, +ks: List<&2, List<&2, Word(8n)>>, +ks2: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +v: Bk.Term,
+  +hreg: {List.get(&2, U32, regs, Mc.R.focus()) == Some{c} : Maybe<&2, U32>},
+  +hlen: {Nat.is_le(Mc.Mach.regs(), List.length(&2, U32, regs)) == True{} : Bool},
+  +htm: {T.tm.of(n, m, ks, img, c) == Some{v} : Maybe<&2, Bk.Term>},
+  +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
+  +hok: {okn(n, m, ks, img, c, im, fs, nx) == True{} : Bool}) ->
+  PostOB(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v, OBn(lim, nx, Nat.add(U32.to_nat(0), n))):
+  PostOB.of(Cr.Cir.exec(F, Mc.M.out(), Cr.Cir.State{regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0}), v, OBn(lim, nx, Nat.add(U32.to_nat(0), n)),
+    out.any(n, F, regs, m, nx, fs, im, pg, lim, inp, Nil{}, 0, c, ks, img, v, hreg, hlen, htm, ok.known(n, m, ks, ks2, img, c, im, fs, nx, hk, hok)))
+
 # out.done of moves.bend: with some fuel, M.out ends
 def out.done.of(+n: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fs: U32, +im: U32,
   +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32, +c: U32, +ks: List<&2, List<&2, Word(8n)>>,
