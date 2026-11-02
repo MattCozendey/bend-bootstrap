@@ -941,3 +941,117 @@ def min.le.l(b0: Bool, +m: U32, +k: U32, e: {U32.is_le(m, k) == b0 : Bool}) -> N
 # the minimum of the limit and 65536, as min.case gives it
 def lim.min(+L: U32) -> {Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536) == Wa.Wasm.min(L, 65536) : U32}:
   {==}
+# the bytes of a limit, as min.case gives its pages
+def lim.eq(+L: U32) -> {N.D(16n, U32.to_nat(Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536))) == D.Lim.bytes(L) : Nat}:
+  {==}
+# a limit's bytes are at most 2^32
+def lim.le(+L: U32) -> N.Le(D.Lim.bytes(L), N.D(32n, 1n)):
+  +y = U32.to_nat(Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536))
+  +h2 = N.le_rw_r(y, U32.to_nat(65536), N.D(16n, 1n), N.val_65536(), N.min.case(U32.is_le(L, 65536), L, 65536, {==}))
+  N.le_rw_l(N.D(16n, y), D.Lim.bytes(L), N.D(32n, 1n), lim.eq(L),
+    N.le_rw_r(N.D(16n, y), N.D(16n, N.D(16n, 1n)), N.D(32n, 1n), N.D_add(16n, 16n, 32n, 1n, {==}), Dk.mono(16n, y, N.D(16n, 1n), h2)))
+# a limit's bytes are at most those of its pages
+def lim.le.pages(+L: U32) -> N.Le(D.Lim.bytes(L), N.D(16n, U32.to_nat(L))):
+  +y = U32.to_nat(Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536))
+  N.le_rw_l(N.D(16n, y), D.Lim.bytes(L), N.D(16n, U32.to_nat(L)), lim.eq(L),
+    Dk.mono(16n, y, U32.to_nat(L), min.le.l(U32.is_le(L, 65536), L, 65536, {==})))
+# a + (k + b) = k + (a + b)
+def add.k(+a: Nat, +k: Nat, +b: Nat) -> {Nat.add(a, Nat.add(k, b)) == Nat.add(k, Nat.add(a, b)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+q:
+      %add.k(a, q, b) : {Nat.add(a, 1n+Nat.add(q, b)) == 1n+_ : Nat}
+      N.add_succ_r(a, Nat.add(q, b))
+# 16x + 4x = 20x
+def t20.shifts(+x: Nat) -> {Nat.add(N.D(4n, x), N.D(2n, x)) == T20(x) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      %Equal.sym(Nat, Nat.add(N.D(4n, p), Nat.add(4n, N.D(2n, p))), Nat.add(4n, Nat.add(N.D(4n, p), N.D(2n, p))),
+        add.k(N.D(4n, p), 4n, N.D(2n, p))) : {16n+_ == 20n+T20(p) : Nat}
+      %Equal.sym(Nat, Nat.add(N.D(4n, p), N.D(2n, p)), T20(p), t20.shifts(p)) : {20n+_ == 20n+T20(p) : Nat}
+      {==}
+# k × (1 + y) = k + k × y
+def mul.k(+k: Nat, +y: Nat) -> {Nat.mul(k, 1n+y) == Nat.add(k, Nat.mul(k, y)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+q:
+      %Equal.sym(Nat, Nat.mul(q, 1n+y), Nat.add(q, Nat.mul(q, y)), mul.k(q, y)) :
+        {1n+Nat.add(y, _) == 1n+Nat.add(q, Nat.add(y, Nat.mul(q, y))) : Nat}
+      Equal.cong(Nat, Nat, z => 1n+z, Nat.add(y, Nat.add(q, Nat.mul(q, y))), Nat.add(q, Nat.add(y, Nat.mul(q, y))),
+        N.add_swap(y, q, Nat.mul(q, y)))
+# 20 × y, as T20
+def mul20(+y: Nat) -> {Nat.mul(20n, y) == T20(y) : Nat}:
+  match y:
+    case 0n:
+      {==}
+    case 1n+p:
+      %Equal.sym(Nat, Nat.mul(20n, 1n+p), Nat.add(20n, Nat.mul(20n, p)), mul.k(20n, p)) : {_ == 20n+T20(p) : Nat}
+      %Equal.sym(Nat, Nat.mul(20n, p), T20(p), mul20(p)) : {Nat.add(20n, _) == 20n+T20(p) : Nat}
+      {==}
+# the cell's place, 20 nx, as the code computes it: at most 20 nx
+def at.le(+nx: U32) -> N.Le(U32.to_nat(Cr.Cir.at(nx)), T20(U32.to_nat(nx))):
+  +x = U32.to_nat(nx)
+  N.le_rw_r(U32.to_nat(Cr.Cir.at(nx)), Nat.add(N.D(4n, x), N.D(2n, x)), T20(x), t20.shifts(x),
+    N.le_trans(U32.to_nat(Cr.Cir.at(nx)), Nat.add(U32.to_nat(U32.shln(nx, 4n)), U32.to_nat(U32.shln(nx, 2n))), Nat.add(N.D(4n, x), N.D(2n, x)),
+      add.le(U32.shln(nx, 4n), U32.shln(nx, 2n)),
+      N.add_mono(U32.to_nat(U32.shln(nx, 4n)), N.D(4n, x), U32.to_nat(U32.shln(nx, 2n)), N.D(2n, x), shln.le(nx, 4n), shln.le(nx, 2n))))
+
+def M.T(x: Maybe<&2, U32>) -> Data:
+  match x:
+    case Some{_}:
+      Unit
+    case None{}:
+      Empty
+
+def ms.ne(-x: U32, h: {Some{x} == None{} : Maybe<&2, U32>}) -> Empty:
+  %h : M.T(_)
+  Unit{}
+# no room: the pages needed are more than the limit allows
+def room.none(i: Bool, c: Bool, +p: U32, +nd: U32, h: {Cr.Cir.room.if(i, c, p, nd) == None{} : Maybe<&2, U32>}) -> {c == False{} : Bool}:
+  match i c:
+    case True{} _:
+      Empty.absurd({c == False{} : Bool}, ms.ne(p, h))
+    case False{} True{}:
+      Empty.absurd({True{} == False{} : Bool}, ms.ne(nd, h))
+    case False{} False{}:
+      {==}
+# out of memory at a new cell, for want of room: the limit's bytes are
+# fewer than 20 (nx + 1)
+def oom.room(+L: U32, +pg: U32, +nx: U32, h: {Cr.Cir.room(U32.add(Cr.Cir.at(nx), 19), pg, L) == None{} : Maybe<&2, U32>}) ->
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(nx))):
+  +b = U32.add(Cr.Cir.at(nx), 19)
+  +sh = U32.shrn(b, 16n)
+  +nd = U32.inc(sh)
+  +L1 = U32.to_nat(L)
+  +S1 = U32.to_nat(sh)
+  +A = U32.to_nat(Cr.Cir.at(nx))
+  +X = U32.to_nat(nx)
+  +hc = room.none(U32.is_le(nd, pg), U32.is_le(nd, L), pg, nd, h)
+  +h1 = nle.of(U32.cmp(nd, L), U32.to_nat(nd), L1, U.rel(nd, L), hc)
+  +h2 = N.le_trans(1n+L1, U32.to_nat(nd), 1n+S1, h1, N.U32.inc_le(sh))
+  +h3 = N.le_trans(N.D(16n, L1), N.D(16n, S1), U32.to_nat(b), Dk.mono(16n, L1, S1, h2), shrn.le(16n, b))
+  +hb = N.le_rw_l(U32.to_nat(U32.add(19, Cr.Cir.at(nx))), U32.to_nat(b), 19n+A,
+    Equal.cong(U32, Nat, z => U32.to_nat(z), U32.add(19, Cr.Cir.at(nx)), b, U32.add_comm(19, Cr.Cir.at(nx))), add.le(19, Cr.Cir.at(nx)))
+  +h4 = N.le_trans(N.D(16n, L1), U32.to_nat(b), 19n+T20(X), h3, N.le_trans(U32.to_nat(b), 19n+A, 19n+T20(X), hb, at.le(nx)))
+  N.le_rw_r(1n+D.Lim.bytes(L), T20(1n+X), Nat.mul(20n, 1n+X), Equal.sym(Nat, Nat.mul(20n, 1n+X), T20(1n+X), mul20(1n+X)),
+    N.le_trans(D.Lim.bytes(L), N.D(16n, L1), 19n+T20(X), lim.le.pages(L), h4))
+
+# 1 + B <= 20 (1 + X) when B <= 16 + 20 P and P <= X (over variables)
+def big.le(+B: Nat, +D: Nat, +P: Nat, +X: Nat, hb: N.Le(B, D), hp: {Nat.add(16n, T20(P)) == D : Nat}, hx: N.Le(P, X)) ->
+  N.Le(1n+B, Nat.mul(20n, 1n+X)):
+  +hw = N.le_rw_r(B, D, Nat.add(16n, T20(P)), Equal.sym(Nat, Nat.add(16n, T20(P)), D, hp), hb)
+  N.le_rw_r(1n+B, T20(1n+X), Nat.mul(20n, 1n+X), Equal.sym(Nat, Nat.mul(20n, 1n+X), T20(1n+X), mul20(1n+X)),
+    N.le_trans(1n+B, 17n+T20(P), 20n+T20(X), hw,
+      N.le_trans(17n+T20(P), 20n+T20(P), 20n+T20(X), N.le_add_l(3n, T20(P)), t20.mono(P, X, hx))))
+
+# out of memory at a new cell, next being 214748364 or more: 20 (nx + 1) is
+# past 2^32
+def oom.big(+L: U32, +nx: U32, h: {U32.is_lt(nx, 214748364) == False{} : Bool}) ->
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(nx))):
+  +X = U32.to_nat(nx)
+  +hx = N.le_rw_l(U32.to_nat(214748364), Pat(7n), X, lit.pat(), nlt.of(U32.cmp(nx, 214748364), X, U32.to_nat(214748364), U.rel(nx, 214748364), h))
+  big.le(D.Lim.bytes(L), N.D(32n, 1n), Pat(7n), X, lim.le(L), hP(), hx)
