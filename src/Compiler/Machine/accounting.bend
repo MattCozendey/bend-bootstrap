@@ -1009,6 +1009,494 @@ def cov.cell(n: Nat, +m: Cr.Cir.Cells, +c: U32, +x: U32, +rs: List<&2, D.Rt>, +x
         or.cell(D.Fl(m, c, 1024), D.Nodes(rs, m, c), U32.is_eq(x, c), D.Mem(xs, c), D.and.l(T, D.Cov(k, m, U32.inc(c), rs, xs), h2)),
         cov.cell(k, m, U32.inc(c), x, rs, xs, D.and.r(T, D.Cov(k, m, U32.inc(c), rs, xs), h2)))
 
+# The flag DATA
+# -------------
+
+def W.hd(+p: Nat, w: Word(1n+p)) -> Bool:
+  match w:
+    case WCon{x, _}:
+      x
+
+def W.tl(+p: Nat, w: Word(1n+p)) -> Word(p):
+  match w:
+    case WCon{_, t}:
+      t
+
+def bit.and.or(a: Bool, b: Bool, c: Bool, h: {Bool.and(b, c) == False{} : Bool}) -> {Bool.and(Bool.or(a, b), c) == Bool.and(a, c) : Bool}:
+  match a b c:
+    case True{} True{} True{}:
+      Empty.absurd({True{} == True{} : Bool}, N.true_ne_false(h))
+    case True{} True{} False{}:
+      {==}
+    case True{} False{} True{}:
+      {==}
+    case True{} False{} False{}:
+      {==}
+    case False{} True{} True{}:
+      Empty.absurd({True{} == False{} : Bool}, N.true_ne_false(h))
+    case False{} True{} False{}:
+      {==}
+    case False{} False{} True{}:
+      {==}
+    case False{} False{} False{}:
+      {==}
+
+# (a | b) & c = a & c, when b & c = 0
+def wand.or(n: Nat, a: Word(n), b: Word(n), c: Word(n), h: {Word.and(n, b, c) == Word.zero(n) : Word(n)}) ->
+  {Word.and(n, Word.or(n, a, b), c) == Word.and(n, a, c) : Word(n)}:
+  match n:
+    case 0n:
+      match a b c:
+        case WNil{} WNil{} WNil{}:
+          {==}
+    case 1n+(+p):
+      match a b c:
+        case WCon{+ab, +at} WCon{+bb, +bt} WCon{+cb, +ct}:
+          +h2 = h
+          +hb = Equal.cong(Word(1n+p), Bool, w => W.hd(p, w), WCon{Bool.and(bb, cb), Word.and(p, bt, ct)}, WCon{False{}, Word.zero(p)}, h2)
+          +ht = Equal.cong(Word(1n+p), Word(p), w => W.tl(p, w), WCon{Bool.and(bb, cb), Word.and(p, bt, ct)}, WCon{False{}, Word.zero(p)}, h2)
+          %Equal.sym(Bool, Bool.and(Bool.or(ab, bb), cb), Bool.and(ab, cb), bit.and.or(ab, bb, cb, hb)) :
+            {WCon{_, Word.and(p, Word.or(p, at, bt), ct)} == WCon{Bool.and(ab, cb), Word.and(p, at, ct)} : Word(1n+p)}
+          %Equal.sym(Word(p), Word.and(p, Word.or(p, at, bt), ct), Word.and(p, at, ct), wand.or(p, at, bt, ct, ht)) :
+            {WCon{Bool.and(ab, cb), _} == WCon{Bool.and(ab, cb), Word.and(p, at, ct)} : Word(1n+p)}
+          {==}
+
+def U32.w(u: U32) -> Word(32n):
+  match u:
+    case U32{w}:
+      w
+
+def u32.and.or(+a: U32, +b: U32, +c: U32, h: {U32.and(b, c) == 0 : U32}) -> {U32.and(U32.or(a, b), c) == U32.and(a, c) : U32}:
+  match a b c:
+    case U32{+x} U32{+y} U32{+z}:
+      Equal.cong(Word(32n), U32, w => U32{w}, Word.and(32n, Word.or(32n, x, y), z), Word.and(32n, x, z),
+        wand.or(32n, x, y, z, Equal.cong(U32, Word(32n), u => U32.w(u), U32{Word.and(32n, y, z)}, 0, h)))
+
+def and.dat.st() -> {U32.and(512, 1024) == 0 : U32}:
+  {==}
+
+def and.dat.tg() -> {U32.and(512, 63) == 0 : U32}:
+  {==}
+
+def and.dat.own() -> {U32.and(512, 4096) == 0 : U32}:
+  {==}
+
+def s0g0(+y: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(0n, y, w)) == w : U32}:
+  match y:
+    case Cr.Cir.Cell{a, b, c2, c3, c4}:
+      {==}
+
+def s0g1(+y: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(1n, Cr.Cir.Cell.set(0n, y, w)) == Cr.Cir.Cell.get(1n, y) : U32}:
+  match y:
+    case Cr.Cir.Cell{a, b, c2, c3, c4}:
+      {==}
+
+def s0g2(+y: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(2n, Cr.Cir.Cell.set(0n, y, w)) == Cr.Cir.Cell.get(2n, y) : U32}:
+  match y:
+    case Cr.Cir.Cell{a, b, c2, c3, c4}:
+      {==}
+
+def s0g3(+y: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(3n, Cr.Cir.Cell.set(0n, y, w)) == Cr.Cir.Cell.get(3n, y) : U32}:
+  match y:
+    case Cr.Cir.Cell{a, b, c2, c3, c4}:
+      {==}
+
+def s0g4(+y: Cr.Cir.Cell, -w: U32) -> {Cr.Cir.Cell.get(4n, Cr.Cir.Cell.set(0n, y, w)) == Cr.Cir.Cell.get(4n, y) : U32}:
+  match y:
+    case Cr.Cir.Cell{a, b, c2, c3, c4}:
+      {==}
+
+# the cells m with the flag DATA set at the cell cf
+def Flag(+m: Cr.Cir.Cells, +cf: U32) -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(m, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))
+
+def fd.flag1.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, eb: {U32.is_eq(o, cf) == b : Bool}) ->
+  {D.Fd(1n, Flag(m, cf), o) == D.Fd(1n, m, o) : U32}:
+  match b:
+    case True{}:
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) : {D.Fd(1n, Flag(m, cf), _) == D.Fd(1n, m, _) : U32}
+      Equal.trans(U32, D.Fd(1n, Flag(m, cf), cf), Cr.Cir.Cell.get(1n, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512))), D.Fd(1n, m, cf),
+        Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(1n, y), Cr.Cir.Cells.get(Flag(m, cf), cf), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), D.cl.gs(m, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))),
+        s0g1(Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))
+    case False{}:
+      Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(1n, y), Cr.Cir.Cells.get(Flag(m, cf), o), Cr.Cir.Cells.get(m, o), D.cl.go(m, o, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), eb))
+
+# the flag DATA keeps field 1 of every cell
+def fd.flag1(+m: Cr.Cir.Cells, +cf: U32, +o: U32) -> {D.Fd(1n, Flag(m, cf), o) == D.Fd(1n, m, o) : U32}:
+  fd.flag1.b(U32.is_eq(o, cf), m, cf, o, {==})
+
+def fd.flag2.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, eb: {U32.is_eq(o, cf) == b : Bool}) ->
+  {D.Fd(2n, Flag(m, cf), o) == D.Fd(2n, m, o) : U32}:
+  match b:
+    case True{}:
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) : {D.Fd(2n, Flag(m, cf), _) == D.Fd(2n, m, _) : U32}
+      Equal.trans(U32, D.Fd(2n, Flag(m, cf), cf), Cr.Cir.Cell.get(2n, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512))), D.Fd(2n, m, cf),
+        Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(2n, y), Cr.Cir.Cells.get(Flag(m, cf), cf), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), D.cl.gs(m, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))),
+        s0g2(Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))
+    case False{}:
+      Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(2n, y), Cr.Cir.Cells.get(Flag(m, cf), o), Cr.Cir.Cells.get(m, o), D.cl.go(m, o, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), eb))
+
+# the flag DATA keeps field 2 of every cell
+def fd.flag2(+m: Cr.Cir.Cells, +cf: U32, +o: U32) -> {D.Fd(2n, Flag(m, cf), o) == D.Fd(2n, m, o) : U32}:
+  fd.flag2.b(U32.is_eq(o, cf), m, cf, o, {==})
+
+def fd.flag3.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, eb: {U32.is_eq(o, cf) == b : Bool}) ->
+  {D.Fd(3n, Flag(m, cf), o) == D.Fd(3n, m, o) : U32}:
+  match b:
+    case True{}:
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) : {D.Fd(3n, Flag(m, cf), _) == D.Fd(3n, m, _) : U32}
+      Equal.trans(U32, D.Fd(3n, Flag(m, cf), cf), Cr.Cir.Cell.get(3n, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512))), D.Fd(3n, m, cf),
+        Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(3n, y), Cr.Cir.Cells.get(Flag(m, cf), cf), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), D.cl.gs(m, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))),
+        s0g3(Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))
+    case False{}:
+      Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(3n, y), Cr.Cir.Cells.get(Flag(m, cf), o), Cr.Cir.Cells.get(m, o), D.cl.go(m, o, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), eb))
+
+# the flag DATA keeps field 3 of every cell
+def fd.flag3(+m: Cr.Cir.Cells, +cf: U32, +o: U32) -> {D.Fd(3n, Flag(m, cf), o) == D.Fd(3n, m, o) : U32}:
+  fd.flag3.b(U32.is_eq(o, cf), m, cf, o, {==})
+
+def fd.flag4.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, eb: {U32.is_eq(o, cf) == b : Bool}) ->
+  {D.Fd(4n, Flag(m, cf), o) == D.Fd(4n, m, o) : U32}:
+  match b:
+    case True{}:
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) : {D.Fd(4n, Flag(m, cf), _) == D.Fd(4n, m, _) : U32}
+      Equal.trans(U32, D.Fd(4n, Flag(m, cf), cf), Cr.Cir.Cell.get(4n, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512))), D.Fd(4n, m, cf),
+        Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(4n, y), Cr.Cir.Cells.get(Flag(m, cf), cf), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), D.cl.gs(m, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))),
+        s0g4(Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))
+    case False{}:
+      Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(4n, y), Cr.Cir.Cells.get(Flag(m, cf), o), Cr.Cir.Cells.get(m, o), D.cl.go(m, o, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), eb))
+
+# the flag DATA keeps field 4 of every cell
+def fd.flag4(+m: Cr.Cir.Cells, +cf: U32, +o: U32) -> {D.Fd(4n, Flag(m, cf), o) == D.Fd(4n, m, o) : U32}:
+  fd.flag4.b(U32.is_eq(o, cf), m, cf, o, {==})
+
+# and the bits of field 0 that are not DATA
+def fl.flag.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, +fl: U32, eb: {U32.is_eq(o, cf) == b : Bool}, h0: {U32.and(512, fl) == 0 : U32}) ->
+  {U32.and(D.Fd(0n, Flag(m, cf), o), fl) == U32.and(D.Fd(0n, m, o), fl) : U32}:
+  match b:
+    case True{}:
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) : {U32.and(D.Fd(0n, Flag(m, cf), _), fl) == U32.and(D.Fd(0n, m, _), fl) : U32}
+      Equal.trans(U32, U32.and(D.Fd(0n, Flag(m, cf), cf), fl), U32.and(U32.or(D.Fd(0n, m, cf), 512), fl), U32.and(D.Fd(0n, m, cf), fl),
+        Equal.cong(U32, U32, w => U32.and(w, fl), D.Fd(0n, Flag(m, cf), cf), U32.or(D.Fd(0n, m, cf), 512),
+          Equal.trans(U32, D.Fd(0n, Flag(m, cf), cf), Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512))), U32.or(D.Fd(0n, m, cf), 512),
+            Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(0n, y), Cr.Cir.Cells.get(Flag(m, cf), cf), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), D.cl.gs(m, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))),
+            s0g0(Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))),
+        u32.and.or(D.Fd(0n, m, cf), 512, fl, h0))
+    case False{}:
+      Equal.cong(Cr.Cir.Cell, U32, y => U32.and(Cr.Cir.Cell.get(0n, y), fl), Cr.Cir.Cells.get(Flag(m, cf), o), Cr.Cir.Cells.get(m, o), D.cl.go(m, o, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), eb))
+
+def fl.flag(+m: Cr.Cir.Cells, +cf: U32, +o: U32, +fl: U32, h0: {U32.and(512, fl) == 0 : U32}) ->
+  {D.Fl(Flag(m, cf), o, fl) == D.Fl(m, o, fl) : Bool}:
+  Equal.cong(U32, Bool, w => U32.is_ne(w, 0), U32.and(D.Fd(0n, Flag(m, cf), o), fl), U32.and(D.Fd(0n, m, o), fl),
+    fl.flag.b(U32.is_eq(o, cf), m, cf, o, fl, {==}, h0))
+
+def tg.flag(+m: Cr.Cir.Cells, +cf: U32, +o: U32) -> {D.TgW(D.Fd(0n, Flag(m, cf), o)) == D.TgW(D.Fd(0n, m, o)) : U32}:
+  fl.flag.b(U32.is_eq(o, cf), m, cf, o, 63, {==}, and.dat.tg())
+
+# the flag DATA keeps which cells are nodes of a term
+def node.flag(t: Bk.Term, +m: Cr.Cir.Cells, +cf: U32, +r: U32, +x: U32) ->
+  {D.Node(t, Flag(m, cf), r, x) == D.Node(t, m, r, x) : Bool}:
+  match t:
+    case Bk.Term.Var{+i}:
+      {==}
+    case Bk.Term.Ref{+k}:
+      {==}
+    case Bk.Term.Ann{+y, +z}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(y, M2, D.Fd(2n, M2, r), x), D.Node(z, M2, D.Fd(3n, M2, r), x)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), x), D.Node(z, m, D.Fd(3n, m, r), x)),
+        or.cong2(D.Node(y, M2, D.Fd(2n, M2, r), x), D.Node(y, m, D.Fd(2n, m, r), x), D.Node(z, M2, D.Fd(3n, M2, r), x), D.Node(z, m, D.Fd(3n, m, r), x),
+        Equal.trans(Bool, D.Node(y, M2, D.Fd(2n, M2, r), x), D.Node(y, M2, D.Fd(2n, m, r), x), D.Node(y, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(y, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(y, m, cf, D.Fd(2n, m, r), x)),
+        Equal.trans(Bool, D.Node(z, M2, D.Fd(3n, M2, r), x), D.Node(z, M2, D.Fd(3n, m, r), x), D.Node(z, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(z, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(z, m, cf, D.Fd(3n, m, r), x))))
+    case Bk.Term.Let{+q, +v, +f}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(v, M2, D.Fd(2n, M2, r), x), D.Node(f, M2, D.Fd(3n, M2, r), x)), Bool.or(D.Node(v, m, D.Fd(2n, m, r), x), D.Node(f, m, D.Fd(3n, m, r), x)),
+        or.cong2(D.Node(v, M2, D.Fd(2n, M2, r), x), D.Node(v, m, D.Fd(2n, m, r), x), D.Node(f, M2, D.Fd(3n, M2, r), x), D.Node(f, m, D.Fd(3n, m, r), x),
+        Equal.trans(Bool, D.Node(v, M2, D.Fd(2n, M2, r), x), D.Node(v, M2, D.Fd(2n, m, r), x), D.Node(v, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(v, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(v, m, cf, D.Fd(2n, m, r), x)),
+        Equal.trans(Bool, D.Node(f, M2, D.Fd(3n, M2, r), x), D.Node(f, M2, D.Fd(3n, m, r), x), D.Node(f, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(f, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(f, m, cf, D.Fd(3n, m, r), x))))
+    case Bk.Term.Typ{+y}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), D.Node(y, M2, D.Fd(2n, M2, r), x), D.Node(y, m, D.Fd(2n, m, r), x),
+        Equal.trans(Bool, D.Node(y, M2, D.Fd(2n, M2, r), x), D.Node(y, M2, D.Fd(2n, m, r), x), D.Node(y, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(y, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(y, m, cf, D.Fd(2n, m, r), x)))
+    case Bk.Term.Min{+a, +b}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x)), Bool.or(D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x)),
+        or.cong2(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+        Equal.trans(Bool, D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, M2, D.Fd(2n, m, r), x), D.Node(a, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(a, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(a, m, cf, D.Fd(2n, m, r), x)),
+        Equal.trans(Bool, D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, M2, D.Fd(3n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(b, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(b, m, cf, D.Fd(3n, m, r), x))))
+    case Bk.Term.All{+q, +a, +b}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x)), Bool.or(D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x)),
+        or.cong2(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+        Equal.trans(Bool, D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, M2, D.Fd(2n, m, r), x), D.Node(a, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(a, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(a, m, cf, D.Fd(2n, m, r), x)),
+        Equal.trans(Bool, D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, M2, D.Fd(3n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(b, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(b, m, cf, D.Fd(3n, m, r), x))))
+    case Bk.Term.Lam{+q, +f}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), D.Node(f, M2, D.Fd(2n, M2, r), x), D.Node(f, m, D.Fd(2n, m, r), x),
+        Equal.trans(Bool, D.Node(f, M2, D.Fd(2n, M2, r), x), D.Node(f, M2, D.Fd(2n, m, r), x), D.Node(f, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(f, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(f, m, cf, D.Fd(2n, m, r), x)))
+    case Bk.Term.App{+q, +f, +y}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(f, M2, D.Fd(2n, M2, r), x), D.Node(y, M2, D.Fd(3n, M2, r), x)), Bool.or(D.Node(f, m, D.Fd(2n, m, r), x), D.Node(y, m, D.Fd(3n, m, r), x)),
+        or.cong2(D.Node(f, M2, D.Fd(2n, M2, r), x), D.Node(f, m, D.Fd(2n, m, r), x), D.Node(y, M2, D.Fd(3n, M2, r), x), D.Node(y, m, D.Fd(3n, m, r), x),
+        Equal.trans(Bool, D.Node(f, M2, D.Fd(2n, M2, r), x), D.Node(f, M2, D.Fd(2n, m, r), x), D.Node(f, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(f, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(f, m, cf, D.Fd(2n, m, r), x)),
+        Equal.trans(Bool, D.Node(y, M2, D.Fd(3n, M2, r), x), D.Node(y, M2, D.Fd(3n, m, r), x), D.Node(y, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(y, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(y, m, cf, D.Fd(3n, m, r), x))))
+    case Bk.Term.Sig{+q, +a, +b}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x)), Bool.or(D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x)),
+        or.cong2(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+        Equal.trans(Bool, D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, M2, D.Fd(2n, m, r), x), D.Node(a, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(a, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(a, m, cf, D.Fd(2n, m, r), x)),
+        Equal.trans(Bool, D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, M2, D.Fd(3n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(b, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(b, m, cf, D.Fd(3n, m, r), x))))
+    case Bk.Term.Tup{+q, +a, +b}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x)), Bool.or(D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x)),
+        or.cong2(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, m, D.Fd(2n, m, r), x), D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+        Equal.trans(Bool, D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, M2, D.Fd(2n, m, r), x), D.Node(a, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(a, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(a, m, cf, D.Fd(2n, m, r), x)),
+        Equal.trans(Bool, D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, M2, D.Fd(3n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(b, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(b, m, cf, D.Fd(3n, m, r), x))))
+    case Bk.Term.Prj{+h}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), D.Node(h, M2, D.Fd(2n, M2, r), x), D.Node(h, m, D.Fd(2n, m, r), x),
+        Equal.trans(Bool, D.Node(h, M2, D.Fd(2n, M2, r), x), D.Node(h, M2, D.Fd(2n, m, r), x), D.Node(h, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(h, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(h, m, cf, D.Fd(2n, m, r), x)))
+    case Bk.Term.Enu{+e}:
+      {==}
+    case Bk.Term.Lab{+k}:
+      {==}
+    case Bk.Term.Mat{+k, +h, +o}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(h, M2, D.Fd(3n, M2, r), x), D.Node(o, M2, D.Fd(4n, M2, r), x)), Bool.or(D.Node(h, m, D.Fd(3n, m, r), x), D.Node(o, m, D.Fd(4n, m, r), x)),
+        or.cong2(D.Node(h, M2, D.Fd(3n, M2, r), x), D.Node(h, m, D.Fd(3n, m, r), x), D.Node(o, M2, D.Fd(4n, M2, r), x), D.Node(o, m, D.Fd(4n, m, r), x),
+        Equal.trans(Bool, D.Node(h, M2, D.Fd(3n, M2, r), x), D.Node(h, M2, D.Fd(3n, m, r), x), D.Node(h, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(h, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(h, m, cf, D.Fd(3n, m, r), x)),
+        Equal.trans(Bool, D.Node(o, M2, D.Fd(4n, M2, r), x), D.Node(o, M2, D.Fd(4n, m, r), x), D.Node(o, m, D.Fd(4n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(o, M2, w, x), D.Fd(4n, M2, r), D.Fd(4n, m, r), fd.flag4(m, cf, r)),
+          node.flag(o, m, cf, D.Fd(4n, m, r), x))))
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+a, +b, +y}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(a, M2, D.Fd(2n, M2, r), x), Bool.or(D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(y, M2, D.Fd(4n, M2, r), x))), Bool.or(D.Node(a, m, D.Fd(2n, m, r), x), Bool.or(D.Node(b, m, D.Fd(3n, m, r), x), D.Node(y, m, D.Fd(4n, m, r), x))),
+        or.cong2(D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, m, D.Fd(2n, m, r), x), Bool.or(D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(y, M2, D.Fd(4n, M2, r), x)), Bool.or(D.Node(b, m, D.Fd(3n, m, r), x), D.Node(y, m, D.Fd(4n, m, r), x)),
+        Equal.trans(Bool, D.Node(a, M2, D.Fd(2n, M2, r), x), D.Node(a, M2, D.Fd(2n, m, r), x), D.Node(a, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(a, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(a, m, cf, D.Fd(2n, m, r), x)),
+        or.cong2(D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, m, D.Fd(3n, m, r), x), D.Node(y, M2, D.Fd(4n, M2, r), x), D.Node(y, m, D.Fd(4n, m, r), x),
+        Equal.trans(Bool, D.Node(b, M2, D.Fd(3n, M2, r), x), D.Node(b, M2, D.Fd(3n, m, r), x), D.Node(b, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(b, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(b, m, cf, D.Fd(3n, m, r), x)),
+        Equal.trans(Bool, D.Node(y, M2, D.Fd(4n, M2, r), x), D.Node(y, M2, D.Fd(4n, m, r), x), D.Node(y, m, D.Fd(4n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(y, M2, w, x), D.Fd(4n, M2, r), D.Fd(4n, m, r), fd.flag4(m, cf, r)),
+          node.flag(y, m, cf, D.Fd(4n, m, r), x)))))
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+e, +p, +f}:
+      +M2 = Flag(m, cf)
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(r, x), w), Bool.or(D.Node(e, M2, D.Fd(2n, M2, r), x), Bool.or(D.Node(p, M2, D.Fd(3n, M2, r), x), D.Node(f, M2, D.Fd(4n, M2, r), x))), Bool.or(D.Node(e, m, D.Fd(2n, m, r), x), Bool.or(D.Node(p, m, D.Fd(3n, m, r), x), D.Node(f, m, D.Fd(4n, m, r), x))),
+        or.cong2(D.Node(e, M2, D.Fd(2n, M2, r), x), D.Node(e, m, D.Fd(2n, m, r), x), Bool.or(D.Node(p, M2, D.Fd(3n, M2, r), x), D.Node(f, M2, D.Fd(4n, M2, r), x)), Bool.or(D.Node(p, m, D.Fd(3n, m, r), x), D.Node(f, m, D.Fd(4n, m, r), x)),
+        Equal.trans(Bool, D.Node(e, M2, D.Fd(2n, M2, r), x), D.Node(e, M2, D.Fd(2n, m, r), x), D.Node(e, m, D.Fd(2n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(e, M2, w, x), D.Fd(2n, M2, r), D.Fd(2n, m, r), fd.flag2(m, cf, r)),
+          node.flag(e, m, cf, D.Fd(2n, m, r), x)),
+        or.cong2(D.Node(p, M2, D.Fd(3n, M2, r), x), D.Node(p, m, D.Fd(3n, m, r), x), D.Node(f, M2, D.Fd(4n, M2, r), x), D.Node(f, m, D.Fd(4n, m, r), x),
+        Equal.trans(Bool, D.Node(p, M2, D.Fd(3n, M2, r), x), D.Node(p, M2, D.Fd(3n, m, r), x), D.Node(p, m, D.Fd(3n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(p, M2, w, x), D.Fd(3n, M2, r), D.Fd(3n, m, r), fd.flag3(m, cf, r)),
+          node.flag(p, m, cf, D.Fd(3n, m, r), x)),
+        Equal.trans(Bool, D.Node(f, M2, D.Fd(4n, M2, r), x), D.Node(f, M2, D.Fd(4n, m, r), x), D.Node(f, m, D.Fd(4n, m, r), x),
+          Equal.cong(U32, Bool, w => D.Node(f, M2, w, x), D.Fd(4n, M2, r), D.Fd(4n, m, r), fd.flag4(m, cf, r)),
+          node.flag(f, m, cf, D.Fd(4n, m, r), x)))))
+
+def nodes.flag(rs: List<&2, D.Rt>, +m: Cr.Cir.Cells, +cf: U32, +x: U32) -> {D.Nodes(rs, Flag(m, cf), x) == D.Nodes(rs, m, x) : Bool}:
+  match rs:
+    case Nil{}:
+      {==}
+    case Con{D.Rt{+r, +u}, +rest}:
+      or.cong2(D.Node(u, Flag(m, cf), r, x), D.Node(u, m, r, x), D.Nodes(rest, Flag(m, cf), x), D.Nodes(rest, m, x),
+        node.flag(u, m, cf, r, x), nodes.flag(rest, m, cf, x))
+
+def cov.flag(n: Nat, +m: Cr.Cir.Cells, +cf: U32, +c: U32, +rs: List<&2, D.Rt>, +xs: List<&2, U32>) ->
+  {D.Cov(n, Flag(m, cf), c, rs, xs) == D.Cov(n, m, c, rs, xs) : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+k):
+      +M2 = Flag(m, cf)
+      +RHS = D.Cov(1n+k, m, c, rs, xs)
+      %Equal.sym(Bool, D.Fl(M2, c, 1024), D.Fl(m, c, 1024), fl.flag(m, cf, c, 1024, and.dat.st())) :
+        {Bool.and(Bool.or(_, Bool.or(D.Nodes(rs, M2, c), D.Mem(xs, c))), D.Cov(k, M2, U32.inc(c), rs, xs)) == RHS : Bool}
+      %Equal.sym(Bool, D.Nodes(rs, M2, c), D.Nodes(rs, m, c), nodes.flag(rs, m, cf, c)) :
+        {Bool.and(Bool.or(D.Fl(m, c, 1024), Bool.or(_, D.Mem(xs, c))), D.Cov(k, M2, U32.inc(c), rs, xs)) == RHS : Bool}
+      %Equal.sym(Bool, D.Cov(k, M2, U32.inc(c), rs, xs), D.Cov(k, m, U32.inc(c), rs, xs), cov.flag(k, m, cf, U32.inc(c), rs, xs)) :
+        {Bool.and(Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(rs, m, c), D.Mem(xs, c))), _) == RHS : Bool}
+      {==}
+
+def pend.terms.flag(ps: List<&2, U32>, +m: Cr.Cir.Cells, +cf: U32) -> {D.Pend.terms(ps, Flag(m, cf)) == D.Pend.terms(ps, m) : List<&2, U32>}:
+  match ps:
+    case Nil{}:
+      {==}
+    case Con{+q, +rest}:
+      +M2 = Flag(m, cf)
+      %Equal.sym(U32, D.TgW(D.Fd(0n, M2, q)), D.TgW(D.Fd(0n, m, q)), tg.flag(m, cf, q)) :
+        {Bool.pick(List<&2, U32>, U32.is_lt(_, 19), Con{q, D.Pend.terms(rest, M2)}, D.Pend.terms(rest, M2)) == D.Pend.terms(Con{q, rest}, m) : List<&2, U32>}
+      %Equal.sym(List<&2, U32>, D.Pend.terms(rest, M2), D.Pend.terms(rest, m), pend.terms.flag(rest, m, cf)) :
+        {Bool.pick(List<&2, U32>, U32.is_lt(D.TgW(D.Fd(0n, m, q)), 19), Con{q, _}, _) == D.Pend.terms(Con{q, rest}, m) : List<&2, U32>}
+      {==}
+
+def frb.flag(kind: D.FK, +m: Cr.Cir.Cells, +cf: U32, +fr: U32, +b: Bk.Term) ->
+  {D.Fr.rts.b(Flag(m, cf), fr, kind, b) == D.Fr.rts.b(m, fr, kind, b) : List<&2, D.Rt>}:
+  match kind:
+    case D.FK.rwt{}:
+      %Equal.sym(U32, D.Fd(3n, Flag(m, cf), fr), D.Fd(3n, m, fr), fd.flag3(m, cf, fr)) : {[D.Rt{_, b}] == [D.Rt{D.Fd(3n, m, fr), b}] : List<&2, D.Rt>}
+      {==}
+    case D.FK.arg{}:
+      {==}
+    case D.FK.val{}:
+      {==}
+    case D.FK.fun{}:
+      {==}
+    case D.FK.let{}:
+      {==}
+    case D.FK.tupb{}:
+      {==}
+    case D.FK.tupa{}:
+      {==}
+    case D.FK.minb{}:
+      {==}
+    case D.FK.mina{}:
+      {==}
+
+def fr.flag(fs: List<&2, D.AF>, +m: Cr.Cir.Cells, +cf: U32, +fr: U32) ->
+  D.P2({D.Fr.cells(fs, Flag(m, cf), fr) == D.Fr.cells(fs, m, fr) : List<&2, U32>}, {D.Fr.rts(fs, Flag(m, cf), fr) == D.Fr.rts(fs, m, fr) : List<&2, D.Rt>}):
+  match fs:
+    case Nil{}:
+      ({==}, {==})
+    case Con{D.AF{+kind, +q, +k, +a, +b}, +rest}:
+      +M2 = Flag(m, cf)
+      +f1 = D.Fd(1n, m, fr)
+      +ih = fr.flag(rest, m, cf, f1)
+      +ihc = D.Ex.fst({D.Fr.cells(rest, M2, f1) == D.Fr.cells(rest, m, f1) : List<&2, U32>}, _ => {D.Fr.rts(rest, M2, f1) == D.Fr.rts(rest, m, f1) : List<&2, D.Rt>}, ih)
+      +ihr = D.Ex.snd({D.Fr.cells(rest, M2, f1) == D.Fr.cells(rest, m, f1) : List<&2, U32>}, _ => {D.Fr.rts(rest, M2, f1) == D.Fr.rts(rest, m, f1) : List<&2, D.Rt>}, ih)
+      ({(%Equal.sym(U32, D.Fd(1n, M2, fr), f1, fd.flag1(m, cf, fr)) : {Con{fr, D.Fr.cells(rest, M2, _)} == Con{fr, D.Fr.cells(rest, m, f1)} : List<&2, U32>};
+          %Equal.sym(List<&2, U32>, D.Fr.cells(rest, M2, f1), D.Fr.cells(rest, m, f1), ihc) : {Con{fr, _} == Con{fr, D.Fr.cells(rest, m, f1)} : List<&2, U32>};
+          {==}) : {D.Fr.cells(Con{D.AF{kind, q, k, a, b}, rest}, M2, fr) == D.Fr.cells(Con{D.AF{kind, q, k, a, b}, rest}, m, fr) : List<&2, U32>}},
+        {(%Equal.sym(U32, D.Fd(1n, M2, fr), f1, fd.flag1(m, cf, fr)) :
+            {Con{D.Rt{D.Fd(2n, M2, fr), a}, List.append(&2, D.Rt, D.Fr.rts.b(M2, fr, kind, b), D.Fr.rts(rest, M2, _))} ==
+              Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, D.Fr.rts.b(m, fr, kind, b), D.Fr.rts(rest, m, f1))} : List<&2, D.Rt>};
+          %Equal.sym(U32, D.Fd(2n, M2, fr), D.Fd(2n, m, fr), fd.flag2(m, cf, fr)) :
+            {Con{D.Rt{_, a}, List.append(&2, D.Rt, D.Fr.rts.b(M2, fr, kind, b), D.Fr.rts(rest, M2, f1))} ==
+              Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, D.Fr.rts.b(m, fr, kind, b), D.Fr.rts(rest, m, f1))} : List<&2, D.Rt>};
+          %Equal.sym(List<&2, D.Rt>, D.Fr.rts.b(M2, fr, kind, b), D.Fr.rts.b(m, fr, kind, b), frb.flag(kind, m, cf, fr, b)) :
+            {Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, _, D.Fr.rts(rest, M2, f1))} ==
+              Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, D.Fr.rts.b(m, fr, kind, b), D.Fr.rts(rest, m, f1))} : List<&2, D.Rt>};
+          %Equal.sym(List<&2, D.Rt>, D.Fr.rts(rest, M2, f1), D.Fr.rts(rest, m, f1), ihr) :
+            {Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, D.Fr.rts.b(m, fr, kind, b), _)} ==
+              Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, D.Fr.rts.b(m, fr, kind, b), D.Fr.rts(rest, m, f1))} : List<&2, D.Rt>};
+          {==}) : {D.Fr.rts(Con{D.AF{kind, q, k, a, b}, rest}, M2, fr) == D.Fr.rts(Con{D.AF{kind, q, k, a, b}, rest}, m, fr) : List<&2, D.Rt>}})
+
+# Fs's body, by the fields it reads
+def FsN(+b: Bool, +mem: Bool, +a: U32, +x2: U32, +x3: U32, +x4: U32, +own: Bool, +tg: U32) -> List<&2, U32>:
+  Bool.pick(List<&2, U32>, b, D.Fs.term(a, x2, x3, x4),
+    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(mem)), Con{x2, D.Fs.opt(U32.is_eq(tg, 38), x3, Nil{})},
+      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), own), Bool.not(mem)), [x2], Nil{})))
+
+def fsn.cong(+b: Bool, +mem: Bool, -a: U32, -a2: U32, -x2: U32, -y2: U32, -x3: U32, -y3: U32, -x4: U32, -y4: U32, -o1: Bool, -o2: Bool, +tg: U32,
+  ea: {a == a2 : U32}, e2: {x2 == y2 : U32}, e3: {x3 == y3 : U32}, e4: {x4 == y4 : U32}, eo: {o1 == o2 : Bool}) ->
+  {FsN(b, mem, a, x2, x3, x4, o1, tg) == FsN(b, mem, a2, y2, y3, y4, o2, tg) : List<&2, U32>}:
+  %ea : {FsN(b, mem, a, x2, x3, x4, o1, tg) == FsN(b, mem, _, y2, y3, y4, o2, tg) : List<&2, U32>}
+  %e2 : {FsN(b, mem, a, x2, x3, x4, o1, tg) == FsN(b, mem, a, _, y3, y4, o2, tg) : List<&2, U32>}
+  %e3 : {FsN(b, mem, a, x2, x3, x4, o1, tg) == FsN(b, mem, a, x2, _, y4, o2, tg) : List<&2, U32>}
+  %e4 : {FsN(b, mem, a, x2, x3, x4, o1, tg) == FsN(b, mem, a, x2, x3, _, o2, tg) : List<&2, U32>}
+  %eo : {FsN(b, mem, a, x2, x3, x4, o1, tg) == FsN(b, mem, a, x2, x3, x4, _, tg) : List<&2, U32>}
+  {==}
+
+def fs.flag(+m: Cr.Cir.Cells, +cf: U32, +ps: List<&2, U32>, +o: U32) -> {D.Fs(Flag(m, cf), ps, o) == D.Fs(m, ps, o) : List<&2, U32>}:
+  +M2 = Flag(m, cf)
+  +T = D.TgW(D.Fd(0n, m, o))
+  %Equal.sym(U32, D.TgW(D.Fd(0n, M2, o)), T, tg.flag(m, cf, o)) :
+    {FsN(U32.is_lt(_, 19), D.Mem(ps, o), D.Fd(2n, M2, U32.add(272, _)), D.Fd(2n, M2, o), D.Fd(3n, M2, o), D.Fd(4n, M2, o),
+      D.FlW(D.Fd(0n, M2, o), 4096), _) == D.Fs(m, ps, o) : List<&2, U32>}
+  fsn.cong(U32.is_lt(T, 19), D.Mem(ps, o), D.Fd(2n, M2, U32.add(272, T)), D.Fd(2n, m, U32.add(272, T)), D.Fd(2n, M2, o), D.Fd(2n, m, o),
+    D.Fd(3n, M2, o), D.Fd(3n, m, o), D.Fd(4n, M2, o), D.Fd(4n, m, o), D.FlW(D.Fd(0n, M2, o), 4096), D.FlW(D.Fd(0n, m, o), 4096), T,
+    fd.flag2(m, cf, U32.add(272, T)), fd.flag2(m, cf, o), fd.flag3(m, cf, o), fd.flag4(m, cf, o), fl.flag(m, cf, o, 4096, and.dat.own()))
+
+def static.all.flag(ys: List<&2, U32>, +m: Cr.Cir.Cells, +cf: U32) -> {D.All.static(ys, Flag(m, cf)) == D.All.static(ys, m) : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      %Equal.sym(Bool, D.Fl(Flag(m, cf), y, 1024), D.Fl(m, y, 1024), fl.flag(m, cf, y, 1024, and.dat.st())) :
+        {Bool.and(_, D.All.static(rest, Flag(m, cf))) == D.All.static(Con{y, rest}, m) : Bool}
+      %Equal.sym(Bool, D.All.static(rest, Flag(m, cf)), D.All.static(rest, m), static.all.flag(rest, m, cf)) :
+        {Bool.and(D.Fl(m, y, 1024), _) == D.All.static(Con{y, rest}, m) : Bool}
+      {==}
+
+def held.all.flag(ys: List<&2, U32>, +m: Cr.Cir.Cells, +cf: U32, +cs: List<&2, U32>, +hc: List<&2, U32>) ->
+  {D.All.held(ys, Flag(m, cf), cs, hc) == D.All.held(ys, m, cs, hc) : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      %Equal.sym(Bool, D.Fl(Flag(m, cf), y, 1024), D.Fl(m, y, 1024), fl.flag(m, cf, y, 1024, and.dat.st())) :
+        {Bool.and(Bool.or(_, Bool.or(D.Mem(cs, y), D.Mem(hc, y))), D.All.held(rest, Flag(m, cf), cs, hc)) == D.All.held(Con{y, rest}, m, cs, hc) : Bool}
+      %Equal.sym(Bool, D.All.held(rest, Flag(m, cf), cs, hc), D.All.held(rest, m, cs, hc), held.all.flag(rest, m, cf, cs, hc)) :
+        {Bool.and(Bool.or(D.Fl(m, y, 1024), Bool.or(D.Mem(cs, y), D.Mem(hc, y))), _) == D.All.held(Con{y, rest}, m, cs, hc) : Bool}
+      {==}
+
+def clo.flag(n: Nat, +m: Cr.Cir.Cells, +cf: U32, +c: U32, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>) ->
+  {D.Clo(n, Flag(m, cf), c, ps, cs, hc) == D.Clo(n, m, c, ps, cs, hc) : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+k):
+      +M2 = Flag(m, cf)
+      +RHS = D.Clo(1n+k, m, c, ps, cs, hc)
+      %Equal.sym(Bool, D.Fl(M2, c, 1024), D.Fl(m, c, 1024), fl.flag(m, cf, c, 1024, and.dat.st())) :
+        {Bool.and(Bool.and(Bool.or(Bool.not(_), D.All.static(D.Fs(M2, ps, c), M2)),
+          Bool.or(Bool.not(D.Mem(cs, c)), D.All.held(D.Fs(M2, ps, c), M2, cs, hc))), D.Clo(k, M2, U32.inc(c), ps, cs, hc)) == RHS : Bool}
+      %Equal.sym(List<&2, U32>, D.Fs(M2, ps, c), D.Fs(m, ps, c), fs.flag(m, cf, ps, c)) :
+        {Bool.and(Bool.and(Bool.or(Bool.not(D.Fl(m, c, 1024)), D.All.static(_, M2)),
+          Bool.or(Bool.not(D.Mem(cs, c)), D.All.held(_, M2, cs, hc))), D.Clo(k, M2, U32.inc(c), ps, cs, hc)) == RHS : Bool}
+      %Equal.sym(Bool, D.All.static(D.Fs(m, ps, c), M2), D.All.static(D.Fs(m, ps, c), m), static.all.flag(D.Fs(m, ps, c), m, cf)) :
+        {Bool.and(Bool.and(Bool.or(Bool.not(D.Fl(m, c, 1024)), _),
+          Bool.or(Bool.not(D.Mem(cs, c)), D.All.held(D.Fs(m, ps, c), M2, cs, hc))), D.Clo(k, M2, U32.inc(c), ps, cs, hc)) == RHS : Bool}
+      %Equal.sym(Bool, D.All.held(D.Fs(m, ps, c), M2, cs, hc), D.All.held(D.Fs(m, ps, c), m, cs, hc), held.all.flag(D.Fs(m, ps, c), m, cf, cs, hc)) :
+        {Bool.and(Bool.and(Bool.or(Bool.not(D.Fl(m, c, 1024)), D.All.static(D.Fs(m, ps, c), m)),
+          Bool.or(Bool.not(D.Mem(cs, c)), _)), D.Clo(k, M2, U32.inc(c), ps, cs, hc)) == RHS : Bool}
+      %Equal.sym(Bool, D.Clo(k, M2, U32.inc(c), ps, cs, hc), D.Clo(k, m, U32.inc(c), ps, cs, hc), clo.flag(k, m, cf, U32.inc(c), ps, cs, hc)) :
+        {Bool.and(Bool.and(Bool.or(Bool.not(D.Fl(m, c, 1024)), D.All.static(D.Fs(m, ps, c), m)),
+          Bool.or(Bool.not(D.Mem(cs, c)), D.All.held(D.Fs(m, ps, c), m, cs, hc))), _) == RHS : Bool}
+      {==}
+
 # No store makes a STATIC own cell
 # --------------------------------
 
@@ -1061,7 +1549,15 @@ def stat.put1(n: Nat, +ws: List<&2, D.W1>, +m: Cr.Cir.Cells, +c: U32) ->
 def stat.flag(n: Nat, +m: Cr.Cir.Cells, +c: U32, +z: U32) ->
   {D.Stat(n, Cr.Cir.Cells.set(m, z, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, z), U32.or(D.Fd(0n, m, z), 512))), c) ==
     D.Stat(n, m, c) : Nat}:
-  ?TODO
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+k):
+      %Equal.sym(Bool, D.Fl(Flag(m, z), c, 1024), D.Fl(m, c, 1024), fl.flag(m, z, c, 1024, and.dat.st())) :
+        {Nat.add(D.Nat.of(_), D.Stat(k, Flag(m, z), U32.inc(c))) == D.Stat(1n+k, m, c) : Nat}
+      %Equal.sym(Nat, D.Stat(k, Flag(m, z), U32.inc(c)), D.Stat(k, m, U32.inc(c)), stat.flag(k, m, U32.inc(c), z)) :
+        {Nat.add(D.Nat.of(D.Fl(m, c, 1024)), _) == D.Stat(1n+k, m, c) : Nat}
+      {==}
 
 # a new cell, all zeros, at next nx (from fi on, below the cell e): one more
 # own cell, not STATIC
@@ -2025,7 +2521,31 @@ def acc.flag(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>
     ks, img, D.Tmp.held(xs))) ->
   D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, c, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, c), U32.or(D.Fd(0n, m, c), 512))), nx, fi,
     im, rs, xs, sp, fs, ps, zs):
-  ?TODO
+  match hac:
+    case Tuple{_, Tuple{_, Tuple{he, Tuple{hc, hcl}}}}:
+      +M2 = Flag(m, c)
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +cs = D.Tmp.cells(xs)
+      +hl = D.Tmp.held(xs)
+      +ef = fr.flag(fs, m, c, sp)
+      +efc = D.Ex.fst({D.Fr.cells(fs, M2, sp) == D.Fr.cells(fs, m, sp) : List<&2, U32>}, _ => {D.Fr.rts(fs, M2, sp) == D.Fr.rts(fs, m, sp) : List<&2, D.Rt>}, ef)
+      +efr = D.Ex.snd({D.Fr.cells(fs, M2, sp) == D.Fr.cells(fs, m, sp) : List<&2, U32>}, _ => {D.Fr.rts(fs, M2, sp) == D.Fr.rts(fs, m, sp) : List<&2, D.Rt>}, ef)
+      +RS = List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))
+      +XS = List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, cs, ps))
+      (hz, (hh,
+        ({(%Equal.sym(List<&2, U32>, D.Pend.terms(ps, M2), D.Pend.terms(ps, m), pend.terms.flag(ps, m, c)) : {D.Rt.cells(zs) == _ : List<&2, U32>}; he) :
+            {D.Rt.cells(zs) == D.Pend.terms(ps, M2) : List<&2, U32>}},
+          ({(%Equal.sym(List<&2, D.Rt>, D.Fr.rts(fs, M2, sp), D.Fr.rts(fs, m, sp), efr) :
+                {D.Cov(n, M2, fi, List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, _, zs))),
+                  List.append(&2, U32, D.Fr.cells(fs, M2, sp), List.append(&2, U32, cs, ps))) == True{} : Bool};
+              %Equal.sym(List<&2, U32>, D.Fr.cells(fs, M2, sp), D.Fr.cells(fs, m, sp), efc) :
+                {D.Cov(n, M2, fi, RS, List.append(&2, U32, _, List.append(&2, U32, cs, ps))) == True{} : Bool};
+              %Equal.sym(Bool, D.Cov(n, M2, fi, RS, XS), D.Cov(n, m, fi, RS, XS), cov.flag(n, m, c, fi, RS, XS)) : {_ == True{} : Bool};
+              hc) :
+              {D.Cov(n, M2, fi, List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, D.Fr.rts(fs, M2, sp), zs))),
+                List.append(&2, U32, D.Fr.cells(fs, M2, sp), List.append(&2, U32, cs, ps))) == True{} : Bool}},
+            {(%Equal.sym(Bool, D.Clo(n, M2, fi, ps, cs, D.Rt.cells(hl)), D.Clo(n, m, fi, ps, cs, D.Rt.cells(hl)), clo.flag(n, m, c, fi, ps, cs, D.Rt.cells(hl))) :
+                {_ == True{} : Bool}; hcl) : {D.Clo(n, M2, fi, ps, cs, D.Rt.cells(hl)) == True{} : Bool}}))))
 
 # a new cell, all zeros, at next nx (the pend list is empty; nx is below the
 # cell e): it is a temporary, and next grows; the temporaries' terms are
