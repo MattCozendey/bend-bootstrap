@@ -18,7 +18,9 @@
 # reusing a garbage cell drops a count of each of its parts, and the counts
 # make sure that only garbage reaches 0: a garbage cell out of Q counts
 # exactly the garbage's pointers to it, at least one (none point to Q's),
-# and a live part of the garbage counts more than them. Each garbage cell
+# and a live part of the garbage counts more than them. Only garbage points
+# to garbage, and every pointer is below next, so the cell that M.alloc
+# takes has no pointer: a new cell counts its one pointer. Each garbage cell
 # has a zombie size, the nodes of the term that it stood for, larger than
 # its garbage parts': the garbage is well-founded, so once Q is empty, so is
 # P. A count is at most the pointers to its cell and 64 (Cb), and next at
@@ -377,6 +379,67 @@ def Tb.go(+m: Cr.Cir.Cells, +i: U32, cs: List<&2, Cr.Cir.Cell>) -> Data:
 def Tb(+m: Cr.Cir.Cells) -> Data:
   Tb.go(m, 272, Mc.Img.table([]))
 
+# The pointers
+# ------------
+#
+# The pointers of a cell, as the heap counts them (definitions.bend's Fs),
+# and the pointers to a cell (definitions.bend's Pc).
+
+# a pointer in the list, when b holds
+def Ps.opt(b: Bool, +v: U32, +rest: List<&2, U32>) -> List<&2, U32>:
+  Bool.pick(List<&2, U32>, b, Con{v, rest}, rest)
+
+# the parts of a term cell of the mask a
+def Ps.term(+a: U32, +x2: U32, +x3: U32, +x4: U32) -> List<&2, U32>:
+  Ps.opt(U32.is_ne(U32.and(a, 1), 0), x2, Ps.opt(U32.is_ne(U32.and(a, 2), 0), x3, Ps.opt(U32.is_ne(U32.and(a, 4), 0), x4, Nil{})))
+
+# the pointers that the cell o holds, with the pend list Q: a term cell's
+# parts, by its table entry; a frame's (tags 32 to 40) field 2, and field 3
+# for Rwt, and an OWNED K.arg's field 2, while out of Q
+def Ps(+m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32) -> List<&2, U32>:
+  +f0 = Fd(0n, m, o)
+  +tg = U32.and(f0, 63)
+  Bool.pick(List<&2, U32>, U32.is_lt(tg, 19),
+    Ps.term(Fd(2n, m, U32.add(272, tg)), Fd(2n, m, o), Fd(3n, m, o), Fd(4n, m, o)),
+    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(Has(Q, o))),
+      Con{Fd(2n, m, o), Ps.opt(U32.is_eq(tg, 38), Fd(3n, m, o), Nil{})},
+      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0)), Bool.not(Has(Q, o))),
+        [Fd(2n, m, o)], Nil{})))
+
+# how many of xs are c
+def Occ(xs: List<&2, U32>, +c: U32) -> Nat:
+  match xs:
+    case Nil{}:
+      0n
+    case Con{x, rest}:
+      Nat.add(Nat.of(U32.is_eq(x, c)), Occ(rest, c))
+
+# the pointers to c of the n cells from o, with the pend list Q (Ps; the
+# heap's Pc)
+def Pc(n: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +c: U32) -> Nat:
+  match n:
+    case 0n:
+      0n
+    case 1n+p:
+      Nat.add(Occ(Ps(m, Q, o), c), Pc(p, m, Q, U32.inc(o), c))
+
+# each of the cells ys is below N
+def All.lt(ys: List<&2, U32>, +N: U32) -> Bool:
+  match ys:
+    case Nil{}:
+      True{}
+    case Con{+y, rest}:
+      Bool.and(U32.is_lt(y, N), All.lt(rest, N))
+
+# each pointer of the n cells from o, with the pend list Q, is below N
+# (definitions.bend's Pts)
+def Lt(n: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +N: U32) -> Bool:
+  match n:
+    case 0n:
+      True{}
+    case 1n+p:
+      Bool.and(All.lt(Ps(m, Q, o), N), Lt(p, m, Q, U32.inc(o), N))
+
 # The allocation
 # --------------
 
@@ -434,10 +497,11 @@ def AL.part(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, Zs>, +z: Nat, +am
     Bool.or(Stc(m, p), Bool.or(Bool.and(Has(P, p), Nat.is_lt(Zz(zs, p), z)),
       Nat.is_lt(Pp(P, m, p), U32.to_nat(Fd(1n, m, p))))))))
 
-# each garbage cell of os: one of the machine's own, not STATIC, of a term's
-# tag or of one of the machine's own (so its mask is the table's), its parts
-# as above; one of the pend list has no pointer of the garbage, another
-# counts exactly them, at least one
+# each garbage cell of os: one of the machine's own, not STATIC, a term cell
+# or, in the pend list, one of the machine's own kinds (so its mask is the
+# table's, and its pointers are its parts'), its parts as above; the
+# garbage's pointers are all the own cells' pointers to it; one of the pend
+# list has none, another counts exactly them, at least one
 def AL.cells(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, Zs>, +K: U32,
   +F: U32, +N: U32) -> Bool:
   match os:
@@ -449,18 +513,20 @@ def AL.cells(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2
       +z = Zz(zs, o)
       +pp = Pp(P, m, o)
       Bool.and(Bool.and(Bool.and(Bool.and(U32.is_le(F, o), U32.is_lt(o, N)), Bool.not(Stc(m, o))),
-        Bool.or(U32.is_le(tg, 18), U32.is_le(32, tg))),
+        Bool.or(U32.is_le(tg, 18), Bool.and(U32.is_le(32, tg), Has(Q, o)))),
       Bool.and(Bool.and(AL.part(m, P, zs, z, am, 1, Fd(2n, m, o), K, F, N),
         Bool.and(AL.part(m, P, zs, z, am, 2, Fd(3n, m, o), K, F, N), AL.part(m, P, zs, z, am, 4, Fd(4n, m, o), K, F, N))),
-      Bool.and(Bool.pick(Bool, Has(Q, o), Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, U32.to_nat(Fd(1n, m, o))), Nat.is_lt(0n, pp))),
+      Bool.and(Bool.and(Nat.is_eq(Pc(Nat.sub(U32.to_nat(N), U32.to_nat(F)), m, Q, F, o), pp),
+        Bool.pick(Bool, Has(Q, o), Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, U32.to_nat(Fd(1n, m, o))), Nat.is_lt(0n, pp)))),
         AL.cells(rest, m, P, Q, zs, K, F, N))))
 
 # the allocation's invariant, with the pend list from pend and the zombie
-# sizes zs
+# sizes zs; and every pointer of an own cell is below N, so a new cell has
+# none
 def AL(+m: Cr.Cir.Cells, +pend: U32, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, Zs>, +K: U32, +F: U32,
   +N: U32) -> Bool:
   Bool.and(Bool.and(Chain(Q, m, pend), Nodup(Q)), Bool.and(Bool.and(Sub(Q, P), Nodup(P)),
-    AL.cells(P, m, P, Q, zs, K, F, N)))
+    Bool.and(AL.cells(P, m, P, Q, zs, K, F, N), Lt(Nat.sub(U32.to_nat(N), U32.to_nat(F)), m, Q, F, N))))
 
 # The cover
 # ---------
@@ -557,30 +623,8 @@ def Tmp.held(ts: List<&2, Tmp>) -> List<&2, Rt>:
 # The closure
 # -----------
 #
-# The pointers of a cell, as the heap counts them (definitions.bend's Fs),
-# and Clo (definitions.bend's): a STATIC own cell points to STATIC cells, a
+# Clo (definitions.bend's): a STATIC own cell points to STATIC cells, a
 # temporary to STATIC cells, temporaries or the roots of the terms it holds.
-
-# a pointer in the list, when b holds
-def Ps.opt(b: Bool, +v: U32, +rest: List<&2, U32>) -> List<&2, U32>:
-  Bool.pick(List<&2, U32>, b, Con{v, rest}, rest)
-
-# the parts of a term cell of the mask a
-def Ps.term(+a: U32, +x2: U32, +x3: U32, +x4: U32) -> List<&2, U32>:
-  Ps.opt(U32.is_ne(U32.and(a, 1), 0), x2, Ps.opt(U32.is_ne(U32.and(a, 2), 0), x3, Ps.opt(U32.is_ne(U32.and(a, 4), 0), x4, Nil{})))
-
-# the pointers that the cell o holds, with the pend list Q: a term cell's
-# parts, by its table entry; a frame's (tags 32 to 40) field 2, and field 3
-# for Rwt, and an OWNED K.arg's field 2, while out of Q
-def Ps(+m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32) -> List<&2, U32>:
-  +f0 = Fd(0n, m, o)
-  +tg = U32.and(f0, 63)
-  Bool.pick(List<&2, U32>, U32.is_lt(tg, 19),
-    Ps.term(Fd(2n, m, U32.add(272, tg)), Fd(2n, m, o), Fd(3n, m, o), Fd(4n, m, o)),
-    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(Has(Q, o))),
-      Con{Fd(2n, m, o), Ps.opt(U32.is_eq(tg, 38), Fd(3n, m, o), Nil{})},
-      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0)), Bool.not(Has(Q, o))),
-        [Fd(2n, m, o)], Nil{})))
 
 # each of the cells ys is STATIC
 def All.static(ys: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
@@ -618,23 +662,6 @@ def Clo(n: Nat, +m: Cr.Cir.Cells, +c: U32, +Q: List<&2, U32>, +cs: List<&2, U32>
 #
 # What a copy keeps of the cells that it does not take: their fields 0 and
 # 2 to 4, and of a live term cell, its count less the pointers to it.
-
-# how many of xs are c
-def Occ(xs: List<&2, U32>, +c: U32) -> Nat:
-  match xs:
-    case Nil{}:
-      0n
-    case Con{x, rest}:
-      Nat.add(Nat.of(U32.is_eq(x, c)), Occ(rest, c))
-
-# the pointers to c of the n cells from o, with the pend list Q (Ps; the
-# heap's Pc)
-def Pc(n: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +c: U32) -> Nat:
-  match n:
-    case 0n:
-      0n
-    case 1n+p:
-      Nat.add(Occ(Ps(m, Q, o), c), Pc(p, m, Q, U32.inc(o), c))
 
 # each of the n cells from c, a term cell neither STATIC nor pending (Q),
 # counts at most the pointers to it of the N own cells from F, and 64 more
@@ -776,15 +803,32 @@ def Tk(T: List<&2, U32>, +ms: Cr.Cir.Cells, +u: Bk.Term, +r: U32, +Pn: List<&2, 
       Bool.and(Bool.or(Node(u, ms, r, c), Bool.and(U32.is_eq(Fd(0n, ms, c), 45), Has(Pn, c))), Tk(rest, ms, u, r, Pn))
 
 # the garbage after a copy: each of Pn is an old garbage cell (of P) not taken
-# (T), or a taken root given back (45); and each old garbage cell is taken or
-# still garbage
-def Gb(Pn: List<&2, U32>, +P: List<&2, U32>, +T: List<&2, U32>, +ms: Cr.Cir.Cells) -> Bool:
+# (T), or a taken root given back (45) to the pend list Qn
+def Gb(Pn: List<&2, U32>, +P: List<&2, U32>, +T: List<&2, U32>, +Qn: List<&2, U32>, +ms: Cr.Cir.Cells) -> Bool:
   match Pn:
     case Nil{}:
       True{}
     case Con{+c, rest}:
-      Bool.and(Bool.or(Bool.and(Has(P, c), Bool.not(Has(T, c))), Bool.and(Has(T, c), U32.is_eq(Fd(0n, ms, c), 45))),
-        Gb(rest, P, T, ms))
+      Bool.and(Bool.or(Bool.and(Has(P, c), Bool.not(Has(T, c))), Bool.and(Has(T, c), Bool.and(U32.is_eq(Fd(0n, ms, c), 45), Has(Qn, c)))),
+        Gb(rest, P, T, Qn, ms))
+
+# each of the n cells from c is one of T
+def In.all(n: Nat, +c: U32, +T: List<&2, U32>) -> Bool:
+  match n:
+    case 0n:
+      True{}
+    case 1n+p:
+      Bool.and(Has(T, c), In.all(p, U32.inc(c), T))
+
+# each taken cell of T, but the garbage Pn, counts its pointers: those of the
+# n own cells from F, with the pend list Qn, and the result's register, of r
+def Tc(T: List<&2, U32>, +ms: Cr.Cir.Cells, +Pn: List<&2, U32>, +Qn: List<&2, U32>, +n: Nat, +F: U32, +r: U32) -> Bool:
+  match T:
+    case Nil{}:
+      True{}
+    case Con{+c, rest}:
+      Bool.and(Bool.or(Has(Pn, c), Nat.is_eq(U32.to_nat(Fd(1n, ms, c)), Nat.add(Pc(n, ms, Qn, F, c), Occ([r], c)))),
+        Tc(rest, ms, Pn, Qn, n, F, r))
 
 # X, when b holds
 def Hx(b: Bool, X: Data) -> Data:
@@ -891,11 +935,13 @@ def Ok(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +B: Nat
 # what the result is made of (Made: the old nodes of S, the source and the
 # locals, and new cells, by the pairs ps); the cells taken (T) are the
 # result's new nodes and roots given back, the new garbage the old garbage
-# not taken and those roots; the taken cells were garbage or new, and hold no
-# flag; the others keep their fields 0 and 2 to 4 (Kept, and the image's:
-# Same) and their counts follow the pointers, the result's register counting
-# one more; next stays at most 214748364 when it grows; and the cells taken,
-# less those given back, are at most the result's nodes
+# not taken and those roots, pending; the taken cells were garbage or new,
+# and each new cell is taken; they hold no flag, and but those given back
+# they count their pointers, the result's register's too; the others keep
+# their fields 0 and 2 to 4 (Kept, and the image's: Same) and their counts
+# follow the pointers, the result's register counting one more; next stays
+# at most 214748364 when it grows; and the cells taken, less those given
+# back, are at most the result's nodes
 type Wt is Data:
   Wt{ups: List<&2, Up>, r: U32, g: Nat, Pn: List<&2, U32>, Qn: List<&2, U32>, zn: List<&2, Zs>, T: List<&2, U32>,
     ps: List<&2, Pr>}
@@ -923,15 +969,17 @@ def Post(+hx: Bool, +mo: Mo, +t: Bk.Term, +regs: List<&2, U32>, +scr: List<&2, N
       P2({Clo(n, ms, F, Qn, Tmp.cells(ts), Rt.cells(hl), E) == True{} : Bool},
       P2({Made(u, ms, m, r, S, T, ps) == True{} : Bool},
       P2({Tk(T, ms, u, r, Pn) == True{} : Bool},
-      P2({Gb(Pn, P, T, ms) == True{} : Bool},
+      P2({Gb(Pn, P, T, Qn, ms) == True{} : Bool},
       P2({Sub(P, List.append(&2, U32, T, Pn)) == True{} : Bool},
       P2({Incl.go(T, P, N) == True{} : Bool},
+      P2({In.all(Nat.sub(U32.to_nat(nx), U32.to_nat(N)), N, T) == True{} : Bool},
       P2({Nf(T, ms) == True{} : Bool},
+      P2({Tc(T, ms, Pn, Qn, n, F, r) == True{} : Bool},
       P2({Same(U32.to_nat(K), m, ms, 1) == True{} : Bool},
       P2({Kept(n0, m, ms, F, T, Pn, F, n0, n, Q, Qn, Nil{}, [r]) == True{} : Bool},
       P2({Bool.or(U32.is_eq(nx, N), U32.is_le(nx, 214748364)) == True{} : Bool},
         N.Le(Nat.add(U32.to_nat(nx), List.length(&2, U32, P)),
-          Nat.add(U32.to_nat(N), Nat.add(List.length(&2, U32, Pn), Pg.Term.size(u))))))))))))))))))))))))
+          Nat.add(U32.to_nat(N), Nat.add(List.length(&2, U32, Pn), Pg.Term.size(u))))))))))))))))))))))))))
 
 # the cells E that the run may not read: machine cells before nx, none garbage
 def Ex.ok(xs: List<&2, U32>, +P: List<&2, U32>, +F: U32, +nx: U32) -> Bool:
