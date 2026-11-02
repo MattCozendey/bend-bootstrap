@@ -178,7 +178,7 @@ How a `.bend` file becomes a trusted binary. Each link is either trusted (3.7) o
    Bend version of `Eval` (3.6.3) and of the target's meaning (3.9).
 5. The Lean interpreter runs the compiler. Proven: 3.6.5, and joined to the laws by 3.6.6.
 6. The interpreter compiles the compiler itself; that binary becomes our compiler (3.8.7).
-7. A real engine runs the binary. Trusted: the target's entry in 3.9.
+7. A real engine and the host run the binary. Trusted: the target's entry in 3.9.
 
 ### 3.6 Laws and theorems
 
@@ -267,13 +267,23 @@ The entries:
 - **3.9.1** WASM (WebAssembly)
   - **3.9.1.1** Why: it is small and has an official formal spec. Native machine code has no
     compact formal spec, and C's meaning is huge and full of undefined behavior.
-  - **3.9.1.2** Meaning: our Bend version covers only the part of WASM that the compiler uses, its
-    binary format included. The version is WASM 3.0, at the commit `6057acdb` of the official spec
-    (github.com/WebAssembly/spec), which the tests pin.
-  - **3.9.1.3** Trusted: a WASM engine follows the WASM spec. Our Bend version of WASM's meaning is
-    reviewed against the spec and tested with the spec's official test suite, but not proven,
-    because we know of no Lean or Bend version of the spec. This is a named exception to "all of
-    our own code is untrusted" (3.7).
+  - **3.9.1.2** Meaning: our Bend version covers only the subset: the part of WASM that the
+    compiler emits, its binary format included. It takes these parts in their general forms, so
+    that the official tests can run. The version is WASM 3.0, at the commit `6057acdb` of the
+    official spec (github.com/WebAssembly/spec), which the tests pin.
+  - **3.9.1.3** Trusted, and not proven, on the modules of the subset (3.9.1.2):
+    - **3.9.1.3.1** A WASM engine follows the WASM spec.
+    - **3.9.1.3.2** Our Bend version gives what the spec gives. We know of no Lean or Bend version
+      of the spec, so it is reviewed against the spec and tested against it: each official test of
+      the pinned commit that stays inside the subset passes, and each instruction and module part
+      of the subset, in each form that the compiler emits, is run by a passing test. Where no
+      official test runs one, our own test does, and the spec's reference interpreter at the
+      pinned commit gives its expected result.
+    - **3.9.1.3.3** The host follows the Host section of our Bend version. The host is the program
+      that runs a compiled module on the PC: it gives the module its input, calls it, and reads its
+      output. The WASM spec does not define it; we do. It is reviewed against the Host section.
+
+    3.9.1.3.2 and 3.9.1.3.3 are named exceptions to "all of our own code is untrusted" (3.7).
   - **3.9.1.4** Memory: F = 64 × (program size + term size of the largest term) + 2^24 bytes. The
     limit is 4 GiB (32-bit addresses). To stay within F, the compiled code:
     - frees every cell that it can no longer reach; only the program's image and the input's byte
@@ -301,4 +311,4 @@ The entries:
 1. **WE HAVE A BEND INTERPRETER, WRITTEN FULLY IN LEAN. PROVEN.**
 2. **WE HAVE EVAL WRITTEN IN BEND. PROVEN TO MATCH THE KERNEL'S EVAL, STEP FOR STEP.**
 3. **WE HAVE A BOOK READER WRITTEN IN BEND. PROVEN TO GET BACK EXACTLY THE BOOK THAT LEAN WROTE.**
-4. **WE HAVE A WASM INTERPRETER, WRITTEN IN BEND. UNTRUSTED. THIS IS WHERE WE'RE AT.**
+4. **WE HAVE A WASM INTERPRETER FOR THE SUBSET, WRITTEN IN BEND. TESTED AS 3.9.1.3 ASKS, NOT YET REVIEWED. THIS IS WHERE WE'RE AT.**
