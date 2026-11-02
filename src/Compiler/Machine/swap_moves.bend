@@ -21,6 +21,7 @@ import ./impl.bend as Mc
 import ../need_big.bend as N
 import ./definitions.bend as D
 import ./statement_runs.bend as X
+import ./move_kit.bend as K
 
 # Kit
 # ---
@@ -1032,16 +1033,18 @@ def sw.not38(kind: D.FK, hk: {sw.isapp(kind) == True{} : Bool}) -> {U32.is_eq(D.
       {==}
 
 # Inv after a swap: a to evaluate, in the frames fr2, from the facts of the cells m2
+# and the accounting of the new state (acc)
 def sw.inv(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m2: Cr.Cir.Cells, +nx: U32, +fi: U32,
   +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +a: Bk.Term, +fr2: List<&2, D.AF>, +n: U32, +sp: U32, +pend: U32,
   +ps: List<&2, U32>, +rest2: D.R59, et2: {D.A.plugs(fr2, a) == t : Bk.Term}, afs2: D.AFs.ok(ds, fr2),
   core: D.P2(D.Is(ds, m2, im, fi, nx, ks, img, n, a), D.P2(D.Frs(ds, m2, im, fi, nx, ks, img, ps, sp, fr2),
-    D.P2(D.Heap(m2, nx, fi, im, [n], pend, ps), D.ImgOK(ds, ks, img, m2, im, fi, nx))))) ->
+    D.P2(D.Heap(m2, nx, fi, im, [n], pend, ps), D.ImgOK(ds, ks, img, m2, im, fi, nx)))),
+  acc: D.Ex(List<&2, D.Rt>, zs => D.AccK(True{}, ds, ks, img, m2, nx, fi, im, [D.Rt{n, a}], Nil{}, sp, fr2, ps, zs))) ->
   D.Inv(ds, ks, img, D.S(n, 0, sp, pend, rest2, m2, nx, fi, im, pg, lim, inp), t, D.A.w(False{}, a, fr2)):
   match core:
     case Tuple{isa, Tuple{frs2, Tuple{heap2, img2}}}:
       (D.Wit{False{}, a, fr2, n, sp, pend, ps, rest2},
-        (et2, ({==}, ({==}, (afs2, ({==}, (isa, (frs2, (heap2, (img2, ({==}, {==})))))))))))
+        ((et2, ({==}, ({==}, (afs2, ({==}, (isa, (frs2, (heap2, (img2, ({==}, {==})))))))))), acc))
 
 # the round of the App swap, to the state of Inv
 def sw.app.E2(+f: Nat, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32,
@@ -1077,7 +1080,8 @@ def sw.app.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Li
   +hk: {sw.isapp(kind) == True{} : Bool}, +hlv: {El.Quan.live(q) == True{} : Bool},
   +htg2: {D.TgW(sw.hd(34, Mc.Img.quan(q))) == 34 : U32}, +hq2: {D.QnW(sw.hd(34, Mc.Img.quan(q))) == Mc.Img.quan(q) : U32},
   +hst2: {D.FlW(sw.hd(34, Mc.Img.quan(q)), 1024) == False{} : Bool}, +hk2: {D.FlW(sw.hd(34, Mc.Img.quan(q)), 2048) == False{} : Bool},
-  +nz: {U32.is_zero(Wa.Wasm.op(Wa.Wasm.Op.and{}, Wa.Wasm.op(Wa.Wasm.Op.ne{}, Mc.Img.quan(q), 0), Bool.to_u32(U32.is_zero(Bool.to_u32(False{}))))) == False{} : Bool}) ->
+  +nz: {U32.is_zero(Wa.Wasm.op(Wa.Wasm.Op.and{}, Wa.Wasm.op(Wa.Wasm.Op.ne{}, Mc.Img.quan(q), 0), Bool.to_u32(U32.is_zero(Bool.to_u32(False{}))))) == False{} : Bool},
+  acc: D.Ex(List<&2, D.Rt>, zs => D.AccK(True{}, ds, ks, img, Cr.Cir.Cells.set(m, sp, sw.cell(m, sp, sw.hd(34, Mc.Img.quan(q)), foc)), nx, fi, im, [D.Rt{D.Fd(2n, m, sp), a}], Nil{}, sp, Con{D.AF{D.FK.fun{}, q, False{}, focus, b}, fs}, ps, zs))) ->
   sw.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match iv:
     case Tuple{et, Tuple{ew, Tuple{evv, Tuple{afs, Tuple{_, Tuple{+isf, Tuple{+frs, Tuple{+hp, Tuple{+io, Tuple{_, _}}}}}}}}}}:
@@ -1108,7 +1112,7 @@ def sw.app.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Li
       +et2 = {(%sw.plug(kind, hk, q, False{}, a, b, focus) : {D.A.plugs(fs, _) == t : Bk.Term}; et) : {D.A.plugs(fr2, a) == t : Bk.Term}}
       +afs2 = {((%Equal.sym(Bool, El.Quan.live(q), True{}, hlv) : {Bool.and(_, El.Eval.vals(ds, focus, False{})) == True{} : Bool}; evv),
         p2.snd(D.AF.ok(ds, D.AF{kind, q, False{}, a, b}), D.AFs.ok(ds, fs), afs)) : D.AFs.ok(ds, fr2)}
-      +inv = sw.inv(ds, ks, img, M2, nx, fi, im, pg, lim, inp, t, a, fr2, n, sp, pend, ps, rest2, et2, afs2, core)
+      +inv = sw.inv(ds, ks, img, M2, nx, fi, im, pg, lim, inp, t, a, fr2, n, sp, pend, ps, rest2, et2, afs2, core, acc)
       sw.adm(ds, ks, img, ST0, ST2, t, w, w2,
         f => sw.app.E2(f, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, kind, q, hk, hz, hc, ht, hq, hkn, nz),
         sw.app.E2(0n, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, kind, q, hk, hz, hc, ht, hq, hkn, nz), inv, lt)
@@ -1119,7 +1123,8 @@ def sw.app.mv(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Li
   +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term, +kind: D.FK, q: Bk.Quan, k: Bool, +a: Bk.Term, +b: Bk.Term,
   iv: D.InvOf(ds, ks, img, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, Nil{}, 0, t, w, True{}, focus,
     Con{D.AF{kind, q, k, a, b}, fs}, foc, sp, pend, ps, rest),
-  hk: {sw.isapp(kind) == True{} : Bool}, hs: {Bool.and(El.Quan.live(q), Bool.not(k)) == True{} : Bool}) ->
+  hk: {sw.isapp(kind) == True{} : Bool}, hs: {Bool.and(El.Quan.live(q), Bool.not(k)) == True{} : Bool},
+  acc: D.Ex(List<&2, D.Rt>, zs => D.AccK(True{}, ds, ks, img, Cr.Cir.Cells.set(m, sp, sw.cell(m, sp, sw.hd(34, Mc.Img.quan(q)), foc)), nx, fi, im, [D.Rt{D.Fd(2n, m, sp), a}], Nil{}, sp, Con{D.AF{D.FK.fun{}, q, False{}, focus, b}, fs}, ps, zs))) ->
   sw.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match q k:
     case Bk.Quan.Q0{} _:
@@ -1128,9 +1133,33 @@ def sw.app.mv(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Li
       D.bool.ft(sw.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w), hs)
     case Bk.Quan.Q1{} False{}:
       sw.app.go(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, kind, Bk.Quan.Q1{}, a, b, iv, hk,
-        {==}, {==}, {==}, {==}, {==}, {==})
+        {==}, {==}, {==}, {==}, {==}, {==}, acc)
     case Bk.Quan.Q2{} True{}:
       D.bool.ft(sw.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w), hs)
     case Bk.Quan.Q2{} False{}:
       sw.app.go(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, kind, Bk.Quan.Q2{}, a, b, iv, hk,
-        {==}, {==}, {==}, {==}, {==}, {==})
+        {==}, {==}, {==}, {==}, {==}, {==}, acc)
+
+# The moves of move_kit.bend that this file proves (U11; U0 left them as ?TODO)
+# --------------------------------------------------------------------------
+
+def K.mv.ev.ann(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, x, y, iv, hv):
+  ?TODO
+
+def K.mv.ret.swap(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, kind, q, k, a, b, iv, hk, hs):
+  ?TODO
+
+def K.mv.ret.tupb(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
+  ?TODO
+
+def K.mv.ret.tupa(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
+  ?TODO
+
+def K.mv.ret.rwt(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
+  ?TODO
+
+def K.mv.ret.minb(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
+  ?TODO
+
+def K.mv.ret.mina(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
+  ?TODO
