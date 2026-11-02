@@ -284,7 +284,9 @@ The entries:
       against it: each official test of the pinned commit that stays inside the subset passes, and
       each instruction and module part of the subset, in each form that the compiler emits, is run
       by a passing test. Where no official test runs one, our own test does, and the spec's
-      reference interpreter at the pinned commit gives its expected result.
+      reference interpreter at the pinned commit gives its expected result. Where an engine choice
+      matters (a refused grow), our own test takes its expected result from the spec's rule, since
+      the reference interpreter never refuses.
     - **3.9.1.3.3** The host follows the Host section of our Bend version. The host is the program
       that runs a compiled module on the PC: it gives the module its input, calls it, and reads its
       output. The WASM spec does not define it; we do. It is reviewed against the Host section.
