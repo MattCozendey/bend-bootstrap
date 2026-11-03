@@ -9,6 +9,7 @@
 import Base
 import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
+import ../../Wasm/impl.bend as Wa
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
 import ../need_big.bend as N
@@ -4967,6 +4968,802 @@ def hs.fresh(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>
   match hs:
     case Tuple{+hos, Tuple{+hbs, Tuple{+hheld, Tuple{+hfrs, Tuple{+hheap, himg}}}}}:
       hs.fresh.go(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, hos, hbs, hheld, hfrs, hheap, himg, hlt)
+
+# Budgets
+# -------
+#
+# A Cir alloc at next nx runs out of memory only when the limit L has fewer
+# than 20 (nx + 1) bytes (D.Lim.bytes): either nx is 214748364 or more, and
+# 20 (nx + 1) is past 2^32, the most bytes of a limit; or the pages of the
+# cell's last byte, ((20 nx + 19) >> 16) + 1, are more than L. The big
+# numbers stay symbolic, as in need_big.bend: 2^k is N.D(k, 1n), 214748364
+# is Pat(7), of nibbles 12, and the code's arithmetic is bounded above only (a
+# wrap makes a value smaller). copy_kit.bend (U4) proves the same lemmas for
+# its own copy of Lim.bytes; it can import these.
+
+# 20 × x
+def T20(x: Nat) -> Nat:
+  match x:
+    case 0n:
+      0n
+    case 1n+p:
+      20n+T20(p)
+
+# 20 × x grows with x
+def t20.mono(+x: Nat, +y: Nat, h: N.Le(x, y)) -> N.Le(T20(x), T20(y)):
+  match x:
+    case 0n:
+      N.le_zero(T20(y))
+    case 1n+p:
+      match y:
+        case 0n:
+          Empty.absurd(N.Le(T20(1n+p), 0n), h)
+        case 1n+q:
+          t20.mono(p, q, h)
+
+# 20 × 2x = 2 × 20x
+def t20.double(+x: Nat) -> {T20(Nat.double(x)) == Nat.double(T20(x)) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      %t20.double(p) : {40n+T20(Nat.double(p)) == 40n+_ : Nat}
+      {==}
+
+# 20 × 16x = 16 × 20x
+def t20.D4(+x: Nat) -> {T20(N.D(4n, x)) == N.D(4n, T20(x)) : Nat}:
+  +x1 = Nat.double(x)
+  +x2 = Nat.double(x1)
+  +x3 = Nat.double(x2)
+  Equal.trans(Nat, T20(Nat.double(x3)), Nat.double(T20(x3)), Nat.double(Nat.double(Nat.double(Nat.double(T20(x))))),
+    t20.double(x3),
+    Equal.cong(Nat, Nat, z => Nat.double(z), T20(x3), Nat.double(Nat.double(Nat.double(T20(x)))),
+      Equal.trans(Nat, T20(x3), Nat.double(T20(x2)), Nat.double(Nat.double(Nat.double(T20(x)))),
+        t20.double(x2),
+        Equal.cong(Nat, Nat, z => Nat.double(z), T20(x2), Nat.double(Nat.double(T20(x))),
+          Equal.trans(Nat, T20(x2), Nat.double(T20(x1)), Nat.double(Nat.double(T20(x))),
+            t20.double(x1),
+            Equal.cong(Nat, Nat, z => Nat.double(z), T20(x1), Nat.double(T20(x)), t20.double(x)))))))
+
+# 0x0CCC...C, nibble by nibble: 12 + 16 × the rest
+def Pat(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      0n
+    case 1n+q:
+      Nat.add(12n, N.D(4n, Pat(q)))
+
+def E4(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      4n
+    case 1n+q:
+      4n+E4(q)
+
+# 16 + 20 × Pat(j) = 2^(4 + 4j)
+def pat.val(+j: Nat) -> {Nat.add(16n, T20(Pat(j))) == N.D(E4(j), 1n) : Nat}:
+  match j:
+    case 0n:
+      {==}
+    case 1n+q:
+      %pat.val(q) : {256n+T20(N.D(4n, Pat(q))) == N.D(4n, _) : Nat}
+      %Equal.sym(Nat, T20(N.D(4n, Pat(q))), N.D(4n, T20(Pat(q))), t20.D4(Pat(q))) :
+        {256n+_ == 256n+N.D(4n, T20(Pat(q))) : Nat}
+      {==}
+
+# 16 + 20 × 214748364 = 2^32
+def hP() -> {Nat.add(16n, T20(Pat(7n))) == N.D(32n, 1n) : Nat}:
+  %{{==} : {E4(7n) == 32n : Nat}} : {Nat.add(16n, T20(Pat(7n))) == N.D(_, 1n) : Nat}
+  pat.val(7n)
+
+def q4(j: Nat) -> Nat:
+  match j:
+    case 0n:
+      0n
+    case 1n+q:
+      4n+q4(q)
+
+# n bits of 0x0CCC...C with j nibbles of 12 at the bottom, its lowest bit
+# first; the index is n itself, so that the word of 32 bits is a Word(32n)
+def wb(n: Nat, j: Nat) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n:
+      WCon{False{}, WNil{}}
+    case 2n:
+      WCon{False{}, WCon{False{}, WNil{}}}
+    case 3n:
+      WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}
+    case 4n+p:
+      match j:
+        case 0n:
+          WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, wb(p, 0n)}}}}
+        case 1n+q:
+          WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, wb(p, q)}}}}
+
+def wb.val(j: Nat, +n: Nat, e: {n == 4n+q4(j) : Nat}) -> {Word.to_nat(n, wb(n, j)) == Pat(j) : Nat}:
+  match j:
+    case 0n:
+      %Equal.sym(Nat, n, 4n, e) : {Word.to_nat(_, wb(_, 0n)) == Pat(0n) : Nat}
+      {==}
+    case 1n+(+q):
+      %Equal.sym(Nat, n, 4n+q4(1n+q), e) : {Word.to_nat(_, wb(_, 1n+q)) == Pat(1n+q) : Nat}
+      %Equal.sym(Nat, Word.to_nat(q4(1n+q), wb(q4(1n+q), q)), Pat(q), wb.val(q, q4(1n+q), {==})) :
+        {Nat.double(Nat.double(1n+Nat.double(1n+Nat.double(_)))) == Nat.add(12n, N.D(4n, Pat(q))) : Nat}
+      {==}
+
+def lit.wb() -> {214748364 == U32{wb(32n, 7n)} : U32}:
+  {==}
+
+# 214748364 is Pat(7)
+def lit.pat() -> {U32.to_nat(214748364) == Pat(7n) : Nat}:
+  %Equal.sym(U32, 214748364, U32{wb(32n, 7n)}, lit.wb()) : {U32.to_nat(_) == Pat(7n) : Nat}
+  Equal.trans(Nat, U32.to_nat(U32{wb(32n, 7n)}), Word.to_nat(32n, wb(32n, 7n)), Pat(7n), N.u32_to_nat(wb(32n, 7n)),
+    wb.val(7n, 32n, {==}))
+
+# 2^k x grows with x
+def Dk.mono(+k: Nat, +x: Nat, +y: Nat, h: N.Le(x, y)) -> N.Le(N.D(k, x), N.D(k, y)):
+  match k:
+    case 0n:
+      h
+    case 1n+q:
+      N.double_mono(N.D(q, x), N.D(q, y), Dk.mono(q, x, y, h))
+
+def adc.h0(+X: Nat, +A: Nat, +B: Nat, ih: N.Le(X, Nat.add(A, B))) -> N.Le(Nat.double(X), Nat.add(Nat.double(A), Nat.double(B))):
+  N.le_rw_r(Nat.double(X), Nat.double(Nat.add(A, B)), Nat.add(Nat.double(A), Nat.double(B)), N.double_add(A, B),
+    N.double_mono(X, Nat.add(A, B), ih))
+
+def adc.h1(+X: Nat, +A: Nat, +B: Nat, ih: N.Le(X, 1n+Nat.add(A, B))) -> N.Le(Nat.double(X), 2n+Nat.add(Nat.double(A), Nat.double(B))):
+  N.le_rw_r(Nat.double(X), 2n+Nat.double(Nat.add(A, B)), 2n+Nat.add(Nat.double(A), Nat.double(B)),
+    Equal.cong(Nat, Nat, z => 2n+z, Nat.double(Nat.add(A, B)), Nat.add(Nat.double(A), Nat.double(B)), N.double_add(A, B)),
+    N.double_mono(X, 1n+Nat.add(A, B), ih))
+
+# 1 + (a + b) = a + (1 + b), on the right of a bound
+def adc.r1(+Y: Nat, +a: Nat, +b: Nat, h: N.Le(Y, 1n+Nat.add(a, b))) -> N.Le(Y, Nat.add(a, 1n+b)):
+  N.le_rw_r(Y, 1n+Nat.add(a, b), Nat.add(a, 1n+b), Equal.sym(Nat, Nat.add(a, 1n+b), 1n+Nat.add(a, b), N.add_succ_r(a, b)), h)
+
+# the number of a sum of words, with the carry c in, is at most the sum
+def adc.le(+n: Nat, +a: Word(n), +b: Word(n), +c: Bool) ->
+  N.Le(Word.to_nat(n, Word.adc(n, a, b, False{}, c)), Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b)))):
+  match n:
+    case 0n:
+      N.le_zero(Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(0n, a), Word.to_nat(0n, b))))
+    case 1n+p:
+      match a b c:
+        case WCon{False{}, +at} WCon{False{}, +bt} False{}:
+          adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, False{}))
+        case WCon{False{}, +at} WCon{False{}, +bt} True{}:
+          adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, False{}))
+        case WCon{False{}, +at} WCon{True{}, +bt} False{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          adc.r1(1n+Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{}))), Nat.double(A), Nat.double(B),
+            adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), A, B, adc.le(p, at, bt, False{})))
+        case WCon{False{}, +at} WCon{True{}, +bt} True{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          +X = Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})))
+          N.le_rw_r(X, 2n+Nat.add(Nat.double(A), Nat.double(B)), 1n+Nat.add(Nat.double(A), 1n+Nat.double(B)),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(Nat.double(A), Nat.double(B)), Nat.add(Nat.double(A), 1n+Nat.double(B)),
+              Equal.sym(Nat, Nat.add(Nat.double(A), 1n+Nat.double(B)), 1n+Nat.add(Nat.double(A), Nat.double(B)), N.add_succ_r(Nat.double(A), Nat.double(B)))),
+            adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), A, B, adc.le(p, at, bt, True{})))
+        case WCon{True{}, +at} WCon{False{}, +bt} False{}:
+          adc.h0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, False{}))
+        case WCon{True{}, +at} WCon{False{}, +bt} True{}:
+          adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), Word.to_nat(p, at), Word.to_nat(p, bt), adc.le(p, at, bt, True{}))
+        case WCon{True{}, +at} WCon{True{}, +bt} False{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          +X = Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})))
+          N.le_rw_r(X, 2n+Nat.add(Nat.double(A), Nat.double(B)), 1n+Nat.add(Nat.double(A), 1n+Nat.double(B)),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(Nat.double(A), Nat.double(B)), Nat.add(Nat.double(A), 1n+Nat.double(B)),
+              Equal.sym(Nat, Nat.add(Nat.double(A), 1n+Nat.double(B)), 1n+Nat.add(Nat.double(A), Nat.double(B)), N.add_succ_r(Nat.double(A), Nat.double(B)))),
+            adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), A, B, adc.le(p, at, bt, True{})))
+        case WCon{True{}, +at} WCon{True{}, +bt} True{}:
+          +A = Word.to_nat(p, at)
+          +B = Word.to_nat(p, bt)
+          +X = Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})))
+          N.le_rw_r(X, 2n+Nat.add(Nat.double(A), Nat.double(B)), 1n+Nat.add(Nat.double(A), 1n+Nat.double(B)),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(Nat.double(A), Nat.double(B)), Nat.add(Nat.double(A), 1n+Nat.double(B)),
+              Equal.sym(Nat, Nat.add(Nat.double(A), 1n+Nat.double(B)), 1n+Nat.add(Nat.double(A), Nat.double(B)), N.add_succ_r(Nat.double(A), Nat.double(B)))),
+            adc.h1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), A, B, adc.le(p, at, bt, True{})))
+
+# a sum of U32s is at most the sum of their numbers
+def add.le(+x: U32, +y: U32) -> N.Le(U32.to_nat(U32.add(x, y)), Nat.add(U32.to_nat(x), U32.to_nat(y))):
+  match x y:
+    case U32{+a} U32{+b}:
+      adc.le(32n, a, b, False{})
+
+# the bit c under the word w less its top bit: at most c + 2w
+def shl.put.le(+n: Nat, c: Bool, w: Word(n)) ->
+  N.Le(Word.to_nat(n, Word.shl.put(n, c, w)), Nat.add(D.Nat.of(c), Nat.double(Word.to_nat(n, w)))):
+  match n:
+    case 0n:
+      N.le_zero(Nat.add(D.Nat.of(c), Nat.double(Word.to_nat(0n, w))))
+    case 1n+p:
+      match c w:
+        case False{} WCon{False{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, False{}, t)), Nat.double(Word.to_nat(p, t)), shl.put.le(p, False{}, t))
+        case True{} WCon{False{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, False{}, t)), Nat.double(Word.to_nat(p, t)), shl.put.le(p, False{}, t))
+        case False{} WCon{True{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, True{}, t)), 1n+Nat.double(Word.to_nat(p, t)), shl.put.le(p, True{}, t))
+        case True{} WCon{True{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, True{}, t)), 1n+Nat.double(Word.to_nat(p, t)), shl.put.le(p, True{}, t))
+
+# a shift left at most doubles a word
+def shl.le(+n: Nat, w: Word(n)) -> N.Le(Word.to_nat(n, Word.shl(n, w)), Nat.double(Word.to_nat(n, w))):
+  match n:
+    case 0n:
+      N.le_zero(Nat.double(Word.to_nat(0n, w)))
+    case 1n+p:
+      match w:
+        case WCon{False{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, False{}, t)), Nat.double(Word.to_nat(p, t)), shl.put.le(p, False{}, t))
+        case WCon{True{}, +t}:
+          N.double_mono(Word.to_nat(p, Word.shl.put(p, True{}, t)), 1n+Nat.double(Word.to_nat(p, t)), shl.put.le(p, True{}, t))
+
+def ushl.le(+y: U32) -> N.Le(U32.to_nat(U32.shl(y)), Nat.double(U32.to_nat(y))):
+  match y:
+    case U32{+w}:
+      shl.le(32n, w)
+
+# k shifts left multiply by at most 2^k
+def shln.le(+x: U32, +k: Nat) -> N.Le(U32.to_nat(U32.shln(x, k)), N.D(k, U32.to_nat(x))):
+  match k:
+    case 0n:
+      N.le_refl(U32.to_nat(x))
+    case 1n+q:
+      +y = U32.shln(x, q)
+      N.le_trans(U32.to_nat(U32.shl(y)), Nat.double(U32.to_nat(y)), N.D(1n+q, U32.to_nat(x)),
+        ushl.le(y), N.double_mono(U32.to_nat(y), N.D(q, U32.to_nat(x)), shln.le(x, q)))
+
+# a word shifted right with a 0 on top keeps its number
+def pad.val(+p: Nat, t: Word(p)) -> {Word.to_nat(1n+p, Word.shr.pad(p, t)) == Word.to_nat(p, t) : Nat}:
+  match p:
+    case 0n:
+      match t:
+        case WNil{}:
+          {==}
+    case 1n+q:
+      match t:
+        case WCon{False{}, +r}:
+          Equal.cong(Nat, Nat, v => Nat.double(v), Word.to_nat(1n+q, Word.shr.pad(q, r)), Word.to_nat(q, r), pad.val(q, r))
+        case WCon{True{}, +r}:
+          Equal.cong(Nat, Nat, v => 1n+Nat.double(v), Word.to_nat(1n+q, Word.shr.pad(q, r)), Word.to_nat(q, r), pad.val(q, r))
+
+# 2 (x >> 1) <= x
+def shr.le(x: U32) -> N.Le(Nat.double(U32.to_nat(U32.shr(x))), U32.to_nat(x)):
+  match x:
+    case U32{w}:
+      match w:
+        case WCon{False{}, +t}:
+          +a = Nat.double(Word.to_nat(31n, t))
+          N.le_rw_l(a, Nat.double(Word.to_nat(32n, Word.shr.pad(31n, t))), a,
+            Equal.cong(Nat, Nat, v => Nat.double(v), Word.to_nat(31n, t), Word.to_nat(32n, Word.shr.pad(31n, t)),
+              Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), pad.val(31n, t))),
+            N.le_refl(a))
+        case WCon{True{}, +t}:
+          +a = Nat.double(Word.to_nat(31n, t))
+          N.le_rw_l(a, Nat.double(Word.to_nat(32n, Word.shr.pad(31n, t))), 1n+a,
+            Equal.cong(Nat, Nat, v => Nat.double(v), Word.to_nat(31n, t), Word.to_nat(32n, Word.shr.pad(31n, t)),
+              Equal.sym(Nat, Word.to_nat(32n, Word.shr.pad(31n, t)), Word.to_nat(31n, t), pad.val(31n, t))),
+            N.le_succ(a, a, N.le_refl(a)))
+
+# x >> (1 + q) = (x >> 1) >> q
+def shrn.succ(+x: U32, q: Nat) -> {U32.shrn(x, 1n+q) == U32.shrn(U32.shr(x), q) : U32}:
+  match q:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(U32, U32, y => U32.shr(y), U32.shrn(x, 1n+p), U32.shrn(U32.shr(x), p), shrn.succ(x, p))
+
+# 2^k (x >> k) <= x
+def shrn.le(+k: Nat, +x: U32) -> N.Le(N.D(k, U32.to_nat(U32.shrn(x, k))), U32.to_nat(x)):
+  match k:
+    case 0n:
+      N.le_refl(U32.to_nat(x))
+    case 1n+q:
+      +y = U32.shr(x)
+      +a = Nat.double(N.D(q, U32.to_nat(U32.shrn(y, q))))
+      +h = N.le_trans(a, Nat.double(U32.to_nat(y)), U32.to_nat(x),
+        N.double_mono(N.D(q, U32.to_nat(U32.shrn(y, q))), U32.to_nat(y), shrn.le(q, y)), shr.le(x))
+      N.le_rw_l(a, Nat.double(N.D(q, U32.to_nat(U32.shrn(x, 1n+q)))), U32.to_nat(x),
+        Equal.cong(U32, Nat, z => Nat.double(N.D(q, U32.to_nat(z))), U32.shrn(y, q), U32.shrn(x, 1n+q),
+          Equal.sym(U32, U32.shrn(x, 1n+q), U32.shrn(y, q), shrn.succ(x, q))), h)
+# a comparison that is not at most EQ: y < x
+def nle.of(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: {Cmp.is_le(c) == False{} : Bool}) -> N.Le(1n+y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(N.Le(1n+y, x), N.true_ne_false(h))
+    case EQ{}:
+      Empty.absurd(N.Le(1n+y, x), N.true_ne_false(h))
+    case GT{}:
+      r
+# a comparison that is not LT: y <= x
+def nlt.of(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: {Cmp.is_lt(c) == False{} : Bool}) -> N.Le(y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(N.Le(y, x), N.true_ne_false(h))
+    case EQ{}:
+      %Equal.sym(Nat, x, y, r) : N.Le(y, _)
+      N.le_refl(y)
+    case GT{}:
+      N.weaken(y, x, r)
+# min(m, k) is at most m
+def min.le.l(b0: Bool, +m: U32, +k: U32, e: {U32.is_le(m, k) == b0 : Bool}) -> N.Le(U32.to_nat(Wa.Wasm.min.if(b0, m, k)), U32.to_nat(m)):
+  match b0:
+    case True{}:
+      N.le_refl(U32.to_nat(m))
+    case False{}:
+      N.weaken(U32.to_nat(k), U32.to_nat(m), nle.of(U32.cmp(m, k), U32.to_nat(m), U32.to_nat(k), N.U32.rel(m, k), e))
+# the minimum of the limit and 65536, as min.case gives it
+def lim.min(+L: U32) -> {Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536) == Wa.Wasm.min(L, 65536) : U32}:
+  {==}
+# the bytes of a limit, as min.case gives its pages
+def lim.eq(+L: U32) -> {N.D(16n, U32.to_nat(Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536))) == D.Lim.bytes(L) : Nat}:
+  {==}
+# a limit's bytes are at most 2^32
+def lim.le(+L: U32) -> N.Le(D.Lim.bytes(L), N.D(32n, 1n)):
+  +y = U32.to_nat(Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536))
+  +h2 = N.le_rw_r(y, U32.to_nat(65536), N.D(16n, 1n), N.val_65536(), N.min.case(U32.is_le(L, 65536), L, 65536, {==}))
+  N.le_rw_l(N.D(16n, y), D.Lim.bytes(L), N.D(32n, 1n), lim.eq(L),
+    N.le_rw_r(N.D(16n, y), N.D(16n, N.D(16n, 1n)), N.D(32n, 1n), N.D_add(16n, 16n, 32n, 1n, {==}), Dk.mono(16n, y, N.D(16n, 1n), h2)))
+# a limit's bytes are at most those of its pages
+def lim.le.pages(+L: U32) -> N.Le(D.Lim.bytes(L), N.D(16n, U32.to_nat(L))):
+  +y = U32.to_nat(Wa.Wasm.min.if(U32.is_le(L, 65536), L, 65536))
+  N.le_rw_l(N.D(16n, y), D.Lim.bytes(L), N.D(16n, U32.to_nat(L)), lim.eq(L),
+    Dk.mono(16n, y, U32.to_nat(L), min.le.l(U32.is_le(L, 65536), L, 65536, {==})))
+# a + (k + b) = k + (a + b)
+def add.k(+a: Nat, +k: Nat, +b: Nat) -> {Nat.add(a, Nat.add(k, b)) == Nat.add(k, Nat.add(a, b)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+q:
+      %add.k(a, q, b) : {Nat.add(a, 1n+Nat.add(q, b)) == 1n+_ : Nat}
+      N.add_succ_r(a, Nat.add(q, b))
+# 16x + 4x = 20x
+def t20.shifts(+x: Nat) -> {Nat.add(N.D(4n, x), N.D(2n, x)) == T20(x) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      %Equal.sym(Nat, Nat.add(N.D(4n, p), Nat.add(4n, N.D(2n, p))), Nat.add(4n, Nat.add(N.D(4n, p), N.D(2n, p))),
+        add.k(N.D(4n, p), 4n, N.D(2n, p))) : {16n+_ == 20n+T20(p) : Nat}
+      %Equal.sym(Nat, Nat.add(N.D(4n, p), N.D(2n, p)), T20(p), t20.shifts(p)) : {20n+_ == 20n+T20(p) : Nat}
+      {==}
+# k × (1 + y) = k + k × y
+def mul.k(+k: Nat, +y: Nat) -> {Nat.mul(k, 1n+y) == Nat.add(k, Nat.mul(k, y)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+q:
+      %Equal.sym(Nat, Nat.mul(q, 1n+y), Nat.add(q, Nat.mul(q, y)), mul.k(q, y)) :
+        {1n+Nat.add(y, _) == 1n+Nat.add(q, Nat.add(y, Nat.mul(q, y))) : Nat}
+      Equal.cong(Nat, Nat, z => 1n+z, Nat.add(y, Nat.add(q, Nat.mul(q, y))), Nat.add(q, Nat.add(y, Nat.mul(q, y))),
+        N.add_swap(y, q, Nat.mul(q, y)))
+# 20 × y, as T20
+def mul20(+y: Nat) -> {Nat.mul(20n, y) == T20(y) : Nat}:
+  match y:
+    case 0n:
+      {==}
+    case 1n+p:
+      %Equal.sym(Nat, Nat.mul(20n, 1n+p), Nat.add(20n, Nat.mul(20n, p)), mul.k(20n, p)) : {_ == 20n+T20(p) : Nat}
+      %Equal.sym(Nat, Nat.mul(20n, p), T20(p), mul20(p)) : {Nat.add(20n, _) == 20n+T20(p) : Nat}
+      {==}
+# the cell's place, 20 nx, as the code computes it: at most 20 nx
+def at.le(+nx: U32) -> N.Le(U32.to_nat(Cr.Cir.at(nx)), T20(U32.to_nat(nx))):
+  +x = U32.to_nat(nx)
+  N.le_rw_r(U32.to_nat(Cr.Cir.at(nx)), Nat.add(N.D(4n, x), N.D(2n, x)), T20(x), t20.shifts(x),
+    N.le_trans(U32.to_nat(Cr.Cir.at(nx)), Nat.add(U32.to_nat(U32.shln(nx, 4n)), U32.to_nat(U32.shln(nx, 2n))), Nat.add(N.D(4n, x), N.D(2n, x)),
+      add.le(U32.shln(nx, 4n), U32.shln(nx, 2n)),
+      N.add_mono(U32.to_nat(U32.shln(nx, 4n)), N.D(4n, x), U32.to_nat(U32.shln(nx, 2n)), N.D(2n, x), shln.le(nx, 4n), shln.le(nx, 2n))))
+
+def M.T(x: Maybe<&2, U32>) -> Data:
+  match x:
+    case Some{_}:
+      Unit
+    case None{}:
+      Empty
+
+def ms.ne(-x: U32, h: {Some{x} == None{} : Maybe<&2, U32>}) -> Empty:
+  %h : M.T(_)
+  Unit{}
+# no room: the pages needed are more than the limit allows
+def room.none(i: Bool, c: Bool, +p: U32, +nd: U32, h: {Cr.Cir.room.if(i, c, p, nd) == None{} : Maybe<&2, U32>}) -> {c == False{} : Bool}:
+  match i c:
+    case True{} _:
+      Empty.absurd({c == False{} : Bool}, ms.ne(p, h))
+    case False{} True{}:
+      Empty.absurd({True{} == False{} : Bool}, ms.ne(nd, h))
+    case False{} False{}:
+      {==}
+# out of memory at a new cell, for want of room: the limit's bytes are
+# fewer than 20 (nx + 1)
+def oom.room(+L: U32, +pg: U32, +nx: U32, h: {Cr.Cir.room(U32.add(Cr.Cir.at(nx), 19), pg, L) == None{} : Maybe<&2, U32>}) ->
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(nx))):
+  +b = U32.add(Cr.Cir.at(nx), 19)
+  +sh = U32.shrn(b, 16n)
+  +nd = U32.inc(sh)
+  +L1 = U32.to_nat(L)
+  +S1 = U32.to_nat(sh)
+  +A = U32.to_nat(Cr.Cir.at(nx))
+  +X = U32.to_nat(nx)
+  +hc = room.none(U32.is_le(nd, pg), U32.is_le(nd, L), pg, nd, h)
+  +h1 = nle.of(U32.cmp(nd, L), U32.to_nat(nd), L1, N.U32.rel(nd, L), hc)
+  +h2 = N.le_trans(1n+L1, U32.to_nat(nd), 1n+S1, h1, N.U32.inc_le(sh))
+  +h3 = N.le_trans(N.D(16n, L1), N.D(16n, S1), U32.to_nat(b), Dk.mono(16n, L1, S1, h2), shrn.le(16n, b))
+  +hb = N.le_rw_l(U32.to_nat(U32.add(19, Cr.Cir.at(nx))), U32.to_nat(b), 19n+A,
+    Equal.cong(U32, Nat, z => U32.to_nat(z), U32.add(19, Cr.Cir.at(nx)), b, U32.add_comm(19, Cr.Cir.at(nx))), add.le(19, Cr.Cir.at(nx)))
+  +h4 = N.le_trans(N.D(16n, L1), U32.to_nat(b), 19n+T20(X), h3, N.le_trans(U32.to_nat(b), 19n+A, 19n+T20(X), hb, at.le(nx)))
+  N.le_rw_r(1n+D.Lim.bytes(L), T20(1n+X), Nat.mul(20n, 1n+X), Equal.sym(Nat, Nat.mul(20n, 1n+X), T20(1n+X), mul20(1n+X)),
+    N.le_trans(D.Lim.bytes(L), N.D(16n, L1), 19n+T20(X), lim.le.pages(L), h4))
+
+# 1 + B <= 20 (1 + X) when B <= 16 + 20 P and P <= X (over variables)
+def big.le(+B: Nat, +D: Nat, +P: Nat, +X: Nat, hb: N.Le(B, D), hp: {Nat.add(16n, T20(P)) == D : Nat}, hx: N.Le(P, X)) ->
+  N.Le(1n+B, Nat.mul(20n, 1n+X)):
+  +hw = N.le_rw_r(B, D, Nat.add(16n, T20(P)), Equal.sym(Nat, Nat.add(16n, T20(P)), D, hp), hb)
+  N.le_rw_r(1n+B, T20(1n+X), Nat.mul(20n, 1n+X), Equal.sym(Nat, Nat.mul(20n, 1n+X), T20(1n+X), mul20(1n+X)),
+    N.le_trans(1n+B, 17n+T20(P), 20n+T20(X), hw,
+      N.le_trans(17n+T20(P), 20n+T20(P), 20n+T20(X), N.le_add_l(3n, T20(P)), t20.mono(P, X, hx))))
+
+# out of memory at a new cell, next being 214748364 or more: 20 (nx + 1) is
+# past 2^32
+def oom.big(+L: U32, +nx: U32, h: {U32.is_lt(nx, 214748364) == False{} : Bool}) ->
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(nx))):
+  +X = U32.to_nat(nx)
+  +hx = N.le_rw_l(U32.to_nat(214748364), Pat(7n), X, lit.pat(), nlt.of(U32.cmp(nx, 214748364), X, U32.to_nat(214748364), N.U32.rel(nx, 214748364), h))
+  big.le(D.Lim.bytes(L), N.D(32n, 1n), Pat(7n), X, lim.le(L), hP(), hx)
+
+# M.alloc
+# -------
+#
+# alloc.post. With an empty pend list (pend is 0), M.alloc is Cir's alloc:
+# out of memory only below its budget (Budgets), else the new cell nx, all
+# zeros, with next one more (hs.fresh, U1's acc.fresh). Else it takes the pend
+# list's first cell p (al.reuse). AlQ is what alloc.post asks of the state
+# after it; al.mk builds it from its parts. Every proof here is generic in
+# the next state's predicate Q, which the law gives once (al.top).
+
+# what alloc.post asks of the state st2 after M.alloc(r)
+def AlQ(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +xs: List<&2, D.TmpE>,
+  st2: Cr.Cir.State) -> Type:
+  D.P2(D.Same(regs, fi, im, lim, inp, keep, st2),
+    D.Ex(U32, z => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+      D.P2(D.Reg(st2, r, z), D.P2(D.Reg(st2, 3n, pend2),
+      D.P2({Cr.Cir.Cells.get(D.St.cells(st2), z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
+      D.P2({D.Own(fi, D.St.next(st2), z) == True{} : Bool}, D.P2({D.Mem(ps2, z) == False{} : Bool},
+      D.P2({Bool.or(D.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool},
+      D.P2({Bool.or(Bool.and(D.Mem(ps, z), U32.is_eq(D.St.next(st2), nx)),
+           Bool.and(D.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(D.St.next(st2), U32.inc(nx))))) == True{} : Bool},
+      D.P2(D.Ex(List<&2, D.W1>, ws => D.P2({D.St.cells(st2) == Cr.Cir.Cells.set(D.Put1(ws, m), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells},
+        {D.Took(ws, ps, m) == True{} : Bool})),
+      D.P2({D.PsSub(ps2, ps, m) == True{} : Bool},
+      D.P2({D.Ptr(Nat.sub(U32.to_nat(D.St.next(st2)), U32.to_nat(fi)), D.St.cells(st2), fi, ps2, D.Rt.cells(os), z) == 0n : Nat},
+      D.P2(D.HSK(dk, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2),
+        D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, os, Con{D.TmpE{z, Nil{}}, xs}, sp, fs, ps2, zs2))))))))))))))))) & D.AlFr(m, ps, nx, st2)
+
+# AlQ from its parts
+def al.mk(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +xs: List<&2, D.TmpE>,
+  +st2: Cr.Cir.State, +z: U32, +pend2: U32, +ps2: List<&2, U32>, +ws: List<&2, D.W1>, +zs2: List<&2, D.Rt>,
+  h0: D.Same(regs, fi, im, lim, inp, keep, st2), h1: D.Reg(st2, r, z), h2: D.Reg(st2, 3n, pend2),
+  h3: {Cr.Cir.Cells.get(D.St.cells(st2), z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
+  h4: {D.Own(fi, D.St.next(st2), z) == True{} : Bool}, h5: {D.Mem(ps2, z) == False{} : Bool},
+  h6: {Bool.or(D.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool},
+  h7: {Bool.or(Bool.and(D.Mem(ps, z), U32.is_eq(D.St.next(st2), nx)),
+    Bool.and(D.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(D.St.next(st2), U32.inc(nx))))) == True{} : Bool},
+  h8: {D.St.cells(st2) == Cr.Cir.Cells.set(D.Put1(ws, m), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells},
+  h9: {D.Took(ws, ps, m) == True{} : Bool}, h10: {D.PsSub(ps2, ps, m) == True{} : Bool},
+  h11: {D.Ptr(Nat.sub(U32.to_nat(D.St.next(st2)), U32.to_nat(fi)), D.St.cells(st2), fi, ps2, D.Rt.cells(os), z) == 0n : Nat},
+  h12: D.HSK(dk, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2),
+  h13: D.AccK(dk, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, os, Con{D.TmpE{z, Nil{}}, xs}, sp, fs, ps2, zs2),
+  h14: D.AlFr(m, ps, nx, st2)) -> AlQ(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, ps, xs, st2):
+  ((h0, (z, (pend2, (ps2, (h1, (h2, (h3, (h4, (h5, (h6, (h7, ((ws, (h8, h9)), (h10, (h11, (h12, (zs2, h13)))))))))))))))), h14)
+
+# Registers
+# ---------
+
+# a register i other than j keeps its value when j is set
+def get.set.ne(xs: List<&2, U32>, j: Nat, i: Nat, +v: U32, ne: {Nat.is_eq(j, i) == False{} : Bool}) ->
+  {List.get(&2, U32, List.set(&2, U32, xs, j, v), i) == List.get(&2, U32, xs, i) : Maybe<&2, U32>}:
+  match xs j i:
+    case Nil{} _ _:
+      {==}
+    case Con{x, t} 0n 0n:
+      Empty.absurd({List.get(&2, U32, List.set(&2, U32, Con{x, t}, 0n, v), 0n) == List.get(&2, U32, Con{x, t}, 0n) : Maybe<&2, U32>},
+        N.true_ne_false(ne))
+    case Con{x, t} 0n 1n+q:
+      {==}
+    case Con{x, t} 1n+p 0n:
+      {==}
+    case Con{x, t} 1n+p 1n+q:
+      get.set.ne(t, p, q, v, ne)
+
+# a register j of scr is not i, which is not of scr
+def mem.ne.nat(b: Bool, +scr: List<&2, Nat>, +j: Nat, +i: Nat, eb: {Nat.is_eq(j, i) == b : Bool},
+  hj: {D.Nat.mem(scr, j) == True{} : Bool}, hi: {D.Nat.mem(scr, i) == False{} : Bool}) -> {Nat.is_eq(j, i) == False{} : Bool}:
+  match b:
+    case False{}:
+      eb
+    case True{}:
+      Empty.absurd({Nat.is_eq(j, i) == False{} : Bool}, N.true_ne_false(Equal.trans(Bool, True{}, D.Nat.mem(scr, i), False{},
+        {(%nat.eq.of(j, i, eb) : {True{} == D.Nat.mem(scr, _) : Bool}; Equal.sym(Bool, D.Nat.mem(scr, j), True{}, hj)) :
+          {True{} == D.Nat.mem(scr, i) : Bool}}, hi)))
+
+# every register keeps its value
+def kept.refl(keep: List<&2, Nat>, +regs: List<&2, U32>) -> D.Kept(regs, regs, keep):
+  match keep:
+    case Nil{}:
+      Unit{}
+    case Con{+j, +rest}:
+      ({==}, kept.refl(rest, regs))
+
+# a register j of scr is set: the registers of keep, none of scr, stay
+def kept.set(keep: List<&2, Nat>, +regs: List<&2, U32>, +regs2: List<&2, U32>, +scr: List<&2, Nat>, +j: Nat, +v: U32,
+  hd: {D.Disj(keep, scr) == True{} : Bool}, +hj: {D.Nat.mem(scr, j) == True{} : Bool}, h: D.Kept(regs, regs2, keep)) ->
+  D.Kept(regs, List.set(&2, U32, regs2, j, v), keep):
+  match keep:
+    case Nil{}:
+      Unit{}
+    case Con{+i, +rest}:
+      (hi, hr) = h
+      +hd2 = hd
+      +ni = D.not.t(D.Nat.mem(scr, i), D.and.l(Bool.not(D.Nat.mem(scr, i)), D.Disj(rest, scr), hd2))
+      (Equal.trans(Maybe<&2, U32>, List.get(&2, U32, List.set(&2, U32, regs2, j, v), i), List.get(&2, U32, regs2, i), List.get(&2, U32, regs, i),
+          get.set.ne(regs2, j, i, v, mem.ne.nat(Nat.is_eq(j, i), scr, j, i, {==}, hj, ni)), hi),
+        kept.set(rest, regs, regs2, scr, j, v, D.and.r(Bool.not(D.Nat.mem(scr, i)), D.Disj(rest, scr), hd2), hj, hr))
+
+# r, and 3 to 7, are M.alloc's scratch registers
+def scr.r(+r: Nat) -> {D.Nat.mem([r, 3n, 4n, 5n, 6n, 7n], r) == True{} : Bool}:
+  D.or.l(Nat.is_eq(r, r), D.Nat.mem([3n, 4n, 5n, 6n, 7n], r), nat.eq.refl(r))
+
+def scr.k(+r: Nat, +k: Nat, ek: {D.Nat.mem([3n, 4n, 5n, 6n, 7n], k) == True{} : Bool}) -> {D.Nat.mem([r, 3n, 4n, 5n, 6n, 7n], k) == True{} : Bool}:
+  D.or.r(Nat.is_eq(r, k), D.Nat.mem([3n, 4n, 5n, 6n, 7n], k), ek)
+
+# A new cell
+# ----------
+
+# 1 + x is x + 1
+def add.one(x: Nat) -> {1n+x == Nat.add(x, 1n) : Nat}:
+  match x:
+    case 0n:
+      {==}
+    case 1n+(+q):
+      %add.one(q) : {2n+q == 1n+_ : Nat}
+      {==}
+
+# the budget of a new cell at nx, as alloc.post states it
+def oom.at(+L: U32, +nx: U32, h: N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(nx)))) ->
+  N.Le(1n+D.Lim.bytes(L), Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n))):
+  N.le_rw_r(1n+D.Lim.bytes(L), Nat.mul(20n, 1n+U32.to_nat(nx)), Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)),
+    Equal.cong(Nat, Nat, w => Nat.mul(20n, w), 1n+U32.to_nat(nx), Nat.add(U32.to_nat(nx), 1n), add.one(U32.to_nat(nx))), h)
+
+# Cir's alloc from a state with no output: the new cell nx, when it fits
+def alloc.if.eq(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +r: Nat) ->
+  {Cr.Cir.exec.alloc(r, X.X.st(regs, m, nx, fi, im, pg, lim, inp)) ==
+    Cr.Cir.exec.bump.if(U32.is_lt(nx, 214748364), r, nx, pg, lim, X.X.st(regs, m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}:
+  {==}
+
+# the new cell nx in register r, with room in pg2 pages
+def took.eq(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +pg2: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +r: Nat, hl: {List.length(&2, U32, regs) == 63n : Nat}, hr: {Nat.is_lt(r, 63n) == True{} : Bool}) ->
+  {Cr.Cir.exec.bump.of(r, nx, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Some{pg2}) ==
+    Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2,
+      lim, inp, Nil{}, 0}} : Cr.Cir.Out}:
+  +st = {Cr.Cir.State{regs, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+  %Equal.sym(Bool, Nat.is_lt(r, List.length(&2, U32, regs)), True{}, X.L.lt(regs, r, hl, hr)) :
+    {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, nx), st) ==
+      Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2,
+        lim, inp, Nil{}, 0}} : Cr.Cir.Out}
+  {==}
+
+# the new cell, or out of memory for want of room
+def af.room(mo: Maybe<&2, U32>, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +r: Nat, -Q: Cr.Cir.State -> Type,
+  emo: {Cr.Cir.room(U32.add(Cr.Cir.at(nx), 19), pg, lim) == mo : Maybe<&2, U32>},
+  hl: {List.length(&2, U32, regs) == 63n : Nat}, hr: {Nat.is_lt(r, 63n) == True{} : Bool},
+  k: @pg2: U32 -> Q(Cr.Cir.State{List.set(&2, U32, regs, r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2,
+    lim, inp, Nil{}, 0})) ->
+  D.PostB(False{}, Cr.Cir.exec.bump.of(r, nx, X.X.st(regs, m, nx, fi, im, pg, lim, inp), mo), Q, s => st2 => Empty,
+    Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim):
+  match mo:
+    case None{}:
+      oom.at(lim, nx, oom.room(lim, pg, nx, emo))
+    case Some{+pg2}:
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec.bump.of(r, nx, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Some{pg2}),
+          Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2,
+            lim, inp, Nil{}, 0}},
+          took.eq(regs, m, nx, fi, im, pg, pg2, lim, inp, r, hl, hr)) :
+        D.PostB(False{}, _, Q, s => st2 => Empty, Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim)
+      k(pg2)
+
+# next below 214748364: the new cell, or out of memory for want of room;
+# else out of memory
+def af.fits(b: Bool, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +r: Nat, -Q: Cr.Cir.State -> Type, eb: {U32.is_lt(nx, 214748364) == b : Bool},
+  hl: {List.length(&2, U32, regs) == 63n : Nat}, hr: {Nat.is_lt(r, 63n) == True{} : Bool},
+  k: @pg2: U32 -> {U32.is_lt(nx, 214748364) == True{} : Bool} -> Q(Cr.Cir.State{List.set(&2, U32, regs, r, nx),
+    Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0})) ->
+  D.PostB(False{}, Cr.Cir.exec.bump.if(b, r, nx, pg, lim, X.X.st(regs, m, nx, fi, im, pg, lim, inp)), Q, s => st2 => Empty,
+    Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim):
+  match b:
+    case False{}:
+      oom.at(lim, nx, oom.big(lim, nx, eb))
+    case True{}:
+      af.room(Cr.Cir.room(U32.add(Cr.Cir.at(nx), 19), pg, lim), regs, m, nx, fi, im, pg, lim, inp, r, Q, {==}, hl, hr, pg2 => k(pg2, eb))
+
+# M.alloc(r) with pend 0: Cir's alloc
+def af.go(+f: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +r: Nat, -Q: Cr.Cir.State -> Type, h3: {List.get(&2, U32, regs, 3n) == Some{0} : Maybe<&2, U32>},
+  hl: {List.length(&2, U32, regs) == 63n : Nat}, hr: {Nat.is_lt(r, 63n) == True{} : Bool},
+  k: @pg2: U32 -> {U32.is_lt(nx, 214748364) == True{} : Bool} -> Q(Cr.Cir.State{List.set(&2, U32, regs, r, nx),
+    Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0})) ->
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.alloc(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}), Q, s => st2 => Empty,
+    Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim):
+  +st = X.X.st(regs, m, nx, fi, im, pg, lim, inp)
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.alloc(r), st), Cr.Cir.exec.bump.if(U32.is_lt(nx, 214748364), r, nx, pg, lim, st),
+      Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.alloc(r), st), Cr.Cir.exec.alloc(r, st), Cr.Cir.exec.bump.if(U32.is_lt(nx, 214748364), r, nx, pg, lim, st),
+        X.alloc.eq.fresh(f, regs, m, nx, fi, im, pg, lim, inp, r, h3), alloc.if.eq(regs, m, nx, fi, im, pg, lim, inp, r))) :
+    D.PostB(False{}, _, Q, s => st2 => Empty, Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim)
+  af.fits(U32.is_lt(nx, 214748364), regs, m, nx, fi, im, pg, lim, inp, r, Q, {==}, hl, hr, k)
+
+# nothing points to the new cell nx
+def fresh.ptr0(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32,
+  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, Nil{}), +hlt: {U32.is_lt(nx, 214748364) == True{} : Bool}) ->
+  {D.Ptr(Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(fi)), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), fi, Nil{}, D.Rt.cells(os), nx) == 0n : Nat}:
+  (hos0, r1) = hs
+  (_, r2) = r1
+  (_, r3) = r2
+  (_, r4) = r3
+  (hheap0, himg0) = r4
+  (_, h1) = hheap0
+  (_, h2) = h1
+  (_, h3) = h2
+  (hpts0, h4) = h3
+  (_, hfn0) = h4
+  +hos = {hos0 : D.RtsK(dk, ds, m, im, fi, nx, ks, img, os)}
+  +himg = {himg0 : D.ImgOKK(dk, ds, ks, img, m, im, fi, nx)}
+  +hpts = {hpts0 : {D.Pts(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, Nil{}, fi, im, fi, nx) == True{} : Bool}}
+  +hfn = {hfn0 : {U32.is_le(fi, nx) == True{} : Bool}}
+  +rs = D.Rt.cells(os)
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +X0 = Cr.Cir.Cell.zero()
+  +M2 = Cr.Cir.Cells.set(m, nx, X0)
+  +him = img.lt(dk, ds, ks, img, m, im, fi, nx, himg)
+  +tbl = D.img.tbl(dk, ds, ks, img, m, im, fi, nx, himg)
+  +hnx = D.u.inc(nx, 214748364, D.u.lt(nx, 214748364, hlt))
+  +le = D.u.le(fi, nx, hfn)
+  +es = D.add.sub(U32.to_nat(fi), U32.to_nat(nx), le)
+  +en = Equal.trans(Nat, Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(fi)), Nat.sub(1n+U32.to_nat(nx), U32.to_nat(fi)), 1n+n,
+    Equal.cong(Nat, Nat, w => Nat.sub(w, U32.to_nat(fi)), U32.to_nat(U32.inc(nx)), 1n+U32.to_nat(nx), hnx),
+    AC.sub.succ(U32.to_nat(nx), U32.to_nat(fi), le))
+  +hz290 = N.le_trans(1n+U32.to_nat(290), 1n+U32.to_nat(im), U32.to_nat(nx), D.u.le(290, im, img.ge(dk, ds, ks, img, m, im, fi, nx, himg)),
+    N.le_trans(1n+U32.to_nat(im), U32.to_nat(fi), U32.to_nat(nx), D.u.lt(im, fi, him), le))
+  +hp0 = Equal.trans(Nat, D.Ptr(1n+n, M2, fi, Nil{}, rs, nx), D.Ptr(n, m, fi, Nil{}, rs, nx), 0n,
+    ptr.fresh(n, m, fi, nx, X0, Nil{}, rs, nx, es, fs.zero(m, im, fi, nx, Nil{}, tbl, hz290), D.TblR.of(n, m, fi, nx, hz290)),
+    Equal.trans(Nat, Nat.add(D.Pc(n, m, Nil{}, fi, nx), D.RcL(rs, nx)), Nat.add(0n, D.RcL(rs, nx)), 0n,
+      Equal.cong(Nat, Nat, w => Nat.add(w, D.RcL(rs, nx)), D.Pc(n, m, Nil{}, fi, nx), 0n, pc.pts.z(n, m, Nil{}, fi, im, fi, nx, hpts)),
+      rcl.roots.z(dk, os, ds, m, im, fi, nx, ks, img, him, hfn, hos)))
+  (%Equal.sym(Nat, Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(fi)), 1n+n, en) : {D.Ptr(_, M2, fi, Nil{}, rs, nx) == 0n : Nat}; hp0)
+
+# a cell q other than nx after the store at nx: its value, and its field 1
+def alfr.fresh.at(+m: Cr.Cir.Cells, +nx: U32, +q: U32, e: {U32.is_eq(q, nx) == False{} : Bool}) ->
+  D.P2({Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), q) ==
+      Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, q), D.Fd(1n, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), q)) : Cr.Cir.Cell},
+    {Bool.or(Bool.and(U32.is_lt(D.Tg(m, q), 19), D.Taken(Nil{}, m, q)),
+      U32.is_eq(D.Fd(1n, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), q), D.Fd(1n, m, q))) == True{} : Bool}):
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  +eg = Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M2, q), Cr.Cir.Cells.get(m, q), D.cl.go(m, q, nx, Cr.Cir.Cell.zero(), e))
+  +A = Bool.and(U32.is_lt(D.Tg(m, q), 19), D.Taken(Nil{}, m, q))
+  ({(%eg : {_ == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, q), Cr.Cir.Cell.get(1n, _)) : Cr.Cir.Cell}; D.set1.id(Cr.Cir.Cells.get(m, q))) :
+      {Cr.Cir.Cells.get(M2, q) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, q), D.Fd(1n, M2, q)) : Cr.Cir.Cell}},
+    {(%eg : {Bool.or(A, U32.is_eq(Cr.Cir.Cell.get(1n, _), D.Fd(1n, m, q))) == True{} : Bool};
+%Equal.sym(Bool, U32.is_eq(D.Fd(1n, m, q), D.Fd(1n, m, q)), True{}, D.u32.refl(D.Fd(1n, m, q))) : {Bool.or(A, _) == True{} : Bool};
+AC.or.true(A)) :
+      {Bool.or(A, U32.is_eq(D.Fd(1n, M2, q), D.Fd(1n, m, q))) == True{} : Bool}})
+
+# every cell but the new one nx keeps its value; next grows by one
+def alfr.fresh(+m: Cr.Cir.Cells, +nx: U32, +regs2: List<&2, U32>, +fi: U32, +im: U32, +pg2: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +hnx: {U32.to_nat(U32.inc(nx)) == 1n+U32.to_nat(nx) : Nat}) ->
+  D.AlFr(m, Nil{}, nx, Cr.Cir.State{regs2, Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0}):
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  (u.le.of(nx, U32.inc(nx), N.le_rw_r(U32.to_nat(nx), 1n+U32.to_nat(nx), U32.to_nat(U32.inc(nx)),
+      Equal.sym(Nat, U32.to_nat(U32.inc(nx)), 1n+U32.to_nat(nx), hnx), N.weaken(U32.to_nat(nx), 1n+U32.to_nat(nx), N.le_refl(1n+U32.to_nat(nx))))),
+    q => hq => e => alfr.fresh.at(m, nx, q, e))
+
+# AlQ after Cir's alloc of the new cell nx (the pend list is empty)
+def al.fresh.q(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  +pg2: U32, +hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, Nil{}),
+  +hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Nil{}, zs),
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  +hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n))) == True{} : Bool},
+  +hk: {D.Disj(keep, [r, 3n, 4n, 5n, 6n, 7n]) == True{} : Bool}, +hlt: {U32.is_lt(nx, 214748364) == True{} : Bool}) ->
+  AlQ(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, Nil{}, xs,
+    Cr.Cir.State{List.set(&2, U32, regs, r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0}):
+  (_, s1) = hs
+  (_, s2) = s1
+  (_, s3) = s2
+  (_, s4) = s3
+  (hheap0, himg0) = s4
+  (_, h1) = hheap0
+  (_, h2) = h1
+  (_, h3) = h2
+  (_, h4) = h3
+  (_, hfn0) = h4
+  (_, a1) = hac
+  (hhl0, _) = a1
+  +himg = {himg0 : D.ImgOKK(dk, ds, ks, img, m, im, fi, nx)}
+  +hfn = {hfn0 : {U32.is_le(fi, nx) == True{} : Bool}}
+  +hhl = {hhl0 : D.RtsK(dk, ds, m, im, fi, nx, ks, img, D.Tmp.held(xs))}
+  +RG = List.set(&2, U32, regs, r, nx)
+  +X0 = Cr.Cir.Cell.zero()
+  +M2 = Cr.Cir.Cells.set(m, nx, X0)
+  +st2 = {Cr.Cir.State{RG, M2, U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+  +hr63 = D.and.l(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n)), hr)
+  +ne3 = D.not.t(Nat.is_eq(r, 3n), D.and.r(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n)), hr))
+  +him = img.lt(dk, ds, ks, img, m, im, fi, nx, himg)
+  +hnx = D.u.inc(nx, 214748364, D.u.lt(nx, 214748364, hlt))
+  +ei = N.le_rw_r(1n+U32.to_nat(nx), 1n+U32.to_nat(nx), U32.to_nat(U32.inc(nx)), Equal.sym(Nat, U32.to_nat(U32.inc(nx)), 1n+U32.to_nat(nx), hnx),
+    N.le_refl(1n+U32.to_nat(nx)))
+  +own = D.and.i(U32.is_le(fi, nx), U32.is_lt(nx, U32.inc(nx)), hfn, AC.lt.of(nx, U32.inc(nx), ei))
+  al.mk(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, Nil{}, xs, st2, nx, pend, Nil{}, Nil{}, Nil{},
+    ({==}, ({==}, ({==}, ({==}, ({==}, ({==}, (X.L.len(regs, r, nx, 63n, hl),
+      kept.set(keep, regs, regs, [r, 3n, 4n, 5n, 6n, 7n], r, nx, hk, scr.r(r), kept.refl(keep, regs))))))))),
+    X.L.gs(regs, r, nx, X.L.lt(regs, r, hl, hr63)),
+    X.L.go(regs, r, 3n, nx, pend, ne3, hp),
+    D.cl.gs(m, nx, X0),
+    own,
+    {==},
+    D.u32.refl(nx),
+    {(%Equal.sym(Bool, U32.is_eq(nx, nx), True{}, D.u32.refl(nx)) :
+        {Bool.or(Bool.and(D.Mem(Nil{}, nx), U32.is_eq(U32.inc(nx), nx)), Bool.and(D.Pend.none(Nil{}), Bool.and(_, U32.is_eq(U32.inc(nx), U32.inc(nx))))) == True{} : Bool};
+      %Equal.sym(Bool, U32.is_eq(U32.inc(nx), U32.inc(nx)), True{}, D.u32.refl(U32.inc(nx))) :
+        {Bool.or(Bool.and(D.Mem(Nil{}, nx), U32.is_eq(U32.inc(nx), nx)), Bool.and(D.Pend.none(Nil{}), Bool.and(True{}, _))) == True{} : Bool};
+      {==}) :
+      {Bool.or(Bool.and(D.Mem(Nil{}, nx), U32.is_eq(U32.inc(nx), nx)), Bool.and(D.Pend.none(Nil{}), Bool.and(U32.is_eq(nx, nx), U32.is_eq(U32.inc(nx), U32.inc(nx))))) == True{} : Bool}},
+    {==},
+    {==},
+    {==},
+    fresh.ptr0(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, hs, hlt),
+    hs.fresh(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, hs, hlt),
+    AC.acc.fresh(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, xs, zs, 214748364, hs, hac, hlt,
+      rtsk.fr(dk, D.Tmp.held(xs), ds, m, im, fi, nx, ks, img, X0, hnx, him, hfn, hhl)),
+    alfr.fresh(m, nx, RG, fi, im, pg2, lim, inp, hnx))
+
+# M.alloc with an empty pend list: pend is 0
+def al.fresh(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+  +keep: List<&2, Nat>, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32,
+  +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>, -Q: Cr.Cir.State -> Type,
+  +hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, Nil{}),
+  +hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Nil{}, zs),
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  +hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n))) == True{} : Bool},
+  +hk: {D.Disj(keep, [r, 3n, 4n, 5n, 6n, 7n]) == True{} : Bool},
+  hQ: @st2: Cr.Cir.State -> AlQ(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, Nil{}, xs, st2) -> Q(st2)) ->
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.alloc(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}), Q, s => st2 => Empty,
+    Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim):
+  (_, s1) = hs
+  (_, s2) = s1
+  (_, s3) = s2
+  (_, s4) = s3
+  (hheap0, _) = s4
+  (hch0, _) = hheap0
+  +e0 = {hch0 : {pend == 0 : U32}}
+  af.go(f, regs, m, nx, fi, im, pg, lim, inp, r, Q,
+    {(%e0 : {List.get(&2, U32, regs, 3n) == Some{_} : Maybe<&2, U32>}; hp) : {List.get(&2, U32, regs, 3n) == Some{0} : Maybe<&2, U32>}},
+    hl, D.and.l(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n)), hr),
+    +pg2 => hlt => hQ(Cr.Cir.State{List.set(&2, U32, regs, r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0},
+      al.fresh.q(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, pend, xs, zs, pg2, hs, hac, hl, hp, hr, hk, hlt)))
 
 # The laws
 # --------
