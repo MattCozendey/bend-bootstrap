@@ -22,6 +22,9 @@ import ./statement_runs.bend as X
 import ./data_walk.bend as DW
 import ./move_kit.bend as K
 import ../need_big.bend as N
+import ./heap_ops.bend as HO
+import ./accounting.bend as AC
+import ./data_check.bend as DC
 
 # Phases inside WP
 # ----------------
@@ -1598,6 +1601,70 @@ def ws.set(+r: Nat, +v: U32, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(
   (g26, w2) = w1
   (wr.set(r, v, regs, keep, regs2, c, env, List.length(&2, El.Arg, e), args, pend2, hk, hr, h19, h20, h21, h25, h3, hw),
    (X.L.go(regs2, r, 26n, v, 0, h26, g26), w2))
+
+# a round that goes on sets one of the walk's own registers (wt, wenv,
+# wargs, wn), whose values WR reads: WR with the register's new value (WS is
+# not kept: its other parts read them too)
+
+def wr.s19(+v: U32, +regs: List<&2, U32>, +keep: List<&2, Nat>, +regs2: List<&2, U32>, +c: U32, +env: U32, +n: Nat,
+  +args: U32, +pend2: U32, +hk: {D.Disj(keep, D.Walk.scr()) == True{} : Bool},
+  w: WR(regs, keep, regs2, c, env, n, args, pend2)) ->
+  WR(regs, keep, List.set(&2, U32, regs2, 19n, v), v, env, n, args, pend2):
+  (+hl, w1) = w
+  (hkp, w2) = w1
+  (g19, w3) = w2
+  (g20, w4) = w3
+  (g21, w5) = w4
+  (g25, g3) = w5
+  (X.L.len(regs2, 19n, v, 63n, hl), (kept.set(regs, regs2, keep, D.Walk.scr(), 19n, v, hk, {==}, hkp),
+   (X.L.gs(regs2, 19n, v, X.L.lt(regs2, 19n, hl, {==})), (X.L.go(regs2, 19n, 20n, v, env, {==}, g20),
+   (X.L.go(regs2, 19n, 21n, v, args, {==}, g21), (X.L.go(regs2, 19n, 25n, v, U32.from_nat(n), {==}, g25),
+    X.L.go(regs2, 19n, 3n, v, pend2, {==}, g3)))))))
+
+def wr.s20(+v: U32, +regs: List<&2, U32>, +keep: List<&2, Nat>, +regs2: List<&2, U32>, +c: U32, +env: U32, +n: Nat,
+  +args: U32, +pend2: U32, +hk: {D.Disj(keep, D.Walk.scr()) == True{} : Bool},
+  w: WR(regs, keep, regs2, c, env, n, args, pend2)) ->
+  WR(regs, keep, List.set(&2, U32, regs2, 20n, v), c, v, n, args, pend2):
+  (+hl, w1) = w
+  (hkp, w2) = w1
+  (g19, w3) = w2
+  (g20, w4) = w3
+  (g21, w5) = w4
+  (g25, g3) = w5
+  (X.L.len(regs2, 20n, v, 63n, hl), (kept.set(regs, regs2, keep, D.Walk.scr(), 20n, v, hk, {==}, hkp),
+   (X.L.go(regs2, 20n, 19n, v, c, {==}, g19), (X.L.gs(regs2, 20n, v, X.L.lt(regs2, 20n, hl, {==})),
+   (X.L.go(regs2, 20n, 21n, v, args, {==}, g21), (X.L.go(regs2, 20n, 25n, v, U32.from_nat(n), {==}, g25),
+    X.L.go(regs2, 20n, 3n, v, pend2, {==}, g3)))))))
+
+def wr.s21(+v: U32, +regs: List<&2, U32>, +keep: List<&2, Nat>, +regs2: List<&2, U32>, +c: U32, +env: U32, +n: Nat,
+  +args: U32, +pend2: U32, +hk: {D.Disj(keep, D.Walk.scr()) == True{} : Bool},
+  w: WR(regs, keep, regs2, c, env, n, args, pend2)) ->
+  WR(regs, keep, List.set(&2, U32, regs2, 21n, v), c, env, n, v, pend2):
+  (+hl, w1) = w
+  (hkp, w2) = w1
+  (g19, w3) = w2
+  (g20, w4) = w3
+  (g21, w5) = w4
+  (g25, g3) = w5
+  (X.L.len(regs2, 21n, v, 63n, hl), (kept.set(regs, regs2, keep, D.Walk.scr(), 21n, v, hk, {==}, hkp),
+   (X.L.go(regs2, 21n, 19n, v, c, {==}, g19), (X.L.go(regs2, 21n, 20n, v, env, {==}, g20),
+   (X.L.gs(regs2, 21n, v, X.L.lt(regs2, 21n, hl, {==})), (X.L.go(regs2, 21n, 25n, v, U32.from_nat(n), {==}, g25),
+    X.L.go(regs2, 21n, 3n, v, pend2, {==}, g3)))))))
+
+def wr.s25(+n2: Nat, +regs: List<&2, U32>, +keep: List<&2, Nat>, +regs2: List<&2, U32>, +c: U32, +env: U32, +n: Nat,
+  +args: U32, +pend2: U32, +hk: {D.Disj(keep, D.Walk.scr()) == True{} : Bool},
+  w: WR(regs, keep, regs2, c, env, n, args, pend2)) ->
+  WR(regs, keep, List.set(&2, U32, regs2, 25n, U32.from_nat(n2)), c, env, n2, args, pend2):
+  (+hl, w1) = w
+  (hkp, w2) = w1
+  (g19, w3) = w2
+  (g20, w4) = w3
+  (g21, w5) = w4
+  (g25, g3) = w5
+  (X.L.len(regs2, 25n, U32.from_nat(n2), 63n, hl), (kept.set(regs, regs2, keep, D.Walk.scr(), 25n, U32.from_nat(n2), hk, {==}, hkp),
+   (X.L.go(regs2, 25n, 19n, U32.from_nat(n2), c, {==}, g19), (X.L.go(regs2, 25n, 20n, U32.from_nat(n2), env, {==}, g20),
+   (X.L.go(regs2, 25n, 21n, U32.from_nat(n2), args, {==}, g21), (X.L.gs(regs2, 25n, U32.from_nat(n2), X.L.lt(regs2, 25n, hl, {==})),
+    X.L.go(regs2, 25n, 3n, U32.from_nat(n2), pend2, {==}, g3)))))))
 
 # the parts of an argument's K.arg that the rounds read
 def ag.cell(-ds: List<&2, Bk.Def>, -m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, -ks: List<&2, List<&2, Word(8n)>>,
