@@ -3745,6 +3745,76 @@ def W.B(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +os: List<&2, D.Rt>, +sp: U32, +fs
   D.Cells.bytes(fi, Nat.add(D.Acc.need(m, nx, fi, os, List.append(&2, D.TmpE, D.Ag.cells(xs, m, a), xs0), sp, fs),
     1n+Nat.add(Nat.mul(2n, Pg.Term.size(tt)), D.Terms.size(D.Arg.terms(xs)))))
 
+# The temporaries' order (U7)
+# ---------------------------
+# WH's AccK holds the chains' cells with Ag.cells and then xs0; a round that
+# releases an argument releases the chain's first cell, which is the first
+# temporary of the arguments but not of the list (the environment's cells come
+# first). AccK's other facts are sets, but Tmp.ok's distinctness reads the
+# cells of the rest, so mat.lab needs the order to be no matter.
+
+# the cells of A ++ B are those of A and then those of B
+def tmp.cells.app(A: List<&2, D.TmpE>, +B: List<&2, D.TmpE>) ->
+  {D.Tmp.cells(List.append(&2, D.TmpE, A, B)) == List.append(&2, U32, D.Tmp.cells(A), D.Tmp.cells(B)) : List<&2, U32>}:
+  match A:
+    case Nil{}:
+      {==}
+    case Con{D.TmpE{c, h}, +rest}:
+      Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{c, l}, D.Tmp.cells(List.append(&2, D.TmpE, rest, B)),
+        List.append(&2, U32, D.Tmp.cells(rest), D.Tmp.cells(B)), tmp.cells.app(rest, B))
+
+# and the terms that they hold are those of A and then those of B
+def tmp.held.app(A: List<&2, D.TmpE>, +B: List<&2, D.TmpE>) ->
+  {D.Tmp.held(List.append(&2, D.TmpE, A, B)) == List.append(&2, D.Rt, D.Tmp.held(A), D.Tmp.held(B)) : List<&2, D.Rt>}:
+  match A:
+    case Nil{}:
+      {==}
+    case Con{D.TmpE{c, h}, +rest}:
+      %Equal.sym(List<&2, D.Rt>, D.Tmp.held(List.append(&2, D.TmpE, rest, B)),
+          List.append(&2, D.Rt, D.Tmp.held(rest), D.Tmp.held(B)), tmp.held.app(rest, B)) :
+        {List.append(&2, D.Rt, h, _) == List.append(&2, D.Rt, List.append(&2, D.Rt, h, D.Tmp.held(rest)), D.Tmp.held(B)) : List<&2, D.Rt>}
+      Equal.sym(List<&2, D.Rt>, List.append(&2, D.Rt, List.append(&2, D.Rt, h, D.Tmp.held(rest)), D.Tmp.held(B)),
+        List.append(&2, D.Rt, h, List.append(&2, D.Rt, D.Tmp.held(rest), D.Tmp.held(B))), AC.app.assoc(h, D.Tmp.held(rest), D.Tmp.held(B)))
+
+# an or of two Bools is False when both are
+def or.ff(a: Bool, +b: Bool, ha: {a == False{} : Bool}, hb: {b == False{} : Bool}) -> {Bool.or(a, b) == False{} : Bool}:
+  match a:
+    case True{}:
+      Empty.absurd({Bool.or(True{}, b) == False{} : Bool}, N.true_ne_false(ha))
+    case False{}:
+      hb
+
+# no cell of A ++ B is out: no cell of A or of B is
+def mem.f.app.l(+A: List<&2, D.TmpE>, +B: List<&2, D.TmpE>, +c: U32,
+  h: {D.Mem(D.Tmp.cells(List.append(&2, D.TmpE, A, B)), c) == False{} : Bool}) ->
+  {D.Mem(D.Tmp.cells(A), c) == False{} : Bool}:
+  D.or.f.l(D.Mem(D.Tmp.cells(A), c), D.Mem(D.Tmp.cells(B), c),
+    (%AC.mem.app(D.Tmp.cells(A), D.Tmp.cells(B), c) : {_ == False{} : Bool};
+     (%tmp.cells.app(A, B) : {D.Mem(_, c) == False{} : Bool}; h)))
+
+def mem.f.app.r(+A: List<&2, D.TmpE>, +B: List<&2, D.TmpE>, +c: U32,
+  h: {D.Mem(D.Tmp.cells(List.append(&2, D.TmpE, A, B)), c) == False{} : Bool}) ->
+  {D.Mem(D.Tmp.cells(B), c) == False{} : Bool}:
+  D.or.f.r(D.Mem(D.Tmp.cells(A), c), D.Mem(D.Tmp.cells(B), c),
+    (%AC.mem.app(D.Tmp.cells(A), D.Tmp.cells(B), c) : {_ == False{} : Bool};
+     (%tmp.cells.app(A, B) : {D.Mem(_, c) == False{} : Bool}; h)))
+
+def mem.f.app(+A: List<&2, D.TmpE>, +B: List<&2, D.TmpE>, +c: U32, +ha: {D.Mem(D.Tmp.cells(A), c) == False{} : Bool},
+  +hb: {D.Mem(D.Tmp.cells(B), c) == False{} : Bool}) -> {D.Mem(D.Tmp.cells(List.append(&2, D.TmpE, A, B)), c) == False{} : Bool}:
+  Equal.trans(Bool, D.Mem(D.Tmp.cells(List.append(&2, D.TmpE, A, B)), c),
+    D.Mem(List.append(&2, U32, D.Tmp.cells(A), D.Tmp.cells(B)), c), False{},
+    Equal.cong(List<&2, U32>, Bool, l => D.Mem(l, c), D.Tmp.cells(List.append(&2, D.TmpE, A, B)),
+      List.append(&2, U32, D.Tmp.cells(A), D.Tmp.cells(B)), tmp.cells.app(A, B)),
+    Equal.trans(Bool, D.Mem(List.append(&2, U32, D.Tmp.cells(A), D.Tmp.cells(B)), c),
+      Bool.or(D.Mem(D.Tmp.cells(A), c), D.Mem(D.Tmp.cells(B), c)), False{},
+      AC.mem.app(D.Tmp.cells(A), D.Tmp.cells(B), c),
+      or.ff(D.Mem(D.Tmp.cells(A), c), D.Mem(D.Tmp.cells(B), c), ha, hb)))
+
+# a cell that no temporary of rest has is no cell of a temporary added first
+def mem.f.cons(+ca: U32, +rest: List<&2, D.TmpE>, +c: U32, +he: {U32.is_eq(ca, c) == False{} : Bool},
+  +hr: {D.Mem(D.Tmp.cells(rest), c) == False{} : Bool}) -> {D.Mem(Con{ca, D.Tmp.cells(rest)}, c) == False{} : Bool}:
+  or.ff(U32.is_eq(ca, c), D.Mem(D.Tmp.cells(rest), c), he, hr)
+
 # The premises walk.post and walk.done of move_kit.bend (U7; U0 left them as ?TODO)
 # ------------------------------------------------------------------------------
 
