@@ -2208,6 +2208,14 @@ def sub.nhas(Q: List<&2, U32>, +P: List<&2, U32>, +x: U32, hs: {D.Sub(Q, P) == T
     case Con{+y, +rest}:
       sub.nhas.b(U32.is_eq(y, x), y, rest, P, x, {==}, hs, hp, h2 => sub.nhas(rest, P, x, h2, hp))
 
+# a or b, and not b, give a
+def Bo.or_l(a: Bool, +b: Bool, h: {Bool.or(a, b) == True{} : Bool}, nb: {b == False{} : Bool}) -> {a == True{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      Bo.tf({False{} == True{} : Bool}, Equal.trans(Bool, False{}, b, True{}, Equal.sym(Bool, b, False{}, nb), h))
+
 # a or b false gives each false
 def or.fl(a: Bool, -b: Bool, h: {Bool.or(a, b) == False{} : Bool}) -> {a == False{} : Bool}:
   match a:
