@@ -1603,6 +1603,94 @@ def In.app(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U3
       St.nrd(f, ms, F, 1n+N, p, tp, ks, img, St.up(f, ms, F, N, p, tp, ks, img, St.fr(f, m, F, N, p, tp, ks, img, i, Cr.Cir.Cell{72, 1, p, q, 0}, hi, sp))),
       St.nrd(f, ms, F, 1n+N, q, tq, ks, img, St.up(f, ms, F, N, q, tq, ks, img, St.fr(f, m, F, N, q, tq, ks, img, i, Cr.Cir.Cell{72, 1, p, q, 0}, hi, sq)))))
 
+# Numbers
+# -------
+
+def Na.le_t(a: Nat, b: Nat, h: N.Le(a, b)) -> {True{} == Nat.is_le(a, b) : Bool}:
+  match a b:
+    case 0n 0n:
+      {==}
+    case 0n 1n+y:
+      {==}
+    case 1n+x 0n:
+      Empty.absurd({True{} == Nat.is_le(1n+x, 0n) : Bool}, h)
+    case 1n+x 1n+y:
+      Na.le_t(x, y, h)
+
+# b <= a gives a < b false
+def Na.lt_f(a: Nat, b: Nat, h: N.Le(b, a)) -> {False{} == Nat.is_lt(a, b) : Bool}:
+  match a b:
+    case 0n 0n:
+      {==}
+    case 1n+x 0n:
+      {==}
+    case 0n 1n+y:
+      Empty.absurd({False{} == Nat.is_lt(0n, 1n+y) : Bool}, h)
+    case 1n+x 1n+y:
+      Na.lt_f(x, y, h)
+
+# 1 + b <= a gives a <= b false
+def Na.le_f(a: Nat, b: Nat, h: N.Le(1n+b, a)) -> {False{} == Nat.is_le(a, b) : Bool}:
+  match a b:
+    case 0n _:
+      Empty.absurd({False{} == Nat.is_le(0n, b) : Bool}, h)
+    case 1n+x 0n:
+      {==}
+    case 1n+x 1n+y:
+      Na.le_f(x, y, h)
+
+def Na.lt_succ(a: Nat) -> {True{} == Nat.is_lt(a, 1n+a) : Bool}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+x:
+      Na.lt_succ(x)
+
+# a comparison LT gives x < y
+def Cm.lt(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_lt(c) == True{} : Bool}) -> N.Le(1n+x, y):
+  match c:
+    case LT{}:
+      r
+    case EQ{}:
+      Bo.ft(N.Le(1n+x, y), Equal.sym(Bool, False{}, True{}, e))
+    case GT{}:
+      Bo.ft(N.Le(1n+x, y), Equal.sym(Bool, False{}, True{}, e))
+
+# x <= y makes the comparison at most EQ
+def Cm.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(x, y)) -> {True{} == Cmp.is_le(c) : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h)))
+
+# x < y makes the comparison LT
+def Cm.lt_t(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(1n+x, y)) -> {True{} == Cmp.is_lt(c) : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(x, N.le_rw_r(1n+x, y, x, Equal.sym(Nat, x, y, r), h)))
+    case GT{}:
+      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, N.weaken(x, y, h))))
+
+# x > y makes the comparison not EQ
+def Cm.ne(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(1n+y, x)) -> {False{} == Cmp.is_eq(c) : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_rw_r(1n+y, x, y, r, h)))
+    case GT{}:
+      {==}
+
+# below M, a U32 has a next one, one more
+def U.inc(+a: U32, +M: U32, h: {U32.is_lt(a, M) == True{} : Bool}) -> {U32.to_nat(U32.inc(a)) == 1n+U32.to_nat(a) : Nat}:
+  +l = Cm.lt(U32.cmp(a, M), U32.to_nat(a), U32.to_nat(M), N.U32.rel(a, M), h)
+  PI.U32.inc_nat(a, Equal.sym(Bool, U32.is_zero(U32.inc(a)), False{}, PM.nz(a, M, l)))
+
 # The machine's own cells
 # -----------------------
 #
@@ -1612,6 +1700,13 @@ def In.app(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +i: U32, +p: U32, +q: U3
 # first 16 cells, or a 1866 cell), 842 or 72 (the focus). A cell, once taken,
 # never changes, so these facts hold to the end, where they give the pointers'
 # facts (Pts), the closure of the STATIC cells (Clo) and the nodes of the focus.
+
+def Bo.or_r(a: Bool, -b: Bool, h: {True{} == b : Bool}) -> {True{} == Bool.or(a, b) : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      h
 
 # a part p: not 0, and a cell that may be read
 def In.pt(+p: U32, +F: U32, +C: Nat) -> Bool:
@@ -1631,9 +1726,33 @@ def In.okn(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell) -> Bool:
     Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
       In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)))))
 
-# the cell o, of the value x: it may be read, and the facts of x
+# the cell o is one that the run took: from F, before the cell numbered C
+def In.own(+o: U32, +F: U32, +C: Nat) -> Bool:
+  Bool.and(Nat.is_le(U32.to_nat(F), U32.to_nat(o)), Nat.is_lt(U32.to_nat(o), C))
+
+# the cell o, of the value x: one that the run took, and the facts of x
 def In.okx(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell) -> Bool:
-  Bool.and(In.rd(o, F, C), In.okn(m, F, C, x))
+  Bool.and(In.own(o, F, C), In.okn(m, F, C, x))
+
+# a cell that the run took may be read
+def Own.rd(+o: U32, +F: U32, +C: Nat, h: {True{} == In.own(o, F, C) : Bool}) -> {True{} == In.rd(o, F, C) : Bool}:
+  Bo.or_r(Nat.is_lt(U32.to_nat(o), 16n), In.own(o, F, C), h)
+
+# and it still is, once one more cell is taken
+def Own.up(+o: U32, +F: U32, +C: Nat, h: {True{} == In.own(o, F, C) : Bool}) -> {True{} == In.own(o, F, 1n+C) : Bool}:
+  Bo.and_mono(Nat.is_le(U32.to_nat(F), U32.to_nat(o)), Nat.is_lt(U32.to_nat(o), C), Nat.is_lt(U32.to_nat(o), 1n+C), h,
+    l => Na.lt_up(U32.to_nat(o), C, l))
+
+# it is from F on
+def Own.ge(+o: U32, +F: U32, +C: Nat, h: {True{} == In.own(o, F, C) : Bool}) -> N.Le(U32.to_nat(F), U32.to_nat(o)):
+  N.toLe(U32.to_nat(F), U32.to_nat(o), Equal.sym(Bool, True{}, Nat.is_le(U32.to_nat(F), U32.to_nat(o)),
+    Bo.and_l(Nat.is_le(U32.to_nat(F), U32.to_nat(o)), Nat.is_lt(U32.to_nat(o), C), h)))
+
+# the cell next, numbered N, is one that the run took once it is taken
+def Own.new(+next: U32, +N: Nat, +F: U32, eN: {U32.to_nat(next) == N : Nat}, hFN: N.Le(U32.to_nat(F), N)) ->
+  {True{} == In.own(next, F, 1n+N) : Bool}:
+  %Equal.sym(Nat, U32.to_nat(next), N, eN) : {True{} == Bool.and(Nat.is_le(U32.to_nat(F), _), Nat.is_lt(_, 1n+N)) : Bool}
+  Bo.and_i(Nat.is_le(U32.to_nat(F), N), Nat.is_lt(N, 1n+N), Na.le_t(U32.to_nat(F), N, hFN), Na.lt_succ(N))
 
 # each of the n cells from o
 def In.Rok(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32) -> Bool:
@@ -1710,14 +1829,14 @@ def Okn.up(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell, +h: {True{} == I
 def Okx.fr(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell, +z: U32, +y: Cr.Cir.Cell,
   hz: {False{} == In.rd(z, F, C) : Bool}, +h: {True{} == In.okx(m, F, C, o, x) : Bool}) ->
   {True{} == In.okx(Cr.Cir.Cells.set(m, z, y), F, C, o, x) : Bool}:
-  Bo.and_i(In.rd(o, F, C), In.okn(Cr.Cir.Cells.set(m, z, y), F, C, x), Bo.and_l(In.rd(o, F, C), In.okn(m, F, C, x), h),
-    Okn.fr(m, F, C, x, z, y, hz, Bo.and_r(In.rd(o, F, C), In.okn(m, F, C, x), h)))
+  Bo.and_i(In.own(o, F, C), In.okn(Cr.Cir.Cells.set(m, z, y), F, C, x), Bo.and_l(In.own(o, F, C), In.okn(m, F, C, x), h),
+    Okn.fr(m, F, C, x, z, y, hz, Bo.and_r(In.own(o, F, C), In.okn(m, F, C, x), h)))
 
 # and once one more cell is taken
 def Okx.up(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell, +h: {True{} == In.okx(m, F, C, o, x) : Bool}) ->
   {True{} == In.okx(m, F, 1n+C, o, x) : Bool}:
-  Bo.and_i(In.rd(o, F, 1n+C), In.okn(m, F, 1n+C, x), In.rd_up(o, F, C, Bo.and_l(In.rd(o, F, C), In.okn(m, F, C, x), h)),
-    Okn.up(m, F, C, x, Bo.and_r(In.rd(o, F, C), In.okn(m, F, C, x), h)))
+  Bo.and_i(In.own(o, F, 1n+C), In.okn(m, F, 1n+C, x), Own.up(o, F, C, Bo.and_l(In.own(o, F, C), In.okn(m, F, C, x), h)),
+    Okn.up(m, F, C, x, Bo.and_r(In.own(o, F, C), In.okn(m, F, C, x), h)))
 
 # the n cells from o, once a cell z that may not be read is set
 def Rok.fr(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +z: U32, +y: Cr.Cir.Cell,
@@ -1730,7 +1849,7 @@ def Rok.fr(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +z: U32, +y: Cr.
       +x = Cr.Cir.Cells.get(m, o)
       +ha = Bo.and_l(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h)
       +hb = Bo.and_r(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h)
-      +ho = Bo.and_l(In.rd(o, F, C), In.okn(m, F, C, x), ha)
+      +ho = Own.rd(o, F, C, Bo.and_l(In.own(o, F, C), In.okn(m, F, C, x), ha))
       %Cl.get_other(m, o, z, y, e => In.ne(o, z, F, C, ho, hz, e)) :
         {True{} == Bool.and(In.okx(Cr.Cir.Cells.set(m, z, y), F, C, o, _), In.Rok(p, Cr.Cir.Cells.set(m, z, y), F, C, U32.inc(o))) : Bool}
       Bo.and_i(In.okx(Cr.Cir.Cells.set(m, z, y), F, C, o, x), In.Rok(p, Cr.Cir.Cells.set(m, z, y), F, C, U32.inc(o)),
@@ -1828,13 +1947,6 @@ def In.incn.eq(+next: U32, +N: Nat, +F: U32, eN: {U32.to_nat(next) == N : Nat}, 
 
 # Cells of In.St
 # ---------------
-
-def Bo.or_r(a: Bool, -b: Bool, h: {True{} == b : Bool}) -> {True{} == Bool.or(a, b) : Bool}:
-  match a:
-    case True{}:
-      {==}
-    case False{}:
-      h
 
 # A cell that In.St has: it may be read, and it is not 0 (In.rds reads a tag
 # of 1, 8, 10 or 13 there, and the field 0 of the cell 0 is 0)
@@ -2579,94 +2691,6 @@ def In.weq_f(+n: Nat, +a: Word(n), +b: Word(n), h: {False{} == In.weq(n, a, b) :
   +r = Equal.trans(Bool, True{}, In.weq(n, a, a), In.weq(n, a, b), In.weq_refl(n, a), Equal.cong(Word(n), Bool, z => In.weq(n, a, z), a, b, e))
   N.true_ne_false(Equal.trans(Bool, True{}, In.weq(n, a, b), False{}, r, Equal.sym(Bool, False{}, In.weq(n, a, b), h)))
 
-# Numbers
-# -------
-
-def Na.le_t(a: Nat, b: Nat, h: N.Le(a, b)) -> {True{} == Nat.is_le(a, b) : Bool}:
-  match a b:
-    case 0n 0n:
-      {==}
-    case 0n 1n+y:
-      {==}
-    case 1n+x 0n:
-      Empty.absurd({True{} == Nat.is_le(1n+x, 0n) : Bool}, h)
-    case 1n+x 1n+y:
-      Na.le_t(x, y, h)
-
-# b <= a gives a < b false
-def Na.lt_f(a: Nat, b: Nat, h: N.Le(b, a)) -> {False{} == Nat.is_lt(a, b) : Bool}:
-  match a b:
-    case 0n 0n:
-      {==}
-    case 1n+x 0n:
-      {==}
-    case 0n 1n+y:
-      Empty.absurd({False{} == Nat.is_lt(0n, 1n+y) : Bool}, h)
-    case 1n+x 1n+y:
-      Na.lt_f(x, y, h)
-
-# 1 + b <= a gives a <= b false
-def Na.le_f(a: Nat, b: Nat, h: N.Le(1n+b, a)) -> {False{} == Nat.is_le(a, b) : Bool}:
-  match a b:
-    case 0n _:
-      Empty.absurd({False{} == Nat.is_le(0n, b) : Bool}, h)
-    case 1n+x 0n:
-      {==}
-    case 1n+x 1n+y:
-      Na.le_f(x, y, h)
-
-def Na.lt_succ(a: Nat) -> {True{} == Nat.is_lt(a, 1n+a) : Bool}:
-  match a:
-    case 0n:
-      {==}
-    case 1n+x:
-      Na.lt_succ(x)
-
-# a comparison LT gives x < y
-def Cm.lt(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_lt(c) == True{} : Bool}) -> N.Le(1n+x, y):
-  match c:
-    case LT{}:
-      r
-    case EQ{}:
-      Bo.ft(N.Le(1n+x, y), Equal.sym(Bool, False{}, True{}, e))
-    case GT{}:
-      Bo.ft(N.Le(1n+x, y), Equal.sym(Bool, False{}, True{}, e))
-
-# x <= y makes the comparison at most EQ
-def Cm.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(x, y)) -> {True{} == Cmp.is_le(c) : Bool}:
-  match c:
-    case LT{}:
-      {==}
-    case EQ{}:
-      {==}
-    case GT{}:
-      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h)))
-
-# x < y makes the comparison LT
-def Cm.lt_t(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(1n+x, y)) -> {True{} == Cmp.is_lt(c) : Bool}:
-  match c:
-    case LT{}:
-      {==}
-    case EQ{}:
-      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(x, N.le_rw_r(1n+x, y, x, Equal.sym(Nat, x, y, r), h)))
-    case GT{}:
-      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, N.weaken(x, y, h))))
-
-# x > y makes the comparison not EQ
-def Cm.ne(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(1n+y, x)) -> {False{} == Cmp.is_eq(c) : Bool}:
-  match c:
-    case LT{}:
-      {==}
-    case EQ{}:
-      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_rw_r(1n+y, x, y, r, h)))
-    case GT{}:
-      {==}
-
-# below M, a U32 has a next one, one more
-def U.inc(+a: U32, +M: U32, h: {U32.is_lt(a, M) == True{} : Bool}) -> {U32.to_nat(U32.inc(a)) == 1n+U32.to_nat(a) : Nat}:
-  +l = Cm.lt(U32.cmp(a, M), U32.to_nat(a), U32.to_nat(M), N.U32.rel(a, M), h)
-  PI.U32.inc_nat(a, Equal.sym(Bool, U32.is_zero(U32.inc(a)), False{}, PM.nz(a, M, l)))
-
 # Cells that may be read
 # ----------------------
 
@@ -2979,8 +3003,8 @@ def Fd.fr(+k: Nat, +m: Cr.Cir.Cells, +j: U32, +i: U32, +x: Cr.Cir.Cell, +v: U32,
   h
 
 # the new cell next, numbered N, as In.okx has it once it holds x
-def Fb.hx(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, eN: {U32.to_nat(next) == N : Nat},
-  hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, hr: {True{} == In.rd(next, F, 1n+N) : Bool},
+def Fb.hx(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, +eN: {U32.to_nat(next) == N : Nat},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool},
   hx: {True{} == In.okn(m, F, N, x) : Bool}) ->
   {True{} == In.okx(Cr.Cir.Cells.set(m, next, x), F, 1n+N, In.incn(Nat.sub(N, U32.to_nat(F)), F),
     Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, x), In.incn(Nat.sub(N, U32.to_nat(F)), F))) : Bool}:
@@ -2988,21 +3012,21 @@ def Fb.hx(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, eN: {
   %Equal.sym(U32, In.incn(Nat.sub(N, U32.to_nat(F)), F), next, In.incn.eq(next, N, F, eN, hFN)) :
     {True{} == In.okx(ms, F, 1n+N, _, Cr.Cir.Cells.get(ms, _)) : Bool}
   %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(ms, next), x, Cl.get_set(m, next, x)) : {True{} == In.okx(ms, F, 1n+N, next, _) : Bool}
-  Bo.and_i(In.rd(next, F, 1n+N), In.okn(ms, F, 1n+N, x), hr, Okn.up(ms, F, N, x, Okn.fr(m, F, N, x, next, x, hi, hx)))
+  Bo.and_i(In.own(next, F, 1n+N), In.okn(ms, F, 1n+N, x), Own.new(next, N, F, eN, hFN), Okn.up(ms, F, N, x, Okn.fr(m, F, N, x, next, x, hi, hx)))
 
 # the cells that the run took, once the cell next gets x
 def Fb.rok(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, +eN: {U32.to_nat(next) == N : Nat},
-  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, hr: {True{} == In.rd(next, F, 1n+N) : Bool},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool},
   hx: {True{} == In.okn(m, F, N, x) : Bool}, rk: {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool}) ->
   {True{} == In.Rok(Nat.sub(1n+N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, x), F, 1n+N, F) : Bool}:
   +ms = Cr.Cir.Cells.set(m, next, x)
   +n = Nat.sub(N, U32.to_nat(F))
   %Equal.sym(Nat, Nat.sub(1n+N, U32.to_nat(F)), 1n+n, In.sub_succ(U32.to_nat(F), N, hFN)) : {True{} == In.Rok(_, ms, F, 1n+N, F) : Bool}
-  Rok.snoc(n, ms, F, 1n+N, F, Rok.up(n, ms, F, N, F, Rok.fr(n, m, F, N, F, next, x, hi, rk)), Fb.hx(m, next, N, F, x, eN, hFN, hi, hr, hx))
+  Rok.snoc(n, ms, F, 1n+N, F, Rok.up(n, ms, F, N, F, Rok.fr(n, m, F, N, F, next, x, hi, rk)), Fb.hx(m, next, N, F, x, eN, hFN, hi, hx))
 
 # the facts, once the cell next (numbered N) gets the value x, as In.okn says
 def Fb.step(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, +eN: {U32.to_nat(next) == N : Nat},
-  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, hr: {True{} == In.rd(next, F, 1n+N) : Bool},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool},
   hx: {True{} == In.okn(m, F, N, x) : Bool}, fb: In.Fb(m, N, F)) -> In.Fb(Cr.Cir.Cells.set(m, next, x), 1n+N, F):
   (h291, r1) = fb
   (e280, r2) = r1
@@ -3015,7 +3039,7 @@ def Fb.step(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, +eN
    (Fd.fr(2n, m, 280, next, x, 3, e => In.ne.lt(280, next, N.le_trans(281n, 291n, U32.to_nat(next), Unit{}, hF2), e), e280),
     (Fd.fr(2n, m, 282, next, x, 3, e => In.ne.lt(282, next, N.le_trans(283n, 291n, U32.to_nat(next), Unit{}, hF2), e), e282),
      (Fd.fr(0n, m, 0, next, x, 0, e => In.ne.lt(0, next, N.le_trans(1n, 291n, U32.to_nat(next), Unit{}, hF2), e), e0),
-      Fb.rok(m, next, N, F, x, eN, hFN, hi, hr, hx, rk)))))
+      Fb.rok(m, next, N, F, x, eN, hFN, hi, hx, rk)))))
 
 # a STATIC part that may be read, once the cache's entry of w8 gets v
 def Ps.cs(+m: Cr.Cir.Cells, +p: U32, +w8: Word(8n), +F: U32, +N: Nat, hF: N.Le(272n, U32.to_nat(F)), hp: {True{} == In.rd(p, F, N) : Bool},
@@ -3045,6 +3069,119 @@ def Fb.cs(+m: Cr.Cir.Cells, +N: Nat, +F: U32, +w8: Word(8n), +v: U32, fb: In.Fb(
     (Fd.cs(2n, m, 282, w8, v, 3, e => In.ne.gt(In.J(w8), 282, N.le_trans(1n+U32.to_nat(In.J(w8)), 272n, 282n, In.Jhi(w8), Unit{}), e), e282),
      (Fd.cs(0n, m, 0, w8, v, 0, e => In.ne.lt(0, In.J(w8), N.le_trans(1n, 16n, U32.to_nat(In.J(w8)), Unit{}, In.Jlo(w8)), e), e0),
       Rok.cs(Nat.sub(N, U32.to_nat(F)), m, F, N, w8, v, N.le_trans(272n, 291n, U32.to_nat(F), Unit{}, h291b), rk)))))
+
+# Pointers of the run's cells
+# ---------------------------
+#
+# A cell that the run took is a pair (Tup, 1866 or 842) or the focus (App, 72),
+# whose mask is 3 (cells 282 and 280): its pointers are its fields 2 and 3. A
+# set of a cell z that may not be read, and that is not one of these table
+# cells, keeps the pointers of each of them (Pc.fr).
+
+# the header of a value as In.okn has it
+def Okn.hdr(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell, h: {True{} == In.okn(m, F, C, x) : Bool}) ->
+  {True{} == In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)) : Bool}:
+  +h1 = Bo.and_r(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
+      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)))), h)
+  +h2 = Bo.and_r(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
+      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))), h1)
+  Bo.and_r(In.pt(Cr.Cir.Cell.get(3n, x), F, C), In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)), h2)
+
+# a header of the run's cells is 1866, 842 or 72
+def Hdr.cases.of(b1: Bool, b2: Bool, b3: Bool, +h: U32, -X: Bool, e1: {U32.is_eq(h, 1866) == b1 : Bool}, e2: {U32.is_eq(h, 842) == b2 : Bool},
+  e3: {U32.is_eq(h, 72) == b3 : Bool}, hh: {True{} == Bool.or(Bool.and(b1, X), Bool.or(b2, b3)) : Bool}) ->
+  In.Or<{h == 1866 : U32}, In.Or<{h == 842 : U32}, {h == 72 : U32}>>:
+  match b1:
+    case True{}:
+      In.Or.l{D.u32.eq(h, 1866, e1)}
+    case False{}:
+      match b2:
+        case True{}:
+          In.Or.r{In.Or.l{D.u32.eq(h, 842, e2)}}
+        case False{}:
+          match b3:
+            case True{}:
+              In.Or.r{In.Or.r{D.u32.eq(h, 72, e3)}}
+            case False{}:
+              Bo.ft(In.Or<{h == 1866 : U32}, In.Or<{h == 842 : U32}, {h == 72 : U32}>>, hh)
+
+def Hdr.cases(+m: Cr.Cir.Cells, +h: U32, +p: U32, +q: U32, hh: {True{} == In.hdr(m, h, p, q) : Bool}) ->
+  In.Or<{h == 1866 : U32}, In.Or<{h == 842 : U32}, {h == 72 : U32}>>:
+  Hdr.cases.of(U32.is_eq(h, 1866), U32.is_eq(h, 842), U32.is_eq(h, 72), h, Bool.and(In.ps(m, p), In.ps(m, q)), {==}, {==}, {==}, hh)
+
+# two cells that are not one: is_eq says it
+def U.nef.of(b: Bool, +x: U32, +y: U32, eb: {U32.is_eq(x, y) == b : Bool}, ne: {x == y : U32} -> Empty) -> {U32.is_eq(x, y) == False{} : Bool}:
+  match b:
+    case True{}:
+      Empty.absurd({U32.is_eq(x, y) == False{} : Bool}, ne(D.u32.eq(x, y, eb)))
+    case False{}:
+      eb
+
+def U.nef(+x: U32, +y: U32, ne: {x == y : U32} -> Empty) -> {U32.is_eq(x, y) == False{} : Bool}:
+  U.nef.of(U32.is_eq(x, y), x, y, {==}, ne)
+
+# the table's cell of the mask of a cell of the header h is not z, when z is neither 280 nor 282
+def Tb.at(+h: U32, +z: U32, n280: {U32.is_eq(280, z) == False{} : Bool}, n282: {U32.is_eq(282, z) == False{} : Bool},
+  hc: In.Or<{h == 1866 : U32}, In.Or<{h == 842 : U32}, {h == 72 : U32}>>) ->
+  {Bool.or(Bool.not(U32.is_lt(U32.and(h, 63), 19)), Bool.not(U32.is_eq(U32.add(272, U32.and(h, 63)), z))) == True{} : Bool}:
+  match hc:
+    case In.Or.l{e}:
+      %Equal.sym(U32, h, 1866, e) : {Bool.or(Bool.not(U32.is_lt(U32.and(_, 63), 19)), Bool.not(U32.is_eq(U32.add(272, U32.and(_, 63)), z))) == True{} : Bool}
+      %Equal.sym(Bool, U32.is_eq(282, z), False{}, n282) : {Bool.or(Bool.not(U32.is_lt(10, 19)), Bool.not(_)) == True{} : Bool}
+      {==}
+    case In.Or.r{r}:
+      match r:
+        case In.Or.l{e}:
+          %Equal.sym(U32, h, 842, e) : {Bool.or(Bool.not(U32.is_lt(U32.and(_, 63), 19)), Bool.not(U32.is_eq(U32.add(272, U32.and(_, 63)), z))) == True{} : Bool}
+          %Equal.sym(Bool, U32.is_eq(282, z), False{}, n282) : {Bool.or(Bool.not(U32.is_lt(10, 19)), Bool.not(_)) == True{} : Bool}
+          {==}
+        case In.Or.r{e}:
+          %Equal.sym(U32, h, 72, e) : {Bool.or(Bool.not(U32.is_lt(U32.and(_, 63), 19)), Bool.not(U32.is_eq(U32.add(272, U32.and(_, 63)), z))) == True{} : Bool}
+          %Equal.sym(Bool, U32.is_eq(280, z), False{}, n280) : {Bool.or(Bool.not(U32.is_lt(8, 19)), Bool.not(_)) == True{} : Bool}
+          {==}
+
+# a cell that the run took reads its mask at 280 or 282, so not at z
+def Own.tblat(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +z: U32, n280: {U32.is_eq(280, z) == False{} : Bool},
+  n282: {U32.is_eq(282, z) == False{} : Bool}, h: {True{} == In.okx(m, F, C, o, Cr.Cir.Cells.get(m, o)) : Bool}) ->
+  {D.TblAt(m, o, z) == True{} : Bool}:
+  Tb.at(D.Fd(0n, m, o), z, n280, n282, Hdr.cases(m, D.Fd(0n, m, o), D.Fd(2n, m, o), D.Fd(3n, m, o),
+    Okn.hdr(m, F, C, Cr.Cir.Cells.get(m, o), Bo.and_r(In.own(o, F, C), In.okn(m, F, C, Cr.Cir.Cells.get(m, o)), h))))
+
+# the pointers to c of n + 1 cells: of the n, then of the last
+def Pc.snoc(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32) ->
+  {D.Pc(1n+n, m, ps, o, c) == Nat.add(D.Pc(n, m, ps, o, c), D.RcL(D.Fs(m, ps, In.incn(n, o)), c)) : Nat}:
+  match n:
+    case 0n:
+      N.add_zero(D.RcL(D.Fs(m, ps, o), c))
+    case 1n+(+p):
+      Equal.trans(Nat, Nat.add(D.RcL(D.Fs(m, ps, o), c), D.Pc(1n+p, m, ps, U32.inc(o), c)),
+        Nat.add(D.RcL(D.Fs(m, ps, o), c), Nat.add(D.Pc(p, m, ps, U32.inc(o), c), D.RcL(D.Fs(m, ps, In.incn(p, U32.inc(o))), c))),
+        Nat.add(Nat.add(D.RcL(D.Fs(m, ps, o), c), D.Pc(p, m, ps, U32.inc(o), c)), D.RcL(D.Fs(m, ps, In.incn(p, U32.inc(o))), c)),
+        Equal.cong(Nat, Nat, w => Nat.add(D.RcL(D.Fs(m, ps, o), c), w), D.Pc(1n+p, m, ps, U32.inc(o), c),
+          Nat.add(D.Pc(p, m, ps, U32.inc(o), c), D.RcL(D.Fs(m, ps, In.incn(p, U32.inc(o))), c)), Pc.snoc(p, m, ps, U32.inc(o), c)),
+        Equal.sym(Nat, Nat.add(Nat.add(D.RcL(D.Fs(m, ps, o), c), D.Pc(p, m, ps, U32.inc(o), c)), D.RcL(D.Fs(m, ps, In.incn(p, U32.inc(o))), c)),
+          Nat.add(D.RcL(D.Fs(m, ps, o), c), Nat.add(D.Pc(p, m, ps, U32.inc(o), c), D.RcL(D.Fs(m, ps, In.incn(p, U32.inc(o))), c))),
+          N.add_assoc(D.RcL(D.Fs(m, ps, o), c), D.Pc(p, m, ps, U32.inc(o), c), D.RcL(D.Fs(m, ps, In.incn(p, U32.inc(o))), c))))
+
+# the pointers to c of the n cells from o (that the run took), once a cell z
+# that may not be read, and that is not one of the table's cells 280 and 282, is set
+def Pc.fr(n: Nat, +m: Cr.Cir.Cells, +z: U32, +y: Cr.Cir.Cell, +F: U32, +C: Nat, +o: U32, +c: U32, +hz: {False{} == In.rd(z, F, C) : Bool},
+  +n280: {U32.is_eq(280, z) == False{} : Bool}, +n282: {U32.is_eq(282, z) == False{} : Bool}, +h: {True{} == In.Rok(n, m, F, C, o) : Bool}) ->
+  {D.Pc(n, Cr.Cir.Cells.set(m, z, y), [], o, c) == D.Pc(n, m, [], o, c) : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +x = Cr.Cir.Cells.get(m, o)
+      +ha = Bo.and_l(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h)
+      +hb = Bo.and_r(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h)
+      +ho = Own.rd(o, F, C, Bo.and_l(In.own(o, F, C), In.okn(m, F, C, x), ha))
+      +e1 = D.fs.eq(m, z, y, [], o, U.nef(o, z, e => In.ne(o, z, F, C, ho, hz, e)), Own.tblat(m, F, C, o, z, n280, n282, ha))
+      %Equal.sym(List<&2, U32>, D.Fs(Cr.Cir.Cells.set(m, z, y), [], o), D.Fs(m, [], o), e1) :
+        {Nat.add(D.RcL(_, c), D.Pc(p, Cr.Cir.Cells.set(m, z, y), [], U32.inc(o), c)) == Nat.add(D.RcL(D.Fs(m, [], o), c), D.Pc(p, m, [], U32.inc(o), c)) : Nat}
+      %Equal.sym(Nat, D.Pc(p, Cr.Cir.Cells.set(m, z, y), [], U32.inc(o), c), D.Pc(p, m, [], U32.inc(o), c), Pc.fr(p, m, z, y, F, C, U32.inc(o), c, hz, n280, n282, hb)) :
+        {Nat.add(D.RcL(D.Fs(m, [], o), c), _) == Nat.add(D.RcL(D.Fs(m, [], o), c), D.Pc(p, m, [], U32.inc(o), c)) : Nat}
+      {==}
 
 # The facts of a state
 # --------------------
@@ -3139,7 +3276,7 @@ def Fa.step(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +f0: Nat, +fc: Nat, 
     (Im.up(f0, Cr.Cir.Cells.set(m, next, x), F, N, ks, img, Im.fr(f0, m, F, N, ks, img, next, x, hi, im)),
      (CI.up(8n, [], fc, Cr.Cir.Cells.set(m, next, x), F, N, ks, img,
        CI.fr(8n, [], fc, m, F, N, ks, img, next, x, hi, N.le_trans(272n, U32.to_nat(F), U32.to_nat(next), hF, lF), ci)),
-      Fb.step(m, next, N, F, x, eN, hFN, hi, Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa), hx, Fa.fb(m, next, N, F, f0, fc, ks, img, fa))))))
+      Fb.step(m, next, N, F, x, eN, hFN, hi, hx, Fa.fb(m, next, N, F, f0, fc, ks, img, fa))))))
 
 # a term framed over a new cell
 def St.step(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
