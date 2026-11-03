@@ -104,7 +104,7 @@ def Cp.WI(+es: List<&2, Bk.Term>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
       D.P2({U32.to_nat(clen) == List.length(&2, Bk.Term, es) : Nat},
       D.P2(D.Hx(hx, D.Fvs(es, N.D(31n, 1n))),
       D.P2({W.Pz(Con{root, W.Ns(frs)}, P, m) == True{} : Bool},
-        W.Acc(mo, m0, K, F, P0, Q0, N0, E, rs, ts, B0, t, hx, S0, cs, ks, img, m, nx, frs, P, Q, root, T))))))))))))))))))))))
+        W.Acc(mo, m0, K, F, P0, Q0, N0, E, rs, ts, B0, 1n, t, hx, S0, cs, ks, img, m, nx, frs, P, Q, root, T))))))))))))))))))))))
 
 # the invariant of a state, by its witness w, with the registers rg
 def Cp.WI.of(+regs0: List<&2, U32>, +es: List<&2, Bk.Term>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32,
@@ -305,7 +305,8 @@ def Cp.end(+f: Nat, +src: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32,
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.copy.end(Mc.R.n(), Mc.R.croot()), Cr.Cir.Stmt.nop{}}, D.S(rg, ms, nx2, F, K, pg2, L, I)),
     F, K, L, I, Cp.B(Cp.sc(m, P, Q, nx, E, rs, ts, kc, B0, zs, g, T.tm.reg(regs, src), t, T.tm.reg(regs, 36n), es, hx), F, es, t),
     rg => ms => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(hx, D.Mo.subst{es}, t, regs, D.Cp.scratch(Mc.R.n()), Mc.R.n(),
-      ks, img, K, F, m, P, Q, E, nx, rs, ts, kc, Con{D.Rt{g, T.tm.reg(regs, src), t}, D.Env.rts(es, m, T.tm.reg(regs, 36n))}, w, rg, ms, nx3))):
+      ks, img, K, F, m, P, Q, E, nx, Nat.add(B0, 2n+Pg.Term.size(El.Term.subst(t, es, 0n))), rs, ts, kc,
+      Con{D.Rt{g, T.tm.reg(regs, src), t}, D.Env.rts(es, m, T.tm.reg(regs, 36n))}, w, rg, ms, nx3))):
   ?TODO
 
 # The claim
@@ -332,7 +333,8 @@ def Cp.main(+src: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32
   D.Ok(Cr.Cir.exec(1n+Nat.add(1n+Nat.double(D.Sz(t)), Cp.Bb(es)), Mc.M.copy(Mc.R.n(), src), D.S(regs, m, nx, F, K, pg, L, I)), F, K, L, I,
     D.Cells.bytes(F, Nat.add(B0, 2n+Pg.Term.size(El.Term.subst(t, es, 0n)))),
     rg => ms => nx2 => pg2 => D.Ex(D.Wt, w => D.Post(hx, D.Mo.subst{es}, t, regs, D.Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, K, F,
-      m, P, Q, E, nx, rs, ts, kc, Con{D.Rt{g, T.tm.reg(regs, src), t}, D.Env.rts(es, m, T.tm.reg(regs, 36n))}, w, rg, ms, nx2))):
+      m, P, Q, E, nx, Nat.add(B0, 2n+Pg.Term.size(El.Term.subst(t, es, 0n))), rs, ts, kc,
+      Con{D.Rt{g, T.tm.reg(regs, src), t}, D.Env.rts(es, m, T.tm.reg(regs, 36n))}, w, rg, ms, nx2))):
   +W0 = {1n+Nat.double(D.Sz(t)) : Nat}
   +f = {Nat.add(W0, Cp.Bb(es)) : Nat}
   +x = {T.tm.reg(regs, src) : U32}
@@ -342,17 +344,18 @@ def Cp.main(+src: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32
   +sc = {Cp.sc(m, P, Q, nx, E, rs, ts, kc, B0, zs, g, x, t, cenv, es, hx) : W.Sc}
   +S0 = {Con{D.Rt{g, x, t}, D.Env.rts(es, m, cenv)} : List<&2, D.Rt>}
   +bud = {Cp.B(sc, F, es, t) : Nat}
+  +Bc = {Nat.add(B0, 2n+Pg.Term.size(El.Term.subst(t, es, 0n))) : Nat}
   +fin = {Cr.Cir.Stmt.seq{Mc.M.copy.end(Mc.R.n(), Mc.R.croot()), Cr.Cir.Stmt.nop{}} : Cr.Cir.Stmt}
   Cp.start(f, src, regs, m, nx, F, K, pg, L, I, ks, img, P, Q, zs, E, rs, ts, kc, B0, hx, t, g, es,
     Cr.Cir.Stmt.seq{Cp.loop.stmt(), fin},
     rg => ms => nx2 => pg2 => D.Ex(D.Wt, w => D.Post(hx, mo, t, regs, D.Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, K, F, m, P, Q, E, nx,
-      rs, ts, kc, S0, w, rg, ms, nx2)),
+      Bc, rs, ts, kc, S0, w, rg, ms, nx2)),
     hrd, pre, ht, he, hl, hv,
     +ms => +nx2 => +pg2 => +P2 => +Q2 => +pend => +n0 => +j => wi =>
       K.Ok.seq(f, Cp.loop.stmt(), fin, D.S(Cp.R(regs, pend, n0, 0, n0, j), ms, nx2, F, K, pg2, L, I), F, K, L, I, bud,
         rg => ms3 => nx3 => pg3 => Cp.fin(regs, es, ks, img, K, F, sc, cenv, clen, x, t, W0, rg, ms3, nx3),
         rg => ms3 => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(hx, mo, t, regs, D.Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, K, F, m, P, Q, E,
-          nx, rs, ts, kc, S0, w, rg, ms3, nx3)),
+          nx, Bc, rs, ts, kc, S0, w, rg, ms3, nx3)),
         Cp.loop(f, regs, es, ks, img, K, F, L, I, sc, cenv, clen, x, t, W0, ms, nx2, pg2, [S.Sh.fr0(n0, x, t)], P2, Q2,
           pend, n0, 0, n0, [n0], Nil{}, j, Cp.w0(n0, x, t, es), wi),
         +rg => +ms3 => +nx3 => +pg3 => fq => Cp.end(f, src, regs, m, nx, F, K, pg, L, I, ks, img, P, Q, zs, E, rs, ts, kc, B0, hx, t, g,

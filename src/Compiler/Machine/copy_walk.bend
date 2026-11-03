@@ -4146,9 +4146,11 @@ def TcW(T: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>
 # the cells taken so far (with the nodes that the pending parts still make,
 # at most the result's and the root), the frames and their pending nodes
 # within the same, the taken cells T (the walk's among them, the others with
-# no flag), what stays, and next at most 214748364 once it grows
+# no flag), what stays, and once next grows, next at most 214748364 and the
+# own cells at most B0, the result's nodes, the root and e more (a shift's
+# root, for a copy)
 def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +Q0: List<&2, U32>, +N0: U32, +E: List<&2, U32>,
-  +rs: List<&2, D.Rt>, +ts: List<&2, D.Tmp>, +B0: Nat, +t: Bk.Term, +hx: Bool, +S: List<&2, D.Rt>, +cs: List<&2, D.Pr>,
+  +rs: List<&2, D.Rt>, +ts: List<&2, D.Tmp>, +B0: Nat, +e: Nat, +t: Bk.Term, +hx: Bool, +S: List<&2, D.Rt>, +cs: List<&2, D.Pr>,
   +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +frs: List<&2, Fr>,
   +P: List<&2, U32>, +Q: List<&2, U32>, +root: U32, +T: List<&2, U32>) -> Data:
   +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
@@ -4179,4 +4181,5 @@ def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +Q0:
   D.P2({D.In.all(Nat.sub(U32.to_nat(nx), U32.to_nat(N0)), N0, T) == True{} : Bool},
   D.P2({TcW(T, m, P, Q, wl, n, F) == True{} : Bool},
   D.P2({D.Pc(n, m, Q, F, root) == 0n : Nat},
-    {Bool.or(U32.is_eq(nx, N0), U32.is_le(nx, 214748364)) == True{} : Bool})))))))))))))))))))
+  D.P2({Bool.or(U32.is_eq(nx, N0), U32.is_le(nx, 214748364)) == True{} : Bool},
+    {Bool.or(U32.is_eq(nx, N0), Nat.is_le(n, Nat.add(B0, Nat.add(e, C)))) == True{} : Bool}))))))))))))))))))))
