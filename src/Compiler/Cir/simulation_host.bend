@@ -377,12 +377,14 @@ def is.host(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +mem:
 
 # The call of run (H2)
 
-# an outcome that a completed host call can give here
+# an outcome that a run of Cir's program that ends can give here: a result, out of memory or no result
 def is.ro(x: Wa.Wasm.Outcome) -> Data:
   match x:
     case Wa.Wasm.Outcome.result{_}:
       Unit
     case Wa.Wasm.Outcome.out_of_memory{}:
+      Unit
+    case Wa.Wasm.Outcome.no_result{}:
       Unit
     case _:
       Empty
@@ -443,8 +445,13 @@ def ho.oom(+gs: List<&2, Bool>, +y: Wa.Wasm.Outcome, q: HO(Wa.Wasm.Outcome.out_o
       (hg, eq) = p
       eq
 
+# past its program, run gives its status 2 in three steps: the end of its block, the status, the end of run
+def end.steps(+a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32, +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +gs: List<&2, Bool>, +m: Wa.Wasm.Bytes) ->
+  {PH.H.steps(3n, T.Cf([], [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m)) == Wa.Wasm.Step.done{[2], Wa.Wasm.Memory{pg, lm, gs, m}} : Wa.Wasm.Step}:
+  {==}
+
 # run's run, by how Cir's program ends (oc): a result only at a halt, whose
-# status the host reads as Cir.ended says (HaltOK); an engine refusal ends at 1
+# status the host reads as Cir.ended says (HaltOK); past its end, at the status 2; an engine refusal ends at 1
 def rs.out(oc: Cr.Cir.Out, +fu: Nat, +x: Wa.Wasm.Outcome, +X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32,
   +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +gs: List<&2, Bool>, +m: Wa.Wasm.Bytes, +P: Nat, +G: Nat,
   +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +N1: Nat, +hx: is.ro(x),
@@ -452,8 +459,30 @@ def rs.out(oc: Cr.Cir.Out, +fu: Nat, +x: Wa.Wasm.Outcome, +X: List<&2, Wa.Wasm.I
   sp: T.GPost(oc, fu, X, [T.RL()], [], [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m, P, G),
   e: {Cr.Cir.ended(oc) == x : Wa.Wasm.Outcome}) -> RSO(x, gs, fr, mem):
   match oc:
-    case Cr.Cir.Out.next{_}:
-      Empty.absurd(RSO(x, gs, fr, mem), ro.bad(x, Wa.Wasm.Outcome.no_result{}, hx, z => z, e))
+    case Cr.Cir.Out.next{+st2}:
+      match st2:
+        case Cr.Cir.State{+rg2, +cl2, +nx2, +fi2, +im2, +pg2, +lm2, +inp2, +ou2, +on2}:
+          match sp:
+            case Inl{q}:
+              (+k, r0) = q
+              (+N2, p1) = r0
+              (+t2, p2) = p1
+              (+nd2, p3) = p2
+              (+ad2, p4) = p3
+              (+m2, p5) = p4
+              (eq, hI) = p5
+              Inl{(Nat.add(N1, Nat.add(N2, 3n)), (Wa.Wasm.Memory{pg2, lm2, S.Drop(k, gs), m2}, (2, (S.steps.then(N1, Nat.add(N2, 3n), Wa.Wasm.Step.next{fr, mem},
+                T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m), Wa.Wasm.Step.done{[2], Wa.Wasm.Memory{pg2, lm2, S.Drop(k, gs), m2}}, pre,
+                S.steps.then(N2, 3n, T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m),
+                  T.Cf([], [T.RL()], a, n, t2, nd2, ad2, rg2, nx2, on2, pg2, lm2, S.Drop(k, gs), m2), Wa.Wasm.Step.done{[2], Wa.Wasm.Memory{pg2, lm2, S.Drop(k, gs), m2}}, eq,
+                  end.steps(a, n, t2, nd2, ad2, rg2, nx2, on2, pg2, lm2, S.Drop(k, gs), m2))), e))))}
+            case Inr{q}:
+              (+N2, p1) = q
+              (+mm, p2) = p1
+              (+k, p3) = p2
+              (hg, eq) = p3
+              Inr{(Nat.add(N1, N2), (mm, (k, (hg, S.steps.then(N1, N2, Wa.Wasm.Step.next{fr, mem},
+                T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m), Wa.Wasm.Step.done{[1], mm}, pre, eq)))))}
     case Cr.Cir.Out.halt{+s0, st2}:
       match st2:
         case Cr.Cir.State{+rg2, +cl2, +nx2, +fi2, +im2, +pg2, +lm2, +inp2, +ou2, +on2}:
@@ -996,6 +1025,77 @@ def ended.nd(oc: Cr.Cir.Out, e: {Cr.Cir.ended(oc) == Wa.Wasm.Outcome.not_done{} 
       Empty.absurd({Cr.Cir.Out.trap{} == Cr.Cir.Out.not_done{} : Cr.Cir.Out}, ndo.is(Wa.Wasm.Outcome.trap{}, e))
     case Cr.Cir.Out.not_done{}:
       {==}
+
+# an outcome that Cir can give: anything but unsupported
+def is.cir(y: Wa.Wasm.Outcome) -> Data:
+  match y:
+    case Wa.Wasm.Outcome.unsupported{}:
+      Empty
+    case _:
+      Unit
+
+# a status and an output give an outcome that is not unsupported
+def halt.cir(zero: Bool, one: Bool, two: Bool, fits: Bool, out: List<&2, Word(8n)>) -> is.cir(Cr.Cir.ended.halt(zero, one, two, fits, out)):
+  match zero one two:
+    case True{} _ _:
+      match fits:
+        case True{}:
+          Unit{}
+        case False{}:
+          Unit{}
+    case False{} True{} _:
+      Unit{}
+    case False{} False{} True{}:
+      Unit{}
+    case False{} False{} False{}:
+      Unit{}
+
+# how a run of Cir's program ends is not unsupported
+def ended.cir(oc: Cr.Cir.Out) -> is.cir(Cr.Cir.ended(oc)):
+  match oc:
+    case Cr.Cir.Out.next{_}:
+      Unit{}
+    case Cr.Cir.Out.halt{+s0, st2}:
+      match st2:
+        case Cr.Cir.State{+rg2, +cl2, +nx2, +fi2, +im2, +pg2, +lm2, +inp2, +ou2, +on2}:
+          halt.cir(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), Wa.Wasm.fits(pg2, Cr.Cir.at(nx2), on2), ou2)
+    case Cr.Cir.Out.out_of_memory{}:
+      Unit{}
+    case Cr.Cir.Out.trap{}:
+      Unit{}
+    case Cr.Cir.Out.not_done{}:
+      Unit{}
+
+def result.alloced.cir(r: Maybe<&2, U32>, fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, cells: List<&2, Cr.Cir.Cell>, +k: U32, +end: U32, +lim: U32,
+  i: List<&2, Word(8n)>) -> is.cir(Cr.Cir.result.alloced(r, fuel, prog, regs, cells, k, end, lim, i)):
+  match r:
+    case None{}:
+      Unit{}
+    case Some{+p}:
+      ended.cir(Cr.Cir.exec(fuel, prog, Cr.Cir.State{List.replicate(U32, regs, 0), Cr.Cir.load(cells, 1, Cr.Cir.Cells.none{}),
+        Cr.Cir.first(k, end), Cr.Cir.first(k, end), k, p, lim, i, Nil{}, 0}))
+
+def result.sized.cir(ln: Maybe<&2, U32>, fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, cells: List<&2, Cr.Cir.Cell>, +k: U32, +p: U32, +lim: U32,
+  +i: List<&2, Word(8n)>) -> is.cir(Cr.Cir.result.sized(ln, fuel, prog, regs, cells, k, p, lim, i)):
+  match ln:
+    case None{}:
+      Unit{}
+    case Some{+len}:
+      result.alloced.cir(Cr.Cir.alloc.pages(k, len, p, lim), fuel, prog, regs, cells, k, U32.add(Cr.Cir.input.at(k), len), lim, i)
+
+def result.memory.cir(ok: Bool, fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, cells: List<&2, Cr.Cir.Cell>, +k: U32, +p: U32, +lim: U32,
+  +i: List<&2, Word(8n)>) -> is.cir(Cr.Cir.result.memory(ok, fuel, prog, regs, cells, k, p, lim, i)):
+  match ok:
+    case False{}:
+      Unit{}
+    case True{}:
+      result.sized.cir(Wa.Wasm.length32(i), fuel, prog, regs, cells, k, p, lim, i)
+
+# what Cir gives is not unsupported
+def result.cir(fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32) ->
+  is.cir(Cr.Cir.result(fuel, prog, regs, cells, i, m)):
+  result.memory.cir(U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m), fuel, prog, regs, cells,
+    Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), i)
 
 # a - b <= a
 def sub.le(a: Nat, b: Nat) -> N.Le(Nat.sub(a, b), a):
