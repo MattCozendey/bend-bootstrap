@@ -192,6 +192,152 @@ def ig.sig.vd(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +A: Bk.Term, +B: Bk.Term, +fv:
       (D.or.r(Bool.not(D.FlW(Mc.Img.header(9, Mc.Img.quan(q), 1024, fv), 256)), El.Eval.vals(ds, Bk.Term.Sig{q, A, B}, False{}), {==}),
        ig.fl.off512(ig.lo(9, Mc.Img.quan(q), 1024), fv, El.Term.is_data(Bk.Term.Sig{q, A, B}), {==}, {==}))
 
+# a Tup node's VALUE: a pair is a value when its live parts are
+def ig.tup.val(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +a: Bk.Term, +b: Bk.Term, +va: Bool, +vb: Bool, v: Bool,
+  ev: {v == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), va), vb) : Bool},
+  ha: {Bool.or(Bool.not(va), El.Eval.vals(ds, a, False{})) == True{} : Bool},
+  hb: {Bool.or(Bool.not(vb), El.Eval.vals(ds, b, False{})) == True{} : Bool}) ->
+  {Bool.or(Bool.not(v), El.Eval.vals(ds, Bk.Term.Tup{q, a, b}, False{})) == True{} : Bool}:
+  match v:
+    case True{}:
+      +hc = Equal.sym(Bool, True{}, Bool.and(Bool.or(Bool.not(El.Quan.live(q)), va), vb), ev)
+      D.and.i(Bool.or(Bool.not(El.Quan.live(q)), El.Eval.vals(ds, a, False{})), El.Eval.vals(ds, b, False{}),
+        ig.or.sub(Bool.not(El.Quan.live(q)), va, El.Eval.vals(ds, a, False{}),
+          D.and.l(Bool.or(Bool.not(El.Quan.live(q)), va), vb, hc), ha),
+        ig.or.t(vb, El.Eval.vals(ds, b, False{}), hb, D.and.r(Bool.or(Bool.not(El.Quan.live(q)), va), vb, hc)))
+    case False{}:
+      {==}
+
+# a Tup node's DATA: a pair is Data when its live parts are
+def ig.tup.dat(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +a: Bk.Term, +b: Bk.Term, +da: Bool, +db: Bool, d: Bool,
+  ed: {d == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), da), db) : Bool},
+  ha: {Bool.or(Bool.not(da), El.Term.is_data(a)) == True{} : Bool},
+  hb: {Bool.or(Bool.not(db), El.Term.is_data(b)) == True{} : Bool}) ->
+  {Bool.or(Bool.not(d), El.Term.is_data(Bk.Term.Tup{q, a, b})) == True{} : Bool}:
+  match d:
+    case True{}:
+      +hc = Equal.sym(Bool, True{}, Bool.and(Bool.or(Bool.not(El.Quan.live(q)), da), db), ed)
+      D.and.i(Bool.or(Bool.not(El.Quan.live(q)), El.Term.is_data(a)), El.Term.is_data(b),
+        ig.or.sub(Bool.not(El.Quan.live(q)), da, El.Term.is_data(a),
+          D.and.l(Bool.or(Bool.not(El.Quan.live(q)), da), db, hc), ha),
+        ig.or.t(db, El.Term.is_data(b), hb, D.and.r(Bool.or(Bool.not(El.Quan.live(q)), da), db, hc)))
+    case False{}:
+      {==}
+
+# a Tup node's low part: both flag bits from its parts (Img.flags), STATIC,
+# and 13 bits
+def ig.tup.bits(+q: Bk.Quan, +v: Bool, +d: Bool) ->
+  D.P2({D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 256) == v : Bool},
+  D.P2({D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 512) == d : Bool},
+  D.P2({D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 1024) == True{} : Bool},
+       {U32.and(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 8191) ==
+        ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)) : U32}))):
+  match q v d:
+    case Bk.Quan.Q0{} True{} True{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q0{} True{} False{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q0{} False{} True{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q0{} False{} False{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q1{} True{} True{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q1{} True{} False{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q1{} False{} True{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q1{} False{} False{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q2{} True{} True{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q2{} True{} False{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q2{} False{} True{}:
+      ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q2{} False{} False{}:
+      ({==}, ({==}, ({==}, {==})))
+
+# a Tup node: the pair's VALUE and DATA clauses and its STATIC bit, from the
+# low part's bits and the header
+def ig.tup.hdr(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +a: Bk.Term, +b: Bk.Term, +va: Bool, +vb: Bool, +da: Bool, +db: Bool,
+  +v: Bool, +d: Bool, +fv: U32,
+  +b8: {D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 256) == v : Bool},
+  +b9: {D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 512) == d : Bool},
+  +b10: {D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 1024) == True{} : Bool},
+  r: IH.Hdr(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), fv),
+  ev: {v == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), va), vb) : Bool},
+  ed: {d == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), da), db) : Bool},
+  ha: {Bool.or(Bool.not(va), El.Eval.vals(ds, a, False{})) == True{} : Bool},
+  hb: {Bool.or(Bool.not(vb), El.Eval.vals(ds, b, False{})) == True{} : Bool},
+  hc: {Bool.or(Bool.not(da), El.Term.is_data(a)) == True{} : Bool},
+  hd: {Bool.or(Bool.not(db), El.Term.is_data(b)) == True{} : Bool}) ->
+  D.P2({Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 256)),
+      El.Eval.vals(ds, Bk.Term.Tup{q, a, b}, False{})) == True{} : Bool},
+  D.P2({Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 512)),
+      El.Term.is_data(Bk.Term.Tup{q, a, b})) == True{} : Bool},
+       {D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 1024) == True{} : Bool})):
+  match r:
+    case Tuple{_, Tuple{_, Tuple{e8, Tuple{e9, Tuple{e10, _}}}}}:
+      +ev8 = Equal.sym(Bool, D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 256), v,
+        Equal.trans(Bool, D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 256),
+          D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 256), v, e8, b8))
+      +ev9 = Equal.sym(Bool, D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 512), d,
+        Equal.trans(Bool, D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 512),
+          D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 512), d, e9, b9))
+      ({(%ev8 : {Bool.or(Bool.not(_), El.Eval.vals(ds, Bk.Term.Tup{q, a, b}, False{})) == True{} : Bool};
+          ig.tup.val(ds, q, a, b, va, vb, v, ev, ha, hb)) :
+        {Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 256)),
+          El.Eval.vals(ds, Bk.Term.Tup{q, a, b}, False{})) == True{} : Bool}},
+      ({(%ev9 : {Bool.or(Bool.not(_), El.Term.is_data(Bk.Term.Tup{q, a, b})) == True{} : Bool};
+          ig.tup.dat(ds, q, a, b, da, db, d, ed, hc, hd)) :
+        {Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 512)),
+          El.Term.is_data(Bk.Term.Tup{q, a, b})) == True{} : Bool}},
+      Equal.trans(Bool, D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 1024),
+        D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 1024), True{}, e10, b10)))
+
+# a Tup node: the pair's VALUE and DATA clauses and its STATIC bit, from the
+# low part's bits
+def ig.tup.bits.go(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +a: Bk.Term, +b: Bk.Term, +va: Bool, +vb: Bool, +da: Bool, +db: Bool,
+  +v: Bool, +d: Bool, +fv: U32,
+  bt: D.P2({D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 256) == v : Bool},
+    D.P2({D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 512) == d : Bool},
+    D.P2({D.FlW(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 1024) == True{} : Bool},
+      {U32.and(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), 8191) ==
+       ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)) : U32}))),
+  ev: {v == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), va), vb) : Bool},
+  ed: {d == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), da), db) : Bool},
+  ha: {Bool.or(Bool.not(va), El.Eval.vals(ds, a, False{})) == True{} : Bool},
+  hb: {Bool.or(Bool.not(vb), El.Eval.vals(ds, b, False{})) == True{} : Bool},
+  hc: {Bool.or(Bool.not(da), El.Term.is_data(a)) == True{} : Bool},
+  hd: {Bool.or(Bool.not(db), El.Term.is_data(b)) == True{} : Bool}) ->
+  D.P2({Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 256)),
+      El.Eval.vals(ds, Bk.Term.Tup{q, a, b}, False{})) == True{} : Bool},
+  D.P2({Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 512)),
+      El.Term.is_data(Bk.Term.Tup{q, a, b})) == True{} : Bool},
+       {D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 1024) == True{} : Bool})):
+  (b8, q8) = bt
+  (b9, q9) = q8
+  (b10, h13) = q9
+  ig.tup.hdr(ds, q, a, b, va, vb, da, db, v, d, fv, b8, b9, b10,
+    IH.hdr(ig.lo(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d)), fv, h13), ev, ed, ha, hb, hc, hd)
+
+# a Tup node: the pair's VALUE and DATA clauses and its STATIC bit
+def ig.tup.vd(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +a: Bk.Term, +b: Bk.Term, +va: Bool, +vb: Bool, +da: Bool, +db: Bool,
+  +v: Bool, +d: Bool, +fv: U32,
+  ev: {v == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), va), vb) : Bool},
+  ed: {d == Bool.and(Bool.or(Bool.not(El.Quan.live(q)), da), db) : Bool},
+  ha: {Bool.or(Bool.not(va), El.Eval.vals(ds, a, False{})) == True{} : Bool},
+  hb: {Bool.or(Bool.not(vb), El.Eval.vals(ds, b, False{})) == True{} : Bool},
+  hc: {Bool.or(Bool.not(da), El.Term.is_data(a)) == True{} : Bool},
+  hd: {Bool.or(Bool.not(db), El.Term.is_data(b)) == True{} : Bool}) ->
+  D.P2({Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 256)),
+      El.Eval.vals(ds, Bk.Term.Tup{q, a, b}, False{})) == True{} : Bool},
+  D.P2({Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 512)),
+      El.Term.is_data(Bk.Term.Tup{q, a, b})) == True{} : Bool},
+       {D.FlW(Mc.Img.header(Mc.T.tup(), Mc.Img.quan(q), Mc.Img.flags(v, d), fv), 1024) == True{} : Bool})):
+  ig.tup.bits.go(ds, q, a, b, va, vb, da, db, v, d, fv, ig.tup.bits(q, v, d), ev, ed, ha, hb, hc, hd)
+
 # a Prj node: a former, not Data
 def ig.prj.vd(+ds: List<&2, Bk.Def>, +h: Bk.Term, +fv: U32) ->
   D.P2({Bool.or(Bool.not(D.FlW(Mc.Img.header(Mc.T.prj(), 0, 1024, fv), 256)), El.Eval.vals(ds, Bk.Term.Prj{h}, False{})) == True{} : Bool},
