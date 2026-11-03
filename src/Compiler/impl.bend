@@ -18,9 +18,13 @@ import ./Machine/impl.bend as Mc
 def Compiler.halt(s: U32) -> List<&2, Word(8n)>:
   Cr.Wasm.encode(Cr.Cir.module(Cr.Cir.Stmt.halt{s}, 0n, []))
 
+# the module of the Cir program prog of regs registers, with the image's cells
+def Compiler.module.of(prog: Cr.Cir.Stmt, regs: Nat, cells: List<&2, Cr.Cir.Cell>) -> List<&2, Word(8n)>:
+  Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells))
+
 # the module of the machine with the image's cells
 def Compiler.module(cells: List<&2, Cr.Cir.Cell>) -> List<&2, Word(8n)>:
-  Cr.Wasm.encode(Cr.Cir.module(Mc.Mach.code(), Mc.Mach.regs(), cells))
+  Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells)
 
 # the module of the book that Book.read reads, r, by the cases of the
 # compiler; machine makes the machine's module of an image
@@ -39,4 +43,4 @@ def Compiler.compile.of(machine: List<&2, Cr.Cir.Cell> -> List<&2, Word(8n)>, sm
 # than a module can have (Img.small): its module runs out of memory at once. Bytes that
 # are no book give a module that gives no result
 def Compiler.compile(+p: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
-  Compiler.compile.of(Compiler.module, Mc.Img.small(p, 0), Bk.Book.read(p))
+  Compiler.compile.of(Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), Mc.Img.small(p, 0), Bk.Book.read(p))
