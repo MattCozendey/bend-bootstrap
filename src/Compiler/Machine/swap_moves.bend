@@ -33,6 +33,9 @@ import ./statement_runs.bend as X
 import ./move_kit.bend as K
 import ./cell_terms.bend as T
 import ./heap_ops.bend as U2
+import ../Cir/leb_round_trip.bend as LB
+import ./copy_terms.bend as CT
+import ./copy_header_bits.bend as HB
 
 # Kit
 # ---
@@ -1760,95 +1763,143 @@ def Plain(s: Cr.Cir.Stmt) -> Bool:
     case _:
       True{}
 
-def ends.setof(rs: Maybe<&2, List<&2, U32>>, st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.set.of(rs, st)):
+# a run that ends, and not out of memory
+def Calm(o: Cr.Cir.Out) -> Data:
+  D.P2(D.Ends(o), D.NoOom(o))
+
+def calm.setof(rs: Maybe<&2, List<&2, U32>>, st: Cr.Cir.State) -> Calm(Cr.Cir.exec.set.of(rs, st)):
   match rs st:
     case Some{_} Cr.Cir.State{_, _, _, _, _, _, _, _, _, _}:
-      Unit{}
+      (Unit{}, Unit{})
     case None{} _:
-      Unit{}
+      (Unit{}, Unit{})
 
-def ends.set(+r: Nat, v: Maybe<&2, U32>, st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.set(r, v, st)):
+def calm.set(+r: Nat, v: Maybe<&2, U32>, st: Cr.Cir.State) -> Calm(Cr.Cir.exec.set(r, v, st)):
   match v st:
     case Some{+x} Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      ends.setof(Cr.Cir.regs.set(regs, r, x), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
+      calm.setof(Cr.Cir.regs.set(regs, r, x), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
     case None{} _:
-      Unit{}
+      (Unit{}, Unit{})
 
-def ends.storeif(ok: Bool, +k: Nat, +i: U32, +v: U32, st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.store.if(ok, k, i, v, st)):
+def calm.storeif(ok: Bool, +k: Nat, +i: U32, +v: U32, st: Cr.Cir.State) -> Calm(Cr.Cir.exec.store.if(ok, k, i, v, st)):
   match ok st:
     case True{} Cr.Cir.State{_, _, _, _, _, _, _, _, _, _}:
-      Unit{}
+      (Unit{}, Unit{})
     case False{} _:
-      Unit{}
+      (Unit{}, Unit{})
 
-def ends.store(+k: Nat, c: Maybe<&2, U32>, v: Maybe<&2, U32>, st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.store(k, c, v, st)):
+def calm.store(+k: Nat, c: Maybe<&2, U32>, v: Maybe<&2, U32>, st: Cr.Cir.State) -> Calm(Cr.Cir.exec.store(k, c, v, st)):
   match c:
     case Some{+i}:
       match v:
         case Some{+x}:
           match st:
             case Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-              ends.storeif(Cr.Cir.is_cell(i, im, fi, nx), k, i, x, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
+              calm.storeif(Cr.Cir.is_cell(i, im, fi, nx), k, i, x, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
         case None{}:
-          Unit{}
+          (Unit{}, Unit{})
     case None{}:
-      Unit{}
+      (Unit{}, Unit{})
 
-def ends.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, d: D.Ends(o), dk: @t: Cr.Cir.State -> D.Ends(k(t))) ->
-  D.Ends(Cr.Cir.exec.then(o, k)):
+def calm.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, d: Calm(o), dk: @t: Cr.Cir.State -> Calm(k(t))) ->
+  Calm(Cr.Cir.exec.then(o, k)):
   match o:
     case Cr.Cir.Out.next{s}:
       dk(s)
     case Cr.Cir.Out.halt{_, _}:
-      Unit{}
+      (Unit{}, Unit{})
     case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
+      d
     case Cr.Cir.Out.trap{}:
-      Unit{}
+      (Unit{}, Unit{})
     case Cr.Cir.Out.not_done{}:
       d
 
-def ends.ifof(z: Bool, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
-  D.Ends(Cr.Cir.exec.if.of(z, yes, no)):
+def calm.ifof(z: Bool, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: Calm(yes(Unit{})), dn: Calm(no(Unit{}))) ->
+  Calm(Cr.Cir.exec.if.of(z, yes, no)):
   match z:
     case False{}:
       dy
     case True{}:
       dn
 
-def ends.if(c: Maybe<&2, U32>, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
-  D.Ends(Cr.Cir.exec.if(c, yes, no)):
+def calm.if(c: Maybe<&2, U32>, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: Calm(yes(Unit{})), dn: Calm(no(Unit{}))) ->
+  Calm(Cr.Cir.exec.if(c, yes, no)):
   match c:
     case Some{+x}:
-      ends.ifof(U32.is_zero(x), yes, no, dy, dn)
+      calm.ifof(U32.is_zero(x), yes, no, dy, dn)
     case None{}:
-      Unit{}
+      (Unit{}, Unit{})
 
-# a plain statement ends with no fuel
+# a plain statement ends, with any fuel, and never runs out of memory
+def calm.plain(f: Nat, s: Cr.Cir.Stmt, +st: Cr.Cir.State, h: {Plain(s) == True{} : Bool}) -> Calm(Cr.Cir.exec(f, s, st)):
+  match f:
+    case 0n:
+      match s:
+        case Cr.Cir.Stmt.nop{}:
+          (Unit{}, Unit{})
+        case Cr.Cir.Stmt.set{+r, +e}:
+          calm.set(r, Cr.Cir.eval(e, st), st)
+        case Cr.Cir.Stmt.store{+k, +c, +v}:
+          calm.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)
+        case Cr.Cir.Stmt.alloc{+r}:
+          D.bool.ft(Calm(Cr.Cir.exec(0n, Cr.Cir.Stmt.alloc{r}, st)), h)
+        case Cr.Cir.Stmt.emit{+v}:
+          D.bool.ft(Calm(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st)), h)
+        case Cr.Cir.Stmt.seq{+a, +b}:
+          +h2 = h
+          calm.then(Cr.Cir.exec(0n, a, st), t => Cr.Cir.exec(0n, b, t), calm.plain(0n, a, st, D.and.l(Plain(a), Plain(b), h2)),
+            t => calm.plain(0n, b, t, D.and.r(Plain(a), Plain(b), h2)))
+        case Cr.Cir.Stmt.if{+c, +t, +e}:
+          +h2 = h
+          calm.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st),
+            calm.plain(0n, t, st, D.and.l(Plain(t), Plain(e), h2)), calm.plain(0n, e, st, D.and.r(Plain(t), Plain(e), h2)))
+        case Cr.Cir.Stmt.while{+c, +b}:
+          D.bool.ft(Calm(Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, b}, st)), h)
+        case Cr.Cir.Stmt.halt{_}:
+          (Unit{}, Unit{})
+    case 1n+(+g):
+      match s:
+        case Cr.Cir.Stmt.nop{}:
+          (Unit{}, Unit{})
+        case Cr.Cir.Stmt.set{+r, +e}:
+          calm.set(r, Cr.Cir.eval(e, st), st)
+        case Cr.Cir.Stmt.store{+k, +c, +v}:
+          calm.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)
+        case Cr.Cir.Stmt.alloc{+r}:
+          D.bool.ft(Calm(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.alloc{r}, st)), h)
+        case Cr.Cir.Stmt.emit{+v}:
+          D.bool.ft(Calm(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.emit{v}, st)), h)
+        case Cr.Cir.Stmt.seq{+a, +b}:
+          +h2 = h
+          calm.then(Cr.Cir.exec(1n+g, a, st), t => Cr.Cir.exec(1n+g, b, t), calm.plain(1n+g, a, st, D.and.l(Plain(a), Plain(b), h2)),
+            t => calm.plain(1n+g, b, t, D.and.r(Plain(a), Plain(b), h2)))
+        case Cr.Cir.Stmt.if{+c, +t, +e}:
+          +h2 = h
+          calm.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(1n+g, t, st), u => Cr.Cir.exec(1n+g, e, st),
+            calm.plain(1n+g, t, st, D.and.l(Plain(t), Plain(e), h2)), calm.plain(1n+g, e, st, D.and.r(Plain(t), Plain(e), h2)))
+        case Cr.Cir.Stmt.while{+c, +b}:
+          D.bool.ft(Calm(Cr.Cir.exec(1n+g, Cr.Cir.Stmt.while{c, b}, st)), h)
+        case Cr.Cir.Stmt.halt{_}:
+          (Unit{}, Unit{})
+
 def ends.plain(s: Cr.Cir.Stmt, +st: Cr.Cir.State, h: {Plain(s) == True{} : Bool}) -> D.Ends(Cr.Cir.exec(0n, s, st)):
-  match s:
-    case Cr.Cir.Stmt.nop{}:
-      Unit{}
-    case Cr.Cir.Stmt.set{+r, +e}:
-      ends.set(r, Cr.Cir.eval(e, st), st)
-    case Cr.Cir.Stmt.store{+k, +c, +v}:
-      ends.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)
-    case Cr.Cir.Stmt.alloc{+r}:
-      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.alloc{r}, st)), h)
-    case Cr.Cir.Stmt.emit{+v}:
-      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st)), h)
-    case Cr.Cir.Stmt.seq{+a, +b}:
-      +h2 = h
-      ends.then(Cr.Cir.exec(0n, a, st), t => Cr.Cir.exec(0n, b, t), ends.plain(a, st, D.and.l(Plain(a), Plain(b), h2)),
-        t => ends.plain(b, t, D.and.r(Plain(a), Plain(b), h2)))
-    case Cr.Cir.Stmt.if{+c, +t, +e}:
-      +h2 = h
-      ends.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st),
-        ends.plain(t, st, D.and.l(Plain(t), Plain(e), h2)), ends.plain(e, st, D.and.r(Plain(t), Plain(e), h2)))
-    case Cr.Cir.Stmt.while{+c, +b}:
-      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, b}, st)), h)
-    case Cr.Cir.Stmt.halt{_}:
-      Unit{}
+  D.Ex.fst(D.Ends(Cr.Cir.exec(0n, s, st)), _ => D.NoOom(Cr.Cir.exec(0n, s, st)), calm.plain(0n, s, st, h))
+
+# a run that never runs out of memory needs no budget
+def postb.noom(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -B: Nat, -B2: Nat, -lim: U32,
+  h: D.PostB(False{}, o, Q, H, B, lim), hn: D.NoOom(o)) -> D.PostB(False{}, o, Q, H, B2, lim):
+  match o:
+    case Cr.Cir.Out.next{_}:
+      h
+    case Cr.Cir.Out.halt{_, _}:
+      h
+    case Cr.Cir.Out.out_of_memory{}:
+      Empty.absurd(D.PostB(False{}, Cr.Cir.Out.out_of_memory{}, Q, H, B2, lim), hn)
+    case Cr.Cir.Out.trap{}:
+      h
+    case Cr.Cir.Out.not_done{}:
+      h
 
 # Eval under frames
 # -----------------
@@ -4245,6 +4296,1063 @@ def mn.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
             mina.E(0n, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) : D.Ends(_);
           ends.plain(Mc.M.ret.min(), st3, plain.min()))))
 
+# The Tup value
+# -------------
+#
+# Tup q a □, with the value v (M.ret.tup): the frame pops, and M.make gives
+# a cell for Tup q a v, a value: an admin move. M.alloc takes the pend
+# list's first cell, the frame's, so it runs out of memory never (Plain).
+# The cell's header has the tag, the frame's quantity, VALUE, and the
+# larger fv of a and v (hd.lo, hd.fv, fv.max); term.post makes it the root.
+
+def plain.alloc() -> {Plain(K.stmt.then(Mc.M.alloc(15n))) == True{} : Bool}:
+  {==}
+
+# M.alloc with a cell in the pend list ends, and never runs out of memory
+def calm.alloc(+f: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32,
+  +inp: List<&2, Word(8n)>, +pend: U32, h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  hne: {U32.is_eq(pend, 0) == False{} : Bool}) ->
+  Calm(Cr.Cir.exec(f, Mc.M.alloc(15n), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0})):
+  +st = {Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State}
+  +ec = D.ev.op(Wa.Wasm.Op.ne{}, Mc.M.g(3n), Mc.M.c(0), st, pend, 0, h3, {==})
+  +nz = {(%Equal.sym(Bool, U32.is_eq(pend, 0), False{}, hne) : {U32.is_zero(Bool.to_u32(Bool.not(_))) == False{} : Bool}; {==}) :
+    {U32.is_zero(Wa.Wasm.op(Wa.Wasm.Op.ne{}, pend, 0)) == False{} : Bool}}
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.alloc(15n), st), Cr.Cir.exec(f, K.stmt.then(Mc.M.alloc(15n)), st),
+    D.eq.if.t(f, K.stmt.cond(Mc.M.alloc(15n)), K.stmt.then(Mc.M.alloc(15n)), K.stmt.else(Mc.M.alloc(15n)), st, Wa.Wasm.op(Wa.Wasm.Op.ne{}, pend, 0), ec, nz)) :
+    Calm(_)
+  calm.plain(f, K.stmt.then(Mc.M.alloc(15n)), st, plain.alloc())
+
+# a list of 63 registers is RG of its first four and the rest
+def rg.goal(xs: List<&2, U32>) -> Type:
+  {xs == D.RG(Maybe.default(&2, U32, List.get(&2, U32, xs, 0n), 0), Maybe.default(&2, U32, List.get(&2, U32, xs, 1n), 0),
+    Maybe.default(&2, U32, List.get(&2, U32, xs, 2n), 0), Maybe.default(&2, U32, List.get(&2, U32, xs, 3n), 0),
+    D.R59.list(D.R59.of(xs))) : List<&2, U32>}
+
+def rg.of(xs: List<&2, U32>, h: {List.length(&2, U32, xs) == 63n : Nat}) -> rg.goal(xs):
+  match xs:
+    case Nil{}:
+      D.bool.ft(rg.goal(Nil{}), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 0n, 63n, h))
+    case Con{+a0, x1}:
+      match x1:
+        case Nil{}:
+          D.bool.ft(rg.goal([a0]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 1n, 63n, h))
+        case Con{+a1, x2}:
+          match x2:
+            case Nil{}:
+              D.bool.ft(rg.goal([a0, a1]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 2n, 63n, h))
+            case Con{+a2, x3}:
+              match x3:
+                case Nil{}:
+                  D.bool.ft(rg.goal([a0, a1, a2]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 3n, 63n, h))
+                case Con{+a3, x4}:
+                  match x4:
+                    case Nil{}:
+                      D.bool.ft(rg.goal([a0, a1, a2, a3]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 4n, 63n, h))
+                    case Con{+a4, x5}:
+                      match x5:
+                        case Nil{}:
+                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 5n, 63n, h))
+                        case Con{+a5, x6}:
+                          match x6:
+                            case Nil{}:
+                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 6n, 63n, h))
+                            case Con{+a6, x7}:
+                              match x7:
+                                case Nil{}:
+                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 7n, 63n, h))
+                                case Con{+a7, x8}:
+                                  match x8:
+                                    case Nil{}:
+                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 8n, 63n, h))
+                                    case Con{+a8, x9}:
+                                      match x9:
+                                        case Nil{}:
+                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 9n, 63n, h))
+                                        case Con{+a9, x10}:
+                                          match x10:
+                                            case Nil{}:
+                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 10n, 63n, h))
+                                            case Con{+a10, x11}:
+                                              match x11:
+                                                case Nil{}:
+                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 11n, 63n, h))
+                                                case Con{+a11, x12}:
+                                                  match x12:
+                                                    case Nil{}:
+                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 12n, 63n, h))
+                                                    case Con{+a12, x13}:
+                                                      match x13:
+                                                        case Nil{}:
+                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 13n, 63n, h))
+                                                        case Con{+a13, x14}:
+                                                          match x14:
+                                                            case Nil{}:
+                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 14n, 63n, h))
+                                                            case Con{+a14, x15}:
+                                                              match x15:
+                                                                case Nil{}:
+                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 15n, 63n, h))
+                                                                case Con{+a15, x16}:
+                                                                  match x16:
+                                                                    case Nil{}:
+                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 16n, 63n, h))
+                                                                    case Con{+a16, x17}:
+                                                                      match x17:
+                                                                        case Nil{}:
+                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 17n, 63n, h))
+                                                                        case Con{+a17, x18}:
+                                                                          match x18:
+                                                                            case Nil{}:
+                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 18n, 63n, h))
+                                                                            case Con{+a18, x19}:
+                                                                              match x19:
+                                                                                case Nil{}:
+                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 19n, 63n, h))
+                                                                                case Con{+a19, x20}:
+                                                                                  match x20:
+                                                                                    case Nil{}:
+                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 20n, 63n, h))
+                                                                                    case Con{+a20, x21}:
+                                                                                      match x21:
+                                                                                        case Nil{}:
+                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 21n, 63n, h))
+                                                                                        case Con{+a21, x22}:
+                                                                                          match x22:
+                                                                                            case Nil{}:
+                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 22n, 63n, h))
+                                                                                            case Con{+a22, x23}:
+                                                                                              match x23:
+                                                                                                case Nil{}:
+                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 23n, 63n, h))
+                                                                                                case Con{+a23, x24}:
+                                                                                                  match x24:
+                                                                                                    case Nil{}:
+                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 24n, 63n, h))
+                                                                                                    case Con{+a24, x25}:
+                                                                                                      match x25:
+                                                                                                        case Nil{}:
+                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 25n, 63n, h))
+                                                                                                        case Con{+a25, x26}:
+                                                                                                          match x26:
+                                                                                                            case Nil{}:
+                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 26n, 63n, h))
+                                                                                                            case Con{+a26, x27}:
+                                                                                                              match x27:
+                                                                                                                case Nil{}:
+                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 27n, 63n, h))
+                                                                                                                case Con{+a27, x28}:
+                                                                                                                  match x28:
+                                                                                                                    case Nil{}:
+                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 28n, 63n, h))
+                                                                                                                    case Con{+a28, x29}:
+                                                                                                                      match x29:
+                                                                                                                        case Nil{}:
+                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 29n, 63n, h))
+                                                                                                                        case Con{+a29, x30}:
+                                                                                                                          match x30:
+                                                                                                                            case Nil{}:
+                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 30n, 63n, h))
+                                                                                                                            case Con{+a30, x31}:
+                                                                                                                              match x31:
+                                                                                                                                case Nil{}:
+                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 31n, 63n, h))
+                                                                                                                                case Con{+a31, x32}:
+                                                                                                                                  match x32:
+                                                                                                                                    case Nil{}:
+                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 32n, 63n, h))
+                                                                                                                                    case Con{+a32, x33}:
+                                                                                                                                      match x33:
+                                                                                                                                        case Nil{}:
+                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 33n, 63n, h))
+                                                                                                                                        case Con{+a33, x34}:
+                                                                                                                                          match x34:
+                                                                                                                                            case Nil{}:
+                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 34n, 63n, h))
+                                                                                                                                            case Con{+a34, x35}:
+                                                                                                                                              match x35:
+                                                                                                                                                case Nil{}:
+                                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 35n, 63n, h))
+                                                                                                                                                case Con{+a35, x36}:
+                                                                                                                                                  match x36:
+                                                                                                                                                    case Nil{}:
+                                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 36n, 63n, h))
+                                                                                                                                                    case Con{+a36, x37}:
+                                                                                                                                                      match x37:
+                                                                                                                                                        case Nil{}:
+                                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 37n, 63n, h))
+                                                                                                                                                        case Con{+a37, x38}:
+                                                                                                                                                          match x38:
+                                                                                                                                                            case Nil{}:
+                                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 38n, 63n, h))
+                                                                                                                                                            case Con{+a38, x39}:
+                                                                                                                                                              match x39:
+                                                                                                                                                                case Nil{}:
+                                                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 39n, 63n, h))
+                                                                                                                                                                case Con{+a39, x40}:
+                                                                                                                                                                  match x40:
+                                                                                                                                                                    case Nil{}:
+                                                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 40n, 63n, h))
+                                                                                                                                                                    case Con{+a40, x41}:
+                                                                                                                                                                      match x41:
+                                                                                                                                                                        case Nil{}:
+                                                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 41n, 63n, h))
+                                                                                                                                                                        case Con{+a41, x42}:
+                                                                                                                                                                          match x42:
+                                                                                                                                                                            case Nil{}:
+                                                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 42n, 63n, h))
+                                                                                                                                                                            case Con{+a42, x43}:
+                                                                                                                                                                              match x43:
+                                                                                                                                                                                case Nil{}:
+                                                                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 43n, 63n, h))
+                                                                                                                                                                                case Con{+a43, x44}:
+                                                                                                                                                                                  match x44:
+                                                                                                                                                                                    case Nil{}:
+                                                                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 44n, 63n, h))
+                                                                                                                                                                                    case Con{+a44, x45}:
+                                                                                                                                                                                      match x45:
+                                                                                                                                                                                        case Nil{}:
+                                                                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 45n, 63n, h))
+                                                                                                                                                                                        case Con{+a45, x46}:
+                                                                                                                                                                                          match x46:
+                                                                                                                                                                                            case Nil{}:
+                                                                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 46n, 63n, h))
+                                                                                                                                                                                            case Con{+a46, x47}:
+                                                                                                                                                                                              match x47:
+                                                                                                                                                                                                case Nil{}:
+                                                                                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 47n, 63n, h))
+                                                                                                                                                                                                case Con{+a47, x48}:
+                                                                                                                                                                                                  match x48:
+                                                                                                                                                                                                    case Nil{}:
+                                                                                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 48n, 63n, h))
+                                                                                                                                                                                                    case Con{+a48, x49}:
+                                                                                                                                                                                                      match x49:
+                                                                                                                                                                                                        case Nil{}:
+                                                                                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 49n, 63n, h))
+                                                                                                                                                                                                        case Con{+a49, x50}:
+                                                                                                                                                                                                          match x50:
+                                                                                                                                                                                                            case Nil{}:
+                                                                                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 50n, 63n, h))
+                                                                                                                                                                                                            case Con{+a50, x51}:
+                                                                                                                                                                                                              match x51:
+                                                                                                                                                                                                                case Nil{}:
+                                                                                                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 51n, 63n, h))
+                                                                                                                                                                                                                case Con{+a51, x52}:
+                                                                                                                                                                                                                  match x52:
+                                                                                                                                                                                                                    case Nil{}:
+                                                                                                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 52n, 63n, h))
+                                                                                                                                                                                                                    case Con{+a52, x53}:
+                                                                                                                                                                                                                      match x53:
+                                                                                                                                                                                                                        case Nil{}:
+                                                                                                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 53n, 63n, h))
+                                                                                                                                                                                                                        case Con{+a53, x54}:
+                                                                                                                                                                                                                          match x54:
+                                                                                                                                                                                                                            case Nil{}:
+                                                                                                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 54n, 63n, h))
+                                                                                                                                                                                                                            case Con{+a54, x55}:
+                                                                                                                                                                                                                              match x55:
+                                                                                                                                                                                                                                case Nil{}:
+                                                                                                                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 55n, 63n, h))
+                                                                                                                                                                                                                                case Con{+a55, x56}:
+                                                                                                                                                                                                                                  match x56:
+                                                                                                                                                                                                                                    case Nil{}:
+                                                                                                                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 56n, 63n, h))
+                                                                                                                                                                                                                                    case Con{+a56, x57}:
+                                                                                                                                                                                                                                      match x57:
+                                                                                                                                                                                                                                        case Nil{}:
+                                                                                                                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 57n, 63n, h))
+                                                                                                                                                                                                                                        case Con{+a57, x58}:
+                                                                                                                                                                                                                                          match x58:
+                                                                                                                                                                                                                                            case Nil{}:
+                                                                                                                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 58n, 63n, h))
+                                                                                                                                                                                                                                            case Con{+a58, x59}:
+                                                                                                                                                                                                                                              match x59:
+                                                                                                                                                                                                                                                case Nil{}:
+                                                                                                                                                                                                                                                  D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 59n, 63n, h))
+                                                                                                                                                                                                                                                case Con{+a59, x60}:
+                                                                                                                                                                                                                                                  match x60:
+                                                                                                                                                                                                                                                    case Nil{}:
+                                                                                                                                                                                                                                                      D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 60n, 63n, h))
+                                                                                                                                                                                                                                                    case Con{+a60, x61}:
+                                                                                                                                                                                                                                                      match x61:
+                                                                                                                                                                                                                                                        case Nil{}:
+                                                                                                                                                                                                                                                          D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 61n, 63n, h))
+                                                                                                                                                                                                                                                        case Con{+a61, x62}:
+                                                                                                                                                                                                                                                          match x62:
+                                                                                                                                                                                                                                                            case Nil{}:
+                                                                                                                                                                                                                                                              D.bool.ft(rg.goal([a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22, a23, a24, a25, a26, a27, a28, a29, a30, a31, a32, a33, a34, a35, a36, a37, a38, a39, a40, a41, a42, a43, a44, a45, a46, a47, a48, a49, a50, a51, a52, a53, a54, a55, a56, a57, a58, a59, a60, a61]), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 62n, 63n, h))
+                                                                                                                                                                                                                                                            case Con{+a62, x63}:
+                                                                                                                                                                                                                                                              match x63:
+                                                                                                                                                                                                                                                                case Nil{}:
+                                                                                                                                                                                                                                                                  {==}
+                                                                                                                                                                                                                                                                case Con{y, r}:
+                                                                                                                                                                                                                                                                  D.bool.ft(rg.goal(Con{a0, Con{a1, Con{a2, Con{a3, Con{a4, Con{a5, Con{a6, Con{a7, Con{a8, Con{a9, Con{a10, Con{a11, Con{a12, Con{a13, Con{a14, Con{a15, Con{a16, Con{a17, Con{a18, Con{a19, Con{a20, Con{a21, Con{a22, Con{a23, Con{a24, Con{a25, Con{a26, Con{a27, Con{a28, Con{a29, Con{a30, Con{a31, Con{a32, Con{a33, Con{a34, Con{a35, Con{a36, Con{a37, Con{a38, Con{a39, Con{a40, Con{a41, Con{a42, Con{a43, Con{a44, Con{a45, Con{a46, Con{a47, Con{a48, Con{a49, Con{a50, Con{a51, Con{a52, Con{a53, Con{a54, Con{a55, Con{a56, Con{a57, Con{a58, Con{a59, Con{a60, Con{a61, Con{a62, Con{y, r}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}), Equal.cong(Nat, Bool, n => Nat.is_eq(n, 63n), 64n+List.length(&2, U32, r), 63n, h))
+
+# a state that Same finds: its first cell, image, limit and input, no output
+def St.pg(st: Cr.Cir.State) -> U32:
+  match st:
+    case Cr.Cir.State{_, _, _, _, _, pg, _, _, _, _}:
+      pg
+
+def same.st(+regs: List<&2, U32>, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
+  st: Cr.Cir.State, h: D.Same(regs, fi, im, lim, inp, keep, st)) ->
+  {st == Cr.Cir.State{D.St.regs(st), D.St.cells(st), D.St.next(st), fi, im, St.pg(st), lim, inp, Nil{}, 0} : Cr.Cir.State}:
+  match st:
+    case Cr.Cir.State{+regs2, +m2, +nx2, +fi2, +im2, +pg2, +lim2, +inp2, +out2, +outn2}:
+      match h:
+        case Tuple{efi, Tuple{eim, Tuple{elim, Tuple{einp, Tuple{eout, Tuple{eoutn, _}}}}}}:
+          %Equal.sym(U32, fi2, fi, efi) :
+            {Cr.Cir.State{regs2, m2, nx2, _, im2, pg2, lim2, inp2, out2, outn2} == Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+          %Equal.sym(U32, im2, im, eim) :
+            {Cr.Cir.State{regs2, m2, nx2, fi, _, pg2, lim2, inp2, out2, outn2} == Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+          %Equal.sym(U32, lim2, lim, elim) :
+            {Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, _, inp2, out2, outn2} == Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+          %Equal.sym(List<&2, Word(8n)>, inp2, inp, einp) :
+            {Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, _, out2, outn2} == Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+          %Equal.sym(List<&2, Word(8n)>, out2, Nil{}, eout) :
+            {Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, _, outn2} == Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+          %Equal.sym(U32, outn2, 0, eoutn) :
+            {Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, _} == Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, 0} : Cr.Cir.State}
+          {==}
+
+# a cell of zeros: not STATIC, of the tag 0, with no pointer (the table's
+# cell of the tag 0 has no part)
+def zero.st(+m: Cr.Cir.Cells, +z: U32, hz: {Cr.Cir.Cells.get(m, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}) ->
+  {D.Fl(m, z, 1024) == False{} : Bool}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, z), Cr.Cir.Cell.zero(), hz) :
+    {U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0) == False{} : Bool}
+  {==}
+
+def zero.tg(+m: Cr.Cir.Cells, +z: U32, hz: {Cr.Cir.Cells.get(m, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}) ->
+  {Bool.or(U32.is_lt(D.Tg(m, z), 32), U32.is_le(41, D.Tg(m, z))) == True{} : Bool}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, z), Cr.Cir.Cell.zero(), hz) :
+    {Bool.or(U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 32), U32.is_le(41, U32.and(Cr.Cir.Cell.get(0n, _), 63))) == True{} : Bool}
+  {==}
+
+def tbl.z(-m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, h: D.Tbl(m, im, fi, nx)) ->
+  {Cr.Cir.Cells.get(m, 272) == Cr.Cir.Cell{0, 0, 0, 0, 0} : Cr.Cir.Cell}:
+  match h:
+    case Tuple{_, Tuple{e, _}}:
+      e
+
+def fs.zero(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +z: U32, hz: {Cr.Cir.Cells.get(m, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
+  ht: {Cr.Cir.Cells.get(m, 272) == Cr.Cir.Cell{0, 0, 0, 0, 0} : Cr.Cir.Cell}) -> {D.Fs(m, ps, z) == Nil{} : List<&2, U32>}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, z), Cr.Cir.Cell.zero(), hz) :
+    {Bool.pick(List<&2, U32>, U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19),
+            D.Fs.term(D.Fd(2n, m, U32.add(272, U32.and(Cr.Cir.Cell.get(0n, _), 63))), Cr.Cir.Cell.get(2n, _), Cr.Cir.Cell.get(3n, _), Cr.Cir.Cell.get(4n, _)),
+            Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, U32.and(Cr.Cir.Cell.get(0n, _), 63)), U32.is_le(U32.and(Cr.Cir.Cell.get(0n, _), 63), 40)), Bool.not(D.Mem(ps, z))),
+              Con{Cr.Cir.Cell.get(2n, _), D.Fs.opt(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 38), Cr.Cir.Cell.get(3n, _), Nil{})},
+              Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 41), D.FlW(Cr.Cir.Cell.get(0n, _), 4096)), Bool.not(D.Mem(ps, z))),
+                [Cr.Cir.Cell.get(2n, _)], Nil{}))) == Nil{} : List<&2, U32>}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, 272), Cr.Cir.Cell{0, 0, 0, 0, 0}, ht) :
+    {D.Fs.term(Cr.Cir.Cell.get(2n, _), 0, 0, 0) == Nil{} : List<&2, U32>}
+  {==}
+
+# the table's cell of Tup has the parts 2 and 3
+def tbl.tup(-m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, h: D.Tbl(m, im, fi, nx)) -> {D.Fd(2n, m, 282) == 3 : U32}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}}}}}}}}}}}}}}}}:
+      (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, 282), Cr.Cir.Cell{0, 0, 3, 0, 0}, e) : {Cr.Cir.Cell.get(2n, _) == 3 : U32}; {==})
+
+# M.make's five stores on a cell of zeros: the cell, at once
+def cells5(+m: Cr.Cir.Cells, +z: U32, +h0: U32, +h1: U32, +h2: U32, +h3: U32, +h4: U32,
+  hz: {Cr.Cir.Cells.get(m, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}) ->
+  {X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(m, 0n, z, h0), 1n, z, h1), 2n, z, h2), 3n, z, h3), 4n, z, h4) ==
+    Cr.Cir.Cells.set(m, z, Cr.Cir.Cell{h0, h1, h2, h3, h4}) : Cr.Cir.Cells}:
+  +c1 = {Cr.Cir.Cell{h0, 0, 0, 0, 0} : Cr.Cir.Cell}
+  +c2 = {Cr.Cir.Cell{h0, h1, 0, 0, 0} : Cr.Cir.Cell}
+  +c3 = {Cr.Cir.Cell{h0, h1, h2, 0, 0} : Cr.Cir.Cell}
+  +c4 = {Cr.Cir.Cell{h0, h1, h2, h3, 0} : Cr.Cir.Cell}
+  +p1 = X.X.put(m, 0n, z, h0)
+  +p2 = X.X.put(p1, 1n, z, h1)
+  +p3 = X.X.put(p2, 2n, z, h2)
+  +p4 = X.X.put(p3, 3n, z, h3)
+  +e1 = {(%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, z), Cr.Cir.Cell.zero(), hz) :
+      {Cr.Cir.Cells.set(m, z, Cr.Cir.Cell.set(0n, _, h0)) == Cr.Cir.Cells.set(m, z, c1) : Cr.Cir.Cells}; {==}) :
+    {p1 == Cr.Cir.Cells.set(m, z, c1) : Cr.Cir.Cells}}
+  +e2 = Equal.trans(Cr.Cir.Cells, p2, X.X.put(Cr.Cir.Cells.set(m, z, c1), 1n, z, h1), Cr.Cir.Cells.set(m, z, c2),
+    Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, y => X.X.put(y, 1n, z, h1), p1, Cr.Cir.Cells.set(m, z, c1), e1),
+    Equal.sym(Cr.Cir.Cells, Cr.Cir.Cells.set(m, z, c2), X.X.put(Cr.Cir.Cells.set(m, z, c1), 1n, z, h1), X.Ce.put_set(m, z, c1, 1n, h1)))
+  +e3 = Equal.trans(Cr.Cir.Cells, p3, X.X.put(Cr.Cir.Cells.set(m, z, c2), 2n, z, h2), Cr.Cir.Cells.set(m, z, c3),
+    Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, y => X.X.put(y, 2n, z, h2), p2, Cr.Cir.Cells.set(m, z, c2), e2),
+    Equal.sym(Cr.Cir.Cells, Cr.Cir.Cells.set(m, z, c3), X.X.put(Cr.Cir.Cells.set(m, z, c2), 2n, z, h2), X.Ce.put_set(m, z, c2, 2n, h2)))
+  +e4 = Equal.trans(Cr.Cir.Cells, p4, X.X.put(Cr.Cir.Cells.set(m, z, c3), 3n, z, h3), Cr.Cir.Cells.set(m, z, c4),
+    Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, y => X.X.put(y, 3n, z, h3), p3, Cr.Cir.Cells.set(m, z, c3), e3),
+    Equal.sym(Cr.Cir.Cells, Cr.Cir.Cells.set(m, z, c4), X.X.put(Cr.Cir.Cells.set(m, z, c3), 3n, z, h3), X.Ce.put_set(m, z, c3, 3n, h3)))
+  Equal.trans(Cr.Cir.Cells, X.X.put(p4, 4n, z, h4), X.X.put(Cr.Cir.Cells.set(m, z, c4), 4n, z, h4), Cr.Cir.Cells.set(m, z, Cr.Cir.Cell{h0, h1, h2, h3, h4}),
+    Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, y => X.X.put(y, 4n, z, h4), p4, Cr.Cir.Cells.set(m, z, c4), e4),
+    Equal.sym(Cr.Cir.Cells, Cr.Cir.Cells.set(m, z, Cr.Cir.Cell{h0, h1, h2, h3, h4}), X.X.put(Cr.Cir.Cells.set(m, z, c4), 4n, z, h4),
+      X.Ce.put_set(m, z, c4, 4n, h4)))
+
+# the header of the Tup cell: the tag, the quantity Q, VALUE, and fv M
+def hd.tup(+Q: U32, +M: U32) -> U32:
+  U32.or(U32.or(U32.or(10, U32.shln(Q, 6n)), 256), U32.shln(M, 13n))
+
+# what term.post and Nd ask of the header hv: the tag of Tup, the quantity
+# q, not STATIC, no DATA
+def HdL(+hv: U32, q: Bk.Quan) -> Data:
+  D.P2({U32.and(hv, 63) == 10 : U32}, D.P2({U32.and(U32.shrn(hv, 6n), 3) == Mc.Img.quan(q) : U32},
+    D.P2({U32.is_ne(U32.and(hv, 1024), 0) == False{} : Bool}, {U32.is_ne(U32.and(hv, 512), 0) == False{} : Bool})))
+
+# the same, masks first (they compute on the bits of M)
+def HdM(+hv: U32, q: Bk.Quan) -> Data:
+  D.P2({HB.U.andm(hv, 63) == 10 : U32}, D.P2({HB.U.andm(U32.shrn(hv, 6n), 3) == Mc.Img.quan(q) : U32},
+    D.P2({U32.is_ne(HB.U.andm(hv, 1024), 0) == False{} : Bool}, {U32.is_ne(HB.U.andm(hv, 512), 0) == False{} : Bool})))
+
+def hd.lom(q: Bk.Quan, M: U32) -> HdM(hd.tup(Mc.Img.quan(q), M), q):
+  match q:
+    case Bk.Quan.Q0{}:
+      match M:
+        case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+          ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q1{}:
+      match M:
+        case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+          ({==}, ({==}, ({==}, {==})))
+    case Bk.Quan.Q2{}:
+      match M:
+        case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+          ({==}, ({==}, ({==}, {==})))
+
+def hd.fv(q: Bk.Quan, M: U32) -> {U32.shrn(hd.tup(Mc.Img.quan(q), M), 13n) == U32.shrn(U32.shln(M, 13n), 13n) : U32}:
+  match q:
+    case Bk.Quan.Q0{}:
+      match M:
+        case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+          {==}
+    case Bk.Quan.Q1{}:
+      match M:
+        case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+          {==}
+    case Bk.Quan.Q2{}:
+      match M:
+        case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+          {==}
+
+def hl.of(+hv: U32, q: Bk.Quan, h: HdM(hv, q)) -> HdL(hv, q):
+  match h:
+    case Tuple{e1, Tuple{e2, Tuple{e3, e4}}}:
+      ((%Equal.sym(U32, U32.and(hv, 63), HB.U.andm(hv, 63), HB.U.am(hv, 63)) : {_ == 10 : U32}; e1),
+        ((%Equal.sym(U32, U32.and(U32.shrn(hv, 6n), 3), HB.U.andm(U32.shrn(hv, 6n), 3), HB.U.am(U32.shrn(hv, 6n), 3)) : {_ == Mc.Img.quan(q) : U32}; e2),
+        ((%Equal.sym(U32, U32.and(hv, 1024), HB.U.andm(hv, 1024), HB.U.am(hv, 1024)) : {U32.is_ne(_, 0) == False{} : Bool}; e3),
+          (%Equal.sym(U32, U32.and(hv, 512), HB.U.andm(hv, 512), HB.U.am(hv, 512)) : {U32.is_ne(_, 0) == False{} : Bool}; e4))))
+
+def hd.lo(+q: Bk.Quan, +M: U32) -> HdL(hd.tup(Mc.Img.quan(q), M), q):
+  hl.of(hd.tup(Mc.Img.quan(q), M), q, hd.lom(q, M))
+
+def hl.tg(-hv: U32, -q: Bk.Quan, h: HdL(hv, q)) -> {U32.and(hv, 63) == 10 : U32}:
+  match h:
+    case Tuple{e, _}:
+      e
+
+def hl.st(-hv: U32, -q: Bk.Quan, h: HdL(hv, q)) -> {U32.is_ne(U32.and(hv, 1024), 0) == False{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{e, _}}}:
+      e
+
+# fv as M.fv reads it: 19 bits
+def fv.lo(F: U32) -> {U32.shrn(U32.shln(U32.shrn(F, 13n), 13n), 13n) == U32.shrn(F, 13n) : U32}:
+  match F:
+    case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+      {==}
+
+def fv.m19(F: U32) -> {U32.shrn(F, 13n) == HB.U.andm(U32.shrn(F, 13n), 524287) : U32}:
+  match F:
+    case U32{WCon{b0, WCon{b1, WCon{b2, WCon{b3, WCon{b4, WCon{b5, WCon{b6, WCon{b7, WCon{b8, WCon{b9, WCon{b10, WCon{b11, WCon{b12, WCon{b13, WCon{b14, WCon{b15, WCon{b16, WCon{b17, WCon{b18, WCon{b19, WCon{b20, WCon{b21, WCon{b22, WCon{b23, WCon{b24, WCon{b25, WCon{b26, WCon{b27, WCon{b28, WCon{b29, WCon{b30, WCon{b31, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}:
+      {==}
+
+def le.dbl(x: Nat, +y: Nat, h: N.Le(x, y)) -> N.Le(Nat.double(x), Nat.double(y)):
+  match x:
+    case 0n:
+      N.le_zero(Nat.double(y))
+    case 1n+p:
+      match y:
+        case 0n:
+          Empty.absurd(N.Le(Nat.double(1n+p), 0n), h)
+        case 1n+r:
+          le.dbl(p, r, h)
+
+# the bits of w under a mask are at most the mask
+def andm.le(n: Nat, w: Word(n), mk: Word(n)) -> N.Le(Word.to_nat(n, LB.Word.andm(n, w, mk)), Word.to_nat(n, mk)):
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+(+p):
+      match w mk:
+        case WCon{True{}, +wt} WCon{True{}, +mt}:
+          le.dbl(Word.to_nat(p, LB.Word.andm(p, wt, mt)), Word.to_nat(p, mt), andm.le(p, wt, mt))
+        case WCon{False{}, +wt} WCon{True{}, +mt}:
+          N.le_succ(Nat.double(Word.to_nat(p, LB.Word.andm(p, wt, mt))), Nat.double(Word.to_nat(p, mt)),
+            le.dbl(Word.to_nat(p, LB.Word.andm(p, wt, mt)), Word.to_nat(p, mt), andm.le(p, wt, mt)))
+        case WCon{_, +wt} WCon{False{}, +mt}:
+          le.dbl(Word.to_nat(p, LB.Word.andm(p, wt, mt)), Word.to_nat(p, mt), andm.le(p, wt, mt))
+
+def andm.u32(x: U32, mk: U32) -> N.Le(U32.to_nat(HB.U.andm(x, mk)), U32.to_nat(mk)):
+  match x mk:
+    case U32{a} U32{c}:
+      andm.le(32n, a, c)
+
+# U32 order from Nat's
+def le.cmp(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(x, y)) -> {Cmp.is_le(c) == True{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({Cmp.is_le(GT{}) == True{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h)))
+
+def andm.ule(+x: U32, +mk: U32) -> {U32.is_le(HB.U.andm(x, mk), mk) == True{} : Bool}:
+  le.cmp(U32.cmp(HB.U.andm(x, mk), mk), U32.to_nat(HB.U.andm(x, mk)), U32.to_nat(mk), N.U32.rel(HB.U.andm(x, mk), mk), andm.u32(x, mk))
+
+# so fv is at most fv_max
+def fv.bd(+F: U32) -> {U32.is_le(U32.shrn(F, 13n), 524287) == True{} : Bool}:
+  %Equal.sym(U32, U32.shrn(F, 13n), HB.U.andm(U32.shrn(F, 13n), 524287), fv.m19(F)) : {U32.is_le(_, 524287) == True{} : Bool}
+  andm.ule(U32.shrn(F, 13n), 524287)
+
+# order facts, by U32.cmp
+def ofT(b: Bool, t: N.T(b)) -> {b == True{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      Empty.absurd({False{} == True{} : Bool}, t)
+
+def gt.lt(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_gt(c) == True{} : Bool}) -> N.Le(1n+y, x):
+  match c:
+    case LT{}:
+      D.bool.ft(N.Le(1n+y, x), e)
+    case EQ{}:
+      D.bool.ft(N.Le(1n+y, x), e)
+    case GT{}:
+      r
+
+def ngt.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_gt(c) == False{} : Bool}) -> N.Le(x, y):
+  match c:
+    case LT{}:
+      N.weaken(x, y, r)
+    case EQ{}:
+      %r : N.Le(x, _)
+      N.le_refl(x)
+    case GT{}:
+      D.bool.ft(N.Le(x, y), Equal.sym(Bool, True{}, False{}, e))
+
+def le.eq(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h1: N.Le(x, y), h2: N.Le(y, x)) -> {Cmp.is_eq(c) == True{} : Bool}:
+  match c:
+    case LT{}:
+      Empty.absurd({Cmp.is_eq(LT{}) == True{} : Bool}, N.not_succ_le(x, N.le_trans(1n+x, y, x, r, h2)))
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({Cmp.is_eq(GT{}) == True{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h1)))
+
+def below.up(t: Bk.Term, +x: U32, +y: U32, h: N.Le(U32.to_nat(x), U32.to_nat(y)), hb: {D.Term.below(t, U32.to_nat(x)) == True{} : Bool}) ->
+  {D.Term.below(t, U32.to_nat(y)) == True{} : Bool}:
+  CT.Tz.below_mono(t, U32.to_nat(x), U32.to_nat(y), ofT(Nat.is_le(U32.to_nat(x), U32.to_nat(y)), h), hb)
+
+# a part's bound f is at most the cell's M: M bounds its term too, or f is
+# fv_max and so is M
+def fv.side(bb: Bool, t: Bk.Term, +f: U32, +M: U32, +L: U32, eb: {U32.is_eq(f, L) == bb : Bool},
+  h: {Bool.or(U32.is_eq(f, L), D.Term.below(t, U32.to_nat(f))) == True{} : Bool}, le: N.Le(U32.to_nat(f), U32.to_nat(M)),
+  nl: {U32.is_eq(M, L) == False{} : Bool}, bM: {U32.is_le(M, L) == True{} : Bool}) -> {D.Term.below(t, U32.to_nat(M)) == True{} : Bool}:
+  match bb:
+    case True{}:
+      +e = D.u32.eq(f, L, eb)
+      +le2 = {(%e : N.Le(U32.to_nat(_), U32.to_nat(M)); le) : N.Le(U32.to_nat(L), U32.to_nat(M))}
+      D.bool.ft({D.Term.below(t, U32.to_nat(M)) == True{} : Bool}, Equal.trans(Bool, False{}, U32.is_eq(M, L), True{},
+        Equal.sym(Bool, U32.is_eq(M, L), False{}, nl), le.eq(U32.cmp(M, L), U32.to_nat(M), U32.to_nat(L), N.U32.rel(M, L), D.u.le(M, L, bM), le2)))
+    case False{}:
+      +hb = {(%eb : {Bool.or(_, D.Term.below(t, U32.to_nat(f))) == True{} : Bool}; h) : {D.Term.below(t, U32.to_nat(f)) == True{} : Bool}}
+      below.up(t, f, M, le, hb)
+
+def fv.top(bb: Bool, +a: Bk.Term, +v: Bk.Term, +fx: U32, +ff: U32, +M: U32, +L: U32, +ec: {U32.is_eq(M, L) == bb : Bool},
+  la: N.Le(U32.to_nat(fx), U32.to_nat(M)), lv: N.Le(U32.to_nat(ff), U32.to_nat(M)), +bM: {U32.is_le(M, L) == True{} : Bool},
+  hx: {Bool.or(U32.is_eq(fx, L), D.Term.below(a, U32.to_nat(fx))) == True{} : Bool},
+  hf: {Bool.or(U32.is_eq(ff, L), D.Term.below(v, U32.to_nat(ff))) == True{} : Bool}) ->
+  {Bool.or(U32.is_eq(M, L), Bool.and(D.Term.below(a, U32.to_nat(M)), D.Term.below(v, U32.to_nat(M)))) == True{} : Bool}:
+  match bb:
+    case True{}:
+      D.or.l(U32.is_eq(M, L), Bool.and(D.Term.below(a, U32.to_nat(M)), D.Term.below(v, U32.to_nat(M))), ec)
+    case False{}:
+      D.or.r(U32.is_eq(M, L), Bool.and(D.Term.below(a, U32.to_nat(M)), D.Term.below(v, U32.to_nat(M))),
+        D.and.i(D.Term.below(a, U32.to_nat(M)), D.Term.below(v, U32.to_nat(M)),
+          fv.side(U32.is_eq(fx, L), a, fx, M, L, {==}, hx, la, ec, bM), fv.side(U32.is_eq(ff, L), v, ff, M, L, {==}, hf, lv, ec, bM)))
+
+# the larger of the parts' fv (M.max), as the cell's: fv_max, or a bound
+def fv.max(g: Bool, +a: Bk.Term, +v: Bk.Term, +fx: U32, +ff: U32, +L: U32, eg: {U32.is_gt(fx, ff) == g : Bool},
+  bx: {U32.is_le(fx, L) == True{} : Bool}, bf: {U32.is_le(ff, L) == True{} : Bool},
+  hx: {Bool.or(U32.is_eq(fx, L), D.Term.below(a, U32.to_nat(fx))) == True{} : Bool},
+  hf: {Bool.or(U32.is_eq(ff, L), D.Term.below(v, U32.to_nat(ff))) == True{} : Bool}) ->
+  {Bool.or(U32.is_eq(qm.pick(Bool.to_u32(g), fx, ff), L), Bool.and(D.Term.below(a, U32.to_nat(qm.pick(Bool.to_u32(g), fx, ff))),
+    D.Term.below(v, U32.to_nat(qm.pick(Bool.to_u32(g), fx, ff))))) == True{} : Bool}:
+  match g:
+    case True{}:
+      %Equal.sym(U32, qm.pick(Bool.to_u32(True{}), fx, ff), fx, HB.Pk.one(fx, ff)) :
+        {Bool.or(U32.is_eq(_, L), Bool.and(D.Term.below(a, U32.to_nat(_)), D.Term.below(v, U32.to_nat(_)))) == True{} : Bool}
+      fv.top(U32.is_eq(fx, L), a, v, fx, ff, fx, L, {==}, N.le_refl(U32.to_nat(fx)),
+        N.weaken(U32.to_nat(ff), U32.to_nat(fx), gt.lt(U32.cmp(fx, ff), U32.to_nat(fx), U32.to_nat(ff), N.U32.rel(fx, ff), eg)), bx, hx, hf)
+    case False{}:
+      %Equal.sym(U32, qm.pick(Bool.to_u32(False{}), fx, ff), ff, HB.Pk.zero(fx, ff)) :
+        {Bool.or(U32.is_eq(_, L), Bool.and(D.Term.below(a, U32.to_nat(_)), D.Term.below(v, U32.to_nat(_)))) == True{} : Bool}
+      fv.top(U32.is_eq(ff, L), a, v, fx, ff, ff, L, {==}, ngt.le(U32.cmp(fx, ff), U32.to_nat(fx), U32.to_nat(ff), N.U32.rel(fx, ff), eg),
+        N.le_refl(U32.to_nat(ff)), bf, hx, hf)
+
+# M.max of two fv's keeps 19 bits
+def mx.lo(g: Bool, +F0: U32, +F1: U32) ->
+  {U32.shrn(U32.shln(qm.pick(Bool.to_u32(g), U32.shrn(F0, 13n), U32.shrn(F1, 13n)), 13n), 13n) == qm.pick(Bool.to_u32(g), U32.shrn(F0, 13n), U32.shrn(F1, 13n)) : U32}:
+  match g:
+    case True{}:
+      %Equal.sym(U32, qm.pick(Bool.to_u32(True{}), U32.shrn(F0, 13n), U32.shrn(F1, 13n)), U32.shrn(F0, 13n), HB.Pk.one(U32.shrn(F0, 13n), U32.shrn(F1, 13n))) :
+        {U32.shrn(U32.shln(_, 13n), 13n) == _ : U32}
+      fv.lo(F0)
+    case False{}:
+      %Equal.sym(U32, qm.pick(Bool.to_u32(False{}), U32.shrn(F0, 13n), U32.shrn(F1, 13n)), U32.shrn(F1, 13n), HB.Pk.zero(U32.shrn(F0, 13n), U32.shrn(F1, 13n))) :
+        {U32.shrn(U32.shln(_, 13n), 13n) == _ : U32}
+      fv.lo(F1)
+
+# the Tup cell's fv, from its parts' cells F0 (a) and F1 (v)
+def fv.new(q: Bk.Quan, +a: Bk.Term, +v: Bk.Term, +F0: U32, +F1: U32,
+  hx: {Bool.or(U32.is_eq(D.FvW(F0), 524287), D.Term.below(a, U32.to_nat(D.FvW(F0)))) == True{} : Bool},
+  hf: {Bool.or(U32.is_eq(D.FvW(F1), 524287), D.Term.below(v, U32.to_nat(D.FvW(F1)))) == True{} : Bool}) ->
+  {Bool.or(U32.is_eq(D.FvW(hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(F0), D.FvW(F1))), D.FvW(F0), D.FvW(F1)))), 524287),
+    D.Term.below(Bk.Term.Tup{q, a, v}, U32.to_nat(D.FvW(hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(F0), D.FvW(F1))), D.FvW(F0), D.FvW(F1))))))) == True{} : Bool}:
+  +g = U32.is_gt(D.FvW(F0), D.FvW(F1))
+  +MX = qm.pick(Bool.to_u32(g), D.FvW(F0), D.FvW(F1))
+  +eF = Equal.trans(U32, U32.shrn(hd.tup(Mc.Img.quan(q), MX), 13n), U32.shrn(U32.shln(MX, 13n), 13n), MX, hd.fv(q, MX), mx.lo(g, F0, F1))
+  %Equal.sym(U32, U32.shrn(hd.tup(Mc.Img.quan(q), MX), 13n), MX, eF) :
+    {Bool.or(U32.is_eq(_, 524287), Bool.and(D.Term.below(a, U32.to_nat(_)), D.Term.below(v, U32.to_nat(_)))) == True{} : Bool}
+  fv.max(g, a, v, D.FvW(F0), D.FvW(F1), 524287, {==}, fv.bd(F0), fv.bd(F1), hx, hf)
+
+# a statement with no while or emit (an alloc may take a new cell)
+def NW(s: Cr.Cir.Stmt) -> Bool:
+  match s:
+    case Cr.Cir.Stmt.seq{a, b}:
+      Bool.and(NW(a), NW(b))
+    case Cr.Cir.Stmt.if{_, t, e}:
+      Bool.and(NW(t), NW(e))
+    case Cr.Cir.Stmt.while{_, _}:
+      False{}
+    case Cr.Cir.Stmt.emit{_}:
+      False{}
+    case _:
+      True{}
+
+def ends.took(r: Nat, +i: U32, st: Cr.Cir.State, next: U32, pages: U32) -> D.Ends(Cr.Cir.exec.took(r, i, st, next, pages)):
+  match st:
+    case Cr.Cir.State{+regs, +m, _, +fi, +im, _, +lim, +inp, +out, +outn}:
+      D.Ex.fst(D.Ends(Cr.Cir.exec.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn})),
+        _ => D.NoOom(Cr.Cir.exec.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn})),
+        calm.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn}))
+
+def ends.bump.of(r: Nat, +next: U32, st: Cr.Cir.State, pages: Maybe<&2, U32>) -> D.Ends(Cr.Cir.exec.bump.of(r, next, st, pages)):
+  match pages:
+    case Some{p}:
+      ends.took(r, next, st, U32.inc(next), p)
+    case None{}:
+      Unit{}
+
+def ends.bump.if(fits: Bool, r: Nat, +next: U32, +pages: U32, lim: U32, st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.bump.if(fits, r, next, pages, lim, st)):
+  match fits:
+    case True{}:
+      ends.bump.of(r, next, st, Cr.Cir.room(U32.add(Cr.Cir.at(next), 19), pages, lim))
+    case False{}:
+      Unit{}
+
+def ends.alloc.if(no_out: Bool, r: Nat, +st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.alloc.if(no_out, r, st)):
+  match no_out st:
+    case True{} Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      ends.bump.if(U32.is_lt(nx, 214748364), r, nx, pg, lim, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
+    case False{} _:
+      Unit{}
+
+def ends.alloc(r: Nat, +st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.alloc(r, st)):
+  match st:
+    case Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      ends.alloc.if(U32.is_zero(outn), r, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
+
+def ends.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, d: D.Ends(o), dk: @t: Cr.Cir.State -> D.Ends(k(t))) ->
+  D.Ends(Cr.Cir.exec.then(o, k)):
+  match o:
+    case Cr.Cir.Out.next{s}:
+      dk(s)
+    case Cr.Cir.Out.halt{_, _}:
+      Unit{}
+    case Cr.Cir.Out.out_of_memory{}:
+      Unit{}
+    case Cr.Cir.Out.trap{}:
+      Unit{}
+    case Cr.Cir.Out.not_done{}:
+      d
+
+def ends.ifof(z: Bool, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
+  D.Ends(Cr.Cir.exec.if.of(z, yes, no)):
+  match z:
+    case False{}:
+      dy
+    case True{}:
+      dn
+
+def ends.if(c: Maybe<&2, U32>, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
+  D.Ends(Cr.Cir.exec.if(c, yes, no)):
+  match c:
+    case Some{+x}:
+      ends.ifof(U32.is_zero(x), yes, no, dy, dn)
+    case None{}:
+      Unit{}
+
+# so it ends with no fuel
+def ends.nw(s: Cr.Cir.Stmt, +st: Cr.Cir.State, h: {NW(s) == True{} : Bool}) -> D.Ends(Cr.Cir.exec(0n, s, st)):
+  match s:
+    case Cr.Cir.Stmt.nop{}:
+      Unit{}
+    case Cr.Cir.Stmt.set{+r, +e}:
+      D.Ex.fst(D.Ends(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st)), _ => D.NoOom(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st)), calm.set(r, Cr.Cir.eval(e, st), st))
+    case Cr.Cir.Stmt.store{+k, +c, +v}:
+      D.Ex.fst(D.Ends(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)),
+        _ => D.NoOom(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)), calm.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st))
+    case Cr.Cir.Stmt.alloc{+r}:
+      ends.alloc(r, st)
+    case Cr.Cir.Stmt.emit{+v}:
+      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st)), h)
+    case Cr.Cir.Stmt.seq{+a, +b}:
+      +h2 = h
+      ends.then(Cr.Cir.exec(0n, a, st), t => Cr.Cir.exec(0n, b, t), ends.nw(a, st, D.and.l(NW(a), NW(b), h2)),
+        t => ends.nw(b, t, D.and.r(NW(a), NW(b), h2)))
+    case Cr.Cir.Stmt.if{+c, +t, +e}:
+      +h2 = h
+      ends.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st),
+        ends.nw(t, st, D.and.l(NW(t), NW(e), h2)), ends.nw(e, st, D.and.r(NW(t), NW(e), h2)))
+    case Cr.Cir.Stmt.while{+c, +b}:
+      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, b}, st)), h)
+    case Cr.Cir.Stmt.halt{_}:
+      Unit{}
+
+def nw.tup() -> {NW(Mc.M.ret.tup()) == True{} : Bool}:
+  {==}
+
+# the frame's quantity
+def fr.qs(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +ps: List<&2, U32>, +sp: U32, +kind: D.FK, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +fs: List<&2, D.AF>,
+  h: D.Frs(ds, m, im, fi, nx, ks, img, ps, sp, Con{D.AF{kind, q, k, a, b}, fs})) -> {D.QnW(D.Fd(0n, m, sp)) == Mc.Img.quan(q) : U32}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}}}:
+      e
+
+# a node's fv bound
+def nd.fv(-dk: Bool, -ds: List<&2, Bk.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, -x: Cr.Cir.Cell, -t: Bk.Term, -tag: U32,
+  nd: D.NdK(dk, ds, im, fi, nx, c, x, t, tag)) ->
+  {Bool.or(U32.is_eq(D.FvW(Cr.Cir.Cell.get(0n, x)), 524287), D.Term.below(t, U32.to_nat(D.FvW(Cr.Cir.Cell.get(0n, x))))) == True{} : Bool}:
+  match nd:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, e}}}}}:
+      e
+
+def or.f(x: Bool, h: {Bool.or(x, False{}) == True{} : Bool}) -> {x == True{} : Bool}:
+  match x:
+    case True{}:
+      {==}
+    case False{}:
+      h
+
+# the registers of Inv, from a list of 63 whose first four are known
+def regs.fin(+xs: List<&2, U32>, +c0: U32, +c1: U32, +c2: U32, +c3: U32, h: {List.length(&2, U32, xs) == 63n : Nat},
+  g0: {List.get(&2, U32, xs, 0n) == Some{c0} : Maybe<&2, U32>}, g1: {List.get(&2, U32, xs, 1n) == Some{c1} : Maybe<&2, U32>},
+  g2: {List.get(&2, U32, xs, 2n) == Some{c2} : Maybe<&2, U32>}, g3: {List.get(&2, U32, xs, 3n) == Some{c3} : Maybe<&2, U32>}) ->
+  {xs == D.RG(c0, c1, c2, c3, D.R59.list(D.R59.of(xs))) : List<&2, U32>}:
+  %g0 : {xs == D.RG(Maybe.default(&2, U32, _, 0), c1, c2, c3, D.R59.list(D.R59.of(xs))) : List<&2, U32>}
+  %g1 : {xs == D.RG(Maybe.default(&2, U32, List.get(&2, U32, xs, 0n), 0), Maybe.default(&2, U32, _, 0), c2, c3, D.R59.list(D.R59.of(xs))) : List<&2, U32>}
+  %g2 : {xs == D.RG(Maybe.default(&2, U32, List.get(&2, U32, xs, 0n), 0), Maybe.default(&2, U32, List.get(&2, U32, xs, 1n), 0),
+    Maybe.default(&2, U32, _, 0), c3, D.R59.list(D.R59.of(xs))) : List<&2, U32>}
+  %g3 : {xs == D.RG(Maybe.default(&2, U32, List.get(&2, U32, xs, 0n), 0), Maybe.default(&2, U32, List.get(&2, U32, xs, 1n), 0),
+    Maybe.default(&2, U32, List.get(&2, U32, xs, 2n), 0), Maybe.default(&2, U32, _, 0), D.R59.list(D.R59.of(xs))) : List<&2, U32>}
+  rg.of(xs, h)
+
+# the Fs of the Tup cell: its parts
+def fs.new(+m2: Cr.Cir.Cells, +ps: List<&2, U32>, +z: U32, +hv: U32, +xa: U32, +foc: U32, etg: {U32.and(hv, 63) == 10 : U32},
+  e282: {D.Fd(2n, m2, 282) == 3 : U32}, ne: {U32.is_eq(282, z) == False{} : Bool}) ->
+  {D.Fs(Cr.Cir.Cells.set(m2, z, Cr.Cir.Cell{hv, 1, xa, foc, 0}), ps, z) == [xa, foc] : List<&2, U32>}:
+  +x = {Cr.Cir.Cell{hv, 1, xa, foc, 0} : Cr.Cir.Cell}
+  +M = Cr.Cir.Cells.set(m2, z, x)
+  +e2 = {Equal.trans(U32, D.Fd(2n, M, 282), D.Fd(2n, m2, 282), 3,
+      Equal.cong(Cr.Cir.Cell, U32, c => Cr.Cir.Cell.get(2n, c), Cr.Cir.Cells.get(M, 282), Cr.Cir.Cells.get(m2, 282), D.cl.go(m2, 282, z, x, ne)), e282) :
+    {D.Fd(2n, M, 282) == 3 : U32}}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M, z), x, X.Ce.get_set(m2, z, x)) :
+    {Bool.pick(List<&2, U32>, U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19),
+            D.Fs.term(D.Fd(2n, M, U32.add(272, U32.and(Cr.Cir.Cell.get(0n, _), 63))), Cr.Cir.Cell.get(2n, _), Cr.Cir.Cell.get(3n, _), Cr.Cir.Cell.get(4n, _)),
+            Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, U32.and(Cr.Cir.Cell.get(0n, _), 63)), U32.is_le(U32.and(Cr.Cir.Cell.get(0n, _), 63), 40)), Bool.not(D.Mem(ps, z))),
+              Con{Cr.Cir.Cell.get(2n, _), D.Fs.opt(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 38), Cr.Cir.Cell.get(3n, _), Nil{})},
+              Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 41), D.FlW(Cr.Cir.Cell.get(0n, _), 4096)), Bool.not(D.Mem(ps, z))),
+                [Cr.Cir.Cell.get(2n, _)], Nil{}))) == [xa, foc] : List<&2, U32>}
+  %Equal.sym(U32, U32.and(hv, 63), 10, etg) :
+    {Bool.pick(List<&2, U32>, U32.is_lt(_, 19),
+            D.Fs.term(D.Fd(2n, M, U32.add(272, _)), xa, foc, 0),
+            Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, _), U32.is_le(_, 40)), Bool.not(D.Mem(ps, z))),
+              Con{xa, D.Fs.opt(U32.is_eq(_, 38), foc, Nil{})},
+              Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(_, 41), D.FlW(hv, 4096)), Bool.not(D.Mem(ps, z))),
+                [xa], Nil{}))) == [xa, foc] : List<&2, U32>}
+  %Equal.sym(U32, D.Fd(2n, M, 282), 3, e2) : {D.Fs.term(_, xa, foc, 0) == [xa, foc] : List<&2, U32>}
+  {==}
+
+# the Tup cell stands for Tup q a v
+def isk.tup(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m2: Cr.Cir.Cells, +im: U32, +fi: U32,
+  +nx2: U32, +z: U32, +q: Bk.Quan, +a: Bk.Term, +v: Bk.Term, +hv: U32, +xa: U32, +foc: U32,
+  hl: HdL(hv, q), r: D.RtsK(True{}, ds, Cr.Cir.Cells.set(m2, z, Cr.Cir.Cell{hv, 1, xa, foc, 0}), im, fi, nx2, ks, img, Con{D.Rt{xa, a}, [D.Rt{foc, v}]}),
+  hc: {Cr.Cir.is_cell(z, im, fi, nx2) == True{} : Bool}, +ho: {D.Own(fi, nx2, z) == True{} : Bool},
+  hvals: {El.Eval.vals(ds, Bk.Term.Tup{q, a, v}, False{}) == True{} : Bool},
+  hfv: {Bool.or(U32.is_eq(D.FvW(hv), 524287), D.Term.below(Bk.Term.Tup{q, a, v}, U32.to_nat(D.FvW(hv)))) == True{} : Bool}) ->
+  D.IsK(True{}, ds, Cr.Cir.Cells.set(m2, z, Cr.Cir.Cell{hv, 1, xa, foc, 0}), im, fi, nx2, ks, img, z, Bk.Term.Tup{q, a, v}):
+  match hl r:
+    case Tuple{etg, Tuple{eqn, Tuple{_, edt}}} Tuple{ia, Tuple{iv, _}}:
+      +x = {Cr.Cir.Cell{hv, 1, xa, foc, 0} : Cr.Cir.Cell}
+      +M = Cr.Cir.Cells.set(m2, z, x)
+      +dk = {(%Equal.sym(Bool, U32.is_ne(U32.and(hv, 512), 0), False{}, edt) : {Bool.or(Bool.not(_), El.Term.is_data(Bk.Term.Tup{q, a, v})) == True{} : Bool}; {==}) :
+        {Bool.or(Bool.not(D.FlW(hv, 512)), El.Term.is_data(Bk.Term.Tup{q, a, v})) == True{} : Bool}}
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M, z), x, X.Ce.get_set(m2, z, x)) : D.IsCK(True{}, ds, M, im, fi, nx2, ks, img, z, _, Bk.Term.Tup{q, a, v})
+      ((hc, (D.or.l(D.Own(fi, nx2, z), D.FlW(hv, 1024), ho), (etg, (D.or.r(Bool.not(D.FlW(hv, 256)), El.Eval.vals(ds, Bk.Term.Tup{q, a, v}, False{}), hvals), (dk, hfv))))),
+        (eqn, ((D.or.l(D.Own(fi, nx2, z), D.FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(M, xa)), 1024), ho), ia),
+          (D.or.l(D.Own(fi, nx2, z), D.FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(M, foc)), 1024), ho), iv))))
+
+# a round from mode 1 with a Tup q a □ frame on top: M.ret.tup
+def tupa.E(+f: Nat, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32,
+  +lim: U32, +inp: List<&2, Word(8n)>, hz: {U32.is_eq(sp, 0) == False{} : Bool}, +hc: {Cr.Cir.is_cell(sp, im, fi, nx) == True{} : Bool},
+  ht: {D.Tg(m, sp) == 37 : U32}) ->
+  {Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)) == Cr.Cir.exec(f, Mc.M.ret.tup(), X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)) : Cr.Cir.Out}:
+  X.ret.disp.tupa(f, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, pg, lim, inp, sp, rg.len(rest, foc, 1, sp, pend), {==}, {==}, hz, hc, ht)
+
+# the Tup cell, the focus: Inv of Tup q a v, a value, and a smaller measure
+def ta.fin(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, +v: Bk.Term, +st2: Cr.Cir.State, +et: {D.A.plugs(Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}, v) == t : Bk.Term},
+  +z: U32, +pend2: U32, +ps2: List<&2, U32>, +zs2: List<&2, D.Rt>,
+  +eregs: {X.X.set(D.St.regs(st2), 0n, z) == D.RG(z, 1, D.Fd(1n, m, sp), pend2, D.R59.list(D.R59.of(X.X.set(D.St.regs(st2), 0n, z)))) : List<&2, U32>},
+  +hvals: {El.Eval.vals(ds, Bk.Term.Tup{q, a, v}, False{}) == True{} : Bool}, +afs2: D.AFs.ok(ds, fs),
+  tp: D.P2(D.HSK(True{}, ds, ks, img, Cr.Cir.Cells.set(D.St.cells(st2), z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}), D.St.next(st2), fi, im, Con{D.Rt{z, Bk.Term.Tup{q, a, v}}, Nil{}}, Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2),
+    D.AccK(True{}, ds, ks, img, Cr.Cir.Cells.set(D.St.cells(st2), z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}), D.St.next(st2), fi, im, Con{D.Rt{z, Bk.Term.Tup{q, a, v}}, Nil{}}, Nil{}, D.Fd(1n, m, sp), fs, ps2, zs2)),
+  le: N.Le(1n+D.A.w(True{}, Bk.Term.Tup{q, a, v}, fs), w),
+  pk: N.Le(D.Mem.cells(Cr.Cir.State{X.X.set(D.St.regs(st2), 0n, z), Cr.Cir.Cells.set(D.St.cells(st2), z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0}), Nat.max(D.Mem.cells(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), D.Need(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t)))) ->
+  D.PostB(False{}, Cr.Cir.Out.next{Cr.Cir.State{X.X.set(D.St.regs(st2), 0n, z), Cr.Cir.Cells.set(D.St.cells(st2), z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0}}, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match tp:
+    case Tuple{Tuple{Tuple{isz, _}, Tuple{_, Tuple{_, Tuple{frs3, Tuple{heap3, img3}}}}}, hac3}:
+      (Inl{(D.A.w(True{}, Bk.Term.Tup{q, a, v}, fs), ((D.Wit{True{}, Bk.Term.Tup{q, a, v}, fs, z, D.Fd(1n, m, sp), pend2, ps2, D.R59.of(X.X.set(D.St.regs(st2), 0n, z))},
+        ((et, ({==}, (hvals, (afs2, (eregs, (isz, (frs3, (heap3, (img3, ({==}, {==})))))))))), (zs2, hac3))), le))}, pk)
+
+
+# after M.alloc, with the cell z: the stores of M.make (make.eq), the new
+# cell a root of Tup q a v (term.post), then focus gets it: Inv, of a value
+def ta.mk(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, +v: Bk.Term, +st2: Cr.Cir.State,
+  +et: {D.A.plugs(Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}, v) == t : Bk.Term}, +ew0: {D.A.w(True{}, v, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}) == w : Nat},
+  +evv: {Bool.or(Bool.not(True{}), El.Eval.vals(ds, v, False{})) == True{} : Bool}, +afs: D.AFs.ok(ds, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}),
+  +eQQ: {U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3) == Mc.Img.quan(q) : U32},
+  +e1: {Cr.Cir.exec(f, Mc.M.alloc(15n), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)) == Cr.Cir.Out.next{Cr.Cir.State{D.St.regs(st2), D.St.cells(st2), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0}} : Cr.Cir.Out},
+  +sm: D.Same(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), fi, im, lim, inp, [0n, 1n, 2n, 11n, 14n], Cr.Cir.State{D.St.regs(st2), D.St.cells(st2), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0}), +z: U32, +pend2: U32, +ps2: List<&2, U32>,
+  +e15: {List.get(&2, U32, D.St.regs(st2), 15n) == Some{z} : Maybe<&2, U32>}, +e3: {List.get(&2, U32, D.St.regs(st2), 3n) == Some{pend2} : Maybe<&2, U32>},
+  +hz: {Cr.Cir.Cells.get(D.St.cells(st2), z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}, +ho: {D.Own(fi, D.St.next(st2), z) == True{} : Bool},
+  +hm: {D.Mem(ps2, z) == False{} : Bool},
+  +hnx: {Bool.or(Bool.and(D.Mem(Con{sp, ps}, z), U32.is_eq(D.St.next(st2), nx)),
+    Bool.and(D.Pend.none(Con{sp, ps}), Bool.and(U32.is_eq(z, nx), U32.is_eq(D.St.next(st2), U32.inc(nx))))) == True{} : Bool},
+  +hz0: {D.Ptr(Nat.sub(U32.to_nat(D.St.next(st2)), U32.to_nat(fi)), D.St.cells(st2), fi, ps2, D.Rt.cells(Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}), z) == 0n : Nat},
+  +hs2: D.HSK(True{}, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}, Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2),
+  +zs2: List<&2, D.Rt>, hac2: D.AccK(True{}, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}, Con{D.TmpE{z, Nil{}}, Nil{}}, D.Fd(1n, m, sp), fs, ps2, zs2)) ->
+  D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(Mc.M.ret.tup())), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match afs sm hs2:
+    case Tuple{ha, afs2} Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{elen0, Tuple{k0, Tuple{k1, Tuple{k2, Tuple{k11, Tuple{k14, _}}}}}}}}}}}}
+      Tuple{Tuple{ia2, Tuple{iv2, _}}, Tuple{_, Tuple{_, Tuple{_, Tuple{_, img2}}}}}:
+      +elen = {elen0 : {List.length(&2, U32, D.St.regs(st2)) == 63n : Nat}}
+      +ia = {ia2 : D.IsK(True{}, ds, D.St.cells(st2), im, fi, D.St.next(st2), ks, img, D.Fd(2n, m, sp), a)}
+      +iv = {iv2 : D.IsK(True{}, ds, D.St.cells(st2), im, fi, D.St.next(st2), ks, img, foc, v)}
+      +rts2 = {(ia, (iv, Unit{})) : D.RtsK(True{}, ds, D.St.cells(st2), im, fi, D.St.next(st2), ks, img, Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]})}
+      +io2 = {img2 : D.ImgOKK(True{}, ds, ks, img, D.St.cells(st2), im, fi, D.St.next(st2))}
+      +afs3 = {afs2 : D.AFs.ok(ds, fs)}
+      +RG0 = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+      +QQ = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+      +hl0 = rg.len(rest, foc, 1, sp, pend)
+      +hl3 = X.L.len(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), 63n, X.L.len(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37, 63n, X.L.len(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp, 63n, rg.len(rest, foc, 1, sp, pend))))
+      +hl4 = X.L.len(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp), 63n, hl3)
+      +hl5 = X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp, 63n, X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp), 63n, X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp, 63n, hl4)))
+      +eg0 = X.L.go(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, 0n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), foc, {==}, X.L.go(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 0n, 37, foc, {==}, X.L.go(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, 0n, sp, foc, {==}, {==})))
+      +g0_5 = X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, 0n, sp, foc, {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, 0n, D.Fd(1n, m, sp), foc, {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, 0n, sp, foc, {==}, X.L.go(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, 0n, D.Fd(2n, m, sp), foc, {==}, eg0))))
+      +g11_5 = X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, 11n, sp, D.Fd(2n, m, sp), {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, 11n, D.Fd(1n, m, sp), D.Fd(2n, m, sp), {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, 11n, sp, D.Fd(2n, m, sp), {==}, X.L.gs(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp), X.L.lt(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, hl3, {==})))))
+      +g1_5 = X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, 1n, sp, 1, {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, 1n, D.Fd(1n, m, sp), 1, {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, 1n, sp, 1, {==}, X.L.go(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, 1n, D.Fd(2n, m, sp), 1, {==}, X.L.go(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, 1n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), 1, {==}, X.L.go(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 1n, 37, 1, {==}, X.L.go(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, 1n, sp, 1, {==}, {==})))))))
+      +g2_5 = X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, 2n, sp, D.Fd(1n, m, sp), {==}, X.L.gs(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp), X.L.lt(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp, 63n, hl4), {==})))
+      +g14_5 = X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, 14n, sp, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, 14n, D.Fd(1n, m, sp), U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), {==}, X.L.go(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, 14n, sp, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), {==}, X.L.go(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, 14n, D.Fd(2n, m, sp), U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), {==}, X.L.gs(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), X.L.lt(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, X.L.len(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37, 63n, X.L.len(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp, 63n, rg.len(rest, foc, 1, sp, pend))), {==}))))))
+      +e0r = Equal.trans(Maybe<&2, U32>, List.get(&2, U32, D.St.regs(st2), 0n), List.get(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 0n), Some{foc}, k0, g0_5)
+      +e1r = Equal.trans(Maybe<&2, U32>, List.get(&2, U32, D.St.regs(st2), 1n), List.get(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 1n), Some{1}, k1, g1_5)
+      +e2r = Equal.trans(Maybe<&2, U32>, List.get(&2, U32, D.St.regs(st2), 2n), List.get(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 2n), Some{D.Fd(1n, m, sp)}, k2, g2_5)
+      +e11 = Equal.trans(Maybe<&2, U32>, List.get(&2, U32, D.St.regs(st2), 11n), List.get(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 11n), Some{D.Fd(2n, m, sp)}, k11, g11_5)
+      +e14 = Equal.trans(Maybe<&2, U32>, List.get(&2, U32, D.St.regs(st2), 14n), List.get(&2, U32, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), 14n), Some{QQ}, k14, g14_5)
+      +S2 = {Cr.Cir.State{D.St.regs(st2), D.St.cells(st2), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0} : Cr.Cir.State}
+      +nda = D.is.nd(ds, D.St.cells(st2), im, fi, D.St.next(st2), ks, img, D.Fd(2n, m, sp), a, ia)
+      +ndv = D.is.nd(ds, D.St.cells(st2), im, fi, D.St.next(st2), ks, img, foc, v, iv)
+      +vx = nd.cell(True{}, ds, im, fi, D.St.next(st2), D.Fd(2n, m, sp), Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)), a, D.A.tag(a), nda)
+      +vf = nd.cell(True{}, ds, im, fi, D.St.next(st2), foc, Cr.Cir.Cells.get(D.St.cells(st2), foc), v, D.A.tag(v), ndv)
+      +hcz = {D.or.r(Bool.and(Bool.not(U32.is_zero(z)), U32.is_le(z, im)), D.Own(fi, D.St.next(st2), z), ho) : {Cr.Cir.is_cell(z, im, fi, D.St.next(st2)) == True{} : Bool}}
+      +efx = {D.ev.op(Wa.Wasm.Op.shr_u{}, Mc.M.f(0n, Mc.M.g(Mc.R.x())), Mc.M.c(13), S2, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp))), 13,
+          D.ev.fld(0n, Mc.M.g(Mc.R.x()), D.St.regs(st2), D.St.cells(st2), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0, D.Fd(2n, m, sp), e11, vx), {==}) :
+        {Cr.Cir.eval(Mc.M.fv(Mc.M.g(Mc.R.x())), S2) == Some{D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp))))} : Maybe<&2, U32>}}
+      +eff = {D.ev.op(Wa.Wasm.Op.shr_u{}, Mc.M.f(0n, Mc.M.g(Mc.R.focus())), Mc.M.c(13), S2, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)), 13,
+          D.ev.fld(0n, Mc.M.g(Mc.R.focus()), D.St.regs(st2), D.St.cells(st2), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0, foc, e0r, vf), {==}) :
+        {Cr.Cir.eval(Mc.M.fv(Mc.M.g(Mc.R.focus())), S2) == Some{D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))} : Maybe<&2, U32>}}
+      +egt = D.ev.op(Wa.Wasm.Op.gt_u{}, Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus())), S2, D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))), efx, eff)
+      +emax = ev.pick(Mc.M.gt(Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus()))), Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus())), S2, Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))), egt, efx, eff)
+      +eo1 = D.ev.op(Wa.Wasm.Op.or{}, Mc.M.c(Mc.T.tup()), Mc.M.shl(Mc.M.g(Mc.R.q()), Mc.M.c(6)), S2, 10, Wa.Wasm.op(Wa.Wasm.Op.shl{}, QQ, 6), {==},
+        D.ev.op(Wa.Wasm.Op.shl{}, Mc.M.g(Mc.R.q()), Mc.M.c(6), S2, QQ, 6, e14, {==}))
+      +eo2 = D.ev.op(Wa.Wasm.Op.or{}, Mc.M.or(Mc.M.c(Mc.T.tup()), Mc.M.shl(Mc.M.g(Mc.R.q()), Mc.M.c(6))), Mc.M.c(Mc.F.value()), S2,
+        Wa.Wasm.op(Wa.Wasm.Op.or{}, 10, Wa.Wasm.op(Wa.Wasm.Op.shl{}, QQ, 6)), 256, eo1, {==})
+      +eh0 = {D.ev.op(Wa.Wasm.Op.or{}, Mc.M.header(Mc.T.tup(), Mc.M.g(Mc.R.q()), Mc.M.c(Mc.F.value())), Mc.M.shl(Mc.M.max(Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus()))), Mc.M.c(13)), S2,
+          Wa.Wasm.op(Wa.Wasm.Op.or{}, Wa.Wasm.op(Wa.Wasm.Op.or{}, 10, Wa.Wasm.op(Wa.Wasm.Op.shl{}, QQ, 6)), 256), Wa.Wasm.op(Wa.Wasm.Op.shl{}, qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))), 13), eo2,
+          D.ev.op(Wa.Wasm.Op.shl{}, Mc.M.max(Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus()))), Mc.M.c(13), S2, qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))), 13, emax, {==})) :
+        {Cr.Cir.eval(Mc.M.or(Mc.M.header(Mc.T.tup(), Mc.M.g(Mc.R.q()), Mc.M.c(Mc.F.value())), Mc.M.shl(Mc.M.max(Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus()))), Mc.M.c(13))), S2) == Some{hd.tup(QQ, qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))))} : Maybe<&2, U32>}}
+      +eh = {(%eQQ : {Cr.Cir.eval(Mc.M.or(Mc.M.header(Mc.T.tup(), Mc.M.g(Mc.R.q()), Mc.M.c(Mc.F.value())), Mc.M.shl(Mc.M.max(Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus()))), Mc.M.c(13))), S2) == Some{hd.tup(_, qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))))} : Maybe<&2, U32>}; eh0) :
+        {Cr.Cir.eval(Mc.M.or(Mc.M.header(Mc.T.tup(), Mc.M.g(Mc.R.q()), Mc.M.c(Mc.F.value())), Mc.M.shl(Mc.M.max(Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus()))), Mc.M.c(13))), S2) == Some{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))))} : Maybe<&2, U32>}}
+      +emk = X.make.eq(f, X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp), S2, 15n, Mc.M.or(Mc.M.header(Mc.T.tup(), Mc.M.g(Mc.R.q()), Mc.M.c(Mc.F.value())), Mc.M.shl(Mc.M.max(Mc.M.fv(Mc.M.g(Mc.R.x())), Mc.M.fv(Mc.M.g(Mc.R.focus()))), Mc.M.c(13))), Mc.M.g(Mc.R.x()), Mc.M.g(Mc.R.focus()), Mc.M.c(0), z, hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.Fd(2n, m, sp), foc, 0, e1, e15,
+        D.ev.fld(0n, Mc.M.g(15n), D.St.regs(st2), D.St.cells(st2), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0, z, e15, hcz), eh, e11, e0r, {==})
+      +hl2 = elen
+      +S7 = {X.X.store(X.X.store(X.X.store(X.X.store(X.X.store(Cr.Cir.State{D.St.regs(st2), D.St.cells(st2), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0}, 0n, z, hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))))), 1n, z, 1), 2n, z, D.Fd(2n, m, sp)), 3n, z, foc), 4n, z, 0) : Cr.Cir.State}
+      +S8p = {Cr.Cir.State{X.X.set(D.St.regs(st2), 0n, z), X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(D.St.cells(st2), 0n, z, hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))))), 1n, z, 1), 2n, z, D.Fd(2n, m, sp)), 3n, z, foc), 4n, z, 0), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0} : Cr.Cir.State}
+      +e_s0 = D.eq.set(f, 0n, Mc.M.g(Mc.R.n()), S7, z, e15, X.L.lt(D.St.regs(st2), 0n, hl2, {==}))
+      +hl3x = X.L.len(D.St.regs(st2), 0n, z, 63n, hl2)
+      +eregs = regs.fin(X.X.set(D.St.regs(st2), 0n, z), z, 1, D.Fd(1n, m, sp), pend2, hl3x, X.L.gs(D.St.regs(st2), 0n, z, X.L.lt(D.St.regs(st2), 0n, hl2, {==})),
+        X.L.go(D.St.regs(st2), 0n, 1n, z, 1, {==}, e1r), X.L.go(D.St.regs(st2), 0n, 2n, z, D.Fd(1n, m, sp), {==}, e2r), X.L.go(D.St.regs(st2), 0n, 3n, z, pend2, {==}, e3))
+      +tbl2 = D.img.tbl(True{}, ds, ks, img, D.St.cells(st2), im, fi, D.St.next(st2), io2)
+      +hzs = zero.st(D.St.cells(st2), z, hz)
+      +hn = D.neall.rcl(D.Rt.cells(Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}), z, D.add0.r(D.Pc(Nat.sub(U32.to_nat(D.St.next(st2)), U32.to_nat(fi)), D.St.cells(st2), ps2, fi, z), D.RcL(D.Rt.cells(Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}), z), hz0))
+      +rtsZ = D.Rts.fz(True{}, Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}, ds, D.St.cells(st2), im, fi, D.St.next(st2), ks, img, ps2, D.Rt.cells(Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}), z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}, tbl2, hz0, hzs, hn, rts2)
+      +hl = {hd.lo(q, qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))) : HdL(hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), q)}
+      +hvals = {D.and.i(Bool.or(Bool.not(El.Quan.live(q)), El.Eval.vals(ds, a, False{})), El.Eval.vals(ds, v, False{}), ha, evv) :
+        {El.Eval.vals(ds, Bk.Term.Tup{q, a, v}, False{}) == True{} : Bool}}
+      +hfv = fv.new(q, a, v, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp))), Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)), nd.fv(True{}, ds, im, fi, D.St.next(st2), D.Fd(2n, m, sp), Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)), a, D.A.tag(a), nda),
+        nd.fv(True{}, ds, im, fi, D.St.next(st2), foc, Cr.Cir.Cells.get(D.St.cells(st2), foc), v, D.A.tag(v), ndv))
+      +hi = isk.tup(ds, ks, img, D.St.cells(st2), im, fi, D.St.next(st2), z, q, a, v, hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.Fd(2n, m, sp), foc, hl, rtsZ, hcz, ho, hvals, hfv)
+      +hz290 = N.le_trans(1n+U32.to_nat(290), U32.to_nat(fi), U32.to_nat(z), img.hz(ds, ks, img, D.St.cells(st2), im, fi, D.St.next(st2), io2),
+        D.u.le(fi, z, D.and.l(U32.is_le(fi, z), U32.is_lt(z, D.St.next(st2)), ho)))
+      +hf = fs.new(D.St.cells(st2), ps2, z, hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.Fd(2n, m, sp), foc, hl.tg(hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), q, hl), tbl.tup(D.St.cells(st2), im, fi, D.St.next(st2), tbl2), D.lit.ne(U32.is_eq(282, z), 282, z, 290, {==}, {==}, hz290))
+      +tp = D.term.post(True{}, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}, Nil{}, Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2, z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}, Bk.Term.Tup{q, a, v}, Nil{}, zs2, hs2, hac2,
+        ho, hm, hzs, zero.tg(D.St.cells(st2), z, hz), hz0, fs.zero(D.St.cells(st2), ps2, z, hz, tbl.z(D.St.cells(st2), im, fi, D.St.next(st2), tbl2)), hl.st(hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), q, hl), {==}, hf, hi)
+      +eN = D.u32.eq(D.St.next(st2), nx, D.and.r(D.Mem(Con{sp, ps}, z), U32.is_eq(D.St.next(st2), nx), or.f(Bool.and(D.Mem(Con{sp, ps}, z), U32.is_eq(D.St.next(st2), nx)), hnx)))
+      +S0 = D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)
+      +pk = {(%Equal.sym(U32, D.St.next(st2), nx, eN) : N.Le(Nat.sub(U32.to_nat(_), U32.to_nat(fi)), Nat.max(D.Mem.cells(S0), D.Need(ds, S0, t)));
+          le.max.l(D.Mem.cells(S0), D.Need(ds, S0, t))) : N.Le(D.Mem.cells(Cr.Cir.State{X.X.set(D.St.regs(st2), 0n, z), Cr.Cir.Cells.set(D.St.cells(st2), z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}), D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0}), Nat.max(D.Mem.cells(S0), D.Need(ds, S0, t)))}
+      +le = {(%ew0 : N.Le(1n+D.A.w(True{}, Bk.Term.Tup{q, a, v}, fs), _); N.le_refl(1n+D.A.w(True{}, Bk.Term.Tup{q, a, v}, fs))) : N.Le(1n+D.A.w(True{}, Bk.Term.Tup{q, a, v}, fs), w)}
+      %D.rw.seq(f, X.sel.a(X.sel.b(X.sel.b(Mc.M.ret.tup()))), X.sel.b(X.sel.b(X.sel.b(Mc.M.ret.tup()))), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp), S7, emk) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(X.sel.b(X.sel.b(X.sel.b(Mc.M.ret.tup())))), X.sel.b(X.sel.b(X.sel.b(X.sel.b(Mc.M.ret.tup())))), S7, S8p, e_s0) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, X.sel.b(X.sel.b(X.sel.b(X.sel.b(Mc.M.ret.tup())))), S8p), Cr.Cir.Out.next{S8p}, D.eq.nop(f, S8p)) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %Equal.sym(Cr.Cir.Cells, X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(D.St.cells(st2), 0n, z, hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc)))))), 1n, z, 1), 2n, z, D.Fd(2n, m, sp)), 3n, z, foc), 4n, z, 0), Cr.Cir.Cells.set(D.St.cells(st2), z, Cr.Cir.Cell{hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0}), cells5(D.St.cells(st2), z, hd.tup(Mc.Img.quan(q), qm.pick(Bool.to_u32(U32.is_gt(D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), D.Fd(2n, m, sp)))), D.FvW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(D.St.cells(st2), foc))))), 1, D.Fd(2n, m, sp), foc, 0, hz)) :
+        D.PostB(False{}, Cr.Cir.Out.next{Cr.Cir.State{X.X.set(D.St.regs(st2), 0n, z), _, D.St.next(st2), fi, im, St.pg(st2), lim, inp, Nil{}, 0}}, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      ta.fin(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, st2, et, z, pend2, ps2, zs2, eregs, hvals, afs3, tp, le, pk)
+
+# M.alloc's outcome: a cell z, as alloc.post says; no halt, trap or end of
+# fuel, and no out of memory (Calm)
+def ta.alloc(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, +v: Bk.Term, +st2: Cr.Cir.State,
+  +et: {D.A.plugs(Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}, v) == t : Bk.Term}, +ew0: {D.A.w(True{}, v, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}) == w : Nat},
+  +evv: {Bool.or(Bool.not(True{}), El.Eval.vals(ds, v, False{})) == True{} : Bool}, +afs: D.AFs.ok(ds, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}),
+  +eQQ: {U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3) == Mc.Img.quan(q) : U32}, o: Cr.Cir.Out, +eo: {Cr.Cir.exec(f, Mc.M.alloc(15n), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)) == o : Cr.Cir.Out},
+  pb: D.PostB(False{}, o, st2 => D.P2(D.Same(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), fi, im, lim, inp, [0n, 1n, 2n, 11n, 14n], st2),
+      D.Ex(U32, z => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+        D.P2(D.Reg(st2, 15n, z), D.P2(D.Reg(st2, 3n, pend2),
+        D.P2({Cr.Cir.Cells.get(D.St.cells(st2), z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
+        D.P2({D.Own(fi, D.St.next(st2), z) == True{} : Bool}, D.P2({D.Mem(ps2, z) == False{} : Bool},
+        D.P2({Bool.or(D.Mem(Con{sp, ps}, z), U32.is_eq(z, nx)) == True{} : Bool},
+        D.P2({Bool.or(Bool.and(D.Mem(Con{sp, ps}, z), U32.is_eq(D.St.next(st2), nx)),
+             Bool.and(D.Pend.none(Con{sp, ps}), Bool.and(U32.is_eq(z, nx), U32.is_eq(D.St.next(st2), U32.inc(nx))))) == True{} : Bool},
+        D.P2(D.Ex(List<&2, D.W1>, ws => D.P2({D.St.cells(st2) == Cr.Cir.Cells.set(D.Put1(ws, D.Put1([D.W1{sp, pend}], m)), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells},
+          {D.Took(ws, Con{sp, ps}, D.Put1([D.W1{sp, pend}], m)) == True{} : Bool})),
+        D.P2({D.PsSub(ps2, Con{sp, ps}, D.Put1([D.W1{sp, pend}], m)) == True{} : Bool},
+        D.P2({D.Ptr(Nat.sub(U32.to_nat(D.St.next(st2)), U32.to_nat(fi)), D.St.cells(st2), fi, ps2, D.Rt.cells(Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}), z) == 0n : Nat},
+        D.P2(D.HSK(True{}, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}, Nil{}, fs, D.Fd(1n, m, sp), pend2, ps2),
+          D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, Con{D.Rt{D.Fd(2n, m, sp), a}, [D.Rt{foc, v}]}, Con{D.TmpE{z, Nil{}}, Nil{}}, D.Fd(1n, m, sp), fs, ps2, zs2))))))))))))))))) & D.AlFr(D.Put1([D.W1{sp, pend}], m), Con{sp, ps}, nx, st2), s => st2 => Empty, Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), lim), hc: Calm(o)) ->
+  D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(Mc.M.ret.tup())), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match o:
+    case Cr.Cir.Out.next{+s2}:
+      match pb:
+        case Tuple{Tuple{+sm, Tuple{+z, Tuple{+pend2, Tuple{+ps2, Tuple{e15, Tuple{e3, Tuple{hz, Tuple{ho, Tuple{hm, Tuple{_, Tuple{hnx, Tuple{_, Tuple{_, Tuple{hz0, Tuple{hs2, Tuple{+zs2, hac2}}}}}}}}}}}}}}}}, _}:
+          +S2 = {Cr.Cir.State{D.St.regs(s2), D.St.cells(s2), D.St.next(s2), fi, im, St.pg(s2), lim, inp, Nil{}, 0} : Cr.Cir.State}
+          +es2 = same.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), fi, im, lim, inp, [0n, 1n, 2n, 11n, 14n], s2, sm)
+          +e1 = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.alloc(15n), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)), Cr.Cir.Out.next{s2}, Cr.Cir.Out.next{S2}, eo,
+            Equal.cong(Cr.Cir.State, Cr.Cir.Out, y => Cr.Cir.Out.next{y}, s2, S2, es2))
+          +sm2 = {(%es2 : D.Same(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), fi, im, lim, inp, [0n, 1n, 2n, 11n, 14n], _); sm) : D.Same(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), fi, im, lim, inp, [0n, 1n, 2n, 11n, 14n], S2)}
+          ta.mk(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, s2, et, ew0, evv, afs, eQQ, e1, sm2, z, pend2, ps2, e15, e3, hz, ho, hm, hnx, hz0, hs2, zs2, hac2)
+    case Cr.Cir.Out.halt{_, _}:
+      Empty.absurd(D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(Mc.M.ret.tup())), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))), pb)
+    case Cr.Cir.Out.out_of_memory{}:
+      match hc:
+        case Tuple{_, e}:
+          Empty.absurd(D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(Mc.M.ret.tup())), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))), e)
+    case Cr.Cir.Out.trap{}:
+      Empty.absurd(D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(Mc.M.ret.tup())), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))), pb)
+    case Cr.Cir.Out.not_done{}:
+      match hc:
+        case Tuple{e, _}:
+          Empty.absurd(D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(X.sel.b(Mc.M.ret.tup())), X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))), e)
+
+
+# the round from a Tup q a □ frame, for any fuel: x gets a's cell, the pop,
+# then M.make
+def ta.round(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, +v: Bk.Term,
+  +iv: D.InvOf(ds, ks, img, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, Nil{}, 0, t, w, True{}, v, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}, foc, sp, pend, ps, rest),
+  hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, v}], Nil{}, sp, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}, ps, zs)) ->
+  D.PostB(False{}, Cr.Cir.exec(f, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp))):
+  match iv:
+    case Tuple{+et, Tuple{+ew0, Tuple{+evv, Tuple{+afs, Tuple{_, Tuple{+isf, Tuple{+frs, Tuple{+hp, Tuple{+io, _}}}}}}}}}:
+      +KD = {D.FK.tupa{} : D.FK}
+      +hz = fr.nz(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +hc = fr.cell(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +ht = fr.tag(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +eQQ = fr.qs(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +RG0 = D.RG(foc, 1, sp, pend, D.R59.list(rest))
+      +QQ = U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)
+      +xa = D.Fd(2n, m, sp)
+      +f1 = D.Fd(1n, m, sp)
+      +hl0 = rg.len(rest, foc, 1, sp, pend)
+      +hl3 = X.L.len(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), 63n, X.L.len(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37, 63n, X.L.len(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp, 63n, rg.len(rest, foc, 1, sp, pend))))
+      +hl4 = X.L.len(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp), 63n, hl3)
+      +hl5 = X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp, 63n, X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp), 63n, X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp, 63n, hl4)))
+      +S0 = D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)
+      +st3 = X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)
+      +st4 = X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), m, nx, fi, im, pg, lim, inp)
+      +st5 = X.X.st(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp)
+      +e_x = D.eq.set(f, 11n, Mc.M.f(2n, Mc.M.g(Mc.R.h())), st3, xa, D.ev.fld(2n, Mc.M.g(Mc.R.h()), X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp, Nil{}, 0, sp, X.L.go(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, 9n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), sp, {==}, X.L.go(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 9n, 37, sp, {==}, X.L.gs(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp, X.L.lt(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, hl0, {==})))), hc),
+        X.L.lt(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, hl3, {==}))
+      +e_pop = X.pop.eq(f, X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), m, nx, fi, im, pg, lim, inp, sp, pend, hl4, X.L.go(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, 2n, D.Fd(2n, m, sp), sp, {==}, X.L.go(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, 2n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), sp, {==}, X.L.go(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 2n, 37, sp, {==}, X.L.go(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, 2n, sp, sp, {==}, {==})))), X.L.go(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, 3n, D.Fd(2n, m, sp), pend, {==}, X.L.go(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, 3n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3), pend, {==}, X.L.go(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 3n, 37, pend, {==}, X.L.go(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, 3n, sp, pend, {==}, {==})))), hc)
+      +pp = pop.post(ds, ks, img, m, nx, fi, im, v, fs, foc, sp, pend, ps, KD, q, k, a, b, zs, isf, hp, io, frs, hac)
+      +OS = {Con{D.Rt{foc, v}, Con{D.Rt{xa, a}, Nil{}}} : List<&2, D.Rt>}
+      +hs5 = hsk.sw2(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, foc, v, xa, a, Nil{}, Nil{}, fs, f1, sp, Con{sp, ps},
+        D.Ex.fst(D.HS(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, OS, Nil{}, fs, f1, sp, Con{sp, ps}),
+          _ => D.AccK(True{}, ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, OS, Nil{}, f1, fs, Con{sp, ps}, zs), pp))
+      +hac5 = acc.sw2(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, foc, v, xa, a, Nil{}, f1, fs, Con{sp, ps}, zs,
+        D.Ex.snd(D.HS(ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, OS, Nil{}, fs, f1, sp, Con{sp, ps}),
+          _ => D.AccK(True{}, ds, ks, img, D.Put1([D.W1{sp, pend}], m), nx, fi, im, OS, Nil{}, f1, fs, Con{sp, ps}, zs), pp))
+      +g3_5 = X.L.gs(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp, X.L.lt(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp), 63n, X.L.len(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp, 63n, hl4)), {==}))
+      ap = D.alloc.post(f, True{}, ds, ks, img, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp, 15n, [0n, 1n, 2n, 11n, 14n], Con{D.Rt{xa, a}, [D.Rt{foc, v}]}, Nil{}, fs, f1, sp, Con{sp, ps},
+        Nil{}, zs, hs5, hac5, hl5, g3_5, {==}, {==})
+      +ca = calm.alloc(f, X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), 11n, D.Fd(2n, m, sp)), 16n, sp), 2n, D.Fd(1n, m, sp)), 3n, sp), D.Put1([D.W1{sp, pend}], m), nx, fi, im, pg, lim, inp, sp, g3_5, hz)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, D.B.body(), S0), Cr.Cir.exec(f, Mc.M.ret.tup(), st3), tupa.E(f, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) :
+        D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(Mc.M.ret.tup()), X.sel.b(Mc.M.ret.tup()), st3, st4, e_x) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      %D.rw.seq(f, X.sel.a(X.sel.b(Mc.M.ret.tup())), X.sel.b(X.sel.b(Mc.M.ret.tup())), st4, st5, e_pop) : D.PostB(False{}, _, s => K.MV.next(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w, s), s => st3 => D.HR(ds, t, s, st3), D.Budget(ds, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t), D.St.lim(D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)))
+      ta.alloc(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, st5, et, ew0, evv, afs, eQQ, Cr.Cir.exec(f, Mc.M.alloc(15n), st5), {==}, ap, ca)
+
+# mode 1, Tup q a □, with the value v: the value Tup q a v, an admin move
+def ta.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32,
+  +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat,
+  +fs: List<&2, D.AF>, +ps: List<&2, U32>, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +zs: List<&2, D.Rt>, +v: Bk.Term, +iv: D.InvOf(ds, ks, img, D.RG(foc, 1, sp, pend, D.R59.list(rest)), m, nx, fi, im, Nil{}, 0, t, w, True{}, v, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}, foc, sp, pend, ps, rest),
+  +hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, v}], Nil{}, sp, Con{D.AF{D.FK.tupa{}, q, k, a, b}, fs}, ps, zs)) ->
+  K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  match iv:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{+frs, _}}}}}}}:
+      +KD = {D.FK.tupa{} : D.FK}
+      +hz = fr.nz(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +hc = fr.cell(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +ht = fr.tag(ds, m, im, fi, nx, ks, img, ps, sp, KD, q, k, a, b, fs, frs)
+      +st3 = X.X.st(X.X.set(X.X.set(X.X.set(D.RG(foc, 1, sp, pend, D.R59.list(rest)), 9n, sp), 10n, 37), 14n, U32.and(U32.shrn(D.Fd(0n, m, sp), 6n), 3)), m, nx, fi, im, pg, lim, inp)
+      (f => ta.round(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, iv, hac),
+        (0n, (%Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), Cr.Cir.exec(0n, Mc.M.ret.tup(), st3),
+            tupa.E(0n, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) : D.Ends(_);
+          ends.nw(Mc.M.ret.tup(), st3, nw.tup()))))
+
 # The moves of move_kit.bend that this file proves (U11; U0 left them as ?TODO)
 # --------------------------------------------------------------------------
 
@@ -4264,7 +5372,9 @@ def K.mv.ret.tupb(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp,
       sw.tupb.mv(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, io, zs, hac)
 
 def K.mv.ret.tupa(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
-  ?TODO
+  match iv:
+    case Tuple{io, Tuple{zs, hac}}:
+      ta.go(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, focus, io, hac)
 
 def K.mv.ret.rwt(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, q, k, a, b, iv):
   match iv:
