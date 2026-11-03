@@ -47,8 +47,8 @@
 # three lemmas; the choice of the moves (round.post, round.done); the moves
 # mv.ev.val, mv.ev.former, mv.ev.var and mv.out. Open (?TODO): the other
 # moves, the premises above, the frame conditions of allocation (is.pend,
-# is.fresh), Eval's ev.stops and ev.stuck, and mach.memory with what it
-# needs (round.peak, round.room).
+# is.fresh), Eval's ev.stops and ev.stuck, that the output fits at halt 0
+# (code.fits), and mach.memory with what it needs (round.peak, round.room).
 
 import Base
 import ../../Book/impl.bend as Bk
@@ -1914,21 +1914,48 @@ def oc.inj(+a: List<&2, Word(8n)>, -b: List<&2, Word(8n)>, e: {Wa.Wasm.Outcome.r
   {a == b : List<&2, Word(8n)>}:
   Equal.cong(Wa.Wasm.Outcome, List<&2, Word(8n)>, x => oc.get(x, a), Wa.Wasm.Outcome.result{a}, Wa.Wasm.Outcome.result{b}, e)
 
-# a run that halts with 0 gives its output's bytes
-def ended0(-s: U32, +out: List<&2, Word(8n)>, e0: {s == 0 : U32}) ->
-  {Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out) == Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)} : Wa.Wasm.Outcome}:
-  %Equal.sym(U32, s, 0, e0) : {Cr.Cir.ended.halt(U32.is_eq(_, 0), U32.is_eq(_, 1), U32.is_eq(_, 2), out) == Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)} : Wa.Wasm.Outcome}
+# a run that halts with 0 gives its output as the host reads it
+def ended0(-s: U32, -fits: Bool, +out: List<&2, Word(8n)>, e0: {s == 0 : U32}) ->
+  {Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), fits, out) == Cr.Cir.ended.output(fits, out) : Wa.Wasm.Outcome}:
+  %Equal.sym(U32, s, 0, e0) : {Cr.Cir.ended.halt(U32.is_eq(_, 0), U32.is_eq(_, 1), U32.is_eq(_, 2), fits, out) == Cr.Cir.ended.output(fits, out) : Wa.Wasm.Outcome}
   {==}
 
 # a run that halts with 2 gives no result
-def ended2(-s: U32, +out: List<&2, Word(8n)>, e2: {s == 2 : U32}) ->
-  {Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out) == Wa.Wasm.Outcome.no_result{} : Wa.Wasm.Outcome}:
-  %Equal.sym(U32, s, 2, e2) : {Cr.Cir.ended.halt(U32.is_eq(_, 0), U32.is_eq(_, 1), U32.is_eq(_, 2), out) == Wa.Wasm.Outcome.no_result{} : Wa.Wasm.Outcome}
+def ended2(-s: U32, -fits: Bool, +out: List<&2, Word(8n)>, e2: {s == 2 : U32}) ->
+  {Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), fits, out) == Wa.Wasm.Outcome.no_result{} : Wa.Wasm.Outcome}:
+  %Equal.sym(U32, s, 2, e2) : {Cr.Cir.ended.halt(U32.is_eq(_, 0), U32.is_eq(_, 1), U32.is_eq(_, 2), fits, out) == Wa.Wasm.Outcome.no_result{} : Wa.Wasm.Outcome}
   {==}
 
-# a run that halts only as HE says never traps
+# an output that the host reads as the result x is its bytes: one that does
+# not fit gives a trap
+def output.inj(fits: Bool, +out: List<&2, Word(8n)>, -x: List<&2, Word(8n)>,
+  e: {Cr.Cir.ended.output(fits, out) == Wa.Wasm.Outcome.result{x} : Wa.Wasm.Outcome}) ->
+  {List.reverse(&2, Word(8n), out) == x : List<&2, Word(8n)>}:
+  match fits:
+    case True{}:
+      oc.inj(List.reverse(&2, Word(8n), out), x, e)
+    case False{}:
+      Empty.absurd({List.reverse(&2, Word(8n), out) == x : List<&2, Word(8n)>}, (%e : oc.nr(_); Unit{}))
+
+# at halt 0, the output fits in the memory, as the host checks (Cir.ended)
+def HaltFits(o: Cr.Cir.Out) -> Type:
+  match o:
+    case Cr.Cir.Out.halt{s, Cr.Cir.State{_, _, nx, _, _, pg, _, _, _, on}}:
+      {s == 0 : U32} -> {Wa.Wasm.fits(pg, Cr.Cir.at(nx), on) == True{} : Bool}
+    case _:
+      Unit
+
+# Open: a run of Mach.code from the start has its output in the memory at
+# halt 0. Unit U3 proves it (cir_fits.bend: fits.code, then fits.wasm); unit
+# U15 wires it
+def code.fits(+n: Nat, +cells: List<&2, Cr.Cir.Cell>, +first: U32, +k: U32, +pg: U32, +lim: U32, +i: List<&2, Word(8n)>) ->
+  HaltFits(Cr.Cir.exec(n, Mc.Mach.code(), D.St0(Mc.Mach.regs(), cells, first, k, pg, lim, i))):
+  ?TODO
+
+# a run that halts only as HE says, with its output in the memory at halt 0,
+# never traps
 def safe.end(o: Cr.Cir.Out, -ds: List<&2, Bk.Def>, -t: Bk.Term,
-  h: D.Post(False{}, o, st => Unit, s => st2 => D.HE(ds, t, s, st2))) ->
+  h: D.Post(False{}, o, st => Unit, s => st2 => D.HE(ds, t, s, st2)), hf: HaltFits(o)) ->
   {Cr.Cir.ended(o) != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}:
   match o:
     case Cr.Cir.Out.next{st}:
@@ -1936,14 +1963,16 @@ def safe.end(o: Cr.Cir.Out, -ds: List<&2, Bk.Def>, -t: Bk.Term,
     case Cr.Cir.Out.halt{s, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, +out, outn}}:
       match h:
         case Inl{x}:
-          (e0, r) = x
-          %Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out),
-            Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)}, ended0(s, out, e0)) : {_ != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}
+          (+e0, r) = x
+          %Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out),
+            Cr.Cir.ended.output(Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out), ended0(s, Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out, e0)) :
+            {_ != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}
+          %Equal.sym(Bool, Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), True{}, hf(e0)) : {Cr.Cir.ended.output(_, out) != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}
           e => (%e : oc.nt(_); Unit{})
         case Inr{x}:
           (e2, r) = x
-          %Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out),
-            Wa.Wasm.Outcome.no_result{}, ended2(s, out, e2)) : {_ != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}
+          %Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out),
+            Wa.Wasm.Outcome.no_result{}, ended2(s, Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out, e2)) : {_ != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}
           e => (%e : oc.nt(_); Unit{})
     case Cr.Cir.Out.out_of_memory{}:
       e => (%e : oc.nt(_); Unit{})
@@ -1966,20 +1995,20 @@ def sound.end(o: Cr.Cir.Out, +ds: List<&2, Bk.Def>, +t: Bk.Term, +x: List<&2, Wo
         case Inl{y}:
           (e0, r) = y
           (+k, ek) = r
-          +rx = oc.inj(List.reverse(&2, Word(8n), out), x,
-            Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)},
-              Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out), Wa.Wasm.Outcome.result{x},
-              Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out),
-                Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)}, ended0(s, out, e0)), e))
+          +rx = output.inj(Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out, x,
+            Equal.trans(Wa.Wasm.Outcome, Cr.Cir.ended.output(Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out),
+              Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out), Wa.Wasm.Outcome.result{x},
+              Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out),
+                Cr.Cir.ended.output(Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out), ended0(s, Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out, e0)), e))
           (k, (%rx :
             {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{_} : Maybe<&2, List<&2, Word(8n)>>}; ek))
         case Inr{y}:
           (e2, g) = y
           Empty.absurd(&k: Nat -> {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{x} : Maybe<&2, List<&2, Word(8n)>>},
             (%Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.Outcome.no_result{},
-              Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out), Wa.Wasm.Outcome.result{x},
-              Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out),
-                Wa.Wasm.Outcome.no_result{}, ended2(s, out, e2)), e) : oc.nr(_); Unit{}))
+              Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out), Wa.Wasm.Outcome.result{x},
+              Equal.sym(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out),
+                Wa.Wasm.Outcome.no_result{}, ended2(s, Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out, e2)), e) : oc.nr(_); Unit{}))
     case Cr.Cir.Out.out_of_memory{}:
       Empty.absurd(&k: Nat -> {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{x} : Maybe<&2, List<&2, Word(8n)>>},
         (%e : oc.nr(_); Unit{}))
@@ -1989,18 +2018,20 @@ def sound.end(o: Cr.Cir.Out, +ds: List<&2, Bk.Def>, +t: Bk.Term, +x: List<&2, Wo
       Empty.absurd(&k: Nat -> {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{x} : Maybe<&2, List<&2, Word(8n)>>},
         (%e : oc.nr(_); Unit{}))
 
-# a run that gives the bytes o, or runs out of memory, ends so
-def good.end(+o: List<&2, Word(8n)>, r: Cr.Cir.Out, g: D.Good(o, r)) ->
+# a run that gives the bytes o, or runs out of memory, ends so, when its
+# output is in the memory at halt 0
+def good.end(+o: List<&2, Word(8n)>, r: Cr.Cir.Out, g: D.Good(o, r), hf: HaltFits(r)) ->
   Or({Cr.Cir.ended(r) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}, {Cr.Cir.ended(r) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   match r:
     case Cr.Cir.Out.next{st}:
       Empty.absurd(Or({Wa.Wasm.Outcome.no_result{} == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
         {Wa.Wasm.Outcome.no_result{} == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}), g)
     case Cr.Cir.Out.halt{s, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, +out, outn}}:
-      (e0, eo) = g
-      Inl{Equal.trans(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), out),
-        Wa.Wasm.Outcome.result{List.reverse(&2, Word(8n), out)}, Wa.Wasm.Outcome.result{o}, ended0(s, out, e0),
-        Equal.cong(List<&2, Word(8n)>, Wa.Wasm.Outcome, y => Wa.Wasm.Outcome.result{y}, List.reverse(&2, Word(8n), out), o, eo))}
+      (+e0, eo) = g
+      Inl{Equal.trans(Wa.Wasm.Outcome, Cr.Cir.ended.halt(U32.is_eq(s, 0), U32.is_eq(s, 1), U32.is_eq(s, 2), Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out),
+        Cr.Cir.ended.output(Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out), Wa.Wasm.Outcome.result{o}, ended0(s, Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), out, e0),
+        (%Equal.sym(Bool, Wa.Wasm.fits(pg, Cr.Cir.at(nx), outn), True{}, hf(e0)) : {Cr.Cir.ended.output(_, out) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome};
+          Equal.cong(List<&2, Word(8n)>, Wa.Wasm.Outcome, y => Wa.Wasm.Outcome.result{y}, List.reverse(&2, Word(8n), out), o, eo)))}
     case Cr.Cir.Out.out_of_memory{}:
       Inr{{==}}
     case Cr.Cir.Out.trap{}:
@@ -2096,7 +2127,8 @@ def comp.of(k: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, 
   +st0 = D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, kk, pg, lim, i)
   +rn = run.done(k, p, ds, i, m, o, kk, len, pg, lim, first, rd, small, s, e)
   +n = D.Ex.fst(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), st0)), rn)
-  (n, good.end(o, Cr.Cir.exec(n, Mc.Mach.code(), st0), D.Ex.snd(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), st0)), rn)))
+  (n, good.end(o, Cr.Cir.exec(n, Mc.Mach.code(), st0), D.Ex.snd(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), st0)), rn),
+    code.fits(n, Mc.Img.cells(ds), first, kk, pg, lim, i)))
 
 # Layer B
 # -------
@@ -2114,7 +2146,7 @@ def mach.safe.proof(
     e => (%e : oc.nt(_); Unit{}),
     +kk => +len => +pg => +lim => +first => s =>
       safe.end(Cr.Cir.exec(n, Mc.Mach.code(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, kk, pg, lim, i)), ds, Pg.Program.start(i),
-        run.post(n, p, ds, i, m, kk, len, pg, lim, first, rd, small, s)))
+        run.post(n, p, ds, i, m, kk, len, pg, lim, first, rd, small, s), code.fits(n, Mc.Img.cells(ds), first, kk, pg, lim, i)))
 
 # B: a result of the machine is the list of bytes of a value that Eval reaches
 def mach.sound.proof(
