@@ -1160,28 +1160,6 @@ def ag.chain(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im
       (e11, h2) = r10
       ({==}, (e0, ag.chain(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, D.Fd(1n, m, a), h2)))
 
-def ag.lt(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
-  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32,
-  +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs)) -> {S.All.lt(Ag.links(xs, m, a), nx) == True{} : Bool}:
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{El.Arg{+q, +x}, +rest}:
-      (e0, r0) = h
-      (e1, r1) = r0
-      (e2, r2) = r1
-      (e3, r3) = r2
-      (e4, r4) = r3
-      (e5, r5) = r4
-      (e6, r6) = r5
-      (e7, r7) = r6
-      (e8, r8) = r7
-      (e9, r9) = r8
-      (e10, r10) = r9
-      (e11, h2) = r10
-      CK.Bo.and_i(U32.is_lt(a, nx), S.All.lt(Ag.links(rest, m, D.Fd(1n, m, a)), nx), CK.Bo.and_r(U32.is_le(fi, a), U32.is_lt(a, nx), e2),
-        ag.lt(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, D.Fd(1n, m, a), h2))
-
 def links.len(+xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32) -> {List.length(&2, U32, Ag.links(xs, m, a)) == List.length(&2, El.Arg, xs) : Nat}:
   match xs:
     case Nil{}:
@@ -1443,14 +1421,29 @@ def le.lt(+a: Nat, +b: Nat, +h: N.Le(1n+a, b)) -> {Nat.is_lt(a, b) == True{} : B
     case 1n+ap 1n+bp:
       le.lt(ap, bp, h)
 
-def nats.lt(+xs: List<&2, U32>, +N0: U32, +h: {S.All.lt(xs, N0) == True{} : Bool}) -> {Lt.n(Nats(xs), U32.to_nat(N0)) == True{} : Bool}:
+# the K.args of the chain are below next
+def ag.lt(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32,
+  +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs)) -> {Lt.n(Nats(Ag.links(xs, m, a)), U32.to_nat(nx)) == True{} : Bool}:
   match xs:
     case Nil{}:
       {==}
-    case Con{+x, +rest}:
-      CK.Bo.and_i(Nat.is_lt(U32.to_nat(x), U32.to_nat(N0)), Lt.n(Nats(rest), U32.to_nat(N0)),
-        le.lt(U32.to_nat(x), U32.to_nat(N0), CK.U.lt(x, N0, CK.Bo.and_l(U32.is_lt(x, N0), S.All.lt(rest, N0), h))),
-        nats.lt(rest, N0, CK.Bo.and_r(U32.is_lt(x, N0), S.All.lt(rest, N0), h)))
+    case Con{El.Arg{+q, +x}, +rest}:
+      (e0, r0) = h
+      (e1, r1) = r0
+      (e2, r2) = r1
+      (e3, r3) = r2
+      (e4, r4) = r3
+      (e5, r5) = r4
+      (e6, r6) = r5
+      (e7, r7) = r6
+      (e8, r8) = r7
+      (e9, r9) = r8
+      (e10, r10) = r9
+      (e11, h2) = r10
+      CK.Bo.and_i(Nat.is_lt(U32.to_nat(a), U32.to_nat(nx)), Lt.n(Nats(Ag.links(rest, m, D.Fd(1n, m, a))), U32.to_nat(nx)),
+        le.lt(U32.to_nat(a), U32.to_nat(nx), CK.U.lt(a, nx, CK.Bo.and_r(U32.is_le(fi, a), U32.is_lt(a, nx), e2))),
+        ag.lt(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, D.Fd(1n, m, a), h2))
 
 # the number of n, as a U32, is n, when n is at most a U32's
 def to.from(+n: Nat, +M: U32, +h: N.Le(n, U32.to_nat(M))) -> {U32.to_nat(U32.from_nat(n)) == n : Nat}:
@@ -1469,7 +1462,7 @@ def ag.len(+xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: 
   +h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs)) -> N.Le(List.length(&2, El.Arg, xs), U32.to_nat(nx)):
   +ls = Ag.links(xs, m, a)
   +b = ph(U32.to_nat(nx), Nats(ls), nats.nd(ls, chain.nodup(ls, m, a, ag.chain(xs, ds, m, im, fi, nx, ks, img, ps, os, vs, a, h))),
-    nats.lt(ls, nx, ag.lt(xs, ds, m, im, fi, nx, ks, img, ps, os, vs, a, h)))
+    ag.lt(xs, ds, m, im, fi, nx, ks, img, ps, os, vs, a, h))
   %Equal.trans(Nat, List.length(&2, Nat, Nats(ls)), List.length(&2, U32, ls), List.length(&2, El.Arg, xs), nats.len(ls), links.len(xs, m, a)) :
     N.Le(_, U32.to_nat(nx))
   b
@@ -5004,9 +4997,10 @@ def al.cells(k: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
               N.le_succ(U32.to_nat(c), U32.to_nat(c), N.le_refl(U32.to_nat(c))))),
           w.next(c, q, nx, hw), hgt))
 
-# every pointer of an own cell is below next (the heap's Pts gives the copy's Lt)
+# every pointer of an own cell is below next, to a term cell (the heap's Pts
+# gives the copy's Lt)
 def lt.all.lt(xs: List<&2, U32>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, h: {D.Lt.all(xs, m, im, fi, nx) == True{} : Bool}) ->
-  {S.All.lt(xs, nx) == True{} : Bool}:
+  {S.All.lt(xs, m, nx) == True{} : Bool}:
   match xs:
     case Nil{}:
       {==}
@@ -5015,8 +5009,11 @@ def lt.all.lt(xs: List<&2, U32>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
       +f0 = Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, x))
       +A = Bool.and(U32.is_lt(x, nx), U32.is_lt(D.TgW(f0), 19))
       +B = Bool.and(Cr.Cir.is_cell(x, im, fi, nx), Bool.or(D.Own(fi, nx, x), D.FlW(f0, 1024)))
-      CK.Bo.and_i(U32.is_lt(x, nx), S.All.lt(rest, nx),
-        CK.Bo.and_l(U32.is_lt(x, nx), U32.is_lt(D.TgW(f0), 19), CK.Bo.and_l(A, B, CK.Bo.and_l(Bool.and(A, B), D.Lt.all(rest, m, im, fi, nx), h2))),
+      +ha = CK.Bo.and_l(A, B, CK.Bo.and_l(Bool.and(A, B), D.Lt.all(rest, m, im, fi, nx), h2))
+      +T18 = U32.is_le(U32.and(S.Fd(0n, m, x), 63), 18)
+      CK.Bo.and_i(Bool.and(U32.is_lt(x, nx), Bool.or(U32.is_zero(x), T18)), S.All.lt(rest, m, nx),
+        CK.Bo.and_i(U32.is_lt(x, nx), Bool.or(U32.is_zero(x), T18), CK.Bo.and_l(U32.is_lt(x, nx), U32.is_lt(D.TgW(f0), 19), ha),
+          CK.Bo.or_ir(U32.is_zero(x), T18, lt19.le18(U32.and(S.Fd(0n, m, x), 63), CK.Bo.and_r(U32.is_lt(x, nx), U32.is_lt(D.TgW(f0), 19), ha)))),
         lt.all.lt(rest, m, im, fi, nx, CK.Bo.and_r(Bool.and(A, B), D.Lt.all(rest, m, im, fi, nx), h2)))
 
 def lt.of(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32,
@@ -5026,8 +5023,8 @@ def lt.of(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: 
       {==}
     case 1n+(+p):
       +h2 = h
-      CK.Bo.and_i(S.All.lt(S.Ps(m, ps, o), nx), S.Lt(p, m, ps, U32.inc(o), nx),
-        (%fs.ps(m, ps, o) : {S.All.lt(_, nx) == True{} : Bool};
+      CK.Bo.and_i(S.All.lt(S.Ps(m, ps, o), m, nx), S.Lt(p, m, ps, U32.inc(o), nx),
+        (%fs.ps(m, ps, o) : {S.All.lt(_, m, nx) == True{} : Bool};
           lt.all.lt(D.Fs(m, ps, o), m, im, fi, nx, CK.Bo.and_l(D.Lt.all(D.Fs(m, ps, o), m, im, fi, nx), D.Pts(p, m, ps, U32.inc(o), im, fi, nx), h2))),
         lt.of(p, m, ps, U32.inc(o), im, fi, nx, CK.Bo.and_r(D.Lt.all(D.Fs(m, ps, o), m, im, fi, nx), D.Pts(p, m, ps, U32.inc(o), im, fi, nx), h2)))
 
@@ -5487,10 +5484,12 @@ def kc.ok(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   {S.Kc.ok(im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, D.Fr.cells(fs, m, sp), c, Cr.Cir.Cells.get(m, c)) == True{} : Bool}:
   +K19 = Nat.is_le(19n, U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), 63)))
   +A1 = Bool.and(S.Al(im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, c), K19)
-  +B1 = Bool.and(S.Has(D.Fr.cells(fs, m, sp), c), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)))
+  +B1 = Bool.and(S.Has(D.Fr.cells(fs, m, sp), c), Bool.and(Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)), K19))
+  +h19 = CK.Bo.and_l(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), Bool.not(D.Mem(ps, c)), hkl)
   bool.case(S.Has(D.Fr.cells(fs, m, sp), c), S.Has(D.Fr.cells(fs, m, sp), c), {Bool.or(A1, B1) == True{} : Bool}, {==},
-    e => CK.Bo.or_ir(A1, B1, CK.Bo.and_i(S.Has(D.Fr.cells(fs, m, sp), c), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)), e,
-      CK.Bo.and_i(U32.is_le(fi, c), U32.is_lt(c, nx), CK.U.le_t(fi, c, h1), CK.U.lt_t(c, nx, h2)))),
+    e => CK.Bo.or_ir(A1, B1, CK.Bo.and_i(S.Has(D.Fr.cells(fs, m, sp), c), Bool.and(Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)), K19), e,
+      CK.Bo.and_i(Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)), K19,
+        CK.Bo.and_i(U32.is_le(fi, c), U32.is_lt(c, nx), CK.U.le_t(fi, c, h1), CK.U.lt_t(c, nx, h2)), h19))),
     +e => CK.Bo.or_il(A1, B1, CK.Bo.and_i(S.Al(im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, c), K19,
       CK.Bo.and_i(Cr.Cir.is_cell(c, im, fi, nx), Bool.and(Bool.not(S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), c)), Bool.not(S.Tbc(c))), own.cell(c, im, fi, nx, h1, h2),
         CK.Bo.and_i(Bool.not(S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), c)), Bool.not(S.Tbc(c)),
@@ -5500,7 +5499,7 @@ def kc.ok(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
                 {(%Equal.sym(Bool, D.Mem(D.Fr.cells(fs, m, sp), c), S.Has(D.Fr.cells(fs, m, sp), c), mem.has(D.Fr.cells(fs, m, sp), c)) : {_ == False{} : Bool}; e) :
                   {D.Mem(D.Fr.cells(fs, m, sp), c) == False{} : Bool}})), e))),
           CK.Bo.not_i(S.Tbc(c), own.ntb(c, im, fi, h1, hK, hKF)))),
-      CK.Bo.and_l(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), Bool.not(D.Mem(ps, c)), hkl))))
+      h19)))
 
 def kcs.kl.b(b: Bool, +q: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
   +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
@@ -6156,7 +6155,8 @@ def copy.ends(+wt: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>
   ok.ex(Mc.M.copy(Mc.R.n(), S.Cp.src(wt)), S.S(regs, m, nx, fi, im, pg, lim, inp), fi, im, lim, inp,
     S.Cells.bytes(fi, Nat.add(D.Acc.need(m, nx, fi, os, XS, sp, fs), 2n+Pg.Term.size(El.Term.subst(t, es2, 0n)))),
     rg => ms => nx2 => pg2 => S.Ex(S.Wt, w => S.Post(False{}, S.Mo.subst{es2}, t, regs, S.Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, im, fi,
-      m, P, ps, E, nx, Rs.of(List.append(&2, D.Rt, os, D.Fr.rts(fs, m, sp))), Tmps.of(XS), Kl(n, m, fi, ps),
+      m, P, ps, E, nx, Nat.add(D.Acc.need(m, nx, fi, os, XS, sp, fs), 2n+Pg.Term.size(El.Term.subst(t, es2, 0n))),
+      Rs.of(List.append(&2, D.Rt, os, D.Fr.rts(fs, m, sp))), Tmps.of(XS), Kl(n, m, fi, ps),
       Con{S.Rt{Pg.Term.size(t), T.tm.reg(regs, S.Cp.src(wt)), t}, S.Env.rts(es2, m, T.tm.reg(regs, 36n))}, w, rg, ms, nx2)),
     S.Cp.ok(wt, regs, m, nx, fi, im, pg, lim, inp, ks, img, P, ps, Zl(P, D.Rts.size(zs), m, ks, img), E,
       Rs.of(List.append(&2, D.Rt, os, D.Fr.rts(fs, m, sp))), Tmps.of(XS), Kl(n, m, fi, ps), D.Acc.need(m, nx, fi, os, XS, sp, fs),
