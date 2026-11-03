@@ -1587,6 +1587,11 @@ def Copy.src(wt: Bool) -> Nat:
     case False{}:
       Mc.R.z()
 
+# the most own cells that M.copy may reach: what Acc counts, the copy's root and its new term
+def Copy.need(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +os: List<&2, Rt>, +xs: List<&2, TmpE>, +sp: U32, +fs: List<&2, AF>,
+  +ce: U32, +es: List<&2, El.Arg>, +t: Bk.Term) -> Nat:
+  Nat.add(Acc.need(m, nx, fi, os, List.append(&2, TmpE, Ag.cells(es, m, ce), xs), sp, fs), 2n+Pg.Term.size(El.Term.subst(t, Arg.terms(es), 0n)))
+
 def CopyQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +ps: List<&2, U32>, +t: Bk.Term, +ce: U32,
@@ -1595,11 +1600,12 @@ def CopyQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   +nx2 = St.next(st2)
   P2(Same(regs, fi, im, lim, inp, keep, st2),
   P2(N.Le(Stat(Mem.cells(st2), St.cells(st2), St.first(st2)), Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)),
+  P2(N.Le(Mem.cells(st2), Nat.max(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), Copy.need(m, nx, fi, os, xs, sp, fs, ce, es, t))),
   Ex(U32, n => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
     P2(Reg(st2, r, n), P2(Reg(st2, 3n, pend2), P2(Kept.cells(m, nx, fi, ps, Nil{}, m2, nx2, ps2),
     P2(HS(ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, bs, fs, sp, pend2, ps2),
     P2(Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, Nil{}, ce, es),
-      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, List.append(&2, TmpE, Ag.cells(es, m2, ce), xs), sp, fs, ps2, zs2))))))))))))
+      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, List.append(&2, TmpE, Ag.cells(es, m2, ce), xs), sp, fs, ps2, zs2)))))))))))))
 # the conclusion of copy.post (moves.bend), for the phase that proves it
 def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +wt: Bool,
@@ -1620,7 +1626,7 @@ def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   PostB(False{}, Cr.Cir.exec(f, Mc.M.copy(Mc.R.n(), Copy.src(wt)), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => CopyQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, Mc.R.n(), keep, os, Con{Rt{c, t}, bs}, fs, sp, ps, t, ce, es, xs, st2),
     s => st2 => Empty,
-    Cells.bytes(fi, Nat.add(Acc.need(m, nx, fi, os, List.append(&2, TmpE, Ag.cells(es, m, ce), xs), sp, fs), 2n+Pg.Term.size(El.Term.subst(t, Arg.terms(es), 0n)))), lim)
+    Cells.bytes(fi, Copy.need(m, nx, fi, os, xs, sp, fs, ce, es, t)), lim)
 # the conclusion of copy.done (moves.bend), for the phase that proves it
 def CopyDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +wt: Bool,
@@ -1660,16 +1666,22 @@ def DataH(b: Bool, X: Data) -> Data:
     case False{}:
       Unit
 
+# the most own cells that M.data may reach: what Acc counts and its stack
+def Data.need(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +os: List<&2, Rt>, +xs: List<&2, TmpE>, +sp: U32, +fs: List<&2, AF>,
+  +v: Bk.Term) -> Nat:
+  Nat.add(Acc.need(m, nx, fi, os, xs, sp, fs), 1n+Pg.Term.size(v))
+
 def DataQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +ps: List<&2, U32>, +v: Bk.Term,
   +xs: List<&2, TmpE>, +st2: Cr.Cir.State) -> Data:
   P2(Same(regs, fi, im, lim, inp, keep, st2),
   P2(N.Le(Stat(Mem.cells(st2), St.cells(st2), St.first(st2)), Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)),
+  P2(N.Le(Mem.cells(st2), Nat.max(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), Data.need(m, nx, fi, os, xs, sp, fs, v))),
   P2(Reg(st2, 43n, Bool.to_u32(El.Term.is_data(v))),
   Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
     P2(Reg(st2, 3n, pend2), P2(Kept.cells(m, nx, fi, ps, Nil{}, St.cells(st2), St.next(st2), ps2), DataH(El.Term.is_data(v), P2(HS(ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2),
-      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, xs, sp, fs, ps2, zs2)))))))))))
+      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, xs, sp, fs, ps2, zs2))))))))))))
 # the conclusion of data.post (moves.bend), for the phase that proves it
 def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
@@ -1685,7 +1697,7 @@ def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   Type:
   PostB(False{}, Cr.Cir.exec(f, Mc.M.data(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => DataQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, Con{Rt{c, v}, bs}, fs, sp, ps, v, xs, st2), s => st2 => Empty,
-    Cells.bytes(fi, Nat.add(Acc.need(m, nx, fi, os, xs, sp, fs), 1n+Pg.Term.size(v))), lim)
+    Cells.bytes(fi, Data.need(m, nx, fi, os, xs, sp, fs, v)), lim)
 # the conclusion of data.done (moves.bend), for the phase that proves it
 def DataDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
@@ -1736,6 +1748,13 @@ def WalkR(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
           Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, m2, nx2, fi, im, os, List.append(&2, TmpE, Ag.cells(e, m2, env), List.append(&2, TmpE, Ag.cells(ys, m2, args), xs0)), sp, fs, ps2, zs2)))))))),
     P2({res == 3 : U32}, {El.Eval.walk(tt, Nil{}, xs) == None{} : Maybe<Maybe<Bk.Term>>})))
 
+# the most own cells that M.walk may reach: what Acc counts (the arguments' chain among the
+# temporaries), two cells a round of the case tree, and a check's stack
+def Walk.need(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +os: List<&2, Rt>, +xs0: List<&2, TmpE>, +sp: U32, +fs: List<&2, AF>,
+  +tt: Bk.Term, +a: U32, +xs: List<&2, El.Arg>) -> Nat:
+  Nat.add(Acc.need(m, nx, fi, os, List.append(&2, TmpE, Ag.cells(xs, m, a), xs0), sp, fs),
+    1n+Nat.add(Nat.mul(2n, Pg.Term.size(tt)), Terms.size(Arg.terms(xs))))
+
 def WalkQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +ps: List<&2, U32>, +tt: Bk.Term, +a: U32,
@@ -1744,6 +1763,7 @@ def WalkQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   +nx2 = St.next(st2)
   Same(regs, fi, im, lim, inp, keep, st2) &
   N.Le(Stat(Mem.cells(st2), St.cells(st2), St.first(st2)), Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)) &
+  N.Le(Mem.cells(st2), Nat.max(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), Walk.need(m, nx, fi, os, xs0, sp, fs, tt, a, xs))) &
   &res: U32 -> &wt2: U32 -> &env: U32 -> &wn: U32 -> &args: U32 -> &pend2: U32 -> &ps2: List<&2, U32> ->
     Reg(st2, 26n, res) & Reg(st2, 19n, wt2) & Reg(st2, 20n, env) & Reg(st2, 25n, wn) & Reg(st2, 21n, args) &
     Reg(st2, 3n, pend2) & Kept.cells(m, nx, fi, ps, Tmp.cells(Ag.cells(xs, m, a)), m2, nx2, ps2) &
@@ -1766,8 +1786,7 @@ def WalkPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
   Type:
   PostB(False{}, Cr.Cir.exec(f, Mc.M.walk(), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
     st2 => WalkQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, Con{Rt{tc, tt}, bs}, fs, sp, ps, tt, a, xs, xs0, st2), s => st2 => Empty,
-    Cells.bytes(fi, Nat.add(Acc.need(m, nx, fi, os, List.append(&2, TmpE, Ag.cells(xs, m, a), xs0), sp, fs),
-      1n+Nat.add(Nat.mul(2n, Pg.Term.size(tt)), Terms.size(Arg.terms(xs))))), lim)
+    Cells.bytes(fi, Walk.need(m, nx, fi, os, xs0, sp, fs, tt, a, xs)), lim)
 # the conclusion of walk.done (moves.bend), for the phase that proves it
 def WalkDone(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
