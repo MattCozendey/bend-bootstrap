@@ -3835,6 +3835,72 @@ def cells.few(+xs: List<&2, U32>, +F: U32, +nx: U32, hfn: {U32.is_le(F, nx) == T
   +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
   N.le_rw_r(List.length(&2, U32, xs), List.length(&2, U32, Rng(n, F)), n, rng.len(n, F), sub.len(xs, Rng(n, F), hn, rng.sub(xs, F, nx, hfn, h)))
 
+# The stores of a new cell
+# ------------------------
+
+# M.make's stores, after its allocation gave the cell z in register r: the
+# header h, the count 1 and the fields a, b and c, each expression's value in
+# the state where it runs
+def make.tail(+f: Nat, +st1: Cr.Cir.State, +r: Nat, h: Cr.Cir.Expr, a: Cr.Cir.Expr, b: Cr.Cir.Expr, c: Cr.Cir.Expr, +z: U32,
+  +hv: U32, +av: U32, +bv: U32, +cv: U32,
+  ez: {List.get(&2, U32, Sr.X.regs(st1), r) == Some{z} : Maybe<&2, U32>}, hc: {Sr.X.cell(st1, z) == True{} : Bool},
+  eh: {Cr.Cir.eval(h, st1) == Some{hv} : Maybe<&2, U32>},
+  ea: {Cr.Cir.eval(a, Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1)) == Some{av} : Maybe<&2, U32>},
+  eb: {Cr.Cir.eval(b, Sr.X.store(Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1), 2n, z, av)) == Some{bv} : Maybe<&2, U32>},
+  ec: {Cr.Cir.eval(c, Sr.X.store(Sr.X.store(Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1), 2n, z, av), 3n, z, bv)) == Some{cv} : Maybe<&2, U32>}) ->
+  {Cr.Cir.exec(f, Sr.sel.b(Mc.M.make(r, h, a, b, c)), st1) ==
+    Cr.Cir.Out.next{Sr.X.store(Sr.X.store(Sr.X.store(Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1), 2n, z, av), 3n, z, bv), 4n, z, cv)} : Cr.Cir.Out}:
+  match st1:
+    case Cr.Cir.State{+regs1, +m1, +nx1, +fi1, +im1, +pg1, +lim1, +inp1, +out1, +outn1}:
+      +g = ez
+      +c0 = hc
+      +hh = h
+      +aa = a
+      +bb = b
+      +cx = c
+      +t0 = {Cr.Cir.State{regs1, m1, nx1, fi1, im1, pg1, lim1, inp1, out1, outn1} : Cr.Cir.State}
+      +t1 = Sr.X.store(t0, 0n, z, hv)
+      +t2 = Sr.X.store(t1, 1n, z, 1)
+      +t3 = Sr.X.store(t2, 2n, z, av)
+      +t4 = Sr.X.store(t3, 3n, z, bv)
+      +t5 = Sr.X.store(t4, 4n, z, cv)
+      +q1 = Sr.sel.b(Mc.M.make(r, hh, aa, bb, cx))
+      +q2 = Sr.sel.b(q1)
+      +q3 = Sr.sel.b(q2)
+      +q4 = Sr.sel.b(q3)
+      +q5 = Sr.sel.b(q4)
+      +rhs = {Cr.Cir.Out.next{t5} : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q1), q2, t0, t1, Sr.run.store(f, 0n, Mc.M.g(r), hh, t0, z, hv, g, eh, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q2), q3, t1, t2, Sr.run.store(f, 1n, Mc.M.g(r), Mc.M.c(1), t1, z, 1, g, {==}, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q3), q4, t2, t3, Sr.run.store(f, 2n, Mc.M.g(r), aa, t2, z, av, g, ea, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q4), q5, t3, t4, Sr.run.store(f, 3n, Mc.M.g(r), bb, t3, z, bv, g, eb, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q5), Sr.sel.b(q5), t4, t5, Sr.run.store(f, 4n, Mc.M.g(r), cx, t4, z, cv, g, ec, c0)) : {_ == rhs : Cr.Cir.Out}
+      Sr.run.nop(f, t5)
+
+# the cell whose five fields were set is the cell of the five values
+def cell5(c: Cr.Cir.Cell, +v0: U32, +v1: U32, +v2: U32, +v3: U32, +v4: U32) ->
+  {Cr.Cir.Cell.set(4n, Cr.Cir.Cell.set(3n, Cr.Cir.Cell.set(2n, Cr.Cir.Cell.set(1n, Cr.Cir.Cell.set(0n, c, v0), v1), v2), v3), v4) ==
+    Cr.Cir.Cell{v0, v1, v2, v3, v4} : Cr.Cir.Cell}:
+  match c:
+    case Cr.Cir.Cell{a0, a1, a2, a3, a4}:
+      {==}
+
+# five stores to the fields of the cell i: the cell of the five values
+def put5(+m: Cr.Cir.Cells, +i: U32, +v0: U32, +v1: U32, +v2: U32, +v3: U32, +v4: U32) ->
+  {Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{v0, v1, v2, v3, v4}) ==
+    Sr.X.put(Sr.X.put(Sr.X.put(Sr.X.put(Sr.X.put(m, 0n, i, v0), 1n, i, v1), 2n, i, v2), 3n, i, v3), 4n, i, v4) : Cr.Cir.Cells}:
+  +z = {Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{v0, v1, v2, v3, v4}) : Cr.Cir.Cells}
+  +c1 = Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, i), v0)
+  +c2 = Cr.Cir.Cell.set(1n, c1, v1)
+  +c3 = Cr.Cir.Cell.set(2n, c2, v2)
+  +c4 = Cr.Cir.Cell.set(3n, c3, v3)
+  %Sr.Ce.put_set(m, i, c1, 1n, v1) : {z == Sr.X.put(Sr.X.put(Sr.X.put(_, 2n, i, v2), 3n, i, v3), 4n, i, v4) : Cr.Cir.Cells}
+  %Sr.Ce.put_set(m, i, c2, 2n, v2) : {z == Sr.X.put(Sr.X.put(_, 3n, i, v3), 4n, i, v4) : Cr.Cir.Cells}
+  %Sr.Ce.put_set(m, i, c3, 3n, v3) : {z == Sr.X.put(_, 4n, i, v4) : Cr.Cir.Cells}
+  %Sr.Ce.put_set(m, i, c4, 4n, v4) : {z == _ : Cr.Cir.Cells}
+  Equal.cong(Cr.Cir.Cell, Cr.Cir.Cells, x => Cr.Cir.Cells.set(m, i, x), Cr.Cir.Cell{v0, v1, v2, v3, v4}, Cr.Cir.Cell.set(4n, c4, v4),
+    Equal.sym(Cr.Cir.Cell, Cr.Cir.Cell.set(4n, c4, v4), Cr.Cir.Cell{v0, v1, v2, v3, v4}, cell5(Cr.Cir.Cells.get(m, i), v0, v1, v2, v3, v4)))
+
 # no garbage cell of P points to the cells ns
 def Pz(ns: List<&2, U32>, +P: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
   match ns:
