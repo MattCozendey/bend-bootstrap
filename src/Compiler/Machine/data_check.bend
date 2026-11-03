@@ -3748,6 +3748,49 @@ def tag.small(t: Bk.Term) -> {U32.is_lt(PM.A.tag(t), 19) == True{} : Bool}:
     case Bk.Term.Rwt{+o0, +o1, +o2}:
       {==}
 
+# a Data term's tag is Tup, Lab or Rfl: the only constructors that is_data takes
+def is.data.tag(t: Bk.Term, +hv: {El.Term.is_data(t) == True{} : Bool}) ->
+  {Bool.or(U32.is_eq(PM.A.tag(t), 10), Bool.or(U32.is_eq(PM.A.tag(t), 13), U32.is_eq(PM.A.tag(t), 17))) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+o0}:
+      hv
+    case Bk.Term.Ref{+o0}:
+      hv
+    case Bk.Term.Ann{+o0, +o1}:
+      hv
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      hv
+    case Bk.Term.Typ{+o0}:
+      hv
+    case Bk.Term.Min{+o0, +o1}:
+      hv
+    case Bk.Term.All{+o0, +o1, +o2}:
+      hv
+    case Bk.Term.Lam{+o0, +o1}:
+      hv
+    case Bk.Term.App{+o0, +o1, +o2}:
+      hv
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      hv
+    case Bk.Term.Tup{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Prj{+o0}:
+      hv
+    case Bk.Term.Enu{+o0}:
+      hv
+    case Bk.Term.Lab{+o0}:
+      {==}
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      hv
+    case Bk.Term.Efq{}:
+      hv
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      hv
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      hv
+
 # a term cell is none of the stack's
 def ds.ntg(es: List<&2, DE>, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +c: U32, +v: Bk.Term, +nx0: U32, +xs0: List<&2, U32>, +y: U32,
   +hy: {U32.is_lt(PM.Tg(m, y), 19) == True{} : Bool}, h: DS(es, m, m0, c, v, nx0, xs0)) ->
@@ -3939,6 +3982,298 @@ def wp.ifi.e(+F: Nat, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +c2: Cr.Cir.Expr, +t2: C
   k: W.WP(Cr.Cir.Stmt.if{c2, t2, e2}, F, st, Q, B, lb)) ->
   W.WP(Cr.Cir.Stmt.if{c, t, Cr.Cir.Stmt.if{c2, t2, e2}}, F, st, Q, B, lb):
   (oc, wp.ife(U32.is_zero(W.Ev(c, st)), q => W.WP(t, F, st, x => q(x), B, lb), q => W.WP(Cr.Cir.Stmt.if{c2, t2, e2}, F, st, x => q(x), B, lb), Q, hz, k))
+
+# The modes dk
+# ------------
+#
+# IsCK and the predicates built on it take a mode dk: with True, DATA says
+# that its term is Data (DataK); with False, DATA says nothing (DataK is
+# Unit). So every fact of mode True holds of mode False too: the check may
+# run under either mode on a heap that HSK(True)/AccK(True) hold of.
+
+# NdK with mode False, from NdK with mode True: only the DataK part changes
+def ndk.wk(+ds: List<&2, Bk.Def>, +im: U32, +fi: U32, +nx: U32, +c: U32, +x: Cr.Cir.Cell, +t: Bk.Term, +tag: U32,
+  h: PM.NdK(True{}, ds, im, fi, nx, c, x, t, tag)) -> PM.NdK(False{}, ds, im, fi, nx, c, x, t, tag):
+  (h1, r1) = h
+  (h2, r2) = r1
+  (h3, r3) = r2
+  (h4, r4) = r3
+  (_, h6) = r4
+  (h1, (h2, (h3, (h4, (Unit{}, h6)))))
+
+# IsCK with mode False, from IsCK with mode True
+def isck.wk(t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, x: Cr.Cir.Cell,
+  h: PM.IsCK(True{}, ds, m, im, fi, nx, ks, img, c, x, t)) -> PM.IsCK(False{}, ds, m, im, fi, nx, ks, img, c, x, t):
+  match t:
+    case Bk.Term.Var{+i}:
+      (hn, h2) = h
+      (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Var{i}, 0, hn), h2)
+    case Bk.Term.Ref{+k}:
+      (hn, r1) = h
+      (h2, r2) = r1
+      (h3, h4) = r2
+      (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Ref{k}, 1, hn), (h2, (h3, h4)))
+    case Bk.Term.Ann{+y, +z}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (r2, r3) = r1
+          (s2, h2) = r2
+          (s3, h3) = r3
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Ann{y, z}, 2, hn),
+            ((s2, isck.wk(y, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+             (s3, isck.wk(z, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3))))
+    case Bk.Term.Let{+q, +v, +f}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (hq, r2) = r1
+          (r3, r4) = r2
+          (s2, h2) = r3
+          (s3, h3) = r4
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Let{q, v, f}, 3, hn),
+            (hq, ((s2, isck.wk(v, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+                  (s3, isck.wk(f, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)))))
+    case Bk.Term.Typ{+y}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (s2, h2) = r1
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Typ{y}, 4, hn),
+            (s2, isck.wk(y, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)))
+    case Bk.Term.Min{+a, +b}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (r2, r3) = r1
+          (s2, h2) = r2
+          (s3, h3) = r3
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Min{a, b}, 5, hn),
+            ((s2, isck.wk(a, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+             (s3, isck.wk(b, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3))))
+    case Bk.Term.All{+q, +a, +b}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (hq, r2) = r1
+          (r3, r4) = r2
+          (s2, h2) = r3
+          (s3, h3) = r4
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.All{q, a, b}, 6, hn),
+            (hq, ((s2, isck.wk(a, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+                  (s3, isck.wk(b, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)))))
+    case Bk.Term.Lam{+q, +f}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (hq, r2) = r1
+          (s2, h2) = r2
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Lam{q, f}, 7, hn),
+            (hq, (s2, isck.wk(f, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2))))
+    case Bk.Term.App{+q, +f, +y}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (hq, r2) = r1
+          (r3, r4) = r2
+          (s2, h2) = r3
+          (s3, h3) = r4
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.App{q, f, y}, 8, hn),
+            (hq, ((s2, isck.wk(f, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+                  (s3, isck.wk(y, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)))))
+    case Bk.Term.Sig{+q, +a, +b}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (hq, r2) = r1
+          (r3, r4) = r2
+          (s2, h2) = r3
+          (s3, h3) = r4
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Sig{q, a, b}, 9, hn),
+            (hq, ((s2, isck.wk(a, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+                  (s3, isck.wk(b, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)))))
+    case Bk.Term.Tup{+q, +a, +b}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (hq, r2) = r1
+          (r3, r4) = r2
+          (s2, h2) = r3
+          (s3, h3) = r4
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Tup{q, a, b}, 10, hn),
+            (hq, ((s2, isck.wk(a, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+                  (s3, isck.wk(b, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)))))
+    case Bk.Term.Prj{+o0}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (s2, h2) = r1
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Prj{o0}, 11, hn),
+            (s2, isck.wk(o0, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)))
+    case Bk.Term.Enu{+e}:
+      (hn, r1) = h
+      (h2, h3) = r1
+      (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Enu{e}, 12, hn), (h2, h3))
+    case Bk.Term.Lab{+k}:
+      (hn, h2) = h
+      (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Lab{k}, 13, hn), h2)
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (hk, r2) = r1
+          (r3, r4) = r2
+          (s3, h3) = r3
+          (s4, h4) = r4
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Mat{o0, o1, o2}, 14, hn),
+            (hk, ((s3, isck.wk(o1, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)),
+                  (s4, isck.wk(o2, ds, m, im, fi, nx, ks, img, x4, Cr.Cir.Cells.get(m, x4), h4)))))
+    case Bk.Term.Efq{}:
+      ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Efq{}, 15, h)
+    case Bk.Term.Eql{+a, +b, +y}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (r2, r3) = r1
+          (s2, h2) = r2
+          (r4, r5) = r3
+          (s3, h3) = r4
+          (s4, h4) = r5
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Eql{a, b, y}, 16, hn),
+            ((s2, isck.wk(a, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+             ((s3, isck.wk(b, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)),
+              (s4, isck.wk(y, ds, m, im, fi, nx, ks, img, x4, Cr.Cir.Cells.get(m, x4), h4)))))
+    case Bk.Term.Rfl{}:
+      ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Rfl{}, 17, h)
+    case Bk.Term.Rwt{+e, +p, +f}:
+      match x:
+        case Cr.Cir.Cell{+f0, f1, +x2, +x3, +x4}:
+          (hn, r1) = h
+          (r2, r3) = r1
+          (s2, h2) = r2
+          (r4, r5) = r3
+          (s3, h3) = r4
+          (s4, h4) = r5
+          (ndk.wk(ds, im, fi, nx, c, x, Bk.Term.Rwt{e, p, f}, 18, hn),
+            ((s2, isck.wk(e, ds, m, im, fi, nx, ks, img, x2, Cr.Cir.Cells.get(m, x2), h2)),
+             ((s3, isck.wk(p, ds, m, im, fi, nx, ks, img, x3, Cr.Cir.Cells.get(m, x3), h3)),
+              (s4, isck.wk(f, ds, m, im, fi, nx, ks, img, x4, Cr.Cir.Cells.get(m, x4), h4)))))
+
+# IsK with mode False, from IsK with mode True
+def isk.wk(t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, h: PM.IsK(True{}, ds, m, im, fi, nx, ks, img, c, t)) -> PM.IsK(False{}, ds, m, im, fi, nx, ks, img, c, t):
+  isck.wk(t, ds, m, im, fi, nx, ks, img, c, Cr.Cir.Cells.get(m, c), h)
+
+def rtsk.wk(rs: List<&2, PM.Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  h: PM.RtsK(True{}, ds, m, im, fi, nx, ks, img, rs)) -> PM.RtsK(False{}, ds, m, im, fi, nx, ks, img, rs):
+  match rs:
+    case Nil{}:
+      Unit{}
+    case Con{PM.Rt{+c, +u}, +rest}:
+      (hu, hr) = h
+      (isk.wk(u, ds, m, im, fi, nx, ks, img, c, hu), rtsk.wk(rest, ds, m, im, fi, nx, ks, img, hr))
+
+# a frame's part b: in field 3, for Rwt only
+def frsbk.wk(kind: PM.FK, b: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32,
+  h: PM.Frs.bK(True{}, ds, m, im, fi, nx, ks, img, c, kind, b)) -> PM.Frs.bK(False{}, ds, m, im, fi, nx, ks, img, c, kind, b):
+  match kind:
+    case PM.FK.arg{}:
+      h
+    case PM.FK.val{}:
+      h
+    case PM.FK.fun{}:
+      h
+    case PM.FK.let{}:
+      h
+    case PM.FK.tupb{}:
+      h
+    case PM.FK.tupa{}:
+      h
+    case PM.FK.rwt{}:
+      isk.wk(b, ds, m, im, fi, nx, ks, img, c, h)
+    case PM.FK.minb{}:
+      h
+    case PM.FK.mina{}:
+      h
+
+def frsk.wk(fs: List<&2, PM.AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +fr: U32,
+  h: PM.FrsK(True{}, ds, m, im, fi, nx, ks, img, ps, fr, fs)) -> PM.FrsK(False{}, ds, m, im, fi, nx, ks, img, ps, fr, fs):
+  match fs:
+    case Nil{}:
+      h
+    case Con{PM.AF{+kind, +q, +k, +a, +b}, +rest}:
+      (n1, r1) = h
+      (n2, r2) = r1
+      (n3, r3) = r2
+      (n4, r4) = r3
+      (n5, r5) = r4
+      (n6, r6) = r5
+      (n7, r7) = r6
+      (n8, r8) = r7
+      (ia, r9) = r8
+      (ib, hr) = r9
+      (n1, (n2, (n3, (n4, (n5, (n6, (n7, (n8,
+        (isk.wk(a, ds, m, im, fi, nx, ks, img, PM.Fd(2n, m, fr), ia),
+          (frsbk.wk(kind, b, ds, m, im, fi, nx, ks, img, PM.Fd(3n, m, fr), ib),
+           frsk.wk(rest, ds, m, im, fi, nx, ks, img, ps, PM.Fd(1n, m, fr), hr)))))))))))
+
+def defsk.wk(dl: List<&2, Bk.Def>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +at: U32,
+  h: PM.DefsK(dl, True{}, ds, m, im, fi, nx, ks, img, at)) -> PM.DefsK(dl, False{}, ds, m, im, fi, nx, ks, img, at):
+  match dl:
+    case Nil{}:
+      Unit{}
+    case Con{Bk.Def{+d0, +d1, +v, +d3}, +rest}:
+      (n1, r1) = h
+      (n2, r2) = r1
+      (iv, hr) = r2
+      (n1, (n2, (isk.wk(v, ds, m, im, fi, nx, ks, img, at, iv),
+        defsk.wk(rest, ds, m, im, fi, nx, ks, img, U32.add(at, Mc.Img.size(v)), hr))))
+
+def imgokk.wk(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +im: U32,
+  +fi: U32, +nx: U32, h: PM.ImgOKK(True{}, ds, ks, img, m, im, fi, nx)) -> PM.ImgOKK(False{}, ds, ks, img, m, im, fi, nx):
+  (tb, r1) = h
+  (df, r2) = r1
+  (i8, r3) = r2
+  (i9, r4) = r3
+  (i10, r5) = r4
+  (ex, r6) = r5
+  (tail1, tail2) = r6
+  (tb, (defsk.wk(ds, ds, m, im, fi, nx, ks, img, Mc.I.book(), df),
+    (isk.wk(Bk.Term.Lab{El.Quan.name(Bk.Quan.Q0{})}, ds, m, im, fi, nx, ks, img, 8, i8),
+    (isk.wk(Bk.Term.Lab{El.Quan.name(Bk.Quan.Q1{})}, ds, m, im, fi, nx, ks, img, 9, i9),
+    (isk.wk(Bk.Term.Lab{El.Quan.name(Bk.Quan.Q2{})}, ds, m, im, fi, nx, ks, img, 10, i10),
+    (ex, (tail1, tail2)))))))
+
+# HSK and AccK with mode False, from the same with mode True
+def hsk.wk(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
+  h: PM.HSK(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) ->
+  PM.HSK(False{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps):
+  (ho, r1) = h
+  (hb, r2) = r1
+  (hh, r3) = r2
+  (hf, r4) = r3
+  (hp, hi) = r4
+  (rtsk.wk(os, ds, m, im, fi, nx, ks, img, ho),
+    (rtsk.wk(bs, ds, m, im, fi, nx, ks, img, hb),
+    (hh, (frsk.wk(fs, ds, m, im, fi, nx, ks, img, ps, sp, hf), (hp, imgokk.wk(ds, ks, img, m, im, fi, nx, hi))))))
+
+def acck.wk(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +rs: List<&2, PM.Rt>, +xs: List<&2, PM.TmpE>, +sp: U32, +fs: List<&2, PM.AF>, +ps: List<&2, U32>, +zs: List<&2, PM.Rt>,
+  h: PM.AccK(True{}, ds, ks, img, m, nx, fi, im, rs, xs, sp, fs, ps, zs)) ->
+  PM.AccK(False{}, ds, ks, img, m, nx, fi, im, rs, xs, sp, fs, ps, zs):
+  (hz, r1) = h
+  (hl, r2) = r1
+  (e1, r3) = r2
+  (cov, r4) = r3
+  (clo, tok) = r4
+  (rtsk.wk(zs, ds, m, im, fi, nx, ks, img, hz),
+    (rtsk.wk(PM.Tmp.held(xs), ds, m, im, fi, nx, ks, img, hl), (e1, (cov, (clo, tok)))))
 
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
