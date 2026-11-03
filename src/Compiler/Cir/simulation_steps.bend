@@ -182,6 +182,74 @@ def steps.then_done(+a: Nat, +b: Nat, +st: Wa.Wasm.Step, -rs: List<&2, U32>, -m:
   {PH.H.steps(Nat.add(a, b), st) == Wa.Wasm.Step.done{rs, m} : Wa.Wasm.Step}:
   steps.then(a, b, st, Wa.Wasm.Step.done{rs, m}, Wa.Wasm.Step.done{rs, m}, e1, steps.done(b, rs, m))
 
+# a step that goes on
+def is.next(st: Wa.Wasm.Step) -> Data:
+  match st:
+    case Wa.Wasm.Step.next{_, _}:
+      Unit
+    case Wa.Wasm.Step.done{_, _}:
+      Empty
+    case Wa.Wasm.Step.trap{_}:
+      Empty
+
+# a run that goes on for N0 steps goes on for M <= N0 steps
+def next.mono(+N0: Nat, +M: Nat, +st: Wa.Wasm.Step, h: N.Le(M, N0), p: is.next(PH.H.steps(N0, st))) -> is.next(PH.H.steps(M, st)):
+  match N0:
+    case 0n:
+      match M:
+        case 0n:
+          p
+        case 1n+M1:
+          Empty.absurd(is.next(PH.H.steps(1n+M1, st)), h)
+    case 1n+N1:
+      match M:
+        case 0n:
+          match st:
+            case Wa.Wasm.Step.next{+fr, +m}:
+              Unit{}
+            case Wa.Wasm.Step.done{+rs, +m}:
+              Empty.absurd(is.next(Wa.Wasm.Step.done{rs, m}), p)
+            case Wa.Wasm.Step.trap{+m}:
+              Empty.absurd(is.next(Wa.Wasm.Step.trap{m}), p)
+        case 1n+M1:
+          match st:
+            case Wa.Wasm.Step.next{+fr, +m}:
+              next.mono(N1, M1, Wa.Wasm.step(PH.H.TS(), fr, m), h, p)
+            case Wa.Wasm.Step.done{+rs, +m}:
+              Empty.absurd(is.next(PH.H.steps(1n+M1, Wa.Wasm.Step.done{rs, m})), p)
+            case Wa.Wasm.Step.trap{+m}:
+              Empty.absurd(is.next(PH.H.steps(1n+M1, Wa.Wasm.Step.trap{m})), p)
+
+# a steps reach st1, and b more go on: a + b steps go on
+def next.then(+a: Nat, +b: Nat, +st: Wa.Wasm.Step, -st1: Wa.Wasm.Step, e: {PH.H.steps(a, st) == st1 : Wa.Wasm.Step},
+  p: is.next(PH.H.steps(b, st1))) -> is.next(PH.H.steps(Nat.add(a, b), st)):
+  %Equal.sym(Wa.Wasm.Step, PH.H.steps(Nat.add(a, b), st), PH.H.steps(b, PH.H.steps(a, st)), steps.add(a, b, st)) : is.next(_)
+  (%Equal.sym(Wa.Wasm.Step, PH.H.steps(a, st), st1, e) : is.next(PH.H.steps(b, _)); p)
+
+# a run that goes on for fui steps after N0 steps goes on for fu <= N0 + fui steps
+def next.wrap(+fu: Nat, +fui: Nat, +N0: Nat, +st: Wa.Wasm.Step, -st1: Wa.Wasm.Step, hf: N.Le(fu, Nat.add(N0, fui)),
+  e: {PH.H.steps(N0, st) == st1 : Wa.Wasm.Step}, p: is.next(PH.H.steps(fui, st1))) -> is.next(PH.H.steps(fu, st)):
+  next.mono(Nat.add(N0, fui), fu, st, hf, next.then(N0, fui, st, st1, e, p))
+
+# a run from the frame fr, whose first two steps reach Yv, goes on for f steps: a run from the frame fb, whose
+# first step reaches Yv, goes on for f - 1 steps
+def next.skip(+f: Nat, +fr: Wa.Wasm.Frame, +mm: Wa.Wasm.Memory, +fr1: Wa.Wasm.Frame, +m1: Wa.Wasm.Memory, +Yv: Wa.Wasm.Step,
+  +fb: Wa.Wasm.Frame, +mb: Wa.Wasm.Memory,
+  h1: {Wa.Wasm.step(PH.H.TS(), fr, mm) == Wa.Wasm.Step.next{fr1, m1} : Wa.Wasm.Step},
+  h2: {Wa.Wasm.step(PH.H.TS(), fr1, m1) == Yv : Wa.Wasm.Step},
+  hb: {Wa.Wasm.step(PH.H.TS(), fb, mb) == Yv : Wa.Wasm.Step},
+  p: is.next(PH.H.steps(f, Wa.Wasm.Step.next{fr, mm}))) -> is.next(PH.H.steps(Nat.sub(f, 1n), Wa.Wasm.Step.next{fb, mb})):
+  match f:
+    case 0n:
+      Unit{}
+    case 1n+f1:
+      match f1:
+        case 0n:
+          Unit{}
+        case 1n+f2:
+          (%Equal.sym(Wa.Wasm.Step, Wa.Wasm.step(PH.H.TS(), fb, mb), Yv, hb) : is.next(PH.H.steps(f2, _));
+            (%h2 : is.next(PH.H.steps(f2, _)); (%h1 : is.next(PH.H.steps(1n+f2, _)); p)))
+
 # Calls
 # -----
 
@@ -250,3 +318,122 @@ def run.call(+n: Nat, +F: Nat, +fr: Wa.Wasm.Frame, +m: Wa.Wasm.Memory, -rs: List
   e: {PH.H.steps(n, Wa.Wasm.Step.next{fr, m}) == Wa.Wasm.Step.done{rs, m2} : Wa.Wasm.Step}, h: N.Le(n, F)) ->
   EX(j => P2({Wa.Wasm.call.go(F, PH.H.TS(), fr, m) == Wa.Wasm.Call.done{rs, m2, j} : Wa.Wasm.Call}, N.Le(j, n))):
   gd.ext(n, Wa.Wasm.Step.next{fr, m}, F, rs, m2, e, h)
+
+# the call of a step s that goes on for N0 steps, in a fuel F <= N0, is not done
+def call.nd.go(+F: Nat, +N0: Nat, +s: Wa.Wasm.Step, h: N.Le(F, N0), p: is.next(PH.H.steps(N0, s))) ->
+  {Wa.Wasm.call.stepped(s, g => m => Wa.Wasm.call.go(F, PH.H.TS(), g, m)) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}:
+  match F:
+    case 0n:
+      match s:
+        case Wa.Wasm.Step.next{+g, +mm}:
+          {==}
+        case Wa.Wasm.Step.done{+rs, +mm}:
+          Empty.absurd({Wa.Wasm.call.stepped(Wa.Wasm.Step.done{rs, mm}, g => m => Wa.Wasm.call.go(0n, PH.H.TS(), g, m)) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call},
+            (%steps.done(N0, rs, mm) : is.next(_); p))
+        case Wa.Wasm.Step.trap{+mm}:
+          Empty.absurd({Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{mm}, g => m => Wa.Wasm.call.go(0n, PH.H.TS(), g, m)) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call},
+            (%steps.trap(N0, mm) : is.next(_); p))
+    case 1n+F1:
+      match N0:
+        case 0n:
+          Empty.absurd({Wa.Wasm.call.stepped(s, g => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), g, m)) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}, h)
+        case 1n+N1:
+          match s:
+            case Wa.Wasm.Step.next{+g, +mm}:
+              Equal.cong(Wa.Wasm.Call, Wa.Wasm.Call, c => Wa.Wasm.call.plus(c), Wa.Wasm.call.go(1n+F1, PH.H.TS(), g, mm), Wa.Wasm.Call.not_done{},
+                call.nd.go(F1, N1, Wa.Wasm.step(PH.H.TS(), g, mm), h, p))
+            case Wa.Wasm.Step.done{+rs, +mm}:
+              Empty.absurd({Wa.Wasm.call.stepped(Wa.Wasm.Step.done{rs, mm}, g => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), g, m)) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}, p)
+            case Wa.Wasm.Step.trap{+mm}:
+              Empty.absurd({Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{mm}, g => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), g, m)) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}, p)
+
+# a call of a frame that goes on for N0 steps, in a fuel F <= N0, is not done
+def call.nd(+F: Nat, +N0: Nat, +fr: Wa.Wasm.Frame, +m: Wa.Wasm.Memory, h: N.Le(F, N0), p: is.next(PH.H.steps(N0, Wa.Wasm.Step.next{fr, m}))) ->
+  {Wa.Wasm.call.go(F, PH.H.TS(), fr, m) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}:
+  match F:
+    case 0n:
+      {==}
+    case 1n+F1:
+      match N0:
+        case 0n:
+          Empty.absurd({Wa.Wasm.call.go(1n+F1, PH.H.TS(), fr, m) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}, h)
+        case 1n+N1:
+          call.nd.go(F1, N1, Wa.Wasm.step(PH.H.TS(), fr, m), h, p)
+
+# the call c of a run that reaches the status [1], in the memory mm: out of fuel, or ended with that status
+def DICH(c: Wa.Wasm.Call, -mm: Wa.Wasm.Memory) -> Data:
+  OR({c == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}, EX(j => {c == Wa.Wasm.Call.done{[1], mm, j} : Wa.Wasm.Call}))
+
+# one more step of the call
+def dich.plus(c: Wa.Wasm.Call, -mm: Wa.Wasm.Memory, q: DICH(c, mm)) -> DICH(Wa.Wasm.call.plus(c), mm):
+  match q:
+    case Inl{e}:
+      Inl{Equal.cong(Wa.Wasm.Call, Wa.Wasm.Call, z => Wa.Wasm.call.plus(z), c, Wa.Wasm.Call.not_done{}, e)}
+    case Inr{r}:
+      (+j, ec) = r
+      Inr{(1n+j, Equal.cong(Wa.Wasm.Call, Wa.Wasm.Call, z => Wa.Wasm.call.plus(z), c, Wa.Wasm.Call.done{[1], mm, j}, ec))}
+
+# a done step, whose run reaches the status [1] in the memory mm, ends the call with them (q)
+def dich.done.of(-rs: List<&2, U32>, -m1: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory, q: P2({rs == [1] : List<&2, U32>}, {m1 == mm : Wa.Wasm.Memory})) ->
+  {Wa.Wasm.Call.done{rs, m1, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call}:
+  (er, em) = q
+  (%Equal.sym(List<&2, U32>, rs, [1], er) : {Wa.Wasm.Call.done{_, m1, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call};
+    (%Equal.sym(Wa.Wasm.Memory, m1, mm, em) : {Wa.Wasm.Call.done{[1], _, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call};
+      {==}))
+
+def dich.done(+N0: Nat, -rs: List<&2, U32>, -m1: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory,
+  e: {PH.H.steps(N0, Wa.Wasm.Step.done{rs, m1}) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) ->
+  {Wa.Wasm.Call.done{rs, m1, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call}:
+  dich.done.of(rs, m1, mm, gd.done(rs, m1, [1], mm, Equal.trans(Wa.Wasm.Step, Wa.Wasm.Step.done{rs, m1}, PH.H.steps(N0, Wa.Wasm.Step.done{rs, m1}), Wa.Wasm.Step.done{[1], mm},
+    Equal.sym(Wa.Wasm.Step, PH.H.steps(N0, Wa.Wasm.Step.done{rs, m1}), Wa.Wasm.Step.done{rs, m1}, steps.done(N0, rs, m1)), e)))
+
+# a trap is not a run that reaches the status [1]
+def dich.trap(+N0: Nat, -m1: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory,
+  e: {PH.H.steps(N0, Wa.Wasm.Step.trap{m1}) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) -> Empty:
+  trap.not_done(m1, [1], mm, Equal.trans(Wa.Wasm.Step, Wa.Wasm.Step.trap{m1}, PH.H.steps(N0, Wa.Wasm.Step.trap{m1}), Wa.Wasm.Step.done{[1], mm},
+    Equal.sym(Wa.Wasm.Step, PH.H.steps(N0, Wa.Wasm.Step.trap{m1}), Wa.Wasm.Step.trap{m1}, steps.trap(N0, m1)), e))
+
+# the call of a step s, whose run reaches the status [1] in the memory mm after N0 steps
+def dich.go(+F: Nat, +N0: Nat, +s: Wa.Wasm.Step, -mm: Wa.Wasm.Memory, e: {PH.H.steps(N0, s) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) ->
+  DICH(Wa.Wasm.call.stepped(s, g => m => Wa.Wasm.call.go(F, PH.H.TS(), g, m)), mm):
+  match F:
+    case 0n:
+      match s:
+        case Wa.Wasm.Step.next{+g, +m1}:
+          Inl{{==}}
+        case Wa.Wasm.Step.done{+rs, +m1}:
+          Inr{(1n, dich.done(N0, rs, m1, mm, e))}
+        case Wa.Wasm.Step.trap{+m1}:
+          Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{m1}, h => m => Wa.Wasm.call.go(0n, PH.H.TS(), h, m)), mm), dich.trap(N0, m1, mm, e))
+    case 1n+F1:
+      match N0:
+        case 0n:
+          match s:
+            case Wa.Wasm.Step.next{+g, +m1}:
+              Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.next{g, m1}, h => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), h, m)), mm), next.not_done(g, m1, [1], mm, e))
+            case Wa.Wasm.Step.done{+rs, +m1}:
+              Inr{(1n, dich.done(0n, rs, m1, mm, e))}
+            case Wa.Wasm.Step.trap{+m1}:
+              Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{m1}, h => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), h, m)), mm), dich.trap(0n, m1, mm, e))
+        case 1n+N1:
+          match s:
+            case Wa.Wasm.Step.next{+g, +m1}:
+              dich.plus(Wa.Wasm.call.go(1n+F1, PH.H.TS(), g, m1), mm, dich.go(F1, N1, Wa.Wasm.step(PH.H.TS(), g, m1), mm, e))
+            case Wa.Wasm.Step.done{+rs, +m1}:
+              Inr{(1n, dich.done(1n+N1, rs, m1, mm, e))}
+            case Wa.Wasm.Step.trap{+m1}:
+              Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{m1}, h => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), h, m)), mm), dich.trap(1n+N1, m1, mm, e))
+
+# the call of a frame whose run reaches the status [1], in the memory mm, after N0 steps: with any fuel F, it is
+# out of fuel or ends with that status
+def call.dich(+F: Nat, +N0: Nat, +fr: Wa.Wasm.Frame, +m: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory,
+  e: {PH.H.steps(N0, Wa.Wasm.Step.next{fr, m}) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) -> DICH(Wa.Wasm.call.go(F, PH.H.TS(), fr, m), mm):
+  match F:
+    case 0n:
+      Inl{{==}}
+    case 1n+F1:
+      match N0:
+        case 0n:
+          Empty.absurd(DICH(Wa.Wasm.call.go(1n+F1, PH.H.TS(), fr, m), mm), next.not_done(fr, m, [1], mm, e))
+        case 1n+N1:
+          dich.go(F1, N1, Wa.Wasm.step(PH.H.TS(), fr, m), mm, e)
