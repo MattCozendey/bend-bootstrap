@@ -5,8 +5,7 @@
 ;; src/Wasm/impl.bend (memory, alloc, run), and the first byte of its input
 ;; picks the path that it takes through the host. alloc gives -1 for an input
 ;; of more than 60000 bytes, traps for one of 3 bytes, gives address 65534,
-;; where it does not fit, for one of 4, else address 4096. convert.ts writes
-;; cases.wasm.
+;; where it does not fit, for one of 4, else address 4096.
 ;; A grow's outcome depends on the engine, as the spec lets any grow fail:
 ;; agree.ts compares the model with bun on an engine that grants each grow
 ;; within its pages, and checks fixed outcomes of the model on engines that

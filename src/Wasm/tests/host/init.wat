@@ -1,6 +1,6 @@
 ;; A module for src/Wasm/tests/agree.ts, of the Host protocol of
 ;; src/Wasm/impl.bend: its data segment does not fit in its memory, so it
-;; traps when it is instantiated. convert.ts writes init.wasm.
+;; traps when it is instantiated.
 
 (module
   (memory (export "memory") 1)
