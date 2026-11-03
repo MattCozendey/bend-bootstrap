@@ -7453,6 +7453,100 @@ def held.kept(R: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, W
            CK.Bo.or_ir(D.Node(u, ms, rr, c), D.Nodes(os, ms, c), (%Equal.sym(Bool, D.Nodes(os, ms, c), D.Nodes(os, m, c), en) : {_ == True{} : Bool}; e)))),
        held.kept(rest, ds, ks, img, m, ms, nx, nx2, fi, im, os, xs, fs, sp, ps, zs, g, T, Pn, n2, Qn, rr, u, k, hr, hhr))
 
+# After the copy
+# --------------
+#
+# CopyQ's parts from Post's: a live cell was no garbage, so it was not taken
+# (Incl.go: the taken cells were garbage or new), so it is neither new
+# garbage (Gb) nor pending (AL's Sub); the own cells stay within the budget.
+
+# Nat.max's sides
+def le.max.l(+a: Nat, +b: Nat) -> N.Le(a, Nat.max(a, b)):
+  match a:
+    case 0n:
+      N.le_zero(b)
+    case 1n+p:
+      match b:
+        case 0n:
+          N.le_refl(1n+p)
+        case 1n+q:
+          le.max.l(p, q)
+
+def le.max.r(+a: Nat, +b: Nat) -> N.Le(b, Nat.max(a, b)):
+  match a:
+    case 0n:
+      N.le_refl(b)
+    case 1n+p:
+      match b:
+        case 0n:
+          N.le_zero(1n+p)
+        case 1n+q:
+          le.max.r(p, q)
+
+# the own cells after the copy: as many as before (next stayed), or within
+# the budget B
+def mem.cq(+nx: U32, +nx2: U32, +fi: U32, +B: Nat,
+  h: {Bool.or(U32.is_eq(nx2, nx), Nat.is_le(Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), B)) == True{} : Bool}) ->
+  N.Le(Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), Nat.max(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), B)):
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +n2 = Nat.sub(U32.to_nat(nx2), U32.to_nat(fi))
+  D.or.cases(U32.is_eq(nx2, nx), Nat.is_le(n2, B), N.Le(n2, Nat.max(n, B)), h,
+    e => (%Equal.sym(U32, nx2, nx, CK.U.eq(nx2, nx, e)) : N.Le(Nat.sub(U32.to_nat(_), U32.to_nat(fi)), Nat.max(n, B)); le.max.l(n, B)),
+    e => N.le_trans(n2, B, Nat.max(n, B), N.toLe(n2, B, e), le.max.r(n, B)))
+
+# a cell out of the garbage P, below N, is not taken
+def ig.out(T: List<&2, U32>, +P: List<&2, U32>, +N: U32, +x: U32, h: {S.Incl.go(T, P, N) == True{} : Bool},
+  +hp: {S.Has(P, x) == False{} : Bool}, +hx: {U32.is_lt(x, N) == True{} : Bool}) -> {S.Has(T, x) == False{} : Bool}:
+  match T:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +h2 = h
+      +A = Bool.or(S.Has(P, y), U32.is_le(N, y))
+      +ha = CK.Bo.and_l(A, S.Incl.go(rest, P, N), h2)
+      +ey = bool.case(U32.is_eq(y, x), U32.is_eq(y, x), {U32.is_eq(y, x) == False{} : Bool}, {==},
+        e => CK.U.lt_ge(x, N, {U32.is_eq(y, x) == False{} : Bool}, hx,
+          CK.Bo.or_r(S.Has(P, x), U32.is_le(N, x), (%CK.U.eq(y, x, e) : {Bool.or(S.Has(P, _), U32.is_le(N, _)) == True{} : Bool}; ha), hp)),
+        e => e)
+      or.ff(U32.is_eq(y, x), S.Has(rest, x), ey, ig.out(rest, P, N, x, CK.Bo.and_r(A, S.Incl.go(rest, P, N), h2), hp, hx))
+
+# a cell neither old garbage nor taken is no new garbage
+def gb.out(Pn: List<&2, U32>, +P: List<&2, U32>, +T: List<&2, U32>, +Qn: List<&2, U32>, +ms: Cr.Cir.Cells, +x: U32,
+  h: {S.Gb(Pn, P, T, Qn, ms) == True{} : Bool}, +hp: {S.Has(P, x) == False{} : Bool}, +ht: {S.Has(T, x) == False{} : Bool}) ->
+  {S.Has(Pn, x) == False{} : Bool}:
+  match Pn:
+    case Nil{}:
+      {==}
+    case Con{+c, +rest}:
+      +h2 = h
+      +A1 = Bool.and(S.Has(P, c), Bool.not(S.Has(T, c)))
+      +A2 = Bool.and(S.Has(T, c), Bool.and(U32.is_eq(S.Fd(0n, ms, c), 45), S.Has(Qn, c)))
+      +ha = CK.Bo.and_l(Bool.or(A1, A2), S.Gb(rest, P, T, Qn, ms), h2)
+      +ec = bool.case(U32.is_eq(c, x), U32.is_eq(c, x), {U32.is_eq(c, x) == False{} : Bool}, {==},
+        +e => D.or.cases(A1, A2, {U32.is_eq(c, x) == False{} : Bool}, ha,
+          e1 => CK.Bo.tf({U32.is_eq(c, x) == False{} : Bool}, Equal.trans(Bool, False{}, S.Has(P, c), True{},
+            Equal.sym(Bool, S.Has(P, c), False{}, (%Equal.sym(U32, c, x, CK.U.eq(c, x, e)) : {S.Has(P, _) == False{} : Bool}; hp)), CK.Bo.and_l(S.Has(P, c), Bool.not(S.Has(T, c)), e1))),
+          e1 => CK.Bo.tf({U32.is_eq(c, x) == False{} : Bool}, Equal.trans(Bool, False{}, S.Has(T, c), True{},
+            Equal.sym(Bool, S.Has(T, c), False{}, (%Equal.sym(U32, c, x, CK.U.eq(c, x, e)) : {S.Has(T, _) == False{} : Bool}; ht)),
+            CK.Bo.and_l(S.Has(T, c), Bool.and(U32.is_eq(S.Fd(0n, ms, c), 45), S.Has(Qn, c)), e1)))),
+        e => e)
+      or.ff(U32.is_eq(c, x), S.Has(rest, x), ec, gb.out(rest, P, T, Qn, ms, x, CK.Bo.and_r(Bool.or(A1, A2), S.Gb(rest, P, T, Qn, ms), h2), hp, ht))
+
+# a cell out of P is out of the cells Q of P
+def sub.out(Q: List<&2, U32>, +P: List<&2, U32>, +x: U32, h: {S.Sub(Q, P) == True{} : Bool}, +hp: {S.Has(P, x) == False{} : Bool}) ->
+  {S.Has(Q, x) == False{} : Bool}:
+  match Q:
+    case Nil{}:
+      {==}
+    case Con{+q, +rest}:
+      +h2 = h
+      +hq = CK.Bo.and_l(S.Has(P, q), S.Sub(rest, P), h2)
+      +eq = bool.case(U32.is_eq(q, x), U32.is_eq(q, x), {U32.is_eq(q, x) == False{} : Bool}, {==},
+        e => CK.Bo.tf({U32.is_eq(q, x) == False{} : Bool}, Equal.trans(Bool, False{}, S.Has(P, q), True{},
+          Equal.sym(Bool, S.Has(P, q), False{}, (%Equal.sym(U32, q, x, CK.U.eq(q, x, e)) : {S.Has(P, _) == False{} : Bool}; hp)), hq)),
+        e => e)
+      or.ff(U32.is_eq(q, x), S.Has(rest, x), eq, sub.out(rest, P, x, CK.Bo.and_r(S.Has(P, q), S.Sub(rest, P), h2), hp))
+
 # The laws
 # --------
 
