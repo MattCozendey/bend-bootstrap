@@ -22,6 +22,7 @@ import ./cell_terms.bend as T
 import ../need_big.bend as N
 import ./copy_substitution.bend as D
 import ./copy_kit.bend as K
+import ./statement_runs.bend as Sr
 
 # The tags
 # --------
@@ -383,6 +384,153 @@ def Al.b(+Q: List<&2, U32>, +nx: U32) -> Nat:
       Nat.mul(20n, 1n+U32.to_nat(nx))
     case Con{_, _}:
       0n
+
+# The allocation's run: a new cell
+# --------------------------------
+
+# 291 <= nx, and K < nx, for the cells from F on
+def al.hz(+K: U32, +F: U32, +nx: U32, hk: {U32.is_le(290, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool},
+  hfn: {U32.is_le(F, nx) == True{} : Bool}) -> N.Le(291n, U32.to_nat(nx)):
+  N.le_trans(291n, 1n+U32.to_nat(K), U32.to_nat(nx), K.U.le(290, K, hk),
+    N.le_trans(1n+U32.to_nat(K), U32.to_nat(F), U32.to_nat(nx), K.U.lt(K, F, hkf), K.U.le(F, nx, hfn)))
+
+def al.hk(+K: U32, +F: U32, +nx: U32, hkf: {U32.is_lt(K, F) == True{} : Bool}, hfn: {U32.is_le(F, nx) == True{} : Bool}) ->
+  N.Le(1n+U32.to_nat(K), U32.to_nat(nx)):
+  N.le_trans(1n+U32.to_nat(K), U32.to_nat(F), U32.to_nat(nx), K.U.lt(K, F, hkf), K.U.le(F, nx, hfn))
+
+# the new cell nx is a cell once next is nx + 1
+def al.cell.new(+K: U32, +F: U32, +nx: U32, hfn: {U32.is_le(F, nx) == True{} : Bool},
+  hb: N.Le(1n+U32.to_nat(nx), U32.to_nat(214748364))) -> {Cr.Cir.is_cell(nx, K, F, U32.inc(nx)) == True{} : Bool}:
+  +X = U32.to_nat(nx)
+  K.Bo.or_ir(Bool.and(Bool.not(U32.is_zero(nx)), U32.is_le(nx, K)), Bool.and(U32.is_le(F, nx), U32.is_lt(nx, U32.inc(nx))),
+    K.Bo.and_i(U32.is_le(F, nx), U32.is_lt(nx, U32.inc(nx)), hfn,
+      K.U.lt_t(nx, U32.inc(nx), N.le_rw_r(1n+X, 1n+X, U32.to_nat(U32.inc(nx)),
+        Equal.sym(Nat, U32.to_nat(U32.inc(nx)), 1n+X, K.Ar.u.inc(nx, 214748364, hb)), N.le_refl(1n+X)))))
+
+# Cir's alloc takes nx, when the memory has room: the registers rg get it in r
+def al.took(+r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
+  +I: List<&2, Word(8n)>, +p: U32, hr: {Nat.is_lt(r, 63n) == True{} : Bool}) ->
+  {Cr.Cir.exec.bump.of(r, nx, D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I), Some{p}) ==
+    Cr.Cir.Out.next{D.S(List.set(&2, U32, D.Rg.ex(63n, R, 0n), r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), F, K, p, L, I)} : Cr.Cir.Out}:
+  +regs = D.Rg.ex(63n, R, 0n)
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  %Equal.sym(Bool, Nat.is_lt(r, 63n), True{}, hr) :
+    {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, nx), Cr.Cir.State{regs, M2, U32.inc(nx), F, K, p, L, I, Nil{}, 0}) ==
+      Cr.Cir.Out.next{D.S(List.set(&2, U32, regs, r, nx), M2, U32.inc(nx), F, K, p, L, I)} : Cr.Cir.Out}
+  {==}
+
+# the registers with pend 0, and with pend set to 0
+def al.rp0(+R: List<&2, U32>, e3: {T.tm.reg(R, 3n) == 0 : U32}) ->
+  {D.Rg.ex(63n, R, 0n) == Rp([0, T.tm.reg(R, 4n), T.tm.reg(R, 5n), T.tm.reg(R, 6n), T.tm.reg(R, 7n)], D.Rg.ex(63n, R, 0n)) : List<&2, U32>}:
+  %e3 : {D.Rg.ex(63n, R, 0n) == Rp([_, T.tm.reg(R, 4n), T.tm.reg(R, 5n), T.tm.reg(R, 6n), T.tm.reg(R, 7n)], D.Rg.ex(63n, R, 0n)) : List<&2, U32>}
+  {==}
+
+# a new cell nx, when the memory has room: Al.post of it
+def al.fresh.got(+r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
+  +I: List<&2, Word(8n)>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +p: U32,
+  +hal: {D.AL(m, 0, P, Nil{}, zs, K, F, nx) == True{} : Bool}, +e3: {T.tm.reg(R, 3n) == 0 : U32},
+  +hr: {Nat.is_lt(r, 63n) == True{} : Bool}, +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool},
+  +hfn: {U32.is_le(F, nx) == True{} : Bool}, +tb: D.Tb(m), +eb: {U32.is_lt(nx, 214748364) == True{} : Bool}) ->
+  D.Ok(Cr.Cir.exec.bump.of(r, nx, D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I), Some{p}), F, K, L, I, Al.b(Nil{}, nx),
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Nil{}, zs, w, rg, ms, nx2))):
+  (t0, _) = tb
+  +regs = D.Rg.ex(63n, R, 0n)
+  +M2 = Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero())
+  +N2 = U32.inc(nx)
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +n2 = Nat.sub(U32.to_nat(N2), U32.to_nat(F))
+  +a = {[0, T.tm.reg(R, 4n), T.tm.reg(R, 5n), T.tm.reg(R, 6n), T.tm.reg(R, 7n)] : List<&2, U32>}
+  +hz = al.hz(K, F, nx, hk, hkf, hfn)
+  +hk1 = al.hk(K, F, nx, hkf, hfn)
+  +hb = K.U.lt(nx, 214748364, eb)
+  +C1 = D.AL.cells(P, m, P, Nil{}, zs, K, F, nx)
+  +L1 = D.Lt(n, m, Nil{}, F, nx)
+  +ha = {hal : {Bool.and(D.Nodup(P), Bool.and(C1, L1)) == True{} : Bool}}
+  +hr2 = K.Bo.and_r(D.Nodup(P), Bool.and(C1, L1), ha)
+  +hc = K.Bo.and_l(C1, L1, hr2)
+  +hlt = K.Bo.and_r(C1, L1, hr2)
+  +cnt = Equal.sym(Nat, n2, 1n+n, K.Ar.cnt.new(F, nx, hfn, hb))
+  +e0 = {{==} : {0 == T.tm.reg(a, 0n) : U32}}
+  K.Ok.eq(Cr.Cir.exec.bump.of(r, nx, D.S(regs, m, nx, F, K, pg, L, I), Some{p}), Cr.Cir.Out.next{D.S(List.set(&2, U32, regs, r, nx), M2, N2, F, K, p, L, I)},
+    F, K, L, I, Al.b(Nil{}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Nil{}, zs, w, rg, ms, nx2)),
+    Equal.sym(Cr.Cir.Out, Cr.Cir.exec.bump.of(r, nx, D.S(regs, m, nx, F, K, pg, L, I), Some{p}),
+      Cr.Cir.Out.next{D.S(List.set(&2, U32, regs, r, nx), M2, N2, F, K, p, L, I)}, al.took(r, R, m, nx, F, K, pg, L, I, p, hr)),
+    K.Ok.next(List.set(&2, U32, regs, r, nx), M2, N2, F, K, p, L, I, Al.b(Nil{}, nx),
+      rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Nil{}, zs, w, rg, ms, nx2)),
+      (Aw{nx, True{}, P, Nil{}, Nil{}, a},
+        (Equal.cong(List<&2, U32>, List<&2, U32>, xs => List.set(&2, U32, xs, r, nx), regs, Rp(a, regs), al.rp0(R, e3)),
+        ({==},
+        ({==},
+        (({==}, ({==}, ({==}, eb))),
+        ((%e0 : {D.AL(M2, _, P, Nil{}, zs, K, F, N2) == True{} : Bool}; K.al.fresh(m, P, zs, K, F, nx, hal, t0, hz, hfn, hb, hk1)),
+        (hfn,
+        (al.cell.new(K, F, nx, hfn, hb),
+        (K.has.lt(P, m, P, Nil{}, zs, K, F, nx, nx, N.le_refl(U32.to_nat(nx)), hc),
+        (K.tb.set(m, nx, Cr.Cir.Cell.zero(), hz, tb),
+        ((%cnt : {D.Kept(n, m, M2, F, [nx], P, F, n, _, Nil{}, Nil{}, Nil{}, Nil{}) == True{} : Bool};
+          K.kept.fresh(n, m, nx, F, P, F, K.Ar.ne.own(F, nx, hfn), t0, hz, hfn)),
+        (%cnt : {D.Pc(_, M2, Nil{}, F, nx) == 0n : Nat};
+          (%Equal.sym(Nat, D.Pc(1n+n, M2, Nil{}, F, nx), D.Pc(n, m, Nil{}, F, nx), K.pc.new(m, F, nx, Nil{}, nx, t0, hz, hfn)) :
+            {_ == 0n : Nat}; K.lt.pc0(n, m, Nil{}, F, nx, hlt))))))))))))))))
+
+# a new cell, or out of memory for want of room
+def al.fresh.room(mo: Maybe<&2, U32>, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32,
+  +L: U32, +I: List<&2, Word(8n)>, +P: List<&2, U32>, +zs: List<&2, D.Zs>,
+  emo: {Cr.Cir.room(U32.add(Cr.Cir.at(nx), 19), pg, L) == mo : Maybe<&2, U32>},
+  hal: {D.AL(m, 0, P, Nil{}, zs, K, F, nx) == True{} : Bool}, e3: {T.tm.reg(R, 3n) == 0 : U32},
+  hr: {Nat.is_lt(r, 63n) == True{} : Bool}, hk: {U32.is_le(290, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool},
+  hfn: {U32.is_le(F, nx) == True{} : Bool}, tb: D.Tb(m), eb: {U32.is_lt(nx, 214748364) == True{} : Bool}) ->
+  D.Ok(Cr.Cir.exec.bump.of(r, nx, D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I), mo), F, K, L, I, Al.b(Nil{}, nx),
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Nil{}, zs, w, rg, ms, nx2))):
+  match mo:
+    case None{}:
+      K.oom.room(L, pg, nx, emo)
+    case Some{+p}:
+      al.fresh.got(r, R, m, nx, F, K, pg, L, I, P, zs, p, hal, e3, hr, hk, hkf, hfn, tb, eb)
+
+# next below 214748364 gives a new cell or out of memory for want of room;
+# else out of memory
+def al.fresh.fits(b: Bool, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32,
+  +L: U32, +I: List<&2, Word(8n)>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, eb: {U32.is_lt(nx, 214748364) == b : Bool},
+  hal: {D.AL(m, 0, P, Nil{}, zs, K, F, nx) == True{} : Bool}, e3: {T.tm.reg(R, 3n) == 0 : U32},
+  hr: {Nat.is_lt(r, 63n) == True{} : Bool}, hk: {U32.is_le(290, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool},
+  hfn: {U32.is_le(F, nx) == True{} : Bool}, tb: D.Tb(m)) ->
+  D.Ok(Cr.Cir.exec.bump.if(b, r, nx, pg, L, D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I, Al.b(Nil{}, nx),
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Nil{}, zs, w, rg, ms, nx2))):
+  match b:
+    case False{}:
+      K.oom.big(L, nx, eb)
+    case True{}:
+      al.fresh.room(Cr.Cir.room(U32.add(Cr.Cir.at(nx), 19), pg, L), r, R, m, nx, F, K, pg, L, I, P, zs, {==}, hal, e3, hr,
+        hk, hkf, hfn, tb, eb)
+
+# M.alloc(r) with an empty pend list: Cir's alloc
+def al.fresh.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
+  +I: List<&2, Word(8n)>, +P: List<&2, U32>, +zs: List<&2, D.Zs>,
+  hal: {D.AL(m, T.tm.reg(R, 3n), P, Nil{}, zs, K, F, nx) == True{} : Bool}, hr: {Nat.is_lt(r, 63n) == True{} : Bool},
+  hk: {U32.is_le(290, K) == True{} : Bool}, hkf: {U32.is_lt(K, F) == True{} : Bool}, hfn: {U32.is_le(F, nx) == True{} : Bool},
+  tb: D.Tb(m)) ->
+  D.Ok(Cr.Cir.exec(1n+f, Mc.M.alloc(r), D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I, Al.b(Nil{}, nx),
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Nil{}, zs, w, rg, ms, nx2))):
+  +regs = D.Rg.ex(63n, R, 0n)
+  +st = D.S(regs, m, nx, F, K, pg, L, I)
+  +pd = T.tm.reg(R, 3n)
+  +h2 = hal
+  +ch = K.Bo.and_l(D.Chain(Nil{}, m, pd), D.Nodup(Nil{}), K.Bo.and_l(Bool.and(D.Chain(Nil{}, m, pd), D.Nodup(Nil{})),
+    Bool.and(Bool.and(D.Sub(Nil{}, P), D.Nodup(P)), Bool.and(D.AL.cells(P, m, P, Nil{}, zs, K, F, nx),
+      D.Lt(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Nil{}, F, nx))), h2))
+  +e3 = K.U.eq(pd, 0, ch)
+  +hal0 = {%e3 : {D.AL(m, _, P, Nil{}, zs, K, F, nx) == True{} : Bool}; h2 : {D.AL(m, 0, P, Nil{}, zs, K, F, nx) == True{} : Bool}}
+  +h3 = {%e3 : {List.get(&2, U32, regs, 3n) == Some{_} : Maybe<&2, U32>}; {==} : {List.get(&2, U32, regs, 3n) == Some{0} : Maybe<&2, U32>}}
+  +ex1 = {{==} : {Sr.X.st(regs, m, nx, F, K, pg, L, I) == st : Cr.Cir.State}}
+  +e1 = {%ex1 : {Cr.Cir.exec(1n+f, Mc.M.alloc(r), _) == Cr.Cir.exec.alloc(r, _) : Cr.Cir.Out}; Sr.alloc.eq.fresh(1n+f, regs, m, nx, F, K, pg, L, I, r, h3) :
+    {Cr.Cir.exec(1n+f, Mc.M.alloc(r), st) == Cr.Cir.exec.alloc(r, st) : Cr.Cir.Out}}
+  +o2 = Cr.Cir.exec.bump.if(U32.is_lt(nx, 214748364), r, nx, pg, L, st)
+  K.Ok.eq(Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), o2, F, K, L, I, Al.b(Nil{}, nx),
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Nil{}, zs, w, rg, ms, nx2)),
+    Equal.trans(Cr.Cir.Out, o2, Cr.Cir.exec.alloc(r, st), Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), {==},
+      Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec.alloc(r, st), e1)),
+    al.fresh.fits(U32.is_lt(nx, 214748364), r, R, m, nx, F, K, pg, L, I, P, zs, {==}, hal0, e3, hr, hk, hkf, hfn, tb))
 
 # M.alloc(r): the cell that it gives is a new one or the first of the pend
 # list, whose reuse drops the counts of its parts; the allocation's invariant
