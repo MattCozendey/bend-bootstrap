@@ -353,10 +353,11 @@ type Kc is Data:
 
 # a kept cell: one that may be read and is no term's (a tag of the machine's
 # own cells, 19 or more), so the copy never counts it; or one of the cells E
-# that the run may not read, a machine cell before N
+# that the run may not read, also a machine cell of tag 19 or more before N
 def Kc.ok(+K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, +x: U32, +cl: Cr.Cir.Cell) -> Bool:
-  Bool.or(Bool.and(Al(K, F, X, N, x), Nat.is_le(19n, U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, cl), 63)))),
-    Bool.and(Has(E, x), Bool.and(U32.is_le(F, x), U32.is_lt(x, N))))
+  +tg = U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, cl), 63))
+  Bool.or(Bool.and(Al(K, F, X, N, x), Nat.is_le(19n, tg)),
+    Bool.and(Has(E, x), Bool.and(Bool.and(U32.is_le(F, x), U32.is_lt(x, N)), Nat.is_le(19n, tg))))
 
 # each cell of kc holds its cell, and is kept
 def Kcs(+m: Cr.Cir.Cells, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, kc: List<&2, Kc>) -> Data:
@@ -423,22 +424,22 @@ def Pc(n: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +c: U32) -> Nat:
     case 1n+p:
       Nat.add(Occ(Ps(m, Q, o), c), Pc(p, m, Q, U32.inc(o), c))
 
-# each of the cells ys is below N
-def All.lt(ys: List<&2, U32>, +N: U32) -> Bool:
+# each of the cells ys is below N and is 0 or a term cell in m
+def All.lt(ys: List<&2, U32>, +m: Cr.Cir.Cells, +N: U32) -> Bool:
   match ys:
     case Nil{}:
       True{}
     case Con{+y, rest}:
-      Bool.and(U32.is_lt(y, N), All.lt(rest, N))
+      Bool.and(Bool.and(U32.is_lt(y, N), Bool.or(U32.is_zero(y), U32.is_le(U32.and(Fd(0n, m, y), 63), 18))), All.lt(rest, m, N))
 
-# each pointer of the n cells from o, with the pend list Q, is below N
-# (definitions.bend's Pts)
+# each pointer of the n cells from o, with the pend list Q, is below N and is
+# 0 or a term cell (definitions.bend's Pts, with the machine cells excluded)
 def Lt(n: Nat, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +N: U32) -> Bool:
   match n:
     case 0n:
       True{}
     case 1n+p:
-      Bool.and(All.lt(Ps(m, Q, o), N), Lt(p, m, Q, U32.inc(o), N))
+      Bool.and(All.lt(Ps(m, Q, o), m, N), Lt(p, m, Q, U32.inc(o), N))
 
 # The allocation
 # --------------
