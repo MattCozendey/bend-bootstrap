@@ -4048,6 +4048,89 @@ def clo.swap(n: Nat, +m: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>, +P: List<&2,
           Bool.and(Bool.and(S1, Bool.or(Bool.not(D.Mem(X1, c)), D.All.held(F, m, X1, hc))), _) : Bool}
       {==}
 
+# the terms of A stand for their terms, and A is B
+def rtsk.rw(+dk: Bool, A: List<&2, D.Rt>, +B: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32,
+  +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +e: {A == B : List<&2, D.Rt>}, h: D.RtsK(dk, ds, m, im, fi, nx, ks, img, A)) -> D.RtsK(dk, ds, m, im, fi, nx, ks, img, B):
+  %e : D.RtsK(dk, ds, m, im, fi, nx, ks, img, _)
+  h
+
+# AccK with the one temporary z moved from after X to the front
+def acck.move(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +rs: List<&2, D.Rt>, +X: List<&2, D.TmpE>, +z: U32,
+  +C: List<&2, D.TmpE>, +sp: U32, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, rs, List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C}), sp, fs, ps, zs)) ->
+  D.AccK(dk, ds, ks, img, m, nx, fi, im, rs, Con{D.TmpE{z, Nil{}}, List.append(&2, D.TmpE, X, C)}, sp, fs, ps, zs):
+  match hac:
+    case Tuple{hz, Tuple{hh, Tuple{he, Tuple{hc, Tuple{hcl, htok}}}}}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +XO = List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C})
+      +XN = List.append(&2, D.TmpE, Con{D.TmpE{z, Nil{}}, Nil{}}, List.append(&2, D.TmpE, X, C))
+      +csX = D.Tmp.cells(X)
+      +csC = D.Tmp.cells(C)
+      +csO = D.Tmp.cells(XO)
+      +csN = D.Tmp.cells(XN)
+      +hlO = D.Tmp.held(XO)
+      +hlN = D.Tmp.held(XN)
+      +frt = D.Fr.rts(fs, m, sp)
+      +frc = D.Fr.cells(fs, m, sp)
+      +RS_O = List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hlO, List.append(&2, D.Rt, frt, zs)))
+      +RS_N = List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hlN, List.append(&2, D.Rt, frt, zs)))
+      +OBL = List.append(&2, U32, frc, List.append(&2, U32, csO, ps))
+      +NBL = List.append(&2, U32, frc, List.append(&2, U32, csN, ps))
+      +e_hl = tmp.held.move(X, z, C)
+      +e_rs = Equal.cong(List<&2, D.Rt>, List<&2, D.Rt>,
+        l => List.append(&2, D.Rt, rs, List.append(&2, D.Rt, l, List.append(&2, D.Rt, frt, zs))), hlO, hlN, e_hl)
+      +hh2 = {(%e_hl : D.RtsK(dk, ds, m, im, fi, nx, ks, img, _); hh) : D.RtsK(dk, ds, m, im, fi, nx, ks, img, hlN)}
+      +e_csO = tmp.cells.app(X, Con{D.TmpE{z, Nil{}}, C})
+      +e_csN = Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{z, l},
+        D.Tmp.cells(List.append(&2, D.TmpE, X, C)), List.append(&2, U32, csX, csC), tmp.cells.app(X, C))
+      +O2 = List.append(&2, U32, frc, List.append(&2, U32, List.append(&2, U32, csX, Con{z, csC}), ps))
+      +O3 = List.append(&2, U32, frc, List.append(&2, U32, csX, List.append(&2, U32, Con{z, csC}, ps)))
+      +eO1 = Equal.cong(List<&2, U32>, List<&2, U32>, l => List.append(&2, U32, frc, List.append(&2, U32, l, ps)),
+        csO, List.append(&2, U32, csX, Con{z, csC}), e_csO)
+      +eO2 = Equal.cong(List<&2, U32>, List<&2, U32>, l => List.append(&2, U32, frc, l),
+        List.append(&2, U32, List.append(&2, U32, csX, Con{z, csC}), ps),
+        List.append(&2, U32, csX, List.append(&2, U32, Con{z, csC}, ps)), app.assoc.u(csX, Con{z, csC}, ps))
+      +eO = Equal.trans(List<&2, U32>, OBL, O2, O3, eO1, eO2)
+      +N2 = List.append(&2, U32, frc, List.append(&2, U32, Con{z, List.append(&2, U32, csX, csC)}, ps))
+      +N3 = List.append(&2, U32, frc, Con{z, List.append(&2, U32, csX, List.append(&2, U32, csC, ps))})
+      +eN1 = Equal.cong(List<&2, U32>, List<&2, U32>, l => List.append(&2, U32, frc, List.append(&2, U32, l, ps)),
+        csN, Con{z, List.append(&2, U32, csX, csC)}, e_csN)
+      +eN2 = Equal.cong(List<&2, U32>, List<&2, U32>, l => List.append(&2, U32, frc, l),
+        List.append(&2, U32, Con{z, List.append(&2, U32, csX, csC)}, ps), Con{z, List.append(&2, U32, csX, List.append(&2, U32, csC, ps))},
+        Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{z, l}, List.append(&2, U32, List.append(&2, U32, csX, csC), ps),
+          List.append(&2, U32, csX, List.append(&2, U32, csC, ps)), app.assoc.u(csX, csC, ps)))
+      +eN = Equal.trans(List<&2, U32>, NBL, N2, N3, eN1, eN2)
+      +C1 = D.Cov(n, m, fi, RS_O, OBL)
+      +C2 = D.Cov(n, m, fi, RS_N, OBL)
+      +C3 = D.Cov(n, m, fi, RS_N, O3)
+      +C4 = D.Cov(n, m, fi, RS_N, N3)
+      +C5 = D.Cov(n, m, fi, RS_N, NBL)
+      +hc2 = AC.cov.mv(C1, C2, cov.rw(n, m, fi, RS_O, RS_N, OBL, e_rs), hc)
+      +hc3 = AC.cov.mv(C2, C3, Equal.cong(List<&2, U32>, Bool, w => D.Cov(n, m, fi, RS_N, w), OBL, O3, eO), hc2)
+      +hc4 = AC.cov.mv(C3, C4, AC.cov.perm.x(n, m, fi, RS_N, frc, csX, Con{z, Nil{}}, List.append(&2, U32, csC, ps)), hc3)
+      +hc5 = AC.cov.mv(C4, C5, Equal.cong(List<&2, U32>, Bool, w => D.Cov(n, m, fi, RS_N, w), N3, NBL,
+        Equal.sym(List<&2, U32>, NBL, N3, eN)), hc4)
+      +e_rh = Equal.cong(List<&2, D.Rt>, List<&2, U32>, l => D.Rt.cells(l), hlO, hlN, e_hl)
+      +K1 = D.Clo(n, m, fi, ps, List.append(&2, U32, csX, Con{z, csC}), D.Rt.cells(hlO))
+      +K2 = D.Clo(n, m, fi, ps, Con{z, List.append(&2, U32, csX, csC)}, D.Rt.cells(hlO))
+      +K3 = D.Clo(n, m, fi, ps, Con{z, List.append(&2, U32, csX, csC)}, D.Rt.cells(hlN))
+      +K4 = D.Clo(n, m, fi, ps, csN, D.Rt.cells(hlN))
+      +hcl1 = AC.cov.mv(D.Clo(n, m, fi, ps, csO, D.Rt.cells(hlO)), K1,
+        Equal.cong(List<&2, U32>, Bool, w => D.Clo(n, m, fi, ps, w, D.Rt.cells(hlO)), csO,
+          List.append(&2, U32, csX, Con{z, csC}), e_csO), hcl)
+      +hcl2 = AC.cov.mv(K1, K2, clo.swap(n, m, fi, ps, Nil{}, csX, Con{z, Nil{}}, csC, D.Rt.cells(hlO)), hcl1)
+      +hcl3 = AC.cov.mv(K2, K3, Equal.cong(List<&2, U32>, Bool,
+        w => D.Clo(n, m, fi, ps, Con{z, List.append(&2, U32, csX, csC)}, w), D.Rt.cells(hlO), D.Rt.cells(hlN), e_rh), hcl2)
+      +hcl4 = AC.cov.mv(K3, K4, Equal.cong(List<&2, U32>, Bool, w => D.Clo(n, m, fi, ps, w, D.Rt.cells(hlN)),
+        Con{z, List.append(&2, U32, csX, csC)}, csN,
+        Equal.sym(List<&2, U32>, csN, Con{z, List.append(&2, U32, csX, csC)}, e_csN)), hcl3)
+      +htok1 = AC.cov.mv(D.Tmp.ok(XO, m, fi, nx, ps, RS_O), D.Tmp.ok(XO, m, fi, nx, ps, RS_N),
+        Equal.cong(List<&2, D.Rt>, Bool, w => D.Tmp.ok(XO, m, fi, nx, ps, w), RS_O, RS_N, e_rs), htok)
+      +htok2 = tmp.ok.move(z, X, C, m, fi, nx, ps, RS_N, htok1)
+      (hz, (hh2, (he, (hc5, (hcl4, htok2)))))
+
 # The premises walk.post and walk.done of move_kit.bend (U7; U0 left them as ?TODO)
 # ------------------------------------------------------------------------------
 
