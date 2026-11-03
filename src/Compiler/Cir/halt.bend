@@ -398,15 +398,24 @@ def H.nr.mem(b: Bool, +f: Nat, +s: U32, ns: {U32.is_eq(s, 0) == False{} : Bool},
     case False{}:
       Unit{}
 
+# the bytes w, which decode to the module that halts at once with s, not 0, give
+# no result, on any engine; w is a variable, so that no check unfolds the bytes
+# of Compiler.halt(s)
+def H.nr.run.of(+f: Nat, +s: U32, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
+  ns: {U32.is_eq(s, 0) == False{} : Bool},
+  d: {Wa.Wasm.decode.module(w) == Some{H.mod(s, False{})} : Maybe<&2, Wa.Wasm.Module>}) ->
+  H.NR(Wa.Wasm.run(f, w, i, Wa.Wasm.Engine{m, gs})):
+  %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(w), Some{H.mod(s, False{})}, d) :
+    H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m, gs), i))
+  H.nr.mem(U32.is_le(1, m), f, s, ns, m, gs, i)
+
 # the module that halts at once with s, not 0, gives no result, on any
 # engine
 def H.nr.run(+f: Nat, +s: U32, +i: List<&2, Word(8n)>, eng: Wa.Wasm.Engine, +ns: {U32.is_eq(s, 0) == False{} : Bool}) ->
   H.NR(Wa.Wasm.run(f, C.Compiler.halt(s), i, eng)):
   match eng:
     case Wa.Wasm.Engine{+m, +gs}:
-      %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(s)), Some{H.mod(s, False{})}, H.decoded(s, ns)) :
-        H.NR(Wa.Wasm.run.made(f, Wa.Wasm.instantiate.decoded(_, m, gs), i))
-      H.nr.mem(U32.is_le(1, m), f, s, ns, m, gs, i)
+      H.nr.run.of(f, s, C.Compiler.halt(s), i, m, gs, ns, H.decoded(s, ns))
 
 # The lemmas
 # ----------
