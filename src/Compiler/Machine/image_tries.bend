@@ -739,3 +739,24 @@ def id.from(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +j: Nat) -
                   U32.from_nat(Nat.add(j, num.nat(Con{n, rest}, k))),
                   U32.from_nat(Nat.add(j, Nat.add(1n, num.nat(rest, k)))),
                   ec)))))
+
+# the number of a name is at most the number of names
+def num.nat.le(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>) ->
+  N.Le(num.nat(ks, k), List.length(&2, List<&2, Word(8n)>, ks)):
+  match ks:
+    case Nil{}:
+      N.le_zero(0n)
+    case Con{+n, +rest}:
+      name.split(n, k, Sd.Name.is_eq(n, k), {==},
+        N.Le(num.nat(Con{n, rest}, k), List.length(&2, List<&2, Word(8n)>, Con{n, rest})),
+        +eq => +hb =>
+          +en = pick.true(Nat, Sd.Name.is_eq(n, k), 0n, 1n+num.nat(rest, k), hb)
+          N.le_rw_l(0n, num.nat(Con{n, rest}, k), List.length(&2, List<&2, Word(8n)>, Con{n, rest}),
+            Equal.sym(Nat, num.nat(Con{n, rest}, k), 0n, en),
+            N.le_zero(List.length(&2, List<&2, Word(8n)>, Con{n, rest}))),
+        ne => +hb =>
+          +en = pick.false(Nat, Sd.Name.is_eq(n, k), 0n, 1n+num.nat(rest, k), hb)
+          N.le_rw_l(1n+num.nat(rest, k), num.nat(Con{n, rest}, k), List.length(&2, List<&2, Word(8n)>, Con{n, rest}),
+            Equal.sym(Nat, num.nat(Con{n, rest}, k), 1n+num.nat(rest, k), en),
+            N.add_mono(1n, 1n, num.nat(rest, k), List.length(&2, List<&2, Word(8n)>, rest),
+              N.le_refl(1n), num.nat.le(rest, k))))
