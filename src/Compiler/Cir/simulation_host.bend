@@ -8,7 +8,10 @@
 # alloc gives what Cir.alloc.pages says (af.call); run's start reaches the
 # program's block with next = Cir.first (pr.go), where the relation holds
 # (IN.inv0); the program's code does what Cir.exec says (T.sim.stmt), and
-# run's status gives what Cir.ended says.
+# run's status gives what Cir.ended says (host.all). When Cir's program is
+# out of fuel n, the host's run in a fuel F with 41 <= F <= n is out of fuel
+# too, or out of memory after an engine's refusal (host.all.nd): each unit of
+# Cir's fuel costs a step of run (T.GPost).
 
 import Base
 import ../../Wasm/impl.bend as Wa
