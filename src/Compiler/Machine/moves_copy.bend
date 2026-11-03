@@ -548,3 +548,111 @@ def one.make(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
     s => st2 => Empty, s => st2 => Empty, B, lim,
     alloc22.run(f, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, os, bs, fs, sp, pend, ps, zs, B, hroom, hs, hac, hl, h3), s => st2 => e => e,
     +st1 => qa => one.k(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, B, h12, st1, qa))
+
+# M.one's cell, after its store of field 1: {41, 0, yv, 0, 0} (a K.arg of Q0, the end of its chain); cenv
+# gets it, clen 1. HSK and AccK hold with z the one temporary
+def OneQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
+  +sp: U32, +ps: List<&2, U32>, +yv: U32, st: Cr.Cir.State) -> Data:
+  D.Ex(List<&2, U32>, regs1 => D.Ex(Cr.Cir.Cells, m1 => D.Ex(U32, nx1 => D.Ex(U32, pg1 => D.Ex(U32, z => D.Ex(U32, pend2 =>
+  D.Ex(List<&2, U32>, ps2 => D.Ex(List<&2, D.Rt>, zs2 =>
+    D.P2({st == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs1, 36n, z), 37n, 1), Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, pg1, lim, inp, Nil{}, 0} : Cr.Cir.State},
+    D.P2({List.length(&2, U32, regs1) == 63n : Nat},
+    D.P2(D.Kept(regs, regs1, [0n, 1n, 2n, 8n, 12n]),
+    D.P2({List.get(&2, U32, regs1, 22n) == Some{z} : Maybe<&2, U32>},
+    D.P2({List.get(&2, U32, regs1, 3n) == Some{pend2} : Maybe<&2, U32>},
+    D.P2({D.Own(fi, nx1, z) == True{} : Bool},
+    D.P2({D.Mem(ps2, z) == False{} : Bool},
+    D.P2({Bool.or(U32.is_eq(nx1, nx), Bool.and(D.Pend.none(ps), U32.is_eq(nx1, U32.inc(nx)))) == True{} : Bool},
+    D.P2(N.Le(D.Stat(Nat.sub(U32.to_nat(nx1), U32.to_nat(fi)), Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), fi), D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)),
+    D.P2(D.HSK(True{}, ds, ks, img, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, os, bs, fs, sp, pend2, ps2),
+      D.AccK(True{}, ds, ks, img, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, os, Con{D.TmpE{z, Nil{}}, Nil{}}, sp, fs, ps2, zs2)))))))))))))))))))
+
+# a K.arg cell with no flag OWNED holds no pointer
+def fs.arg(+m1: Cr.Cir.Cells, +ps: List<&2, U32>, +z: U32, +yv: U32) ->
+  {D.Fs(Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), ps, z) == Nil{} : List<&2, U32>}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), z), Cr.Cir.Cell{41, 0, yv, 0, 0},
+      X.Ce.get_set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0})) :
+    {Bool.pick(List<&2, U32>, U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19),
+            D.Fs.term(D.Fd(2n, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), U32.add(272, U32.and(Cr.Cir.Cell.get(0n, _), 63))), Cr.Cir.Cell.get(2n, _), Cr.Cir.Cell.get(3n, _), Cr.Cir.Cell.get(4n, _)),
+            Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, U32.and(Cr.Cir.Cell.get(0n, _), 63)), U32.is_le(U32.and(Cr.Cir.Cell.get(0n, _), 63), 40)), Bool.not(D.Mem(ps, z))),
+              Con{Cr.Cir.Cell.get(2n, _), D.Fs.opt(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 38), Cr.Cir.Cell.get(3n, _), Nil{})},
+              Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 41), D.FlW(Cr.Cir.Cell.get(0n, _), 4096)), Bool.not(D.Mem(ps, z))),
+                [Cr.Cir.Cell.get(2n, _)], Nil{}))) == Nil{} : List<&2, U32>}
+  {==}
+
+# HSK's parts: the borrowed terms are held, and the image
+def hsk.held(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, D.Rt>, -bs: List<&2, D.Rt>, -fs: List<&2, D.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> D.Held(m, os, bs):
+  match h:
+    case Tuple{_, Tuple{_, Tuple{e, _}}}:
+      e
+
+def hsk.io(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, D.Rt>, -bs: List<&2, D.Rt>, -fs: List<&2, D.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> D.ImgOKK(dk, ds, ks, img, m, im, fi, nx):
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, e}}}}}:
+      e
+
+# the rest of M.one after M.make: the store of field 1, cenv and clen
+def one.fin(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
+  +sp: U32, +ps: List<&2, U32>, +yv: U32, +B: Nat, +hfn: {U32.is_le(fi, nx) == True{} : Bool},
+  +st5: Cr.Cir.State, qm: MkQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, st5)) ->
+  D.PostB(False{}, Cr.Cir.exec(f, X.sel.b(Mc.M.one(Mc.R.y())), st5),
+    st => OneQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, st), s => st2 => Empty, B, lim):
+  match qm:
+    case Tuple{+regs1, Tuple{+m1, Tuple{+nx1, Tuple{+pg1, Tuple{+z, Tuple{+pend2, Tuple{+ps2, Tuple{+zs2, Tuple{+est, Tuple{+hl1,
+      Tuple{+hkept, Tuple{+h22, Tuple{+h3b, Tuple{+hzero, Tuple{+hown, Tuple{+hmz, Tuple{+hnx, Tuple{+hws, Tuple{+hptr, Tuple{+hsk, hac2}}}}}}}}}}}}}}}}}}}}:
+      +C1 = {Cr.Cir.Cell{41, 1, yv, 0, 0} : Cr.Cir.Cell}
+      +XC = {Cr.Cir.Cell{41, 0, yv, 0, 0} : Cr.Cir.Cell}
+      +S5 = {Cr.Cir.State{regs1, Cr.Cir.Cells.set(m1, z, C1), nx1, fi, im, pg1, lim, inp, Nil{}, 0} : Cr.Cir.State}
+      +hc = U10.own.cell(fi, nx1, im, z, hown)
+      +T1 = X.X.store(S5, 1n, z, 0)
+      +T2 = X.X.setst(T1, 36n, z)
+      +T3 = X.X.setst(T2, 37n, 1)
+      +q1 = X.sel.b(Mc.M.one(Mc.R.y()))
+      +q2 = X.sel.b(q1)
+      +q3 = X.sel.b(q2)
+      +e1 = X.run.store(f, 1n, Mc.M.g(22n), Mc.M.c(0), S5, z, 0, h22, {==}, hc)
+      +e2 = X.run.set(f, 36n, Mc.M.g(22n), T1, z, h22, hl1, {==})
+      +e3 = X.run.set(f, 37n, Mc.M.c(1), T2, 1, {==}, X.L.len(regs1, 36n, z, 63n, hl1), {==})
+      +eq = {(%X.rw.seq(f, X.sel.a(q1), q2, S5, T1, e1) : {_ == Cr.Cir.Out.next{T3} : Cr.Cir.Out};
+        %X.rw.seq(f, X.sel.a(q2), q3, T1, T2, e2) : {_ == Cr.Cir.Out.next{T3} : Cr.Cir.Out};
+        %X.rw.seq(f, X.sel.a(q3), X.sel.b(q3), T2, T3, e3) : {_ == Cr.Cir.Out.next{T3} : Cr.Cir.Out};
+        X.run.nop(f, T3)) : {Cr.Cir.exec(f, q1, S5) == Cr.Cir.Out.next{T3} : Cr.Cir.Out}}
+      +est3 = Equal.cong(Cr.Cir.Cells, Cr.Cir.State, y => Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs1, 36n, z), 37n, 1), y, nx1, fi, im, pg1, lim, inp, Nil{}, 0},
+        X.X.put(Cr.Cir.Cells.set(m1, z, C1), 1n, z, 0), Cr.Cir.Cells.set(m1, z, XC),
+        Equal.sym(Cr.Cir.Cells, Cr.Cir.Cells.set(m1, z, XC), X.X.put(Cr.Cir.Cells.set(m1, z, C1), 1n, z, 0), X.Ce.put_set(m1, z, C1, 1n, 0)))
+      +hn2 = U10.next.of(D.Mem(ps, z), U32.is_eq(nx1, nx), D.Pend.none(ps), U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx)), hnx)
+      +hsm = K.stat.make(m, nx, fi, ps, z, nx1, m1, XC, {==}, hfn, hws, hnx, hown)
+      +io = hsk.io(True{}, ds, ks, img, m1, nx1, fi, im, os, bs, fs, sp, pend2, ps2, hsk)
+      +hst = D.store.post(True{}, ds, ks, img, m1, nx1, fi, im, Nil{}, os, bs, fs, sp, pend2, ps2, z, XC, [D.TmpE{z, Nil{}}], zs2,
+        hsk, hac2, {==}, hsk.held(True{}, ds, ks, img, m1, nx1, fi, im, os, bs, fs, sp, pend2, ps2, hsk), hown, hmz, U10.zero.st(m1, z, hzero),
+        U10.zero.tg(m1, z, hzero), hptr, U10.fs.zero(m1, ps2, z, hzero, U10.tbl.z(m1, im, fi, nx1, D.img.tbl(True{}, ds, ks, img, m1, im, fi, nx1, io))),
+        {==}, {==}, fs.arg(m1, ps2, z, yv))
+      %Equal.sym(Cr.Cir.State, st5, S5, est) :
+        D.PostB(False{}, Cr.Cir.exec(f, q1, _), st => OneQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, st), s => st2 => Empty, B, lim)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, q1, S5), Cr.Cir.Out.next{T3}, eq) :
+        D.PostB(False{}, _, st => OneQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, st), s => st2 => Empty, B, lim)
+      (regs1, (m1, (nx1, (pg1, (z, (pend2, (ps2, (zs2, (est3, (hl1, (hkept, (h22, (h3b, (hown, (hmz, (hn2, (hsm, hst)))))))))))))))))
+
+# M.one(y), with the value's cell yv in y
+def one.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>,
+  +sp: U32, +pend: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>, +yv: U32, +B: Nat,
+  hroom: Or(N.Le(Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), B), {U32.is_eq(pend, 0) == False{} : Bool}),
+  +hs: D.HSK(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
+  +hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, Nil{}, sp, fs, ps, zs),
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  +h12: {List.get(&2, U32, regs, 12n) == Some{yv} : Maybe<&2, U32>}) ->
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.one(Mc.R.y()), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+    st => OneQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, st), s => st2 => Empty, B, lim):
+  D.postb.seq(f, False{}, Mc.M.make(22n, Mc.M.c(41), Mc.M.g(12n), Mc.M.c(0), Mc.M.c(0)), X.sel.b(Mc.M.one(Mc.R.y())), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0},
+    st => MkQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, st), st => OneQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, st),
+    s => st2 => Empty, s => st2 => Empty, B, lim,
+    one.make(f, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, os, bs, fs, sp, pend, ps, zs, yv, B, hroom, hs, hac, hl, h3, h12), s => st2 => e => e,
+    +st5 => qm => one.fin(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, B,
+      K.hsk.fin(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, hs), st5, qm))
