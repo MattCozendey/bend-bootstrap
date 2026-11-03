@@ -1636,6 +1636,38 @@ def ag.is(-ds: List<&2, Bk.Def>, -m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32,
   (y, _) = h9
   y
 
+# Ag's clause 9: the cell is not OWNED, or its term is a Var
+def ag.fl(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32, +q: Bk.Quan, +x: Bk.Term,
+  +rest: List<&2, El.Arg>, h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, Con{El.Arg{q, x}, rest})) ->
+  {Bool.or(Bool.not(D.Fl(m, a, 4096)), D.Term.is_var(x)) == True{} : Bool}:
+  (_, h1) = h
+  (_, h2) = h1
+  (_, h3) = h2
+  (_, h4) = h3
+  (_, h5) = h4
+  (_, h6) = h5
+  (_, h7) = h6
+  (_, h8) = h7
+  (y, _) = h8
+  y
+
+# a Lab argument's K.arg holds nothing: its temporary has no root
+def ag.cells.lab(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>, +a: U32, +q: Bk.Quan,
+  +j: List<&2, Word(8n)>, +rest: List<&2, El.Arg>, +b: Bool, eb: {D.Fl(m, a, 4096) == b : Bool},
+  h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, Con{El.Arg{q, Bk.Term.Lab{j}}, rest})) ->
+  {D.Ag.cells(Con{El.Arg{q, Bk.Term.Lab{j}}, rest}, m, a) == Con{D.TmpE{a, Nil{}}, D.Ag.cells(rest, m, D.Fd(1n, m, a))} : List<&2, D.TmpE>}:
+  match b:
+    case False{}:
+      (%Equal.sym(Bool, D.Fl(m, a, 4096), False{}, eb) :
+        {Con{D.TmpE{a, Bool.pick(List<&2, D.Rt>, _, [D.Rt{D.Fd(2n, m, a), Bk.Term.Lab{j}}], Nil{})}, D.Ag.cells(rest, m, D.Fd(1n, m, a))} == Con{D.TmpE{a, Nil{}}, D.Ag.cells(rest, m, D.Fd(1n, m, a))} : List<&2, D.TmpE>};
+       {==})
+    case True{}:
+      D.bool.ft({Con{D.TmpE{a, Bool.pick(List<&2, D.Rt>, D.Fl(m, a, 4096), [D.Rt{D.Fd(2n, m, a), Bk.Term.Lab{j}}], Nil{})}, D.Ag.cells(rest, m, D.Fd(1n, m, a))} == Con{D.TmpE{a, Nil{}}, D.Ag.cells(rest, m, D.Fd(1n, m, a))} : List<&2, D.TmpE>},
+        (%eb : {Bool.or(Bool.not(_), D.Term.is_var(Bk.Term.Lab{j})) == True{} : Bool};
+         ag.fl(ds, m, im, fi, nx, ks, img, ps, os, vs, a, q, Bk.Term.Lab{j}, rest, h)))
+
 # a cell that stands for a term is a cell, of the term's tag
 def is.cell(+ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
   +img: List<&2, Bk.Term>, +c: U32, +t: Bk.Term, h: D.Is(ds, m, im, fi, nx, ks, img, c, t)) ->
