@@ -10042,6 +10042,124 @@ def alc.get(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2,
             CK.Bo.and_i(X2, X3, CK.Bo.and_l(X2, Bool.and(X3, R), h23), CK.Bo.and_l(X3, R, h3)))),
         e => alc.get(rest, m, P, Q, zs, K, F, N, c, CK.Bo.and_r(X3, R, h3), e))
 
+# GbC fails at a cell neither old garbage nor taken, and at a taken cell not given back (field 0 not 45)
+def gbc.no(a: Bool, b: Bool, -y: Bool, -G: Type, ha: {a == False{} : Bool}, hb: {b == False{} : Bool},
+  h: {Bool.or(Bool.and(a, Bool.not(b)), Bool.and(b, y)) == True{} : Bool}) -> G:
+  match a b:
+    case False{} False{}:
+      CK.Bo.tf(G, h)
+    case True{} _:
+      CK.Bo.tf(G, Equal.sym(Bool, True{}, False{}, ha))
+    case False{} True{}:
+      CK.Bo.tf(G, Equal.sym(Bool, True{}, False{}, hb))
+
+def gbc.t(a: Bool, b: Bool, y: Bool, -z: Bool, -G: Type, hb: {b == True{} : Bool}, hy: {y == False{} : Bool},
+  h: {Bool.or(Bool.and(a, Bool.not(b)), Bool.and(b, Bool.and(y, z))) == True{} : Bool}) -> G:
+  match a b y:
+    case True{} True{} False{}:
+      CK.Bo.tf(G, h)
+    case False{} True{} False{}:
+      CK.Bo.tf(G, h)
+    case _ False{} _:
+      CK.Bo.tf(G, hb)
+    case _ True{} True{}:
+      CK.Bo.tf(G, Equal.sym(Bool, True{}, False{}, hy))
+
+def of.or.r(+a: Bool, +b: Bool, +h: {Bool.or(a, b) == False{} : Bool}) -> {b == False{} : Bool}:
+  match a:
+    case True{}:
+      CK.Bo.tf({b == False{} : Bool}, Equal.sym(Bool, True{}, False{}, h))
+    case False{}:
+      h
+
+# a cell out of P and T is not a cell of P or T
+def ne.pt(+P: List<&2, U32>, +T: List<&2, U32>, +o: U32, +c: U32, +ho: {Bool.or(S.Has(P, o), S.Has(T, o)) == False{} : Bool},
+  +hc: {Bool.or(S.Has(P, c), S.Has(T, c)) == True{} : Bool}) -> {U32.is_eq(o, c) == False{} : Bool}:
+  bool.case(U32.is_eq(o, c), U32.is_eq(o, c), {U32.is_eq(o, c) == False{} : Bool}, {==},
+    e => CK.Bo.tf({U32.is_eq(o, c) == False{} : Bool},
+      Equal.trans(Bool, False{}, Bool.or(S.Has(P, o), S.Has(T, o)), True{}, Equal.sym(Bool, Bool.or(S.Has(P, o), S.Has(T, o)), False{}, ho),
+        Equal.trans(Bool, Bool.or(S.Has(P, o), S.Has(T, o)), Bool.or(S.Has(P, c), S.Has(T, c)), True{},
+          Equal.cong(U32, Bool, z => Bool.or(S.Has(P, z), S.Has(T, z)), o, c, CK.U.eq(o, c, e)), hc))),
+    e => e)
+
+# a live cell is neither garbage nor taken
+def lv.pt(+m: Cr.Cir.Cells, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +nx: U32, +fi: U32, +im: U32, +T: List<&2, U32>, +x: U32,
+  +hlv: {Lv(m, L, Y, x) == True{} : Bool}, +hx: {Cr.Cir.is_cell(x, im, fi, nx) == True{} : Bool},
+  +hig: {S.Incl.go(T, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), nx) == True{} : Bool},
+  +hKF: {U32.is_lt(im, fi) == True{} : Bool}, +hfn: {U32.is_le(fi, nx) == True{} : Bool}) ->
+  {Bool.or(S.Has(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), x), S.Has(T, x)) == False{} : Bool}:
+  +P = Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y)
+  +hp = gb.not(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y, x, hlv)
+  or.ff(S.Has(P, x), S.Has(T, x), hp, nt.of(T, P, nx, x, hig, hp, cell.lt(x, im, fi, nx, hx, hKF, hfn)))
+
+# no root of R (live nodes) is a cell of the garbage or a taken one
+def rcl.out(R: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +T: List<&2, U32>,
+  +hig: {S.Incl.go(T, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), nx) == True{} : Bool},
+  +hKF: {U32.is_lt(im, fi) == True{} : Bool}, +hfn: {U32.is_le(fi, nx) == True{} : Bool}, +c: U32,
+  +hc: {Bool.or(S.Has(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), c), S.Has(T, c)) == True{} : Bool},
+  hR: D.RtsK(True{}, ds, m, im, fi, nx, ks, img, R), hN: {NdAll(D.Rt.cells(R), L, m) == True{} : Bool}) -> {D.RcL(D.Rt.cells(R), c) == 0n : Nat}:
+  match R:
+    case Nil{}:
+      {==}
+    case Con{D.Rt{+o, +t}, +rest}:
+      (+hi, hr) = hR
+      +hn2 = hN
+      +ne = ne.pt(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), T, o, c,
+        lv.pt(m, L, Y, nx, fi, im, T, o, lv.nd(m, L, Y, o, CK.Bo.and_l(D.Nodes(L, m, o), NdAll(D.Rt.cells(rest), L, m), hn2)),
+          isk.cell(t, True{}, ds, m, im, fi, nx, ks, img, o, hi), hig, hKF, hfn), hc)
+      %Equal.sym(Bool, U32.is_eq(o, c), False{}, ne) : {Nat.add(D.Nat.of(_), D.RcL(D.Rt.cells(rest), c)) == 0n : Nat}
+      rcl.out(rest, ds, ks, img, m, nx, fi, im, L, Y, T, hig, hKF, hfn, c, hc, hr, CK.Bo.and_r(D.Nodes(L, m, o), NdAll(D.Rt.cells(rest), L, m), hn2))
+
+# a cell that stands for a term is no given-back root (field 0 not 45)
+def isk.n45(+v: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +c: U32, +h: D.IsK(True{}, ds, m, im, fi, nx, ks, img, c, v)) -> {U32.is_eq(S.Fd(0n, m, c), 45) == False{} : Bool}:
+  +hlt = {(%Equal.sym(U32, D.Tg(m, c), D.A.tag(v), isk.atag(v, True{}, ds, m, im, fi, nx, ks, img, c, h)) : {U32.is_lt(_, 19) == True{} : Bool}; atag.lt(v)) :
+    {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool}}
+  bool.case(U32.is_eq(S.Fd(0n, m, c), 45), U32.is_eq(S.Fd(0n, m, c), 45), {U32.is_eq(S.Fd(0n, m, c), 45) == False{} : Bool}, {==},
+    e => CK.Bo.tf({U32.is_eq(S.Fd(0n, m, c), 45) == False{} : Bool},
+      (%CK.U.eq(S.Fd(0n, m, c), 45, e) : {U32.is_lt(U32.and(_, 63), 19) == True{} : Bool}; hlt)),
+    e => e)
+
+# an old node of S (live) is neither garbage nor taken
+def sw.out(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +L: List<&2, D.Rt>, +Y: List<&2, U32>, +T: List<&2, U32>, +c: U32,
+  +hig: {S.Incl.go(T, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), nx) == True{} : Bool},
+  +hKF: {U32.is_lt(im, fi) == True{} : Bool}, +hfn: {U32.is_le(fi, nx) == True{} : Bool},
+  +sw: D.Ex(Bk.Term, v => D.P2(D.IsK(True{}, ds, m, im, fi, nx, ks, img, c, v), {Ln(v, m, c, L) == True{} : Bool}))) ->
+  {Bool.or(S.Has(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), c), S.Has(T, c)) == False{} : Bool}:
+  (+v, +sw1) = sw
+  (+hi, +hl) = sw1
+  lv.pt(m, L, Y, nx, fi, im, T, c, CK.Bo.or_il(Lv0(m, L, c), D.Mem(Y, c), ln.root(v, m, c, L, hl)),
+    isk.cell(v, True{}, ds, m, im, fi, nx, ks, img, c, hi), hig, hKF, hfn)
+
+# the result's root is no new garbage: an old node is live, a new one is taken and no given-back root
+def r.npn(+u: Bk.Term, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells,
+  +im: U32, +fi: U32, +nx: U32, +nx2: U32, +SR: List<&2, S.Rt>, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +TT: List<&2, U32>,
+  +Pn: List<&2, U32>, +n2: Nat, +Q: List<&2, U32>, +Qn: List<&2, U32>, +rr: U32, +cs: List<&2, U32>, +hc: List<&2, U32>,
+  +ic: IC(ds, ks, img, m, ms, im, fi, nx, nx2, SR, L, Y, TT, Pn, n2, Q, Qn, rr, cs, hc), +prs: List<&2, S.Pr>, +r: U32,
+  +hm: {S.Made(u, ms, m, r, SR, TT, prs) == True{} : Bool}, +hres: D.IsK(True{}, ds, ms, im, fi, nx2, ks, img, r, u),
+  +hgb: {S.Gb(Pn, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), TT, Qn, ms) == True{} : Bool}) -> {S.Has(Pn, r) == False{} : Bool}:
+  (+hS, +ic1) = ic
+  (+tbl, +ic2) = ic1
+  (+hL, +ic3) = ic2
+  (+hcl, +k) = ic3
+  +P = Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y)
+  +hig = kf.ig(m, ms, nx, nx2, fi, im, L, Y, TT, Pn, n2, Q, Qn, rr, k)
+  +hKF = kf.kf(m, ms, nx, nx2, fi, im, L, Y, TT, Pn, n2, Q, Qn, rr, k)
+  +hfn = kf.fn(m, ms, nx, nx2, fi, im, L, Y, TT, Pn, n2, Q, Qn, rr, k)
+  bool.case(S.Has(Pn, r), S.Has(Pn, r), {S.Has(Pn, r) == False{} : Bool}, {==},
+    +e => D.or.cases(S.Nodes(SR, m, r), S.Has(TT, r), {S.Has(Pn, r) == False{} : Bool}, made.top(u, ms, m, r, SR, TT, prs, hm),
+      +en => gbc.no(S.Has(P, r), S.Has(TT, r), Bool.and(U32.is_eq(S.Fd(0n, ms, r), 45), S.Has(Qn, r)), {S.Has(Pn, r) == False{} : Bool},
+        of.or.l(S.Has(P, r), S.Has(TT, r), sw.out(ds, ks, img, m, nx, fi, im, L, Y, TT, r, hig, hKF, hfn,
+          srck.sub(SR, ds, m, im, fi, nx, ks, img, L, Q, cs, hc, tbl, hL, hcl, hS, r, en))),
+        of.or.r(S.Has(P, r), S.Has(TT, r), sw.out(ds, ks, img, m, nx, fi, im, L, Y, TT, r, hig, hKF, hfn,
+          srck.sub(SR, ds, m, im, fi, nx, ks, img, L, Q, cs, hc, tbl, hL, hcl, hS, r, en))),
+        gb.get(Pn, P, TT, Qn, ms, r, hgb, e)),
+      et => gbc.t(S.Has(P, r), S.Has(TT, r), U32.is_eq(S.Fd(0n, ms, r), 45), S.Has(Qn, r), {S.Has(Pn, r) == False{} : Bool}, et,
+        isk.n45(u, ds, ms, im, fi, nx2, ks, img, r, hres), gb.get(Pn, P, TT, Qn, ms, r, hgb, e))),
+    e => e)
+
 # CopyQ, from Post and the result's IsK, the heap and AccK after the copy
 def cq.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg2: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
