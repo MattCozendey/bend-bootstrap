@@ -5229,6 +5229,251 @@ def rx.ln(t: Bk.Term, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
         CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Bool.and(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp)), CK.Bo.and_i(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_l(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp))), rx.ln(w, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(4n, m, r), hw, CK.Bo.and_r(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp))))))
 
 
+
+# each of the cells ys is a node of a term of L
+def NdAll(ys: List<&2, U32>, +L: List<&2, D.Rt>, +m: Cr.Cir.Cells) -> Bool:
+  match ys:
+    case Nil{}:
+      True{}
+    case Con{+y, rest}:
+      Bool.and(D.Nodes(L, m, y), NdAll(rest, L, m))
+
+def ndall.app(A: List<&2, U32>, +B: List<&2, U32>, +L: List<&2, D.Rt>, +m: Cr.Cir.Cells, ha: {NdAll(A, L, m) == True{} : Bool},
+  +hb: {NdAll(B, L, m) == True{} : Bool}) -> {NdAll(List.append(&2, U32, A, B), L, m) == True{} : Bool}:
+  match A:
+    case Nil{}:
+      hb
+    case Con{+y, +rest}:
+      +h2 = ha
+      CK.Bo.and_i(D.Nodes(L, m, y), NdAll(List.append(&2, U32, rest, B), L, m), CK.Bo.and_l(D.Nodes(L, m, y), NdAll(rest, L, m), h2),
+        ndall.app(rest, B, L, m, CK.Bo.and_r(D.Nodes(L, m, y), NdAll(rest, L, m), h2), hb))
+
+# the roots of the owned terms, of the temporaries' terms and of the frames' terms are live nodes
+def ndall.os(ys: List<&2, U32>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), hin: {D.AllIn(ys, D.Rt.cells(os)) == True{} : Bool}) -> {NdAll(ys, Lst(os, D.Tmp.held(xs), fs, m, sp), m) == True{} : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +h2 = hin
+      CK.Bo.and_i(D.Nodes(Lst(os, D.Tmp.held(xs), fs, m, sp), m, y), NdAll(rest, Lst(os, D.Tmp.held(xs), fs, m, sp), m),
+        nodes.in.l(os, List.append(&2, D.Rt, D.Tmp.held(xs), D.Fr.rts(fs, m, sp)), m, y,
+          root.nodes(os, m, y, D.and.l(D.Mem(D.Rt.cells(os), y), D.AllIn(rest, D.Rt.cells(os)), h2))),
+        ndall.os(rest, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, D.and.r(D.Mem(D.Rt.cells(os), y), D.AllIn(rest, D.Rt.cells(os)), h2)))
+
+def ndall.hl(ys: List<&2, U32>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), hin: {D.AllIn(ys, D.Rt.cells(D.Tmp.held(xs))) == True{} : Bool}) -> {NdAll(ys, Lst(os, D.Tmp.held(xs), fs, m, sp), m) == True{} : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +h2 = hin
+      CK.Bo.and_i(D.Nodes(Lst(os, D.Tmp.held(xs), fs, m, sp), m, y), NdAll(rest, Lst(os, D.Tmp.held(xs), fs, m, sp), m),
+        nodes.in.r(os, List.append(&2, D.Rt, D.Tmp.held(xs), D.Fr.rts(fs, m, sp)), m, y,
+          nodes.in.l(D.Tmp.held(xs), D.Fr.rts(fs, m, sp), m, y,
+            root.nodes(D.Tmp.held(xs), m, y, D.and.l(D.Mem(D.Rt.cells(D.Tmp.held(xs)), y), D.AllIn(rest, D.Rt.cells(D.Tmp.held(xs))), h2)))),
+        ndall.hl(rest, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, D.and.r(D.Mem(D.Rt.cells(D.Tmp.held(xs)), y), D.AllIn(rest, D.Rt.cells(D.Tmp.held(xs))), h2)))
+
+def ndall.fr(ys: List<&2, U32>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), hin: {D.AllIn(ys, D.Rt.cells(D.Fr.rts(fs, m, sp))) == True{} : Bool}) -> {NdAll(ys, Lst(os, D.Tmp.held(xs), fs, m, sp), m) == True{} : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +h2 = hin
+      CK.Bo.and_i(D.Nodes(Lst(os, D.Tmp.held(xs), fs, m, sp), m, y), NdAll(rest, Lst(os, D.Tmp.held(xs), fs, m, sp), m),
+        nodes.in.r(os, List.append(&2, D.Rt, D.Tmp.held(xs), D.Fr.rts(fs, m, sp)), m, y,
+          nodes.in.r(D.Tmp.held(xs), D.Fr.rts(fs, m, sp), m, y,
+            root.nodes(D.Fr.rts(fs, m, sp), m, y, D.and.l(D.Mem(D.Rt.cells(D.Fr.rts(fs, m, sp)), y), D.AllIn(rest, D.Rt.cells(D.Fr.rts(fs, m, sp))), h2)))),
+        ndall.fr(rest, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, D.and.r(D.Mem(D.Rt.cells(D.Fr.rts(fs, m, sp)), y), D.AllIn(rest, D.Rt.cells(D.Fr.rts(fs, m, sp))), h2)))
+
+# the live roots' terms, as the copy's roots, keep their checked terms
+def rts.of(R: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), +hK: {U32.is_le(290, im) == True{} : Bool}, +hKF: {U32.is_lt(im, fi) == True{} : Bool},
+  hR: D.RtsK(True{}, ds, m, im, fi, nx, ks, img, R), hN: {NdAll(D.Rt.cells(R), Lst(os, D.Tmp.held(xs), fs, m, sp), m) == True{} : Bool}) ->
+  S.Rts(m, ks, img, im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, Rs.of(R)):
+  match R:
+    case Nil{}:
+      Unit{}
+    case Con{D.Rt{+c, +t}, +rest}:
+      (hc0, hr) = hR
+      +hc = {hc0 : D.IsK(True{}, ds, m, im, fi, nx, ks, img, c, t)}
+      +hn2 = hN
+      (tm.is.at(Pg.Term.size(t), True{}, ds, m, im, fi, nx, ks, img, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), c, t, N.le_refl(Pg.Term.size(t)), hc,
+         rx.ln(t, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, c, hc, ln.live(t, True{}, ds, m, im, fi, nx, ks, img, ps, gc.tbl(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g), Lst(os, D.Tmp.held(xs), fs, m, sp), gc.L(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g), c, hc,
+           CK.Bo.and_l(D.Nodes(Lst(os, D.Tmp.held(xs), fs, m, sp), m, c), NdAll(D.Rt.cells(rest), Lst(os, D.Tmp.held(xs), fs, m, sp), m), hn2)))),
+       rts.of(rest, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, hr, CK.Bo.and_r(D.Nodes(Lst(os, D.Tmp.held(xs), fs, m, sp), m, c), NdAll(D.Rt.cells(rest), Lst(os, D.Tmp.held(xs), fs, m, sp), m), hn2)))
+
+# the temporaries, as the copy's
+def Tmps.of(ts: List<&2, D.TmpE>) -> List<&2, S.Tmp>:
+  match ts:
+    case Nil{}:
+      Nil{}
+    case Con{D.TmpE{c, h}, rest}:
+      Con{S.Tmp{c, Rs.of(h)}, Tmps.of(rest)}
+
+def tmps.cells(ts: List<&2, D.TmpE>) -> {S.Tmp.cells(Tmps.of(ts)) == D.Tmp.cells(ts) : List<&2, U32>}:
+  match ts:
+    case Nil{}:
+      {==}
+    case Con{D.TmpE{+c, +h}, +rest}:
+      Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{c, l}, S.Tmp.cells(Tmps.of(rest)), D.Tmp.cells(rest), tmps.cells(rest))
+
+def rs.of.app(A: List<&2, D.Rt>, +B: List<&2, D.Rt>) -> {Rs.of(List.append(&2, D.Rt, A, B)) == List.append(&2, S.Rt, Rs.of(A), Rs.of(B)) : List<&2, S.Rt>}:
+  match A:
+    case Nil{}:
+      {==}
+    case Con{D.Rt{+c, +t}, +rest}:
+      Equal.cong(List<&2, S.Rt>, List<&2, S.Rt>, l => Con{S.Rt{Pg.Term.size(t), c, t}, l}, Rs.of(List.append(&2, D.Rt, rest, B)),
+        List.append(&2, S.Rt, Rs.of(rest), Rs.of(B)), rs.of.app(rest, B))
+
+def tmps.held(ts: List<&2, D.TmpE>) -> {S.Tmp.held(Tmps.of(ts)) == Rs.of(D.Tmp.held(ts)) : List<&2, S.Rt>}:
+  match ts:
+    case Nil{}:
+      {==}
+    case Con{D.TmpE{+c, +h}, +rest}:
+      Equal.trans(List<&2, S.Rt>, List.append(&2, S.Rt, Rs.of(h), S.Tmp.held(Tmps.of(rest))), List.append(&2, S.Rt, Rs.of(h), Rs.of(D.Tmp.held(rest))),
+        Rs.of(List.append(&2, D.Rt, h, D.Tmp.held(rest))),
+        Equal.cong(List<&2, S.Rt>, List<&2, S.Rt>, l => List.append(&2, S.Rt, Rs.of(h), l), S.Tmp.held(Tmps.of(rest)), Rs.of(D.Tmp.held(rest)), tmps.held(rest)),
+        Equal.sym(List<&2, S.Rt>, Rs.of(List.append(&2, D.Rt, h, D.Tmp.held(rest))), List.append(&2, S.Rt, Rs.of(h), Rs.of(D.Tmp.held(rest))), rs.of.app(h, D.Tmp.held(rest))))
+
+def rs.of.cells(R: List<&2, D.Rt>) -> {S.Rt.cells(Rs.of(R)) == D.Rt.cells(R) : List<&2, U32>}:
+  match R:
+    case Nil{}:
+      {==}
+    case Con{D.Rt{+c, +t}, +rest}:
+      Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{c, l}, S.Rt.cells(Rs.of(rest)), D.Rt.cells(rest), rs.of.cells(rest))
+
+# The kept cells: the own cells of the machine's own kinds out of the pend list
+# -----------------------------------------------------------------------------
+
+def KlC(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +c: U32) -> Bool:
+  Bool.and(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), Bool.not(D.Mem(ps, c)))
+
+def Kl(k: Nat, +m: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>) -> List<&2, S.Kc>:
+  match k:
+    case 0n:
+      Nil{}
+    case 1n+(+p):
+      Bool.pick(List<&2, S.Kc>, KlC(m, ps, c), Con{S.Kc{c, Cr.Cir.Cells.get(m, c)}, Kl(p, m, U32.inc(c), ps)}, Kl(p, m, U32.inc(c), ps))
+
+# AccK's roots stand for their terms
+def gc.RS(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs)) -> D.RtsK(True{}, ds, m, im, fi, nx, ks, img, GRS(m, os, xs, fs, sp, zs)):
+  AC.rtsk.app(True{}, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)), ds, m, im, fi, nx, ks, img, gc.os(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g),
+    AC.rtsk.app(True{}, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs), ds, m, im, fi, nx, ks, img, gc.hl(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g),
+      AC.rtsk.app(True{}, D.Fr.rts(fs, m, sp), zs, ds, m, im, fi, nx, ks, img, AC.frs.rtsk(True{}, ds, m, im, fi, nx, ks, img, ps, fs, sp, gc.frs(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g)),
+        gc.zs(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g))))
+
+# a node of a term is no cell of the machine's own kinds
+def nd.k19(-ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
+  -b: Nat, +c: U32, -G: Type, ex: D.Ex(Bk.Term, v => D.P2(D.IsK(True{}, ds, m, im, fi, nx, ks, img, c, v), N.Le(Pg.Term.size(v), b))),
+  h: {Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))) == True{} : Bool}) -> G:
+  +h19 = zom.ex(ds, m, im, fi, nx, ks, img, b, c, ex)
+  Empty.absurd(G, N.not_succ_le(U32.to_nat(D.Tg(m, c)), N.le_trans(1n+U32.to_nat(D.Tg(m, c)), 19n, U32.to_nat(D.Tg(m, c)), CK.U.lt(D.Tg(m, c), 19, h19),
+    (%Equal.sym(Bool, Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), True{}, h) : N.T(_); Unit{}))))
+
+# a kept cell is live
+def kc.lv(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), +c: U32, hcv: {CovAt(m, c, GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))) == True{} : Bool}, +hkl: {KlC(m, ps, c) == True{} : Bool},
+  +hnf: {D.Mem(D.Fr.cells(fs, m, sp), c) == False{} : Bool}) -> {Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool}:
+  D.or.cases(D.Fl(m, c, 1024), Bool.or(D.Nodes(GRS(m, os, xs, fs, sp, zs), m, c), D.Mem(List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps)), c)), {Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool}, hcv,
+    e => lv.st(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c, e),
+    e => D.or.cases(D.Nodes(GRS(m, os, xs, fs, sp, zs), m, c), D.Mem(List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps)), c), {Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool}, e,
+      e1 => nd.k19(ds, m, im, fi, nx, ks, img, D.Rts.size(GRS(m, os, xs, fs, sp, zs)), c, {Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool},
+        nodes.sub(GRS(m, os, xs, fs, sp, zs), ds, m, im, fi, nx, ks, img, c, gc.RS(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g), e1),
+        CK.Bo.and_l(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), Bool.not(D.Mem(ps, c)), hkl)),
+      e1 => D.or.cases(D.Mem(D.Fr.cells(fs, m, sp), c), D.Mem(List.append(&2, U32, D.Tmp.cells(xs), ps), c), {Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool},
+        mem.split(D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps), c, e1),
+        e2 => CK.Bo.tf({Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool}, Equal.trans(Bool, False{}, D.Mem(D.Fr.cells(fs, m, sp), c), True{},
+          Equal.sym(Bool, D.Mem(D.Fr.cells(fs, m, sp), c), False{}, hnf), e2)),
+        e2 => D.or.cases(D.Mem(D.Tmp.cells(xs), c), D.Mem(ps, c), {Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool}, mem.split(D.Tmp.cells(xs), ps, c, e2),
+          e3 => lv.y(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c, mem.in.r(D.Fr.cells(fs, m, sp), D.Tmp.cells(xs), c, e3)),
+          e3 => CK.Bo.tf({Lv(m, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c) == True{} : Bool}, Equal.trans(Bool, False{}, D.Mem(ps, c), True{},
+            Equal.sym(Bool, D.Mem(ps, c), False{}, CK.Bo.not_t(D.Mem(ps, c), CK.Bo.and_r(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), Bool.not(D.Mem(ps, c)), hkl))), e3))))))
+
+# an own cell is a cell, and no table cell (it is past the image, past 290)
+def own.cell(+c: U32, +im: U32, +fi: U32, +nx: U32, +h1: N.Le(U32.to_nat(fi), U32.to_nat(c)), +h2: N.Le(1n+U32.to_nat(c), U32.to_nat(nx))) ->
+  {Cr.Cir.is_cell(c, im, fi, nx) == True{} : Bool}:
+  CK.Bo.or_ir(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, im)), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)),
+    CK.Bo.and_i(U32.is_le(fi, c), U32.is_lt(c, nx), CK.U.le_t(fi, c, h1), CK.U.lt_t(c, nx, h2)))
+
+def own.ntb(+c: U32, +im: U32, +fi: U32, +h1: N.Le(U32.to_nat(fi), U32.to_nat(c)), +hK: {U32.is_le(290, im) == True{} : Bool},
+  +hKF: {U32.is_lt(im, fi) == True{} : Bool}) -> {S.Tbc(c) == False{} : Bool}:
+  +n290 = bool.case(U32.is_le(c, 290), U32.is_le(c, 290), {U32.is_le(c, 290) == False{} : Bool}, {==},
+    e => CK.U.lt_ge(c, fi, {U32.is_le(c, 290) == False{} : Bool},
+      CK.U.le_lt(c, im, fi, CK.U.le_t(c, im, N.le_trans(U32.to_nat(c), U32.to_nat(290), U32.to_nat(im), CK.U.le(c, 290, e), CK.U.le(290, im, hK))), hKF),
+      CK.U.le_t(fi, c, h1)),
+    e => e)
+  %Equal.sym(Bool, U32.is_le(c, 290), False{}, n290) : {Bool.and(U32.is_le(272, c), _) == False{} : Bool}
+  and.f(U32.is_le(272, c))
+
+def kc.ok(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), +hK: {U32.is_le(290, im) == True{} : Bool}, +hKF: {U32.is_lt(im, fi) == True{} : Bool}, +c: U32,
+  +hcv: {CovAt(m, c, GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))) == True{} : Bool}, +hkl: {KlC(m, ps, c) == True{} : Bool},
+  +h1: N.Le(U32.to_nat(fi), U32.to_nat(c)), +h2: N.Le(1n+U32.to_nat(c), U32.to_nat(nx)), +h2f: N.Le(1n+U32.to_nat(c), Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx), U32.to_nat(fi))))) ->
+  {S.Kc.ok(im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, D.Fr.cells(fs, m, sp), c, Cr.Cir.Cells.get(m, c)) == True{} : Bool}:
+  +K19 = Nat.is_le(19n, U32.to_nat(U32.and(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), 63)))
+  +A1 = Bool.and(S.Al(im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, c), K19)
+  +B1 = Bool.and(S.Has(D.Fr.cells(fs, m, sp), c), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)))
+  bool.case(S.Has(D.Fr.cells(fs, m, sp), c), S.Has(D.Fr.cells(fs, m, sp), c), {Bool.or(A1, B1) == True{} : Bool}, {==},
+    e => CK.Bo.or_ir(A1, B1, CK.Bo.and_i(S.Has(D.Fr.cells(fs, m, sp), c), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)), e,
+      CK.Bo.and_i(U32.is_le(fi, c), U32.is_lt(c, nx), CK.U.le_t(fi, c, h1), CK.U.lt_t(c, nx, h2)))),
+    +e => CK.Bo.or_il(A1, B1, CK.Bo.and_i(S.Al(im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, c), K19,
+      CK.Bo.and_i(Cr.Cir.is_cell(c, im, fi, nx), Bool.and(Bool.not(S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), c)), Bool.not(S.Tbc(c))), own.cell(c, im, fi, nx, h1, h2),
+        CK.Bo.and_i(Bool.not(S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), c)), Bool.not(S.Tbc(c)),
+          CK.Bo.not_i(S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), c), (%Equal.sym(Bool, S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), c), Bool.or(S.Has(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), c), S.Has(D.Fr.cells(fs, m, sp), c)), has.app(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp), c)) :
+            {_ == False{} : Bool}; or.ff(S.Has(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), c), S.Has(D.Fr.cells(fs, m, sp), c),
+              gb.not(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), c, kc.lv(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, c, hcv, hkl,
+                {(%Equal.sym(Bool, D.Mem(D.Fr.cells(fs, m, sp), c), S.Has(D.Fr.cells(fs, m, sp), c), mem.has(D.Fr.cells(fs, m, sp), c)) : {_ == False{} : Bool}; e) :
+                  {D.Mem(D.Fr.cells(fs, m, sp), c) == False{} : Bool}})), e))),
+          CK.Bo.not_i(S.Tbc(c), own.ntb(c, im, fi, h1, hK, hKF)))),
+      CK.Bo.and_l(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), Bool.not(D.Mem(ps, c)), hkl))))
+
+def kcs.kl.b(b: Bool, +q: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), +hK: {U32.is_le(290, im) == True{} : Bool}, +hKF: {U32.is_lt(im, fi) == True{} : Bool}, +c: U32,
+  eb: {KlC(m, ps, c) == b : Bool}, +hcv: {CovAt(m, c, GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))) == True{} : Bool},
+  +h1: N.Le(U32.to_nat(fi), U32.to_nat(c)), +hw: N.Le(Nat.add(U32.to_nat(c), 1n+q), U32.to_nat(nx)),
+  ih: S.Kcs(m, im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, D.Fr.cells(fs, m, sp), Kl(q, m, U32.inc(c), ps))) ->
+  S.Kcs(m, im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, D.Fr.cells(fs, m, sp),
+    Bool.pick(List<&2, S.Kc>, b, Con{S.Kc{c, Cr.Cir.Cells.get(m, c)}, Kl(q, m, U32.inc(c), ps)}, Kl(q, m, U32.inc(c), ps))):
+  match b:
+    case True{}:
+      +h2 = w.lt(c, q, nx, hw)
+      +efn = D.add.sub(U32.to_nat(fi), U32.to_nat(nx), CK.U.le(fi, nx, gc.fn(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g)))
+      ({==}, (kc.ok(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, c, hcv, eb, h1, h2,
+        N.le_rw_r(1n+U32.to_nat(c), U32.to_nat(nx), Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx), U32.to_nat(fi))), Equal.sym(Nat, Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx), U32.to_nat(fi))), U32.to_nat(nx), efn), h2)), ih))
+    case False{}:
+      ih
+
+def kcs.kl(k: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), +hK: {U32.is_le(290, im) == True{} : Bool}, +hKF: {U32.is_lt(im, fi) == True{} : Bool}, +c: U32,
+  hcov: {D.Cov(k, m, c, GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))) == True{} : Bool}, +h1: N.Le(U32.to_nat(fi), U32.to_nat(c)),
+  +hw: N.Le(Nat.add(U32.to_nat(c), k), U32.to_nat(nx))) -> S.Kcs(m, im, fi, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), nx, D.Fr.cells(fs, m, sp), Kl(k, m, c, ps)):
+  match k:
+    case 0n:
+      Unit{}
+    case 1n+(+q):
+      +hc2 = hcov
+      +ei = D.u.inc(c, nx, w.lt(c, q, nx, hw))
+      kcs.kl.b(KlC(m, ps, c), q, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, c, {==},
+        D.and.l(CovAt(m, c, GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))), D.Cov(q, m, U32.inc(c), GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))), hc2), h1, hw,
+        kcs.kl(q, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, U32.inc(c),
+          D.and.r(CovAt(m, c, GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))), D.Cov(q, m, U32.inc(c), GRS(m, os, xs, fs, sp, zs), List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))), hc2),
+          N.le_trans(U32.to_nat(fi), U32.to_nat(c), U32.to_nat(U32.inc(c)), h1,
+            N.le_rw_r(U32.to_nat(c), 1n+U32.to_nat(c), U32.to_nat(U32.inc(c)), Equal.sym(Nat, U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), ei),
+              N.le_succ(U32.to_nat(c), U32.to_nat(c), N.le_refl(U32.to_nat(c))))),
+          w.next(c, q, nx, hw)))
+
 # The laws
 # --------
 
