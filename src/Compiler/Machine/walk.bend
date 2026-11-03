@@ -25,6 +25,7 @@ import ../need_big.bend as N
 import ./heap_ops.bend as HO
 import ./accounting.bend as AC
 import ./data_check.bend as DC
+import ./moves_match.bend as MM
 
 # Phases inside WP
 # ----------------
