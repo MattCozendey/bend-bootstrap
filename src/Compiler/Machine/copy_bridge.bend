@@ -6970,6 +6970,255 @@ def kp.ln(t: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +ms: C
             CK.Bo.and_i(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)), kp.ln(z, dk, ds, m, ms, im, fi, nx, ks, img, L, Y, T, Pn, n2, Q, Qn, rr, D.Fd(3n, m, r), h2, CK.Bo.and_l(Ln(z, m, D.Fd(3n, m, r), L), Ln(w, m, D.Fd(4n, m, r), L), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), L), Bool.and(Ln(z, m, D.Fd(3n, m, r), L), Ln(w, m, D.Fd(4n, m, r), L)), hp)), hkept, hsame, hig, hKF, hfn),
             kp.ln(w, dk, ds, m, ms, im, fi, nx, ks, img, L, Y, T, Pn, n2, Q, Qn, rr, D.Fd(4n, m, r), h3, CK.Bo.and_r(Ln(z, m, D.Fd(3n, m, r), L), Ln(w, m, D.Fd(4n, m, r), L), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), L), Bool.and(Ln(z, m, D.Fd(3n, m, r), L), Ln(w, m, D.Fd(4n, m, r), L)), hp)), hkept, hsame, hig, hKF, hfn))))
 
+# The kept cells' values
+# ----------------------
+
+def kept.if.of(b: Bool, -X: Data, x: X) -> D.Kept.if(b, X):
+  match b:
+    case True{}:
+      Unit{}
+    case False{}:
+      x
+
+# a cell that is not kept (KlC false) is pending or a term cell
+def kept.cond(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +c: U32, eb: {KlC(m, ps, c) == False{} : Bool}) ->
+  {Bool.or(D.Mem(List.append(&2, U32, ps, Nil{}), c), U32.is_lt(D.Tg(m, c), 19)) == True{} : Bool}:
+  +G = Bool.or(D.Mem(List.append(&2, U32, ps, Nil{}), c), U32.is_lt(D.Tg(m, c), 19))
+  bool.case(U32.is_lt(D.Tg(m, c), 19), U32.is_lt(D.Tg(m, c), 19), {G == True{} : Bool}, {==},
+    e => CK.Bo.or_ir(D.Mem(List.append(&2, U32, ps, Nil{}), c), U32.is_lt(D.Tg(m, c), 19), e),
+    e => CK.Bo.or_il(D.Mem(List.append(&2, U32, ps, Nil{}), c), U32.is_lt(D.Tg(m, c), 19),
+      mem.in.l(ps, Nil{}, c, CK.Bo.not_f(D.Mem(ps, c),
+        Equal.trans(Bool, Bool.not(D.Mem(ps, c)), KlC(m, ps, c), False{},
+          Equal.cong(Bool, Bool, z => Bool.and(z, Bool.not(D.Mem(ps, c))), True{}, Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))),
+            Equal.sym(Bool, Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), True{},
+              of.t(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), CK.U.le(19, D.Tg(m, c), nlt.le(D.Tg(m, c), 19, e))))),
+          eb)))))
+
+# the copy keeps the value of each own cell of the machine's own kinds out of
+# the pend list (Kcs of Kl): Kept.go
+def kept.go.b(b: Bool, +q: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, eb: {KlC(m, ps, c) == b : Bool},
+  h: S.Kcs(ms, K, F, X, N, E, Bool.pick(List<&2, S.Kc>, b, Con{S.Kc{c, Cr.Cir.Cells.get(m, c)}, Kl(q, m, U32.inc(c), ps)}, Kl(q, m, U32.inc(c), ps))),
+  ih: S.Kcs(ms, K, F, X, N, E, Kl(q, m, U32.inc(c), ps)) -> D.Kept.go(q, m, ms, List.append(&2, U32, ps, Nil{}), U32.inc(c))) ->
+  D.Kept.go(1n+q, m, ms, List.append(&2, U32, ps, Nil{}), c):
+  match b:
+    case True{}:
+      (hg, h1) = h
+      (_, hr) = h1
+      (kept.if.of(Bool.or(D.Mem(List.append(&2, U32, ps, Nil{}), c), U32.is_lt(D.Tg(m, c), 19)), {Cr.Cir.Cells.get(ms, c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell}, hg),
+       ih(hr))
+    case False{}:
+      ((%Equal.sym(Bool, Bool.or(D.Mem(List.append(&2, U32, ps, Nil{}), c), U32.is_lt(D.Tg(m, c), 19)), True{}, kept.cond(m, ps, c, eb)) :
+          D.Kept.if(_, {Cr.Cir.Cells.get(ms, c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell}); Unit{}),
+       ih(h))
+
+def kept.go(k: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>,
+  h: S.Kcs(ms, K, F, X, N, E, Kl(k, m, c, ps))) -> D.Kept.go(k, m, ms, List.append(&2, U32, ps, Nil{}), c):
+  match k:
+    case 0n:
+      Unit{}
+    case 1n+(+q):
+      kept.go.b(KlC(m, ps, c), q, m, ms, c, ps, K, F, X, N, E, {==}, h, hh => kept.go(q, m, ms, U32.inc(c), ps, K, F, X, N, E, hh))
+
+# a kept cell among the k cells from c keeps its value
+def kcs.get.b(b: Bool, +q: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +x: U32, +ps: List<&2, U32>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, eb: {KlC(m, ps, c) == b : Bool}, +ex: {U32.is_eq(c, x) == True{} : Bool},
+  +hkl: {KlC(m, ps, x) == True{} : Bool},
+  h: S.Kcs(ms, K, F, X, N, E, Bool.pick(List<&2, S.Kc>, b, Con{S.Kc{c, Cr.Cir.Cells.get(m, c)}, Kl(q, m, U32.inc(c), ps)}, Kl(q, m, U32.inc(c), ps)))) ->
+  {Cr.Cir.Cells.get(ms, x) == Cr.Cir.Cells.get(m, x) : Cr.Cir.Cell}:
+  match b:
+    case True{}:
+      (hg, _) = h
+      (%CK.U.eq(c, x, ex) : {Cr.Cir.Cells.get(ms, _) == Cr.Cir.Cells.get(m, _) : Cr.Cir.Cell}; hg)
+    case False{}:
+      CK.Bo.tf({Cr.Cir.Cells.get(ms, x) == Cr.Cir.Cells.get(m, x) : Cr.Cir.Cell},
+        Equal.trans(Bool, False{}, KlC(m, ps, c), True{}, Equal.sym(Bool, KlC(m, ps, c), False{}, eb),
+          (%Equal.sym(U32, c, x, CK.U.eq(c, x, ex)) : {KlC(m, ps, _) == True{} : Bool}; hkl)))
+
+def kcs.get.n(b: Bool, +q: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +E: List<&2, U32>,
+  h: S.Kcs(ms, K, F, X, N, E, Bool.pick(List<&2, S.Kc>, b, Con{S.Kc{c, Cr.Cir.Cells.get(m, c)}, Kl(q, m, U32.inc(c), ps)}, Kl(q, m, U32.inc(c), ps)))) ->
+  S.Kcs(ms, K, F, X, N, E, Kl(q, m, U32.inc(c), ps)):
+  match b:
+    case True{}:
+      (_, h1) = h
+      (_, hr) = h1
+      hr
+    case False{}:
+      h
+
+def kcs.get(k: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +x: U32, +ps: List<&2, U32>, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32,
+  +E: List<&2, U32>, +h: S.Kcs(ms, K, F, X, N, E, Kl(k, m, c, ps)), +hkl: {KlC(m, ps, x) == True{} : Bool},
+  +h1: N.Le(U32.to_nat(c), U32.to_nat(x)), +h2: N.Le(1n+U32.to_nat(x), Nat.add(U32.to_nat(c), k))) ->
+  {Cr.Cir.Cells.get(ms, x) == Cr.Cir.Cells.get(m, x) : Cr.Cir.Cell}:
+  match k:
+    case 0n:
+      rng.none({Cr.Cir.Cells.get(ms, x) == Cr.Cir.Cells.get(m, x) : Cr.Cir.Cell}, c, x, h1, h2)
+    case 1n+(+q):
+      bool.case(U32.is_eq(c, x), U32.is_eq(c, x), {Cr.Cir.Cells.get(ms, x) == Cr.Cir.Cells.get(m, x) : Cr.Cir.Cell}, {==},
+        e => kcs.get.b(KlC(m, ps, c), q, m, ms, c, x, ps, K, F, X, N, E, {==}, e, hkl, h),
+        +e => kcs.get(q, m, ms, U32.inc(c), x, ps, K, F, X, N, E, kcs.get.n(KlC(m, ps, c), q, m, ms, c, ps, K, F, X, N, E, h), hkl,
+          rng.lo(q, c, x, e, h1), rng.hi(q, c, x, e, h1, h2)))
+
+# the fields 2 to 4 of a cell that keeps them
+def same.fd2(+m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +p: U32, h: {S.Same.at(m, ms, p) == True{} : Bool}) -> {D.Fd(2n, ms, p) == D.Fd(2n, m, p) : U32}:
+  CK.U.eq(S.Fd(2n, ms, p), S.Fd(2n, m, p), CK.Bo.and_l(U32.is_eq(S.Fd(2n, ms, p), S.Fd(2n, m, p)), Bool.and(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p))),
+    CK.Bo.and_r(U32.is_eq(S.Fd(0n, ms, p), S.Fd(0n, m, p)), Bool.and(U32.is_eq(S.Fd(2n, ms, p), S.Fd(2n, m, p)), Bool.and(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p)))), h)))
+
+def same.fd3(+m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +p: U32, h: {S.Same.at(m, ms, p) == True{} : Bool}) -> {D.Fd(3n, ms, p) == D.Fd(3n, m, p) : U32}:
+  CK.U.eq(S.Fd(3n, ms, p), S.Fd(3n, m, p), CK.Bo.and_l(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p)),
+    CK.Bo.and_r(U32.is_eq(S.Fd(2n, ms, p), S.Fd(2n, m, p)), Bool.and(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p))),
+      CK.Bo.and_r(U32.is_eq(S.Fd(0n, ms, p), S.Fd(0n, m, p)), Bool.and(U32.is_eq(S.Fd(2n, ms, p), S.Fd(2n, m, p)), Bool.and(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p)))), h))))
+
+def same.fd4(+m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +p: U32, h: {S.Same.at(m, ms, p) == True{} : Bool}) -> {D.Fd(4n, ms, p) == D.Fd(4n, m, p) : U32}:
+  CK.U.eq(S.Fd(4n, ms, p), S.Fd(4n, m, p), CK.Bo.and_r(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p)),
+    CK.Bo.and_r(U32.is_eq(S.Fd(2n, ms, p), S.Fd(2n, m, p)), Bool.and(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p))),
+      CK.Bo.and_r(U32.is_eq(S.Fd(0n, ms, p), S.Fd(0n, m, p)), Bool.and(U32.is_eq(S.Fd(2n, ms, p), S.Fd(2n, m, p)), Bool.and(U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p)), U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p)))), h))))
+
+# the nodes of a kept term are the same after the copy (Node reads fields 2 to 4)
+def node.kp(t: Bk.Term, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +r: U32, +c: U32, hk: {Kp(t, m, ms, r) == True{} : Bool}) ->
+  {D.Node(t, ms, r, c) == D.Node(t, m, r, c) : Bool}:
+  match t:
+    case Bk.Term.Var{+i}:
+      {==}
+    case Bk.Term.Ref{+k}:
+      {==}
+    case Bk.Term.Ann{+y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx)))))
+    case Bk.Term.Let{+q, +y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx)))))
+    case Bk.Term.Typ{+y}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Kp(y, m, ms, D.Fd(2n, m, r)), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Kp(y, m, ms, D.Fd(2n, m, r)), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), {==},
+        Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, hx)))
+    case Bk.Term.Min{+y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx)))))
+    case Bk.Term.All{+q, +y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx)))))
+    case Bk.Term.Lam{+q, +y}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Kp(y, m, ms, D.Fd(2n, m, r)), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Kp(y, m, ms, D.Fd(2n, m, r)), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), {==},
+        Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, hx)))
+    case Bk.Term.App{+q, +y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx)))))
+    case Bk.Term.Sig{+q, +y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx)))))
+    case Bk.Term.Tup{+q, +y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Kp(z, m, ms, D.Fd(3n, m, r)), hx)))))
+    case Bk.Term.Prj{+y}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Kp(y, m, ms, D.Fd(2n, m, r)), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Kp(y, m, ms, D.Fd(2n, m, r)), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), {==},
+        Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, hx)))
+    case Bk.Term.Enu{+k}:
+      {==}
+    case Bk.Term.Lab{+k}:
+      {==}
+    case Bk.Term.Mat{+k, +y, +z}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(3n, m, r)), Kp(z, m, ms, D.Fd(4n, m, r))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(3n, m, r)), Kp(z, m, ms, D.Fd(4n, m, r))), hk2)
+      +e3 = same.fd3(m, ms, r, hs)
+      +e4 = same.fd4(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(4n, ms, r), c)), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(4n, m, r), c)), {==},
+        or.cong(D.Node(y, ms, D.Fd(3n, ms, r), c), D.Node(y, m, D.Fd(3n, m, r), c), D.Node(z, ms, D.Fd(4n, ms, r), c), D.Node(z, m, D.Fd(4n, m, r), c),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(3n, ms, r), c), D.Node(y, ms, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(y, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(3n, m, r)), Kp(z, m, ms, D.Fd(4n, m, r)), hx))),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(4n, ms, r), c), D.Node(z, ms, D.Fd(4n, m, r), c), D.Node(z, m, D.Fd(4n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(4n, ms, r), D.Fd(4n, m, r), e4), node.kp(z, m, ms, D.Fd(4n, m, r), c, CK.Bo.and_r(Kp(y, m, ms, D.Fd(3n, m, r)), Kp(z, m, ms, D.Fd(4n, m, r)), hx)))))
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+y, +z, +w}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      +e4 = same.fd4(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), Bool.or(D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(w, ms, D.Fd(4n, ms, r), c))), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), Bool.or(D.Node(z, m, D.Fd(3n, m, r), c), D.Node(w, m, D.Fd(4n, m, r), c))), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Bool.or(D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(w, ms, D.Fd(4n, ms, r), c)), Bool.or(D.Node(z, m, D.Fd(3n, m, r), c), D.Node(w, m, D.Fd(4n, m, r), c)),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r))), hx))),
+          or.cong(D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c), D.Node(w, ms, D.Fd(4n, ms, r), c), D.Node(w, m, D.Fd(4n, m, r), c),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_l(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)), CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r))), hx)))),
+          Equal.trans(Bool, D.Node(w, ms, D.Fd(4n, ms, r), c), D.Node(w, ms, D.Fd(4n, m, r), c), D.Node(w, m, D.Fd(4n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(w, ms, ad, c), D.Fd(4n, ms, r), D.Fd(4n, m, r), e4), node.kp(w, m, ms, D.Fd(4n, m, r), c, CK.Bo.and_r(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)), CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r))), hx)))))))
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+y, +z, +w}:
+      +hk2 = hk
+      +hs = CK.Bo.and_l(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)))), hk2)
+      +hx = CK.Bo.and_r(S.Same.at(m, ms, r), Bool.and(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)))), hk2)
+      +e2 = same.fd2(m, ms, r, hs)
+      +e3 = same.fd3(m, ms, r, hs)
+      +e4 = same.fd4(m, ms, r, hs)
+      or.cong(U32.is_eq(r, c), U32.is_eq(r, c), Bool.or(D.Node(y, ms, D.Fd(2n, ms, r), c), Bool.or(D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(w, ms, D.Fd(4n, ms, r), c))), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), Bool.or(D.Node(z, m, D.Fd(3n, m, r), c), D.Node(w, m, D.Fd(4n, m, r), c))), {==},
+        or.cong(D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Bool.or(D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(w, ms, D.Fd(4n, ms, r), c)), Bool.or(D.Node(z, m, D.Fd(3n, m, r), c), D.Node(w, m, D.Fd(4n, m, r), c)),
+          Equal.trans(Bool, D.Node(y, ms, D.Fd(2n, ms, r), c), D.Node(y, ms, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(2n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(y, ms, ad, c), D.Fd(2n, ms, r), D.Fd(2n, m, r), e2), node.kp(y, m, ms, D.Fd(2n, m, r), c, CK.Bo.and_l(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r))), hx))),
+          or.cong(D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, m, D.Fd(3n, m, r), c), D.Node(w, ms, D.Fd(4n, ms, r), c), D.Node(w, m, D.Fd(4n, m, r), c),
+          Equal.trans(Bool, D.Node(z, ms, D.Fd(3n, ms, r), c), D.Node(z, ms, D.Fd(3n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(z, ms, ad, c), D.Fd(3n, ms, r), D.Fd(3n, m, r), e3), node.kp(z, m, ms, D.Fd(3n, m, r), c, CK.Bo.and_l(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)), CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r))), hx)))),
+          Equal.trans(Bool, D.Node(w, ms, D.Fd(4n, ms, r), c), D.Node(w, ms, D.Fd(4n, m, r), c), D.Node(w, m, D.Fd(4n, m, r), c), Equal.cong(U32, Bool, ad => D.Node(w, ms, ad, c), D.Fd(4n, ms, r), D.Fd(4n, m, r), e4), node.kp(w, m, ms, D.Fd(4n, m, r), c, CK.Bo.and_r(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r)), CK.Bo.and_r(Kp(y, m, ms, D.Fd(2n, m, r)), Bool.and(Kp(z, m, ms, D.Fd(3n, m, r)), Kp(w, m, ms, D.Fd(4n, m, r))), hx)))))))
+
 # The laws
 # --------
 
