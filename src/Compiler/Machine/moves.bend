@@ -34,6 +34,9 @@ import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
 import ./cell_terms.bend as T
 import ../need_big.bend as N
+import ./copy_terms.bend as CT
+import ./free_variables.bend as Fv
+import ./read_bound.bend as Rb
 import ./definitions.bend as D
 import ./statement_runs.bend as X
 import ./move_kit.bend as K
@@ -56,7 +59,8 @@ import ./moves_call.bend as U14
 
 # mode 0: by the flag VALUE of the focus' cell, then by its term
 def round.ev(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term, eb: {D.Fl(m, foc, 256) == b : Bool},
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, False{}, focus, fs, ps)) -> K.MV(ds, ks, img, D.S(foc, 0, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, False{}, focus, fs, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, 0, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match b:
     case True{}:
       K.mv.ev.val(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, iv, eb)
@@ -65,13 +69,13 @@ def round.ev(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
         case Bk.Term.Var{+i}:
           K.mv.ev.var(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, i, iv, eb)
         case Bk.Term.Ref{+k}:
-          K.mv.ev.ref(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, k, iv, eb)
+          K.mv.ev.ref(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, k, iv, eb, hfv)
         case Bk.Term.Ann{+x, +y}:
           K.mv.ev.ann(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, x, y, iv, eb)
         case Bk.Term.Let{+q, +v, +b2}:
           match q:
             case Bk.Quan.Q0{}:
-              K.mv.ev.unlet(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Quan.Q0{}, v, b2, iv, eb, {==})
+              K.mv.ev.unlet(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Quan.Q0{}, v, b2, iv, eb, {==}, hfv)
             case Bk.Quan.Q1{}:
               K.mv.ev.let(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Quan.Q1{}, v, b2, iv, eb, {==})
             case Bk.Quan.Q2{}:
@@ -117,101 +121,104 @@ def round.ev(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
 # the value's term
 def round.app(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term, +kind: D.FK, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +bb: Bk.Term,
   eb: {Bool.and(El.Quan.live(q), Bool.not(k)) == b : Bool}, hk: {K.FK.isapp(kind) == True{} : Bool},
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{kind, q, k, a, bb}, fs}, ps)) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{kind, q, k, a, bb}, fs}, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match b:
     case True{}:
       K.mv.ret.swap(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, kind, q, k, a, bb, iv, hk, eb)
     case False{}:
       match focus:
         case Bk.Term.Var{+i}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Ref{+kk}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Ann{+x, +y}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Let{+qq, +v, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{qq, v, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{qq, v, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Typ{+x}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Min{+aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.All{+qq, +aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Lam{+r, +b2}:
-          K.mv.ret.app.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, kind, q, k, a, bb, iv, hk, eb)
+          K.mv.ret.app.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, kind, q, k, a, bb, iv, hk, eb, hfv)
         case Bk.Term.App{+qq, +g, +x}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{qq, g, x}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{qq, g, x}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Sig{+qq, +aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Tup{+qq, +aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Prj{+h}:
           K.mv.ret.app.prj(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, h, kind, q, k, a, bb, iv, hk, eb)
         case Bk.Term.Enu{+e}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Lab{+kk}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Mat{+kk, +h, +n}:
           K.mv.ret.app.mat(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, kk, h, n, kind, q, k, a, bb, iv, hk, eb)
         case Bk.Term.Efq{}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Eql{+aa, +b2, +y}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{aa, b2, y}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{aa, b2, y}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Rfl{}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Rwt{+e, +p2, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
 
 # mode 1, App q g □: the redex, by the function's term
 def round.fun(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term, +q: Bk.Quan, +k: Bool, +g: Bk.Term, +bb: Bk.Term,
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{D.FK.fun{}, q, k, g, bb}, fs}, ps)) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{D.FK.fun{}, q, k, g, bb}, fs}, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match g:
     case Bk.Term.Var{+i}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Ref{+kk}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Ann{+x, +y}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Let{+r, +v, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{r, v, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{r, v, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Typ{+x}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Min{+a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.All{+r, +a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{r, a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{r, a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Lam{+r, +b2}:
-      K.mv.ret.fun.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, focus, q, k, bb, iv)
+      K.mv.ret.fun.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, focus, q, k, bb, iv, hfv)
     case Bk.Term.App{+r, +g, +x}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{r, g, x}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{r, g, x}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Sig{+r, +a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{r, a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{r, a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Tup{+r, +a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{r, a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{r, a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Prj{+h}:
       K.mv.ret.fun.prj(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, h, focus, q, k, bb, iv)
     case Bk.Term.Enu{+e}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Lab{+kk}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Mat{+kk, +h, +n}:
       K.mv.ret.fun.mat(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, kk, h, n, focus, q, k, bb, iv)
     case Bk.Term.Efq{}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Eql{+a, +b2, +y}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{a, b2, y}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{a, b2, y}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Rfl{}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Rwt{+e, +p2, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, focus, q, k, bb, iv, {==}, hfv)
 
 # the move of a state that Inv finds: by the mode, then by the focus or the
 # top frame
 def round.go(+ret: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term,
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, ret, focus, fs, ps)) -> K.MV(ds, ks, img, D.S(foc, Bool.to_u32(ret), sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, ret, focus, fs, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, Bool.to_u32(ret), sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match ret:
     case False{}:
-      round.ev(D.Fl(m, foc, 256), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, {==}, iv)
+      round.ev(D.Fl(m, foc, 256), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, {==}, iv, hfv)
     case True{}:
       match fs:
         case Nil{}:
@@ -219,13 +226,13 @@ def round.go(+ret: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>
         case Con{D.AF{+kind, +q, +k, +a, +bb}, +fs2}:
           match kind:
             case D.FK.arg{}:
-              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.arg{}, q, k, a, bb, {==}, {==}, iv)
+              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.arg{}, q, k, a, bb, {==}, {==}, iv, hfv)
             case D.FK.val{}:
-              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.val{}, q, k, a, bb, {==}, {==}, iv)
+              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.val{}, q, k, a, bb, {==}, {==}, iv, hfv)
             case D.FK.fun{}:
-              round.fun(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv)
+              round.fun(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv, hfv)
             case D.FK.let{}:
-              K.mv.ret.let(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv)
+              K.mv.ret.let(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv, hfv)
             case D.FK.tupb{}:
               K.mv.ret.tupb(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv)
             case D.FK.tupa{}:
@@ -275,6 +282,7 @@ def iv.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   (iv.inv(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, er, eo, en, iw), acc)
 
 def round.iw(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +out: List<&2, Word(8n)>, +outn: U32, +t: Bk.Term, +w: Nat, +ret: Bool, +focus: Bk.Term, +fs: List<&2, D.AF>, +foc: U32, +sp: U32, +pend: U32, +ps: List<&2, U32>, +rest: D.R59, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +iw: D.InvOf(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool},
   acc: D.Ex(List<&2, D.Rt>, zs => D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, focus}], Nil{}, sp, fs, ps, zs))) ->
   K.MV(ds, ks, img, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}, t, w):
   +er = inv.regs(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, iw)
@@ -287,39 +295,48 @@ def round.iw(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
   %Equal.sym(U32, outn, 0, en) :
     K.MV(ds, ks, img, Cr.Cir.State{D.RG(foc, Bool.to_u32(ret), sp, pend, D.R59.list(rest)), m, nx, fi, im, pg, lim, inp, Nil{}, _}, t, w)
   round.go(ret, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus,
-    iv.of(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, er, eo, en, iw, acc))
+    iv.of(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, er, eo, en, iw, acc),
+    hfv)
 
 def round.wit(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32,
-  +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}, t, w)) ->
+  +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}, t, w),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) ->
   K.MV(ds, ks, img, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn}, t, w):
   (x, pr) = inv
   match x:
     case D.Wit{+ret, +focus, +fs, +foc, +sp, +pend, +ps, +rest}:
       (iw, acc) = pr
-      round.iw(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, pg, lim, inp, iw, acc)
+      round.iw(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, pg, lim, inp, iw, hfv, acc)
 
 # the move of a state of the invariant
 def round.mv(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, st: Cr.Cir.State, +t: Bk.Term,
-  +w: Nat, inv: D.Inv(ds, ks, img, st, t, w)) -> K.MV(ds, ks, img, st, t, w):
+  +w: Nat, inv: D.Inv(ds, ks, img, st, t, w),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, st, t, w):
   match st:
     case Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      round.wit(ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, out, outn, t, w, inv)
+      round.wit(ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, out, outn, t, w, inv, hfv)
 
 # a round of the main loop, for any fuel: an admin move, a step, a halt that
 # says what Eval gives, or out of memory
 def round.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w)) ->
+  +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Post(False{}, Cr.Cir.exec(f, D.B.body(), st), s => D.Rnd(ds, ks, img, t, w, s), s => st2 => D.HR(ds, t, s, st2)):
-  K.mv.post(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv))
+  K.mv.post(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv, hfv))
 
 # a round of the main loop ends, with some fuel
 def round.done(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st: Cr.Cir.State,
-  +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w)) -> D.Ex(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), st))):
-  K.mv.done(ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv))
+  +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> D.Ex(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), st))):
+  K.mv.done(ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv, hfv))
 
 # The loop gives what Eval gives
 # ------------------------------
+
+# the start term is closed, hence below every bound B (the machine's: 2^31)
+def fv.start.big(+i: List<&2, Word(8n)>, +B: Nat) -> {D.Term.below(Pg.Program.start(i), B) == True{} : Bool}:
+  CT.Tz.below_mono(Pg.Program.start(i), 0n, B, Fv.fv.toB(0n, B, N.le_zero(B)), Fv.fv.start(i))
 
 # a weaker halt
 def post.wk(dn: Bool, o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H1: U32 -> Cr.Cir.State -> Type,
@@ -407,9 +424,12 @@ def he.step(+ds: List<&2, Bk.Def>, +t: Bk.Term, +u: Bk.Term, +es: {El.Eval.step(
 # admin move and by ist after a step
 def loop.next(+p: Nat, +ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, +u: Cr.Cir.State,
   +t: Bk.Term, -w: Nat, r: D.Rnd(ds, ks, img, t, w, u),
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool},
+  +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool},
   ia: @w2: Nat -> D.Inv(ds, ks, img, u, t, w2) ->
     D.Post(False{}, Cr.Cir.exec(p, D.B.loop(), u), s => Empty, s => st2 => D.HE(ds, t, s, st2)),
   ist: @v: Bk.Term -> @w2: Nat -> D.Inv(ds, ks, img, u, v, w2) ->
+    {D.Term.below(v, U32.to_nat(2147483648)) == True{} : Bool} ->
     D.Post(False{}, Cr.Cir.exec(p, D.B.loop(), u), s => Empty, s => st2 => D.HE(ds, v, s, st2))) ->
   D.Post(False{}, Cr.Cir.exec(p, D.B.loop(), u), s => Empty, s => st2 => D.HE(ds, t, s, st2)):
   match r:
@@ -422,12 +442,14 @@ def loop.next(+p: Nat, +ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>,
       (+es, r3) = r2
       (w2, inv2) = r3
       post.wk(False{}, Cr.Cir.exec(p, D.B.loop(), u), s => Empty, s => st2 => D.HE(ds, v, s, st2), s => st2 => D.HE(ds, t, s, st2),
-        ist(v, w2, inv2), s => st2 => h => he.step(ds, t, v, es, s, st2, h))
+        ist(v, w2, inv2, Fv.fv.step(ds, t, v, U32.to_nat(2147483648), hd, hfv, es)), s => st2 => h => he.step(ds, t, v, es, s, st2, h))
 
 # the main loop, from a state of the invariant of the term t, halts only as
 # HE says, with any fuel: by induction on the fuel
 def loop.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st: Cr.Cir.State,
-  +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w)) ->
+  +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w),
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool},
+  +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Post(False{}, Cr.Cir.exec(f, D.B.loop(), st), s => Empty, s => st2 => D.HE(ds, t, s, st2)):
   match f:
     case 0n:
@@ -435,10 +457,10 @@ def loop.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>,
     case 1n+p:
       D.post.then(False{}, Cr.Cir.exec(p, D.B.body(), st), u => Cr.Cir.exec(p, D.B.loop(), u), s => D.Rnd(ds, ks, img, t, w, s),
         s => Empty, s => st2 => D.HR(ds, t, s, st2), s => st2 => D.HE(ds, t, s, st2),
-        round.post(p, ds, ks, img, st, t, w, inv),
+        round.post(p, ds, ks, img, st, t, w, inv, hfv),
         s => st2 => h => he.of(ds, t, s, st2, h),
-        +u => r => loop.next(p, ds, ks, img, u, t, w, r, w2 => i2 => loop.post(p, ds, ks, img, u, t, w2, i2),
-          v => w2 => i2 => loop.post(p, ds, ks, img, u, v, w2, i2)))
+        +u => r => loop.next(p, ds, ks, img, u, t, w, r, hd, hfv, w2 => i2 => loop.post(p, ds, ks, img, u, t, w2, i2, hd, hfv),
+          v => w2 => i2 => hfv2 => loop.post(p, ds, ks, img, u, v, w2, i2, hd, hfv2)))
 
 # The loop reaches what Eval reaches
 # ----------------------------------
@@ -546,7 +568,9 @@ def loop.done(k: Nat, b: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word
   +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, +o: List<&2, Word(8n)>, +hw: N.Le(1n+w, b),
   +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
   +f0: Nat, r0: Cr.Cir.Out, +er: {Cr.Cir.exec(f0, D.B.body(), st) == r0 : Cr.Cir.Out}, d0: D.Ends(r0),
-  p0: D.Post(False{}, r0, s => D.Rnd(ds, ks, img, t, w, s), s => st2 => D.HR(ds, t, s, st2))) ->
+  p0: D.Post(False{}, r0, s => D.Rnd(ds, ks, img, t, w, s), s => st2 => D.HR(ds, t, s, st2)),
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool},
+  +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Ex(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), st))):
   match k:
     case 0n:
@@ -561,11 +585,11 @@ def loop.done(k: Nat, b: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word
                   +w2 = D.adm.w(ds, ks, img, u, t, w, a)
                   +inv2 = D.adm.inv(ds, ks, img, u, t, w, a)
                   +lt = D.adm.lt(ds, ks, img, u, t, w, a)
-                  +rd = round.done(ds, ks, img, u, t, w2, inv2)
+                  +rd = round.done(ds, ks, img, u, t, w2, inv2, hfv)
                   +f1 = D.Ex.fst(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), u)), rd)
                   +ld = loop.done(0n, c, ds, ks, img, u, t, w2, o, N.le_trans(1n+w2, w, c, lt, hw), e, f1,
                     Cr.Cir.exec(f1, D.B.body(), u), {==}, D.Ex.snd(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), u)), rd),
-                    round.post(f1, ds, ks, img, u, t, w2, inv2))
+                    round.post(f1, ds, ks, img, u, t, w2, inv2, hfv), hd, hfv)
                   +n1 = D.Ex.fst(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), u)), ld)
                   (1n+Nat.add(f0, n1), next.fin(o, f0, n1, st, u, er, D.Ex.snd(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), u)), ld)))
                 case Inr{+x}:
@@ -594,11 +618,11 @@ def loop.done(k: Nat, b: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word
                   +w2 = D.adm.w(ds, ks, img, u, t, w, a)
                   +inv2 = D.adm.inv(ds, ks, img, u, t, w, a)
                   +lt = D.adm.lt(ds, ks, img, u, t, w, a)
-                  +rd = round.done(ds, ks, img, u, t, w2, inv2)
+                  +rd = round.done(ds, ks, img, u, t, w2, inv2, hfv)
                   +f1 = D.Ex.fst(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), u)), rd)
                   +ld = loop.done(1n+j, c, ds, ks, img, u, t, w2, o, N.le_trans(1n+w2, w, c, lt, hw), e, f1,
                     Cr.Cir.exec(f1, D.B.body(), u), {==}, D.Ex.snd(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), u)), rd),
-                    round.post(f1, ds, ks, img, u, t, w2, inv2))
+                    round.post(f1, ds, ks, img, u, t, w2, inv2, hfv), hd, hfv)
                   +n1 = D.Ex.fst(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), u)), ld)
                   (1n+Nat.add(f0, n1), next.fin(o, f0, n1, st, u, er, D.Ex.snd(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), u)), ld)))
                 case Inr{+x}:
@@ -606,11 +630,12 @@ def loop.done(k: Nat, b: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word
                   +es = D.stp.es(ds, ks, img, u, t, x)
                   +w2 = D.stp.w(ds, ks, img, u, t, x)
                   +inv2 = D.stp.inv(ds, ks, img, u, t, x)
-                  +rd = round.done(ds, ks, img, u, v, w2, inv2)
+                  +hfv2 = Fv.fv.step(ds, t, v, U32.to_nat(2147483648), hd, hfv, es)
+                  +rd = round.done(ds, ks, img, u, v, w2, inv2, hfv2)
                   +f1 = D.Ex.fst(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), u)), rd)
                   +ld = loop.done(j, 1n+w2, ds, ks, img, u, v, w2, o, N.le_refl(1n+w2), res.step(j, ds, t, v, Some{o}, es, e), f1,
                     Cr.Cir.exec(f1, D.B.body(), u), {==}, D.Ex.snd(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), u)), rd),
-                    round.post(f1, ds, ks, img, u, v, w2, inv2))
+                    round.post(f1, ds, ks, img, u, v, w2, inv2, hfv2), hd, hfv2)
                   +n1 = D.Ex.fst(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), u)), ld)
                   (1n+Nat.add(f0, n1), next.fin(o, f0, n1, st, u, er, D.Ex.snd(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), u)), ld)))
             case Cr.Cir.Out.halt{+s, +st2}:
@@ -625,12 +650,14 @@ def loop.done(k: Nat, b: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word
 # the loop, from a state of the invariant
 def loop.start(k: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, +o: List<&2, Word(8n)>, +inv: D.Inv(ds, ks, img, st, t, w),
-  +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, t)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool},
+  +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Ex(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), st))):
-  +rd = round.done(ds, ks, img, st, t, w, inv)
+  +rd = round.done(ds, ks, img, st, t, w, inv, hfv)
   +f0 = D.Ex.fst(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), st)), rd)
   loop.done(k, 1n+w, ds, ks, img, st, t, w, o, N.le_refl(1n+w), e, f0, Cr.Cir.exec(f0, D.B.body(), st), {==},
-    D.Ex.snd(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), st)), rd), round.post(f0, ds, ks, img, st, t, w, inv))
+    D.Ex.snd(Nat, f => D.Ends(Cr.Cir.exec(f, D.B.body(), st)), rd), round.post(f0, ds, ks, img, st, t, w, inv, hfv), hd, hfv)
 
 def res.alloced(r: Maybe<&2, U32>, fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
   +len: U32, +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
@@ -748,17 +775,19 @@ def res.ex(prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: Lis
 # ---------------------------------
 
 def run.loop(+n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st2: Cr.Cir.State,
-  q: D.Ex(Nat, w => D.Inv(ds, T.tm.names(ds), T.tm.img(ds), st2, Pg.Program.start(i), w))) ->
+  q: D.Ex(Nat, w => D.Inv(ds, T.tm.names(ds), T.tm.img(ds), st2, Pg.Program.start(i), w)),
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Post(False{}, Cr.Cir.exec(n, Cr.Cir.Stmt.seq{D.B.loop(), Cr.Cir.Stmt.nop{}}, st2), st => Unit,
     s2 => st3 => D.HE(ds, Pg.Program.start(i), s2, st3)):
   (w, inv) = q
   D.post.seq(n, False{}, D.B.loop(), Cr.Cir.Stmt.nop{}, st2, s => Empty, s => Unit, s2 => st3 => D.HE(ds, Pg.Program.start(i), s2, st3),
     s2 => st3 => D.HE(ds, Pg.Program.start(i), s2, st3),
-    loop.post(n, ds, T.tm.names(ds), T.tm.img(ds), st2, Pg.Program.start(i), w, inv),
+    loop.post(n, ds, T.tm.names(ds), T.tm.img(ds), st2, Pg.Program.start(i), w, inv, hd, fv.start.big(i, U32.to_nat(2147483648))),
     s2 => st3 => h => h, st3 => h => Empty.absurd(D.Post(False{}, Cr.Cir.exec(n, Cr.Cir.Stmt.nop{}, st3), s => Unit,
       s2 => st4 => D.HE(ds, Pg.Program.start(i), s2, st4)), h))
 
-def run.rest(+n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st1: Cr.Cir.State, q1: D.InvIn(ds, i, st1)) ->
+def run.rest(+n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st1: Cr.Cir.State, q1: D.InvIn(ds, i, st1),
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Post(False{}, Cr.Cir.exec(n, D.B.rest(), st1), st => Unit, s2 => st2 => D.HE(ds, Pg.Program.start(i), s2, st2)):
   (len, q0) = q1
   (_, ex) = q0
@@ -769,7 +798,7 @@ def run.rest(+n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st1: Cr.Ci
       D.Post(False{}, _, st2 => D.Ex(Nat, w => D.Inv(ds, T.tm.names(ds), T.tm.img(ds), st2, Pg.Program.start(i), w)), s2 => st2 => Empty);
      ex),
     s2 => st2 => h => Empty.absurd(D.HE(ds, Pg.Program.start(i), s2, st2), h),
-    st2 => q2 => run.loop(n, ds, i, st2, q2))
+    st2 => q2 => run.loop(n, ds, i, st2, q2, hd))
 
 # input.post as the loop takes it: Post, out of memory with no budget
 def input.post.p(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
@@ -787,16 +816,17 @@ def input.post.p(+f: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: Lis
 # a run of Mach.code from the start halts only as HE says, from Program.start
 def run.post(+n: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
   +pg: U32, +lim: U32, +first: U32,
-  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
-  small: {Mc.Img.small(p, 0) == True{} : Bool},
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +small: {Mc.Img.small(p, 0) == True{} : Bool},
   s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first)) ->
   D.Post(False{}, Cr.Cir.exec(n, Mc.Mach.code(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)), st => Unit,
     s2 => st2 => D.HE(ds, Pg.Program.start(i), s2, st2)):
+  +hd = Rb.Gx.read.below(p, ds, rd, small)
   D.post.seq(n, False{}, Mc.M.input(), D.B.rest(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i),
     st => D.InvIn(ds, i, st), st => Unit, s2 => st2 => Empty, s2 => st2 => D.HE(ds, Pg.Program.start(i), s2, st2),
     input.post.p(n, p, ds, i, m, k, len, pg, lim, first, rd, small, s),
     s2 => st2 => h => Empty.absurd(D.HE(ds, Pg.Program.start(i), s2, st2), h),
-    st1 => q1 => run.rest(n, ds, i, st1, q1))
+    st1 => q1 => run.rest(n, ds, i, st1, q1, hd))
 
 # the outcomes that are no trap
 def oc.nt(x: Wa.Wasm.Outcome) -> Type:
@@ -1019,23 +1049,25 @@ def run.next(k: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +o: List<&2,
   +st1: Cr.Cir.State, +er1: {Cr.Cir.exec(f1, Mc.M.input(), st0) == Cr.Cir.Out.next{st1} : Cr.Cir.Out},
   +len: {List.length(&2, U32, D.St.regs(st1)) == 63n : Nat}, +w: Nat,
   +inv: D.Inv(ds, T.tm.names(ds), T.tm.img(ds), D.Mode0(st1), Pg.Program.start(i), w),
-  +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Ex(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), st0))):
-  +ls = loop.start(k, ds, T.tm.names(ds), T.tm.img(ds), D.Mode0(st1), Pg.Program.start(i), w, o, inv, e)
+  +ls = loop.start(k, ds, T.tm.names(ds), T.tm.img(ds), D.Mode0(st1), Pg.Program.start(i), w, o, inv, e, hd, fv.start.big(i, U32.to_nat(2147483648)))
   +n2 = D.Ex.fst(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), D.Mode0(st1))), ls)
   (1n+Nat.add(f1, n2), run.fin(o, f1, n2, st0, st1, er1, len, D.Ex.snd(Nat, n => D.Good(o, Cr.Cir.exec(n, D.B.loop(), D.Mode0(st1))), ls)))
 
 def run.done.r(k: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +o: List<&2, Word(8n)>, +f1: Nat, +st0: Cr.Cir.State,
   r1: Cr.Cir.Out, +er1: {Cr.Cir.exec(f1, Mc.M.input(), st0) == r1 : Cr.Cir.Out}, d1: D.Ends(r1),
   p1: D.Post(False{}, r1, st => D.InvIn(ds, i, st), s2 => st2 => Empty),
-  +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +hd: {Fv.Defs.below(ds, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Ex(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), st0))):
   match r1:
     case Cr.Cir.Out.next{+st1}:
       (len, q0) = p1
       (_, q) = q0
       (w, inv) = q
-      run.next(k, ds, i, o, f1, st0, st1, er1, len, w, inv, e)
+      run.next(k, ds, i, o, f1, st0, st1, er1, len, w, inv, e, hd)
     case Cr.Cir.Out.halt{s, st}:
       Empty.absurd(D.Ex(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), st0))), p1)
     case Cr.Cir.Out.out_of_memory{}:
@@ -1054,11 +1086,12 @@ def run.done(k: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2,
   +s: D.Start(Mc.Img.cells(ds), i, m, kk, len, pg, lim, first),
   +e: {Pg.Program.result(ds, El.Eval.steps(k, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
   D.Ex(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, kk, pg, lim, i)))):
+  +hd = Rb.Gx.read.below(p, ds, rd, small)
   +st0 = D.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, kk, pg, lim, i)
   +id = K.input.done(p, ds, i, m, kk, len, pg, lim, first, rd, small, s)
   +f1 = D.Ex.fst(Nat, f => D.Ends(Cr.Cir.exec(f, Mc.M.input(), st0)), id)
   run.done.r(k, ds, i, o, f1, st0, Cr.Cir.exec(f1, Mc.M.input(), st0), {==}, D.Ex.snd(Nat, f => D.Ends(Cr.Cir.exec(f, Mc.M.input(), st0)), id),
-    input.post.p(f1, p, ds, i, m, kk, len, pg, lim, first, rd, small, s), e)
+    input.post.p(f1, p, ds, i, m, kk, len, pg, lim, first, rd, small, s), e, hd)
 
 def comp.of(k: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>, +kk: U32,
   +len: U32, +pg: U32, +lim: U32, +first: U32,
@@ -1166,17 +1199,19 @@ def round.room.mv(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n
 # Open (U15): a round keeps the machine's own cells within the peak of its
 # term and of its step's result (MV's peak)
 def round.peak(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
-  +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w)) ->
+  +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) ->
   D.Post(False{}, Cr.Cir.exec(f, D.B.body(), st), s => N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))), s => st2 => Unit):
-  round.peak.mv(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv))
+  round.peak.mv(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv, hfv))
 
 # Open (U15): a round whose limit has room for its budget (the peak, the
 # bytes before first and the output) does not run out of memory (MV's PostB)
 def round.room(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool},
   room: N.Le(D.Budget(ds, st, t), D.Lim.bytes(D.St.lim(st)))) ->
   D.NoOom(Cr.Cir.exec(f, D.B.body(), st)):
-  round.room.mv(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv), room)
+  round.room.mv(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv, hfv), room)
 
 # B: with the memory of AGENTS.md 3.9.1.4, the machine gives the list of bytes
 # (open, U15: loop.mem from round.room, and memory_bound.bend's Budget <= F)

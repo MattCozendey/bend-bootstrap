@@ -1165,6 +1165,7 @@ law mv.ev.ref:
   for +k: List<&2, Word(8n)>
   for +iv: IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, False{}, Bk.Term.Ref{k}, fs, ps)
   for +hv: {D.Fl(m, foc, 256) == False{} : Bool}
+  for +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}
   MV(ds, ks, img, D.S(foc, 0, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w)
 
 # mode 0, Ann x y: x, a step
@@ -1247,6 +1248,7 @@ law mv.ev.unlet:
   for +iv: IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, False{}, Bk.Term.Let{q, v, b}, fs, ps)
   for +hv: {D.Fl(m, foc, 256) == False{} : Bool}
   for +hq: {El.Quan.live(q) == False{} : Bool}
+  for +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}
   MV(ds, ks, img, D.S(foc, 0, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w)
 
 # mode 0, App q g x: g in the frame App q □ x; an admin move
@@ -1470,6 +1472,7 @@ law mv.ret.app.lam:
   for +iv: IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, Bk.Term.Lam{r, h}, Con{D.AF{kind, q, k, a, b}, fs}, ps)
   for +hk: {FK.isapp(kind) == True{} : Bool}
   for +hs: {Bool.and(El.Quan.live(q), Bool.not(k)) == False{} : Bool}
+  for +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}
   MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w)
 
 # mode 1, App q g □ (app_fun), with the value v: the redex of a λ (Eval.redex): its body with the argument put in (M.data, M.copy), a step; halt 2 when the λ does not bind it
@@ -1499,6 +1502,7 @@ law mv.ret.fun.lam:
   for +k: Bool
   for +b: Bk.Term
   for +iv: IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{D.FK.fun{}, q, k, Bk.Term.Lam{r, h}, b}, fs}, ps)
+  for +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}
   MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w)
 
 # mode 1, App q v □ a (app_arg, app_val), when q is dead or a known: the redex of a λ-match of pairs: its case on the pair's fields, a step; halt 2 when the argument is no live pair
@@ -1653,6 +1657,7 @@ law mv.ret.app.call:
   for +hk: {FK.isapp(kind) == True{} : Bool}
   for +hs: {Bool.and(El.Quan.live(q), Bool.not(k)) == False{} : Bool}
   for +hn: {A.node(focus) == False{} : Bool}
+  for +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}
   MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w)
 
 # mode 1, App q g □ (app_fun), with the value v: the redex of any other value: a call (M.call, with M.walk and M.copy) of the def at the head of its spine: a step to the copy of its leaf, or a value that waits for more arguments (an admin move); halt 2 when no walk exists
@@ -1682,6 +1687,7 @@ law mv.ret.fun.call:
   for +b: Bk.Term
   for +iv: IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{D.FK.fun{}, q, k, g, b}, fs}, ps)
   for +hn: {A.node(g) == False{} : Bool}
+  for +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}
   MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w)
 
 # mode 1, Let q □ a, with the value v: a with v put in (M.data, M.copy), a step; halt 2 when q is 2 and v is no Data
@@ -1710,6 +1716,7 @@ law mv.ret.let:
   for +a: Bk.Term
   for +b: Bk.Term
   for +iv: IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{D.FK.let{}, q, k, a, b}, fs}, ps)
+  for +hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}
   MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w)
 
 # mode 1, Tup q □ a, with the value v: a to evaluate, in the frame Tup q v □; an admin move
