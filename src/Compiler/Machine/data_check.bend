@@ -25,6 +25,7 @@ import ./cell_terms.bend as T
 import ../need_big.bend as N
 import ./definitions.bend as PM
 import ./statement_runs.bend as X
+import ./move_kit.bend as K
 
 # Kit
 # ---
@@ -473,3 +474,12 @@ def ff.put1s(ws: List<&2, PM.W1>, +m: Cr.Cir.Cells, +x: U32) -> FF(m, PM.Put1(ws
       ff.refl(m, x)
     case Con{PM.W1{+c, +v}, +rest}:
       ff.trans(m, PM.Put1(rest, m), PM.Put1(Con{PM.W1{c, v}, rest}, m), x, ff.put1(PM.Put1(rest, m), c, v, x), ff.put1s(rest, m, x))
+
+# The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
+# -------------------------------------------------------------------------------
+
+def K.data.post(f, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, ps, c, v, xs, zs, hs, hac, hl, hc, hp, hr, hk):
+  ?TODO
+
+def K.data.done(ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, c, v, hs, hl, hc, hp, hr):
+  ?TODO
