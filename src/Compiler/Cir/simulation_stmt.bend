@@ -483,7 +483,7 @@ def emit.fin(+v: Cr.Cir.Expr, +x: U32, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +n
     Cr.Cir.code.stmt(Cr.Cir.Stmt.emit{v}, d, K), ls, K, ls, a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G):
   +hB = Q.inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
   +hI2 = A.inv.pg(P, G, a, n, cl, nx, fi, im, pg, p2, lm, inp, ou, on, m, hI, hp, hpl)
-  +hroom = A.room.e(nx, on, p2, W, hW, Z.u32.w(A.eb(nx, on), W, hW), F.w16(P, hP, W, hW), hpp)
+  +hroom = A.room.of(A.eb(nx, on), p2, W, hW, F.w16(P, hP, W, hW), hpp)
   +hb = A.pb2.le(p2, lm, G, W, hG, hpl, Q.b.lm(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
   +ev2 = Equal.trans(Maybe<&2, U32>, Cr.Cir.eval(v, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on)), Cr.Cir.eval(v, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Some{x},
     Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(v, Q.St(rg, cl, nx, fi, im, pg, lm, inp, ou, on)), Cr.Cir.eval(v, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on)),

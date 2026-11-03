@@ -1186,16 +1186,16 @@ def s2w(S: Nat, +B: Nat, +W: Nat, h: N.Le(N.D(16n, S), B), hB: N.Le(1n+B, W), h1
       N.le_trans(3n+s, N.D(16n, x), W, N.le_trans(3n+s, N.D(2n, x), N.D(16n, x), h2, h3),
         N.le_trans(N.D(16n, x), B, W, h, N.weaken(B, W, hB)))
 
-# the byte b fits in p2 pages, when they are at least those it needs
-def room.e(+nx: U32, +on: U32, +p2: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hB: N.Le(1n+U32.to_nat(eb(nx, on)), W),
-  +h16: N.Le(16n, W), hp: N.Le(U32.to_nat(nce(nx, on)), U32.to_nat(p2))) -> N.Le(1n+U32.to_nat(eb(nx, on)), Q.PB(p2)):
-  +b = eb(nx, on)
+# the byte b fits in p2 pages, when they are at least those it needs, (b >> 16) + 1
+def room.of(+b: U32, +p2: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +h16: N.Le(16n, W),
+  hp: N.Le(U32.to_nat(U32.inc(U32.shrn(b, 16n))), U32.to_nat(p2))) -> N.Le(1n+U32.to_nat(b), Q.PB(p2)):
   +S0 = U32.to_nat(U32.shrn(b, 16n))
-  +en = F.inc.nat(U32.shrn(b, 16n), W, hW, s2w(S0, U32.to_nat(b), W, V.shrn.le(16n, b), hB, h16))
-  N.le_trans(1n+U32.to_nat(b), N.D(16n, U32.to_nat(nce(nx, on))), Q.PB(p2),
-    N.le_rw_r(1n+U32.to_nat(b), N.D(16n, 1n+S0), N.D(16n, U32.to_nat(nce(nx, on))),
-      Equal.cong(Nat, Nat, z => N.D(16n, z), 1n+S0, U32.to_nat(nce(nx, on)), Equal.sym(Nat, U32.to_nat(nce(nx, on)), 1n+S0, en)), shrn.up(16n, b)),
-    M.D_mono(16n, U32.to_nat(nce(nx, on)), U32.to_nat(p2), hp))
+  +nb = U32.inc(U32.shrn(b, 16n))
+  +en = F.inc.nat(U32.shrn(b, 16n), W, hW, s2w(S0, U32.to_nat(b), W, V.shrn.le(16n, b), Z.u32.w(b, W, hW), h16))
+  N.le_trans(1n+U32.to_nat(b), N.D(16n, U32.to_nat(nb)), Q.PB(p2),
+    N.le_rw_r(1n+U32.to_nat(b), N.D(16n, 1n+S0), N.D(16n, U32.to_nat(nb)),
+      Equal.cong(Nat, Nat, z => N.D(16n, z), 1n+S0, U32.to_nat(nb), Equal.sym(Nat, U32.to_nat(nb), 1n+S0, en)), shrn.up(16n, b)),
+    M.D_mono(16n, U32.to_nat(nb), U32.to_nat(p2), hp))
 
 # the byte out, and outn one more
 def emit.E5(+v: Cr.Cir.Expr, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,

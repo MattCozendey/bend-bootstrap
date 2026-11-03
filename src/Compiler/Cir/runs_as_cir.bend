@@ -17,6 +17,12 @@ import ./impl.bend as Cr
 import ../Machine/impl.bend as Mc
 import ../impl.bend as C
 import ./halt.bend as PH
+import ./simulation_host.bend as H
+
+# the module that Compiler.module.of makes of prog is Cir.module's, encoded
+def module.of(prog: Cr.Cir.Stmt, regs: Nat, cells: List<&2, Cr.Cir.Cell>) ->
+  {Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)) == C.Compiler.module.of(prog, regs, cells) : List<&2, Word(8n)>}:
+  {==}
 
 # A: a result of the machine's module, on any engine, is one that Cir gives
 # with the engine's pages: a grow that the engine refuses makes the module
@@ -25,7 +31,7 @@ def mach_wasm.sound(
   +f: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, +o: List<&2, Word(8n)>,
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   safe: @n:Nat -> {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome},
-  e: {Wa.Wasm.run(f, C.Compiler.module(cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+  e: {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
 ) -> &n:Nat -> {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
   ?TODO
 
@@ -35,8 +41,8 @@ def mach_wasm.result(
   +n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, +o: List<&2, Word(8n)>,
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-) -> &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.module(cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-  {Wa.Wasm.run(f, C.Compiler.module(cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
+) -> &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+  {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   ?TODO
 
 # A: a result that Cir gives is one of the machine's module, on an engine
@@ -45,8 +51,9 @@ def mach_wasm.result.all(
   +n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module(cells), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
-  ?TODO
+) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  %module.of(Mc.Mach.code(), Mc.Mach.regs(), cells) : &f:Nat -> {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+  H.mach.all(n, cells, i, m, o, small, e)
 
 # A: when Cir runs out of memory, so does the machine's module, on any
 # engine with the same pages
@@ -54,7 +61,7 @@ def mach_wasm.oom(
   +n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
-) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module(cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   ?TODO
 
 # A: a module that halts at once with a status other than 0 gives no result,
