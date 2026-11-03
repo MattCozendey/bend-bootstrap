@@ -2583,3 +2583,46 @@ def to.from(d: Nat, +z: U32, +h: N.Le(d, U32.to_nat(z))) -> {U32.to_nat(U32.from
       Equal.trans(Nat, U32.to_nat(U32.inc(U32.from_nat(p))), 1n+U32.to_nat(U32.from_nat(p)), 1n+p,
         Ar.u.inc(U32.from_nat(p), z, (%Equal.sym(Nat, U32.to_nat(U32.from_nat(p)), p, ih) : N.Le(1n+_, U32.to_nat(z)); h)),
         Equal.cong(Nat, Nat, w => 1n+w, U32.to_nat(U32.from_nat(p)), p, ih))
+
+# Registers and budgets
+# ---------------------
+
+# the registers made explicit from the (1 + i)-th of x then rest are rest's from the i-th
+def rgx.cons(n: Nat, +x: U32, +rest: List<&2, U32>, +i: Nat) -> {D.Rg.ex(n, Con{x, rest}, 1n+i) == D.Rg.ex(n, rest, i) : List<&2, U32>}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      %rgx.cons(p, x, rest, 1n+i) : {Con{T.tm.reg(Con{x, rest}, 1n+i), D.Rg.ex(p, Con{x, rest}, 2n+i)} == Con{T.tm.reg(rest, i), _} : List<&2, U32>}
+      {==}
+
+# the registers made explicit are the registers
+def rgx.self(xs: List<&2, U32>) -> {D.Rg.ex(List.length(&2, U32, xs), xs, 0n) == xs : List<&2, U32>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      %Equal.sym(List<&2, U32>, D.Rg.ex(List.length(&2, U32, rest), Con{x, rest}, 1n), D.Rg.ex(List.length(&2, U32, rest), rest, 0n),
+        rgx.cons(List.length(&2, U32, rest), x, rest, 0n)) : {Con{x, _} == Con{x, rest} : List<&2, U32>}
+      %Equal.sym(List<&2, U32>, D.Rg.ex(List.length(&2, U32, rest), rest, 0n), rest, rgx.self(rest)) : {Con{x, _} == Con{x, rest} : List<&2, U32>}
+      {==}
+
+# 63 registers made explicit are the registers
+def rgx.all(+regs: List<&2, U32>, hl: {List.length(&2, U32, regs) == 63n : Nat}) -> {D.Rg.ex(63n, regs, 0n) == regs : List<&2, U32>}:
+  %hl : {D.Rg.ex(_, regs, 0n) == regs : List<&2, U32>}
+  rgx.self(regs)
+
+# an outcome within a budget is within a larger one
+def Ok.wk(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +B: Nat, +B2: Nat,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, hb: N.Le(B, B2), h: D.Ok(o, F, K, L, I, B, Q)) -> D.Ok(o, F, K, L, I, B2, Q):
+  match o:
+    case Cr.Cir.Out.next{st}:
+      h
+    case Cr.Cir.Out.halt{s, st}:
+      h
+    case Cr.Cir.Out.out_of_memory{}:
+      N.le_trans(1n+D.Lim.bytes(L), B, B2, h, hb)
+    case Cr.Cir.Out.trap{}:
+      h
+    case Cr.Cir.Out.not_done{}:
+      h
