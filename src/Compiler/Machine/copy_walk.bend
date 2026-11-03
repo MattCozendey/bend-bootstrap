@@ -1601,6 +1601,137 @@ def gq.mem(pu: List<&2, U32>, +P: List<&2, U32>, +Q: List<&2, U32>, +y: U32, h: 
     case Con{+x, +rest}:
       gq.mem.b(U32.is_eq(x, y), x, rest, P, Q, y, {==}, h, hy, h2 => hy2 => gq.mem(rest, P, Q, y, h2, hy2))
 
+# The cells after a reuse
+# -----------------------
+#
+# After the drops (W1s(ws, m)), M.alloc sets q to zeros (ms): every other
+# cell keeps its fields 0, 2 to 4 and its pointers, but the pend list has
+# changed (Q2: the pushed cells, then the rest Qr of the old one).
+
+def fd.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +k: Nat, +hk: {Nat.is_eq(k, 1n) == False{} : Bool}, +y: U32,
+  +ne: {U32.is_eq(y, q) == False{} : Bool}) -> {D.Fd(k, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), y) == D.Fd(k, m, y) : U32}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +D = Del(P, q)
+  Equal.trans(U32, D.Fd(k, ms, y), D.Fd(k, M, y), D.Fd(k, m, y),
+    Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(k, w), Cr.Cir.Cells.get(ms, y), Cr.Cir.Cells.get(M, y), K.Cl.get_ne(M, y, q, Cr.Cir.Cell.zero(), ne)),
+    fd.w1s(ws, m, k, hk, y))
+
+def f1.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +y: U32, +ne: {U32.is_eq(y, q) == False{} : Bool}) ->
+  {D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), y) == D.Fd(1n, W1s(ws, m), y) : U32}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +D = Del(P, q)
+  Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(1n, w), Cr.Cir.Cells.get(ms, y), Cr.Cir.Cells.get(M, y), K.Cl.get_ne(M, y, q, Cr.Cir.Cell.zero(), ne))
+
+def stc.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +y: U32, +ne: {U32.is_eq(y, q) == False{} : Bool}) -> {D.Stc(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), y) == D.Stc(m, y) : Bool}:
+  K.stc.eq(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), m, y, fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 0n, {==}, y, ne))
+
+# Ps by the Bool of the pend list
+def PsH(+f0: U32, +t2: U32, +f2: U32, +f3: U32, +f4: U32, +h: Bool) -> List<&2, U32>:
+  +tg = U32.and(f0, 63)
+  Bool.pick(List<&2, U32>, U32.is_lt(tg, 19), D.Ps.term(t2, f2, f3, f4),
+    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(h)),
+      Con{f2, D.Ps.opt(U32.is_eq(tg, 38), f3, Nil{})},
+      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0)), Bool.not(h)), [f2], Nil{})))
+
+def ps.h(+M: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32) ->
+  {D.Ps(M, Q, o) == PsH(D.Fd(0n, M, o), D.Fd(2n, M, U32.add(272, U32.and(D.Fd(0n, M, o), 63))), D.Fd(2n, M, o), D.Fd(3n, M, o), D.Fd(4n, M, o),
+    D.Has(Q, o)) : List<&2, U32>}:
+  {==}
+
+# Ps sees the pend list only by whether the cell is in it
+def ps.hq(+M: Cr.Cir.Cells, +Q1: List<&2, U32>, +Q2: List<&2, U32>, +o: U32, e: {D.Has(Q1, o) == D.Has(Q2, o) : Bool}) ->
+  {D.Ps(M, Q1, o) == D.Ps(M, Q2, o) : List<&2, U32>}:
+  +f0 = D.Fd(0n, M, o)
+  +t2 = D.Fd(2n, M, U32.add(272, U32.and(f0, 63)))
+  +f2 = D.Fd(2n, M, o)
+  +f3 = D.Fd(3n, M, o)
+  +f4 = D.Fd(4n, M, o)
+  Equal.trans(List<&2, U32>, D.Ps(M, Q1, o), PsH(f0, t2, f2, f3, f4, D.Has(Q1, o)), D.Ps(M, Q2, o), ps.h(M, Q1, o),
+    Equal.trans(List<&2, U32>, PsH(f0, t2, f2, f3, f4, D.Has(Q1, o)), PsH(f0, t2, f2, f3, f4, D.Has(Q2, o)), D.Ps(M, Q2, o),
+      Equal.cong(Bool, List<&2, U32>, h => PsH(f0, t2, f2, f3, f4, h), D.Has(Q1, o), D.Has(Q2, o), e),
+      Equal.sym(List<&2, U32>, D.Ps(M, Q2, o), PsH(f0, t2, f2, f3, f4, D.Has(Q2, o)), ps.h(M, Q2, o))))
+
+# and not at all for a term cell
+def ps.q19(+M: Cr.Cir.Cells, +Q1: List<&2, U32>, +Q2: List<&2, U32>, +o: U32,
+  +ht: {U32.is_lt(U32.and(D.Fd(0n, M, o), 63), 19) == True{} : Bool}) -> {D.Ps(M, Q1, o) == D.Ps(M, Q2, o) : List<&2, U32>}:
+  +f0 = D.Fd(0n, M, o)
+  +tg = U32.and(f0, 63)
+  +f2 = D.Fd(2n, M, o)
+  +f3 = D.Fd(3n, M, o)
+  +f4 = D.Fd(4n, M, o)
+  +PT = D.Ps.term(D.Fd(2n, M, U32.add(272, tg)), f2, f3, f4)
+  +R1 = Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(D.Has(Q1, o))),
+    Con{f2, D.Ps.opt(U32.is_eq(tg, 38), f3, Nil{})},
+    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0)), Bool.not(D.Has(Q1, o))), [f2], Nil{}))
+  +R2 = Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(D.Has(Q2, o))),
+    Con{f2, D.Ps.opt(U32.is_eq(tg, 38), f3, Nil{})},
+    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0)), Bool.not(D.Has(Q2, o))), [f2], Nil{}))
+  %Equal.sym(Bool, U32.is_lt(tg, 19), True{}, ht) :
+    {Bool.pick(List<&2, U32>, _, PT, R1) == Bool.pick(List<&2, U32>, _, PT, R2) : List<&2, U32>}
+  {==}
+
+# a or (b and c), with c false, gives a
+def or.and.f(a: Bool, +b: Bool, +c: Bool, h: {Bool.or(a, Bool.and(b, c)) == True{} : Bool}, hc: {c == False{} : Bool}) -> {a == True{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      K.Bo.tf({False{} == True{} : Bool}, Equal.trans(Bool, False{}, c, True{}, Equal.sym(Bool, c, False{}, hc), K.Bo.and_r(b, c, h)))
+
+# a pushed cell is a term cell
+def pu.tg(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +N: U32, +pu: List<&2, U32>, +y: U32,
+  +hgq: {Gq(pu, P, Q) == True{} : Bool}, +hcs: {D.AL.cells(P, m, P, Q, zs, K, F, N) == True{} : Bool}, +hy: {D.Has(pu, y) == True{} : Bool}) ->
+  {U32.is_lt(U32.and(D.Fd(0n, m, y), 63), 19) == True{} : Bool}:
+  +tg = U32.and(D.Fd(0n, m, y), 63)
+  +g = gq.mem(pu, P, Q, y, hgq, hy)
+  +hpy = K.Bo.and_l(D.Has(P, y), Bool.not(D.Has(Q, y)), g)
+  +hqy = K.Bo.not_t(D.Has(Q, y), K.Bo.and_r(D.Has(P, y), Bool.not(D.Has(Q, y)), g))
+  +hx = al.mem(P, m, P, Q, zs, K, F, N, y, hpy, hcs)
+  +hd = K.Bo.and_l(K.AL.hd(m, Q, y, F, N), Bool.and(K.AL.pt(m, P, zs, y, K, F, N), K.AL.ct(m, P, Q, y, F, N)), hx)
+  +h18 = or.and.f(U32.is_le(tg, 18), U32.is_le(32, tg), D.Has(Q, y), K.al.hd.tg(m, Q, y, F, N, hd), hqy)
+  K.U.lt_t(tg, 19, K.U.le(tg, 18, h18))
+
+def ps.qq.b(hp: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +y: U32, +ne: {U32.is_eq(y, q) == False{} : Bool}, +ehp: {D.Has(pu, y) == hp : Bool}) ->
+  {D.Ps(m, List.append(&2, U32, pu, Qr), y) == D.Ps(m, Con{q, Qr}, y) : List<&2, U32>}:
+  match hp:
+    case True{}:
+      ps.q19(m, List.append(&2, U32, pu, Qr), Con{q, Qr}, y, pu.tg(m, P, Con{q, Qr}, zs, K, F, nx, pu, y, hgq, hcs, ehp))
+    case False{}:
+      +e1 = {(%ehp : {D.Has(List.append(&2, U32, pu, Qr), y) == Bool.or(_, D.Has(Qr, y)) : Bool}; K.has.app(pu, Qr, y)) : {D.Has(List.append(&2, U32, pu, Qr), y) == D.Has(Qr, y) : Bool}}
+      +e2 = {(%Equal.sym(Bool, U32.is_eq(q, y), False{}, K.U.ne.sym(y, q, ne)) : {D.Has(Qr, y) == Bool.or(_, D.Has(Qr, y)) : Bool}; {==}) :
+        {D.Has(Qr, y) == D.Has(Con{q, Qr}, y) : Bool}}
+      ps.hq(m, List.append(&2, U32, pu, Qr), Con{q, Qr}, y, Equal.trans(Bool, D.Has(List.append(&2, U32, pu, Qr), y), D.Has(Qr, y), D.Has(Con{q, Qr}, y), e1, e2))
+
+def ps.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +y: U32, +ne: {U32.is_eq(y, q) == False{} : Bool}) ->
+  {D.Ps(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), y) == D.Ps(m, Con{q, Qr}, y) : List<&2, U32>}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +D = Del(P, q)
+  Equal.trans(List<&2, U32>, D.Ps(ms, Q2, y), D.Ps(M, Q2, y), D.Ps(m, Q, y), K.ps.set(M, q, Cr.Cir.Cell.zero(), Q2, y, ne, hzq),
+    Equal.trans(List<&2, U32>, D.Ps(M, Q2, y), D.Ps(m, Q2, y), D.Ps(m, Q, y), ps.w1s(ws, m, Q2, y),
+      ps.qq.b(D.Has(pu, y), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hkf, tb, y, ne, {==})))
+
 # The allocation's run: a new cell
 # --------------------------------
 
