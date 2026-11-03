@@ -1901,3 +1901,81 @@ def has.lt(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, 
         U.lt(o, N, al.hd.lt(m, Q, o, F, N, al.hd(o, rest, m, P, Q, zs, K, F, N, h2))), hzn))
       %Equal.sym(Bool, U32.is_eq(o, z), False{}, ne) : {Bool.or(_, D.Has(rest, z)) == False{} : Bool}
       has.lt(rest, m, P, Q, zs, K, F, N, z, hzn, al.rest(o, rest, m, P, Q, zs, K, F, N, h2))
+
+# Counts
+# ------
+
+# Nat.is_eq says equality
+def Na.eq(a: Nat, b: Nat, h: {Nat.is_eq(a, b) == True{} : Bool}) -> {a == b : Nat}:
+  match a b:
+    case 0n 0n:
+      {==}
+    case 0n 1n+q:
+      Bo.tf({0n == 1n+q : Nat}, h)
+    case 1n+p 0n:
+      Bo.tf({1n+p == 0n : Nat}, h)
+    case 1n+(+p) 1n+(+q):
+      Equal.cong(Nat, Nat, x => 1n+x, p, q, Na.eq(p, q, h))
+
+# w + ~0 + 1 is w
+def W.sub0(n: Nat, w: Word(n)) -> {Word.adc(n, w, Word.zero(n), True{}, True{}) == w : Word(n)}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+(+p):
+      match w:
+        case WCon{False{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, t, Word.zero(p), True{}, True{}), t, W.sub0(p, t))
+        case WCon{True{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, t, Word.zero(p), True{}, True{}), t, W.sub0(p, t))
+
+# 1 <= 2x gives 1 <= x
+def Ar.dpos(x: Nat, h: N.Le(1n, Nat.double(x))) -> N.Le(1n, x):
+  match x:
+    case 0n:
+      Empty.absurd(N.Le(1n, 0n), h)
+    case 1n+p:
+      N.le_zero(p)
+
+# w + ~0 is w - 1, for w >= 1
+def W.dec(n: Nat, w: Word(n), h: N.Le(1n, Word.to_nat(n, w))) ->
+  {1n+Word.to_nat(n, Word.adc(n, w, Word.zero(n), True{}, False{})) == Word.to_nat(n, w) : Nat}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          Empty.absurd({1n+Word.to_nat(0n, Word.adc(0n, WNil{}, Word.zero(0n), True{}, False{})) == Word.to_nat(0n, WNil{}) : Nat}, h)
+    case 1n+(+p):
+      match w:
+        case WCon{True{}, +t}:
+          Equal.cong(Word(p), Nat, z => 1n+Nat.double(Word.to_nat(p, z)), Word.adc(p, t, Word.zero(p), True{}, True{}), t, W.sub0(p, t))
+        case WCon{False{}, +t}:
+          Equal.cong(Nat, Nat, z => Nat.double(z), 1n+Word.to_nat(p, Word.adc(p, t, Word.zero(p), True{}, False{})), Word.to_nat(p, t),
+            W.dec(p, t, Ar.dpos(Word.to_nat(p, t), h)))
+
+# c - 1 is one less than c, for c >= 1 (a count that M.dec drops)
+def U.dec(+c: U32, h: N.Le(1n, U32.to_nat(c))) -> {1n+U32.to_nat(U32.sub(c, 1)) == U32.to_nat(c) : Nat}:
+  match c:
+    case U32{+w}:
+      match w:
+        case WCon{True{}, +t}:
+          Equal.cong(Word(31n), Nat, z => 1n+Nat.double(Word.to_nat(31n, z)), Word.adc(31n, t, Word.zero(31n), True{}, True{}), t,
+            W.sub0(31n, t))
+        case WCon{False{}, +t}:
+          Equal.cong(Nat, Nat, z => Nat.double(z), 1n+Word.to_nat(31n, Word.adc(31n, t, Word.zero(31n), True{}, False{})),
+            Word.to_nat(31n, t), W.dec(31n, t, Ar.dpos(Word.to_nat(31n, t), h)))
+
+# a U32 that is not 0 is at least 1
+def U.pos.of(x: Nat, +d: U32, ex: {U32.to_nat(d) == x : Nat}, h: {U32.is_eq(d, 0) == False{} : Bool}) -> N.Le(1n, x):
+  match x:
+    case 0n:
+      +e = Ar.inj(d, 0, ex)
+      Bo.ft(N.Le(1n, 0n), Equal.trans(Bool, True{}, U32.is_eq(d, 0), False{},
+        (%Equal.sym(U32, d, 0, e) : {True{} == U32.is_eq(_, 0) : Bool}; Equal.sym(Bool, U32.is_eq(0, 0), True{}, U.eq_refl(0))), h))
+    case 1n+p:
+      N.le_zero(p)
+
+def U.pos(+d: U32, h: {U32.is_eq(d, 0) == False{} : Bool}) -> N.Le(1n, U32.to_nat(d)):
+  U.pos.of(U32.to_nat(d), d, {==}, h)
