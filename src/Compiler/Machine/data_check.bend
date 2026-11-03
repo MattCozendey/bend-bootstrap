@@ -3437,6 +3437,70 @@ def pop2(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(
     W.WP(Mc.M.do(Con{Mc.M.set(Mc.R.dc(), Mc.M.g(Mc.R.ds())), Con{Mc.M.set(Mc.R.ds(), Mc.M.f(1n, Mc.M.g(Mc.R.dc()))), Con{Mc.M.release(Mc.R.dc()), T}}}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim),
     ho => _ => _ => _ => pop2.go(F, dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, lim, inp, regs, m, nx, pg, pend, ps, e, p, u, rest, ns, zs, T, Q, h, hk0, hn0, k, ho))
 
+# The last loop
+# -------------
+#
+# M.data's second loop releases what is left of the stack.
+
+# the register ds of the check's state holds the stack's top
+def cs.r42(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +keep0: List<&2, Nat>, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps0: List<&2, U32>, +c: U32, +v: Bk.Term, +xs0: List<&2, PM.TmpE>, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +pend: U32, +ps: List<&2, U32>, +es: List<&2, DE>, +ns: List<&2, U32>, +zs: List<&2, PM.Rt>, +h: CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, m, nx, pend, ps, es, ns, zs)) -> {List.get(&2, U32, regs, 42n) == Some{DE.top(es)} : Maybe<&2, U32>}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{r, _}}}:
+      r
+
+# the stack's top is not 0
+def cs.ne0(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +keep0: List<&2, Nat>, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps0: List<&2, U32>, +c: U32, +v: Bk.Term, +xs0: List<&2, PM.TmpE>, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +pend: U32, +ps: List<&2, U32>, +e: U32, +p: List<&2, Bool>, +u: Bk.Term,
+  +rest: List<&2, DE>, +ns: List<&2, U32>, +zs: List<&2, PM.Rt>, +h: CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, m, nx, pend, ps, Con{DE{e, p, u}, rest}, ns, zs)) -> {U32.is_eq(e, 0) == False{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{d, _}}}}}}}:
+      match d:
+        case Tuple{n0, _}:
+          n0
+
+# the last loop's test, with the top w in register ds
+def t2.ob(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, -w: U32,
+  h: {List.get(&2, U32, regs, 42n) == Some{w} : Maybe<&2, U32>}) -> W.Ob(Mc.M.ne(Mc.M.g(Mc.R.ds()), Mc.M.c(0)), X.X.st(regs, m, nx, fi, im, pg, lim, inp)):
+  (ob.g(Mc.R.ds(), regs, m, nx, fi, im, pg, lim, inp, w, h), Unit{})
+
+def t2.nil(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  h: {List.get(&2, U32, regs, 42n) == Some{0} : Maybe<&2, U32>}) -> {U32.is_zero(W.Ev(Mc.M.ne(Mc.M.g(Mc.R.ds()), Mc.M.c(0)), X.X.st(regs, m, nx, fi, im, pg, lim, inp))) == True{} : Bool}:
+  %Equal.sym(U32, W.Ev(Mc.M.g(Mc.R.ds()), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), 0, ev.g(Mc.R.ds(), regs, m, nx, fi, im, pg, lim, inp, 0, h)) :
+    {U32.is_zero(Bool.to_u32(U32.is_ne(_, 0))) == True{} : Bool}
+  {==}
+
+def t2.con(+regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +e: U32,
+  h: {List.get(&2, U32, regs, 42n) == Some{e} : Maybe<&2, U32>}, he: {U32.is_eq(e, 0) == False{} : Bool}) ->
+  {U32.is_zero(W.Ev(Mc.M.ne(Mc.M.g(Mc.R.ds()), Mc.M.c(0)), X.X.st(regs, m, nx, fi, im, pg, lim, inp))) == False{} : Bool}:
+  %Equal.sym(U32, W.Ev(Mc.M.g(Mc.R.ds()), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), e, ev.g(Mc.R.ds(), regs, m, nx, fi, im, pg, lim, inp, e, h)) :
+    {U32.is_zero(Bool.to_u32(Bool.not(Cmp.is_eq(U32.cmp(_, 0))))) == False{} : Bool}
+  %Equal.sym(Bool, U32.is_eq(e, 0), False{}, he) : {U32.is_zero(Bool.to_u32(Bool.not(_))) == False{} : Bool}
+  {==}
+
+# the last loop, for any fuel: it releases the stack, and keeps dok
+def L2(g: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +keep0: List<&2, Nat>, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps0: List<&2, U32>, +c: U32, +v: Bk.Term, +xs0: List<&2, PM.TmpE>, +lim: U32, +inp: List<&2, Word(8n)>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +pg: U32, +pend: U32, +ps: List<&2, U32>, es: List<&2, DE>, +ns: List<&2, U32>,
+  +zs: List<&2, PM.Rt>, -Q: Cr.Cir.State -> Type, +ok: U32,
+  +h: CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, m, nx, pend, ps, es, ns, zs), +h43: {List.get(&2, U32, regs, 43n) == Some{ok} : Maybe<&2, U32>},
+  +hk0: {PM.Disj(keep0, PM.Data.scr()) == True{} : Bool}, +hn0: {Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx0), U32.to_nat(fi))) == U32.to_nat(nx0) : Nat},
+  k: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pend2: U32 -> @ps2: List<&2, U32> -> @zs2: List<&2, PM.Rt> ->
+    CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs2, m2, nx2, pend2, ps2, Nil{}, ns, zs2) -> {List.get(&2, U32, regs2, 43n) == Some{ok} : Maybe<&2, U32>} ->
+    Q(X.X.st(regs2, m2, nx2, fi, im, pg, lim, inp))) ->
+  W.WP(Cr.Cir.Stmt.while{Mc.M.ne(Mc.M.g(Mc.R.ds()), Mc.M.c(0)), Mc.M.do(Con{Mc.M.set(Mc.R.dc(), Mc.M.g(Mc.R.ds())), Con{Mc.M.set(Mc.R.ds(), Mc.M.f(1n, Mc.M.g(Mc.R.dc()))), Con{Mc.M.release(Mc.R.dc()), Nil{}}}})}, g, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim):
+  match g es:
+    case 0n _:
+      Unit{}
+    case 1n+(+g2) Nil{}:
+      +h42 = cs.r42(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, m, nx, pend, ps, Nil{}, ns, zs, h)
+      wp.wh.e(g2, Mc.M.ne(Mc.M.g(Mc.R.ds()), Mc.M.c(0)), Mc.M.do(Con{Mc.M.set(Mc.R.dc(), Mc.M.g(Mc.R.ds())), Con{Mc.M.set(Mc.R.ds(), Mc.M.f(1n, Mc.M.g(Mc.R.dc()))), Con{Mc.M.release(Mc.R.dc()), Nil{}}}}), X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim, t2.ob(regs, m, nx, fi, im, pg, lim, inp, 0, h42), t2.nil(regs, m, nx, fi, im, pg, lim, inp, h42),
+        k(regs, m, nx, pend, ps, zs, h, h43))
+    case 1n+(+g2) Con{DE{+e, +p, +u}, +rest}:
+      +h42 = cs.r42(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, m, nx, pend, ps, Con{DE{e, p, u}, rest}, ns, zs, h)
+      wp.wh.t(g2, Mc.M.ne(Mc.M.g(Mc.R.ds()), Mc.M.c(0)), Mc.M.do(Con{Mc.M.set(Mc.R.dc(), Mc.M.g(Mc.R.ds())), Con{Mc.M.set(Mc.R.ds(), Mc.M.f(1n, Mc.M.g(Mc.R.dc()))), Con{Mc.M.release(Mc.R.dc()), Nil{}}}}), X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim, t2.ob(regs, m, nx, fi, im, pg, lim, inp, e, h42),
+        t2.con(regs, m, nx, fi, im, pg, lim, inp, e, h42, cs.ne0(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, m, nx, pend, ps, e, p, u, rest, ns, zs, h)),
+        pop2(g2, dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, lim, inp, regs, m, nx, pg, pend, ps, e, p, u, rest, ns, zs, Nil{}, t => W.WP(Cr.Cir.Stmt.while{Mc.M.ne(Mc.M.g(Mc.R.ds()), Mc.M.c(0)), Mc.M.do(Con{Mc.M.set(Mc.R.dc(), Mc.M.g(Mc.R.ds())), Con{Mc.M.set(Mc.R.ds(), Mc.M.f(1n, Mc.M.g(Mc.R.dc()))), Con{Mc.M.release(Mc.R.dc()), Nil{}}}})}, g2, t, Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim), h, hk0, hn0,
+          cs => e43 => L2(g2, dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, lim, inp, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs, Mc.R.dc(), e), Mc.R.ds(), DE.top(rest)), Mc.R.pend(), e), X.X.put(m, 1n, e, pend), nx, pg, e, Con{e, ps}, rest, ns, zs, Q, ok, cs,
+            Equal.trans(Maybe<&2, U32>, List.get(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs, Mc.R.dc(), e), Mc.R.ds(), DE.top(rest)), Mc.R.pend(), e), 43n), List.get(&2, U32, regs, 43n), Some{ok}, e43, h43), hk0, hn0, k)))
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
