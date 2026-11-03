@@ -638,29 +638,6 @@ def UB(kind: D.FK, +bv: U32, vb: Bk.Term) -> List<&2, D.Rt>:
     case D.FK.mina{}:
       Nil{}
 
-# Fr.rts.b of a frame's cell is UB of its field 3
-def ub.rts(kind: D.FK, +m: Cr.Cir.Cells, +z: U32, +vb: Bk.Term) ->
-  {D.Fr.rts.b(m, z, kind, vb) == UB(kind, D.Fd(3n, m, z), vb) : List<&2, D.Rt>}:
-  match kind:
-    case D.FK.arg{}:
-      {==}
-    case D.FK.val{}:
-      {==}
-    case D.FK.fun{}:
-      {==}
-    case D.FK.let{}:
-      {==}
-    case D.FK.tupb{}:
-      {==}
-    case D.FK.tupa{}:
-      {==}
-    case D.FK.rwt{}:
-      {==}
-    case D.FK.minb{}:
-      {==}
-    case D.FK.mina{}:
-      {==}
-
 # the terms of UB, after a list: Frs.bK of field 3
 def ub.frsb(kind: D.FK, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
   +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +bv: U32, +vb: Bk.Term,
@@ -946,19 +923,6 @@ def ne.lt.b(b: Bool, +o: U32, +z: U32, eb: {U32.is_eq(o, z) == b : Bool}, h: N.L
 def ne.lt(+o: U32, +z: U32, h: N.Le(1n+U32.to_nat(z), U32.to_nat(o))) -> {U32.is_eq(o, z) == False{} : Bool}:
   ne.lt.b(U32.is_eq(o, z), o, z, {==}, h)
 
-def ne.gt.b(b: Bool, +o: U32, +z: U32, eb: {U32.is_eq(o, z) == b : Bool}, h: N.Le(1n+U32.to_nat(o), U32.to_nat(z))) ->
-  {U32.is_eq(o, z) == False{} : Bool}:
-  match b:
-    case False{}:
-      eb
-    case True{}:
-      +e = D.u32.eq(o, z, eb)
-      Empty.absurd({U32.is_eq(o, z) == False{} : Bool}, N.not_succ_le(U32.to_nat(z), (%e : N.Le(1n+U32.to_nat(_), U32.to_nat(z)); h)))
-
-# a cell before z is not z
-def ne.gt(+o: U32, +z: U32, h: N.Le(1n+U32.to_nat(o), U32.to_nat(z))) -> {U32.is_eq(o, z) == False{} : Bool}:
-  ne.gt.b(U32.is_eq(o, z), o, z, {==}, h)
-
 # an own cell is not 0 (the image's cells come first, from 290)
 def own.nz(+fi: U32, +nx: U32, +im: U32, +z: U32, h290: {U32.is_le(290, im) == True{} : Bool}, him: {U32.is_lt(im, fi) == True{} : Bool},
   ho: {D.Own(fi, nx, z) == True{} : Bool}) -> {U32.is_eq(z, 0) == False{} : Bool}:
@@ -970,16 +934,6 @@ def own.nz(+fi: U32, +nx: U32, +im: U32, +z: U32, h290: {U32.is_le(290, im) == T
 def own.cell(+fi: U32, +nx: U32, +im: U32, +z: U32, ho: {D.Own(fi, nx, z) == True{} : Bool}) ->
   {Cr.Cir.is_cell(z, im, fi, nx) == True{} : Bool}:
   D.or.r(Bool.and(Bool.not(U32.is_zero(z)), U32.is_le(z, im)), D.Own(fi, nx, z), ho)
-
-# a cell is not next (the machine's cells are from fi to nx, the image's below fi)
-def cell.ne.nx(+c: U32, +im: U32, +fi: U32, +nx: U32, hc: {Cr.Cir.is_cell(c, im, fi, nx) == True{} : Bool},
-  him: {U32.is_lt(im, fi) == True{} : Bool}, hfn: {U32.is_le(fi, nx) == True{} : Bool}) -> {U32.is_eq(c, nx) == False{} : Bool}:
-  D.or.cases(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, im)), Bool.and(U32.is_le(fi, c), U32.is_lt(c, nx)),
-    {U32.is_eq(c, nx) == False{} : Bool}, hc,
-    e => ne.gt(c, nx, N.le_trans(1n+U32.to_nat(c), U32.to_nat(fi), U32.to_nat(nx),
-      N.le_trans(1n+U32.to_nat(c), 1n+U32.to_nat(im), U32.to_nat(fi),
-        D.u.le(c, im, D.and.r(Bool.not(U32.is_zero(c)), U32.is_le(c, im), e)), D.u.lt(im, fi, him)), D.u.le(fi, nx, hfn))),
-    e => ne.gt(c, nx, D.u.lt(c, nx, D.and.r(U32.is_le(fi, c), U32.is_lt(c, nx), e))))
 
 # M.header of the kind k and the quantity of the cell in register c: Hd of
 # its quantity q
@@ -1480,19 +1434,6 @@ def hd.st(+hv: U32, kind: D.FK, q: Bk.Quan, h: HdOK(hv, kind, q)) -> {D.FlW(hv, 
   match h:
     case Tuple{_, Tuple{_, Tuple{e, _}}}:
       e
-
-# a number below another one as a U32 comparison (copy_kit.bend's, copied)
-def u.lt_t.of(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(1n+x, y)) -> {Cmp.is_lt(c) == True{} : Bool}:
-  match c:
-    case LT{}:
-      {==}
-    case EQ{}:
-      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_rw_l(1n+x, 1n+y, y, Equal.cong(Nat, Nat, z => 1n+z, x, y, r), h)))
-    case GT{}:
-      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, N.weaken(x, y, h))))
-
-def u.lt_t(+a: U32, +b: U32, h: N.Le(1n+U32.to_nat(a), U32.to_nat(b))) -> {U32.is_lt(a, b) == True{} : Bool}:
-  u.lt_t.of(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), h)
 
 # a next that alloc.post gives: the same, or one more with no pend list
 def next.of(a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, h: {Bool.or(Bool.and(a, b), Bool.and(c, Bool.and(d, e))) == True{} : Bool}) ->
