@@ -2530,3 +2530,56 @@ def add.ex(+x: U32, +y: U32, +z: U32, h: N.Le(Nat.add(U32.to_nat(x), U32.to_nat(
   match x y z:
     case U32{+a} U32{+b} U32{+w}:
       adc.nc(32n, a, b, False{}, w, h)
+
+# a sum of words less one of its terms, the carry turned, is the other
+def W.add_sub(+n: Nat, +x: Word(n), +y: Word(n), +c: Bool) ->
+  {Word.adc(n, Word.adc(n, x, y, False{}, c), y, True{}, Bool.not(c)) == x : Word(n)}:
+  match n:
+    case 0n:
+      match x:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match x y c:
+        case WCon{False{}, +xt} WCon{False{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{False{}, +xt} WCon{False{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{False{}, +xt} WCon{True{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{False{}, +xt} WCon{True{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+        case WCon{True{}, +xt} WCon{False{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{True{}, +xt} WCon{False{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+        case WCon{True{}, +xt} WCon{True{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+        case WCon{True{}, +xt} WCon{True{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+
+# (x + y) - y = x: the walk's depth after a pop is the frame's below
+def U.add_sub(+x: U32, +y: U32) -> {U32.sub(U32.add(x, y), y) == x : U32}:
+  match x y:
+    case U32{+xw} U32{+yw}:
+      Equal.cong(Word(32n), U32, z => U32{z}, Word.adc(32n, Word.adc(32n, xw, yw, False{}, False{}), yw, True{}, True{}), xw,
+        W.add_sub(32n, xw, yw, False{}))
+
+# the number of a U32 from a number at most a U32's: that number
+def to.from(d: Nat, +z: U32, +h: N.Le(d, U32.to_nat(z))) -> {U32.to_nat(U32.from_nat(d)) == d : Nat}:
+  match d:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +ih = to.from(p, z, N.weaken(p, U32.to_nat(z), h))
+      Equal.trans(Nat, U32.to_nat(U32.inc(U32.from_nat(p))), 1n+U32.to_nat(U32.from_nat(p)), 1n+p,
+        Ar.u.inc(U32.from_nat(p), z, (%Equal.sym(Nat, U32.to_nat(U32.from_nat(p)), p, ih) : N.Le(1n+_, U32.to_nat(z)); h)),
+        Equal.cong(Nat, Nat, w => 1n+w, U32.to_nat(U32.from_nat(p)), p, ih))
