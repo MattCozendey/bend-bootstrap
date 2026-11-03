@@ -20,6 +20,7 @@
 import Base
 import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
+import ../../Program/impl.bend as Pg
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
 import ./cell_terms.bend as T
@@ -2637,6 +2638,325 @@ def do.alloc(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, W
   al.ok(F, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, ps, xs, zs, t => W.WP(Mc.M.do(T), F, t, Q, B, lim), B,
     hs, hac, hl, hp, hr, hk, hb,
     st2 => q => alq.st(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, ps, xs, st2, t => W.WP(Mc.M.do(T), F, t, Q, B, lim), q, k))
+
+# The check's state
+# -----------------
+#
+# Between its steps, the check holds CS: the caller's registers keep (Kept),
+# register ds holds the stack's top and pend the pend list's first; HSK of
+# the cells, with v's cell c borrowed; AccK with the stack's cells as the
+# first temporaries; the stack (DS); v's tree as at the start but for the
+# flags DATA it set (KV); what the check keeps of the cells it began with
+# (Kept.cells); no more STATIC cells than then; and the stack's parts no
+# bigger than v.
+
+# the nodes of the stack's parts
+def DE.size(es: List<&2, DE>) -> Nat:
+  match es:
+    case Nil{}:
+      0n
+    case Con{DE{_, _, u}, rest}:
+      Nat.add(Pg.Term.size(u), DE.size(rest))
+
+def CS(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>,
+  +keep0: List<&2, Nat>, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>,
+  +fs: List<&2, PM.AF>, +sp: U32, +ps0: List<&2, U32>, +c: U32, +v: Bk.Term, +xs0: List<&2, PM.TmpE>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +pend: U32, +ps: List<&2, U32>, +es: List<&2, DE>, +ns: List<&2, U32>,
+  +zs: List<&2, PM.Rt>) -> Data:
+  PM.P2(PM.Kept(regs0, regs, keep0),
+  PM.P2({List.length(&2, U32, regs) == 63n : Nat},
+  PM.P2({List.get(&2, U32, regs, 42n) == Some{DE.top(es)} : Maybe<&2, U32>},
+  PM.P2({List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  PM.P2(PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps),
+  PM.P2(PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, List.append(&2, PM.TmpE, DE.tmps(es), xs0), sp, fs, ps, zs),
+  PM.P2(DS(es, m, m0, c, v, nx0, List.append(&2, U32, ps0, Nil{})),
+  PM.P2(KV(v, m0, m, c, ns),
+  PM.P2(PM.Kept.cells(m0, nx0, fi, ps0, Nil{}, m, nx, ps),
+  PM.P2(N.Le(PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi), PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi)),
+    N.Le(DE.size(es), Pg.Term.size(v))))))))))))
+
+# Parts of the heap's facts
+# -------------------------
+
+# the temporaries of AccK are working cells
+def acc.ok(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -rs: List<&2, PM.Rt>, -xs: List<&2, PM.TmpE>, -sp: U32, -fs: List<&2, PM.AF>, -ps: List<&2, U32>, -zs: List<&2, PM.Rt>,
+  h: PM.AccK(dk, ds, ks, img, m, nx, fi, im, rs, xs, sp, fs, ps, zs)) ->
+  {PM.Tmp.ok(xs, m, fi, nx, ps, List.append(&2, PM.Rt, rs, List.append(&2, PM.Rt, PM.Tmp.held(xs), List.append(&2, PM.Rt, PM.Fr.rts(fs, m, sp), zs)))) == True{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, t}}}}}:
+      t
+
+def heap.pok(-m: Cr.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -rs: List<&2, U32>, -pend: U32, -ps: List<&2, U32>,
+  h: PM.Heap(m, nx, fi, im, rs, pend, ps)) -> PM.PendOK(ps, ps, m, fi, nx, rs):
+  match h:
+    case Tuple{_, Tuple{hp, _}}:
+      hp
+
+def img.if(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -im: U32,
+  -fi: U32, -nx: U32, h: PM.ImgOKK(dk, ds, ks, img, m, im, fi, nx)) -> {U32.is_lt(im, fi) == True{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, hl}}}}}}}:
+      hl
+
+# an own cell is not 0: the own cells are past the image
+def own.nz(+z: U32, +im: U32, +fi: U32, +nx: U32, ho: {PM.Own(fi, nx, z) == True{} : Bool}, hif: {U32.is_lt(im, fi) == True{} : Bool}) ->
+  {U32.is_eq(z, 0) == False{} : Bool}:
+  u32.ne.sym(0, z, lt.neq(0, z, N.le_trans(1n, U32.to_nat(fi), U32.to_nat(z),
+    N.le_trans(1n, 1n+U32.to_nat(im), U32.to_nat(fi), N.le_zero(U32.to_nat(im)), PM.u.lt(im, fi, hif)),
+    PM.u.le(fi, z, PM.and.l(U32.is_le(fi, z), U32.is_lt(z, nx), ho)))))
+
+# Counts
+# ------
+
+def nat.comm(+x: Nat, e: Nat) -> {Nat.add(e, x) == Nat.add(x, e) : Nat}:
+  match e:
+    case 0n:
+      Equal.sym(Nat, Nat.add(x, 0n), x, N.add_zero(x))
+    case 1n+(+p):
+      Equal.trans(Nat, 1n+Nat.add(p, x), 1n+Nat.add(x, p), Nat.add(x, 1n+p), Equal.cong(Nat, Nat, y => 1n+y, Nat.add(p, x), Nat.add(x, p), nat.comm(x, p)),
+        Equal.sym(Nat, Nat.add(x, 1n+p), 1n+Nat.add(x, p), N.add_succ_r(x, p)))
+
+# a + (e + x) = (a + x) + e
+def nat.mv(a: Nat, +e: Nat, +x: Nat) -> {Nat.add(a, Nat.add(e, x)) == Nat.add(Nat.add(a, x), e) : Nat}:
+  match a:
+    case 0n:
+      nat.comm(x, e)
+    case 1n+(+p):
+      Equal.cong(Nat, Nat, y => 1n+y, Nat.add(p, Nat.add(e, x)), Nat.add(Nat.add(p, x), e), nat.mv(p, e, x))
+
+# b + ((y) + e) = (b + y) + e, under the context of a sum
+def nat.out(+b: Nat, +y: Nat, +e: Nat) -> {Nat.add(b, Nat.add(y, e)) == Nat.add(Nat.add(b, y), e) : Nat}:
+  Equal.sym(Nat, Nat.add(Nat.add(b, y), e), Nat.add(b, Nat.add(y, e)), N.add_assoc(b, y, e))
+
+# Acc.need's sum, with e more temporaries, moves e out
+def ar.need(+s1: Nat, +s0: Nat, +r: Nat, +h: Nat, +f: Nat, +l: Nat, +e: Nat, +x: Nat, hs: N.Le(s1, s0)) ->
+  N.Le(Nat.add(s1, Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, Nat.add(e, x)))))), Nat.add(Nat.add(s0, Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x))))), e)):
+  +W = Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, Nat.add(e, x)))))
+  +e1 = Equal.cong(Nat, Nat, y => Nat.add(r, Nat.add(h, Nat.add(f, y))), Nat.add(l, Nat.add(e, x)), Nat.add(Nat.add(l, x), e), nat.mv(l, e, x))
+  +e2 = Equal.cong(Nat, Nat, y => Nat.add(r, Nat.add(h, y)), Nat.add(f, Nat.add(Nat.add(l, x), e)), Nat.add(Nat.add(f, Nat.add(l, x)), e), nat.out(f, Nat.add(l, x), e))
+  +e3 = Equal.cong(Nat, Nat, y => Nat.add(r, y), Nat.add(h, Nat.add(Nat.add(f, Nat.add(l, x)), e)), Nat.add(Nat.add(h, Nat.add(f, Nat.add(l, x))), e),
+    nat.out(h, Nat.add(f, Nat.add(l, x)), e))
+  +e4 = nat.out(r, Nat.add(h, Nat.add(f, Nat.add(l, x))), e)
+  +e5 = nat.out(s0, Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x)))), e)
+  +eW = Equal.trans(Nat, W, Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(Nat.add(l, x), e)))), Nat.add(Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x)))), e), e1,
+    Equal.trans(Nat, Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(Nat.add(l, x), e)))), Nat.add(r, Nat.add(h, Nat.add(Nat.add(f, Nat.add(l, x)), e))),
+      Nat.add(Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x)))), e), e2,
+      Equal.trans(Nat, Nat.add(r, Nat.add(h, Nat.add(Nat.add(f, Nat.add(l, x)), e))), Nat.add(r, Nat.add(Nat.add(h, Nat.add(f, Nat.add(l, x))), e)),
+        Nat.add(Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x)))), e), e3, e4)))
+  N.le_rw_r(Nat.add(s1, W), Nat.add(s0, W), Nat.add(Nat.add(s0, Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x))))), e),
+    Equal.trans(Nat, Nat.add(s0, W), Nat.add(s0, Nat.add(Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x)))), e)),
+      Nat.add(Nat.add(s0, Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x))))), e),
+      Equal.cong(Nat, Nat, y => Nat.add(s0, y), W, Nat.add(Nat.add(r, Nat.add(h, Nat.add(f, Nat.add(l, x)))), e), eW), e5),
+    N.add_mono(s1, s0, W, W, hs, N.le_refl(W)))
+
+# the stack's temporaries hold no term
+def held.tmps(es: List<&2, DE>, +xs0: List<&2, PM.TmpE>) ->
+  {PM.Tmp.held(List.append(&2, PM.TmpE, DE.tmps(es), xs0)) == PM.Tmp.held(xs0) : List<&2, PM.Rt>}:
+  match es:
+    case Nil{}:
+      {==}
+    case Con{DE{k, _, _}, rest}:
+      held.tmps(rest, xs0)
+
+def len.tmps(es: List<&2, DE>, +xs0: List<&2, PM.TmpE>) ->
+  {List.length(&2, PM.TmpE, List.append(&2, PM.TmpE, DE.tmps(es), xs0)) == Nat.add(List.length(&2, DE, es), List.length(&2, PM.TmpE, xs0)) : Nat}:
+  match es:
+    case Nil{}:
+      {==}
+    case Con{DE{k, _, _}, rest}:
+      Equal.cong(Nat, Nat, y => 1n+y, List.length(&2, PM.TmpE, List.append(&2, PM.TmpE, DE.tmps(rest), xs0)),
+        Nat.add(List.length(&2, DE, rest), List.length(&2, PM.TmpE, xs0)), len.tmps(rest, xs0))
+
+# the frames' terms and cells do not depend on the cells
+def frb.size(kind: PM.FK, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +fr: U32, +fr2: U32, +b: Bk.Term) ->
+  {PM.Rts.size(PM.Fr.rts.b(m, fr, kind, b)) == PM.Rts.size(PM.Fr.rts.b(m2, fr2, kind, b)) : Nat}:
+  match kind:
+    case PM.FK.arg{}:
+      {==}
+    case PM.FK.val{}:
+      {==}
+    case PM.FK.fun{}:
+      {==}
+    case PM.FK.let{}:
+      {==}
+    case PM.FK.tupb{}:
+      {==}
+    case PM.FK.tupa{}:
+      {==}
+    case PM.FK.rwt{}:
+      {==}
+    case PM.FK.minb{}:
+      {==}
+    case PM.FK.mina{}:
+      {==}
+
+def frs.size(fs: List<&2, PM.AF>, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +fr: U32, +fr2: U32) ->
+  {PM.Rts.size(PM.Fr.rts(fs, m, fr)) == PM.Rts.size(PM.Fr.rts(fs, m2, fr2)) : Nat}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{PM.AF{+kind, _, _, +a, +b}, +rest}:
+      +X1 = PM.Fr.rts.b(m, fr, kind, b)
+      +X2 = PM.Fr.rts.b(m2, fr2, kind, b)
+      +Y1 = PM.Fr.rts(rest, m, PM.Fd(1n, m, fr))
+      +Y2 = PM.Fr.rts(rest, m2, PM.Fd(1n, m2, fr2))
+      Equal.cong(Nat, Nat, y => Nat.add(Pg.Term.size(a), y), PM.Rts.size(List.append(&2, PM.Rt, X1, Y1)), PM.Rts.size(List.append(&2, PM.Rt, X2, Y2)),
+        Equal.trans(Nat, PM.Rts.size(List.append(&2, PM.Rt, X1, Y1)), Nat.add(PM.Rts.size(X1), PM.Rts.size(Y1)), PM.Rts.size(List.append(&2, PM.Rt, X2, Y2)),
+          A.rts.size.app(X1, Y1),
+          Equal.trans(Nat, Nat.add(PM.Rts.size(X1), PM.Rts.size(Y1)), Nat.add(PM.Rts.size(X2), PM.Rts.size(Y2)), PM.Rts.size(List.append(&2, PM.Rt, X2, Y2)),
+            (%frb.size(kind, m, m2, fr, fr2, b) : {Nat.add(PM.Rts.size(X1), PM.Rts.size(Y1)) == Nat.add(_, PM.Rts.size(Y2)) : Nat};
+              Equal.cong(Nat, Nat, y => Nat.add(PM.Rts.size(X1), y), PM.Rts.size(Y1), PM.Rts.size(Y2), frs.size(rest, m, m2, PM.Fd(1n, m, fr), PM.Fd(1n, m2, fr2)))),
+            Equal.sym(Nat, PM.Rts.size(List.append(&2, PM.Rt, X2, Y2)), Nat.add(PM.Rts.size(X2), PM.Rts.size(Y2)), A.rts.size.app(X2, Y2)))))
+
+def frc.len(fs: List<&2, PM.AF>, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +fr: U32, +fr2: U32) ->
+  {List.length(&2, U32, PM.Fr.cells(fs, m, fr)) == List.length(&2, U32, PM.Fr.cells(fs, m2, fr2)) : Nat}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{_, +rest}:
+      Equal.cong(Nat, Nat, y => 1n+y, List.length(&2, U32, PM.Fr.cells(rest, m, PM.Fd(1n, m, fr))), List.length(&2, U32, PM.Fr.cells(rest, m2, PM.Fd(1n, m2, fr2))),
+        frc.len(rest, m, m2, PM.Fd(1n, m, fr), PM.Fd(1n, m2, fr2)))
+
+# Acc.need with the stack's cells is the start's and the stack's
+def acc.need.le(+m: Cr.Cir.Cells, +nx: U32, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +os: List<&2, PM.Rt>, +es: List<&2, DE>,
+  +xs0: List<&2, PM.TmpE>, +sp: U32, +fs: List<&2, PM.AF>,
+  hs: N.Le(PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi), PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi))) ->
+  N.Le(PM.Acc.need(m, nx, fi, os, List.append(&2, PM.TmpE, DE.tmps(es), xs0), sp, fs),
+    Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), List.length(&2, DE, es))):
+  +xs = List.append(&2, PM.TmpE, DE.tmps(es), xs0)
+  +S1 = PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)
+  +S0 = PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi)
+  +R = PM.Rts.size(os)
+  +H = PM.Rts.size(PM.Tmp.held(xs0))
+  +F = PM.Rts.size(PM.Fr.rts(fs, m0, sp))
+  +L = List.length(&2, U32, PM.Fr.cells(fs, m0, sp))
+  +E = List.length(&2, DE, es)
+  +X = List.length(&2, PM.TmpE, xs0)
+  +RHS = Nat.add(Nat.add(S0, Nat.add(R, Nat.add(H, Nat.add(F, Nat.add(L, X))))), E)
+  %Equal.sym(List<&2, PM.Rt>, PM.Tmp.held(xs), PM.Tmp.held(xs0), held.tmps(es, xs0)) :
+    N.Le(Nat.add(S1, Nat.add(R, Nat.add(PM.Rts.size(_), Nat.add(PM.Rts.size(PM.Fr.rts(fs, m, sp)), Nat.add(List.length(&2, U32, PM.Fr.cells(fs, m, sp)), List.length(&2, PM.TmpE, xs)))))), RHS)
+  %Equal.sym(Nat, PM.Rts.size(PM.Fr.rts(fs, m, sp)), F, frs.size(fs, m, m0, sp, sp)) :
+    N.Le(Nat.add(S1, Nat.add(R, Nat.add(H, Nat.add(_, Nat.add(List.length(&2, U32, PM.Fr.cells(fs, m, sp)), List.length(&2, PM.TmpE, xs)))))), RHS)
+  %Equal.sym(Nat, List.length(&2, U32, PM.Fr.cells(fs, m, sp)), L, frc.len(fs, m, m0, sp, sp)) :
+    N.Le(Nat.add(S1, Nat.add(R, Nat.add(H, Nat.add(F, Nat.add(_, List.length(&2, PM.TmpE, xs)))))), RHS)
+  %Equal.sym(Nat, List.length(&2, PM.TmpE, xs), Nat.add(E, X), len.tmps(es, xs0)) :
+    N.Le(Nat.add(S1, Nat.add(R, Nat.add(H, Nat.add(F, Nat.add(L, _))))), RHS)
+  ar.need(S1, S0, R, H, F, L, E, X, hs)
+
+# the stack has no more entries than nodes
+def len.size(es: List<&2, DE>) -> N.Le(List.length(&2, DE, es), DE.size(es)):
+  match es:
+    case Nil{}:
+      Unit{}
+    case Con{DE{_, _, +u}, +rest}:
+      +D = DE.size(rest)
+      +p = PM.nat.pred(Pg.Term.size(u))
+      %Equal.sym(Nat, Pg.Term.size(u), 1n+p, PM.size.pos(u)) : N.Le(1n+List.length(&2, DE, rest), Nat.add(_, D))
+      N.le_trans(List.length(&2, DE, rest), D, Nat.add(p, D), len.size(rest), N.le_add_l(p, D))
+
+# a pend list that Pend.none says is empty is
+def pend.nil(ps: List<&2, U32>, h: {PM.Pend.none(ps) == True{} : Bool}) -> {ps == Nil{} : List<&2, U32>}:
+  match ps:
+    case Nil{}:
+      {==}
+    case Con{x, rest}:
+      Empty.absurd({Con{x, rest} == Nil{} : List<&2, U32>}, N.false_ne_true(h))
+
+# the check's budget: a new cell, at an alloc with no pending cell, fits it
+def bud.al(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
+  +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps: List<&2, U32>, +xs0: List<&2, PM.TmpE>,
+  +es: List<&2, DE>, +zs: List<&2, PM.Rt>, +m0: Cr.Cir.Cells, +nx0: U32, +v: Bk.Term,
+  hac: PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, List.append(&2, PM.TmpE, DE.tmps(es), xs0), sp, fs, ps, zs),
+  hfn: {U32.is_le(fi, nx) == True{} : Bool},
+  hst: N.Le(PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi), PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi)),
+  hS: N.Le(DE.size(es), Pg.Term.size(v)), hp: {PM.Pend.none(ps) == True{} : Bool}) ->
+  N.Le(Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v)))):
+  +xs = List.append(&2, PM.TmpE, DE.tmps(es), xs0)
+  +A0 = PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs)
+  +sv = Pg.Term.size(v)
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +hc = A.acc.count(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, zs,
+    (%pend.nil(ps, hp) : PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, _, zs); hac))
+  +h1 = N.le_trans(n, PM.Acc.need(m, nx, fi, os, xs, sp, fs), Nat.add(A0, sv), hc,
+    N.le_trans(PM.Acc.need(m, nx, fi, os, xs, sp, fs), Nat.add(A0, List.length(&2, DE, es)), Nat.add(A0, sv),
+      acc.need.le(m, nx, m0, nx0, fi, os, es, xs0, sp, fs, hst),
+      N.add_mono(A0, A0, List.length(&2, DE, es), sv, N.le_refl(A0), N.le_trans(List.length(&2, DE, es), DE.size(es), sv, len.size(es), hS))))
+  +h2 = N.le_rw_l(Nat.add(U32.to_nat(fi), n), U32.to_nat(nx), Nat.add(U32.to_nat(fi), Nat.add(A0, sv)),
+    PM.add.sub(U32.to_nat(fi), U32.to_nat(nx), PM.u.le(fi, nx, hfn)),
+    N.add_mono(U32.to_nat(fi), U32.to_nat(fi), n, Nat.add(A0, sv), N.le_refl(U32.to_nat(fi)), h1))
+  +e1 = Equal.trans(Nat, Nat.add(U32.to_nat(nx), 1n), 1n+Nat.add(U32.to_nat(nx), 0n), 1n+U32.to_nat(nx), N.add_succ_r(U32.to_nat(nx), 0n),
+    Equal.cong(Nat, Nat, y => 1n+y, Nat.add(U32.to_nat(nx), 0n), U32.to_nat(nx), N.add_zero(U32.to_nat(nx))))
+  +e2 = Equal.trans(Nat, Nat.add(U32.to_nat(fi), Nat.add(A0, 1n+sv)), Nat.add(U32.to_nat(fi), 1n+Nat.add(A0, sv)), 1n+Nat.add(U32.to_nat(fi), Nat.add(A0, sv)),
+    Equal.cong(Nat, Nat, y => Nat.add(U32.to_nat(fi), y), Nat.add(A0, 1n+sv), 1n+Nat.add(A0, sv), N.add_succ_r(A0, sv)),
+    N.add_succ_r(U32.to_nat(fi), Nat.add(A0, sv)))
+  N.mul_mono_r(20n, Nat.add(U32.to_nat(nx), 1n), Nat.add(U32.to_nat(fi), Nat.add(A0, 1n+sv)),
+    N.le_rw_l(1n+U32.to_nat(nx), Nat.add(U32.to_nat(nx), 1n), Nat.add(U32.to_nat(fi), Nat.add(A0, 1n+sv)), Equal.sym(Nat, Nat.add(U32.to_nat(nx), 1n), 1n+U32.to_nat(nx), e1),
+      N.le_rw_r(1n+U32.to_nat(nx), 1n+Nat.add(U32.to_nat(fi), Nat.add(A0, sv)), Nat.add(U32.to_nat(fi), Nat.add(A0, 1n+sv)),
+        Equal.sym(Nat, Nat.add(U32.to_nat(fi), Nat.add(A0, 1n+sv)), 1n+Nat.add(U32.to_nat(fi), Nat.add(A0, sv)), e2), h2)))
+
+# The push
+# --------
+#
+# M.make of a K.check cell for the part u, at the path p, that A gives;
+# its link to the stack's top; register ds gets it. Stated on M.do(T), as
+# the check's code has it.
+
+# M.make's stores and the link, at the cell z of zeros: one store of CK
+def ck.cells2(+m: Cr.Cir.Cells, +z: U32, +y: U32, +w: U32, ez: {Cr.Cir.Cells.get(m, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell}) ->
+  {X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(m, 0n, z, 44), 1n, z, 1), 2n, z, y), 3n, z, 0), 4n, z, 0), 1n, z, w) ==
+    Cr.Cir.Cells.set(m, z, CK(w, y)) : Cr.Cir.Cells}:
+  +c0 = Cr.Cir.Cell.zero()
+  +c1 = Cr.Cir.Cell.set(0n, c0, 44)
+  +c2 = Cr.Cir.Cell.set(1n, c1, 1)
+  +c3 = Cr.Cir.Cell.set(2n, c2, y)
+  +c4 = Cr.Cir.Cell.set(3n, c3, 0)
+  +c5 = Cr.Cir.Cell.set(4n, c4, 0)
+  +rhs = Cr.Cir.Cells.set(m, z, CK(w, y))
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, z), c0, ez) :
+    {X.X.put(X.X.put(X.X.put(X.X.put(X.X.put(Cr.Cir.Cells.set(m, z, Cr.Cir.Cell.set(0n, _, 44)), 1n, z, 1), 2n, z, y), 3n, z, 0), 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c1, 1n, 1) :
+    {X.X.put(X.X.put(X.X.put(X.X.put(_, 2n, z, y), 3n, z, 0), 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c2, 2n, y) :
+    {X.X.put(X.X.put(X.X.put(_, 3n, z, 0), 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c3, 3n, 0) :
+    {X.X.put(X.X.put(_, 4n, z, 0), 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c4, 4n, 0) :
+    {X.X.put(_, 1n, z, w) == rhs : Cr.Cir.Cells}
+  %X.Ce.put_set(m, z, c5, 1n, w) :
+    {_ == rhs : Cr.Cir.Cells}
+  {==}
+
+# M.alloc's cells have no more STATIC cells than before
+def stat.al.b(b: Bool, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +nx2: U32, +z: U32, +ws: List<&2, PM.W1>, +ps: List<&2, U32>,
+  eb: {Bool.and(PM.Mem(ps, z), U32.is_eq(nx2, nx)) == b : Bool},
+  hnx: {Bool.or(b, Bool.and(PM.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx2, U32.inc(nx))))) == True{} : Bool},
+  +ho: {PM.Own(fi, nx2, z) == True{} : Bool}, +hfn: {U32.is_le(fi, nx) == True{} : Bool}) ->
+  N.Le(PM.Stat(Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), Cr.Cir.Cells.set(PM.Put1(ws, m), z, Cr.Cir.Cell.zero()), fi),
+    PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)):
+  match b:
+    case True{}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +M = PM.Put1(ws, m)
+      +e2 = PM.u32.eq(nx2, nx, PM.and.r(PM.Mem(ps, z), U32.is_eq(nx2, nx), eb))
+      (%Equal.sym(U32, nx2, nx, e2) : N.Le(PM.Stat(Nat.sub(U32.to_nat(_), U32.to_nat(fi)), Cr.Cir.Cells.set(M, z, Cr.Cir.Cell.zero()), fi), PM.Stat(n, m, fi));
+        N.le_rw_r(PM.Stat(n, Cr.Cir.Cells.set(M, z, Cr.Cir.Cell.zero()), fi), PM.Stat(n, M, fi), PM.Stat(n, m, fi), A.stat.put1(n, ws, m, fi),
+          A.stat.set(n, M, fi, z, Cr.Cir.Cell.zero(), {==})))
+    case False{}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +M = PM.Put1(ws, m)
+      +h3 = PM.and.r(PM.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx2, U32.inc(nx))), hnx)
+      +ez = PM.u32.eq(z, nx, PM.and.l(U32.is_eq(z, nx), U32.is_eq(nx2, U32.inc(nx)), h3))
+      +e2 = PM.u32.eq(nx2, U32.inc(nx), PM.and.r(U32.is_eq(z, nx), U32.is_eq(nx2, U32.inc(nx)), h3))
+      +SI = PM.Stat(Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(fi)), Cr.Cir.Cells.set(M, nx, Cr.Cir.Cell.zero()), fi)
+      (%Equal.sym(U32, z, nx, ez) : N.Le(PM.Stat(Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), Cr.Cir.Cells.set(M, _, Cr.Cir.Cell.zero()), fi), PM.Stat(n, m, fi));
+        (%Equal.sym(U32, nx2, U32.inc(nx), e2) : N.Le(PM.Stat(Nat.sub(U32.to_nat(_), U32.to_nat(fi)), Cr.Cir.Cells.set(M, nx, Cr.Cir.Cell.zero()), fi), PM.Stat(n, m, fi));
+          N.le_rw_l(PM.Stat(n, m, fi), SI, PM.Stat(n, m, fi),
+            Equal.sym(Nat, SI, PM.Stat(n, m, fi),
+              Equal.trans(Nat, SI, PM.Stat(n, M, fi), PM.Stat(n, m, fi),
+                A.stat.fresh(M, nx, fi, nx2, hfn, (%ez : {U32.is_lt(_, nx2) == True{} : Bool}; PM.and.r(U32.is_le(fi, z), U32.is_lt(z, nx2), ho))),
+                A.stat.put1(n, ws, m, fi))),
+            N.le_refl(PM.Stat(n, m, fi)))))
 
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
