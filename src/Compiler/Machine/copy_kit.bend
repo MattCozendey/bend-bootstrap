@@ -2136,3 +2136,74 @@ def ps.eq(+M1: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, e0: 
     {==} : {a1 == R2 : List<&2, U32>}}
   Equal.trans(List<&2, U32>, D.Ps(M1, Q, o), a1, D.Ps(M2, Q, o), ps.f(M1, Q, o),
     Equal.trans(List<&2, U32>, a1, R2, D.Ps(M2, Q, o), e, Equal.sym(List<&2, U32>, D.Ps(M2, Q, o), R2, ps.f(M2, Q, o))))
+
+# Order, as Bools and types
+# -------------------------
+
+# a T that holds is True
+def ofT(b: Bool, h: N.T(b)) -> {b == True{} : Bool}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      Empty.absurd({False{} == True{} : Bool}, h)
+
+# a < b as 1 + a <= b
+def Na.lt1(a: Nat, b: Nat, h: {Nat.is_lt(a, b) == True{} : Bool}) -> N.Le(1n+a, b):
+  match a b:
+    case 0n 0n:
+      Bo.tf(N.Le(1n, 0n), h)
+    case 0n 1n+q:
+      N.le_zero(q)
+    case 1n+p 0n:
+      Bo.tf(N.Le(2n+p, 0n), h)
+    case 1n+p 1n+q:
+      Na.lt1(p, q, h)
+
+def Na.lt1i(a: Nat, b: Nat, h: N.Le(1n+a, b)) -> {Nat.is_lt(a, b) == True{} : Bool}:
+  match a b:
+    case 0n 0n:
+      Empty.absurd({Nat.is_lt(0n, 0n) == True{} : Bool}, h)
+    case 0n 1n+q:
+      {==}
+    case 1n+p 0n:
+      Empty.absurd({Nat.is_lt(1n+p, 0n) == True{} : Bool}, h)
+    case 1n+p 1n+q:
+      Na.lt1i(p, q, h)
+
+# U32.is_eq the other way
+def U.ne.sym.of(c: Bool, +a: U32, +b: U32, ec: {U32.is_eq(b, a) == c : Bool}, h: {U32.is_eq(a, b) == False{} : Bool}) ->
+  {U32.is_eq(b, a) == False{} : Bool}:
+  match c:
+    case True{}:
+      +e = U.eq(b, a, ec)
+      Bo.ft({U32.is_eq(b, a) == False{} : Bool}, Equal.trans(Bool, True{}, U32.is_eq(a, b), False{},
+        (%Equal.sym(U32, b, a, e) : {True{} == U32.is_eq(a, _) : Bool}; Equal.sym(Bool, U32.is_eq(a, a), True{}, U.eq_refl(a))), h))
+    case False{}:
+      ec
+
+def U.ne.sym(+a: U32, +b: U32, h: {U32.is_eq(a, b) == False{} : Bool}) -> {U32.is_eq(b, a) == False{} : Bool}:
+  U.ne.sym.of(U32.is_eq(b, a), a, b, {==}, h)
+
+# a cell of Q is one of P, when Q's are P's
+def sub.nhas.b(e: Bool, +y: U32, +rest: List<&2, U32>, +P: List<&2, U32>, +x: U32, ey: {U32.is_eq(y, x) == e : Bool},
+  hs: {Bool.and(D.Has(P, y), D.Sub(rest, P)) == True{} : Bool}, +hp: {D.Has(P, x) == False{} : Bool},
+  k: {D.Sub(rest, P) == True{} : Bool} -> {D.Has(rest, x) == False{} : Bool}) ->
+  {Bool.or(U32.is_eq(y, x), D.Has(rest, x)) == False{} : Bool}:
+  match e:
+    case True{}:
+      +ex = U.eq(y, x, ey)
+      +hy = Bo.and_l(D.Has(P, y), D.Sub(rest, P), hs)
+      Bo.ft({Bool.or(U32.is_eq(y, x), D.Has(rest, x)) == False{} : Bool},
+        Equal.trans(Bool, True{}, D.Has(P, x), False{}, Equal.sym(Bool, D.Has(P, x), True{}, (%ex : {D.Has(P, _) == True{} : Bool}; hy)), hp))
+    case False{}:
+      %Equal.sym(Bool, U32.is_eq(y, x), False{}, ey) : {Bool.or(_, D.Has(rest, x)) == False{} : Bool}
+      k(Bo.and_r(D.Has(P, y), D.Sub(rest, P), hs))
+
+def sub.nhas(Q: List<&2, U32>, +P: List<&2, U32>, +x: U32, hs: {D.Sub(Q, P) == True{} : Bool}, +hp: {D.Has(P, x) == False{} : Bool}) ->
+  {D.Has(Q, x) == False{} : Bool}:
+  match Q:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      sub.nhas.b(U32.is_eq(y, x), y, rest, P, x, {==}, hs, hp, h2 => sub.nhas(rest, P, x, h2, hp))
