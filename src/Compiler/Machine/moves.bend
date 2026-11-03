@@ -56,7 +56,8 @@ import ./moves_call.bend as U14
 
 # mode 0: by the flag VALUE of the focus' cell, then by its term
 def round.ev(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term, eb: {D.Fl(m, foc, 256) == b : Bool},
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, False{}, focus, fs, ps)) -> K.MV(ds, ks, img, D.S(foc, 0, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, False{}, focus, fs, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, 0, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match b:
     case True{}:
       K.mv.ev.val(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, iv, eb)
@@ -65,13 +66,13 @@ def round.ev(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
         case Bk.Term.Var{+i}:
           K.mv.ev.var(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, i, iv, eb)
         case Bk.Term.Ref{+k}:
-          K.mv.ev.ref(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, k, iv, eb)
+          K.mv.ev.ref(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, k, iv, eb, hfv)
         case Bk.Term.Ann{+x, +y}:
           K.mv.ev.ann(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, x, y, iv, eb)
         case Bk.Term.Let{+q, +v, +b2}:
           match q:
             case Bk.Quan.Q0{}:
-              K.mv.ev.unlet(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Quan.Q0{}, v, b2, iv, eb, {==})
+              K.mv.ev.unlet(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Quan.Q0{}, v, b2, iv, eb, {==}, hfv)
             case Bk.Quan.Q1{}:
               K.mv.ev.let(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Quan.Q1{}, v, b2, iv, eb, {==})
             case Bk.Quan.Q2{}:
@@ -117,101 +118,104 @@ def round.ev(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
 # the value's term
 def round.app(b: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term, +kind: D.FK, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +bb: Bk.Term,
   eb: {Bool.and(El.Quan.live(q), Bool.not(k)) == b : Bool}, hk: {K.FK.isapp(kind) == True{} : Bool},
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{kind, q, k, a, bb}, fs}, ps)) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{kind, q, k, a, bb}, fs}, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match b:
     case True{}:
       K.mv.ret.swap(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, kind, q, k, a, bb, iv, hk, eb)
     case False{}:
       match focus:
         case Bk.Term.Var{+i}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Ref{+kk}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Ann{+x, +y}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Let{+qq, +v, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{qq, v, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{qq, v, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Typ{+x}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Min{+aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.All{+qq, +aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Lam{+r, +b2}:
-          K.mv.ret.app.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, kind, q, k, a, bb, iv, hk, eb)
+          K.mv.ret.app.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, kind, q, k, a, bb, iv, hk, eb, hfv)
         case Bk.Term.App{+qq, +g, +x}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{qq, g, x}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{qq, g, x}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Sig{+qq, +aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Tup{+qq, +aa, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{qq, aa, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Prj{+h}:
           K.mv.ret.app.prj(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, h, kind, q, k, a, bb, iv, hk, eb)
         case Bk.Term.Enu{+e}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Lab{+kk}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Mat{+kk, +h, +n}:
           K.mv.ret.app.mat(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, kk, h, n, kind, q, k, a, bb, iv, hk, eb)
         case Bk.Term.Efq{}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Eql{+aa, +b2, +y}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{aa, b2, y}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{aa, b2, y}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Rfl{}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
         case Bk.Term.Rwt{+e, +p2, +b2}:
-          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, kind, q, k, a, bb, iv, hk, eb, {==})
+          K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, kind, q, k, a, bb, iv, hk, eb, {==}, hfv)
 
 # mode 1, App q g □: the redex, by the function's term
 def round.fun(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term, +q: Bk.Quan, +k: Bool, +g: Bk.Term, +bb: Bk.Term,
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{D.FK.fun{}, q, k, g, bb}, fs}, ps)) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, True{}, focus, Con{D.AF{D.FK.fun{}, q, k, g, bb}, fs}, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match g:
     case Bk.Term.Var{+i}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Var{i}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Ref{+kk}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ref{kk}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Ann{+x, +y}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Ann{x, y}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Let{+r, +v, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{r, v, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Let{r, v, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Typ{+x}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Typ{x}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Min{+a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Min{a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.All{+r, +a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{r, a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.All{r, a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Lam{+r, +b2}:
-      K.mv.ret.fun.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, focus, q, k, bb, iv)
+      K.mv.ret.fun.lam(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, r, b2, focus, q, k, bb, iv, hfv)
     case Bk.Term.App{+r, +g, +x}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{r, g, x}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.App{r, g, x}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Sig{+r, +a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{r, a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Sig{r, a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Tup{+r, +a, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{r, a, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Tup{r, a, b2}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Prj{+h}:
       K.mv.ret.fun.prj(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, h, focus, q, k, bb, iv)
     case Bk.Term.Enu{+e}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Enu{e}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Lab{+kk}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Lab{kk}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Mat{+kk, +h, +n}:
       K.mv.ret.fun.mat(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, kk, h, n, focus, q, k, bb, iv)
     case Bk.Term.Efq{}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Efq{}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Eql{+a, +b2, +y}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{a, b2, y}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Eql{a, b2, y}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Rfl{}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rfl{}, focus, q, k, bb, iv, {==}, hfv)
     case Bk.Term.Rwt{+e, +p2, +b2}:
-      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, focus, q, k, bb, iv, {==})
+      K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, Bk.Term.Rwt{e, p2, b2}, focus, q, k, bb, iv, {==}, hfv)
 
 # the move of a state that Inv finds: by the mode, then by the focus or the
 # top frame
 def round.go(+ret: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32, +sp: U32, +pend: U32, +rest: D.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +t: Bk.Term, +w: Nat, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +focus: Bk.Term,
-  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, ret, focus, fs, ps)) -> K.MV(ds, ks, img, D.S(foc, Bool.to_u32(ret), sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
+  iv: K.IV(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, t, w, ret, focus, fs, ps),
+  hfv: {D.Term.below(t, U32.to_nat(2147483648)) == True{} : Bool}) -> K.MV(ds, ks, img, D.S(foc, Bool.to_u32(ret), sp, pend, rest, m, nx, fi, im, pg, lim, inp), t, w):
   match ret:
     case False{}:
-      round.ev(D.Fl(m, foc, 256), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, {==}, iv)
+      round.ev(D.Fl(m, foc, 256), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, {==}, iv, hfv)
     case True{}:
       match fs:
         case Nil{}:
@@ -219,13 +223,13 @@ def round.go(+ret: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>
         case Con{D.AF{+kind, +q, +k, +a, +bb}, +fs2}:
           match kind:
             case D.FK.arg{}:
-              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.arg{}, q, k, a, bb, {==}, {==}, iv)
+              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.arg{}, q, k, a, bb, {==}, {==}, iv, hfv)
             case D.FK.val{}:
-              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.val{}, q, k, a, bb, {==}, {==}, iv)
+              round.app(Bool.and(El.Quan.live(q), Bool.not(k)), ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, D.FK.val{}, q, k, a, bb, {==}, {==}, iv, hfv)
             case D.FK.fun{}:
-              round.fun(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv)
+              round.fun(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv, hfv)
             case D.FK.let{}:
-              K.mv.ret.let(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv)
+              K.mv.ret.let(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv, hfv)
             case D.FK.tupb{}:
               K.mv.ret.tupb(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs2, ps, focus, q, k, a, bb, iv)
             case D.FK.tupa{}:
@@ -287,7 +291,8 @@ def round.iw(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
   %Equal.sym(U32, outn, 0, en) :
     K.MV(ds, ks, img, Cr.Cir.State{D.RG(foc, Bool.to_u32(ret), sp, pend, D.R59.list(rest)), m, nx, fi, im, pg, lim, inp, Nil{}, _}, t, w)
   round.go(ret, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus,
-    iv.of(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, er, eo, en, iw, acc))
+    iv.of(ds, ks, img, regs, m, nx, fi, im, out, outn, t, w, ret, focus, fs, foc, sp, pend, ps, rest, er, eo, en, iw, acc),
+    ?TODO)
 
 def round.wit(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +out: List<&2, Word(8n)>, +outn: U32,

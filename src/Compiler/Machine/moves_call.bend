@@ -8,11 +8,11 @@
 import Base
 import ./move_kit.bend as K
 
-def K.mv.ev.ref(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, k, iv, hv):
+def K.mv.ev.ref(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, k, iv, hv, hfv):
   ?TODO
 
-def K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, kind, q, k, a, b, iv, hk, hs, hn):
+def K.mv.ret.app.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, focus, kind, q, k, a, b, iv, hk, hs, hn, hfv):
   ?TODO
 
-def K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, g, focus, q, k, b, iv, hn):
+def K.mv.ret.fun.call(ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, g, focus, q, k, b, iv, hn, hfv):
   ?TODO
