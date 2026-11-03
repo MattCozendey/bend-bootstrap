@@ -266,6 +266,37 @@ def out.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
         O.out.post.of(Pg.Term.size(v), f, MA.RG(foc, 1, 0, pend, MA.R59.list(rest)), m, nx, fi, im, pg, lim, inp, foc, ks, ks2, img, v,
           {==}, {==}, htm, hk, is.okn(v, ds, m, im, fi, nx, ks, img, foc, hv)))
 
+# out_bytes.bend's PostOB, with its budget, is moves.bend's PostB
+def map.postb(o: Cr.Cir.Out, +v: Bk.Term, +nx: U32, +lim: U32, h: O.PostOB(o, v, O.OBn(lim, nx, Nat.add(U32.to_nat(0), Pg.Term.size(v))))) ->
+  MA.PostB(False{}, o, st => Empty, s => st2 => MA.OutH(v, s, st2), Nat.add(Nat.mul(20n, U32.to_nat(nx)), Pg.Term.size(v)), lim):
+  match o:
+    case Cr.Cir.Out.next{st}:
+      h
+    case Cr.Cir.Out.halt{+s, st}:
+      map.outh(v, s, st, h)
+    case Cr.Cir.Out.out_of_memory{}:
+      h
+    case Cr.Cir.Out.trap{}:
+      h
+    case Cr.Cir.Out.not_done{}:
+      h
+
+# out.post with the budget of the output: M.out runs out of memory only when
+# the limit has fewer bytes than 20 nx + |v|
+def out.postb(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
+  +pend: U32, +rest: MA.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +v: Bk.Term, +ks2: List<&2, List<&2, Word(8n)>>,
+  +hv: MA.Is(ds, m, im, fi, nx, ks, img, foc, v),
+  +hk: {ks == Mc.Img.known(ks2) : List<&2, List<&2, Word(8n)>>},
+  +htm: {T.tm.of(Pg.Term.size(v), m, ks, img, foc) == Some{v} : Maybe<&2, Bk.Term>}) ->
+  MA.PostB(False{}, Cr.Cir.exec(f, Mc.M.out(), MA.S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)), st => Empty,
+    s => st2 => MA.OutH(v, s, st2), Nat.add(Nat.mul(20n, U32.to_nat(nx)), Pg.Term.size(v)), lim):
+  match rest:
+    case MA.R59{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62}:
+      map.postb(Cr.Cir.exec(f, Mc.M.out(), MA.S(foc, 1, 0, pend, rest, m, nx, fi, im, pg, lim, inp)), v, nx, lim,
+        O.out.postb.of(Pg.Term.size(v), f, MA.RG(foc, 1, 0, pend, MA.R59.list(rest)), m, nx, fi, im, pg, lim, inp, foc, ks, ks2, img, v,
+          {==}, {==}, htm, hk, is.okn(v, ds, m, im, fi, nx, ks, img, foc, hv)))
+
 # out.done of moves.bend: with some fuel, M.out ends
 def out.done(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +foc: U32,
   +pend: U32, +rest: MA.R59, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
