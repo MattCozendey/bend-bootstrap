@@ -1,7 +1,6 @@
 import Interpreter.Run
 import Shared.DataForm
 import Shared.Script
-import Std.Data.HashSet
 
 -- WasmTests
 -- =========
@@ -52,7 +51,7 @@ inductive Sexp where
 
 partial def Sexp.show : Sexp → String
   | .atom a => a
-  | .str bs => "\"" ++ String.join (bs.map fun b => s!"\\{(Nat.toDigits 16 b.toNat).asString}") ++ "\""
+  | .str bs => "\"" ++ String.join (bs.map fun b => s!"\\{String.ofList (Nat.toDigits 16 b.toNat)}") ++ "\""
   | .list xs => "(" ++ " ".intercalate (xs.map Sexp.show) ++ ")"
 
 def hexVal (c : Char) : Option Nat :=
@@ -113,7 +112,7 @@ partial def parseSeq (cs : List Char) (inner : Bool) (acc : Array Sexp) :
     if c.isWhitespace then parseSeq rest inner acc
     else
       let a := (c :: rest).takeWhile isAtomChar
-      parseSeq ((c :: rest).dropWhile isAtomChar) inner (acc.push (.atom (String.mk a)))
+      parseSeq ((c :: rest).dropWhile isAtomChar) inner (acc.push (.atom (String.ofList a)))
 
 -- Values
 -- ------
@@ -783,11 +782,6 @@ def compilerModules (M : Book) : List (List UInt8) :=
     let (w, _) := steps M 4000000000 t 0
     (unbytes w).getD []
 
--- the strings xs, each once, in order
-def once (xs : List String) : List String :=
-  (xs.foldl (init := (({} : Std.HashSet String), #[])) fun (seen, out) x =>
-    if seen.contains x then (seen, out) else (seen.insert x, out.push x)).2.toList
-
 def main' : IO Unit := do
   let B ← Script.book
   let dir ← Script.env "TESTS"
@@ -799,7 +793,7 @@ def main' : IO Unit := do
   -- answers), as the spec's interpreter does
   let c : Cfg := { B, fuel := Form.nat 2000000, limit := u32 65536 }
   let compiled ← (← IO.getEnv "MAIN").mapM fun main => do pure (compilerModules (← Script.bookAt main))
-  let c := { c with emits := compiled.map fun ws => once (ws.flatMap (coded · |>.instrs)) }
+  let c := { c with emits := compiled.map fun ws => (ws.flatMap (coded · |>.instrs)).eraseDups }
   let files := ((← System.FilePath.readDir dir).map (·.path.toString)).qsort (· < ·) |>.toList.filter fun p =>
     p.endsWith ".bin.wast" && (only.map fun ks => ks.any fun k => p.endsWith s!"/{k}.bin.wast").getD true
   let mut total : St := {}
@@ -827,11 +821,11 @@ def main' : IO Unit := do
       | _ => ["?"]
     h.putStrLn s!"IMAGE: the fields that the program's image decides: {fields}"
     let image := fields.flatMap fun f => u32Widths.map fun w => (Form.leb f 0 w).show
-    let emitted := once ((ws.zip ks).flatMap fun (w, k) =>
+    let emitted := ((ws.zip ks).flatMap fun (w, k) =>
       let instrs := match (evalTerm c (App Q1 (Ref "Wasm.decode.module") (bytes w))).bind unctor with
         | some ("Some", [m]) => (Module.forms m).flatten
         | _ => ["?"]
-      instrs ++ (if k.funcs.isEmpty then ["?"] else (k.module ++ k.funcs.flatten).map Form.show)) ++ image
+      instrs ++ (if k.funcs.isEmpty then ["?"] else (k.module ++ k.funcs.flatten).map Form.show)).eraseDups ++ image
     let notRun := emitted.filter (!total.forms.contains ·)
     h.putStrLn s!"FORMS: {emitted.length} that the compiler emits, not run by a passing test: {notRun}"
   h.flush
