@@ -1989,6 +1989,269 @@ def tn.al(v: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, W
     case Bk.Term.Rwt{+o0, +o1, +o2}:
       tn.nd(dk, ds, ks, img, m, nx, fi, im, ps, rs, x, z, Bk.Term.Rwt{o0, o1, o2}, h, hx, hp, hif, hfn, hz)
 
+# Registers
+# ---------
+
+# two Nats that is_eq says are equal are
+def nat.eq(a: Nat, b: Nat, h: {Nat.is_eq(a, b) == True{} : Bool}) -> {a == b : Nat}:
+  match a b:
+    case 0n 0n:
+      {==}
+    case 0n 1n+q:
+      Empty.absurd({0n == 1n+q : Nat}, N.false_ne_true(h))
+    case 1n+p 0n:
+      Empty.absurd({1n+p == 0n : Nat}, N.false_ne_true(h))
+    case 1n+p 1n+q:
+      Equal.cong(Nat, Nat, x => 1n+x, p, q, nat.eq(p, q, h))
+
+def mem.ne.b(b: Bool, +x: Nat, -rest: List<&2, Nat>, +r: Nat, +j: Nat, eb: {Nat.is_eq(x, r) == b : Bool},
+  hm: {Bool.or(b, PM.Nat.mem(rest, r)) == True{} : Bool}, hx: {Nat.is_eq(x, j) == False{} : Bool},
+  ih: {PM.Nat.mem(rest, r) == True{} : Bool} -> {Nat.is_eq(r, j) == False{} : Bool}) -> {Nat.is_eq(r, j) == False{} : Bool}:
+  match b:
+    case True{}:
+      (%nat.eq(x, r, eb) : {Nat.is_eq(_, j) == False{} : Bool}; hx)
+    case False{}:
+      ih(hm)
+
+# r is one of xs and j is not: r is not j
+def mem.ne(xs: List<&2, Nat>, +r: Nat, +j: Nat, hm: {PM.Nat.mem(xs, r) == True{} : Bool}, +hj: {PM.Nat.mem(xs, j) == False{} : Bool}) ->
+  {Nat.is_eq(r, j) == False{} : Bool}:
+  match xs:
+    case Nil{}:
+      Empty.absurd({Nat.is_eq(r, j) == False{} : Bool}, N.false_ne_true(hm))
+    case Con{+x, rest}:
+      mem.ne.b(Nat.is_eq(x, r), x, rest, r, j, {==}, hm, PM.or.f.l(Nat.is_eq(x, j), PM.Nat.mem(rest, j), hj),
+        e => mem.ne(rest, r, j, e, PM.or.f.r(Nat.is_eq(x, j), PM.Nat.mem(rest, j), hj)))
+
+# a set of the register r keeps the register j
+def get.set.ne(xs: List<&2, U32>, r: Nat, j: Nat, +v: U32, ne: {Nat.is_eq(r, j) == False{} : Bool}) ->
+  {List.get(&2, U32, List.set(&2, U32, xs, r, v), j) == List.get(&2, U32, xs, j) : Maybe<&2, U32>}:
+  match xs r j:
+    case Nil{} _ _:
+      {==}
+    case Con{x, t} 0n 0n:
+      Empty.absurd({Some{v} == Some{x} : Maybe<&2, U32>}, N.true_ne_false(ne))
+    case Con{x, t} 0n 1n+q:
+      {==}
+    case Con{x, t} 1n+p 0n:
+      {==}
+    case Con{x, t} 1n+p 1n+q:
+      get.set.ne(t, p, q, v, ne)
+
+# a set of a register of scr keeps the registers of keep, none of scr
+def kept.set(+regs: List<&2, U32>, +regs2: List<&2, U32>, keep: List<&2, Nat>, +scr: List<&2, Nat>, +r: Nat, +v: U32,
+  +hm: {PM.Nat.mem(scr, r) == True{} : Bool}, +hd: {PM.Disj(keep, scr) == True{} : Bool}, a: PM.Kept(regs, regs2, keep)) ->
+  PM.Kept(regs, List.set(&2, U32, regs2, r, v), keep):
+  match keep:
+    case Nil{}:
+      Unit{}
+    case Con{+j, rest}:
+      (a1, ar) = a
+      +hn = PM.not.t(PM.Nat.mem(scr, j), PM.and.l(Bool.not(PM.Nat.mem(scr, j)), PM.Disj(rest, scr), hd))
+      (Equal.trans(Maybe<&2, U32>, List.get(&2, U32, List.set(&2, U32, regs2, r, v), j), List.get(&2, U32, regs2, j), List.get(&2, U32, regs, j),
+         get.set.ne(regs2, r, j, v, mem.ne(scr, r, j, hm, hn)), a1),
+        kept.set(regs, regs2, rest, scr, r, v, hm, PM.and.r(Bool.not(PM.Nat.mem(scr, j)), PM.Disj(rest, scr), hd), ar))
+
+# the registers of keep kept from regs to regs2, then to regs3
+def kept.trans(+regs: List<&2, U32>, +regs2: List<&2, U32>, +regs3: List<&2, U32>, keep: List<&2, Nat>,
+  a: PM.Kept(regs, regs2, keep), b: PM.Kept(regs2, regs3, keep)) -> PM.Kept(regs, regs3, keep):
+  match keep:
+    case Nil{}:
+      Unit{}
+    case Con{+j, rest}:
+      (a1, ar) = a
+      (b1, br) = b
+      (Equal.trans(Maybe<&2, U32>, List.get(&2, U32, regs3, j), List.get(&2, U32, regs2, j), List.get(&2, U32, regs, j), b1, a1),
+        kept.trans(regs, regs2, regs3, rest, ar, br))
+
+# every register of small is one of big
+def Disj.in(small: List<&2, Nat>, +big: List<&2, Nat>) -> Bool:
+  match small:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(PM.Nat.mem(big, x), Disj.in(rest, big))
+
+# both sides of an or are False
+def or.ff(-a: Bool, -b: Bool, ha: {a == False{} : Bool}, hb: {b == False{} : Bool}) -> {Bool.or(a, b) == False{} : Bool}:
+  %Equal.sym(Bool, a, False{}, ha) : {Bool.or(_, b) == False{} : Bool}
+  %Equal.sym(Bool, b, False{}, hb) : {Bool.or(False{}, _) == False{} : Bool}
+  {==}
+
+# j, none of big, is none of small
+def nmem.sub(small: List<&2, Nat>, +big: List<&2, Nat>, +j: Nat, +hs: {Disj.in(small, big) == True{} : Bool},
+  +hn: {PM.Nat.mem(big, j) == False{} : Bool}) -> {PM.Nat.mem(small, j) == False{} : Bool}:
+  match small:
+    case Nil{}:
+      {==}
+    case Con{+x, rest}:
+      or.ff(Nat.is_eq(x, j), PM.Nat.mem(rest, j), mem.ne(big, x, j, PM.and.l(PM.Nat.mem(big, x), Disj.in(rest, big), hs), hn),
+        nmem.sub(rest, big, j, PM.and.r(PM.Nat.mem(big, x), Disj.in(rest, big), hs), hn))
+
+# the registers of keep, none of the big list, are none of the small one
+def disj.sub(keep: List<&2, Nat>, +big: List<&2, Nat>, +small: List<&2, Nat>, +hs: {Disj.in(small, big) == True{} : Bool},
+  +hd: {PM.Disj(keep, big) == True{} : Bool}) -> {PM.Disj(keep, small) == True{} : Bool}:
+  match keep:
+    case Nil{}:
+      {==}
+    case Con{+j, rest}:
+      +hn = PM.not.t(PM.Nat.mem(big, j), PM.and.l(Bool.not(PM.Nat.mem(big, j)), PM.Disj(rest, big), hd))
+      PM.and.i(Bool.not(PM.Nat.mem(small, j)), PM.Disj(rest, small),
+        (%Equal.sym(Bool, PM.Nat.mem(small, j), False{}, nmem.sub(small, big, j, hs, hn)) : {Bool.not(_) == True{} : Bool}; {==}),
+        disj.sub(rest, big, small, hs, PM.and.r(Bool.not(PM.Nat.mem(big, j)), PM.Disj(rest, big), hd)))
+
+# The temporaries
+# ---------------
+
+# what Tmp.ok says of the first temporary e: one of the machine's own, out of
+# the pend list, none of the others; and Tmp.ok of the others
+def tmp.hd(+e: U32, +h: List<&2, PM.Rt>, +rest: List<&2, PM.TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +ps: List<&2, U32>,
+  +R: List<&2, PM.Rt>, +hok: {PM.Tmp.ok(Con{PM.TmpE{e, h}, rest}, m, fi, nx, ps, R) == True{} : Bool}, -G: Type,
+  k: {PM.Own(fi, nx, e) == True{} : Bool} -> {PM.Mem(ps, e) == False{} : Bool} -> {PM.Mem(PM.Tmp.cells(rest), e) == False{} : Bool} ->
+    {PM.Tmp.ok(rest, m, fi, nx, ps, R) == True{} : Bool} -> G) -> G:
+  +A = PM.Own(fi, nx, e)
+  +B1 = Bool.not(PM.Fl(m, e, 1024))
+  +B2 = Bool.not(PM.Mem(ps, e))
+  +B3 = Bool.not(PM.Mem(PM.Tmp.cells(rest), e))
+  +B4 = Bool.not(PM.Nodes(R, m, e))
+  +B5 = PM.AllIn(PM.Rt.cells(h), PM.Fs(m, ps, e))
+  +T = PM.Tmp.ok(rest, m, fi, nx, ps, R)
+  +r1 = PM.and.r(A, Bool.and(B1, Bool.and(B2, Bool.and(B3, Bool.and(B4, Bool.and(B5, T))))), hok)
+  +r2 = PM.and.r(B1, Bool.and(B2, Bool.and(B3, Bool.and(B4, Bool.and(B5, T)))), r1)
+  +r3 = PM.and.r(B2, Bool.and(B3, Bool.and(B4, Bool.and(B5, T))), r2)
+  +r4 = PM.and.r(B3, Bool.and(B4, Bool.and(B5, T)), r3)
+  +r5 = PM.and.r(B4, Bool.and(B5, T), r4)
+  k(PM.and.l(A, Bool.and(B1, Bool.and(B2, Bool.and(B3, Bool.and(B4, Bool.and(B5, T))))), hok),
+    PM.not.t(PM.Mem(ps, e), PM.and.l(B2, Bool.and(B3, Bool.and(B4, Bool.and(B5, T))), r2)),
+    PM.not.t(PM.Mem(PM.Tmp.cells(rest), e), PM.and.l(B3, Bool.and(B4, Bool.and(B5, T)), r3)),
+    PM.and.r(B5, T, r5))
+
+# an own cell is not next
+def own.nx(+e: U32, +fi: U32, +nx: U32, h: {PM.Own(fi, nx, e) == True{} : Bool}) -> {U32.is_eq(e, nx) == False{} : Bool}:
+  lt.neq(e, nx, PM.u.lt(e, nx, PM.and.r(U32.is_le(fi, e), U32.is_lt(e, nx), h)))
+
+# M.alloc's cell z (in ps, or nx) is none of the temporaries
+def tmp.nz(ys: List<&2, PM.TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +ps: List<&2, U32>, +R: List<&2, PM.Rt>, +z: U32,
+  +hok: {PM.Tmp.ok(ys, m, fi, nx, ps, R) == True{} : Bool}, +hz: {Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool}) ->
+  {PM.Mem(PM.Tmp.cells(ys), z) == False{} : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{PM.TmpE{+e, +h}, +rest}:
+      tmp.hd(e, h, rest, m, fi, nx, ps, R, hok, {PM.Mem(PM.Tmp.cells(Con{PM.TmpE{e, h}, rest}), z) == False{} : Bool},
+        ho => hp => hn => hr => or.ff(U32.is_eq(e, z), PM.Mem(PM.Tmp.cells(rest), z),
+          PM.not.t(U32.is_eq(e, z), ne.z(e, z, ps, nx, hp, own.nx(e, fi, nx, ho), hz)),
+          tmp.nz(rest, m, fi, nx, ps, R, z, hr, hz)))
+
+# The check's stack
+# -----------------
+#
+# A chain of K.check cells from register ds, linked by field 1, each of them
+# a temporary that holds no term. An entry holds, in field 2, the cell of a
+# part of v, by its path from c at the fields of the cells m0 where the
+# check begins; the part is v's at that path; and the cell is one that the
+# check may write (Kept.cells): a new one, of the pend list where the check
+# begins, or a term cell there.
+
+type DE is Data:
+  DE{k: U32, p: List<&2, Bool>, u: Bk.Term}
+
+# the stack's first cell, 0 when it is empty
+def DE.top(es: List<&2, DE>) -> U32:
+  match es:
+    case Nil{}:
+      0
+    case Con{DE{k, _, _}, _}:
+      k
+
+# the stack's cells, as temporaries that hold no term
+def DE.tmps(es: List<&2, DE>) -> List<&2, PM.TmpE>:
+  match es:
+    case Nil{}:
+      Nil{}
+    case Con{DE{k, _, _}, rest}:
+      Con{PM.TmpE{k, Nil{}}, DE.tmps(rest)}
+
+# a cell that the check may write, as Kept.cells has it: from nx0 on, one of
+# xs0 (the pend list where it begins), or a term cell of m0
+def Wr(+m0: Cr.Cir.Cells, +nx0: U32, +xs0: List<&2, U32>, +z: U32) -> Bool:
+  Bool.or(Bool.not(U32.is_lt(z, nx0)), Bool.or(PM.Mem(xs0, z), U32.is_lt(PM.Tg(m0, z), 19)))
+
+def DS(es: List<&2, DE>, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +c: U32, +v: Bk.Term, +nx0: U32, +xs0: List<&2, U32>) -> Data:
+  match es:
+    case Nil{}:
+      Unit
+    case Con{DE{+e, +p, u}, +rest}:
+      PM.P2({U32.is_eq(e, 0) == False{} : Bool},
+      PM.P2({Cr.Cir.Cells.get(m, e) == CK(DE.top(rest), Cl(m0, p, c)) : Cr.Cir.Cell},
+      PM.P2({Sub(p, v) == Some{u} : Maybe<&2, Bk.Term>},
+      PM.P2({Wr(m0, nx0, xs0, e) == True{} : Bool},
+        DS(rest, m, m0, c, v, nx0, xs0)))))
+
+# a store at a cell z that is none of the stack's keeps it
+def ds.set(es: List<&2, DE>, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +c: U32, +v: Bk.Term, +nx0: U32, +xs0: List<&2, U32>,
+  +xs: List<&2, PM.TmpE>, +z: U32, +y: Cr.Cir.Cell,
+  hz: {PM.Mem(PM.Tmp.cells(List.append(&2, PM.TmpE, DE.tmps(es), xs)), z) == False{} : Bool},
+  h: DS(es, m, m0, c, v, nx0, xs0)) -> DS(es, Cr.Cir.Cells.set(m, z, y), m0, c, v, nx0, xs0):
+  match es:
+    case Nil{}:
+      Unit{}
+    case Con{DE{+e, +p, +u}, +rest}:
+      (h0, r1) = h
+      (h1, r2) = r1
+      (h2, r3) = r2
+      (h3, hr) = r3
+      +hz2 = hz
+      +L = PM.Mem(PM.Tmp.cells(List.append(&2, PM.TmpE, DE.tmps(rest), xs)), z)
+      (h0, (Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, y), e), Cr.Cir.Cells.get(m, e), CK(DE.top(rest), Cl(m0, p, c)),
+         PM.cl.go(m, e, z, y, PM.or.f.l(U32.is_eq(e, z), L, hz2)), h1),
+        (h2, (h3, ds.set(rest, m, m0, c, v, nx0, xs0, xs, z, y, PM.or.f.r(U32.is_eq(e, z), L, hz2), hr)))))
+
+# a cell with a term's tag is not one with K.check's
+def ne.tg(b: Bool, +x: U32, +e: U32, +m: Cr.Cir.Cells, eb: {U32.is_eq(x, e) == b : Bool},
+  hx: {U32.is_lt(PM.Tg(m, x), 19) == True{} : Bool}, he: {U32.is_lt(PM.Tg(m, e), 19) == False{} : Bool}) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      Empty.absurd({True{} == False{} : Bool}, N.true_ne_false(Equal.trans(Bool, True{}, U32.is_lt(PM.Tg(m, e), 19), False{},
+        (%PM.u32.eq(x, e, eb) : {True{} == U32.is_lt(PM.Tg(m, _), 19) : Bool}; Equal.sym(Bool, U32.is_lt(PM.Tg(m, x), 19), True{}, hx)), he)))
+
+# the cells whose field 1 M.alloc's reuse writes (term cells) are none of a cell of tag 19 or more
+def took.out(ws: List<&2, PM.W1>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +e: U32, +he: {U32.is_lt(PM.Tg(m, e), 19) == False{} : Bool},
+  hw: {PM.Took(ws, ps, m) == True{} : Bool}) -> {PM.Mem(PM.W1.cells(ws), e) == False{} : Bool}:
+  match ws:
+    case Nil{}:
+      {==}
+    case Con{PM.W1{+x, _}, rest}:
+      +A = Bool.and(U32.is_lt(PM.Tg(m, x), 19), PM.Taken(ps, m, x))
+      +hw2 = hw
+      or.ff(U32.is_eq(x, e), PM.Mem(PM.W1.cells(rest), e),
+        ne.tg(U32.is_eq(x, e), x, e, m, {==}, PM.and.l(U32.is_lt(PM.Tg(m, x), 19), PM.Taken(ps, m, x), PM.and.l(A, PM.Took(rest, ps, m), hw2)), he),
+        took.out(rest, ps, m, e, he, PM.and.r(A, PM.Took(rest, ps, m), hw2)))
+
+# a K.check cell's tag is 44
+def ck.tg(+m: Cr.Cir.Cells, +e: U32, +w: U32, +y: U32, h: {Cr.Cir.Cells.get(m, e) == CK(w, y) : Cr.Cir.Cell}) ->
+  {U32.is_lt(PM.Tg(m, e), 19) == False{} : Bool}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, e), CK(w, y), h) : {U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19) == False{} : Bool}; {==})
+
+# M.alloc's stores of field 1 (to term cells) keep the stack
+def ds.put1(es: List<&2, DE>, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +c: U32, +v: Bk.Term, +nx0: U32, +xs0: List<&2, U32>,
+  +ws: List<&2, PM.W1>, +ps: List<&2, U32>, +hw: {PM.Took(ws, ps, m) == True{} : Bool},
+  h: DS(es, m, m0, c, v, nx0, xs0)) -> DS(es, PM.Put1(ws, m), m0, c, v, nx0, xs0):
+  match es:
+    case Nil{}:
+      Unit{}
+    case Con{DE{+e, +p, +u}, +rest}:
+      (h0, r1) = h
+      (h1, r2) = r1
+      (h2, r3) = r2
+      (h3, hr) = r3
+      +h1b = h1
+      (h0, (Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(PM.Put1(ws, m), e), Cr.Cir.Cells.get(m, e), CK(DE.top(rest), Cl(m0, p, c)),
+         PM.put1.out(ws, m, e, took.out(ws, ps, m, e, ck.tg(m, e, DE.top(rest), Cl(m0, p, c), h1b), hw)), h1b),
+        (h2, (h3, ds.put1(rest, m, m0, c, v, nx0, xs0, ws, ps, hw, hr)))))
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
