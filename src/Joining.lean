@@ -10,6 +10,7 @@ import Joining.Laws
 import Joining.NeedRun
 import Joining.OrLaw
 import Joining.Rename
+import Joining.SelfHost
 import Joining.Trusted
 import Joining.Unbytes
 import Joining.Values
