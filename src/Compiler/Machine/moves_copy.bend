@@ -752,3 +752,35 @@ def one.ag(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
     {Bool.or(D.Fl(M3, D.Fd(2n, M3, z), 1024), Bool.not(D.Mem(ps2, D.Fd(2n, M3, z)))) == True{} : Bool}}
   +c13 = {(%e1 : {_ == 0 : U32}; {==}) : {D.Fd(1n, M3, z) == 0 : U32}}
   (c1, (c2, (hown, (c4, (hmz, (c6, (c7, (c8, (c9, (c10, (c11, (c12, c13))))))))))))
+
+# no frame binds a variable over its hole: the hole's term is below n when the
+# whole is
+def below.plug(fr: D.AF, +t: Bk.Term, +n: Nat, h: {D.Term.below(D.A.plug(fr, t), n) == True{} : Bool}) ->
+  {D.Term.below(t, n) == True{} : Bool}:
+  match fr:
+    case D.AF{D.FK.arg{}, q, _, a, _}:
+      D.and.l(D.Term.below(t, n), D.Term.below(a, n), h)
+    case D.AF{D.FK.val{}, q, _, a, _}:
+      D.and.l(D.Term.below(t, n), D.Term.below(a, n), h)
+    case D.AF{D.FK.fun{}, q, _, a, _}:
+      D.and.r(D.Term.below(a, n), D.Term.below(t, n), h)
+    case D.AF{D.FK.let{}, q, _, a, _}:
+      D.and.l(D.Term.below(t, n), D.Term.below(a, 1n+n), h)
+    case D.AF{D.FK.tupb{}, q, _, a, _}:
+      D.and.l(D.Term.below(t, n), D.Term.below(a, n), h)
+    case D.AF{D.FK.tupa{}, q, _, a, _}:
+      D.and.r(D.Term.below(a, n), D.Term.below(t, n), h)
+    case D.AF{D.FK.rwt{}, _, _, a, b}:
+      D.and.l(D.Term.below(t, n), Bool.and(D.Term.below(a, 2n+n), D.Term.below(b, n)), h)
+    case D.AF{D.FK.minb{}, _, _, a, _}:
+      D.and.l(D.Term.below(t, n), D.Term.below(a, n), h)
+    case D.AF{D.FK.mina{}, _, _, a, _}:
+      D.and.r(D.Term.below(a, n), D.Term.below(t, n), h)
+
+def below.plugs(fs: List<&2, D.AF>, +t: Bk.Term, +n: Nat, h: {D.Term.below(D.A.plugs(fs, t), n) == True{} : Bool}) ->
+  {D.Term.below(t, n) == True{} : Bool}:
+  match fs:
+    case Nil{}:
+      h
+    case Con{+fr, rest}:
+      below.plug(fr, t, n, below.plugs(rest, D.A.plug(fr, t), n, h))
