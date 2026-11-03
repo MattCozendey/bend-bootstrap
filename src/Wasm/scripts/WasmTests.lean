@@ -275,14 +275,13 @@ def vec (what : String) (bs : List UInt8) (item : List UInt8 → Option (α × L
 
 -- the immediates of an instruction of the subset (spec 5.4)
 inductive Imm where
-  | none | index (what : String) | value | memarg | memory | blocktype
+  | none | label | local | value | memarg | memory | blocktype
 
 -- the instructions of the subset, by opcode
 def opcodes : List (UInt8 × String × Imm) := [
   (0x02, "block", .blocktype), (0x03, "loop", .blocktype),
-  (0x0C, "br", .index "label"), (0x0D, "br_if", .index "label"),
-  (0x20, "local.get", .index "index"), (0x21, "local.set", .index "index"),
-  (0x22, "local.tee", .index "index"),
+  (0x0C, "br", .label), (0x0D, "br_if", .label),
+  (0x20, "local.get", .local), (0x21, "local.set", .local), (0x22, "local.tee", .local),
   (0x28, "i32.load", .memarg), (0x2D, "i32.load8_u", .memarg),
   (0x36, "i32.store", .memarg), (0x3A, "i32.store8", .memarg),
   (0x3F, "memory.size", .memory), (0x40, "memory.grow", .memory),
@@ -301,9 +300,9 @@ def opcodes : List (UInt8 × String × Imm) := [
 -- of 2^6 or more names another memory
 def instrForms (x : String) (ls : List String) (bs : List UInt8) : Imm → Option (List Form × List UInt8)
   | .none => some ([.part x], bs)
-  | .index "label" => (leb s!"{x} label" bs).map fun (l, bs) =>
+  | .label => (leb s!"{x} label" bs).map fun (l, bs) =>
     ([.part s!"{x} depth {if l.value == 0 then "0" else ">0"} to {ls.getD l.value "?"}", l], bs)
-  | .index what => (leb s!"{x} {what}" bs).map fun (f, bs) => ([.part x, f], bs)
+  | .local => (leb s!"{x} index" bs).map fun (f, bs) => ([.part x, f], bs)
   | .value => (leb s!"{x} immediate" bs).map fun (f, bs) => ([.part x, f], bs)
   | .memory => (leb s!"{x} memory index" bs).map fun (f, bs) => ([.part x, f], bs)
   | .memarg => do
