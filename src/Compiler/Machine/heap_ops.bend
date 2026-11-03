@@ -3571,6 +3571,28 @@ def cnt.tm(k: Nat, +m: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +o: U32, +nx: U32
         cnt.tm(j, m, z, x, U32.inc(o), nx, fi, ps, us, os, hf0, hf1, hzo, htN, hx1, hp1,
           D.and.r(D.CntC(Cr.Cir.Cells.get(m, o), D.Ptr(n, m, fi, ps, R1, o), ps, o), D.Cnt(j, m, U32.inc(o), n, fi, ps, R1), h2)))
 
+# a cell that is STATIC or a node of us ++ os is STATIC or a node of os or of
+# t at z, whose parts are the roots us (AC.nodes.us.t): Held, after z became
+# the root of t
+def held.term(bs: List<&2, D.Rt>, +us: List<&2, D.Rt>, +os: List<&2, D.Rt>, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells,
+  +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx),
+  +z: U32, +t: Bk.Term, +hi: D.IsK(dk, ds, m, im, fi, nx, ks, img, z, t), +hus: D.RtsK(dk, ds, m, im, fi, nx, ks, img, us),
+  +hin: {D.AllIn(D.Rt.cells(us), D.Fs(m, ps, z)) == True{} : Bool}, h: D.Held(m, List.append(&2, D.Rt, us, os), bs)) ->
+  D.Held(m, Con{D.Rt{z, t}, os}, bs):
+  match bs:
+    case Nil{}:
+      Unit{}
+    case Con{D.Rt{+c, _}, +rest}:
+      (hh, hr) = h
+      +NT = D.Nodes(Con{D.Rt{z, t}, os}, m, c)
+      (D.or.cases(D.Fl(m, c, 1024), D.Nodes(List.append(&2, D.Rt, us, os), m, c), {Bool.or(D.Fl(m, c, 1024), NT) == True{} : Bool}, hh,
+          e => D.or.l(D.Fl(m, c, 1024), NT, e),
+          e => D.or.r(D.Fl(m, c, 1024), NT,
+            D.or.cases(D.Nodes(us, m, c), D.Nodes(os, m, c), {NT == True{} : Bool}, AC.nodes.split(us, os, m, c, e),
+              e2 => D.or.l(D.Node(t, m, z, c), D.Nodes(os, m, c), AC.nodes.us.t(us, dk, ds, m, im, fi, nx, ks, img, ps, tbl, z, t, c, hi, hus, hin, e2)),
+              e2 => D.or.r(D.Node(t, m, z, c), D.Nodes(os, m, c), e2)))),
+        held.term(rest, us, os, dk, ds, m, im, fi, nx, ks, img, ps, tbl, z, t, hi, hus, hin, hr))
+
 # HSK after the store at z of the term cell x of t, whose pointers are the
 # roots us: z is a new owned root of t, and us leave the roots
 def tm.go(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
@@ -3579,7 +3601,7 @@ def tm.go(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   +hos: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, us, os)), +hbs: D.RtsK(dk, ds, m, im, fi, nx, ks, img, bs),
   +hfrs: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
   +hheap: D.Heap(m, nx, fi, im, D.Rt.cells(List.append(&2, D.Rt, us, os)), pend, ps), +himg: D.ImgOKK(dk, ds, ks, img, m, im, fi, nx),
-  +hfn: {U32.is_le(fi, nx) == True{} : Bool}, +hb: D.Held(m, os, bs),
+  +hfn: {U32.is_le(fi, nx) == True{} : Bool}, +hheld: D.Held(m, List.append(&2, D.Rt, us, os), bs),
   +ho: {D.Own(fi, nx, z) == True{} : Bool}, +hm: {D.Mem(ps, z) == False{} : Bool}, +hzs: {D.Fl(m, z, 1024) == False{} : Bool},
   +hq: {Bool.not(Bool.and(U32.is_le(32, D.Tg(m, z)), U32.is_le(D.Tg(m, z), 40))) == True{} : Bool},
   +hz0: {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(List.append(&2, D.Rt, us, os)), z) == 0n : Nat},
@@ -3604,27 +3626,34 @@ def tm.go(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
       +hno = D.neall.rcl(R2, z, hro)
       +hos2 = rtsk.app.r(dk, us, os, ds, m, im, fi, nx, ks, img, hos)
       +hus = rtsk.app.l(dk, us, os, ds, m, im, fi, nx, ks, img, hos)
-      +hnb = D.neall.held(dk, bs, os, ds, m, im, fi, nx, ks, img, ps, rs, z, tbl, hz0, hzs, hno, hos2, hb)
+      +hnr = D.neall.rcl(rs, z, hrz)
+      +hnb = D.neall.held(dk, bs, List.append(&2, D.Rt, us, os), ds, m, im, fi, nx, ks, img, ps, rs, z, tbl, hz0, hzs, hnr, hos, hheld)
       +hzl = {(%Equal.sym(List<&2, U32>, D.Fs(M2, ps, z), D.Rt.cells(us), hf) : {D.Lt.all(_, M2, im, fi, nx) == True{} : Bool};
           lt.roots(dk, us, ds, m, im, fi, nx, ks, img, z, x, him, hfn, hru, hus)) :
         {D.Lt.all(D.Fs(M2, ps, z), M2, im, fi, nx) == True{} : Bool}}
       +hp1 = Equal.trans(Nat, D.Ptr(n, M2, fi, ps, Con{z, R2}, z), 1n+D.Ptr(n, M2, fi, ps, R2, z), 1n, ptr.root(n, M2, fi, ps, R2, z),
         Equal.cong(Nat, Nat, w => 1n+w, D.Ptr(n, M2, fi, ps, R2, z), 0n,
           Equal.trans(Nat, D.Ptr(n, M2, fi, ps, R2, z), D.Ptr(n, m, fi, ps, rs, z), 0n, ptr.st(m, nx, fi, ps, z, x, us, os, z, hzf, hf, ho, htN), hz0)))
+      +himg2 = D.ImgOK.fz(dk, ds, ks, img, m, im, fi, nx, ps, rs, z, x, hz0, hzs, ho, himg)
+      +tbl2 = D.img.tbl(dk, ds, ks, img, M2, im, fi, nx, himg2)
+      +hus2 = D.Rts.fz(dk, us, ds, m, im, fi, nx, ks, img, ps, rs, z, x, tbl, hz0, hzs, D.neall.rcl(D.Rt.cells(us), z, hru), hus)
+      +hin = {(%Equal.sym(List<&2, U32>, D.Fs(M2, ps, z), D.Rt.cells(us), hf) : {D.AllIn(D.Rt.cells(us), _) == True{} : Bool}; D.allin.refl(D.Rt.cells(us))) :
+        {D.AllIn(D.Rt.cells(us), D.Fs(M2, ps, z)) == True{} : Bool}}
       ((hi, D.Rts.fz(dk, os, ds, m, im, fi, nx, ks, img, ps, rs, z, x, tbl, hz0, hzs, hno, hos2)),
         (D.Rts.fz(dk, bs, ds, m, im, fi, nx, ks, img, ps, rs, z, x, tbl, hz0, hzs, hnb, hbs),
-        (held.cons(bs, os, z, t, M2, D.Held.fz(dk, bs, os, ds, m, im, fi, nx, ks, img, ps, rs, z, x, tbl, hz0, hzs, hno, hos2, hnb, hb)),
+        (held.term(bs, us, os, dk, ds, M2, im, fi, nx, ks, img, ps, tbl2, z, t, hi, hus2, hin,
+          D.Held.fz(dk, bs, List.append(&2, D.Rt, us, os), ds, m, im, fi, nx, ks, img, ps, rs, z, x, tbl, hz0, hzs, hnr, hos, hnb, hheld)),
         (frsk.st(dk, fs, ds, m, im, fi, nx, ks, img, ps, rs, z, x, sp, tbl, hz0, hzs, hq, hfrs),
         ((D.Chain.fz(ps, m, z, x, pend, hm, hch),
           (pendok.addroot(ps, ps, M2, fi, nx, R2, z, hm, pendok.st(ps, ps, m, z, x, nx, fi, us, os, hzf, hf, ho, htN, hm, hpk)),
           (cnt.tm(n, m, z, x, fi, nx, fi, ps, us, os, hzf, hf, ho, htN, hx1, hp1, hcnt),
           (pts.st(n, m, z, x, ps, fi, im, fi, nx, hzl, hpz, htN, hpts), hr)))),
-          D.ImgOK.fz(dk, ds, ks, img, m, im, fi, nx, ps, rs, z, x, hz0, hzs, ho, himg))))))
+          himg2)))))
 
 def tm.hs(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
   +nx: U32, +fi: U32, +im: U32, +us: List<&2, D.Rt>, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32,
   +pend: U32, +ps: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +t: Bk.Term,
-  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, List.append(&2, D.Rt, us, os), bs, fs, sp, pend, ps), +hb: D.Held(m, os, bs),
+  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, List.append(&2, D.Rt, us, os), bs, fs, sp, pend, ps),
   +ho: {D.Own(fi, nx, z) == True{} : Bool}, +hm: {D.Mem(ps, z) == False{} : Bool}, +hzs: {D.Fl(m, z, 1024) == False{} : Bool},
   +hzt: {Bool.or(U32.is_lt(D.Tg(m, z), 32), U32.is_le(41, D.Tg(m, z))) == True{} : Bool},
   +hz0: {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(List.append(&2, D.Rt, us, os)), z) == 0n : Nat},
@@ -3633,10 +3662,29 @@ def tm.hs(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   +hi: D.IsK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, z, t)) ->
   D.HSK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, Con{D.Rt{z, t}, os}, bs, fs, sp, pend, ps):
   match hs:
-    case Tuple{hos, Tuple{hbs, Tuple{_, Tuple{hfrs, Tuple{+hheap, himg}}}}}:
+    case Tuple{hos, Tuple{hbs, Tuple{hheld, Tuple{hfrs, Tuple{+hheap, himg}}}}}:
       tm.go(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, t, hos, hbs, hfrs, hheap, himg,
-        heap.fn(m, nx, fi, im, D.Rt.cells(List.append(&2, D.Rt, us, os)), pend, ps, hheap), hb, ho, hm, hzs, nf.tag(D.Tg(m, z), hzt), hz0, hzf,
+        heap.fn(m, nx, fi, im, D.Rt.cells(List.append(&2, D.Rt, us, os)), pend, ps, hheap), hheld, ho, hm, hzs, nf.tag(D.Tg(m, z), hzt), hz0, hzf,
         hx1, hf, hi)
+
+# term.post: HSK, and the Acc step of the store (AC.acc.term: z, a
+# temporary, becomes the root of t, and us leave the roots)
+def tm.top(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +us: List<&2, D.Rt>, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32,
+  +pend: U32, +ps: List<&2, U32>, +z: U32, +x: Cr.Cir.Cell, +t: Bk.Term, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  +hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, List.append(&2, D.Rt, us, os), bs, fs, sp, pend, ps),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, List.append(&2, D.Rt, us, os), Con{D.TmpE{z, Nil{}}, xs}, sp, fs, ps, zs),
+  +ho: {D.Own(fi, nx, z) == True{} : Bool}, +hm: {D.Mem(ps, z) == False{} : Bool}, +hzs: {D.Fl(m, z, 1024) == False{} : Bool},
+  +hzt: {Bool.or(U32.is_lt(D.Tg(m, z), 32), U32.is_le(41, D.Tg(m, z))) == True{} : Bool},
+  +hz0: {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(List.append(&2, D.Rt, us, os)), z) == 0n : Nat},
+  +hzf: {D.Fs(m, ps, z) == Nil{} : List<&2, U32>}, +hxs: {D.FlW(Cr.Cir.Cell.get(0n, x), 1024) == False{} : Bool},
+  +hx1: {Cr.Cir.Cell.get(1n, x) == 1 : U32},
+  +hf: {D.Fs(Cr.Cir.Cells.set(m, z, x), ps, z) == D.Rt.cells(us) : List<&2, U32>},
+  +hi: D.IsK(dk, ds, Cr.Cir.Cells.set(m, z, x), im, fi, nx, ks, img, z, t)) ->
+  D.P2(D.HSK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, Con{D.Rt{z, t}, os}, bs, fs, sp, pend, ps),
+    D.AccK(dk, ds, ks, img, Cr.Cir.Cells.set(m, z, x), nx, fi, im, Con{D.Rt{z, t}, os}, xs, sp, fs, ps, zs)):
+  (tm.hs(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, t, hs, ho, hm, hzs, hzt, hz0, hzf, hx1, hf, hi),
+    AC.acc.term(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, t, xs, zs, hs, hac, hm, hzs, hz0, hzf, hxs, hf, hi))
 
 # The flag DATA
 # -------------
@@ -4947,7 +4995,7 @@ def D.store.post(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z
   st.top(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, xs, zs, hs, hac, hzx, hb, ho, hm, hzs, hzt, hz0, hzf, ht, hxs, hf)
 
 def D.term.post(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, t, xs, zs, hs, hac, ho, hm, hzs, hzt, hz0, hzf, hxs, hx1, hf, hi):
-  ?TODO
+  tm.top(dk, ds, ks, img, m, nx, fi, im, us, os, bs, fs, sp, pend, ps, z, x, t, xs, zs, hs, hac, ho, hm, hzs, hzt, hz0, hzf, hxs, hx1, hf, hi)
 
 def D.data.flag(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, xs, zs, hs, hac, hd, hco):
   df.top(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, xs, zs, hs, hac, hd, hco)
