@@ -3182,6 +3182,109 @@ def push.go(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Wo
       push.al(F, dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, lim, inp, regs, m, nx, pend, ps, es, ns, zs, rA, A, p, u, rest, Q, hK, hsD, hacD, hds, hkv, hkle, hkg, hpsl, hstD, hsub, hsz, hk0, hn0, hrA2, h42,
         regs1, m1, nx1, pg1, z, pend1, ps1, ws, zs1, ap, hA, k))
 
+# The pop
+# -------
+#
+# M.release of the stack's top e, once registers dc and ds hold it and the
+# next entry: e goes to the pend list, the stack is the rest.
+
+# what a K.check cell says of itself
+def ck.f1(+m: Cr.Cir.Cells, +e: U32, +w: U32, +y: U32, h: {Cr.Cir.Cells.get(m, e) == CK(w, y) : Cr.Cir.Cell}) -> {PM.Fd(1n, m, e) == w : U32}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, e), CK(w, y), h) : {Cr.Cir.Cell.get(1n, _) == w : U32}; {==})
+
+def ck.f2(+m: Cr.Cir.Cells, +e: U32, +w: U32, +y: U32, h: {Cr.Cir.Cells.get(m, e) == CK(w, y) : Cr.Cir.Cell}) -> {PM.Fd(2n, m, e) == y : U32}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, e), CK(w, y), h) : {Cr.Cir.Cell.get(2n, _) == y : U32}; {==})
+
+def ck.t32(+m: Cr.Cir.Cells, +e: U32, +w: U32, +y: U32, h: {Cr.Cir.Cells.get(m, e) == CK(w, y) : Cr.Cir.Cell}) ->
+  {U32.is_lt(PM.Tg(m, e), 32) == False{} : Bool}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, e), CK(w, y), h) : {U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 32) == False{} : Bool}; {==})
+
+def ck.fl(+m: Cr.Cir.Cells, +e: U32, +w: U32, +y: U32, h: {Cr.Cir.Cells.get(m, e) == CK(w, y) : Cr.Cir.Cell}) ->
+  {PM.Fl(m, e, 1024) == False{} : Bool}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, e), CK(w, y), h) : {U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0) == False{} : Bool}; {==})
+
+def ck.fs(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +e: U32, +w: U32, +y: U32, h: {Cr.Cir.Cells.get(m, e) == CK(w, y) : Cr.Cir.Cell}) ->
+  {PM.Fs(m, ps, e) == Nil{} : List<&2, U32>}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, e), CK(w, y), h) :
+    {PM.FsK(U32.is_lt(PM.TgW(Cr.Cir.Cell.get(0n, _)), 19), PM.Fd(2n, m, U32.add(272, PM.TgW(Cr.Cir.Cell.get(0n, _)))), _, ps, e) == Nil{} : List<&2, U32>};
+    {==})
+
+# M.release of e, with what Tmp.ok says of it
+def pop.go(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +keep0: List<&2, Nat>, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps0: List<&2, U32>, +c: U32, +v: Bk.Term, +xs0: List<&2, PM.TmpE>, +lim: U32, +inp: List<&2, Word(8n)>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +pg: U32, +pend: U32, +ps: List<&2, U32>, +e: U32, +p: List<&2, Bool>, +u: Bk.Term,
+  +rest: List<&2, DE>, +ns: List<&2, U32>, +zs: List<&2, PM.Rt>, +T: List<&2, Cr.Cir.Stmt>, -Q: Cr.Cir.State -> Type,
+  +hK: PM.Kept(regs0, regs, keep0), +hl: {List.length(&2, U32, regs) == 63n : Nat},
+  +h42: {List.get(&2, U32, regs, 42n) == Some{DE.top(rest)} : Maybe<&2, U32>}, +h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  +h44: {List.get(&2, U32, regs, Mc.R.dc()) == Some{e} : Maybe<&2, U32>},
+  +hs: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps),
+  +hac: PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.TmpE{e, Nil{}}, List.append(&2, PM.TmpE, DE.tmps(rest), xs0)}, sp, fs, ps, zs),
+  +hds: DS(Con{DE{e, p, u}, rest}, m, m0, c, v, nx0, List.append(&2, U32, ps0, Nil{})), +hkv: KV(v, m0, m, c, ns), +hkc: PM.Kept.cells(m0, nx0, fi, ps0, Nil{}, m, nx, ps),
+  +hst: N.Le(PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi), PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi)),
+  +hS: N.Le(DE.size(Con{DE{e, p, u}, rest}), Pg.Term.size(v)),
+  +hk0: {PM.Disj(keep0, PM.Data.scr()) == True{} : Bool}, +hn0: {Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx0), U32.to_nat(fi))) == U32.to_nat(nx0) : Nat},
+  k: CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, List.set(&2, U32, regs, Mc.R.pend(), e), X.X.put(m, 1n, e, pend), nx, e, Con{e, ps}, rest, ns, zs) -> W.WP(Mc.M.do(T), F, X.X.st(List.set(&2, U32, regs, Mc.R.pend(), e), X.X.put(m, 1n, e, pend), nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim),
+  +ho: {PM.Own(fi, nx, e) == True{} : Bool}, +hm: {PM.Mem(ps, e) == False{} : Bool},
+  +hdn: {PM.Mem(PM.Tmp.cells(List.append(&2, PM.TmpE, DE.tmps(rest), xs0)), e) == False{} : Bool}) ->
+  W.WP(Mc.M.do(Con{Mc.M.release(Mc.R.dc()), T}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim):
+  (_, d1) = hds
+  (hce, d2) = d1
+  (_, d3) = d2
+  (hwr, hdr) = d3
+  (hkle, kr) = hkc
+  (hkg, hpsl) = kr
+  +X0 = List.append(&2, U32, ps0, Nil{})
+  +n0 = Nat.sub(U32.to_nat(nx0), U32.to_nat(fi))
+  +B = PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v)))
+  +bs1 = {Con{PM.Rt{c, v}, bs} : List<&2, PM.Rt>}
+  +w = DE.top(rest)
+  +y = Cl(m0, p, c)
+  +hceD = {hce : {Cr.Cir.Cells.get(m, e) == CK(w, y) : Cr.Cir.Cell}}
+  +hwrD = {hwr : {Wr(m0, nx0, X0, e) == True{} : Bool}}
+  +hrl = rl.at(dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, Mc.R.dc(), os, bs1, fs, sp, pend, ps, e, List.append(&2, PM.TmpE, DE.tmps(rest), xs0), zs, hs, hac, ho,
+    ck.t32(m, e, w, y, hceD), ck.fl(m, e, w, y, hceD), hm, ck.fs(m, ps, e, w, y, hceD), hl, h44, h3)
+  +hst2 = fst2({PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), X.X.put(m, 1n, e, pend), fi) == PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat}, PM.P2(PM.HSK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, bs1, fs, sp, e, Con{e, ps}), PM.AccK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, List.append(&2, PM.TmpE, DE.tmps(rest), xs0), sp, fs, Con{e, ps}, zs)), hrl)
+  +hsa = snd2({PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), X.X.put(m, 1n, e, pend), fi) == PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat}, PM.P2(PM.HSK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, bs1, fs, sp, e, Con{e, ps}), PM.AccK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, List.append(&2, PM.TmpE, DE.tmps(rest), xs0), sp, fs, Con{e, ps}, zs)), hrl)
+  +hcz = own.cell(e, im, fi, nx, ho)
+  do.store(F, 1n, Mc.M.g(Mc.R.dc()), Mc.M.g(Mc.R.pend()), Con{Mc.M.set(Mc.R.pend(), Mc.M.g(Mc.R.dc())), Nil{}}, regs, m, nx, fi, im, pg, lim, inp,
+    t => W.WP(Mc.M.do(T), F, t, Q, B, lim), B, lim, e, pend,
+    ob.g(Mc.R.dc(), regs, m, nx, fi, im, pg, lim, inp, e, h44), ob.g(Mc.R.pend(), regs, m, nx, fi, im, pg, lim, inp, pend, h3),
+    ev.g(Mc.R.dc(), regs, m, nx, fi, im, pg, lim, inp, e, h44), ev.g(Mc.R.pend(), regs, m, nx, fi, im, pg, lim, inp, pend, h3), hcz,
+  do.set(F, Mc.R.pend(), Mc.M.g(Mc.R.dc()), Nil{}, regs, X.X.put(m, 1n, e, pend), nx, fi, im, pg, lim, inp, t => W.WP(Mc.M.do(T), F, t, Q, B, lim), B, lim, e,
+    ob.g(Mc.R.dc(), regs, X.X.put(m, 1n, e, pend), nx, fi, im, pg, lim, inp, e, h44), ev.g(Mc.R.dc(), regs, X.X.put(m, 1n, e, pend), nx, fi, im, pg, lim, inp, e, h44), hl, {==},
+    k((kept.set(regs0, regs, keep0, PM.Data.scr(), Mc.R.pend(), e, {==}, hk0, hK),
+      (X.L.len(regs, Mc.R.pend(), e, 63n, hl),
+      (Equal.trans(Maybe<&2, U32>, List.get(&2, U32, List.set(&2, U32, regs, Mc.R.pend(), e), 42n), List.get(&2, U32, regs, 42n), Some{w}, get.set.ne(regs, Mc.R.pend(), 42n, e, {==}), h42),
+      (X.L.gs(regs, Mc.R.pend(), e, (%Equal.sym(Nat, List.length(&2, U32, regs), 63n, hl) : {Nat.is_lt(Mc.R.pend(), _) == True{} : Bool}; {==})),
+      (fst2(PM.HSK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, bs1, fs, sp, e, Con{e, ps}), PM.AccK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, List.append(&2, PM.TmpE, DE.tmps(rest), xs0), sp, fs, Con{e, ps}, zs), hsa),
+      (snd2(PM.HSK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, bs1, fs, sp, e, Con{e, ps}), PM.AccK(dk, ds, ks, img, X.X.put(m, 1n, e, pend), nx, fi, im, os, List.append(&2, PM.TmpE, DE.tmps(rest), xs0), sp, fs, Con{e, ps}, zs), hsa),
+      (ds.set(rest, m, m0, c, v, nx0, X0, xs0, e, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, e), pend), hdn, hdr),
+      (kv.ft(v, m0, m, X.X.put(m, 1n, e, pend), c, ns, hkv, ft.f1(v, m0, m, e, pend, c)),
+      ((hkle, (kg.set(n0, m0, m, X0, fi, e, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, e), pend), nx0, PM.or.l(Wr(m0, nx0, X0, e), U32.is_lt(PM.Tg(m, e), 19), hwrD), hn0, hkg),
+         PM.and.i(Wr(m0, nx0, X0, e), PM.PsSub.lt(ps, X0, m0, nx0), hwrD, hpsl))),
+      (N.le_rw_l(PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi), PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), X.X.put(m, 1n, e, pend), fi), PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi),
+         Equal.sym(Nat, PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), X.X.put(m, 1n, e, pend), fi), PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi), hst2), hst),
+        N.le_trans(DE.size(rest), Nat.add(Pg.Term.size(u), DE.size(rest)), Pg.Term.size(v), N.le_add_l(Pg.Term.size(u), DE.size(rest)), hS))))))))))))))
+
+# M.release of the stack's top e: the check's state with the rest
+def pop.rel(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +keep0: List<&2, Nat>, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps0: List<&2, U32>, +c: U32, +v: Bk.Term, +xs0: List<&2, PM.TmpE>, +lim: U32, +inp: List<&2, Word(8n)>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +pg: U32, +pend: U32, +ps: List<&2, U32>, +e: U32, +p: List<&2, Bool>, +u: Bk.Term,
+  +rest: List<&2, DE>, +ns: List<&2, U32>, +zs: List<&2, PM.Rt>, +T: List<&2, Cr.Cir.Stmt>, -Q: Cr.Cir.State -> Type,
+  +hK: PM.Kept(regs0, regs, keep0), +hl: {List.length(&2, U32, regs) == 63n : Nat},
+  +h42: {List.get(&2, U32, regs, 42n) == Some{DE.top(rest)} : Maybe<&2, U32>}, +h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  +h44: {List.get(&2, U32, regs, Mc.R.dc()) == Some{e} : Maybe<&2, U32>},
+  +hs: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps),
+  +hac: PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.TmpE{e, Nil{}}, List.append(&2, PM.TmpE, DE.tmps(rest), xs0)}, sp, fs, ps, zs),
+  +hds: DS(Con{DE{e, p, u}, rest}, m, m0, c, v, nx0, List.append(&2, U32, ps0, Nil{})), +hkv: KV(v, m0, m, c, ns), +hkc: PM.Kept.cells(m0, nx0, fi, ps0, Nil{}, m, nx, ps),
+  +hst: N.Le(PM.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi), PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi)),
+  +hS: N.Le(DE.size(Con{DE{e, p, u}, rest}), Pg.Term.size(v)),
+  +hk0: {PM.Disj(keep0, PM.Data.scr()) == True{} : Bool}, +hn0: {Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx0), U32.to_nat(fi))) == U32.to_nat(nx0) : Nat},
+  k: CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, List.set(&2, U32, regs, Mc.R.pend(), e), X.X.put(m, 1n, e, pend), nx, e, Con{e, ps}, rest, ns, zs) -> W.WP(Mc.M.do(T), F, X.X.st(List.set(&2, U32, regs, Mc.R.pend(), e), X.X.put(m, 1n, e, pend), nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim)) ->
+  W.WP(Mc.M.do(Con{Mc.M.release(Mc.R.dc()), T}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim):
+  +R = List.append(&2, PM.Rt, os, List.append(&2, PM.Rt, PM.Tmp.held(Con{PM.TmpE{e, Nil{}}, List.append(&2, PM.TmpE, DE.tmps(rest), xs0)}), List.append(&2, PM.Rt, PM.Fr.rts(fs, m, sp), zs)))
+  tmp.hd(e, Nil{}, List.append(&2, PM.TmpE, DE.tmps(rest), xs0), m, fi, nx, ps, R, acc.ok(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.TmpE{e, Nil{}}, List.append(&2, PM.TmpE, DE.tmps(rest), xs0)}, sp, fs, ps, zs, hac),
+    W.WP(Mc.M.do(Con{Mc.M.release(Mc.R.dc()), T}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim),
+    ho => hm => hdn => _ => pop.go(F, dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, lim, inp, regs, m, nx, pg, pend, ps, e, p, u, rest, ns, zs, T, Q, hK, hl, h42, h3, h44, hs, hac, hds, hkv, hkc, hst, hS, hk0, hn0, k, ho, hm, hdn))
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
