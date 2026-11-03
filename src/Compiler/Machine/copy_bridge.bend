@@ -6162,6 +6162,229 @@ def copy.ends(+wt: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>
       Rs.of(List.append(&2, D.Rt, os, D.Fr.rts(fs, m, sp))), Tmps.of(XS), Kl(n, m, fi, ps), D.Acc.need(m, nx, fi, os, XS, sp, fs),
       False{}, t, Pg.Term.size(t), D.Arg.terms(es), pre, ht, henv, clen.ok(es, ds, m, im, fi, nx, ks, img, ps, os, Nil{}, ce, regs, env, hn), Unit{}))
 
+# CopyQ from Post
+# ---------------
+#
+# Post (Cp.ok's end, with hx) says what the copy's state ms (next nx2, pend
+# list Qn, garbage Pn) keeps of m: the taken cells T (Tk: the result's new
+# nodes and the roots given back) hold no flag and were garbage or new; the
+# others keep their fields 0 and 2 to 4 (Kept, Same) and, of the machine's own
+# kinds, their values (Kcs of the kept cells Kl). CopyQ follows from it.
+
+# The STATIC cells
+# ----------------
+
+def bit.and.assoc(a: Bool, -b: Bool, -c: Bool) -> {Bool.and(Bool.and(a, b), c) == Bool.and(a, Bool.and(b, c)) : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def wand.assoc(n: Nat, a: Word(n), b: Word(n), c: Word(n)) -> {Word.and(n, Word.and(n, a, b), c) == Word.and(n, a, Word.and(n, b, c)) : Word(n)}:
+  match n:
+    case 0n:
+      match a b c:
+        case WNil{} WNil{} WNil{}:
+          {==}
+    case 1n+(+p):
+      match a b c:
+        case WCon{+ab, +at} WCon{+bb, +bt} WCon{+cb, +ct}:
+          %Equal.sym(Bool, Bool.and(Bool.and(ab, bb), cb), Bool.and(ab, Bool.and(bb, cb)), bit.and.assoc(ab, bb, cb)) :
+            {WCon{_, Word.and(p, Word.and(p, at, bt), ct)} == WCon{Bool.and(ab, Bool.and(bb, cb)), Word.and(p, at, Word.and(p, bt, ct))} : Word(1n+p)}
+          %Equal.sym(Word(p), Word.and(p, Word.and(p, at, bt), ct), Word.and(p, at, Word.and(p, bt, ct)), wand.assoc(p, at, bt, ct)) :
+            {WCon{Bool.and(ab, Bool.and(bb, cb)), _} == WCon{Bool.and(ab, Bool.and(bb, cb)), Word.and(p, at, Word.and(p, bt, ct))} : Word(1n+p)}
+          {==}
+
+def u32.and.assoc(+a: U32, +b: U32, +c: U32) -> {U32.and(U32.and(a, b), c) == U32.and(a, U32.and(b, c)) : U32}:
+  match a b c:
+    case U32{+x} U32{+y} U32{+z}:
+      Equal.cong(Word(32n), U32, w => U32{w}, Word.and(32n, Word.and(32n, x, y), z), Word.and(32n, x, Word.and(32n, y, z)), wand.assoc(32n, x, y, z))
+
+# STATIC (1024) is one of the flags (bits 8 to 12, 7936)
+def and.nf.st() -> {U32.and(7936, 1024) == 1024 : U32}:
+  {==}
+
+# a field 0 with no flag has no STATIC
+def nf.st(+x: U32, h: {U32.is_zero(U32.and(x, 7936)) == True{} : Bool}) -> {U32.is_ne(U32.and(x, 1024), 0) == False{} : Bool}:
+  +e0 = CK.U.eq(U32.and(x, 7936), 0, h)
+  +e1 = Equal.trans(U32, U32.and(x, 1024), U32.and(x, U32.and(7936, 1024)), 0,
+    Equal.cong(U32, U32, w => U32.and(x, w), 1024, U32.and(7936, 1024), Equal.sym(U32, U32.and(7936, 1024), 1024, and.nf.st())),
+    Equal.trans(U32, U32.and(x, U32.and(7936, 1024)), U32.and(U32.and(x, 7936), 1024), 0,
+      Equal.sym(U32, U32.and(U32.and(x, 7936), 1024), U32.and(x, U32.and(7936, 1024)), u32.and.assoc(x, 7936, 1024)),
+      Equal.cong(U32, U32, w => U32.and(w, 1024), U32.and(x, 7936), 0, e0)))
+  %Equal.sym(U32, U32.and(x, 1024), 0, e1) : {U32.is_ne(_, 0) == False{} : Bool}
+  {==}
+
+# a taken cell (one of T) holds no flag
+def nf.get(T: List<&2, U32>, +ms: Cr.Cir.Cells, +c: U32, hnf: {S.Nf(T, ms) == True{} : Bool}, hc: {S.Has(T, c) == True{} : Bool}) ->
+  {U32.is_zero(U32.and(S.Fd(0n, ms, c), 7936)) == True{} : Bool}:
+  match T:
+    case Nil{}:
+      CK.Bo.tf({U32.is_zero(U32.and(S.Fd(0n, ms, c), 7936)) == True{} : Bool}, hc)
+    case Con{+y, +rest}:
+      +h2 = hnf
+      D.or.cases(U32.is_eq(y, c), S.Has(rest, c), {U32.is_zero(U32.and(S.Fd(0n, ms, c), 7936)) == True{} : Bool}, hc,
+        e => (%CK.U.eq(y, c, e) : {U32.is_zero(U32.and(S.Fd(0n, ms, _), 7936)) == True{} : Bool};
+          CK.Bo.and_l(U32.is_zero(U32.and(S.Fd(0n, ms, y), 7936)), S.Nf(rest, ms), h2)),
+        e => nf.get(rest, ms, c, CK.Bo.and_r(U32.is_zero(U32.and(S.Fd(0n, ms, y), 7936)), S.Nf(rest, ms), h2), e))
+
+# a taken cell is not STATIC
+def nf.fl(+T: List<&2, U32>, +ms: Cr.Cir.Cells, +c: U32, +hnf: {S.Nf(T, ms) == True{} : Bool}, hc: {S.Has(T, c) == True{} : Bool}) ->
+  {D.Fl(ms, c, 1024) == False{} : Bool}:
+  nf.st(D.Fd(0n, ms, c), nf.get(T, ms, c, hnf, hc))
+
+# n cells from c, each taken: none is STATIC
+def stat.new(n: Nat, +ms: Cr.Cir.Cells, +c: U32, +T: List<&2, U32>, hin: {S.In.all(n, c, T) == True{} : Bool}, +hnf: {S.Nf(T, ms) == True{} : Bool}) ->
+  {D.Stat(n, ms, c) == 0n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +h2 = hin
+      %Equal.sym(Bool, D.Fl(ms, c, 1024), False{}, nf.fl(T, ms, c, hnf, CK.Bo.and_l(S.Has(T, c), S.In.all(p, U32.inc(c), T), h2))) :
+        {Nat.add(D.Nat.of(_), D.Stat(p, ms, U32.inc(c))) == 0n : Nat}
+      stat.new(p, ms, U32.inc(c), T, CK.Bo.and_r(S.Has(T, c), S.In.all(p, U32.inc(c), T), h2), hnf)
+
+# a cell taken or kept (Kept's case): no more STATIC than it was
+def stat.cell(+m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +T: List<&2, U32>, +R: Bool, +hnf: {S.Nf(T, ms) == True{} : Bool},
+  h: {Bool.or(S.Has(T, c), Bool.and(S.Same.at(m, ms, c), R)) == True{} : Bool}) -> N.Le(D.Nat.of(D.Fl(ms, c, 1024)), D.Nat.of(D.Fl(m, c, 1024))):
+  D.or.cases(S.Has(T, c), Bool.and(S.Same.at(m, ms, c), R), N.Le(D.Nat.of(D.Fl(ms, c, 1024)), D.Nat.of(D.Fl(m, c, 1024))), h,
+    e => (%Equal.sym(Bool, D.Fl(ms, c, 1024), False{}, nf.fl(T, ms, c, hnf, e)) : N.Le(D.Nat.of(_), D.Nat.of(D.Fl(m, c, 1024)));
+      N.le_zero(D.Nat.of(D.Fl(m, c, 1024)))),
+    e => (%Equal.sym(U32, S.Fd(0n, ms, c), S.Fd(0n, m, c), CK.U.eq(S.Fd(0n, ms, c), S.Fd(0n, m, c),
+        CK.Bo.and_l(U32.is_eq(S.Fd(0n, ms, c), S.Fd(0n, m, c)), Bool.and(U32.is_eq(S.Fd(2n, ms, c), S.Fd(2n, m, c)),
+          Bool.and(U32.is_eq(S.Fd(3n, ms, c), S.Fd(3n, m, c)), U32.is_eq(S.Fd(4n, ms, c), S.Fd(4n, m, c)))),
+          CK.Bo.and_l(S.Same.at(m, ms, c), R, e)))) : N.Le(D.Nat.of(U32.is_ne(U32.and(_, 1024), 0)), D.Nat.of(D.Fl(m, c, 1024)));
+      N.le_refl(D.Nat.of(D.Fl(m, c, 1024)))))
+
+# the k old cells from c (each taken or kept), then the j new ones from N
+# (each taken), are no more STATIC than the k cells were
+def stat.copy(k: Nat, +j: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, +N: U32, +T: List<&2, U32>, +Pn: List<&2, U32>, +F: U32,
+  +a: Nat, +b: Nat, +Q: List<&2, U32>, +Qn: List<&2, U32>, +x: List<&2, U32>, +y: List<&2, U32>,
+  hk: {S.Kept(k, m, ms, c, T, Pn, F, a, b, Q, Qn, x, y) == True{} : Bool}, +hc: {Nat.add(U32.to_nat(c), k) == U32.to_nat(N) : Nat},
+  +hin: {S.In.all(j, N, T) == True{} : Bool}, +hnf: {S.Nf(T, ms) == True{} : Bool}) ->
+  N.Le(D.Stat(Nat.add(k, j), ms, c), D.Stat(k, m, c)):
+  match k:
+    case 0n:
+      %Equal.sym(U32, c, N, AC.at.end(c, N, hc)) : N.Le(D.Stat(j, ms, _), 0n)
+      N.le_rw_l(0n, D.Stat(j, ms, N), 0n, Equal.sym(Nat, D.Stat(j, ms, N), 0n, stat.new(j, ms, N, T, hin, hnf)), N.le_refl(0n))
+    case 1n+(+q):
+      +hk2 = hk
+      +R = Bool.or(Bool.or(U32.is_le(19, U32.and(S.Fd(0n, m, c), 63)), Bool.or(S.Stc(m, c), S.Has(Pn, c))),
+        Nat.is_eq(Nat.add(U32.to_nat(S.Fd(1n, ms, c)), Nat.add(S.Pc(a, m, Q, F, c), S.Occ(x, c))), Nat.add(U32.to_nat(S.Fd(1n, m, c)), Nat.add(S.Pc(b, ms, Qn, F, c), S.Occ(y, c)))))
+      N.add_mono(D.Nat.of(D.Fl(ms, c, 1024)), D.Nat.of(D.Fl(m, c, 1024)), D.Stat(Nat.add(q, j), ms, U32.inc(c)), D.Stat(q, m, U32.inc(c)),
+        stat.cell(m, ms, c, T, R, hnf, CK.Bo.and_l(Bool.or(S.Has(T, c), Bool.and(S.Same.at(m, ms, c), R)), S.Kept(q, m, ms, U32.inc(c), T, Pn, F, a, b, Q, Qn, x, y), hk2)),
+        stat.copy(q, j, m, ms, U32.inc(c), N, T, Pn, F, a, b, Q, Qn, x, y,
+          CK.Bo.and_r(Bool.or(S.Has(T, c), Bool.and(S.Same.at(m, ms, c), R)), S.Kept(q, m, ms, U32.inc(c), T, Pn, F, a, b, Q, Qn, x, y), hk2),
+          AC.at.next(c, q, N, hc), hin, hnf))
+
+# (a + b) - a = b
+def sub.add.l(a: Nat, +b: Nat) -> {Nat.sub(Nat.add(a, b), a) == b : Nat}:
+  match a:
+    case 0n:
+      match b:
+        case 0n:
+          {==}
+        case 1n+(+p):
+          {==}
+    case 1n+(+p):
+      sub.add.l(p, b)
+
+# fi <= nx <= nx2: nx2 - fi = (nx - fi) + (nx2 - nx)
+def sub.split(+fi: Nat, +nx: Nat, +nx2: Nat, h1: N.Le(fi, nx), h2: N.Le(nx, nx2)) ->
+  {Nat.sub(nx2, fi) == Nat.add(Nat.sub(nx, fi), Nat.sub(nx2, nx)) : Nat}:
+  +e1 = D.add.sub(fi, nx, h1)
+  +e2 = D.add.sub(nx, nx2, h2)
+  +e3 = Equal.trans(Nat, Nat.add(fi, Nat.add(Nat.sub(nx, fi), Nat.sub(nx2, nx))), Nat.add(Nat.add(fi, Nat.sub(nx, fi)), Nat.sub(nx2, nx)), nx2,
+    Equal.sym(Nat, Nat.add(Nat.add(fi, Nat.sub(nx, fi)), Nat.sub(nx2, nx)), Nat.add(fi, Nat.add(Nat.sub(nx, fi), Nat.sub(nx2, nx))), N.add_assoc(fi, Nat.sub(nx, fi), Nat.sub(nx2, nx))),
+    Equal.trans(Nat, Nat.add(Nat.add(fi, Nat.sub(nx, fi)), Nat.sub(nx2, nx)), Nat.add(nx, Nat.sub(nx2, nx)), nx2,
+      Equal.cong(Nat, Nat, w => Nat.add(w, Nat.sub(nx2, nx)), Nat.add(fi, Nat.sub(nx, fi)), nx, e1), e2))
+  %e3 : {Nat.sub(_, fi) == Nat.add(Nat.sub(nx, fi), Nat.sub(nx2, nx)) : Nat}
+  sub.add.l(fi, Nat.add(Nat.sub(nx, fi), Nat.sub(nx2, nx)))
+
+# the copy's state is no more STATIC than the start (CopyQ's Stat)
+def stat.end(+m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +nx: U32, +nx2: U32, +fi: U32, +T: List<&2, U32>, +Pn: List<&2, U32>,
+  +Q: List<&2, U32>, +Qn: List<&2, U32>, +r: U32,
+  hkept: {S.Kept(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, ms, fi, T, Pn, fi, Nat.sub(U32.to_nat(nx), U32.to_nat(fi)),
+    Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), Q, Qn, Nil{}, [r]) == True{} : Bool},
+  +hin: {S.In.all(Nat.sub(U32.to_nat(nx2), U32.to_nat(nx)), nx, T) == True{} : Bool}, +hnf: {S.Nf(T, ms) == True{} : Bool},
+  +hfn: {U32.is_le(fi, nx) == True{} : Bool}, +hn2: {U32.is_le(nx, nx2) == True{} : Bool}) ->
+  N.Le(D.Stat(Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), ms, fi), D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)):
+  +n0 = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +j = Nat.sub(U32.to_nat(nx2), U32.to_nat(nx))
+  %Equal.sym(Nat, Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), Nat.add(n0, j), sub.split(U32.to_nat(fi), U32.to_nat(nx), U32.to_nat(nx2), CK.U.le(fi, nx, hfn), CK.U.le(nx, nx2, hn2))) :
+    N.Le(D.Stat(_, ms, fi), D.Stat(n0, m, fi))
+  stat.copy(n0, j, m, ms, fi, nx, T, Pn, fi, n0, Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), Q, Qn, Nil{}, [r], hkept,
+    D.add.sub(U32.to_nat(fi), U32.to_nat(nx), CK.U.le(fi, nx, hfn)), hin, hnf)
+
+# What a copy keeps (Kept.cells)
+# ------------------------------
+
+# the facts of a list at one of its cells
+def gb.at(Pn: List<&2, U32>, +P: List<&2, U32>, +T: List<&2, U32>, +Qn: List<&2, U32>, +ms: Cr.Cir.Cells, +q: U32,
+  h: {S.Gb(Pn, P, T, Qn, ms) == True{} : Bool}, hq: {S.Has(Pn, q) == True{} : Bool}) ->
+  {Bool.or(Bool.and(S.Has(P, q), Bool.not(S.Has(T, q))), Bool.and(S.Has(T, q), Bool.and(U32.is_eq(S.Fd(0n, ms, q), 45), S.Has(Qn, q)))) == True{} : Bool}:
+  match Pn:
+    case Nil{}:
+      CK.Bo.tf({Bool.or(Bool.and(S.Has(P, q), Bool.not(S.Has(T, q))), Bool.and(S.Has(T, q), Bool.and(U32.is_eq(S.Fd(0n, ms, q), 45), S.Has(Qn, q)))) == True{} : Bool}, hq)
+    case Con{+y, +rest}:
+      +h2 = h
+      +A = Bool.or(Bool.and(S.Has(P, y), Bool.not(S.Has(T, y))), Bool.and(S.Has(T, y), Bool.and(U32.is_eq(S.Fd(0n, ms, y), 45), S.Has(Qn, y))))
+      D.or.cases(U32.is_eq(y, q), S.Has(rest, q),
+        {Bool.or(Bool.and(S.Has(P, q), Bool.not(S.Has(T, q))), Bool.and(S.Has(T, q), Bool.and(U32.is_eq(S.Fd(0n, ms, q), 45), S.Has(Qn, q)))) == True{} : Bool}, hq,
+        e => (%CK.U.eq(y, q, e) : {Bool.or(Bool.and(S.Has(P, _), Bool.not(S.Has(T, _))), Bool.and(S.Has(T, _), Bool.and(U32.is_eq(S.Fd(0n, ms, _), 45), S.Has(Qn, _)))) == True{} : Bool};
+          CK.Bo.and_l(A, S.Gb(rest, P, T, Qn, ms), h2)),
+        e => gb.at(rest, P, T, Qn, ms, q, CK.Bo.and_r(A, S.Gb(rest, P, T, Qn, ms), h2), e))
+
+def gts.at(G: List<&2, U32>, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +q: U32, h: {GTs(G, m, ps) == True{} : Bool}, hq: {S.Has(G, q) == True{} : Bool}) ->
+  {Bool.or(U32.is_lt(D.Tg(m, q), 19), Bool.and(U32.is_le(32, D.Tg(m, q)), D.Mem(ps, q))) == True{} : Bool}:
+  match G:
+    case Nil{}:
+      CK.Bo.tf({Bool.or(U32.is_lt(D.Tg(m, q), 19), Bool.and(U32.is_le(32, D.Tg(m, q)), D.Mem(ps, q))) == True{} : Bool}, hq)
+    case Con{+y, +rest}:
+      +h2 = h
+      +A = Bool.or(U32.is_lt(D.Tg(m, y), 19), Bool.and(U32.is_le(32, D.Tg(m, y)), D.Mem(ps, y)))
+      D.or.cases(U32.is_eq(y, q), S.Has(rest, q), {Bool.or(U32.is_lt(D.Tg(m, q), 19), Bool.and(U32.is_le(32, D.Tg(m, q)), D.Mem(ps, q))) == True{} : Bool}, hq,
+        e => (%CK.U.eq(y, q, e) : {Bool.or(U32.is_lt(D.Tg(m, _), 19), Bool.and(U32.is_le(32, D.Tg(m, _)), D.Mem(ps, _))) == True{} : Bool};
+          CK.Bo.and_l(A, GTs(rest, m, ps), h2)),
+        e => gts.at(rest, m, ps, q, CK.Bo.and_r(A, GTs(rest, m, ps), h2), e))
+
+# an old garbage cell is a term cell or pending
+def gq.at(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +P: List<&2, U32>, +q: U32, +hg: {GTs(P, m, ps) == True{} : Bool}, hq: {S.Has(P, q) == True{} : Bool}) ->
+  {Bool.or(D.Mem(List.append(&2, U32, ps, Nil{}), q), U32.is_lt(D.Tg(m, q), 19)) == True{} : Bool}:
+  D.or.cases(U32.is_lt(D.Tg(m, q), 19), Bool.and(U32.is_le(32, D.Tg(m, q)), D.Mem(ps, q)),
+    {Bool.or(D.Mem(List.append(&2, U32, ps, Nil{}), q), U32.is_lt(D.Tg(m, q), 19)) == True{} : Bool}, gts.at(P, m, ps, q, hg, hq),
+    e => CK.Bo.or_ir(D.Mem(List.append(&2, U32, ps, Nil{}), q), U32.is_lt(D.Tg(m, q), 19), e),
+    e => CK.Bo.or_il(D.Mem(List.append(&2, U32, ps, Nil{}), q), U32.is_lt(D.Tg(m, q), 19),
+      mem.in.l(ps, Nil{}, q, CK.Bo.and_r(U32.is_le(32, D.Tg(m, q)), D.Mem(ps, q), e))))
+
+# each cell of the new pend list (of Qn, which Pn holds) below nx was
+# pending or is a term cell: it was garbage (Gb), or taken and so garbage
+# below nx (Incl.go)
+def pssub(qs: List<&2, U32>, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +nx: U32, +ps: List<&2, U32>, +P: List<&2, U32>, +T: List<&2, U32>,
+  +Pn: List<&2, U32>, +Qn: List<&2, U32>, hs: {S.Sub(qs, Pn) == True{} : Bool}, +hgb: {S.Gb(Pn, P, T, Qn, ms) == True{} : Bool},
+  +hig: {S.Incl.go(T, P, nx) == True{} : Bool}, +hg: {GTs(P, m, ps) == True{} : Bool}) ->
+  {D.PsSub.lt(qs, List.append(&2, U32, ps, Nil{}), m, nx) == True{} : Bool}:
+  match qs:
+    case Nil{}:
+      {==}
+    case Con{+q, +rest}:
+      +hs2 = hs
+      +G = Bool.or(D.Mem(List.append(&2, U32, ps, Nil{}), q), U32.is_lt(D.Tg(m, q), 19))
+      +cell = bool.case(U32.is_lt(q, nx), U32.is_lt(q, nx), {Bool.or(Bool.not(U32.is_lt(q, nx)), G) == True{} : Bool}, {==},
+        elt => CK.Bo.or_ir(Bool.not(U32.is_lt(q, nx)), G,
+          D.or.cases(Bool.and(S.Has(P, q), Bool.not(S.Has(T, q))), Bool.and(S.Has(T, q), Bool.and(U32.is_eq(S.Fd(0n, ms, q), 45), S.Has(Qn, q))),
+            {G == True{} : Bool}, gb.at(Pn, P, T, Qn, ms, q, hgb, CK.Bo.and_l(S.Has(Pn, q), S.Sub(rest, Pn), hs2)),
+            e => gq.at(m, ps, P, q, hg, CK.Bo.and_l(S.Has(P, q), Bool.not(S.Has(T, q)), e)),
+            e => D.or.cases(S.Has(P, q), U32.is_le(nx, q), {G == True{} : Bool},
+              TS.Has.incl(T, P, nx, q, hig, CK.Bo.and_l(S.Has(T, q), Bool.and(U32.is_eq(S.Fd(0n, ms, q), 45), S.Has(Qn, q)), e)),
+              e1 => gq.at(m, ps, P, q, hg, e1),
+              e1 => CK.U.lt_ge(q, nx, {G == True{} : Bool}, elt, e1)))),
+        elt => CK.Bo.or_il(Bool.not(U32.is_lt(q, nx)), G, (%Equal.sym(Bool, U32.is_lt(q, nx), False{}, elt) : {Bool.not(_) == True{} : Bool}; {==})))
+      CK.Bo.and_i(Bool.or(Bool.not(U32.is_lt(q, nx)), G), D.PsSub.lt(rest, List.append(&2, U32, ps, Nil{}), m, nx), cell,
+        pssub(rest, m, ms, nx, ps, P, T, Pn, Qn, CK.Bo.and_r(S.Has(Pn, q), S.Sub(rest, Pn), hs2), hgb, hig, hg))
+
 # The laws
 # --------
 
