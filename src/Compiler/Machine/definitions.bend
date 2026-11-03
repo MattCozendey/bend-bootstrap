@@ -1184,9 +1184,10 @@ def HS(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, 
 # the zombie is reused, is still accounted for while a pointer holds it. With no pending cell, the own
 # cells are at most the STATIC ones + the roots' nodes + the cells xs
 # (acc.count, U1): a new cell (Cir alloc) is taken only then (alloc.post).
-# No constant appears here: the cache's bound (6144 cells) is the run's
-# (memory_bound.bend, U16), as a closed big number would be expanded by
-# the checker in every match that has Acc in its context.
+# No constant appears here, as a closed big number would be expanded by the
+# checker in every match that has Acc in its context: the cache's bound
+# (Cache.max) holds after M.input (InvIn), and no round adds a STATIC cell
+# (MV.next).
 
 # how many of the n cells from c are STATIC
 def Stat(n: Nat, +m: Cr.Cir.Cells, +c: U32) -> Nat:
@@ -3247,11 +3248,21 @@ def setmode(+f: Nat, st: Cr.Cir.State, e: {List.length(&2, U32, St.regs(st)) == 
         Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       {==}
 
-# after M.input: ten registers or more, and once the mode is 0, the invariant
-# of Program.start(i), with the image's names and terms (cell_terms.bend)
+# the most STATIC cells of the input's byte cache: 256 x 24 (AGENTS.md 3.9.1.4)
+def Cache.max() -> Nat:
+  6144n
+
+# Cache.max, as the memory bound writes it (memory_bound.bend)
+def Cache.max.eq() -> {Cache.max() == N.D(11n, 3n) : Nat}:
+  {==}
+
+# after M.input: 63 registers, at most Cache.max() STATIC own cells, and once
+# the mode is 0, the invariant of Program.start(i), with the image's names and
+# terms (cell_terms.bend)
 def InvIn(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st: Cr.Cir.State) -> Data:
   P2({List.length(&2, U32, St.regs(st)) == 63n : Nat},
-    Ex(Nat, w => Inv(ds, T.tm.names(ds), T.tm.img(ds), Mode0(st), Pg.Program.start(i), w)))
+  P2(N.Le(Stat(Mem.cells(st), St.cells(st), St.first(st)), Cache.max()),
+    Ex(Nat, w => Inv(ds, T.tm.names(ds), T.tm.img(ds), Mode0(st), Pg.Program.start(i), w))))
 # the conclusion of input.post (move_kit.bend), for the phase that proves it:
 # InvIn, or out of memory below 27 cells a byte (3 of the list, 24 of a new
 # byte of the cache) and the focus
