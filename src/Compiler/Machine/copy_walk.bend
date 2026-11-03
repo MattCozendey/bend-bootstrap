@@ -470,6 +470,276 @@ def Al.b(+Q: List<&2, U32>, +nx: U32) -> Nat:
     case Con{_, _}:
       0n
 
+# The drops of a reused cell
+# --------------------------
+#
+# M.alloc reuses q, the first of the pend list: each part of q (by its
+# mask) loses a pointer (M.dec), and one whose count reaches 0 goes to the
+# pend list. A part may be twice in q, so that its count drops twice; it
+# reaches 0 only at its last drop, as q's pointers to it are at most its
+# count. Dv keeps the count of each part by the drops done.
+
+# the cells pu are garbage out of the pend list Q
+def Gq(pu: List<&2, U32>, +P: List<&2, U32>, +Q: List<&2, U32>) -> Bool:
+  match pu:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Bool.and(D.Has(P, x), Bool.not(D.Has(Q, x))), Gq(rest, P, Q))
+
+def Dv.of(s: Bool, h: Bool, +c0: Nat, +c3: Nat, +d: Nat) -> Bool:
+  match s:
+    case True{}:
+      Bool.and(Nat.is_eq(c3, c0), Bool.not(h))
+    case False{}:
+      match h:
+        case True{}:
+          Nat.is_eq(c0, d)
+        case False{}:
+          Bool.and(Nat.is_eq(Nat.add(c3, d), c0), Bool.or(Nat.is_eq(d, 0n), Nat.is_lt(0n, c3)))
+
+# the count of the cell y in M (from m), d of q's pointers to it dropped, the
+# cells pu pushed to the pend list: a STATIC cell keeps its count and is not
+# pushed; a pushed cell counted just them; another lost them, and keeps one
+# when it lost any
+def Dv(+m: Cr.Cir.Cells, +M: Cr.Cir.Cells, +pu: List<&2, U32>, +y: U32, +d: Nat) -> Bool:
+  Dv.of(D.Stc(m, y), D.Has(pu, y), U32.to_nat(D.Fd(1n, m, y)), U32.to_nat(D.Fd(1n, M, y)), d)
+
+# Dv of a part y of the mask bit b, by the drops done
+def Dvm(+b: Bool, +y: U32, +m: Cr.Cir.Cells, +M: Cr.Cir.Cells, +pu: List<&2, U32>, +done: List<&2, U32>) -> Bool:
+  Bool.or(Bool.not(b), Bool.or(U32.is_zero(y), Dv(m, M, pu, y, D.Occ(done, y))))
+
+# Dv of the parts of q, of the mask am
+def Dv3(+am: U32, +q: U32, +m: Cr.Cir.Cells, +M: Cr.Cir.Cells, +pu: List<&2, U32>, +done: List<&2, U32>) -> Bool:
+  Bool.and(Dvm(U32.is_ne(U32.and(am, 1), 0), D.Fd(2n, m, q), m, M, pu, done),
+    Bool.and(Dvm(U32.is_ne(U32.and(am, 2), 0), D.Fd(3n, m, q), m, M, pu, done),
+      Dvm(U32.is_ne(U32.and(am, 4), 0), D.Fd(4n, m, q), m, M, pu, done)))
+
+# before any drop
+def dv.init.of(s: Bool, +c0: Nat) -> {Dv.of(s, False{}, c0, c0, 0n) == True{} : Bool}:
+  match s:
+    case True{}:
+      K.Bo.and_i(Nat.is_eq(c0, c0), Bool.not(False{}), K.Na.eq_refl(c0), {==})
+    case False{}:
+      %Equal.sym(Nat, Nat.add(c0, 0n), c0, N.add_zero(c0)) :
+        {Bool.and(Nat.is_eq(_, c0), Bool.or(Nat.is_eq(0n, 0n), Nat.is_lt(0n, c0))) == True{} : Bool}
+      K.Bo.and_i(Nat.is_eq(c0, c0), Bool.or(Nat.is_eq(0n, 0n), Nat.is_lt(0n, c0)), K.Na.eq_refl(c0), {==})
+
+def dv.init(+m: Cr.Cir.Cells, +y: U32) -> {Dv(m, m, Nil{}, y, 0n) == True{} : Bool}:
+  dv.init.of(D.Stc(m, y), U32.to_nat(D.Fd(1n, m, y)))
+
+def dvm.init(b: Bool, +y: U32, +m: Cr.Cir.Cells) -> {Dvm(b, y, m, m, Nil{}, Nil{}) == True{} : Bool}:
+  K.Bo.or_ir(Bool.not(b), Bool.or(U32.is_zero(y), Dv(m, m, Nil{}, y, 0n)), K.Bo.or_ir(U32.is_zero(y), Dv(m, m, Nil{}, y, 0n), dv.init(m, y)))
+
+def dv3.init(+am: U32, +q: U32, +m: Cr.Cir.Cells) -> {Dv3(am, q, m, m, Nil{}, Nil{}) == True{} : Bool}:
+  +b1 = U32.is_ne(U32.and(am, 1), 0)
+  +b2 = U32.is_ne(U32.and(am, 2), 0)
+  +b4 = U32.is_ne(U32.and(am, 4), 0)
+  +f2 = D.Fd(2n, m, q)
+  +f3 = D.Fd(3n, m, q)
+  +f4 = D.Fd(4n, m, q)
+  K.Bo.and_i(Dvm(b1, f2, m, m, Nil{}, Nil{}), Bool.and(Dvm(b2, f3, m, m, Nil{}, Nil{}), Dvm(b4, f4, m, m, Nil{}, Nil{})), dvm.init(b1, f2, m),
+    K.Bo.and_i(Dvm(b2, f3, m, m, Nil{}, Nil{}), Dvm(b4, f4, m, m, Nil{}, Nil{}), dvm.init(b2, f3, m), dvm.init(b4, f4, m)))
+
+# the drop of x0 keeps Dv of a part y: y is x0 (hx), or another one, whose
+# count and push stay (hf, hp)
+def dvm.step.e(e: Bool, +y: U32, +m: Cr.Cir.Cells, +M: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +pu: List<&2, U32>, +pu2: List<&2, U32>,
+  +done: List<&2, U32>, +x0: U32, +eb: {U32.is_eq(y, x0) == e : Bool},
+  h: {Bool.or(U32.is_zero(y), Dv(m, M, pu, y, D.Occ(done, y))) == True{} : Bool},
+  hx: {Bool.or(U32.is_zero(x0), Dv(m, M2, pu2, x0, D.Occ(Con{x0, done}, x0))) == True{} : Bool},
+  hf: {U32.is_eq(y, x0) == False{} : Bool} -> {D.Fd(1n, M2, y) == D.Fd(1n, M, y) : U32},
+  hp: {U32.is_eq(y, x0) == False{} : Bool} -> {D.Has(pu2, y) == D.Has(pu, y) : Bool}) ->
+  {Bool.or(U32.is_zero(y), Dv(m, M2, pu2, y, D.Occ(Con{x0, done}, y))) == True{} : Bool}:
+  match e:
+    case True{}:
+      +ey = K.U.eq(y, x0, eb)
+      %Equal.sym(U32, y, x0, ey) : {Bool.or(U32.is_zero(_), Dv(m, M2, pu2, _, D.Occ(Con{x0, done}, _))) == True{} : Bool}
+      hx
+    case False{}:
+      +ex = K.U.ne.sym(y, x0, eb)
+      +c0 = U32.to_nat(D.Fd(1n, m, y))
+      %Equal.sym(Bool, U32.is_eq(x0, y), False{}, ex) :
+        {Bool.or(U32.is_zero(y), Dv.of(D.Stc(m, y), D.Has(pu2, y), c0, U32.to_nat(D.Fd(1n, M2, y)), Nat.add(D.Nat.of(_), D.Occ(done, y)))) ==
+          True{} : Bool}
+      %Equal.sym(Bool, D.Has(pu2, y), D.Has(pu, y), hp(eb)) :
+        {Bool.or(U32.is_zero(y), Dv.of(D.Stc(m, y), _, c0, U32.to_nat(D.Fd(1n, M2, y)), D.Occ(done, y))) == True{} : Bool}
+      %Equal.sym(U32, D.Fd(1n, M2, y), D.Fd(1n, M, y), hf(eb)) :
+        {Bool.or(U32.is_zero(y), Dv.of(D.Stc(m, y), D.Has(pu, y), c0, U32.to_nat(_), D.Occ(done, y))) == True{} : Bool}
+      h
+
+def dvm.step(b: Bool, +y: U32, +m: Cr.Cir.Cells, +M: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +pu: List<&2, U32>, +pu2: List<&2, U32>,
+  +done: List<&2, U32>, +x0: U32, h: {Dvm(b, y, m, M, pu, done) == True{} : Bool},
+  hx: {Bool.or(U32.is_zero(x0), Dv(m, M2, pu2, x0, D.Occ(Con{x0, done}, x0))) == True{} : Bool},
+  hf: {U32.is_eq(y, x0) == False{} : Bool} -> {D.Fd(1n, M2, y) == D.Fd(1n, M, y) : U32},
+  hp: {U32.is_eq(y, x0) == False{} : Bool} -> {D.Has(pu2, y) == D.Has(pu, y) : Bool}) ->
+  {Dvm(b, y, m, M2, pu2, Con{x0, done}) == True{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      dvm.step.e(U32.is_eq(y, x0), y, m, M, M2, pu, pu2, done, x0, {==}, h, hx, hf, hp)
+
+def dv3.step(+am: U32, +q: U32, +m: Cr.Cir.Cells, +M: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +pu: List<&2, U32>, +pu2: List<&2, U32>,
+  +done: List<&2, U32>, +x0: U32, h: {Dv3(am, q, m, M, pu, done) == True{} : Bool},
+  +hx: {Bool.or(U32.is_zero(x0), Dv(m, M2, pu2, x0, D.Occ(Con{x0, done}, x0))) == True{} : Bool},
+  hf2: {U32.is_eq(D.Fd(2n, m, q), x0) == False{} : Bool} -> {D.Fd(1n, M2, D.Fd(2n, m, q)) == D.Fd(1n, M, D.Fd(2n, m, q)) : U32},
+  hp2: {U32.is_eq(D.Fd(2n, m, q), x0) == False{} : Bool} -> {D.Has(pu2, D.Fd(2n, m, q)) == D.Has(pu, D.Fd(2n, m, q)) : Bool},
+  hf3: {U32.is_eq(D.Fd(3n, m, q), x0) == False{} : Bool} -> {D.Fd(1n, M2, D.Fd(3n, m, q)) == D.Fd(1n, M, D.Fd(3n, m, q)) : U32},
+  hp3: {U32.is_eq(D.Fd(3n, m, q), x0) == False{} : Bool} -> {D.Has(pu2, D.Fd(3n, m, q)) == D.Has(pu, D.Fd(3n, m, q)) : Bool},
+  hf4: {U32.is_eq(D.Fd(4n, m, q), x0) == False{} : Bool} -> {D.Fd(1n, M2, D.Fd(4n, m, q)) == D.Fd(1n, M, D.Fd(4n, m, q)) : U32},
+  hp4: {U32.is_eq(D.Fd(4n, m, q), x0) == False{} : Bool} -> {D.Has(pu2, D.Fd(4n, m, q)) == D.Has(pu, D.Fd(4n, m, q)) : Bool}) ->
+  {Dv3(am, q, m, M2, pu2, Con{x0, done}) == True{} : Bool}:
+  +h2 = h
+  +b1 = U32.is_ne(U32.and(am, 1), 0)
+  +b2 = U32.is_ne(U32.and(am, 2), 0)
+  +b4 = U32.is_ne(U32.and(am, 4), 0)
+  +f2 = D.Fd(2n, m, q)
+  +f3 = D.Fd(3n, m, q)
+  +f4 = D.Fd(4n, m, q)
+  +A = Dvm(b1, f2, m, M, pu, done)
+  +B = Dvm(b2, f3, m, M, pu, done)
+  +C = Dvm(b4, f4, m, M, pu, done)
+  +hbc = K.Bo.and_r(A, Bool.and(B, C), h2)
+  K.Bo.and_i(Dvm(b1, f2, m, M2, pu2, Con{x0, done}), Bool.and(Dvm(b2, f3, m, M2, pu2, Con{x0, done}), Dvm(b4, f4, m, M2, pu2, Con{x0, done})),
+    dvm.step(b1, f2, m, M, M2, pu, pu2, done, x0, K.Bo.and_l(A, Bool.and(B, C), h2), hx, hf2, hp2),
+    K.Bo.and_i(Dvm(b2, f3, m, M2, pu2, Con{x0, done}), Dvm(b4, f4, m, M2, pu2, Con{x0, done}),
+      dvm.step(b2, f3, m, M, M2, pu, pu2, done, x0, K.Bo.and_l(B, C, hbc), hx, hf3, hp3),
+      dvm.step(b4, f4, m, M, M2, pu, pu2, done, x0, K.Bo.and_r(B, C, hbc), hx, hf4, hp4)))
+
+# The parts of a garbage cell
+# ---------------------------
+
+# AL.cells of a garbage cell x of os
+def al.mem.b(e: Bool, +o: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>,
+  +K: U32, +F: U32, +N: U32, +x: U32, +eo: {U32.is_eq(o, x) == e : Bool},
+  hx: {Bool.or(U32.is_eq(o, x), D.Has(rest, x)) == True{} : Bool}, +h: {D.AL.cells(Con{o, rest}, m, P, Q, zs, K, F, N) == True{} : Bool},
+  k: {D.Has(rest, x) == True{} : Bool} -> {D.AL.cells(rest, m, P, Q, zs, K, F, N) == True{} : Bool} ->
+    {Bool.and(K.AL.hd(m, Q, x, F, N), Bool.and(K.AL.pt(m, P, zs, x, K, F, N), K.AL.ct(m, P, Q, x, F, N))) == True{} : Bool}) ->
+  {Bool.and(K.AL.hd(m, Q, x, F, N), Bool.and(K.AL.pt(m, P, zs, x, K, F, N), K.AL.ct(m, P, Q, x, F, N))) == True{} : Bool}:
+  match e:
+    case True{}:
+      +ex = K.U.eq(o, x, eo)
+      %ex : {Bool.and(K.AL.hd(m, Q, _, F, N), Bool.and(K.AL.pt(m, P, zs, _, K, F, N), K.AL.ct(m, P, Q, _, F, N))) == True{} : Bool}
+      K.Bo.and_i(K.AL.hd(m, Q, o, F, N), Bool.and(K.AL.pt(m, P, zs, o, K, F, N), K.AL.ct(m, P, Q, o, F, N)), K.al.hd(o, rest, m, P, Q, zs, K, F, N, h),
+        K.Bo.and_i(K.AL.pt(m, P, zs, o, K, F, N), K.AL.ct(m, P, Q, o, F, N), K.al.pt(o, rest, m, P, Q, zs, K, F, N, h),
+          K.al.ct(o, rest, m, P, Q, zs, K, F, N, h)))
+    case False{}:
+      k((%eo : {Bool.or(_, D.Has(rest, x)) == True{} : Bool}; hx), K.al.rest(o, rest, m, P, Q, zs, K, F, N, h))
+
+def al.mem(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32,
+  +N: U32, +x: U32, hx: {D.Has(os, x) == True{} : Bool}, h: {D.AL.cells(os, m, P, Q, zs, K, F, N) == True{} : Bool}) ->
+  {Bool.and(K.AL.hd(m, Q, x, F, N), Bool.and(K.AL.pt(m, P, zs, x, K, F, N), K.AL.ct(m, P, Q, x, F, N))) == True{} : Bool}:
+  match os:
+    case Nil{}:
+      K.Bo.tf({Bool.and(K.AL.hd(m, Q, x, F, N), Bool.and(K.AL.pt(m, P, zs, x, K, F, N), K.AL.ct(m, P, Q, x, F, N))) == True{} : Bool}, hx)
+    case Con{+o, +rest}:
+      al.mem.b(U32.is_eq(o, x), o, rest, m, P, Q, zs, K, F, N, x, {==}, hx, h,
+        hr => cr => al.mem(rest, m, P, Q, zs, K, F, N, x, hr, cr))
+
+# q's pointers are among the garbage's, q one of it
+def pp.ge.b(e: Bool, +o: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +q: U32, +c: U32, eo: {U32.is_eq(o, q) == e : Bool},
+  h: {Bool.or(U32.is_eq(o, q), D.Has(rest, q)) == True{} : Bool},
+  k: {D.Has(rest, q) == True{} : Bool} -> N.Le(D.Ow(m, q, c), D.Pp(rest, m, c))) ->
+  N.Le(D.Ow(m, q, c), Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c))):
+  match e:
+    case True{}:
+      +ex = K.U.eq(o, q, eo)
+      %ex : N.Le(D.Ow(m, _, c), Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c)))
+      N.le_add_r(D.Ow(m, o, c), D.Pp(rest, m, c))
+    case False{}:
+      N.le_trans(D.Ow(m, q, c), D.Pp(rest, m, c), Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c)),
+        k((%eo : {Bool.or(_, D.Has(rest, q)) == True{} : Bool}; h)), N.le_add_l(D.Ow(m, o, c), D.Pp(rest, m, c)))
+
+def pp.ge(P: List<&2, U32>, +m: Cr.Cir.Cells, +q: U32, +c: U32, h: {D.Has(P, q) == True{} : Bool}) -> N.Le(D.Ow(m, q, c), D.Pp(P, m, c)):
+  match P:
+    case Nil{}:
+      K.Bo.tf(N.Le(D.Ow(m, q, c), 0n), h)
+    case Con{+o, +rest}:
+      pp.ge.b(U32.is_eq(o, q), o, rest, m, q, c, {==}, h, hr => pp.ge(rest, m, q, c, hr))
+
+# a part x of the garbage cell q, by a mask bit, neither 0 nor STATIC: q's
+# pointers to it at most its count, out of the pend list Q, and garbage
+# unless it counts more than q's pointers
+def PtF(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +q: U32, +x: U32) -> Bool:
+  +ow = D.Ow(m, q, x)
+  +c0 = U32.to_nat(D.Fd(1n, m, x))
+  Bool.and(Nat.is_le(ow, c0), Bool.and(Bool.not(D.Has(Q, x)), Bool.or(D.Has(P, x), Nat.is_lt(ow, c0))))
+
+def pt.fx.q(g: Bool, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +q: U32, +x: U32, +eg: {D.Has(Q, x) == g : Bool},
+  +ep: {D.Has(P, x) == True{} : Bool},
+  hpk: {Bool.pick(Bool, D.Has(Q, x), Nat.is_eq(D.Pp(P, m, x), 0n),
+    Bool.and(Nat.is_eq(D.Pp(P, m, x), U32.to_nat(D.Fd(1n, m, x))), Nat.is_lt(0n, D.Pp(P, m, x)))) == True{} : Bool},
+  hge: N.Le(D.Ow(m, q, x), D.Pp(P, m, x)), hb1: N.Le(1n, D.Ow(m, q, x))) -> {PtF(m, P, Q, q, x) == True{} : Bool}:
+  match g:
+    case True{}:
+      +pp = D.Pp(P, m, x)
+      +ow = D.Ow(m, q, x)
+      +c0 = U32.to_nat(D.Fd(1n, m, x))
+      +h0 = {(%eg : {Bool.pick(Bool, _, Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp))) == True{} : Bool}; hpk) :
+        {Nat.is_eq(pp, 0n) == True{} : Bool}}
+      Empty.absurd({PtF(m, P, Q, q, x) == True{} : Bool},
+        N.le_trans(1n, ow, 0n, hb1, (%K.Na.eq(pp, 0n, h0) : N.Le(ow, _); hge)))
+    case False{}:
+      +pp = D.Pp(P, m, x)
+      +ow = D.Ow(m, q, x)
+      +c0 = U32.to_nat(D.Fd(1n, m, x))
+      +h1 = {(%eg : {Bool.pick(Bool, _, Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp))) == True{} : Bool}; hpk) :
+        {Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp)) == True{} : Bool}}
+      +le = {(%K.Na.eq(pp, c0, K.Bo.and_l(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp), h1)) : N.Le(ow, _); hge) : N.Le(ow, c0)}
+      K.Bo.and_i(Nat.is_le(ow, c0), Bool.and(Bool.not(D.Has(Q, x)), Bool.or(D.Has(P, x), Nat.is_lt(ow, c0))), K.ofT(Nat.is_le(ow, c0), le),
+        K.Bo.and_i(Bool.not(D.Has(Q, x)), Bool.or(D.Has(P, x), Nat.is_lt(ow, c0)), K.Bo.not_i(D.Has(Q, x), eg),
+          K.Bo.or_il(D.Has(P, x), Nat.is_lt(ow, c0), ep)))
+
+def pt.fx.p(e: Bool, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +q: U32, +x: U32, +K: U32,
+  +F: U32, +N: U32, +ep: {D.Has(P, x) == e : Bool},
+  hor: {Bool.or(Bool.and(D.Has(P, x), Nat.is_lt(D.Zz(zs, x), D.Zz(zs, q))), Nat.is_lt(D.Pp(P, m, x), U32.to_nat(D.Fd(1n, m, x)))) == True{} : Bool},
+  +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Q, P) == True{} : Bool}, +hcs: {D.AL.cells(P, m, P, Q, zs, K, F, N) == True{} : Bool},
+  +hb1: N.Le(1n, D.Ow(m, q, x))) -> {PtF(m, P, Q, q, x) == True{} : Bool}:
+  match e:
+    case True{}:
+      +pp = D.Pp(P, m, x)
+      +c0 = U32.to_nat(D.Fd(1n, m, x))
+      +hx = al.mem(P, m, P, Q, zs, K, F, N, x, ep, hcs)
+      +Hd = K.AL.hd(m, Q, x, F, N)
+      +Pt = K.AL.pt(m, P, zs, x, K, F, N)
+      +Ct = K.AL.ct(m, P, Q, x, F, N)
+      +hct = K.Bo.and_r(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hx))
+      +hpk = K.Bo.and_r(Nat.is_eq(D.Pc(Nat.sub(U32.to_nat(N), U32.to_nat(F)), m, Q, F, x), pp),
+        Bool.pick(Bool, D.Has(Q, x), Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp))), hct)
+      pt.fx.q(D.Has(Q, x), m, P, Q, q, x, {==}, ep, hpk, pp.ge(P, m, q, x, hq), hb1)
+    case False{}:
+      +pp = D.Pp(P, m, x)
+      +ow = D.Ow(m, q, x)
+      +c0 = U32.to_nat(D.Fd(1n, m, x))
+      +hlive = {(%ep : {Bool.or(Bool.and(_, Nat.is_lt(D.Zz(zs, x), D.Zz(zs, q))), Nat.is_lt(pp, c0)) == True{} : Bool}; hor) :
+        {Nat.is_lt(pp, c0) == True{} : Bool}}
+      +h1 = N.le_trans(1n+ow, 1n+pp, c0, pp.ge(P, m, q, x, hq), K.Na.lt1(pp, c0, hlive))
+      K.Bo.and_i(Nat.is_le(ow, c0), Bool.and(Bool.not(D.Has(Q, x)), Bool.or(D.Has(P, x), Nat.is_lt(ow, c0))),
+        K.ofT(Nat.is_le(ow, c0), N.weaken(ow, c0, h1)),
+        K.Bo.and_i(Bool.not(D.Has(Q, x)), Bool.or(D.Has(P, x), Nat.is_lt(ow, c0)), K.Bo.not_i(D.Has(Q, x), K.sub.nhas(Q, P, x, hsub, ep)),
+          K.Bo.or_ir(D.Has(P, x), Nat.is_lt(ow, c0), K.Na.lt1i(ow, c0, h1))))
+
+# the part x of q by a mask bit of am: a cell, and with x not STATIC, PtF
+def pt.cell(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +z: Nat, +am: U32, +bit: U32, +x: U32, +K: U32, +F: U32, +N: U32,
+  h: {D.AL.part(m, P, zs, z, am, bit, x, K, F, N) == True{} : Bool}, hon: {U32.is_zero(U32.and(am, bit)) == False{} : Bool},
+  hz: {U32.is_zero(x) == False{} : Bool}) -> {Cr.Cir.is_cell(x, K, F, N) == True{} : Bool}:
+  +R3 = Bool.or(D.Stc(m, x), Bool.or(Bool.and(D.Has(P, x), Nat.is_lt(D.Zz(zs, x), z)), Nat.is_lt(D.Pp(P, m, x), U32.to_nat(D.Fd(1n, m, x)))))
+  +r1 = K.Bo.or_r(U32.is_zero(U32.and(am, bit)), Bool.or(U32.is_zero(x), Bool.and(Cr.Cir.is_cell(x, K, F, N), R3)), h, hon)
+  K.Bo.and_l(Cr.Cir.is_cell(x, K, F, N), R3, K.Bo.or_r(U32.is_zero(x), Bool.and(Cr.Cir.is_cell(x, K, F, N), R3), r1, hz))
+
+def pt.fx(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +q: U32, +am: U32, +bit: U32, +x: U32,
+  +K: U32, +F: U32, +N: U32, h: {D.AL.part(m, P, zs, D.Zz(zs, q), am, bit, x, K, F, N) == True{} : Bool},
+  hon: {U32.is_zero(U32.and(am, bit)) == False{} : Bool}, hz: {U32.is_zero(x) == False{} : Bool}, hs: {D.Stc(m, x) == False{} : Bool},
+  +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Q, P) == True{} : Bool}, +hcs: {D.AL.cells(P, m, P, Q, zs, K, F, N) == True{} : Bool},
+  +hb1: N.Le(1n, D.Ow(m, q, x))) -> {PtF(m, P, Q, q, x) == True{} : Bool}:
+  +z = D.Zz(zs, q)
+  +R4 = Bool.or(Bool.and(D.Has(P, x), Nat.is_lt(D.Zz(zs, x), z)), Nat.is_lt(D.Pp(P, m, x), U32.to_nat(D.Fd(1n, m, x))))
+  +R3 = Bool.or(D.Stc(m, x), R4)
+  +r1 = K.Bo.or_r(U32.is_zero(U32.and(am, bit)), Bool.or(U32.is_zero(x), Bool.and(Cr.Cir.is_cell(x, K, F, N), R3)), h, hon)
+  +r2 = K.Bo.or_r(U32.is_zero(x), Bool.and(Cr.Cir.is_cell(x, K, F, N), R3), r1, hz)
+  pt.fx.p(D.Has(P, x), m, P, Q, zs, q, x, K, F, N, {==}, K.Bo.or_r(D.Stc(m, x), R4, K.Bo.and_r(Cr.Cir.is_cell(x, K, F, N), R3, r2), hs),
+    hq, hsub, hcs, hb1)
+
 # The allocation's run: a new cell
 # --------------------------------
 
