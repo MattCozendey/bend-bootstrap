@@ -8004,6 +8004,39 @@ def al.sq(+ms: Cr.Cir.Cells, +pend: U32, +Pn: List<&2, U32>, +Qn: List<&2, U32>,
   +hc = CK.Bo.and_l(Bool.and(S.Sub(Qn, Pn), S.Nodup(Pn)), Bool.and(S.AL.cells(Pn, ms, Pn, Qn, zn, K, F, N), S.Lt(Nat.sub(U32.to_nat(N), U32.to_nat(F)), ms, Qn, F, N)), hb)
   CK.Bo.and_l(S.Sub(Qn, Pn), S.Nodup(Pn), hc)
 
+# AL's chain is HS's pend list
+def chain.to(ps: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +h: {S.Chain(ps, m, p) == True{} : Bool}) -> D.Chain(ps, m, p):
+  match ps:
+    case Nil{}:
+      CK.U.eq(p, 0, h)
+    case Con{+x, +rest}:
+      +h1 = CK.Bo.and_l(U32.is_eq(p, x), Bool.and(Bool.not(U32.is_zero(x)), S.Chain(rest, m, S.Fd(1n, m, x))), h)
+      +h2 = CK.Bo.and_r(U32.is_eq(p, x), Bool.and(Bool.not(U32.is_zero(x)), S.Chain(rest, m, S.Fd(1n, m, x))), h)
+      +h3 = CK.Bo.and_l(Bool.not(U32.is_zero(x)), S.Chain(rest, m, S.Fd(1n, m, x)), h2)
+      +h4 = CK.Bo.and_r(Bool.not(U32.is_zero(x)), S.Chain(rest, m, S.Fd(1n, m, x)), h2)
+      (CK.U.eq(p, x, h1), (CK.Bo.not_t(U32.is_zero(x), h3), chain.to(rest, m, D.Fd(1n, m, x), h4)))
+
+# the checked term with k more fuel
+def tm.addf(k: Nat, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +c: U32, -t: Bk.Term, +h: {S.Tm(f, m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, Bk.Term>}) ->
+  {S.Tm(Nat.add(k, f), m, ks, img, K, F, X, N, c) == Some{t} : Maybe<&2, Bk.Term>}:
+  match k:
+    case 0n:
+      h
+    case 1n+(+p):
+      TS.Tm.lift(Nat.add(p, f), m, ks, img, K, F, X, N, c, t, tm.addf(p, f, m, ks, img, K, F, X, N, c, t, h))
+
+# a cell that stands for v (IsK), whose checked term is u: u is v
+def isk.tm.eq(+g: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +c: U32,
+  +v: Bk.Term, -u: Bk.Term, +hk: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, v),
+  +ht: {S.Tm(g, m, ks, img, K, F, X, N, c) == Some{u} : Maybe<&2, Bk.Term>}) -> {v == u : Bk.Term}:
+  +f = Nat.add(Pg.Term.size(v), g)
+  TS.Mb.some(Bk.Term, v, u, Equal.trans(Maybe<&2, Bk.Term>, Some{v}, T.tm.of(f, m, ks, img, c), Some{u},
+    Equal.sym(Maybe<&2, Bk.Term>, T.tm.of(f, m, ks, img, c), Some{v},
+      AC.isk.tm.at(f, dk, ds, m, im, fi, nx, ks, img, c, v, N.le_add_r(Pg.Term.size(v), g), hk)),
+    TS.Tm.of(f, m, ks, img, K, F, X, N, c, u, tm.addf(Pg.Term.size(v), g, m, ks, img, K, F, X, N, c, u, ht))))
+
 # CopyQ, from Post and the result's IsK, the heap and AccK after the copy
 def cq.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg2: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
