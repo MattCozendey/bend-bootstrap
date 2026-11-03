@@ -7,7 +7,7 @@
 // trust that must only help and be fast (as src/Compiler/Machine/scripts/gen.ts). Excluded in
 // tsconfig.json for the same reason.
 //
-// STATUS: v1 (see the report bb-wt/reports/gen2.md for the log and numbers).
+// STATUS: v2: prove, batch and bench modes; decomposition of large goals (see BENCHMARK and NEXT).
 //
 // PURPOSE
 // -------
@@ -21,6 +21,12 @@
 //       prove <def> of <file.bend> (a def of the file itself): when its body is exactly ?TODO, the
 //       whole body (case splits allowed); otherwise each ?TODO in its body (leaf tactics only).
 //       Prints the proof text (ready to paste) on stdout; progress on stderr.
+//   bun src/Shared/scripts/gen2.ts batch <file.bend> [--out DIR] [--only RE] [options]
+//       every def of the book (the file and all it imports, not Base) with a ?TODO in its body: a body
+//       that is exactly ?TODO is proven whole, other holes one by one. Writes DIR/report.txt (per hole:
+//       the proof, or OPEN with its goal and context and the best partial with its open subgoals) and
+//       DIR/gen2.patch (a unified diff from the repository root with the proven holes filled; apply
+//       with `git apply DIR/gen2.patch`; partials never go in the patch). DIR defaults to ./gen2-out.
 //   bun src/Shared/scripts/gen2.ts bench <file.bend> [options]
 //       benchmark: for each proven lemma of <file.bend> (in book order), forget its body, re-prove it
 //       with only the defs before it, and report hit rate by size, time and tactics.
@@ -32,6 +38,8 @@
 //       --beam N       rewrite candidates explored per goal (default 4)
 //       --fuel N       def lookups allowed per single check (default 300000)
 //       --partial      on failure, print the best partial proof (holes with goals)
+//       --no-decomp    do not decompose open subgoals (see DESIGN)
+//       --hole-budget MS  budget of each open subgoal in the decomposition (default budget/4, >= 300)
 //       --stream       print each closed subgoal to stderr as it is found
 //       --only RE      bench: only defs whose name matches RE;  --max N: at most N defs
 //       --json FILE    bench: write per-def results as JSON
@@ -68,6 +76,12 @@
 //   --beam rewrite children per goal; at most 48 lemma candidates per goal; memo per (context, goal,
 //   demand) of successes and of failures at a budget; a cycle check on the goal path; per-check fuel;
 //   per-def deadline. Nothing ever enumerates combinations of arguments.
+// * Decomposition (large goals): when the full search fails, a partial pass (splits <= 3, depth <= 2)
+//   keeps the best skeleton (fewest holes, then most closed subgoals); each hole is then attacked
+//   with its own budget (--hole-budget, deeper leaf depth); a hole that stays open takes one step
+//   (bestStep: the most specific callee whose open premises are fewest and smallest, none restating
+//   the goal) and its premises recurse, at most 2 levels, all holes within 2 x --budget. If every
+//   hole closes, the proof is full (tag "decomp").
 //
 // TACTICS (in this order)
 // -----------------------
@@ -93,19 +107,46 @@
 // OUTPUT
 // ------
 // * full proof: the body text on stdout, indented as a def body (two spaces), checked by def_check.
-// * partial (--partial): the best skeleton (fewest holes, then most closed subgoals) with ?TODO holes,
-//   then for each hole its case path, goal and context (raw and normal form).
+// * partial (--partial, and always in batch): the best skeleton (fewest holes, then most closed
+//   subgoals) with ?TODO holes, then for each hole its case path, goal and context (raw and normal
+//   form). A hole inside an applied lemma has the path <case path>#<callee>.<parameter index>.
 // * streaming (--stream): each closed subgoal (its case path and first line) on stderr.
 //
-// BENCHMARK (latest numbers: see bb-wt/reports/gen2.md)
+// BENCHMARK
+// ---------
+// Rerun (WSL, from src/):  ~/lead/heavy.sh bun Shared/scripts/gen2.ts bench <file> --budget 3000 --partial
+// Each proven lemma of <file> (book order) has its body forgotten in memory (no file is touched) and is
+// re-proven with only the defs before it; size class = non-empty lines of its original body
+// (S 1-3, M 4-10, L 11+). Measured at commit 19b2da7 (before decomposition), budget 3000 ms:
+//   file                   tried  full       S       M       L      partial (closed/total)  median
+//   need_big.bend           122   82 (67%)  27/37   38/51   17/34   25 (113/153)             7 ms
+//   heap_facts.bend          79   57 (72%)  13/14   33/43   11/22   11 (18/40)               7 ms
+//   statement_runs.bend      67   26 (39%)  14/18   10/28    2/21   13 (28/69)             439 ms
+//   total                   268  165 (62%); every hit takes < 1 s (median 2-3 ms); misses run to the
+//   budget. Tactics in hits: apply:lemma, split, rfl, hyp, unit, apply:ih, rw:lemma, rw:ih, rw:hyp,
+//   absurd, discriminate, exfalso. (History and raw results: bb-wt/reports/gen2.md, if present.)
 //
-// LIMITS (v1)
+// LIMITS
 // -----------
 // * No helper-lemma synthesis (a match on a computed value or an introduced binder needs its own def).
 // * Splits only in whole-body mode; ?TODO holes inside a body get leaf tactics only.
 // * No lets (`+x = ...`) in output, no congruence tactic beyond rewriting, no templates (~ binders).
 // * Matching is syntactic (after the bounded normal form): a lemma stated in a shape that only
 //   converts to the goal by deeper computation is missed.
+//
+// NEXT (the ordered plan; keep it current)
+// ----
+// 1. Measure the decomposition (L hit rate, subgoals closed) and tune bestStep's choice.
+// 2. Fail fast on misses that run to the budget (statement_runs: rewrite chains over machine states):
+//    find the explosive candidates and prune them (specificity order and caps by level are in; next:
+//    a premise that is not simpler than its goal costs two levels; memo of rewrite candidates).
+// 3. Forward unification for transitivity chains: a premise with an open parameter (le_trans's middle
+//    term) unified with a lemma's conclusion (two-sided first-order unification, ground result only).
+// 4. Closed rewrites: zero-parameter lemmas (literal facts such as lit_M) in the rewrite index.
+// 5. Helper-lemma synthesis: a match on a computed value or an introduced binder needs its own def;
+//    emit the helper (its statement from the subgoal) and prove it as a separate job.
+// 6. Splits inside ?TODO holes of a partial body (the hole's pending binders), not only whole bodies.
+// 7. Lets (`+x = v`) to share a repeated subterm in the output (kernel call-by-name cost).
 //
 // EXTEND
 // ------
@@ -137,6 +178,9 @@ const NF_NODES = 3000;
 const MAX_CANDS = 48;
 const CAPS = [48, 12, 4, 2]; // matched apply candidates tried, by premise level below the leaf
 const MAX_SPLIT_CANDS = 3;
+const DECOMP = !flag("no-decomp");
+const HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
+const MAX_DECOMP = 2;
 const PARTIAL = flag("partial"), STREAM = flag("stream"), DEBUG = flag("debug");
 const META = 1 << 20;
 
@@ -542,10 +586,13 @@ type Pf =
   | { t: "tm"; s: string }
   | { t: "rw"; e: string; P: string; k: Pf }
   | { t: "mt"; x: string; arms: { pat: string; k: Pf }[] }
-  | { t: "hole"; g: Goal };
+  | { t: "hole"; g: Goal }
+  | { t: "app"; s: string; subs: Pf[] }; // a call whose open premises are subs (marked HOLE in s)
+const HOLE = "\u0000";
 const inline = (p: Pf): string => {
   switch (p.t) {
     case "tm": return p.s;
+    case "app": { let i = 0; return p.s.replace(/\u0000/g, () => inline(p.subs[i++])); }
     case "rw": return "(%" + p.e + " : " + p.P + "; " + inline(p.k) + ")";
     case "hole": return "?TODO";
     case "mt": throw new Error("a match cannot be inlined");
@@ -555,6 +602,7 @@ const flat = (p: Pf): string => (p.t === "rw" ? "%" + p.e + " : " + p.P + "; " +
 const render = (p: Pf, ind: string, out: string[]) => {
   switch (p.t) {
     case "tm": out.push(ind + p.s); break;
+    case "app": out.push(ind + inline(p)); break;
     case "hole": out.push(ind + "?TODO"); break;
     case "rw": out.push(ind + "%" + p.e + " :"); out.push(ind + "  " + p.P); render(p.k, ind, out); break;
     case "mt":
@@ -567,6 +615,7 @@ const holesOf = (p: Pf, out: Goal[] = []): Goal[] => {
   if (p.t === "hole") out.push(p.g);
   else if (p.t === "rw") holesOf(p.k, out);
   else if (p.t === "mt") p.arms.forEach((a) => holesOf(a.k, out));
+  else if (p.t === "app") p.subs.forEach((a) => holesOf(a, out));
   return out;
 };
 
@@ -662,8 +711,8 @@ const usable = (g: Goal, i: number, qt: B.Quant) => {
 type Callee = { text: string; T: HTerm; n: number; kind: string };
 
 // apply a callee whose conclusion matches one of targets; premises proven at depth - 1
-type Applied = { args: string[]; doms: any[]; sol: (LTerm | null)[] };
-const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl: ((o: LTerm) => LTerm | null) | null, accept: (a: Applied) => boolean, cnt?: { n: number; probe?: boolean; spec?: number }): Applied | null => {
+type Applied = { args: string[]; doms: any[]; sol: (LTerm | null)[]; holes?: Goal[] };
+const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl: ((o: LTerm) => LTerm | null) | null, accept: (a: Applied) => boolean, cnt?: { n: number; probe?: boolean; spec?: number }, holesOk = false): Applied | null => {
   const toH = (s: (LTerm | null)[]) => s.map((x) => (x ? B.term_higher(x, g.env) : null));
   const o = openMeta(c.T, c.n);
   if (!o) return null;
@@ -689,7 +738,7 @@ const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: nu
   if (cnt && cnt.probe) { cnt.spec = sols.length ? specOf(pc) : -1; return null; }
   for (const s0 of sols) {
     if (cnt) cnt.n++;
-    const r = complete(g, c, s0, toH, depth, rw, path);
+    const r = complete(g, c, s0, toH, depth, rw, path, holesOk);
     if (r && accept(r)) return r;
   }
   return null;
@@ -705,7 +754,7 @@ const metas = (t: LTerm): number => {
     default: return 0;
   }
 };
-const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | null)[]) => (HTerm | null)[], depth: number, rw: number, path: Set<string>): Applied | null => {
+const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | null)[]) => (HTerm | null)[], depth: number, rw: number, path: Set<string>, holesOk = false): Applied | null => {
   let sol = s0.slice();
   let o2 = openMeta(c.T, c.n, toH(sol));
   if (!o2) return null;
@@ -739,15 +788,17 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
   }
   if (sol.some((s, j) => !s && !prem[j])) return null;
   const args: string[] = [];
+  const holes: Goal[] = [];
   for (let j = 0; j < c.n; j++) {
     if (sol[j]) { args.push(show(sol[j]!, g.names)); continue; }
     if (viaHyp[j]) { args.push(viaHyp[j]!); continue; }
-    const sg: Goal = { ...g, ty: o2.doms[j].A, qt: B.quant_dem(o2.doms[j].q, g.qt), lvl: g.lvl + 1 };
+    const sg: Goal = { ...g, ty: o2.doms[j].A, qt: B.quant_dem(o2.doms[j].q, g.qt), lvl: g.lvl + 1, path: g.path + "#" + c.text + "." + j };
     const pf = leaf(sg, Math.max(0, depth - 1), rw, path);
-    if (!pf) return null;
+    if (!pf && !holesOk) return null;
+    if (!pf) { holes.push(sg); args.push(HOLE); continue; }
     args.push(inline(pf));
   }
-  return { args, doms: o2.doms, sol };
+  return { args, doms: o2.doms, sol, holes };
 };
 const nfPat = new WeakMap<object, Map<number, LTerm | null>>();
 const nfPattern = (c: Callee, concl: HTerm, d: number): LTerm | null => {
@@ -770,6 +821,19 @@ const lemmaCands = (g: Goal, targets: LTerm[]): Callee[] => {
         out.push({ text: B.name_show(job.file, L.k), T: (RAW[L.k] as B.Def).T, n: L.n, kind: "lemma" });
       }
     }
+  }
+  return out;
+};
+// hypotheses that are functions (through aliases): callees
+const hypCallees = (g: Goal): Callee[] => {
+  const out: Callee[] = [];
+  for (let i = g.d - 1; i >= 0; i--) {
+    if (!usable(g, i, g.qt)) continue;
+    const a = ann(g, i)!;
+    let t: HTerm = B.term_strip(a.T), k = 0;
+    if (t.$ !== "All") t = wnf(a.T) ?? t;
+    while (t.$ === "All" && k < 12) { const b: HTerm = t.B(B.Var("_", 1e7 + k)); t = B.term_strip(b); if (t.$ !== "All") t = wnf(b) ?? t; k++; }
+    if (k > 0) out.push({ text: g.names[i], T: a.T, n: k, kind: "hyp" });
   }
   return out;
 };
@@ -885,15 +949,7 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
   const targets = n && key(n) !== key(raw) ? [raw, n] : [raw];
   // 4. apply
   if (depth > 0) {
-    const callees: Callee[] = [];
-    for (let i = g.d - 1; i >= 0; i--) {
-      if (!usable(g, i, g.qt)) continue;
-      const a = ann(g, i)!;
-      let t: HTerm = B.term_strip(a.T), k = 0;
-      if (t.$ !== "All") t = wnf(a.T) ?? t;
-      while (t.$ === "All" && k < 12) { const b: HTerm = t.B(B.Var("_", 1e7 + k)); t = B.term_strip(b); if (t.$ !== "All") t = wnf(b) ?? t; k++; }
-      if (k > 0) callees.push({ text: g.names[i], T: a.T, n: k, kind: "hyp" });
-    }
+    const callees: Callee[] = hypCallees(g);
     if (job.ih && g.split) callees.push(ihCallee());
     // lemmas: those whose conclusion matches, most specific first (a general lemma such as
     // weaken: Le(a, b) from Le(1+a, b) matches every goal of its head, and is tried last)
@@ -1095,7 +1151,14 @@ const solve = (n: Goal, S: number, D: number, partial: boolean): Res => {
   const nk = (attempt(FUEL_NF, () => goalKey(n)) ?? Math.random()) + "#" + n.pnames.join(",") + "#" + S + "," + D + (partial ? "p" : "");
   const m = job.smemo.get(nk);
   if (m) return m;
-  const r = solveGo(n, S, D, partial);
+  let r: Res;
+  try {
+    r = solveGo(n, S, D, partial);
+  } catch (e) {
+    // a partial pass keeps what it has: a goal reached past the deadline is a hole
+    if (e !== TIMEOUT || !partial) throw e;
+    return { pf: { t: "hole", g: introAll(n) ?? n }, holes: 1, closed: 0 };
+  }
   job.smemo.set(nk, r);
   return r;
 };
@@ -1129,6 +1192,73 @@ const solveGo = (n: Goal, S: number, D: number, partial: boolean): Res => {
     if (holes < best.holes || (holes === best.holes && closed > best.closed)) best = { pf, holes, closed };
   }
   return best;
+};
+
+// ---- decomposition ----
+// the best one-step skeleton for a leaf goal that the search does not close: an applied callee (most
+// specific first) whose solved premises are filled and whose open premises are holes; fewest holes
+// first, then the smallest holes; no hole may restate the goal
+const bestStep = (g: Goal): Pf | null => {
+  const raw = lower(g.ty, g.d);
+  const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
+  const targets = n && key(n) !== key(raw) ? [raw, n] : [raw];
+  const gk = goalKey(g);
+  const callees: Callee[] = hypCallees(g);
+  if (job.ih && g.split) callees.push(ihCallee());
+  const lem = lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, 1, 0, new Set(), null, () => false, pr); return { c, spec: pr.spec! }; });
+  callees.push(...lem.filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c));
+  let best: { pf: Pf; holes: number; size: number } | null = null;
+  const tries = { n: 0 };
+  for (const c of callees) {
+    if (tries.n >= 24) break;
+    applyCallee(g, c, targets, MAX_DEPTH - 1, MAX_RW, new Set([gk]), null, (a) => {
+      const hs = a.holes ?? [];
+      if (hs.length === 0 || hs.length >= c.n) return false;
+      if (hs.some((h) => attempt(FUEL_NF, () => goalKey(h)) === gk)) return false;
+      const s = callText(c, a.args.map((x) => (x === HOLE ? "?TODO" : x)));
+      if (!tryText(g, s)) return false;
+      const sz = hs.reduce((acc, h) => acc + (attempt(FUEL_NF, () => size(lower(h.ty, h.d))) ?? 99), 0);
+      if (!best || hs.length < best.holes || (hs.length === best.holes && sz < best.size)) {
+        best = { pf: { t: "app", s: callText(c, a.args), subs: hs.map((h) => ({ t: "hole", g: h }) as Pf) }, holes: hs.length, size: sz };
+      }
+      return false;
+    }, tries, true);
+  }
+  return best ? (best as any).pf : null;
+};
+
+// attack a leaf goal with its own budget; when it stays open, decompose it one step and recurse
+const decompose = (g: Goal, level: number, until: number): Res => {
+  const hole: Res = { pf: { t: "hole", g }, holes: 1, closed: 0 };
+  if (performance.now() > until) return hole;
+  deadline = Math.min(until, performance.now() + HOLE_BUDGET);
+  try {
+    for (let dd = 0; dd <= MAX_DEPTH + 1; dd++) {
+      const r = leaf({ ...g, lvl: 0 }, dd, dd === 0 ? 1 : MAX_RW, new Set());
+      if (r) { tag("decomp"); if (STREAM) console.error("[gen2] closed " + g.path + ": " + flat(r).slice(0, 160)); return { pf: r, holes: 0, closed: 1 }; }
+    }
+  } catch (e) { if (e !== TIMEOUT) throw e; }
+  if (level >= MAX_DECOMP) return hole;
+  deadline = Math.min(until, performance.now() + HOLE_BUDGET);
+  let step: Pf | null = null;
+  try { step = bestStep({ ...g, lvl: 0 }); } catch (e) { if (e !== TIMEOUT) throw e; }
+  if (!step || step.t !== "app") return hole;
+  const subs: Pf[] = [];
+  let holes = 0, closed = 1;
+  for (const s of step.subs) {
+    const r = decompose((s as any).g, level + 1, until);
+    subs.push(r.pf); holes += r.holes; closed += r.closed;
+  }
+  return { pf: { t: "app", s: step.s, subs }, holes, closed };
+};
+const fillHoles = (p: Pf, f: (g: Goal) => Res, acc: { holes: number; closed: number }): Pf => {
+  switch (p.t) {
+    case "hole": { const r = f(p.g); acc.holes += r.holes; acc.closed += r.closed; return r.pf; }
+    case "rw": return { ...p, k: fillHoles(p.k, f, acc) };
+    case "mt": return { ...p, arms: p.arms.map((a) => ({ pat: a.pat, k: fillHoles(a.k, f, acc) })) };
+    case "app": return { ...p, subs: p.subs.map((x) => fillHoles(x, f, acc)) };
+    default: return p;
+  }
 };
 
 // ---- jobs ----
@@ -1183,9 +1313,17 @@ const proveDef = (k: string, budget: number): Outcome => {
     if (e !== TIMEOUT) throw e;
     why = "time";
   }
-  if (!full && PARTIAL) {
+  if (!full && (PARTIAL || DECOMP)) {
     deadline = performance.now() + Math.max(500, budget / 3);
     try { best = solve(root, Math.min(MAX_SPLIT, 3), Math.min(MAX_DEPTH, 2), true); } catch (e) { if (e !== TIMEOUT) throw e; }
+    if (best && best.holes > 0 && DECOMP) {
+      // each open subgoal with its own budget (HOLE_BUDGET), all of them within 2 x budget
+      const until = performance.now() + 2 * budget;
+      const acc = { holes: 0, closed: best.closed };
+      const pf = fillHoles(best.pf, (g) => decompose(g, 0, until), acc);
+      best = { pf, holes: acc.holes, closed: acc.closed };
+      if (acc.holes === 0) { full = pf; tag("decomp"); }
+    }
   }
   deadline = Infinity;
   const ms = performance.now() - t0;
@@ -1212,7 +1350,9 @@ const proveDef = (k: string, budget: number): Outcome => {
 };
 
 // prove the ?TODO holes of k's body, one by one (leaf tactics)
-const proveHoles = (k: string, budget: number) => {
+type HoleRes = { hole: number; ok: boolean; ms: number; text: string; partial?: string };
+const proveHoles = (k: string, budget: number, log = true): { body: string; n: number; done: number; res: HoleRes[] } => {
+  const res: HoleRes[] = [];
   const ds = defSrc(k)!;
   let body = ds.body;
   const n = (body.match(/\?TODO/g) ?? []).length;
@@ -1226,7 +1366,12 @@ const proveHoles = (k: string, budget: number) => {
     job.ih = true;
     let err: any = null;
     try { checkDef(k, marked); } catch (e) { err = e; }
-    if (!err || err.$ !== "Err" || typeof err.exp === "string") { console.error("[gen2] hole " + (h + 1) + ": no goal (" + (err ? B.err_show(err) : "checked") + ")"); continue; }
+    if (!err || err.$ !== "Err" || typeof err.exp === "string") {
+      const why = "no goal (" + (err ? (err.$ === "Err" ? B.err_show(err) : String(err)) : "checked") + ")";
+      if (log) console.error("[gen2] hole " + (h + 1) + ": " + why);
+      res.push({ hole: h + 1, ok: false, ms: 0, text: why });
+      continue;
+    }
     const arr = B.pmap_to_array(err.ctx as B.Ctx).sort((a, b) => a[0] - b[0]);
     const d = arr.length ? arr[arr.length - 1][0] + 1 : 0;
     const names: string[] = [];
@@ -1251,7 +1396,22 @@ const proveHoles = (k: string, budget: number) => {
     } catch (e) { if (e !== TIMEOUT) throw e; }
     deadline = Infinity;
     const ms = (performance.now() - t0).toFixed(0);
-    if (!pf) { console.error("[gen2] hole " + (h + 1) + ": not found (" + ms + " ms)\n" + showGoal(g)); continue; }
+    if (!pf) {
+      let partial = "";
+      if (DECOMP) {
+        const r = decompose(g, 0, performance.now() + budget);
+        deadline = Infinity;
+        if (r.closed > 0) {
+          const out: string[] = [];
+          render(r.pf, "", out);
+          partial = "# PARTIAL (" + r.holes + " holes, " + r.closed + " subgoals closed): not a finished proof\n" + out.join("\n") + "\n" + holesOf(r.pf).map((hg, i) => "# subgoal " + (i + 1) + " at " + hg.path + "\n" + showGoal(hg)).join("\n");
+        }
+      }
+      const text = "not found (" + ms + " ms)\n" + showGoal(g);
+      if (log) console.error("[gen2] hole " + (h + 1) + ": " + text + (partial ? "\n" + partial : ""));
+      res.push({ hole: h + 1, ok: false, ms: +ms, text, partial: partial || undefined });
+      continue;
+    }
     const line = body.slice(body.lastIndexOf("\n", idx) + 1, idx);
     const ind = /^\s*$/.test(line) ? line : line.replace(/\S.*$/, "").replace(/$/, "  ");
     const out: string[] = [];
@@ -1259,13 +1419,17 @@ const proveHoles = (k: string, budget: number) => {
     const text = out.join("\n").slice(ind.length);
     const nb = body.slice(0, idx) + text + body.slice(idx + 5);
     const ok = attempt(FUEL_FINAL, () => { checkDef(k, nb); return true; });
-    if (!ok) { console.error("[gen2] hole " + (h + 1) + ": candidate failed the def check: " + flat(pf)); continue; }
+    if (!ok) {
+      if (log) console.error("[gen2] hole " + (h + 1) + ": candidate failed the def check: " + flat(pf));
+      res.push({ hole: h + 1, ok: false, ms: +ms, text: "candidate failed the def check: " + flat(pf) });
+      continue;
+    }
     body = nb;
     done++;
-    console.error("[gen2] hole " + (h + 1) + ": filled (" + ms + " ms)");
+    if (log) console.error("[gen2] hole " + (h + 1) + ": filled (" + ms + " ms)");
+    res.push({ hole: h + 1, ok: true, ms: +ms, text });
   }
-  console.log(body);
-  console.error("[gen2] " + done + "/" + n + " holes filled");
+  return { body, n, done, res };
 };
 
 // ---- bench ----
@@ -1312,9 +1476,76 @@ const bench = () => {
   if (jf) fs.writeFileSync(jf, JSON.stringify(rows, null, 1));
 };
 
+// ---- batch ----
+// every def of the book (not Base) with a ?TODO in its body: a whole ?TODO body is proven whole (splits),
+// other holes one by one; writes DIR/report.txt (per hole: proof, or partial with its open subgoals)
+// and DIR/gen2.patch (a unified diff, from the repository root, of the holes it proved)
+const batch = () => {
+  const only = new RegExp(opt("only", ".*"));
+  const dir = path.resolve(opt("out", "gen2-out"));
+  fs.mkdirSync(dir, { recursive: true });
+  const todo = Object.keys(RAW).filter((k) => {
+    const t = RAW[k];
+    if (t.$ !== "Def" || t.b === true || !only.test(k)) return false;
+    const ds = defSrc(k);
+    return !!ds && /\?TODO/.test(ds.body);
+  }).sort((a, b) => (ORDER.get(a) ?? 0) - (ORDER.get(b) ?? 0));
+  const report: string[] = [];
+  const newBody = new Map<string, string>();
+  let holes = 0, proven = 0, partials = 0;
+  const t0 = performance.now();
+  for (const k of todo) {
+    const ds = defSrc(k)!;
+    const where = path.relative(TOP, ds.file) + ":" + (ds.bodyLine + 1);
+    if (ds.body.trim() === "?TODO") {
+      holes++;
+      const def = RAW[k] as B.Def;
+      RAW[k] = { ...def, v: null };
+      let o: Outcome;
+      try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
+      if (o.ok) { proven++; newBody.set(k, o.text!); report.push("== " + shortOf(k) + " (" + where + "): PROVEN whole body in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]\n" + o.text); }
+      else { if (o.partial) partials++; report.push("== " + shortOf(k) + " (" + where + "): OPEN (" + Math.round(o.ms) + " ms)\n" + (o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "(no partial)")); }
+      console.error("[gen2] " + (o.ok ? "PROVEN " : "open   ") + shortOf(k) + " (" + Math.round(o.ms) + " ms)");
+      continue;
+    }
+    const r = proveHoles(k, BUDGET, false);
+    holes += r.n;
+    proven += r.done;
+    if (r.done > 0) newBody.set(k, r.body);
+    for (const h of r.res) {
+      if (h.partial) partials++;
+      report.push("== " + shortOf(k) + " (" + where + ") hole " + h.hole + ": " + (h.ok ? "PROVEN in " + h.ms + " ms\n" + h.text : "OPEN: " + h.text + (h.partial ? "\n" + h.partial : "")));
+    }
+    console.error("[gen2] " + r.done + "/" + r.n + " holes of " + shortOf(k));
+  }
+  // the patch: each file with its proven bodies replaced, diffed against the file
+  let root = TOP;
+  while (root !== "/" && !fs.existsSync(path.join(root, ".git"))) root = path.dirname(root);
+  const byFile = new Map<string, [Src, string][]>();
+  for (const [k, b] of newBody) { const ds = defSrc(k)!; if (!byFile.has(ds.file)) byFile.set(ds.file, []); byFile.get(ds.file)!.push([ds, b]); }
+  let patch = "";
+  for (const [file, edits] of byFile) {
+    const lines = fileText(file).split("\n");
+    edits.sort((a, b) => b[0].bodyLine - a[0].bodyLine);
+    for (const [ds, b] of edits) lines.splice(ds.bodyLine, ds.body.split("\n").length, ...b.split("\n"));
+    const tmp = path.join(dir, "new-" + path.basename(file));
+    fs.writeFileSync(tmp, lines.join("\n"));
+    const rel = path.relative(root, file);
+    const d = Bun.spawnSync(["diff", "-u", "--label", "a/" + rel, "--label", "b/" + rel, file, tmp]);
+    patch += d.stdout.toString();
+    fs.unlinkSync(tmp);
+  }
+  fs.writeFileSync(path.join(dir, "gen2.patch"), patch);
+  const head = "gen2 batch " + FILE + ": " + proven + "/" + holes + " holes proven, " + partials + " partials, " + todo.length + " defs, " + ((performance.now() - t0) / 1000).toFixed(1) + " s (budget " + BUDGET + " ms per hole)";
+  fs.writeFileSync(path.join(dir, "report.txt"), head + "\n\n" + report.join("\n\n") + "\n");
+  console.log(head + "\nreport: " + path.join(dir, "report.txt") + "\npatch:  " + path.join(dir, "gen2.patch") + " (apply from the repository root: git apply)");
+};
+
 // ---- main ----
 if (MODE === "bench") {
   bench();
+} else if (MODE === "batch") {
+  batch();
 } else if (MODE === "prove") {
   const k = Object.keys(RAW).find((x) => nsOf(x) === "" && shortOf(x) === TARGET && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b);
   if (!k) { console.error("gen2: no def " + TARGET + " in " + FILE); process.exit(1); }
@@ -1332,9 +1563,11 @@ if (MODE === "bench") {
       process.exit(2);
     }
   } else {
-    proveHoles(k, BUDGET);
+    const r = proveHoles(k, BUDGET);
+    console.log(r.body);
+    console.error("[gen2] " + r.done + "/" + r.n + " holes filled");
   }
 } else {
-  console.error("usage: bun gen2.ts prove <file.bend> <def> [options] | bench <file.bend> [options] (see the header)");
+  console.error("usage: bun gen2.ts prove <file.bend> <def> | batch <file.bend> | bench <file.bend> [options] (see the header)");
   process.exit(1);
 }
