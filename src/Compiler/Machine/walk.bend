@@ -1865,6 +1865,27 @@ def mat.test(+regs2: List<&2, U32>, +m2: Cr.Cir.Cells, +nx2: U32, +fi: U32, +im:
      Bool.to_u32(U32.is_ne(D.Qn(m2, args), 0)), Bool.to_u32(U32.is_eq(tg, 13)), Bool.to_u32(Bool.and(U32.is_eq(tg, 13), U32.is_ne(D.Qn(m2, args), 0))),
      ene, eeq, t.and.c(U32.is_ne(D.Qn(m2, args), 0), U32.is_eq(tg, 13))))
 
+# the name test of walk.mat, after the reads of the first argument: the
+# argument's cell against the case's, at their field 2
+def mat.test.nm(+regs2: List<&2, U32>, +m2: Cr.Cir.Cells, +nx2: U32, +fi: U32, +im: U32, +pg2: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +args: U32, +c: U32,
+  hl: {List.length(&2, U32, regs2) == 63n : Nat},
+  h19: {List.get(&2, U32, regs2, 19n) == Some{c} : Maybe<&2, U32>},
+  hcx: {Cr.Cir.is_cell(D.Fd(2n, m2, args), im, fi, nx2) == True{} : Bool},
+  hcc: {Cr.Cir.is_cell(c, im, fi, nx2) == True{} : Bool}) ->
+  {Cr.Cir.eval(Mc.M.eq(Mc.M.f(2n, Mc.M.g(Mc.R.wx())), Mc.M.f(2n, Mc.M.g(Mc.R.wt()))), X.X.st(List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, fi, im, pg2, lim, inp)) == Some{Bool.to_u32(U32.is_eq(D.Fd(2n, m2, D.Fd(2n, m2, args)), D.Fd(2n, m2, c)))} : Maybe<&2, U32>}:
+  +l3 = X.L.len(regs2, 22n, args, 63n, hl)
+  +l4 = X.L.len(List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args), 63n, l3)
+  +e23 = X.L.gs(List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args), X.L.lt(List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, l4, {==}))
+  +e19a = X.L.go(regs2, 22n, 19n, args, c, {==}, h19)
+  +e19b = X.L.go(List.set(&2, U32, regs2, 22n, args), 24n, 19n, D.Qn(m2, args), c, {==}, e19a)
+  +e19 = X.L.go(List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, 19n, D.Fd(2n, m2, args), c, {==}, e19b)
+  +st5 = X.X.st(List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, fi, im, pg2, lim, inp)
+  +fx = X.ev.fld(2n, Mc.M.g(Mc.R.wx()), st5, D.Fd(2n, m2, args), e23, hcx)
+  +ft = X.ev.fld(2n, Mc.M.g(Mc.R.wt()), st5, c, e19, hcc)
+  X.ev.op(Wa.Wasm.Op.eq{}, Mc.M.f(2n, Mc.M.g(Mc.R.wx())), Mc.M.f(2n, Mc.M.g(Mc.R.wt())), st5,
+    D.Fd(2n, m2, D.Fd(2n, m2, args)), D.Fd(2n, m2, c), fx, ft)
+
 # the test fails: wres 3, and no walk exists
 def mat.fail(+h: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
