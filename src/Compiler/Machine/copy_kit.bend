@@ -2270,3 +2270,105 @@ def ar.pos(c3: Nat, +d: Nat, +c0: Nat, e: {Nat.add(c3, d) == c0 : Nat}, h: N.Le(
       Empty.absurd(N.Le(1n, 0n), N.not_succ_le(d, (%Equal.sym(Nat, d, c0, e) : N.Le(1n+d, _); h)))
     case 1n+p:
       N.le_zero(p)
+
+# a chain of the cells cs keeps across a store of another cell z
+def chain.set(cs: List<&2, U32>, +M: Cr.Cir.Cells, +z: U32, +x: Cr.Cir.Cell, +p: U32, h: {D.Chain(cs, M, p) == True{} : Bool},
+  hn: {D.Has(cs, z) == False{} : Bool}) -> {D.Chain(cs, Cr.Cir.Cells.set(M, z, x), p) == True{} : Bool}:
+  match cs:
+    case Nil{}:
+      h
+    case Con{+c, +rest}:
+      +h2 = h
+      +hn2 = hn
+      +M2 = Cr.Cir.Cells.set(M, z, x)
+      +ne = or.fl(U32.is_eq(c, z), D.Has(rest, z), hn2)
+      +A = Bool.and(Bool.not(U32.is_zero(c)), D.Chain(rest, M, D.Fd(1n, M, c)))
+      +ha = Bo.and_r(U32.is_eq(p, c), A, h2)
+      %Equal.sym(U32, D.Fd(1n, M2, c), D.Fd(1n, M, c),
+        Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(1n, w), Cr.Cir.Cells.get(M2, c), Cr.Cir.Cells.get(M, c), Cl.get_ne(M, c, z, x, ne))) :
+        {Bool.and(U32.is_eq(p, c), Bool.and(Bool.not(U32.is_zero(c)), D.Chain(rest, M2, _))) == True{} : Bool}
+      Bo.and_i(U32.is_eq(p, c), Bool.and(Bool.not(U32.is_zero(c)), D.Chain(rest, M2, D.Fd(1n, M, c))), Bo.and_l(U32.is_eq(p, c), A, h2),
+        Bo.and_i(Bool.not(U32.is_zero(c)), D.Chain(rest, M2, D.Fd(1n, M, c)), Bo.and_l(Bool.not(U32.is_zero(c)), D.Chain(rest, M, D.Fd(1n, M, c)), ha),
+          chain.set(rest, M, z, x, D.Fd(1n, M, c), Bo.and_r(Bool.not(U32.is_zero(c)), D.Chain(rest, M, D.Fd(1n, M, c)), ha),
+            or.fr(U32.is_eq(c, z), D.Has(rest, z), hn2))))
+
+# Has of an append
+def or.assoc(a: Bool, -b: Bool, -c: Bool) -> {Bool.or(a, Bool.or(b, c)) == Bool.or(Bool.or(a, b), c) : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def has.app(xs: List<&2, U32>, +ys: List<&2, U32>, +x: U32) ->
+  {D.Has(List.append(&2, U32, xs, ys), x) == Bool.or(D.Has(xs, x), D.Has(ys, x)) : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      Equal.trans(Bool, Bool.or(U32.is_eq(y, x), D.Has(List.append(&2, U32, rest, ys), x)),
+        Bool.or(U32.is_eq(y, x), Bool.or(D.Has(rest, x), D.Has(ys, x))), Bool.or(Bool.or(U32.is_eq(y, x), D.Has(rest, x)), D.Has(ys, x)),
+        Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(y, x), w), D.Has(List.append(&2, U32, rest, ys), x), Bool.or(D.Has(rest, x), D.Has(ys, x)),
+          has.app(rest, ys, x)),
+        or.assoc(U32.is_eq(y, x), D.Has(rest, x), D.Has(ys, x)))
+
+# none of xs is one of ys
+def Dsj(xs: List<&2, U32>, +ys: List<&2, U32>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Bool.not(D.Has(ys, x)), Dsj(rest, ys))
+
+def nodup.app(xs: List<&2, U32>, +ys: List<&2, U32>, h1: {D.Nodup(xs) == True{} : Bool}, +h2: {D.Nodup(ys) == True{} : Bool},
+  hd: {Dsj(xs, ys) == True{} : Bool}) -> {D.Nodup(List.append(&2, U32, xs, ys)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      h2
+    case Con{+x, +rest}:
+      +h3 = h1
+      +hd2 = hd
+      Bo.and_i(Bool.not(D.Has(List.append(&2, U32, rest, ys), x)), D.Nodup(List.append(&2, U32, rest, ys)),
+        Bo.not_i(D.Has(List.append(&2, U32, rest, ys), x), has.app.f(rest, ys, x,
+          Bo.not_t(D.Has(rest, x), Bo.and_l(Bool.not(D.Has(rest, x)), D.Nodup(rest), h3)),
+          Bo.not_t(D.Has(ys, x), Bo.and_l(Bool.not(D.Has(ys, x)), Dsj(rest, ys), hd2)))),
+        nodup.app(rest, ys, Bo.and_r(Bool.not(D.Has(rest, x)), D.Nodup(rest), h3), h2, Bo.and_r(Bool.not(D.Has(ys, x)), Dsj(rest, ys), hd2)))
+
+def sub.app(xs: List<&2, U32>, +ys: List<&2, U32>, +zs: List<&2, U32>, h1: {D.Sub(xs, zs) == True{} : Bool}, +h2: {D.Sub(ys, zs) == True{} : Bool}) ->
+  {D.Sub(List.append(&2, U32, xs, ys), zs) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      h2
+    case Con{+x, +rest}:
+      +h3 = h1
+      Bo.and_i(D.Has(zs, x), D.Sub(List.append(&2, U32, rest, ys), zs), Bo.and_l(D.Has(zs, x), D.Sub(rest, zs), h3),
+        sub.app(rest, ys, zs, Bo.and_r(D.Has(zs, x), D.Sub(rest, zs), h3), h2))
+
+# sums of Nats
+def Na.add0r(a: Nat, +b: Nat, h: {Nat.add(a, b) == 0n : Nat}) -> {b == 0n : Nat}:
+  match a:
+    case 0n:
+      h
+    case 1n+p:
+      Empty.absurd({b == 0n : Nat}, N.not_succ_le(0n, (%h : N.Le(1n, _); N.le_zero(Nat.add(p, b)))))
+
+def Na.pred(n: Nat) -> Nat:
+  match n:
+    case 0n:
+      0n
+    case 1n+p:
+      p
+
+def Na.canc(w: Nat, +a: Nat, +b: Nat, h: {Nat.add(w, a) == Nat.add(w, b) : Nat}) -> {a == b : Nat}:
+  match w:
+    case 0n:
+      h
+    case 1n+(+p):
+      Na.canc(p, a, b, Equal.cong(Nat, Nat, z => Na.pred(z), 1n+Nat.add(p, a), 1n+Nat.add(p, b), h))
+
+def Na.le.canc(w: Nat, +x: Nat, +y: Nat, h: N.Le(Nat.add(w, x), Nat.add(w, y))) -> N.Le(x, y):
+  match w:
+    case 0n:
+      h
+    case 1n+p:
+      Na.le.canc(p, x, y, h)
