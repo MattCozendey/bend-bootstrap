@@ -10,7 +10,7 @@
 
 // imports
 
-import { cpSync, mkdirSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { run } from "../../Shared/shared.ts";
 
@@ -55,8 +55,13 @@ export const getExe = (name: string): string => {
   return exe;
 };
 
-// the spec at COMMIT, cloned in the folder work, and the executables built from it there, in a dune
-// workspace of the interpreter's library and our programs, where dune rebuilds what changed
+// the commit that the clone's HEAD is at; none when there is no clone
+const getHead = (git: string, clone: string): string =>
+  Bun.spawnSync([git, "-C", clone, "rev-parse", "HEAD"]).stdout.toString().trim();
+
+// the spec at COMMIT, cloned in the folder work (fetched only when the clone is not at COMMIT), and
+// the executables built from it there, in a dune workspace of the interpreter's library and our
+// programs, where dune rebuilds what changed
 export const getSpec = (work: string): Spec => {
   const git = getExe("git");
   TOOLS.forEach(({ name, flag, version }) => {
@@ -72,26 +77,29 @@ export const getSpec = (work: string): Spec => {
   });
   const clone = join(work, "spec");
   mkdirSync(work, { recursive: true });
-  run({ cmd: [git, "init", "-q", clone] });
-  run({ cmd: [git, "-C", clone, "fetch", "-q", "--depth", "1", SPEC, COMMIT] });
-  run({
-    cmd: [
-      git,
-      "-C",
-      clone,
-      "-c",
-      "core.autocrlf=false",
-      "checkout",
-      "-q",
-      "--detach",
-      "FETCH_HEAD",
-    ],
-  });
-  if (Bun.spawnSync([git, "-C", clone, "rev-parse", "HEAD"]).stdout.toString().trim() !== COMMIT) {
+  if (getHead(git, clone) !== COMMIT) {
+    run({ cmd: [git, "init", "-q", clone] });
+    run({ cmd: [git, "-C", clone, "fetch", "-q", "--depth", "1", SPEC, COMMIT] });
+    run({
+      cmd: [
+        git,
+        "-C",
+        clone,
+        "-c",
+        "core.autocrlf=false",
+        "checkout",
+        "-q",
+        "--detach",
+        "FETCH_HEAD",
+      ],
+    });
+  }
+  if (getHead(git, clone) !== COMMIT) {
     console.error(`${process.argv[1]}: the spec is not at ${COMMIT}`);
     process.exit(1);
   }
   const build = join(work, "build");
+  rmSync(join(build, "interpreter"), { recursive: true, force: true });
   cpSync(join(clone, "interpreter"), join(build, "interpreter"), { recursive: true });
   writeFileSync(join(build, "dune-workspace"), DUNE_LANG);
   PROGRAMS.forEach((program) => {

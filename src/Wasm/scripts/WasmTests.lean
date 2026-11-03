@@ -275,14 +275,13 @@ def vec (what : String) (bs : List UInt8) (item : List UInt8 → Option (α × L
 
 -- the immediates of an instruction of the subset (spec 5.4)
 inductive Imm where
-  | none | index (what : String) | value | memarg | memory | blocktype
+  | none | label | local | value | memarg | memory | blocktype
 
 -- the instructions of the subset, by opcode
 def opcodes : List (UInt8 × String × Imm) := [
   (0x02, "block", .blocktype), (0x03, "loop", .blocktype),
-  (0x0C, "br", .index "label"), (0x0D, "br_if", .index "label"),
-  (0x20, "local.get", .index "index"), (0x21, "local.set", .index "index"),
-  (0x22, "local.tee", .index "index"),
+  (0x0C, "br", .label), (0x0D, "br_if", .label),
+  (0x20, "local.get", .local), (0x21, "local.set", .local), (0x22, "local.tee", .local),
   (0x28, "i32.load", .memarg), (0x2D, "i32.load8_u", .memarg),
   (0x36, "i32.store", .memarg), (0x3A, "i32.store8", .memarg),
   (0x3F, "memory.size", .memory), (0x40, "memory.grow", .memory),
@@ -301,9 +300,9 @@ def opcodes : List (UInt8 × String × Imm) := [
 -- of 2^6 or more names another memory
 def instrForms (x : String) (ls : List String) (bs : List UInt8) : Imm → Option (List Form × List UInt8)
   | .none => some ([.part x], bs)
-  | .index "label" => (leb s!"{x} label" bs).map fun (l, bs) =>
+  | .label => (leb s!"{x} label" bs).map fun (l, bs) =>
     ([.part s!"{x} depth {if l.value == 0 then "0" else ">0"} to {ls.getD l.value "?"}", l], bs)
-  | .index what => (leb s!"{x} {what}" bs).map fun (f, bs) => ([.part x, f], bs)
+  | .local => (leb s!"{x} index" bs).map fun (f, bs) => ([.part x, f], bs)
   | .value => (leb s!"{x} immediate" bs).map fun (f, bs) => ([.part x, f], bs)
   | .memory => (leb s!"{x} memory index" bs).map fun (f, bs) => ([.part x, f], bs)
   | .memarg => do
@@ -617,6 +616,24 @@ def patOk (p : Sexp) (v : Nat) : Option Bool :=
   | .list (.atom "either" :: ps) => (ps.mapM fun q => constOf q).map fun ns => ns.contains v
   | _ => (constOf p).map (· == v)
 
+-- the assertion e on the action a: the model runs it; values (of the values
+-- that it gives) and trap say what the assertion then gives, each from the
+-- state after the action, the instance and the export; any other end is the
+-- same for each assertion
+def St.assertOn (s : St) (c : Cfg) (e a : Sexp)
+    (values : St → Option String → List UInt8 → List Nat → St)
+    (trap : St → Option String → List UInt8 → St) : St :=
+  match action c s a with
+  | none => s.unsup "actions of another kind"
+  | some (n, name, r, why) =>
+    let s := s.after n name r why
+    match r with
+    | .values vs _ => values s n name vs
+    | .trap _ => trap s n name
+    | .not_done => s.notdone
+    | .unsupported => s.unsup why
+    | .stuck => s.failed "stuck" e
+
 -- the command e of the script, its k-th; facts gives cut.ml's facts of the
 -- module that a command defines
 def command (c : Cfg) (facts : Nat → Facts) (k : Nat) (s : St) (e : Sexp) : St :=
@@ -643,35 +660,19 @@ def command (c : Cfg) (facts : Nat → Facts) (k : Nat) (s : St) (e : Sexp) : St
     | none => s
   | .list (.atom "assert_return" :: .list (.atom "get" :: _) :: _) => s.unsup "globals"
   | .list (.atom "assert_return" :: a :: pats) =>
-    match action c s a with
-    | none => s.unsup "actions of another kind"
-    | some (n, name, r, why) =>
-      let s := s.after n name r why
-      match r with
-      | .values vs _ =>
+    s.assertOn c e a
+      (fun s n name vs =>
         if vs.length != pats.length then s.failed s!"gave {vs}" e else
         match (pats.zip vs).mapM fun (p, v) => patOk p v with
         | none => s.unsup "non-i32 values"
-        | some oks => if oks.all id then s.ran n name else s.failed s!"gave {vs}" e
-      | .trap _ => s.failed "trapped" e
-      | .not_done => s.notdone
-      | .unsupported => s.unsup why
-      | .stuck => s.failed "stuck" e
+        | some oks => if oks.all id then s.ran n name else s.failed s!"gave {vs}" e)
+      (fun s _ _ => s.failed "trapped" e)
   | .list [.atom "assert_trap", .list (.atom "module" :: .atom "instance" :: rest), _] =>
     s.assertTrap c e (s.defn (instanceNames rest).2)
   | .list [.atom "assert_trap", .list (.atom "module" :: rest), _] =>
     s.assertTrap c e ((moduleOf rest).map fun (_, w) => (w, facts k))
   | .list [.atom "assert_trap", a, _] =>
-    match action c s a with
-    | none => s.unsup "actions of another kind"
-    | some (n, name, r, why) =>
-      let s := s.after n name r why
-      match r with
-      | .trap _ => s.ran n name
-      | .not_done => s.notdone
-      | .unsupported => s.unsup why
-      | .values vs _ => s.failed s!"gave {vs}" e
-      | .stuck => s.failed "stuck" e
+    s.assertOn c e a (fun s _ _ vs => s.failed s!"gave {vs}" e) (fun s n name => s.ran n name)
   | .list [.atom kind, .list (.atom "module" :: rest), _] =>
     if kind == "assert_invalid" || kind == "assert_malformed" then
       match moduleOf rest with
