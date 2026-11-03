@@ -7547,6 +7547,183 @@ def sub.out(Q: List<&2, U32>, +P: List<&2, U32>, +x: U32, h: {S.Sub(Q, P) == Tru
         e => e)
       or.ff(U32.is_eq(q, x), S.Has(rest, x), eq, sub.out(rest, P, x, CK.Bo.and_r(S.Has(P, q), S.Sub(rest, P), h2), hp))
 
+# Frames after the copy
+# ---------------------
+#
+# A frame is a kept cell (of the machine's own kinds, out of the pend list),
+# so it keeps its whole cell (Kcs); it is live, so it is not pending after
+# the copy (out.qn); its terms stand for themselves (rts.kept). So FrsK holds
+# in the copy's state, and the frames' cells and terms read there are m's.
+
+# a cell out of the copy's garbage, below next, is not pending after the copy:
+# not taken (Incl.go), so no new garbage (Gb), so out of the new pend list (Sub)
+def out.qn(+T: List<&2, U32>, +P: List<&2, U32>, +Pn: List<&2, U32>, +Qn: List<&2, U32>, +ms: Cr.Cir.Cells, +nx: U32, +x: U32,
+  +hig: {S.Incl.go(T, P, nx) == True{} : Bool}, +hgb: {S.Gb(Pn, P, T, Qn, ms) == True{} : Bool}, +hsq: {S.Sub(Qn, Pn) == True{} : Bool},
+  +hp: {S.Has(P, x) == False{} : Bool}, hlt: {U32.is_lt(x, nx) == True{} : Bool}) -> {D.Mem(Qn, x) == False{} : Bool}:
+  %Equal.sym(Bool, D.Mem(Qn, x), S.Has(Qn, x), mem.has(Qn, x)) : {_ == False{} : Bool}
+  sub.out(Qn, Pn, x, hsq, gb.out(Pn, P, T, Qn, ms, x, hgb, hp, nt.of(T, P, nx, x, hig, hp, hlt)))
+
+# a cell of a tag of 32 or more, out of the pend list, is a kept cell (KlC)
+def klc.of(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +c: U32, h32: {U32.is_le(32, D.Tg(m, c)) == True{} : Bool},
+  hps: {D.Mem(ps, c) == False{} : Bool}) -> {KlC(m, ps, c) == True{} : Bool}:
+  CK.Bo.and_i(Nat.is_le(19n, U32.to_nat(U32.and(S.Fd(0n, m, c), 63))), Bool.not(D.Mem(ps, c)),
+    of.t(Nat.is_le(19n, U32.to_nat(D.Tg(m, c))), N.le_trans(19n, U32.to_nat(32), U32.to_nat(D.Tg(m, c)), Unit{}, CK.U.le(32, D.Tg(m, c), h32))),
+    CK.Bo.not_i(D.Mem(ps, c), hps))
+
+# a field of a cell that keeps its whole cell
+def cell.fd(+k: Nat, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +c: U32, e: {Cr.Cir.Cells.get(ms, c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell}) ->
+  {D.Fd(k, ms, c) == D.Fd(k, m, c) : U32}:
+  Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(k, z), Cr.Cir.Cells.get(ms, c), Cr.Cir.Cells.get(m, c), e)
+
+# RtsK of A ++ B gives RtsK of B
+def rtsk.r(+dk: Bool, A: List<&2, D.Rt>, +B: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, h: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, A, B))) ->
+  D.RtsK(dk, ds, m, im, fi, nx, ks, img, B):
+  match A:
+    case Nil{}:
+      h
+    case Con{D.Rt{+c, +u}, +rest}:
+      (_, hr) = h
+      rtsk.r(dk, rest, B, ds, m, im, fi, nx, ks, img, hr)
+
+# a frame (of the kind kind, own, out of the pend list) keeps its whole cell:
+# it is a kept cell (Kcs of Kl)
+def fr.cell(+kind: D.FK, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +K: U32, +F: U32, +X: List<&2, U32>,
+  +N: U32, +E: List<&2, U32>, +fr: U32, +hkc: S.Kcs(ms, K, F, X, N, E, Kl(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps)),
+  +hown: {D.Own(fi, nx, fr) == True{} : Bool}, hps: {D.Mem(ps, fr) == False{} : Bool}, htg: {D.Tg(m, fr) == D.FK.tag(kind) : U32}) ->
+  {Cr.Cir.Cells.get(ms, fr) == Cr.Cir.Cells.get(m, fr) : Cr.Cir.Cell}:
+  kcs.get(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, ms, fi, fr, ps, K, F, X, N, E, hkc,
+    klc.of(m, ps, fr, (%Equal.sym(U32, D.Tg(m, fr), D.FK.tag(kind), htg) : {U32.is_le(32, _) == True{} : Bool}; D.fk.ge(kind)), hps),
+    own.lo(fi, nx, fr, hown), own.hi(fi, nx, fr, hown))
+
+# a frame's part b (field 3, for Rwt) after the copy, from the frames' terms
+def frb.kept(kind: D.FK, +ds: List<&2, Bk.Def>, +ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx2: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +fr: U32, +b: Bk.Term, +e3: {D.Fd(3n, ms, fr) == D.Fd(3n, m, fr) : U32},
+  h: D.RtsK(True{}, ds, ms, im, fi, nx2, ks, img, D.Fr.rts.b(m, fr, kind, b))) -> D.Frs.bK(True{}, ds, ms, im, fi, nx2, ks, img, D.Fd(3n, ms, fr), kind, b):
+  match kind:
+    case D.FK.rwt{}:
+      (hb, _) = h
+      (%Equal.sym(U32, D.Fd(3n, ms, fr), D.Fd(3n, m, fr), e3) : D.IsK(True{}, ds, ms, im, fi, nx2, ks, img, _, b); hb)
+    case D.FK.arg{}:
+      Unit{}
+    case D.FK.val{}:
+      Unit{}
+    case D.FK.fun{}:
+      Unit{}
+    case D.FK.let{}:
+      Unit{}
+    case D.FK.tupb{}:
+      Unit{}
+    case D.FK.tupa{}:
+      Unit{}
+    case D.FK.minb{}:
+      Unit{}
+    case D.FK.mina{}:
+      Unit{}
+
+# the frames from fr (FrsK in m), each a live cell (one of Y), whose terms
+# stand for themselves after the copy (hR): FrsK in the copy's state
+def frs.kept(fs: List<&2, D.AF>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +ms: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +nx2: U32, +ps: List<&2, U32>, +Qn: List<&2, U32>, +L: List<&2, D.Rt>, +Y: List<&2, U32>,
+  +T: List<&2, U32>, +Pn: List<&2, U32>, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, +fr: U32,
+  +hig: {S.Incl.go(T, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), nx) == True{} : Bool},
+  +hgb: {S.Gb(Pn, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), T, Qn, ms) == True{} : Bool},
+  +hsq: {S.Sub(Qn, Pn) == True{} : Bool}, +hkc: S.Kcs(ms, K, F, X, N, E, Kl(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps)),
+  +hn2: {U32.is_le(nx, nx2) == True{} : Bool},
+  hF: D.FrsK(True{}, ds, m, im, fi, nx, ks, img, ps, fr, fs), hR: D.RtsK(True{}, ds, ms, im, fi, nx2, ks, img, D.Fr.rts(fs, m, fr)),
+  hY: {D.AllIn(D.Fr.cells(fs, m, fr), Y) == True{} : Bool}) -> D.FrsK(True{}, ds, ms, im, fi, nx2, ks, img, Qn, fr, fs):
+  match fs:
+    case Nil{}:
+      hF
+    case Con{D.AF{+kind, +q, +k, +a, +b}, +rest}:
+      (h0, w1) = hF
+      (hcl, w2) = w1
+      (+hown, w3) = w2
+      (hst, w4) = w3
+      (hps, w5) = w4
+      (+htg, w6) = w5
+      (hq, w7) = w6
+      (hk, w8) = w7
+      (_, w9) = w8
+      (_, hr) = w9
+      (ra, +rr) = hR
+      +hy = hY
+      +RB = D.Fr.rts.b(m, fr, kind, b)
+      +RR = D.Fr.rts(rest, m, D.Fd(1n, m, fr))
+      +e = fr.cell(kind, m, ms, nx, fi, ps, K, F, X, N, E, fr, hkc, hown, hps, htg)
+      +e0 = cell.fd(0n, m, ms, fr, e)
+      +hmq = out.qn(T, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y), Pn, Qn, ms, nx, fr, hig, hgb, hsq,
+        gb.not(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, L, Y, fr,
+          lv.y(m, L, Y, fr, CK.Bo.and_l(D.Mem(Y, fr), D.AllIn(D.Fr.cells(rest, m, D.Fd(1n, m, fr)), Y), hy))),
+        CK.Bo.and_r(U32.is_le(fi, fr), U32.is_lt(fr, nx), hown))
+      +hrest = frs.kept(rest, ds, ks, img, m, ms, im, fi, nx, nx2, ps, Qn, L, Y, T, Pn, K, F, X, N, E, D.Fd(1n, m, fr), hig, hgb, hsq, hkc, hn2, hr,
+        rtsk.r(True{}, RB, RR, ds, ms, im, fi, nx2, ks, img, rr),
+        CK.Bo.and_r(D.Mem(Y, fr), D.AllIn(D.Fr.cells(rest, m, D.Fd(1n, m, fr)), Y), hy))
+      (h0, (cell.mono(fr, im, fi, nx, nx2, hcl, hn2), (own.mono(fi, nx, nx2, fr, hown, hn2),
+      ((%Equal.sym(U32, D.Fd(0n, ms, fr), D.Fd(0n, m, fr), e0) : {U32.is_ne(U32.and(_, 1024), 0) == False{} : Bool}; hst),
+      (hmq,
+      ((%Equal.sym(U32, D.Fd(0n, ms, fr), D.Fd(0n, m, fr), e0) : {U32.and(_, 63) == D.FK.tag(kind) : U32}; htg),
+      ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(ms, fr), Cr.Cir.Cells.get(m, fr), e) : D.Qs(_, q); hq),
+      ((%Equal.sym(U32, D.Fd(0n, ms, fr), D.Fd(0n, m, fr), e0) : {U32.is_ne(U32.and(_, 2048), 0) == k : Bool}; hk),
+      ((%Equal.sym(U32, D.Fd(2n, ms, fr), D.Fd(2n, m, fr), cell.fd(2n, m, ms, fr, e)) : D.IsK(True{}, ds, ms, im, fi, nx2, ks, img, _, a); ra),
+      (frb.kept(kind, ds, ms, m, im, fi, nx2, ks, img, fr, b, cell.fd(3n, m, ms, fr, e), AC.rtsk.l(True{}, RB, RR, ds, ms, im, fi, nx2, ks, img, rr)),
+      (%Equal.sym(U32, D.Fd(1n, ms, fr), D.Fd(1n, m, fr), cell.fd(1n, m, ms, fr, e)) : D.FrsK(True{}, ds, ms, im, fi, nx2, ks, img, Qn, _, rest); hrest)))))))))))
+
+# the frames' cells and terms, read in the copy's state, are m's
+def frcl.kept(fs: List<&2, D.AF>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +ms: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ps: List<&2, U32>, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, +fr: U32,
+  +hkc: S.Kcs(ms, K, F, X, N, E, Kl(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps)),
+  hF: D.FrsK(True{}, ds, m, im, fi, nx, ks, img, ps, fr, fs)) -> {D.Fr.cells(fs, ms, fr) == D.Fr.cells(fs, m, fr) : List<&2, U32>}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{D.AF{+kind, +q, +k, +a, +b}, +rest}:
+      (_, w1) = hF
+      (_, w2) = w1
+      (+hown, w3) = w2
+      (_, w4) = w3
+      (hps, w5) = w4
+      (+htg, w6) = w5
+      (_, w7) = w6
+      (_, w8) = w7
+      (_, w9) = w8
+      (_, hr) = w9
+      +e = fr.cell(kind, m, ms, nx, fi, ps, K, F, X, N, E, fr, hkc, hown, hps, htg)
+      %Equal.sym(U32, D.Fd(1n, ms, fr), D.Fd(1n, m, fr), cell.fd(1n, m, ms, fr, e)) : {Con{fr, D.Fr.cells(rest, ms, _)} == Con{fr, D.Fr.cells(rest, m, D.Fd(1n, m, fr))} : List<&2, U32>}
+      Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{fr, l}, D.Fr.cells(rest, ms, D.Fd(1n, m, fr)), D.Fr.cells(rest, m, D.Fd(1n, m, fr)),
+        frcl.kept(rest, ds, ks, img, m, ms, im, fi, nx, ps, K, F, X, N, E, D.Fd(1n, m, fr), hkc, hr))
+
+def frrt.kept(fs: List<&2, D.AF>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +ms: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ps: List<&2, U32>, +K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +E: List<&2, U32>, +fr: U32,
+  +hkc: S.Kcs(ms, K, F, X, N, E, Kl(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps)),
+  hF: D.FrsK(True{}, ds, m, im, fi, nx, ks, img, ps, fr, fs)) -> {D.Fr.rts(fs, ms, fr) == D.Fr.rts(fs, m, fr) : List<&2, D.Rt>}:
+  match fs:
+    case Nil{}:
+      {==}
+    case Con{D.AF{+kind, +q, +k, +a, +b}, +rest}:
+      (_, w1) = hF
+      (_, w2) = w1
+      (+hown, w3) = w2
+      (_, w4) = w3
+      (hps, w5) = w4
+      (+htg, w6) = w5
+      (_, w7) = w6
+      (_, w8) = w7
+      (_, w9) = w8
+      (_, hr) = w9
+      +e = fr.cell(kind, m, ms, nx, fi, ps, K, F, X, N, E, fr, hkc, hown, hps, htg)
+      +RB = D.Fr.rts.b(m, fr, kind, b)
+      %Equal.sym(U32, D.Fd(1n, ms, fr), D.Fd(1n, m, fr), cell.fd(1n, m, ms, fr, e)) : {Con{D.Rt{D.Fd(2n, ms, fr), a}, List.append(&2, D.Rt, D.Fr.rts.b(ms, fr, kind, b), D.Fr.rts(rest, ms, _))} ==
+        Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, RB, D.Fr.rts(rest, m, D.Fd(1n, m, fr)))} : List<&2, D.Rt>}
+      %Equal.sym(U32, D.Fd(2n, ms, fr), D.Fd(2n, m, fr), cell.fd(2n, m, ms, fr, e)) : {Con{D.Rt{_, a}, List.append(&2, D.Rt, D.Fr.rts.b(ms, fr, kind, b), D.Fr.rts(rest, ms, D.Fd(1n, m, fr)))} ==
+        Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, RB, D.Fr.rts(rest, m, D.Fd(1n, m, fr)))} : List<&2, D.Rt>}
+      %Equal.sym(List<&2, D.Rt>, D.Fr.rts.b(ms, fr, kind, b), RB, AC.frb.eq(kind, m, ms, fr, b, cell.fd(3n, m, ms, fr, e))) :
+        {Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, _, D.Fr.rts(rest, ms, D.Fd(1n, m, fr)))} ==
+          Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, RB, D.Fr.rts(rest, m, D.Fd(1n, m, fr)))} : List<&2, D.Rt>}
+      Equal.cong(List<&2, D.Rt>, List<&2, D.Rt>, l => Con{D.Rt{D.Fd(2n, m, fr), a}, List.append(&2, D.Rt, RB, l)},
+        D.Fr.rts(rest, ms, D.Fd(1n, m, fr)), D.Fr.rts(rest, m, D.Fd(1n, m, fr)),
+        frrt.kept(rest, ds, ks, img, m, ms, im, fi, nx, ps, K, F, X, N, E, D.Fd(1n, m, fr), hkc, hr))
+
 # The laws
 # --------
 
