@@ -105,7 +105,7 @@ def Sh.WI(+a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +
       D.P2({U32.is_le(F, root) == True{} : Bool},
       D.P2({W.Dj(Con{root, W.Ns(frs)}, List.append(&2, U32, P, E)) == True{} : Bool},
       D.P2(W.Frs(mo, m, ks, img, K, F, X, nx, frs, stack, True{}, 0, Bk.Term.Efq{}, 0n),
-      D.P2(W.Root(mo, m, ks, img, K, F, X, nx, frs, root, x, t),
+      D.P2(W.Root(mo, m, ks, img, K, F, X, nx, hx, frs, root, x, t),
       D.P2(W.Dp(frs, depth),
       D.P2({W.DB(frs, Wm0) == True{} : Bool},
       D.P2({D.AL(m, pend, P, Q, zs, K, F, nx) == True{} : Bool},
@@ -116,7 +116,7 @@ def Sh.WI(+a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +
       D.P2({D.Ex.ok(E, P, F, nx) == True{} : Bool},
       D.P2({Nat.is_le(W.Wm(frs), Wm0) == True{} : Bool},
       D.P2({W.Pz(Con{root, W.Ns(frs)}, P, m) == True{} : Bool},
-        W.Acc(mo, m0, K, F, P0, Q0, N0, E, rs, ts, B0, t, m, nx, frs, P, Q, root, T)))))))))))))))))))
+        W.Acc(mo, m0, K, F, P0, Q0, N0, E, rs, ts, B0, 0n, t, hx, S, cs, ks, img, m, nx, frs, P, Q, root, T)))))))))))))))))))
 
 # the invariant of a state, by its witness w, with the registers rg
 def Sh.WI.of(+regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
@@ -320,7 +320,8 @@ def Sh.end(+f: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.copy.end(Mc.R.sres(), Mc.R.sroot()), Cr.Cir.Stmt.nop{}}, D.S(rg, ms, nx2, F, K, pg2, L, I)),
     F, K, L, I, Sh.B(Sh.sc(m, P, Q, nx, E, rs, ts, kc, B0, zs, g, T.tm.reg(regs, 62n), t, hx), F, a, t),
     rg => ms => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(hx, D.Mo.shift{U32.to_nat(a)}, t, regs, D.Sh.scratch(), Mc.R.sres(),
-      ks, img, K, F, m, P, Q, E, nx, rs, ts, kc, [D.Rt{g, T.tm.reg(regs, 62n), t}], w, rg, ms, nx3))):
+      ks, img, K, F, m, P, Q, E, nx, Nat.add(B0, 1n+Pg.Term.size(El.Term.shift(t, U32.to_nat(a), 0n))), rs, ts, kc,
+      [D.Rt{g, T.tm.reg(regs, 62n), t}], w, rg, ms, nx3))):
   ?TODO
 
 # The claim
@@ -339,17 +340,18 @@ def D.Sh.ok(regs, m, nx, F, K, pg, L, I, ks, img, P, Q, zs, E, rs, ts, kc, B0, h
   +sc = {Sh.sc(m, P, Q, nx, E, rs, ts, kc, B0, zs, g, x, t, hx) : W.Sc}
   +S0 = {[D.Rt{g, x, t}] : List<&2, D.Rt>}
   +bud = {Sh.B(sc, F, a, t) : Nat}
+  +Bc = {Nat.add(B0, 1n+Pg.Term.size(El.Term.shift(t, U32.to_nat(a), 0n))) : Nat}
   +fin = {Cr.Cir.Stmt.seq{Mc.M.copy.end(Mc.R.sres(), Mc.R.sroot()), Cr.Cir.Stmt.nop{}} : Cr.Cir.Stmt}
   (1n+W0, Sh.start(W0, regs, m, nx, F, K, pg, L, I, ks, img, P, Q, zs, E, rs, ts, kc, B0, hx, t, g, a,
     Cr.Cir.Stmt.seq{Sh.loop.stmt(), fin},
     rg => ms => nx2 => pg2 => D.Ex(D.Wt, w => D.Post(hx, mo, t, regs, D.Sh.scratch(), Mc.R.sres(), ks, img, K, F, m, P, Q, E, nx,
-      rs, ts, kc, S0, w, rg, ms, nx2)),
+      Bc, rs, ts, kc, S0, w, rg, ms, nx2)),
     pre, ht, hd, hv,
     +ms => +nx2 => +pg2 => +P2 => +Q2 => +pend => +n0 => +j => wi =>
       K.Ok.seq(W0, Sh.loop.stmt(), fin, D.S(Sh.R(regs, pend, n0, 0, n0, j), ms, nx2, F, K, pg2, L, I), F, K, L, I, bud,
         rg => ms3 => nx3 => pg3 => Sh.fin(regs, a, ks, img, K, F, sc, x, t, W0, rg, ms3, nx3),
         rg => ms3 => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(hx, mo, t, regs, D.Sh.scratch(), Mc.R.sres(), ks, img, K, F, m, P, Q, E, nx,
-          rs, ts, kc, S0, w, rg, ms3, nx3)),
+          Bc, rs, ts, kc, S0, w, rg, ms3, nx3)),
         Sh.loop(W0, regs, a, ks, img, K, F, L, I, sc, x, t, W0, ms, nx2, pg2, [Sh.fr0(n0, x, t)], P2, Q2,
           pend, n0, 0, n0, [n0], Nil{}, j, ha, Sh.w0(n0, x, t), wi),
         +rg => +ms3 => +nx3 => +pg3 => fq => Sh.end(W0, regs, m, nx, F, K, pg, L, I, ks, img, P, Q, zs, E, rs, ts, kc, B0, hx, t, g, a,
