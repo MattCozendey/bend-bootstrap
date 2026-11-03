@@ -23,6 +23,81 @@ def P2(-A: Data, -B: Data) -> Data:
 def EX(-B: Nat -> Data) -> Data:
   Sigma<&2, &2, Nat, j => B(j)>
 
+# a choice of two Data types, itself Data
+def OR(-A: Data, -B: Data) -> Data:
+  Either<&2, &2, A, B>
+
+# the answers left after k grows within the limit
+def Drop(+k: Nat, +gs: List<&2, Bool>) -> List<&2, Bool>:
+  match k:
+    case 0n:
+      gs
+    case 1n+p:
+      Drop(p, List.drop(&2, Bool, gs, 1n))
+
+# no answers are left from no answers
+def drop.nil(+k: Nat) -> {Drop(k, []) == [] : List<&2, Bool>}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+p:
+      drop.nil(p)
+
+# dropping no answers gives the answers back
+def drop.zero(+gs: List<&2, Bool>) -> {List.drop(&2, Bool, gs, 0n) == gs : List<&2, Bool>}:
+  match gs:
+    case Nil{}:
+      {==}
+    case Con{_, _}:
+      {==}
+
+# dropping a + b answers is dropping a, then b
+def drop.add(+a: Nat, +gs: List<&2, Bool>, +b: Nat) ->
+  {Drop(Nat.add(a, b), gs) == Drop(b, Drop(a, gs)) : List<&2, Bool>}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      drop.add(p, List.drop(&2, Bool, gs, 1n), b)
+
+# answer a + b is answer b after dropping a answers
+def get.add(+a: Nat, +gs: List<&2, Bool>, +b: Nat) ->
+  {List.get(&2, Bool, gs, Nat.add(a, b)) == List.get(&2, Bool, Drop(a, gs), b) : Maybe<&2, Bool>}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      match gs:
+        case Nil{}:
+          (%Equal.sym(List<&2, Bool>, Drop(p, []), [], drop.nil(p)) : {List.get(&2, Bool, [], Nat.add(1n+p, b)) == List.get(&2, Bool, _, b) : Maybe<&2, Bool>}; {==})
+        case Con{_, r}:
+          (%Equal.sym(List<&2, Bool>, List.drop(&2, Bool, r, 0n), r, drop.zero(r)) :
+            {List.get(&2, Bool, r, Nat.add(p, b)) == List.get(&2, Bool, Drop(p, _), b) : Maybe<&2, Bool>}; get.add(p, r, b))
+
+def is.someb(x: Maybe<&2, Bool>) -> Data:
+  match x:
+    case None{}:
+      Empty
+    case Some{_}:
+      Unit
+
+def none.someb(-y: Bool, e: {None{} == Some{y} : Maybe<&2, Bool>}) -> Empty:
+  %Equal.sym(Maybe<&2, Bool>, None{}, Some{y}, e) : is.someb(_)
+  Unit{}
+
+# a refused grow is a false first answer
+def grants.false(+gs: List<&2, Bool>, h: {Wa.Wasm.grants(gs) == False{} : Bool}) ->
+  {List.get(&2, Bool, gs, 0n) == Some{False{}} : Maybe<&2, Bool>}:
+  match gs:
+    case Nil{}:
+      Empty.absurd({List.get(&2, Bool, [], 0n) == Some{False{}} : Maybe<&2, Bool>}, N.true_ne_false(h))
+    case Con{g, +rest}:
+      match g:
+        case False{}:
+          {==}
+        case True{}:
+          Empty.absurd({List.get(&2, Bool, Con{True{}, rest}, 0n) == Some{False{}} : Maybe<&2, Bool>}, N.true_ne_false(h))
+
 # a step that is done
 def is.done(st: Wa.Wasm.Step) -> Data:
   match st:
