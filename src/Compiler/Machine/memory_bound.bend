@@ -927,25 +927,31 @@ def budget.lim(+ds: List<&2, Bk.Def>, +st: Cr.Cir.State, +t: Bk.Term, +X: Nat, +
 def pow.le() -> N.Le(N.D(18n, 1n), 16777216n):
   Unit{}
 
+# Peak, with W for Defs.big
+def peak.le(+ds: List<&2, Bk.Def>, +C: Nat, +S: Nat, +W: Nat, h: N.Le(D.Defs.big(ds), W)) ->
+  N.Le(Peak(ds, C, S), Nat.add(C, Nat.add(16n, Nat.add(Nat.mul(2n, S), Nat.mul(3n, W))))):
+  +S2 = Nat.mul(2n, S)
+  +L3 = Nat.mul(3n, D.Defs.big(ds))
+  +W3 = Nat.mul(3n, W)
+  N.add_mono(C, C, Nat.add(16n, Nat.add(S2, L3)), Nat.add(16n, Nat.add(S2, W3)), N.le_refl(C),
+    N.add_mono(16n, 16n, Nat.add(S2, L3), Nat.add(S2, W3), N.le_refl(16n),
+      N.add_mono(S2, S2, L3, W3, N.le_refl(S2), N.mul_mono_r(3n, D.Defs.big(ds), W, h))))
+
 # the first cell and Peak, with k <= 290 + W, |i| <= S and Defs.big <= W, are
 # at most 307 + C + 4 W + 3 S
-def room.top(+K: Nat, +I: Nat, +W: Nat, +L: Nat, +C: Nat, +S: Nat,
-  hK: N.Le(K, Nat.add(290n, W)), hI: N.Le(I, S), hL: N.Le(L, W)) ->
-  N.Le(Nat.add(1n+Nat.add(K, I), Nat.add(C, Nat.add(16n, Nat.add(Nat.mul(2n, S), Nat.mul(3n, L))))),
-    Nat.add(Nat.add(307n, C), Nat.add(Nat.mul(4n, W), Nat.mul(3n, S)))):
+def room.top(+K: Nat, +I: Nat, +W: Nat, +ds: List<&2, Bk.Def>, +C: Nat, +S: Nat,
+  hK: N.Le(K, Nat.add(290n, W)), hI: N.Le(I, S), hL: N.Le(D.Defs.big(ds), W)) ->
+  N.Le(Nat.add(1n+Nat.add(K, I), Peak(ds, C, S)), Nat.add(Nat.add(307n, C), Nat.add(Nat.mul(4n, W), Nat.mul(3n, S)))):
   +S2 = Nat.mul(2n, S)
   +S3 = Nat.mul(3n, S)
   +W3 = Nat.mul(3n, W)
   +W4 = Nat.mul(4n, W)
-  +L3 = Nat.mul(3n, L)
   +WS = Nat.add(W, S)
   +R = Nat.add(S2, W3)
   +X1 = {1n+Nat.add(Nat.add(290n, W), S) : Nat}
   +P1 = Nat.add(C, Nat.add(16n, R))
   +hX = N.add_mono(K, Nat.add(290n, W), I, S, hK, hI)
-  +hP = N.add_mono(C, C, Nat.add(16n, Nat.add(S2, L3)), Nat.add(16n, R), N.le_refl(C),
-    N.add_mono(16n, 16n, Nat.add(S2, L3), R, N.le_refl(16n), N.add_mono(S2, S2, L3, W3, N.le_refl(S2), N.mul_mono_r(3n, L, W, hL))))
-  +h1 = N.add_mono(1n+Nat.add(K, I), X1, Nat.add(C, Nat.add(16n, Nat.add(S2, L3))), P1, hX, hP)
+  +h1 = N.add_mono(1n+Nat.add(K, I), X1, Peak(ds, C, S), P1, hX, peak.le(ds, C, S, W, hL))
   +eSR = {Equal.sym(Nat, Nat.add(Nat.add(S, S2), W3), Nat.add(S, R), N.add_assoc(S, S2, W3)) : {Nat.add(S, R) == Nat.add(S3, W3) : Nat}}
   +e4 = Equal.trans(Nat, Nat.add(WS, R), Nat.add(W, Nat.add(S, R)), Nat.add(W4, S3), N.add_assoc(W, S, R),
     Equal.trans(Nat, Nat.add(W, Nat.add(S, R)), Nat.add(W, Nat.add(S3, W3)), Nat.add(W4, S3),
@@ -960,7 +966,7 @@ def room.top(+K: Nat, +I: Nat, +W: Nat, +L: Nat, +C: Nat, +S: Nat,
         Equal.cong(Nat, Nat, x => Nat.add(16n, Nat.add(C, x)), Nat.add(WS, R), Nat.add(W4, S3), e4))))
   +eT = {Equal.cong(Nat, Nat, x => 291n+x, Nat.add(WS, P1), Nat.add(16n, Nat.add(C, Nat.add(W4, S3))), eq) :
     {Nat.add(X1, P1) == Nat.add(Nat.add(307n, C), Nat.add(W4, S3)) : Nat}}
-  N.le_rw_r(Nat.add(1n+Nat.add(K, I), Nat.add(C, Nat.add(16n, Nat.add(S2, L3)))), Nat.add(X1, P1), Nat.add(Nat.add(307n, C), Nat.add(W4, S3)), eT, h1)
+  N.le_rw_r(Nat.add(1n+Nat.add(K, I), Peak(ds, C, S)), Nat.add(X1, P1), Nat.add(Nat.add(307n, C), Nat.add(W4, S3)), eT, h1)
 
 # 20 (307 + C + 4 W + 3 S) + S <= 64 (z + S) + G, for C <= 6144, 3 W <= z and
 # 2^18 <= G (G is F's 2^24, a variable here)
@@ -1012,14 +1018,100 @@ def top.need(+C: Nat, +W: Nat, +S: Nat, +z: Nat, +G: Nat, hC: N.Le(C, N.D(11n, 3
     Equal.sym(Nat, Nat.add(Nat.mul(20n, Nat.add(A0, Nat.add(W4, S3))), S), Nat.add(Aa, Nat.add(Bw, Nat.add(Cs, S))), e3),
     N.le_rw_r(Nat.add(Aa, Nat.add(Bw, Nat.add(Cs, S))), Nat.add(G, Nat.add(Z64, S64)), Nat.add(Nat.mul(64n, Nat.add(z, S)), G), eF, h))
 
+# Room is at most 20 T + S, when the first cell and Peak are at most T
+def room.le(+ds: List<&2, Bk.Def>, +X: Nat, +C: Nat, +S: Nat, +T: Nat, h: N.Le(Nat.add(X, Peak(ds, C, S)), T)) ->
+  N.Le(Room(ds, X, C, S), Nat.add(Nat.mul(20n, T), S)):
+  N.add_mono(Nat.mul(20n, Nat.add(X, Peak(ds, C, S))), Nat.mul(20n, T), S, S, N.mul_mono_r(20n, Nat.add(X, Peak(ds, C, S)), T, h),
+    N.le_refl(S))
+
+# 20 a + b is at most Room, when a is at most the first cell and Peak, and b
+# at most S
+def room.ge(+ds: List<&2, Bk.Def>, +X: Nat, +C: Nat, +S: Nat, +a: Nat, +b: Nat, ha: N.Le(a, Nat.add(X, Peak(ds, C, S))), hb: N.Le(b, S)) ->
+  N.Le(Nat.add(Nat.mul(20n, a), b), Room(ds, X, C, S)):
+  N.add_mono(Nat.mul(20n, a), Nat.mul(20n, Nat.add(X, Peak(ds, C, S))), b, S, N.mul_mono_r(20n, a, Nat.add(X, Peak(ds, C, S)), ha), hb)
+
+# the bytes of the cells up to fi + y are at most Room, when fi + y is at
+# most the first cell and Peak
+def cells.room(+ds: List<&2, Bk.Def>, +X: Nat, +C: Nat, +S: Nat, +fi: U32, +y: Nat,
+  h: N.Le(Nat.add(U32.to_nat(fi), y), Nat.add(X, Peak(ds, C, S)))) ->
+  N.Le(D.Cells.bytes(fi, y), Room(ds, X, C, S)):
+  +A = Nat.mul(20n, Nat.add(X, Peak(ds, C, S)))
+  N.le_trans(D.Cells.bytes(fi, y), A, Room(ds, X, C, S), N.mul_mono_r(20n, Nat.add(U32.to_nat(fi), y), Nat.add(X, Peak(ds, C, S)), h),
+    N.le_add_r(A, S))
+
+# F, as Program.need spells it
+def need.eq(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat) ->
+  {Nat.add(Nat.mul(64n, Nat.add(Pg.Program.size(p), Pg.Program.largest(p, i, n))), 16777216n) == Pg.Program.need(p, i, n) : Nat}:
+  {==}
+
+# |i| <= S
+def input.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat,
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}) ->
+  N.Le(List.length(&2, Word(8n), i), Pg.Program.largest(p, i, n)):
+  +I = List.length(&2, Word(8n), i)
+  N.le_trans(I, 5n+Nat.mul(72n, I), Pg.Program.largest(p, i, n),
+    N.le_trans(I, Nat.mul(72n, I), 5n+Nat.mul(72n, I), N.le_add_r(I, Nat.mul(71n, I)), N.le_add_l(5n, Nat.mul(72n, I))),
+    start.le(p, ds, i, n, rd))
+
 # Room, for the first cell of the run (first.le), C <= 6144 STATIC own cells
 # and the run's largest term S, is at most F
 def room.need(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat, +k: U32, +C: Nat,
-  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, Mc.Img.cells(ds)) : U32},
   hC: N.Le(C, N.D(11n, 3n))) ->
   N.Le(Room(ds, 1n+Nat.add(U32.to_nat(k), List.length(&2, Word(8n), i)), C, Pg.Program.largest(p, i, n)), Pg.Program.need(p, i, n)):
-  ?TODO
+  +K = U32.to_nat(k)
+  +I = List.length(&2, Word(8n), i)
+  +W = PG.Bl(ds, 0n)
+  +S = Pg.Program.largest(p, i, n)
+  +T0 = Nat.add(Nat.add(307n, C), Nat.add(Nat.mul(4n, W), Nat.mul(3n, S)))
+  +B = Nat.add(Nat.mul(64n, Nat.add(Pg.Program.size(p), S)), 16777216n)
+  +ht = room.top(K, I, W, ds, C, S, k.le(ds, k, ek), input.le(p, ds, i, n, rd), big.le(ds))
+  N.le_trans(Room(ds, 1n+Nat.add(K, I), C, S), Nat.add(Nat.mul(20n, T0), S), Pg.Program.need(p, i, n),
+    room.le(ds, 1n+Nat.add(K, I), C, S, T0, ht),
+    N.le_rw_r(Nat.add(Nat.mul(20n, T0), S), B, Pg.Program.need(p, i, n), need.eq(p, i, n),
+      top.need(C, W, S, Pg.Program.size(p), 16777216n, hC, w.le(p, ds, rd), pow.le())))
+
+# 2^k a <= 2^k b, for a <= b
+def D_mono(k: Nat, +a: Nat, +b: Nat, h: N.Le(a, b)) -> N.Le(N.D(k, a), N.D(k, b)):
+  match k:
+    case 0n:
+      h
+    case 1n+(+q):
+      N.double_mono(N.D(q, a), N.D(q, b), D_mono(q, a, b, h))
+
+# the pages of min(m, 65536) are the limit's
+def lim.y(+m: U32, +lim: U32, elim: {lim == Wa.Wasm.min(m, 65536) : U32}) ->
+  N.Le(U32.to_nat(Wa.Wasm.min.if(Cmp.is_le(U32.cmp(m, 65536)), m, 65536)), U32.to_nat(lim)):
+  %Equal.sym(U32, lim, Wa.Wasm.min(m, 65536), elim) :
+    N.Le(U32.to_nat(Wa.Wasm.min.if(Cmp.is_le(U32.cmp(m, 65536)), m, 65536)), U32.to_nat(_))
+  N.le_refl(U32.to_nat(Wa.Wasm.min(m, 65536)))
+
+# so they are at most the pages min(lim, 65536) that Lim.bytes counts, by the
+# branch of U32.is_le(lim, 65536)
+def lim.pages(b: Bool, +lim: U32, +y: Nat, hy: N.Le(y, U32.to_nat(65536)), hl: N.Le(y, U32.to_nat(lim))) ->
+  N.Le(y, U32.to_nat(Wa.Wasm.min.if(b, lim, 65536))):
+  match b:
+    case True{}:
+      hl
+    case False{}:
+      %{{==} : {65536 == Wa.Wasm.min.if(False{}, lim, 65536) : U32}} : N.Le(y, U32.to_nat(_))
+      hy
+
+# the bytes of m pages are within the limit lim = min(m, 65536) (Program.memory
+# as need_big.bend's memory_le meets it)
+def memory.le(+m: U32, +lim: U32, elim: {lim == Wa.Wasm.min(m, 65536) : U32}) ->
+  N.Le(Pg.Program.memory(m), D.Lim.bytes(lim)):
+  +y = U32.to_nat(Wa.Wasm.min.if(Cmp.is_le(U32.cmp(m, 65536)), m, 65536))
+  +t = U32.to_nat(65536)
+  +z = U32.to_nat(Wa.Wasm.min(lim, 65536))
+  +hy = N.min.case(Cmp.is_le(U32.cmp(m, 65536)), m, 65536, {==})
+  +hz = lim.pages(U32.is_le(lim, 65536), lim, y, hy, lim.y(m, lim, elim))
+  +e2 = Equal.trans(Nat, Nat.mul(t, y), Nat.mul(N.D(16n, 1n), y), N.D(16n, y),
+    Equal.cong(Nat, Nat, x => Nat.mul(x, y), t, N.D(16n, 1n), N.val_65536()), N.mul_D(16n, y))
+  +h2 = N.le_rw_r(Nat.mul(65536n, y), Nat.mul(t, y), N.D(16n, y), e2, N.mul_mono_l(65536n, t, y, N.le_65536()))
+  +h3 = N.le_trans(Nat.mul(65536n, y), N.D(16n, y), D.Lim.bytes(lim), h2, D_mono(16n, y, z, hz))
+  N.bridge(m, D.Lim.bytes(lim), N.le_rw_l(Nat.mul(65536n, y), Nat.add(y, Nat.mul(65535n, y)), D.Lim.bytes(lim), N.mul_succ(65535n, y), h3))
 
 # F is at most the bytes of the limit lim = min(m, 65536) of Cir.result, when
 # the memory of m pages holds F
@@ -1027,7 +1119,8 @@ def need.lim(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +m: U32, +
   elim: {lim == Wa.Wasm.min(m, 65536) : U32},
   big: {Nat.is_le(Pg.Program.need(p, i, n), Pg.Program.memory(m)) == True{} : Bool}) ->
   N.Le(Pg.Program.need(p, i, n), D.Lim.bytes(lim)):
-  ?TODO
+  N.le_trans(Pg.Program.need(p, i, n), Pg.Program.memory(m), D.Lim.bytes(lim), N.toLe(Pg.Program.need(p, i, n), Pg.Program.memory(m), big),
+    memory.le(m, lim, elim))
 
 # so, with the memory F, the limit of Cir.result's start has room for Room
 # (the loop carries this and budget.lim's premises)
@@ -1038,7 +1131,20 @@ def room.lim(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n
   hC: N.Le(C, N.D(11n, 3n)),
   big: {Nat.is_le(Pg.Program.need(p, i, n), Pg.Program.memory(m)) == True{} : Bool}) ->
   N.Le(Room(ds, 1n+Nat.add(U32.to_nat(k), List.length(&2, Word(8n), i)), C, Pg.Program.largest(p, i, n)), D.Lim.bytes(lim)):
-  ?TODO
+  (ek, r1) = s
+  (em, r2) = r1
+  (elim, r3) = r2
+  N.le_trans(Room(ds, 1n+Nat.add(U32.to_nat(k), List.length(&2, Word(8n), i)), C, Pg.Program.largest(p, i, n)), Pg.Program.need(p, i, n),
+    D.Lim.bytes(lim), room.need(p, ds, i, n, k, C, rd, ek, hC), need.lim(p, i, n, m, lim, elim, big))
+
+# the first cell of a state of the run is Cir.result's, at most 1 + k + |i|
+def fi.le(+st: Cr.Cir.State, +i: List<&2, Word(8n)>, +k: U32, +len: U32, +first: U32,
+  hfi: {D.St.first(st) == first : U32},
+  el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
+  ef: {first == Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)) : U32}) ->
+  N.Le(U32.to_nat(D.St.first(st)), 1n+Nat.add(U32.to_nat(k), List.length(&2, Word(8n), i))):
+  %Equal.sym(U32, D.St.first(st), first, hfi) : N.Le(U32.to_nat(_), 1n+Nat.add(U32.to_nat(k), List.length(&2, Word(8n), i)))
+  first.le(i, k, len, first, el, ef)
 
 # the budget of a round of the run is at most F: from a state of the run
 # (its first cell is Cir.result's, it has at most C <= 6144 STATIC own cells
@@ -1055,7 +1161,33 @@ def budget.need(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word
   hu: N.Le(D.StepSize(ds, t), Pg.Program.largest(p, i, n)),
   hm: N.Le(D.Mem.cells(st), Peak(ds, C, Pg.Program.largest(p, i, n)))) ->
   N.Le(D.Budget(ds, st, t), Pg.Program.need(p, i, n)):
-  ?TODO
+  (ek, r1) = s
+  (em, r2) = r1
+  (elim, r3) = r2
+  (el, r4) = r3
+  (ea, ef) = r4
+  +X = {1n+Nat.add(U32.to_nat(k), List.length(&2, Word(8n), i)) : Nat}
+  +S = Pg.Program.largest(p, i, n)
+  N.le_trans(D.Budget(ds, st, t), Room(ds, X, C, S), Pg.Program.need(p, i, n),
+    budget.room(ds, st, t, X, C, S, fi.le(st, i, k, len, first, hfi, el, ef), hst, ht, hu, hm),
+    room.need(p, ds, i, n, k, C, rd, ek, hC))
+
+# M.input's budget, from what Cir.result computed for the start
+def input.need.of(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat, +k: U32, +len: U32, +first: U32,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, Mc.Img.cells(ds)) : U32},
+  el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
+  ef: {first == Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)) : U32}) ->
+  N.Le(D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), Pg.Program.need(p, i, n)):
+  +I = List.length(&2, Word(8n), i)
+  +X = {1n+Nat.add(U32.to_nat(k), I) : Nat}
+  +S = Pg.Program.largest(p, i, n)
+  +Y = {1n+Nat.mul(27n, I) : Nat}
+  +hY = N.le_trans(Y, 5n+Nat.mul(72n, I), S, N.add_mono(1n, 5n, Nat.mul(27n, I), Nat.mul(72n, I), Unit{}, N.mul_mono_l(27n, 72n, I, Unit{})),
+    start.le(p, ds, i, n, rd))
+  +h = N.add_mono(U32.to_nat(first), X, Y, Peak(ds, 0n, S), first.le(i, k, len, first, el, ef), peak.ge(ds, 0n, S, Y, hY))
+  N.le_trans(D.Cells.bytes(first, Y), Room(ds, X, 0n, S), Pg.Program.need(p, i, n), cells.room(ds, X, 0n, S, first, Y, h),
+    room.need(p, ds, i, n, k, 0n, rd, ek, N.le_zero(N.D(11n, 3n))))
 
 # M.input's budget (InputPost: 27 cells a byte of the input, and the focus)
 # is at most F
@@ -1064,7 +1196,12 @@ def input.need(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first)) ->
   N.Le(D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), Pg.Program.need(p, i, n)):
-  ?TODO
+  (ek, r1) = s
+  (em, r2) = r1
+  (elim, r3) = r2
+  (el, r4) = r3
+  (ea, ef) = r4
+  input.need.of(p, ds, i, n, k, len, first, rd, ek, el, ef)
 
 # so, with the memory F, M.input has room for its budget in the limit
 def input.lim(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat, +m: U32, +k: U32,
@@ -1073,12 +1210,26 @@ def input.lim(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8
   s: D.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first),
   big: {Nat.is_le(Pg.Program.need(p, i, n), Pg.Program.memory(m)) == True{} : Bool}) ->
   N.Le(D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), D.Lim.bytes(lim)):
-  ?TODO
+  (ek, r1) = s
+  (em, r2) = r1
+  (elim, r3) = r2
+  (el, r4) = r3
+  (ea, ef) = r4
+  N.le_trans(D.Cells.bytes(first, 1n+Nat.mul(27n, List.length(&2, Word(8n), i))), Pg.Program.need(p, i, n), D.Lim.bytes(lim),
+    input.need.of(p, ds, i, n, k, len, first, rd, ek, el, ef), need.lim(p, i, n, m, lim, elim, big))
 
 # the bytes up to the cell after the image's k cells and the input, which
 # Cir.result needs before the program, are at most F
 def start.need(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat, +k: U32,
-  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, Mc.Img.cells(ds)) : U32}) ->
   N.Le(Nat.add(Nat.mul(20n, 2n+U32.to_nat(k)), List.length(&2, Word(8n), i)), Pg.Program.need(p, i, n)):
-  ?TODO
+  +K = U32.to_nat(k)
+  +I = List.length(&2, Word(8n), i)
+  +S = Pg.Program.largest(p, i, n)
+  +P = Peak(ds, 0n, S)
+  +Z = Nat.add(Nat.add(K, I), P)
+  +h1 = N.le_rw_l(Nat.add(K, 1n), 1n+K, Z, add_one(K), N.add_mono(K, Nat.add(K, I), 1n, P, N.le_add_r(K, I), Unit{}))
+  N.le_trans(Nat.add(Nat.mul(20n, 2n+K), I), Room(ds, 1n+Nat.add(K, I), 0n, S), Pg.Program.need(p, i, n),
+    room.ge(ds, 1n+Nat.add(K, I), 0n, S, 2n+K, I, h1, input.le(p, ds, i, n, rd)),
+    room.need(p, ds, i, n, k, 0n, rd, ek, N.le_zero(N.D(11n, 3n))))
