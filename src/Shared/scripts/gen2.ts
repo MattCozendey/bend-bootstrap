@@ -441,7 +441,10 @@ const blockers = (t: LTerm, out: LTerm[]) => {
       const [h, xs] = unapply(t);
       if (h.$ === "Ref") {
         const j = strictOf(h.k);
-        if (j !== null && j < xs.length) { const a = xs[j]; if (a.$ === "Var" || (a.$ === "App" && unapply(a)[0].$ === "Ref")) out.push(a); }
+        const blk = (a: LTerm) => a.$ === "Var" || (a.$ === "App" && unapply(a)[0].$ === "Ref");
+        if (j !== null && j < xs.length && blk(xs[j])) out.push(xs[j]);
+        // the strict argument is a constructor (a nested match reads another one), or no strict argument known
+        else for (const a of xs) if (blk(a)) out.push(a);
       }
       xs.forEach((x) => blockers(x, out));
       break;
@@ -504,6 +507,21 @@ for (const k of Object.keys(RAW)) {
     }
   }
 }
+// predicates on one datatype (P: T -> Type), to discriminate two constructors (`%e : P(_); Unit{}`)
+const preds = new Map<string, Lemma[]>();
+for (const k of Object.keys(RAW)) {
+  const t = RAW[k];
+  if (t.$ !== "Def" || t.v === null || t.n !== 1 || t.x > 0) continue;
+  const s0 = B.term_strip(t.T);
+  if (s0.$ !== "All") continue;
+  const r = attempt(20000, () => wnf(s0.B(B.Var("_", 0))));
+  if (!r || r.$ !== "Typ") continue;
+  const pk = attempt(20000, () => key(lower(s0.A, 0)));
+  if (!pk) continue;
+  if (!preds.has(pk)) preds.set(pk, []);
+  preds.get(pk)!.push({ k, order: ORDER.get(k) ?? -1, n: 1 });
+}
+for (const v of preds.values()) v.sort((a, b) => b.order - a.order);
 for (const m of [applyIndex]) for (const v of m.values()) v.sort((a, b) => b.order - a.order);
 for (const v of rwIndex.values()) v.sort((a, b) => b.L.order - a.L.order);
 wild.sort((a, b) => b.order - a.order);
@@ -780,7 +798,28 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
       }
     }
   }
-  if (contradictory(g).length > 0) {
+  const contra = contradictory(g);
+  if (contra.length > 0 && w.$ === "ADT" && (RAW[w.k] as any)?.c?.length === 0) {
+    for (const i of contra) {
+      const ts = hypTargets(g, i);
+      const E = ts[ts.length - 1] as Extract<LTerm, { $: "Eql" }>;
+      const Tk = key(E.T);
+      for (const L of (preds.get(Tk) ?? []).slice(0, MAX_CANDS)) {
+        if (L.order >= job.order) continue;
+        const P = B.name_show(job.file, L.k);
+        for (const sym of [false, true]) {
+          const [x, y] = sym ? [E.b, E.a] : [E.a, E.b];
+          const e = sym ? "Equal.sym(" + show(E.T, g.names) + ", " + show(E.a, g.names) + ", " + show(E.b, g.names) + ", " + g.names[i] + ")" : g.names[i];
+          const sub: Goal = { ...g, ty: B.App(B.Ref(L.k), B.term_higher(x, g.env)) };
+          if (!tryText(g, "%" + e + " : " + P + "(_); ?TODO")) continue;
+          const r = leaf(sub, 0, 0, path);
+          if (r) { const pf: Pf = { t: "rw", e, P: P + "(_)", k: r }; if (tryText(g, flat(pf))) { tag("discriminate"); return pf; } }
+          void y;
+        }
+      }
+    }
+  }
+  if (contra.length > 0) {
     for (const L of wild) {
       if (L.order >= job.order || L.k === job.k) continue;
       const c: Callee = { text: B.name_show(job.file, L.k), T: (RAW[L.k] as B.Def).T, n: L.n, kind: "lemma" };
