@@ -1615,7 +1615,7 @@ def fd.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs:
   +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
   +Q2 = List.append(&2, U32, pu, Qr)
   +Q = {Con{q, Qr} : List<&2, U32>}
-  +D = Del(P, q)
+  +Dl = Del(P, q)
   Equal.trans(U32, D.Fd(k, ms, y), D.Fd(k, M, y), D.Fd(k, m, y),
     Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(k, w), Cr.Cir.Cells.get(ms, y), Cr.Cir.Cells.get(M, y), K.Cl.get_ne(M, y, q, Cr.Cir.Cell.zero(), ne)),
     fd.w1s(ws, m, k, hk, y))
@@ -1627,7 +1627,7 @@ def f1.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs:
   +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
   +Q2 = List.append(&2, U32, pu, Qr)
   +Q = {Con{q, Qr} : List<&2, U32>}
-  +D = Del(P, q)
+  +Dl = Del(P, q)
   Equal.cong(Cr.Cir.Cell, U32, w => Cr.Cir.Cell.get(1n, w), Cr.Cir.Cells.get(ms, y), Cr.Cir.Cells.get(M, y), K.Cl.get_ne(M, y, q, Cr.Cir.Cell.zero(), ne))
 
 def stc.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
@@ -1727,10 +1727,11 @@ def ps.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs:
   +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
   +Q2 = List.append(&2, U32, pu, Qr)
   +Q = {Con{q, Qr} : List<&2, U32>}
-  +D = Del(P, q)
+  +Dl = Del(P, q)
   Equal.trans(List<&2, U32>, D.Ps(ms, Q2, y), D.Ps(M, Q2, y), D.Ps(m, Q, y), K.ps.set(M, q, Cr.Cir.Cell.zero(), Q2, y, ne, hzq),
     Equal.trans(List<&2, U32>, D.Ps(M, Q2, y), D.Ps(m, Q2, y), D.Ps(m, Q, y), ps.w1s(ws, m, Q2, y),
       ps.qq.b(D.Has(pu, y), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, y, ne, {==})))
+
 
 # a cell that no garbage part can be: not 0, not STATIC, not garbage, and
 # counting 0 (as a table cell)
@@ -1911,7 +1912,7 @@ def tbgo.zq(cs: List<&2, Cr.Cir.Cell>, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, 
       +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
       +Q2 = List.append(&2, U32, pu, Qr)
       +Q = {Con{q, Qr} : List<&2, U32>}
-      +D = Del(P, q)
+      +Dl = Del(P, q)
       +xi = U32.to_nat(i)
       +k = List.length(&2, Cr.Cir.Cell, rest)
       +h1 = N.le_rw_l(Nat.add(xi, 1n+k), 1n+Nat.add(xi, k), U32.to_nat(F), N.add_succ_r(xi, k), h)
@@ -1955,13 +1956,858 @@ def ps.zq0(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs
   +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
   +Q2 = List.append(&2, U32, pu, Qr)
   +Q = {Con{q, Qr} : List<&2, U32>}
-  +D = Del(P, q)
+  +Dl = Del(P, q)
   +t0 = tb.fst(m, tb)
   +h0 = tbl.cell(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, 272, Cr.Cir.Cell{0, 0, 0, 0, 0}, t0, {==}, {==},
     N.le_trans(273n, 291n, U32.to_nat(F), N.le_zero(18n), F.big(K, F, hk, hkf)), N.le_zero(271n))
   +t0M = Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(M, 272), Cr.Cir.Cells.get(m, 272), Cr.Cir.Cell{0, 0, 0, 0, 0},
     w1s.get(ws, m, q, 272, hpt, h0), t0)
   K.ps.zero(M, q, Q2, t0M, hzq)
+
+
+# q's old pointers: its parts by its mask, or none for a cell of the
+# machine's own kinds in the pend list
+def and.f(a: Bool) -> {Bool.and(a, False{}) == False{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def psh.in(+f0: U32, +t2: U32, +f2: U32, +f3: U32, +f4: U32, +ht: {U32.is_lt(U32.and(f0, 63), 19) == False{} : Bool}) ->
+  {PsH(f0, t2, f2, f3, f4, True{}) == Nil{} : List<&2, U32>}:
+  +tg = U32.and(f0, 63)
+  +PT = D.Ps.term(t2, f2, f3, f4)
+  +Y1 = Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40))
+  +Y2 = Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0))
+  +C1 = {Con{f2, D.Ps.opt(U32.is_eq(tg, 38), f3, Nil{})} : List<&2, U32>}
+  %Equal.sym(Bool, U32.is_lt(tg, 19), False{}, ht) :
+    {Bool.pick(List<&2, U32>, _, PT, Bool.pick(List<&2, U32>, Bool.and(Y1, False{}), C1, Bool.pick(List<&2, U32>, Bool.and(Y2, False{}), [f2], Nil{}))) ==
+      Nil{} : List<&2, U32>}
+  %Equal.sym(Bool, Bool.and(Y1, False{}), False{}, and.f(Y1)) :
+    {Bool.pick(List<&2, U32>, _, C1, Bool.pick(List<&2, U32>, Bool.and(Y2, False{}), [f2], Nil{})) == Nil{} : List<&2, U32>}
+  %Equal.sym(Bool, Bool.and(Y2, False{}), False{}, and.f(Y2)) : {Bool.pick(List<&2, U32>, _, [f2], Nil{}) == Nil{} : List<&2, U32>}
+  {==}
+
+# a < 19 gives a < 32; b <= a gives not a < b
+def lt19.t32(+t: U32, h: {U32.is_lt(t, 19) == True{} : Bool}) -> {U32.is_lt(t, 32) == True{} : Bool}:
+  K.U.lt_t(t, 32, N.le_trans(1n+U32.to_nat(t), 19n, 32n, K.U.lt(t, 19, h), N.le_zero(13n)))
+
+def le.nlt.b(c: Bool, +a: U32, +b: U32, ec: {U32.is_lt(a, b) == c : Bool}, h: {U32.is_le(b, a) == True{} : Bool}) ->
+  {U32.is_lt(a, b) == False{} : Bool}:
+  match c:
+    case True{}:
+      K.U.lt_ge(a, b, {U32.is_lt(a, b) == False{} : Bool}, ec, h)
+    case False{}:
+      ec
+
+def le18.f.b(c: Bool, +t: U32, ec: {U32.is_le(t, 18) == c : Bool}, h: {U32.is_lt(t, 19) == False{} : Bool}) -> {U32.is_le(t, 18) == False{} : Bool}:
+  match c:
+    case True{}:
+      K.Bo.tf({U32.is_le(t, 18) == False{} : Bool}, Equal.trans(Bool, False{}, U32.is_lt(t, 19), True{}, Equal.sym(Bool, U32.is_lt(t, 19), False{}, h),
+        K.U.lt_t(t, 19, K.U.le(t, 18, ec))))
+    case False{}:
+      ec
+
+def ps.ow.t(+m: Cr.Cir.Cells, +Q: List<&2, U32>, +q: U32, +c: U32, +ht: {U32.is_lt(U32.and(D.Fd(0n, m, q), 63), 19) == True{} : Bool}) ->
+  {D.Occ(D.Ps(m, Q, q), c) == D.Ow(m, q, c) : Nat}:
+  +f0 = D.Fd(0n, m, q)
+  +tg = U32.and(f0, 63)
+  +a = D.Fd(2n, m, U32.add(272, tg))
+  +f2 = D.Fd(2n, m, q)
+  +f3 = D.Fd(3n, m, q)
+  +f4 = D.Fd(4n, m, q)
+  +b1 = U32.is_ne(U32.and(a, 1), 0)
+  +b2 = U32.is_ne(U32.and(a, 2), 0)
+  +b4 = U32.is_ne(U32.and(a, 4), 0)
+  +PT = D.Ps.term(a, f2, f3, f4)
+  +REST = Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(D.Has(Q, q))),
+    Con{f2, D.Ps.opt(U32.is_eq(tg, 38), f3, Nil{})},
+    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0)), Bool.not(D.Has(Q, q))), [f2], Nil{}))
+  +e1 = {(%Equal.sym(Bool, U32.is_lt(tg, 19), True{}, ht) : {Bool.pick(List<&2, U32>, _, PT, REST) == PT : List<&2, U32>}; {==}) :
+    {D.Ps(m, Q, q) == PT : List<&2, U32>}}
+  +eA = {(%Equal.sym(Bool, U32.is_lt(tg, 32), True{}, lt19.t32(tg, ht)) : {Bool.pick(U32, _, a, 0) == a : U32}; {==}) : {D.Am(m, q) == a : U32}}
+  +A = D.Nat.of(Bool.and(b1, U32.is_eq(f2, c)))
+  +B = D.Nat.of(Bool.and(b2, U32.is_eq(f3, c)))
+  +C = D.Nat.of(Bool.and(b4, U32.is_eq(f4, c)))
+  +O3 = D.Ps.opt(b4, f4, Nil{})
+  +O2 = D.Ps.opt(b2, f3, O3)
+  +eo = Equal.trans(Nat, D.Occ(PT, c), Nat.add(A, D.Occ(O2, c)), Nat.add(A, Nat.add(B, C)), occ.opt(b1, f2, O2, c),
+    Equal.cong(Nat, Nat, z => Nat.add(A, z), D.Occ(O2, c), Nat.add(B, C), Equal.trans(Nat, D.Occ(O2, c), Nat.add(B, D.Occ(O3, c)), Nat.add(B, C),
+      occ.opt(b2, f3, O3, c), Equal.cong(Nat, Nat, z => Nat.add(B, z), D.Occ(O3, c), C,
+        Equal.trans(Nat, D.Occ(O3, c), Nat.add(C, 0n), C, occ.opt(b4, f4, Nil{}, c), N.add_zero(C))))))
+  +eW = {(%Equal.sym(U32, D.Am(m, q), a, eA) :
+      {Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 1), 0), U32.is_eq(f2, c))), Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 2), 0), U32.is_eq(f3, c))),
+        D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 4), 0), U32.is_eq(f4, c))))) == Nat.add(A, Nat.add(B, C)) : Nat}; {==}) :
+    {D.Ow(m, q, c) == Nat.add(A, Nat.add(B, C)) : Nat}}
+  Equal.trans(Nat, D.Occ(D.Ps(m, Q, q), c), D.Occ(PT, c), D.Ow(m, q, c), Equal.cong(List<&2, U32>, Nat, z => D.Occ(z, c), D.Ps(m, Q, q), PT, e1),
+    Equal.trans(Nat, D.Occ(PT, c), Nat.add(A, Nat.add(B, C)), D.Ow(m, q, c), eo, Equal.sym(Nat, D.Ow(m, q, c), Nat.add(A, Nat.add(B, C)), eW)))
+
+def ps.ow.o(+m: Cr.Cir.Cells, +Q: List<&2, U32>, +q: U32, +c: U32, +h19: {U32.is_lt(U32.and(D.Fd(0n, m, q), 63), 19) == False{} : Bool},
+  +h32: {U32.is_le(32, U32.and(D.Fd(0n, m, q), 63)) == True{} : Bool}, +hq: {D.Has(Q, q) == True{} : Bool}) ->
+  {D.Occ(D.Ps(m, Q, q), c) == D.Ow(m, q, c) : Nat}:
+  +f0 = D.Fd(0n, m, q)
+  +tg = U32.and(f0, 63)
+  +t2 = D.Fd(2n, m, U32.add(272, tg))
+  +f2 = D.Fd(2n, m, q)
+  +f3 = D.Fd(3n, m, q)
+  +f4 = D.Fd(4n, m, q)
+  +eP = {(%hq : {D.Ps(m, Q, q) == PsH(f0, t2, f2, f3, f4, _) : List<&2, U32>}; ps.h(m, Q, q)) : {D.Ps(m, Q, q) == PsH(f0, t2, f2, f3, f4, True{}) : List<&2, U32>}}
+  +eN = Equal.trans(List<&2, U32>, D.Ps(m, Q, q), PsH(f0, t2, f2, f3, f4, True{}), Nil{}, eP, psh.in(f0, t2, f2, f3, f4, h19))
+  +eA = {(%Equal.sym(Bool, U32.is_lt(tg, 32), False{}, le.nlt.b(U32.is_lt(tg, 32), tg, 32, {==}, h32)) : {Bool.pick(U32, _, t2, 0) == 0 : U32}; {==}) :
+    {D.Am(m, q) == 0 : U32}}
+  +eW = {(%Equal.sym(U32, D.Am(m, q), 0, eA) :
+      {Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 1), 0), U32.is_eq(f2, c))), Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 2), 0), U32.is_eq(f3, c))),
+        D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 4), 0), U32.is_eq(f4, c))))) == 0n : Nat}; {==}) : {D.Ow(m, q, c) == 0n : Nat}}
+  Equal.trans(Nat, D.Occ(D.Ps(m, Q, q), c), 0n, D.Ow(m, q, c), Equal.cong(List<&2, U32>, Nat, z => D.Occ(z, c), D.Ps(m, Q, q), Nil{}, eN),
+    Equal.sym(Nat, D.Ow(m, q, c), 0n, eW))
+
+def ps.ow.b(t: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +c: U32, +et: {U32.is_lt(U32.and(D.Fd(0n, m, q), 63), 19) == t : Bool}) ->
+  {D.Occ(D.Ps(m, Con{q, Qr}, q), c) == D.Ow(m, q, c) : Nat}:
+  match t:
+    case True{}:
+      ps.ow.t(m, Con{q, Qr}, q, c, et)
+    case False{}:
+      +tg = U32.and(D.Fd(0n, m, q), 63)
+      +hqq = {K.Bo.or_il(U32.is_eq(q, q), D.Has(Qr, q), K.U.eq_refl(q)) : {D.Has(Con{q, Qr}, q) == True{} : Bool}}
+      +ht = K.al.hd.tg(m, Con{q, Qr}, q, F, nx, q.hd(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb))
+      +hb = K.Bo.or_r(U32.is_le(tg, 18), Bool.and(U32.is_le(32, tg), D.Has(Con{q, Qr}, q)), ht, le18.f.b(U32.is_le(tg, 18), tg, {==}, et))
+      ps.ow.o(m, Con{q, Qr}, q, c, et, K.Bo.and_l(U32.is_le(32, tg), D.Has(Con{q, Qr}, q), hb), hqq)
+
+def ps.ow.q(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +c: U32) -> {D.Occ(D.Ps(m, Con{q, Qr}, q), c) == D.Ow(m, q, c) : Nat}:
+  ps.ow.b(U32.is_lt(U32.and(D.Fd(0n, m, q), 63), 19), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, c, {==})
+
+# The pointers to a cell after a reuse: q's old ones go
+# -----------------------------------------------------
+
+# q once among the n cells from o
+def Once(n: Nat, +o: U32, +q: U32) -> Bool:
+  match n:
+    case 0n:
+      False{}
+    case 1n+(+p):
+      Bool.pick(Bool, U32.is_eq(o, q), K.Ne(p, U32.inc(o), q), Once(p, U32.inc(o), q))
+
+def pc.ne(n: Nat, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +c: U32, hn: {K.Ne(n, o, q) == True{} : Bool}) ->
+  {D.Pc(n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), o, c) == D.Pc(n, m, Con{q, Qr}, o, c) : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +M = W1s(ws, m)
+      +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+      +Q2 = List.append(&2, U32, pu, Qr)
+      +Q = {Con{q, Qr} : List<&2, U32>}
+      +Dl = Del(P, q)
+
+      +hn2 = hn
+      +ne = K.Bo.not_t(U32.is_eq(o, q), K.Bo.and_l(Bool.not(U32.is_eq(o, q)), K.Ne(p, U32.inc(o), q), hn2))
+      %Equal.sym(List<&2, U32>, D.Ps(ms, Q2, o), D.Ps(m, Q, o), ps.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, ne)) :
+        {Nat.add(D.Occ(_, c), D.Pc(p, ms, Q2, U32.inc(o), c)) == Nat.add(D.Occ(D.Ps(m, Q, o), c), D.Pc(p, m, Q, U32.inc(o), c)) : Nat}
+      %Equal.sym(Nat, D.Pc(p, ms, Q2, U32.inc(o), c), D.Pc(p, m, Q, U32.inc(o), c),
+        pc.ne(p, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, U32.inc(o), c, K.Bo.and_r(Bool.not(U32.is_eq(o, q)), K.Ne(p, U32.inc(o), q), hn2))) :
+        {Nat.add(D.Occ(D.Ps(m, Q, o), c), _) == Nat.add(D.Occ(D.Ps(m, Q, o), c), D.Pc(p, m, Q, U32.inc(o), c)) : Nat}
+      {==}
+
+def pc.once.b(e: Bool, +p: Nat, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +c: U32, +eo: {U32.is_eq(o, q) == e : Bool},
+  h: {Bool.pick(Bool, e, K.Ne(p, U32.inc(o), q), Once(p, U32.inc(o), q)) == True{} : Bool},
+  k: {Once(p, U32.inc(o), q) == True{} : Bool} -> {Nat.add(D.Pc(p, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), U32.inc(o), c), D.Ow(m, q, c)) == D.Pc(p, m, Con{q, Qr}, U32.inc(o), c) : Nat}) ->
+  {Nat.add(Nat.add(D.Occ(D.Ps(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), o), c), D.Pc(p, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), U32.inc(o), c)), D.Ow(m, q, c)) ==
+    Nat.add(D.Occ(D.Ps(m, Con{q, Qr}, o), c), D.Pc(p, m, Con{q, Qr}, U32.inc(o), c)) : Nat}:
+  match e:
+    case True{}:
+      +M = W1s(ws, m)
+      +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+      +Q2 = List.append(&2, U32, pu, Qr)
+      +Q = {Con{q, Qr} : List<&2, U32>}
+      +Dl = Del(P, q)
+
+      +eq = Equal.sym(U32, o, q, K.U.eq(o, q, eo))
+      +X = D.Pc(p, ms, Q2, U32.inc(o), c)
+      +Y = D.Pc(p, m, Q, U32.inc(o), c)
+      +W = D.Ow(m, q, c)
+      +e0 = {(%eq : {D.Ps(ms, Q2, _) == Nil{} : List<&2, U32>}; ps.zq0(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb)) : {D.Ps(ms, Q2, o) == Nil{} : List<&2, U32>}}
+      +e1 = {(%eq : {D.Occ(D.Ps(m, Q, _), c) == W : Nat}; ps.ow.q(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, c)) : {D.Occ(D.Ps(m, Q, o), c) == W : Nat}}
+      %Equal.sym(List<&2, U32>, D.Ps(ms, Q2, o), Nil{}, e0) : {Nat.add(Nat.add(D.Occ(_, c), X), W) == Nat.add(D.Occ(D.Ps(m, Q, o), c), Y) : Nat}
+      %Equal.sym(Nat, D.Occ(D.Ps(m, Q, o), c), W, e1) : {Nat.add(X, W) == Nat.add(_, Y) : Nat}
+      %Equal.sym(Nat, X, Y, pc.ne(p, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, U32.inc(o), c, h)) : {Nat.add(_, W) == Nat.add(W, Y) : Nat}
+      Na.comm(Y, W)
+    case False{}:
+      +M = W1s(ws, m)
+      +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+      +Q2 = List.append(&2, U32, pu, Qr)
+      +Q = {Con{q, Qr} : List<&2, U32>}
+      +Dl = Del(P, q)
+
+      +X = D.Pc(p, ms, Q2, U32.inc(o), c)
+      +Y = D.Pc(p, m, Q, U32.inc(o), c)
+      +W = D.Ow(m, q, c)
+      +A = D.Occ(D.Ps(m, Q, o), c)
+      %Equal.sym(List<&2, U32>, D.Ps(ms, Q2, o), D.Ps(m, Q, o), ps.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, eo)) :
+        {Nat.add(Nat.add(D.Occ(_, c), X), W) == Nat.add(A, Y) : Nat}
+      Equal.trans(Nat, Nat.add(Nat.add(A, X), W), Nat.add(A, Nat.add(X, W)), Nat.add(A, Y), N.add_assoc(A, X, W),
+        Equal.cong(Nat, Nat, z => Nat.add(A, z), Nat.add(X, W), Y, k(h)))
+
+# the pointers to c of the n cells from o, q once among them: q's go
+def pc.once(n: Nat, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +c: U32, h: {Once(n, o, q) == True{} : Bool}) ->
+  {Nat.add(D.Pc(n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), o, c), D.Ow(m, q, c)) == D.Pc(n, m, Con{q, Qr}, o, c) : Nat}:
+  match n:
+    case 0n:
+      K.Bo.tf({Nat.add(0n, D.Ow(m, q, c)) == 0n : Nat}, h)
+    case 1n+(+p):
+      pc.once.b(U32.is_eq(o, q), p, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, c, {==}, h, h2 => pc.once(p, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, U32.inc(o), c, h2))
+
+# the n cells from o, all above z and below N, are not z
+def Ar.ne.above(n: Nat, +o: U32, +z: U32, +N: U32, hz: N.Le(1n+U32.to_nat(z), U32.to_nat(o)), hb: N.Le(Nat.add(U32.to_nat(o), n), U32.to_nat(N))) ->
+  {K.Ne(n, o, z) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +x = U32.to_nat(o)
+      +hz2 = hz
+      +h1 = N.le_rw_l(Nat.add(x, 1n+p), 1n+Nat.add(x, p), U32.to_nat(N), N.add_succ_r(x, p), hb)
+      +lt = N.le_trans(1n+x, 1n+Nat.add(x, p), U32.to_nat(N), N.le_add_r(1n+x, p), h1)
+      +ei = K.Ar.u.inc(o, N, lt)
+      +h2 = N.le_rw_l(1n+Nat.add(x, p), Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N),
+        Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(o)), p), 1n+Nat.add(x, p), Equal.cong(Nat, Nat, y => Nat.add(y, p), U32.to_nat(U32.inc(o)), 1n+x, ei)), h1)
+      +hz3 = N.le_rw_r(1n+U32.to_nat(z), 1n+x, U32.to_nat(U32.inc(o)), Equal.sym(Nat, U32.to_nat(U32.inc(o)), 1n+x, ei),
+        N.le_succ(1n+U32.to_nat(z), x, hz2))
+      K.Bo.and_i(Bool.not(U32.is_eq(o, z)), K.Ne(p, U32.inc(o), z), K.Bo.not_i(U32.is_eq(o, z), K.U.ne.sym(z, o, K.Ar.ne(z, o, hz2))),
+        Ar.ne.above(p, U32.inc(o), z, N, hz3, h2))
+
+# a <= b, not equal: a < b
+def lt.of.ne.c(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(x, y), ne: {Cmp.is_eq(c) == False{} : Bool}) -> N.Le(1n+x, y):
+  match c:
+    case LT{}:
+      r
+    case EQ{}:
+      K.Bo.ft(N.Le(1n+x, y), ne)
+    case GT{}:
+      Empty.absurd(N.Le(1n+x, y), N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h)))
+
+def lt.of.ne(+a: U32, +b: U32, h: N.Le(U32.to_nat(a), U32.to_nat(b)), ne: {U32.is_eq(a, b) == False{} : Bool}) -> N.Le(1n+U32.to_nat(a), U32.to_nat(b)):
+  lt.of.ne.c(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), K.U.rel(a, b), h, ne)
+
+def once.at.b(e: Bool, +p: Nat, +o: U32, +q: U32, +N: U32, +eo: {U32.is_eq(o, q) == e : Bool}, +h1: N.Le(U32.to_nat(o), U32.to_nat(q)),
+  +h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), 1n+p)), +ei: {U32.to_nat(U32.inc(o)) == 1n+U32.to_nat(o) : Nat},
+  +eI: {1n+Nat.add(U32.to_nat(o), p) == Nat.add(U32.to_nat(U32.inc(o)), p) : Nat}, +hb2: N.Le(Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N)),
+  k: N.Le(U32.to_nat(U32.inc(o)), U32.to_nat(q)) -> N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(U32.inc(o)), p)) ->
+    N.Le(Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N)) -> {Once(p, U32.inc(o), q) == True{} : Bool}) ->
+  {Bool.pick(Bool, e, K.Ne(p, U32.inc(o), q), Once(p, U32.inc(o), q)) == True{} : Bool}:
+  match e:
+    case True{}:
+      +x = U32.to_nat(o)
+      +eq = K.U.eq(o, q, eo)
+      +hz = {(%eq : N.Le(1n+U32.to_nat(_), U32.to_nat(U32.inc(o))); N.le_rw_r(1n+x, 1n+x, U32.to_nat(U32.inc(o)),
+        Equal.sym(Nat, U32.to_nat(U32.inc(o)), 1n+x, ei), N.le_refl(1n+x))) : N.Le(1n+U32.to_nat(q), U32.to_nat(U32.inc(o)))}
+      Ar.ne.above(p, U32.inc(o), q, N, hz, hb2)
+    case False{}:
+      +x = U32.to_nat(o)
+      +hlt = lt.of.ne(o, q, h1, eo)
+      k(N.le_rw_l(1n+x, U32.to_nat(U32.inc(o)), U32.to_nat(q), Equal.sym(Nat, U32.to_nat(U32.inc(o)), 1n+x, ei), hlt),
+        N.le_rw_r(1n+U32.to_nat(q), Nat.add(x, 1n+p), Nat.add(U32.to_nat(U32.inc(o)), p), Equal.trans(Nat, Nat.add(x, 1n+p), 1n+Nat.add(x, p),
+          Nat.add(U32.to_nat(U32.inc(o)), p), N.add_succ_r(x, p), eI), h2), hb2)
+
+# q is once among the cells from o to N, when o <= q < N
+def once.at(n: Nat, +o: U32, +q: U32, +N: U32, h1: N.Le(U32.to_nat(o), U32.to_nat(q)), h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), n)),
+  hb: N.Le(Nat.add(U32.to_nat(o), n), U32.to_nat(N))) -> {Once(n, o, q) == True{} : Bool}:
+  match n:
+    case 0n:
+      Empty.absurd({Once(0n, o, q) == True{} : Bool}, N.not_succ_le(U32.to_nat(q), N.le_trans(1n+U32.to_nat(q), U32.to_nat(o), U32.to_nat(q),
+        N.le_rw_r(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), 0n), U32.to_nat(o), N.add_zero(U32.to_nat(o)), h2), h1)))
+    case 1n+(+p):
+      +x = U32.to_nat(o)
+      +h1b = N.le_rw_l(Nat.add(x, 1n+p), 1n+Nat.add(x, p), U32.to_nat(N), N.add_succ_r(x, p), hb)
+      +lt = N.le_trans(1n+x, 1n+Nat.add(x, p), U32.to_nat(N), N.le_add_r(1n+x, p), h1b)
+      +ei = K.Ar.u.inc(o, N, lt)
+      +eI = Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(o)), p), 1n+Nat.add(x, p), Equal.cong(Nat, Nat, y => Nat.add(y, p), U32.to_nat(U32.inc(o)), 1n+x, ei))
+      +hb2 = N.le_rw_l(1n+Nat.add(x, p), Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N), eI, h1b)
+      once.at.b(U32.is_eq(o, q), p, o, q, N, {==}, h1, h2, ei, eI, hb2, a => b => c => once.at(p, U32.inc(o), q, N, a, b, c))
+
+
+# The pointers stay below next after a reuse
+def lt.zq.b(e: Bool, +p: Nat, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +eo: {U32.is_eq(o, q) == e : Bool},
+  h: {Bool.and(D.All.lt(D.Ps(m, Con{q, Qr}, o), nx), D.Lt(p, m, Con{q, Qr}, U32.inc(o), nx)) == True{} : Bool},
+  k: {D.Lt(p, m, Con{q, Qr}, U32.inc(o), nx) == True{} : Bool} -> {D.Lt(p, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), U32.inc(o), nx) == True{} : Bool}) ->
+  {Bool.and(D.All.lt(D.Ps(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), o), nx), D.Lt(p, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), U32.inc(o), nx)) == True{} : Bool}:
+  match e:
+    case True{}:
+      +M = W1s(ws, m)
+      +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+      +Q2 = List.append(&2, U32, pu, Qr)
+      +Q = {Con{q, Qr} : List<&2, U32>}
+      +Dl = Del(P, q)
+
+      +eq = Equal.sym(U32, o, q, K.U.eq(o, q, eo))
+      +e0 = {(%eq : {D.Ps(ms, Q2, _) == Nil{} : List<&2, U32>}; ps.zq0(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb)) : {D.Ps(ms, Q2, o) == Nil{} : List<&2, U32>}}
+      %Equal.sym(List<&2, U32>, D.Ps(ms, Q2, o), Nil{}, e0) : {Bool.and(D.All.lt(_, nx), D.Lt(p, ms, Q2, U32.inc(o), nx)) == True{} : Bool}
+      k(K.Bo.and_r(D.All.lt(D.Ps(m, Q, o), nx), D.Lt(p, m, Q, U32.inc(o), nx), h))
+    case False{}:
+      +M = W1s(ws, m)
+      +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+      +Q2 = List.append(&2, U32, pu, Qr)
+      +Q = {Con{q, Qr} : List<&2, U32>}
+      +Dl = Del(P, q)
+
+      +h2 = h
+      %Equal.sym(List<&2, U32>, D.Ps(ms, Q2, o), D.Ps(m, Q, o), ps.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, eo)) :
+        {Bool.and(D.All.lt(_, nx), D.Lt(p, ms, Q2, U32.inc(o), nx)) == True{} : Bool}
+      K.Bo.and_i(D.All.lt(D.Ps(m, Q, o), nx), D.Lt(p, ms, Q2, U32.inc(o), nx), K.Bo.and_l(D.All.lt(D.Ps(m, Q, o), nx), D.Lt(p, m, Q, U32.inc(o), nx), h2),
+        k(K.Bo.and_r(D.All.lt(D.Ps(m, Q, o), nx), D.Lt(p, m, Q, U32.inc(o), nx), h2)))
+
+def lt.zq(n: Nat, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, h: {D.Lt(n, m, Con{q, Qr}, o, nx) == True{} : Bool}) -> {D.Lt(n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), o, nx) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      lt.zq.b(U32.is_eq(o, q), p, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, {==}, h, h2 => lt.zq(p, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, U32.inc(o), h2))
+
+# What stays after a reuse
+# ------------------------
+
+# a cell but q keeps its fields 0 and 2 to 4
+def same.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +y: U32, +ne: {U32.is_eq(y, q) == False{} : Bool}) -> {D.Same.at(m, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), y) == True{} : Bool}:
+  +ms = Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero())
+  %Equal.sym(U32, D.Fd(0n, ms, y), D.Fd(0n, m, y), fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 0n, {==}, y, ne)) :
+    {Bool.and(U32.is_eq(_, D.Fd(0n, m, y)), Bool.and(U32.is_eq(D.Fd(2n, ms, y), D.Fd(2n, m, y)),
+      Bool.and(U32.is_eq(D.Fd(3n, ms, y), D.Fd(3n, m, y)), U32.is_eq(D.Fd(4n, ms, y), D.Fd(4n, m, y))))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(2n, ms, y), D.Fd(2n, m, y), fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 2n, {==}, y, ne)) :
+    {Bool.and(U32.is_eq(D.Fd(0n, m, y), D.Fd(0n, m, y)), Bool.and(U32.is_eq(_, D.Fd(2n, m, y)),
+      Bool.and(U32.is_eq(D.Fd(3n, ms, y), D.Fd(3n, m, y)), U32.is_eq(D.Fd(4n, ms, y), D.Fd(4n, m, y))))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(3n, ms, y), D.Fd(3n, m, y), fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 3n, {==}, y, ne)) :
+    {Bool.and(U32.is_eq(D.Fd(0n, m, y), D.Fd(0n, m, y)), Bool.and(U32.is_eq(D.Fd(2n, m, y), D.Fd(2n, m, y)),
+      Bool.and(U32.is_eq(_, D.Fd(3n, m, y)), U32.is_eq(D.Fd(4n, ms, y), D.Fd(4n, m, y))))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(4n, ms, y), D.Fd(4n, m, y), fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 4n, {==}, y, ne)) :
+    {Bool.and(U32.is_eq(D.Fd(0n, m, y), D.Fd(0n, m, y)), Bool.and(U32.is_eq(D.Fd(2n, m, y), D.Fd(2n, m, y)),
+      Bool.and(U32.is_eq(D.Fd(3n, m, y), D.Fd(3n, m, y)), U32.is_eq(_, D.Fd(4n, m, y))))) == True{} : Bool}
+  K.same.refl(m, y)
+
+# c3 + ((Pcs + ow) + 0) = (c3 + ow) + (Pcs + 0)
+def ar.kept(+c3: Nat, +ow: Nat, +pcs: Nat) -> {Nat.add(c3, Nat.add(Nat.add(pcs, ow), 0n)) == Nat.add(Nat.add(c3, ow), Nat.add(pcs, 0n)) : Nat}:
+  %Equal.sym(Nat, Nat.add(Nat.add(pcs, ow), 0n), Nat.add(pcs, ow), N.add_zero(Nat.add(pcs, ow))) :
+    {Nat.add(c3, _) == Nat.add(Nat.add(c3, ow), Nat.add(pcs, 0n)) : Nat}
+  %Equal.sym(Nat, Nat.add(pcs, 0n), pcs, N.add_zero(pcs)) : {Nat.add(c3, Nat.add(pcs, ow)) == Nat.add(Nat.add(c3, ow), _) : Nat}
+  Equal.trans(Nat, Nat.add(c3, Nat.add(pcs, ow)), Nat.add(c3, Nat.add(ow, pcs)), Nat.add(Nat.add(c3, ow), pcs),
+    Equal.cong(Nat, Nat, z => Nat.add(c3, z), Nat.add(pcs, ow), Nat.add(ow, pcs), Na.comm(pcs, ow)),
+    Equal.sym(Nat, Nat.add(Nat.add(c3, ow), pcs), Nat.add(c3, Nat.add(ow, pcs)), N.add_assoc(c3, ow, pcs)))
+
+# a live term cell c, neither q nor STATIC nor garbage: its count lost q's
+# pointers, as the pointers to it did
+def kept.eq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +c: U32, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool}, +hFc: {U32.is_le(F, c) == True{} : Bool},
+  +ne: {U32.is_eq(c, q) == False{} : Bool}, +hs: {D.Stc(m, c) == False{} : Bool}, +hD: {D.Has(Del(P, q), c) == False{} : Bool}) ->
+  {Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, c), D.Occ(Nil{}, c))),
+    Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, c), D.Occ(Nil{}, c)))) == True{} : Bool}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +Dl = Del(P, q)
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +ow = D.Ow(m, q, c)
+  +hP = {(%has.del(P, q, c, ne) : {_ == False{} : Bool}; hD) : {D.Has(P, c) == False{} : Bool}}
+  +hpu = K.sub.nhas(pu, P, c, gq.sub(pu, P, Q, hgq), hP)
+  +hv = dv.all(m, q, ws, pu, c, K.U.nz(c, K, F, hkf, hFc), hdv, hpt, hpp)
+  +e3 = dv.ne(m, M, pu, c, ow, hs, hpu, hv)
+  +ep = pc.once(n, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, F, c, hOnce)
+  +c3 = U32.to_nat(D.Fd(1n, M, c))
+  +pcs = D.Pc(n, ms, Q2, F, c)
+  %Equal.sym(U32, D.Fd(1n, ms, c), D.Fd(1n, M, c), f1.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, c, ne)) :
+    {Nat.is_eq(Nat.add(U32.to_nat(_), Nat.add(D.Pc(n, m, Q, F, c), 0n)), Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(pcs, 0n))) == True{} : Bool}
+  %ep : {Nat.is_eq(Nat.add(c3, Nat.add(_, 0n)), Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(pcs, 0n))) == True{} : Bool}
+  %e3 : {Nat.is_eq(Nat.add(c3, Nat.add(Nat.add(pcs, ow), 0n)), Nat.add(_, Nat.add(pcs, 0n))) == True{} : Bool}
+  %Equal.sym(Nat, Nat.add(c3, Nat.add(Nat.add(pcs, ow), 0n)), Nat.add(Nat.add(c3, ow), Nat.add(pcs, 0n)), ar.kept(c3, ow, pcs)) :
+    {Nat.is_eq(_, Nat.add(Nat.add(c3, ow), Nat.add(pcs, 0n))) == True{} : Bool}
+  K.Na.eq_refl(Nat.add(Nat.add(c3, ow), Nat.add(pcs, 0n)))
+
+
+def kept.or(g: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +c: U32, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool}, +hFc: {U32.is_le(F, c) == True{} : Bool},
+  +ne: {U32.is_eq(c, q) == False{} : Bool},
+  +eg: {Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(Del(P, q), c))) == g : Bool}) ->
+  {Bool.or(Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(Del(P, q), c))),
+    Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, c), D.Occ(Nil{}, c))),
+      Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, c), D.Occ(Nil{}, c))))) == True{} : Bool}:
+  match g:
+    case True{}:
+      +G = Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(Del(P, q), c)))
+      +Eq = Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, c), D.Occ(Nil{}, c))),
+        Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, c), D.Occ(Nil{}, c))))
+      K.Bo.or_il(G, Eq, eg)
+    case False{}:
+      +G = Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(Del(P, q), c)))
+      +Eq = Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, c), D.Occ(Nil{}, c))),
+        Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, c), D.Occ(Nil{}, c))))
+      +g2 = K.or.fr(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(Del(P, q), c)), eg)
+      K.Bo.or_ir(G, Eq, kept.eq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, c, hOnce, hFc, ne, K.or.fl(D.Stc(m, c), D.Has(Del(P, q), c), g2), K.or.fr(D.Stc(m, c), D.Has(Del(P, q), c), g2)))
+
+def kept.cell.e(e: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +c: U32, +ee: {U32.is_eq(q, c) == e : Bool}, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool},
+  +hFc: {U32.is_le(F, c) == True{} : Bool}) ->
+  {Bool.or(D.Has([q], c), Bool.and(D.Same.at(m, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c), Bool.or(Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)),
+    Bool.or(D.Stc(m, c), D.Has(Del(P, q), c))), Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, c), D.Occ(Nil{}, c))),
+    Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, c), D.Occ(Nil{}, c))))))) == True{} : Bool}:
+  match e:
+    case True{}:
+      +G = Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(Del(P, q), c)))
+      +Eq = Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, c), D.Occ(Nil{}, c))),
+        Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, c), D.Occ(Nil{}, c))))
+      +Sa = D.Same.at(m, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)
+      K.Bo.or_il(D.Has([q], c), Bool.and(Sa, Bool.or(G, Eq)),
+        (%Equal.sym(Bool, U32.is_eq(q, c), True{}, ee) : {Bool.or(_, False{}) == True{} : Bool}; {==}))
+    case False{}:
+      +G = Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, c), 63)), Bool.or(D.Stc(m, c), D.Has(Del(P, q), c)))
+      +Eq = Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, c), D.Occ(Nil{}, c))),
+        Nat.add(U32.to_nat(D.Fd(1n, m, c)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, c), D.Occ(Nil{}, c))))
+      +Sa = D.Same.at(m, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c)
+      +ne = K.U.ne.sym(q, c, ee)
+      K.Bo.or_ir(D.Has([q], c), Bool.and(Sa, Bool.or(G, Eq)), K.Bo.and_i(Sa, Bool.or(G, Eq), same.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, c, ne),
+        kept.or(G, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, c, hOnce, hFc, ne, {==})))
+
+# Kept of the n cells from o after a reuse
+def kept.zq(k: Nat, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool}, +hFo: N.Le(U32.to_nat(F), U32.to_nat(o)),
+  hb: N.Le(Nat.add(U32.to_nat(o), k), U32.to_nat(nx))) ->
+  {D.Kept(k, m, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), o, [q], Del(P, q), F, Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Con{q, Qr}, List.append(&2, U32, pu, Qr), Nil{}, Nil{}) == True{} : Bool}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +x = U32.to_nat(o)
+      +h1 = N.le_rw_l(Nat.add(x, 1n+p), 1n+Nat.add(x, p), U32.to_nat(nx), N.add_succ_r(x, p), hb)
+      +lt = N.le_trans(1n+x, 1n+Nat.add(x, p), U32.to_nat(nx), N.le_add_r(1n+x, p), h1)
+      +ei = K.Ar.u.inc(o, nx, lt)
+      +h2 = N.le_rw_l(1n+Nat.add(x, p), Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(nx),
+        Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(o)), p), 1n+Nat.add(x, p), Equal.cong(Nat, Nat, y => Nat.add(y, p), U32.to_nat(U32.inc(o)), 1n+x, ei)), h1)
+      +hFo2 = N.le_rw_r(U32.to_nat(F), 1n+x, U32.to_nat(U32.inc(o)), Equal.sym(Nat, U32.to_nat(U32.inc(o)), 1n+x, ei), N.le_succ(U32.to_nat(F), x, hFo))
+      K.Bo.and_i(Bool.or(D.Has([q], o), Bool.and(D.Same.at(m, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), o), Bool.or(Bool.or(U32.is_le(19, U32.and(D.Fd(0n, m, o), 63)),
+    Bool.or(D.Stc(m, o), D.Has(Del(P, q), o))), Nat.is_eq(Nat.add(U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), o)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, o), D.Occ(Nil{}, o))),
+    Nat.add(U32.to_nat(D.Fd(1n, m, o)), Nat.add(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, o), D.Occ(Nil{}, o))))))), D.Kept(p, m, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), U32.inc(o), [q], Del(P, q), F, Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Con{q, Qr}, List.append(&2, U32, pu, Qr), Nil{}, Nil{}),
+        kept.cell.e(U32.is_eq(q, o), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, {==}, hOnce, K.U.le_t(F, o, hFo)), kept.zq(p, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, U32.inc(o), hOnce, hFo2, h2))
+
+
+# The garbage after a reuse
+# -------------------------
+
+# nothing of the garbage points to q, so no garbage cell has q as a part
+def le0.eq(a: Nat, h: N.Le(a, 0n)) -> {a == 0n : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Empty.absurd({1n+p == 0n : Nat}, h)
+
+def Na.add0l(a: Nat, +b: Nat, h: {Nat.add(a, b) == 0n : Nat}) -> {a == 0n : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Empty.absurd({1n+p == 0n : Nat}, N.not_succ_le(0n, (%h : N.Le(1n, _); N.le_zero(Nat.add(p, b)))))
+
+def nof.z(b: Bool, h: {D.Nat.of(b) == 0n : Nat}) -> {b == False{} : Bool}:
+  match b:
+    case True{}:
+      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(0n, (%h : N.Le(1n, _); N.le_refl(1n))))
+    case False{}:
+      {==}
+
+def q.pp0(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m)) -> {D.Pp(P, m, q) == 0n : Nat}:
+  +pp = D.Pp(P, m, q)
+  +c0 = U32.to_nat(D.Fd(1n, m, q))
+  +hqq = {K.Bo.or_il(U32.is_eq(q, q), D.Has(Qr, q), K.U.eq_refl(q)) : {D.Has(Con{q, Qr}, q) == True{} : Bool}}
+  +h1 = K.Bo.and_r(Nat.is_eq(D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, q), pp), Bool.pick(Bool, D.Has(Con{q, Qr}, q), Nat.is_eq(pp, 0n),
+    Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp))), q.ct(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb))
+  K.Na.eq(pp, 0n, (%hqq : {Bool.pick(Bool, _, Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp))) == True{} : Bool}; h1))
+
+def ow.q0(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +hP: {D.Has(P, o) == True{} : Bool}) -> {D.Ow(m, o, q) == 0n : Nat}:
+  le0.eq(D.Ow(m, o, q), (%q.pp0(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb) : N.Le(D.Ow(m, o, q), _); pp.ge(P, m, o, q, hP)))
+
+# cells of a list: in the list and its extensions
+def sub.cons(xs: List<&2, U32>, +y: U32, +ys: List<&2, U32>, h: {D.Sub(xs, ys) == True{} : Bool}) -> {D.Sub(xs, Con{y, ys}) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      +h2 = h
+      K.Bo.and_i(D.Has(Con{y, ys}, x), D.Sub(rest, Con{y, ys}),
+        K.Bo.or_ir(U32.is_eq(y, x), D.Has(ys, x), K.Bo.and_l(D.Has(ys, x), D.Sub(rest, ys), h2)),
+        sub.cons(rest, y, ys, K.Bo.and_r(D.Has(ys, x), D.Sub(rest, ys), h2)))
+
+def sub.refl(xs: List<&2, U32>) -> {D.Sub(xs, xs) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      K.Bo.and_i(D.Has(Con{x, rest}, x), D.Sub(rest, Con{x, rest}), K.Bo.or_il(U32.is_eq(x, x), D.Has(rest, x), K.U.eq_refl(x)),
+        sub.cons(rest, x, rest, sub.refl(rest)))
+
+# a cell of Del(P, q) is not q
+def neq.del.b(e: Bool, +P: List<&2, U32>, +q: U32, +o: U32, +eo: {U32.is_eq(o, q) == e : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  hD: {D.Has(Del(P, q), o) == True{} : Bool}) -> {U32.is_eq(o, q) == False{} : Bool}:
+  match e:
+    case True{}:
+      +eq = K.U.eq(o, q, eo)
+      K.Bo.ft({U32.is_eq(o, q) == False{} : Bool}, Equal.trans(Bool, True{}, D.Has(Del(P, q), q), False{},
+        Equal.sym(Bool, D.Has(Del(P, q), q), True{}, (%eq : {D.Has(Del(P, q), _) == True{} : Bool}; hD)), del.nhas(P, q, hnp)))
+    case False{}:
+      eo
+
+def neq.del(+P: List<&2, U32>, +q: U32, +o: U32, +hnp: {D.Nodup(P) == True{} : Bool}, hD: {D.Has(Del(P, q), o) == True{} : Bool}) ->
+  {U32.is_eq(o, q) == False{} : Bool}:
+  neq.del.b(U32.is_eq(o, q), P, q, o, {==}, hnp, hD)
+
+# the garbage's pointers after the zero store at q
+def pp.zqr(os: List<&2, U32>, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +c: U32, hos: {D.Sub(os, Del(P, q)) == True{} : Bool}) ->
+  {D.Pp(os, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c) == D.Pp(os, W1s(ws, m), c) : Nat}:
+  match os:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      +M = W1s(ws, m)
+      +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+      +Q2 = List.append(&2, U32, pu, Qr)
+      +Q = {Con{q, Qr} : List<&2, U32>}
+      +Dl = Del(P, q)
+
+      +h2 = hos
+      +hD = K.Bo.and_l(D.Has(Dl, o), D.Sub(rest, Dl), h2)
+      +hP = has.del.le(P, q, o, hD)
+      +ne = neq.del(P, q, o, hnp, hD)
+      +hx = al.mem(P, m, P, Q, zs, K, F, nx, o, hP, hcs)
+      +hd0 = K.Bo.and_l(K.AL.hd(m, Q, o, F, nx), Bool.and(K.AL.pt(m, P, zs, o, K, F, nx), K.AL.ct(m, P, Q, o, F, nx)), hx)
+      +ht = {(%Equal.sym(U32, D.Fd(0n, M, o), D.Fd(0n, m, o), fd.w1s(ws, m, 0n, {==}, o)) :
+          {Bool.or(U32.is_le(U32.and(_, 63), 18), Bool.and(U32.is_le(32, U32.and(_, 63)), D.Has(Q, o))) == True{} : Bool};
+        K.al.hd.tg(m, Q, o, F, nx, hd0)) :
+        {Bool.or(U32.is_le(U32.and(D.Fd(0n, M, o), 63), 18), Bool.and(U32.is_le(32, U32.and(D.Fd(0n, M, o), 63)), D.Has(Q, o))) == True{} : Bool}}
+      %Equal.sym(Nat, D.Ow(ms, o, c), D.Ow(M, o, c), K.ow.set(M, q, Cr.Cir.Cell.zero(), o, c, D.Has(Q, o), ne, ht, hzq)) :
+        {Nat.add(_, D.Pp(rest, ms, c)) == Nat.add(D.Ow(M, o, c), D.Pp(rest, M, c)) : Nat}
+      %Equal.sym(Nat, D.Pp(rest, ms, c), D.Pp(rest, M, c), pp.zqr(rest, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, c, K.Bo.and_r(D.Has(Dl, o), D.Sub(rest, Dl), h2))) :
+        {Nat.add(D.Ow(M, o, c), _) == Nat.add(D.Ow(M, o, c), D.Pp(rest, M, c)) : Nat}
+      {==}
+
+def pp.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +c: U32) -> {D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c) == D.Pp(Del(P, q), m, c) : Nat}:
+  Equal.trans(Nat, D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), c), D.Pp(Del(P, q), W1s(ws, m), c), D.Pp(Del(P, q), m, c), pp.zqr(Del(P, q), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, c, sub.refl(Del(P, q))),
+    pp.w1s(Del(P, q), ws, m, c))
+
+# a garbage cell's part p: the same after the reuse
+def live.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +p: U32, +hz: {U32.is_zero(p) == False{} : Bool}, +hs: {D.Stc(m, p) == False{} : Bool},
+  hl: {Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))) == True{} : Bool}) ->
+  {Nat.is_lt(D.Pp(Del(P, q), m, p), U32.to_nat(D.Fd(1n, W1s(ws, m), p))) == True{} : Bool}:
+  +M = W1s(ws, m)
+  +ow = D.Ow(m, q, p)
+  +c0 = U32.to_nat(D.Fd(1n, m, p))
+  +c3 = U32.to_nat(D.Fd(1n, M, p))
+  +PpP = D.Pp(P, m, p)
+  +PpD = D.Pp(Del(P, q), m, p)
+  +hl1 = K.Na.lt1(PpP, c0, hl)
+  +hb = N.le_trans(1n+ow, 1n+PpP, c0, pp.ge(P, m, q, p, hq), hl1)
+  +hv = dv.all(m, q, ws, pu, p, hz, hdv, hpt, hpp)
+  +hpu = dv.np(m, M, pu, p, ow, hs, hv, hb)
+  +e3 = dv.ne(m, M, pu, p, ow, hs, hpu, hv)
+  +ed = pp.del(P, m, q, p, hq)
+  +h2 = {(%ed : N.Le(1n+_, Nat.add(c3, ow)); (%Equal.sym(Nat, Nat.add(c3, ow), c0, e3) : N.Le(1n+PpP, _); hl1)) : N.Le(1n+Nat.add(ow, PpD), Nat.add(c3, ow))}
+  +h3 = N.le_rw_r(1n+Nat.add(ow, PpD), Nat.add(c3, ow), Nat.add(ow, c3), Na.comm(c3, ow), h2)
+  +h4 = N.le_rw_l(1n+Nat.add(ow, PpD), Nat.add(ow, 1n+PpD), Nat.add(ow, c3), Equal.sym(Nat, Nat.add(ow, 1n+PpD), 1n+Nat.add(ow, PpD), N.add_succ_r(ow, PpD)), h3)
+  K.Na.lt1i(PpD, c3, K.Na.le.canc(ow, 1n+PpD, c3, h4))
+
+def inner.ip(ip: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +p: U32, +z: Nat, +hz: {U32.is_zero(p) == False{} : Bool}, +hs: {D.Stc(m, p) == False{} : Bool},
+  +eip: {Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)) == ip : Bool},
+  h: {Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p)))) == True{} : Bool}) ->
+  {Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Del(P, q), m, p), U32.to_nat(D.Fd(1n, W1s(ws, m), p)))) == True{} : Bool}:
+  match ip:
+    case True{}:
+      +IP = Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z))
+      K.Bo.or_il(IP, Nat.is_lt(D.Pp(Del(P, q), m, p), U32.to_nat(D.Fd(1n, W1s(ws, m), p))), eip)
+    case False{}:
+      +IP = Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z))
+      K.Bo.or_ir(IP, Nat.is_lt(D.Pp(Del(P, q), m, p), U32.to_nat(D.Fd(1n, W1s(ws, m), p))),
+        live.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, p, hz, hs, K.Bo.or_r(IP, Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))), h, eip)))
+
+def inner.st(st: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +p: U32, +z: Nat, +hz: {U32.is_zero(p) == False{} : Bool}, +est: {D.Stc(m, p) == st : Bool},
+  h: {Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))))) == True{} : Bool}) ->
+  {Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Del(P, q), m, p), U32.to_nat(D.Fd(1n, W1s(ws, m), p))))) ==
+    True{} : Bool}:
+  match st:
+    case True{}:
+      +R4N = Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Del(P, q), m, p), U32.to_nat(D.Fd(1n, W1s(ws, m), p))))
+      K.Bo.or_il(D.Stc(m, p), R4N, est)
+    case False{}:
+      +R4N = Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Del(P, q), m, p), U32.to_nat(D.Fd(1n, W1s(ws, m), p))))
+      +R4O = Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))))
+      K.Bo.or_ir(D.Stc(m, p), R4N, inner.ip(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, p, z, hz, est, {==},
+        K.Bo.or_r(D.Stc(m, p), R4O, h, est)))
+
+def inner.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +p: U32, +z: Nat, h: {Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))))) == True{} : Bool}, +hz: {U32.is_zero(p) == False{} : Bool},
+  +ne: {U32.is_eq(p, q) == False{} : Bool}) -> {Bool.or(D.Stc(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), Bool.or(Bool.and(D.Has(Del(P, q), p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p))))) == True{} : Bool}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +Dl = Del(P, q)
+  %Equal.sym(Bool, D.Stc(ms, p), D.Stc(m, p), stc.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, p, ne)) :
+    {Bool.or(_, Bool.or(Bool.and(D.Has(Dl, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Dl, ms, p), U32.to_nat(D.Fd(1n, ms, p))))) == True{} : Bool}
+  %Equal.sym(Bool, D.Has(Dl, p), D.Has(P, p), has.del(P, q, p, ne)) :
+    {Bool.or(D.Stc(m, p), Bool.or(Bool.and(_, Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Dl, ms, p), U32.to_nat(D.Fd(1n, ms, p))))) == True{} : Bool}
+  %Equal.sym(Nat, D.Pp(Dl, ms, p), D.Pp(Dl, m, p), pp.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, p)) :
+    {Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(_, U32.to_nat(D.Fd(1n, ms, p))))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(1n, ms, p), D.Fd(1n, M, p), f1.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, p, ne)) :
+    {Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Dl, m, p), U32.to_nat(_)))) == True{} : Bool}
+  inner.st(D.Stc(m, p), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, p, z, hz, {==}, h)
+
+
+# a garbage cell's own facts after the reuse
+def hd.mono(+A: Bool, +B: Bool, +C: Bool, +X: Bool, +X2: Bool, h: {Bool.and(A, Bool.or(B, Bool.and(C, X))) == True{} : Bool},
+  k: {X == True{} : Bool} -> {X2 == True{} : Bool}) -> {Bool.and(A, Bool.or(B, Bool.and(C, X2))) == True{} : Bool}:
+  +h2 = h
+  K.Bo.and_i(A, Bool.or(B, Bool.and(C, X2)), K.Bo.and_l(A, Bool.or(B, Bool.and(C, X)), h2),
+    or.mono_r(B, Bool.and(C, X), Bool.and(C, X2), K.Bo.and_r(A, Bool.or(B, Bool.and(C, X)), h2),
+      +hc => K.Bo.and_i(C, X2, K.Bo.and_l(C, X, hc), k(K.Bo.and_r(C, X, hc)))))
+
+def has.q2(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +o: U32, +ne: {U32.is_eq(o, q) == False{} : Bool}, hx: {D.Has(Con{q, Qr}, o) == True{} : Bool}) -> {D.Has(List.append(&2, U32, pu, Qr), o) == True{} : Bool}:
+  +hr = {(%K.U.ne.sym(o, q, ne) : {Bool.or(_, D.Has(Qr, o)) == True{} : Bool}; hx) : {D.Has(Qr, o) == True{} : Bool}}
+  (%Equal.sym(Bool, D.Has(List.append(&2, U32, pu, Qr), o), Bool.or(D.Has(pu, o), D.Has(Qr, o)), K.has.app(pu, Qr, o)) : {_ == True{} : Bool};
+    K.Bo.or_ir(D.Has(pu, o), D.Has(Qr, o), hr))
+
+def al.o.hd(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +ne: {U32.is_eq(o, q) == False{} : Bool}, +hd0: {K.AL.hd(m, Con{q, Qr}, o, F, nx) == True{} : Bool}) ->
+  {K.AL.hd(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), o, F, nx) == True{} : Bool}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +Dl = Del(P, q)
+  +f0 = D.Fd(0n, m, o)
+  +tg = U32.and(f0, 63)
+  +A = Bool.and(Bool.and(U32.is_le(F, o), U32.is_lt(o, nx)), Bool.not(U32.is_ne(U32.and(f0, 1024), 0)))
+  %Equal.sym(U32, D.Fd(0n, ms, o), f0, fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 0n, {==}, o, ne)) :
+    {Bool.and(Bool.and(Bool.and(U32.is_le(F, o), U32.is_lt(o, nx)), Bool.not(U32.is_ne(U32.and(_, 1024), 0))),
+      Bool.or(U32.is_le(U32.and(_, 63), 18), Bool.and(U32.is_le(32, U32.and(_, 63)), D.Has(Q2, o)))) == True{} : Bool}
+  hd.mono(A, U32.is_le(tg, 18), U32.is_le(32, tg), D.Has(Q, o), D.Has(Q2, o), hd0, hx => has.q2(m, q, Qr, P, zs, K, F, nx, ws, pu, o, ne, hx))
+
+# the mask of a garbage cell after the reuse
+def am.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +ne: {U32.is_eq(o, q) == False{} : Bool},
+  +htag: {Bool.or(U32.is_le(U32.and(D.Fd(0n, m, o), 63), 18), Bool.and(U32.is_le(32, U32.and(D.Fd(0n, m, o), 63)), D.Has(Con{q, Qr}, o))) == True{} : Bool}) ->
+  {D.Am(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), o) == D.Am(m, o) : U32}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +Dl = Del(P, q)
+  +htM = {(%Equal.sym(U32, D.Fd(0n, M, o), D.Fd(0n, m, o), fd.w1s(ws, m, 0n, {==}, o)) :
+      {Bool.or(U32.is_le(U32.and(_, 63), 18), Bool.and(U32.is_le(32, U32.and(_, 63)), D.Has(Q, o))) == True{} : Bool}; htag) :
+    {Bool.or(U32.is_le(U32.and(D.Fd(0n, M, o), 63), 18), Bool.and(U32.is_le(32, U32.and(D.Fd(0n, M, o), 63)), D.Has(Q, o))) == True{} : Bool}}
+  Equal.trans(U32, D.Am(ms, o), D.Am(M, o), D.Am(m, o), K.am.set(M, q, Cr.Cir.Cell.zero(), o, D.Has(Q, o), ne, htM, hzq), am.w1s(ws, m, o))
+
+# a part of a garbage cell after the reuse
+def part.zq.z(z0: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +p: U32, +z: Nat, +ez: {U32.is_zero(p) == z0 : Bool}, +ne: {U32.is_eq(p, q) == False{} : Bool},
+  h1: {Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, nx), Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)),
+    Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))))))) == True{} : Bool}) ->
+  {Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, nx), Bool.or(D.Stc(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), Bool.or(Bool.and(D.Has(Del(P, q), p), Nat.is_lt(D.Zz(zs, p), z)),
+    Nat.is_lt(D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p))))))) == True{} : Bool}:
+  match z0:
+    case True{}:
+      +R3O = Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p)))))
+      +R3N = Bool.or(D.Stc(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), Bool.or(Bool.and(D.Has(Del(P, q), p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p)))))
+      +IC = Cr.Cir.is_cell(p, K, F, nx)
+      K.Bo.or_il(U32.is_zero(p), Bool.and(IC, R3N), ez)
+    case False{}:
+      +R3O = Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p)))))
+      +R3N = Bool.or(D.Stc(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), Bool.or(Bool.and(D.Has(Del(P, q), p), Nat.is_lt(D.Zz(zs, p), z)), Nat.is_lt(D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p)))))
+      +IC = Cr.Cir.is_cell(p, K, F, nx)
+      +r = K.Bo.or_r(U32.is_zero(p), Bool.and(IC, R3O), h1, ez)
+      K.Bo.or_ir(U32.is_zero(p), Bool.and(IC, R3N), K.Bo.and_i(IC, R3N, K.Bo.and_l(IC, R3O, r), inner.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, p, z, K.Bo.and_r(IC, R3O, r), ez, ne)))
+
+def part.zq.s(s: Bool, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +am: U32, +bit: U32, +p: U32, +z: Nat, +es: {U32.is_zero(U32.and(am, bit)) == s : Bool},
+  h: {D.AL.part(m, P, zs, z, am, bit, p, K, F, nx) == True{} : Bool}, +hpq: {Bool.and(U32.is_ne(U32.and(am, bit), 0), U32.is_eq(p, q)) == False{} : Bool}) ->
+  {D.AL.part(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), Del(P, q), zs, z, am, bit, p, K, F, nx) == True{} : Bool}:
+  match s:
+    case True{}:
+      +R1N = Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, nx), Bool.or(D.Stc(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), Bool.or(Bool.and(D.Has(Del(P, q), p), Nat.is_lt(D.Zz(zs, p), z)),
+        Nat.is_lt(D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p)))))))
+      +R1O = Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, nx), Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)),
+        Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p)))))))
+      K.Bo.or_il(U32.is_zero(U32.and(am, bit)), R1N, es)
+    case False{}:
+      +R1N = Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, nx), Bool.or(D.Stc(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), Bool.or(Bool.and(D.Has(Del(P, q), p), Nat.is_lt(D.Zz(zs, p), z)),
+        Nat.is_lt(D.Pp(Del(P, q), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p), U32.to_nat(D.Fd(1n, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p)))))))
+      +R1O = Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, nx), Bool.or(D.Stc(m, p), Bool.or(Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z)),
+        Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p)))))))
+      +ne = {(%es : {Bool.and(Bool.not(_), U32.is_eq(p, q)) == False{} : Bool}; hpq) : {U32.is_eq(p, q) == False{} : Bool}}
+      K.Bo.or_ir(U32.is_zero(U32.and(am, bit)), R1N,
+        part.zq.z(U32.is_zero(p), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, p, z, {==}, ne, K.Bo.or_r(U32.is_zero(U32.and(am, bit)), R1O, h, es)))
+
+def part.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +am: U32, +bit: U32, +p: U32, +z: Nat, h: {D.AL.part(m, P, zs, z, am, bit, p, K, F, nx) == True{} : Bool},
+  +hpq: {Bool.and(U32.is_ne(U32.and(am, bit), 0), U32.is_eq(p, q)) == False{} : Bool}) ->
+  {D.AL.part(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), Del(P, q), zs, z, am, bit, p, K, F, nx) == True{} : Bool}:
+  part.zq.s(U32.is_zero(U32.and(am, bit)), m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, am, bit, p, z, {==}, h, hpq)
+
+def al.o.pt(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +ne: {U32.is_eq(o, q) == False{} : Bool}, +hP: {D.Has(P, o) == True{} : Bool},
+  +hd0: {K.AL.hd(m, Con{q, Qr}, o, F, nx) == True{} : Bool}, pt0: {K.AL.pt(m, P, zs, o, K, F, nx) == True{} : Bool}) ->
+  {K.AL.pt(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), Del(P, q), zs, o, K, F, nx) == True{} : Bool}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(M, q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +Dl = Del(P, q)
+  +pt2 = pt0
+  +a = D.Am(m, o)
+  +z = D.Zz(zs, o)
+  +f2 = D.Fd(2n, m, o)
+  +f3 = D.Fd(3n, m, o)
+  +f4 = D.Fd(4n, m, o)
+  +A1 = D.AL.part(m, P, zs, z, a, 1, f2, K, F, nx)
+  +A2 = D.AL.part(m, P, zs, z, a, 2, f3, K, F, nx)
+  +A4 = D.AL.part(m, P, zs, z, a, 4, f4, K, F, nx)
+  +r = K.Bo.and_r(A1, Bool.and(A2, A4), pt2)
+  +w0 = ow.q0(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, hP)
+  +T1 = Bool.and(U32.is_ne(U32.and(a, 1), 0), U32.is_eq(f2, q))
+  +T2 = Bool.and(U32.is_ne(U32.and(a, 2), 0), U32.is_eq(f3, q))
+  +T3 = Bool.and(U32.is_ne(U32.and(a, 4), 0), U32.is_eq(f4, q))
+  +t1 = nof.z(T1, Na.add0l(D.Nat.of(T1), Nat.add(D.Nat.of(T2), D.Nat.of(T3)), w0))
+  +w1 = K.Na.add0r(D.Nat.of(T1), Nat.add(D.Nat.of(T2), D.Nat.of(T3)), w0)
+  +t2 = nof.z(T2, Na.add0l(D.Nat.of(T2), D.Nat.of(T3), w1))
+  +t3 = nof.z(T3, K.Na.add0r(D.Nat.of(T2), D.Nat.of(T3), w1))
+  +ea = am.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, ne, K.al.hd.tg(m, Q, o, F, nx, hd0))
+  %Equal.sym(U32, D.Am(ms, o), a, ea) :
+    {Bool.and(D.AL.part(ms, Dl, zs, z, _, 1, D.Fd(2n, ms, o), K, F, nx), Bool.and(D.AL.part(ms, Dl, zs, z, _, 2, D.Fd(3n, ms, o), K, F, nx),
+      D.AL.part(ms, Dl, zs, z, _, 4, D.Fd(4n, ms, o), K, F, nx))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(2n, ms, o), f2, fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 2n, {==}, o, ne)) :
+    {Bool.and(D.AL.part(ms, Dl, zs, z, a, 1, _, K, F, nx), Bool.and(D.AL.part(ms, Dl, zs, z, a, 2, D.Fd(3n, ms, o), K, F, nx),
+      D.AL.part(ms, Dl, zs, z, a, 4, D.Fd(4n, ms, o), K, F, nx))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(3n, ms, o), f3, fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 3n, {==}, o, ne)) :
+    {Bool.and(D.AL.part(ms, Dl, zs, z, a, 1, f2, K, F, nx), Bool.and(D.AL.part(ms, Dl, zs, z, a, 2, _, K, F, nx),
+      D.AL.part(ms, Dl, zs, z, a, 4, D.Fd(4n, ms, o), K, F, nx))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(4n, ms, o), f4, fd.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, 4n, {==}, o, ne)) :
+    {Bool.and(D.AL.part(ms, Dl, zs, z, a, 1, f2, K, F, nx), Bool.and(D.AL.part(ms, Dl, zs, z, a, 2, f3, K, F, nx),
+      D.AL.part(ms, Dl, zs, z, a, 4, _, K, F, nx))) == True{} : Bool}
+  K.Bo.and_i(D.AL.part(ms, Dl, zs, z, a, 1, f2, K, F, nx), Bool.and(D.AL.part(ms, Dl, zs, z, a, 2, f3, K, F, nx), D.AL.part(ms, Dl, zs, z, a, 4, f4, K, F, nx)),
+    part.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, a, 1, f2, z, K.Bo.and_l(A1, Bool.and(A2, A4), pt2), t1),
+    K.Bo.and_i(D.AL.part(ms, Dl, zs, z, a, 2, f3, K, F, nx), D.AL.part(ms, Dl, zs, z, a, 4, f4, K, F, nx),
+      part.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, a, 2, f3, z, K.Bo.and_l(A2, A4, r), t2), part.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, a, 4, f4, z, K.Bo.and_r(A2, A4, r), t3)))
+
 
 # The allocation's run: a new cell
 # --------------------------------
@@ -2110,6 +2956,494 @@ def al.fresh.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32,
       Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec.alloc(r, st), e1)),
     al.fresh.fits(U32.is_lt(nx, 214748364), r, R, m, nx, F, K, pg, L, I, P, zs, {==}, hal0, e3, hr, hk, hkf, hfn, tb))
 
+# The allocation's run: a reused cell
+# -----------------------------------
+
+# the table's entry of a term's tag (below 19) is a cell of the image
+def tb.cell(+tg: U32, +K: U32, +F: U32, +nx: U32, e: {U32.is_lt(tg, 19) == True{} : Bool}, hk: {U32.is_le(290, K) == True{} : Bool}) ->
+  {Cr.Cir.is_cell(U32.add(272, tg), K, F, nx) == True{} : Bool}:
+  +t = U32.to_nat(tg)
+  +x = U32.add(272, tg)
+  +hs = N.le_trans(Nat.add(272n, t), 290n, U32.to_nat(K), N.add_mono(272n, 272n, t, 18n, N.le_refl(272n), K.U.lt(tg, 19, e)), K.U.le(290, K, hk))
+  +ex = K.add.ex(272, tg, K, hs)
+  +hx1 = {(%Equal.sym(Nat, U32.to_nat(x), Nat.add(272n, t), ex) : N.Le(1n, _); N.le_trans(1n, 272n, Nat.add(272n, t), N.le_zero(271n),
+    N.le_add_r(272n, t))) : N.Le(1n, U32.to_nat(x))}
+  +hxk = {(%Equal.sym(Nat, U32.to_nat(x), Nat.add(272n, t), ex) : N.Le(_, U32.to_nat(K)); hs) : N.Le(U32.to_nat(x), U32.to_nat(K))}
+  K.Bo.or_il(Bool.and(Bool.not(U32.is_zero(x)), U32.is_le(x, K)), Bool.and(U32.is_le(F, x), U32.is_lt(x, nx)),
+    K.Bo.and_i(Bool.not(U32.is_zero(x)), U32.is_le(x, K), K.Bo.not_i(U32.is_zero(x), K.U.ne.sym(0, x, K.Ar.ne(0, x, hx1))),
+      K.U.le_t(x, K, hxk)))
+
+# a cell from F to next is a cell
+def cell.in(+q: U32, +K: U32, +F: U32, +nx: U32, hFq: {U32.is_le(F, q) == True{} : Bool}, hqn: {U32.is_lt(q, nx) == True{} : Bool}) ->
+  {Cr.Cir.is_cell(q, K, F, nx) == True{} : Bool}:
+  K.Bo.or_ir(Bool.and(Bool.not(U32.is_zero(q)), U32.is_le(q, K)), Bool.and(U32.is_le(F, q), U32.is_lt(q, nx)),
+    K.Bo.and_i(U32.is_le(F, q), U32.is_lt(q, nx), hFq, hqn))
+
+# a cell from F to nx is once among the cells from F
+def once.q(+q: U32, +F: U32, +nx: U32, hfn: {U32.is_le(F, nx) == True{} : Bool}, hFq: {U32.is_le(F, q) == True{} : Bool},
+  hqn: {U32.is_lt(q, nx) == True{} : Bool}) -> {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool}:
+  +x = U32.to_nat(F)
+  +X = U32.to_nat(nx)
+  +n = Nat.sub(X, x)
+  +es = Equal.sym(Nat, Nat.add(x, n), X, K.Ar.sub.add(x, X, K.U.le(F, nx, hfn)))
+  once.at(n, F, q, nx, K.U.le(F, q, hFq), N.le_rw_r(1n+U32.to_nat(q), X, Nat.add(x, n), es, K.U.lt(q, nx, hqn)),
+    N.le_rw_l(X, Nat.add(x, n), X, es, N.le_refl(X)))
+
+# a garbage cell is not STATIC
+def al.hd.ns(+m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +F: U32, +N: U32, h: {K.AL.hd(m, Q, o, F, N) == True{} : Bool}) ->
+  {D.Stc(m, o) == False{} : Bool}:
+  +tg = U32.and(D.Fd(0n, m, o), 63)
+  K.Bo.not_t(D.Stc(m, o), K.Bo.and_r(Bool.and(U32.is_le(F, o), U32.is_lt(o, N)), Bool.not(D.Stc(m, o)),
+    K.Bo.and_l(Bool.and(Bool.and(U32.is_le(F, o), U32.is_lt(o, N)), Bool.not(D.Stc(m, o))),
+      Bool.or(U32.is_le(tg, 18), Bool.and(U32.is_le(32, tg), D.Has(Q, o))), h)))
+
+# a pushed cell is none of the pend list's rest
+def gq.nq.b(u: Bool, +pu: List<&2, U32>, +P: List<&2, U32>, +q: U32, +Qr: List<&2, U32>, +o: U32, eu: {D.Has(pu, o) == u : Bool},
+  +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}) -> {Bool.and(D.Has(Qr, o), u) == False{} : Bool}:
+  match u:
+    case True{}:
+      +h = gq.mem(pu, P, Con{q, Qr}, o, hgq, eu)
+      +hn = K.Bo.not_t(D.Has(Con{q, Qr}, o), K.Bo.and_r(D.Has(P, o), Bool.not(D.Has(Con{q, Qr}, o)), h))
+      +hr = K.or.fr(U32.is_eq(q, o), D.Has(Qr, o), hn)
+      (%Equal.sym(Bool, D.Has(Qr, o), False{}, hr) : {Bool.and(_, True{}) == False{} : Bool}; {==})
+    case False{}:
+      and.f(D.Has(Qr, o))
+
+def gq.nq(+pu: List<&2, U32>, +P: List<&2, U32>, +q: U32, +Qr: List<&2, U32>, +o: U32, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}) ->
+  {Bool.and(D.Has(Qr, o), D.Has(pu, o)) == False{} : Bool}:
+  gq.nq.b(D.Has(pu, o), pu, P, q, Qr, o, {==}, hgq)
+
+# q, the pend list's first cell, was not pushed
+def gq.nq0.b(u: Bool, +pu: List<&2, U32>, +P: List<&2, U32>, +q: U32, +Qr: List<&2, U32>, eu: {D.Has(pu, q) == u : Bool},
+  +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}) -> {D.Has(pu, q) == False{} : Bool}:
+  match u:
+    case True{}:
+      +h = gq.mem(pu, P, Con{q, Qr}, q, hgq, eu)
+      +hn = K.Bo.not_t(D.Has(Con{q, Qr}, q), K.Bo.and_r(D.Has(P, q), Bool.not(D.Has(Con{q, Qr}, q)), h))
+      K.Bo.tf({D.Has(pu, q) == False{} : Bool}, Equal.trans(Bool, False{}, D.Has(Con{q, Qr}, q), True{},
+        Equal.sym(Bool, D.Has(Con{q, Qr}, q), False{}, hn), K.Bo.or_il(U32.is_eq(q, q), D.Has(Qr, q), K.U.eq_refl(q))))
+    case False{}:
+      eu
+
+def gq.nq0(+pu: List<&2, U32>, +P: List<&2, U32>, +q: U32, +Qr: List<&2, U32>, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}) ->
+  {D.Has(pu, q) == False{} : Bool}:
+  gq.nq0.b(D.Has(pu, q), pu, P, q, Qr, {==}, hgq)
+
+# a count c3 that lost ow of the pointers ow + ppD, ppD of them left: above 0
+def ct.lt(z: Bool, +ow: Nat, +ppD: Nat, +c3: Nat, ez: {Nat.is_eq(ow, 0n) == z : Bool}, e: {ppD == c3 : Nat},
+  hlt: {Nat.is_lt(0n, Nat.add(ow, ppD)) == True{} : Bool}, hor: {Bool.or(Nat.is_eq(ow, 0n), Nat.is_lt(0n, c3)) == True{} : Bool}) ->
+  {Nat.is_lt(0n, ppD) == True{} : Bool}:
+  match z:
+    case True{}:
+      (%K.Na.eq(ow, 0n, ez) : {Nat.is_lt(0n, Nat.add(_, ppD)) == True{} : Bool}; hlt)
+    case False{}:
+      (%Equal.sym(Nat, ppD, c3, e) : {Nat.is_lt(0n, _) == True{} : Bool}; K.Bo.or_r(Nat.is_eq(ow, 0n), Nat.is_lt(0n, c3), hor, ez))
+
+# the pick of AL.ct after the reuse of q, for a garbage cell of the pend
+# list's rest (g) or pushed (u), never both: ow + ppD were the garbage's
+# pointers to it, ow of them q's; its count went from c0 to c3 (Dv)
+def ct.pick(g: Bool, u: Bool, +ow: Nat, +ppD: Nat, +c0: Nat, +c3: Nat, hgu: {Bool.and(g, u) == False{} : Bool},
+  hpk: {Bool.pick(Bool, g, Nat.is_eq(Nat.add(ow, ppD), 0n), Bool.and(Nat.is_eq(Nat.add(ow, ppD), c0), Nat.is_lt(0n, Nat.add(ow, ppD)))) == True{} : Bool},
+  hdv: {Dv.of(False{}, u, c0, c3, ow) == True{} : Bool}) ->
+  {Bool.pick(Bool, Bool.or(u, g), Nat.is_eq(ppD, 0n), Bool.and(Nat.is_eq(ppD, c3), Nat.is_lt(0n, ppD))) == True{} : Bool}:
+  match g u:
+    case True{} True{}:
+      K.Bo.ft({Nat.is_eq(ppD, 0n) == True{} : Bool}, hgu)
+    case True{} False{}:
+      +e0 = K.Na.add0r(ow, ppD, K.Na.eq(Nat.add(ow, ppD), 0n, hpk))
+      (%Equal.sym(Nat, ppD, 0n, e0) : {Nat.is_eq(_, 0n) == True{} : Bool}; K.Na.eq_refl(0n))
+    case False{} True{}:
+      +A = Nat.is_eq(Nat.add(ow, ppD), c0)
+      +B = Nat.is_lt(0n, Nat.add(ow, ppD))
+      +e1 = K.Na.eq(Nat.add(ow, ppD), c0, K.Bo.and_l(A, B, hpk))
+      +e2 = K.Na.eq(c0, ow, hdv)
+      +e3 = Equal.trans(Nat, Nat.add(ow, ppD), c0, Nat.add(ow, 0n), e1,
+        Equal.trans(Nat, c0, ow, Nat.add(ow, 0n), e2, Equal.sym(Nat, Nat.add(ow, 0n), ow, N.add_zero(ow))))
+      +e0 = K.Na.canc(ow, ppD, 0n, e3)
+      (%Equal.sym(Nat, ppD, 0n, e0) : {Nat.is_eq(_, 0n) == True{} : Bool}; K.Na.eq_refl(0n))
+    case False{} False{}:
+      +A = Nat.is_eq(Nat.add(ow, ppD), c0)
+      +B = Nat.is_lt(0n, Nat.add(ow, ppD))
+      +C = Nat.is_eq(Nat.add(c3, ow), c0)
+      +D0 = Bool.or(Nat.is_eq(ow, 0n), Nat.is_lt(0n, c3))
+      +hpk2 = hpk
+      +hdv2 = hdv
+      +e1 = K.Na.eq(Nat.add(ow, ppD), c0, K.Bo.and_l(A, B, hpk2))
+      +e3 = K.Na.eq(Nat.add(c3, ow), c0, K.Bo.and_l(C, D0, hdv2))
+      +e4 = Equal.trans(Nat, Nat.add(ow, ppD), c0, Nat.add(ow, c3), e1,
+        Equal.trans(Nat, c0, Nat.add(c3, ow), Nat.add(ow, c3), Equal.sym(Nat, Nat.add(c3, ow), c0, e3), Na.comm(c3, ow)))
+      +e = K.Na.canc(ow, ppD, c3, e4)
+      K.Bo.and_i(Nat.is_eq(ppD, c3), Nat.is_lt(0n, ppD),
+        (%Equal.sym(Nat, ppD, c3, e) : {Nat.is_eq(_, c3) == True{} : Bool}; K.Na.eq_refl(c3)),
+        ct.lt(Nat.is_eq(ow, 0n), ow, ppD, c3, {==}, e, K.Bo.and_r(A, B, hpk2), K.Bo.and_r(C, D0, hdv2)))
+
+# AL.ct of a garbage cell o, but q, after the reuse of q: the pointers to it
+# lost q's, as the garbage's did; pushed, or in the pend list, it has none
+def al.o.ct(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +o: U32, +ne: {U32.is_eq(o, q) == False{} : Bool},
+  +hP: {D.Has(P, o) == True{} : Bool}, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool}) ->
+  {K.AL.ct(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), Del(P, q), List.append(&2, U32, pu, Qr), o, F, nx) == True{} : Bool}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +Dl = Del(P, q)
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +ow = D.Ow(m, q, o)
+  +ppP = D.Pp(P, m, o)
+  +ppD = D.Pp(Dl, m, o)
+  +c0 = U32.to_nat(D.Fd(1n, m, o))
+  +c3 = U32.to_nat(D.Fd(1n, M, o))
+  +pcs = D.Pc(n, ms, Q2, F, o)
+  +pcm = D.Pc(n, m, Q, F, o)
+  +Hd = K.AL.hd(m, Q, o, F, nx)
+  +Pt = K.AL.pt(m, P, zs, o, K, F, nx)
+  +Ct = K.AL.ct(m, P, Q, o, F, nx)
+  +hx = al.mem(P, m, P, Q, zs, K, F, nx, o, hP, hcs)
+  +hd0 = K.Bo.and_l(Hd, Bool.and(Pt, Ct), hx)
+  +hct = K.Bo.and_r(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hx))
+  +PK0 = Bool.pick(Bool, D.Has(Q, o), Nat.is_eq(ppP, 0n), Bool.and(Nat.is_eq(ppP, c0), Nat.is_lt(0n, ppP)))
+  +epc = K.Na.eq(pcm, ppP, K.Bo.and_l(Nat.is_eq(pcm, ppP), PK0, hct))
+  +hpk0 = K.Bo.and_r(Nat.is_eq(pcm, ppP), PK0, hct)
+  +epd = pp.del(P, m, q, o, hq)
+  +eon = pc.once(n, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, F, o, hOnce)
+  +e1 = Equal.trans(Nat, Nat.add(pcs, ow), pcm, Nat.add(ow, ppD), eon, Equal.trans(Nat, pcm, ppP, Nat.add(ow, ppD), epc, epd))
+  +e2 = K.Na.canc(ow, pcs, ppD, Equal.trans(Nat, Nat.add(ow, pcs), Nat.add(pcs, ow), Nat.add(ow, ppD), Na.comm(ow, pcs), e1))
+  +hpk1 = {(%K.U.ne.sym(o, q, ne) : {Bool.pick(Bool, Bool.or(_, D.Has(Qr, o)), Nat.is_eq(ppP, 0n), Bool.and(Nat.is_eq(ppP, c0), Nat.is_lt(0n, ppP))) ==
+      True{} : Bool}; hpk0) :
+    {Bool.pick(Bool, Bool.or(False{}, D.Has(Qr, o)), Nat.is_eq(ppP, 0n), Bool.and(Nat.is_eq(ppP, c0), Nat.is_lt(0n, ppP))) == True{} : Bool}}
+  +hpk = {(%epd : {Bool.pick(Bool, Bool.or(False{}, D.Has(Qr, o)), Nat.is_eq(_, 0n), Bool.and(Nat.is_eq(_, c0), Nat.is_lt(0n, _))) == True{} : Bool}; hpk1) :
+    {Bool.pick(Bool, D.Has(Qr, o), Nat.is_eq(Nat.add(ow, ppD), 0n), Bool.and(Nat.is_eq(Nat.add(ow, ppD), c0), Nat.is_lt(0n, Nat.add(ow, ppD)))) ==
+      True{} : Bool}}
+  +hz = K.U.nz(o, K, F, hkf, al.hd.le(m, Q, o, F, nx, hd0))
+  +hdv0 = dv.all(m, q, ws, pu, o, hz, hdv, hpt, hpp)
+  +hdv1 = {(%al.hd.ns(m, Q, o, F, nx, hd0) : {Dv.of(_, D.Has(pu, o), c0, c3, ow) == True{} : Bool}; hdv0) :
+    {Dv.of(False{}, D.Has(pu, o), c0, c3, ow) == True{} : Bool}}
+  %Equal.sym(Nat, D.Pp(Dl, ms, o), ppD, pp.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o)) :
+    {Bool.and(Nat.is_eq(pcs, _), Bool.pick(Bool, D.Has(Q2, o), Nat.is_eq(_, 0n), Bool.and(Nat.is_eq(_, U32.to_nat(D.Fd(1n, ms, o))),
+      Nat.is_lt(0n, _)))) == True{} : Bool}
+  %Equal.sym(U32, D.Fd(1n, ms, o), D.Fd(1n, M, o), f1.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, o, ne)) :
+    {Bool.and(Nat.is_eq(pcs, ppD), Bool.pick(Bool, D.Has(Q2, o), Nat.is_eq(ppD, 0n), Bool.and(Nat.is_eq(ppD, U32.to_nat(_)), Nat.is_lt(0n, ppD)))) ==
+      True{} : Bool}
+  %Equal.sym(Bool, D.Has(Q2, o), Bool.or(D.Has(pu, o), D.Has(Qr, o)), K.has.app(pu, Qr, o)) :
+    {Bool.and(Nat.is_eq(pcs, ppD), Bool.pick(Bool, _, Nat.is_eq(ppD, 0n), Bool.and(Nat.is_eq(ppD, c3), Nat.is_lt(0n, ppD)))) == True{} : Bool}
+  %Equal.sym(Nat, pcs, ppD, e2) :
+    {Bool.and(Nat.is_eq(_, ppD), Bool.pick(Bool, Bool.or(D.Has(pu, o), D.Has(Qr, o)), Nat.is_eq(ppD, 0n), Bool.and(Nat.is_eq(ppD, c3), Nat.is_lt(0n, ppD)))) ==
+      True{} : Bool}
+  K.Bo.and_i(Nat.is_eq(ppD, ppD), Bool.pick(Bool, Bool.or(D.Has(pu, o), D.Has(Qr, o)), Nat.is_eq(ppD, 0n), Bool.and(Nat.is_eq(ppD, c3), Nat.is_lt(0n, ppD))),
+    K.Na.eq_refl(ppD), ct.pick(D.Has(Qr, o), D.Has(pu, o), ow, ppD, c0, c3, gq.nq(pu, P, q, Qr, o, hgq), hpk, hdv1))
+
+# AL.cells after the reuse of q, of the cells os of Del(P, q)
+def al.cells.zq(os: List<&2, U32>, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool},
+  hos: {D.Sub(os, Del(P, q)) == True{} : Bool}) -> {D.AL.cells(os, Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), Del(P, q), List.append(&2, U32, pu, Qr), zs, K, F, nx) == True{} : Bool}:
+  match os:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      +ms = Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero())
+      +Q2 = List.append(&2, U32, pu, Qr)
+      +Q = {Con{q, Qr} : List<&2, U32>}
+      +Dl = Del(P, q)
+      +h2 = hos
+      +hD = K.Bo.and_l(D.Has(Dl, o), D.Sub(rest, Dl), h2)
+      +hP = has.del.le(P, q, o, hD)
+      +ne = neq.del(P, q, o, hnp, hD)
+      +Hd = K.AL.hd(m, Q, o, F, nx)
+      +Pt = K.AL.pt(m, P, zs, o, K, F, nx)
+      +Ct = K.AL.ct(m, P, Q, o, F, nx)
+      +hx = al.mem(P, m, P, Q, zs, K, F, nx, o, hP, hcs)
+      +hd0 = K.Bo.and_l(Hd, Bool.and(Pt, Ct), hx)
+      +pt0 = K.Bo.and_l(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hx))
+      K.al.cons(o, rest, ms, Dl, Q2, zs, K, F, nx, al.o.hd(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, ne, hd0), al.o.pt(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, ne, hP, hd0, pt0),
+        al.o.ct(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, o, ne, hP, hOnce), al.cells.zq(rest, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, hOnce, K.Bo.and_r(D.Has(Dl, o), D.Sub(rest, Dl), h2)))
+
+# the allocation's invariant after the reuse of q, with the pend list from p3
+def al.zq(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +p3: U32, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool},
+  hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnq: {D.Nodup(Qr) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
+  hlt: {D.Lt(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, nx) == True{} : Bool}) ->
+  {D.AL(Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), p3, Del(P, q), List.append(&2, U32, pu, Qr), zs, K, F, nx) == True{} : Bool}:
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Dl = Del(P, q)
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +hpq = gq.nq0(pu, P, q, Qr, hgq)
+  +hq2 = K.has.app.f(pu, Qr, q, hpq, hnqr)
+  +hsq = K.Bo.and_r(D.Has(P, q), D.Sub(Qr, P), hsub)
+  K.Bo.and_i(Bool.and(D.Chain(Q2, ms, p3), D.Nodup(Q2)), Bool.and(Bool.and(D.Sub(Q2, Dl), D.Nodup(Dl)),
+    Bool.and(D.AL.cells(Dl, ms, Dl, Q2, zs, K, F, nx), D.Lt(n, ms, Q2, F, nx))),
+    K.Bo.and_i(D.Chain(Q2, ms, p3), D.Nodup(Q2), K.chain.set(Q2, M, q, Cr.Cir.Cell.zero(), p3, hch, hq2),
+      K.nodup.app(pu, Qr, hnd, hnq, gq.dsj(pu, P, q, Qr, hgq))),
+    K.Bo.and_i(Bool.and(D.Sub(Q2, Dl), D.Nodup(Dl)), Bool.and(D.AL.cells(Dl, ms, Dl, Q2, zs, K, F, nx), D.Lt(n, ms, Q2, F, nx)),
+      K.Bo.and_i(D.Sub(Q2, Dl), D.Nodup(Dl), K.sub.app(pu, Qr, Dl, sub.del(pu, P, q, gq.sub(pu, P, Con{q, Qr}, hgq), hpq),
+        sub.del(Qr, P, q, hsq, hnqr)), nodup.del(P, q, hnp)),
+      K.Bo.and_i(D.AL.cells(Dl, ms, Dl, Q2, zs, K, F, nx), D.Lt(n, ms, Q2, F, nx), al.cells.zq(Dl, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, hOnce, sub.refl(Dl)),
+        lt.zq(n, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, F, hlt))))
+
+# no pointer reaches q after its reuse
+def pc.q0(+m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +ws: List<&2, W1>, +pu: List<&2, U32>, +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool},
+  +hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool},
+  +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool}) ->
+  {D.Pc(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero()), List.append(&2, U32, pu, Qr), F, q) == 0n : Nat}:
+  +ms = Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero())
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +pcs = D.Pc(n, ms, Q2, F, q)
+  +pcm = D.Pc(n, m, Q, F, q)
+  +ppq = D.Pp(P, m, q)
+  +c0 = U32.to_nat(D.Fd(1n, m, q))
+  +PK = Bool.pick(Bool, D.Has(Q, q), Nat.is_eq(ppq, 0n), Bool.and(Nat.is_eq(ppq, c0), Nat.is_lt(0n, ppq)))
+  +epc = K.Na.eq(pcm, ppq, K.Bo.and_l(Nat.is_eq(pcm, ppq), PK, q.ct(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb)))
+  Na.add0l(pcs, D.Ow(m, q, q), Equal.trans(Nat, Nat.add(pcs, D.Ow(m, q, q)), pcm, 0n, pc.once(n, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, F, q, hOnce),
+    Equal.trans(Nat, pcm, ppq, 0n, epc, q.pp0(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb))))
+
+# M.alloc's end, after the three drops of q's parts: the zero stores and r
+# get q; Al.post of the reused q
+def al.reuse.end(+f: Nat, +r: Nat, +R: List<&2, U32>, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool},
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +hr: {Nat.is_lt(r, 63n) == True{} : Bool}, +hnq: {D.Nodup(Qr) == True{} : Bool},
+  +hlt: {D.Lt(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, nx) == True{} : Bool}, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool},
+  +hFq: {U32.is_le(F, q) == True{} : Bool}, +hqn: {U32.is_lt(q, nx) == True{} : Bool},
+  +hb: N.Le(Nat.add(U32.to_nat(F), Nat.sub(U32.to_nat(nx), U32.to_nat(F))), U32.to_nat(nx)),
+  +p3: U32, +p4: U32, +p5: U32, +ws: List<&2, W1>, +pu: List<&2, U32>, +hpt: {W1s.pt(ws, m, q) == True{} : Bool},
+  +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, Dn3(m, q)) == True{} : Bool}, +hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool},
+  +hnd: {D.Nodup(pu) == True{} : Bool}, +hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, +hpp: {Pts(pu, m, q) == True{} : Bool}) ->
+  D.Ok(Cr.Cir.exec(1n+f, Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r)))))))), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Al.b(Con{q, Qr}, nx),
+    rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2))):
+  +am = D.Am(m, q)
+  +M = W1s(ws, m)
+  +ms = Cr.Cir.Cells.set(W1s(ws, m), q, Cr.Cir.Cell.zero())
+  +regs = Rd(R, p3, p4, p5, q, am)
+  +Q2 = List.append(&2, U32, pu, Qr)
+  +Dl = Del(P, q)
+  +a = {[p3, p4, p5, q, am] : List<&2, U32>}
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +hc = cell.in(q, K, F, nx, hFq, hqn)
+  +st0 = Sr.X.st(regs, M, nx, F, K, pg, L, I)
+  +o2 = {Cr.Cir.Out.next{Sr.X.st(Sr.X.set(regs, r, q), ms, nx, F, K, pg, L, I)} : Cr.Cir.Out}
+  K.Ok.eq(Cr.Cir.exec(1n+f, Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r)))))))), st0), o2, F, K, L, I, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2)),
+    Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r)))))))), st0), o2, Sr.alloc.eq.end(1n+f, regs, M, nx, F, K, pg, L, I, r, q, {==}, {==}, hc, hr)),
+    K.Ok.next(Sr.X.set(regs, r, q), ms, nx, F, K, pg, L, I, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2)),
+      (Aw{q, False{}, Dl, Q2, ws, a},
+        ({==},
+        ({==},
+        (hpt,
+        ((hq, ({==}, {==})),
+        (al.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, p3, hOnce, hch, hnq, hnd, hlt),
+        (hFq,
+        (hc,
+        (del.nhas(P, q, hnp),
+        (tb.zq(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb),
+        (kept.zq(n, m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, F, hOnce, N.le_refl(U32.to_nat(F)), hb),
+          pc.q0(m, q, Qr, P, zs, K, F, nx, ws, pu, hq, hsub, hcs, hnp, hnqr, hgq, hpp, hpt, hdv, hzq, hk, hkf, tb, hOnce))))))))))))))
+
+# M.alloc's statements from its three drops
+def al.tail(+r: Nat) -> {Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r))))) == Cr.Cir.Stmt.seq{Mc.M.dec.part(2n, 1), Cr.Cir.Stmt.seq{Mc.M.dec.part(3n, 2), Cr.Cir.Stmt.seq{Mc.M.dec.part(4n, 4), Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r))))))))}}} : Cr.Cir.Stmt}:
+  {==}
+
+# M.alloc's three drops of q's parts, from the registers Rd (pend the next
+# of the pend list), then its end
+def al.drops(+f: Nat, +r: Nat, +R: List<&2, U32>, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool},
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +hr: {Nat.is_lt(r, 63n) == True{} : Bool}, +hnq: {D.Nodup(Qr) == True{} : Bool},
+  +hlt: {D.Lt(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, nx) == True{} : Bool}, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool},
+  +hFq: {U32.is_le(F, q) == True{} : Bool}, +hqn: {U32.is_lt(q, nx) == True{} : Bool},
+  +hb: N.Le(Nat.add(U32.to_nat(F), Nat.sub(U32.to_nat(nx), U32.to_nat(F))), U32.to_nat(nx)),
+  +hptq: {K.AL.pt(m, P, zs, q, K, F, nx) == True{} : Bool}, hch0: {D.Chain(Qr, m, D.Fd(1n, m, q)) == True{} : Bool}) ->
+  D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(2n, 1), Cr.Cir.Stmt.seq{Mc.M.dec.part(3n, 2), Cr.Cir.Stmt.seq{Mc.M.dec.part(4n, 4), Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r))))))))}}}, Sr.X.st(Rd(R, D.Fd(1n, m, q), T.tm.reg(R, 4n), T.tm.reg(R, 5n), q, D.Am(m, q)), W1s(Nil{}, m), nx, F, K, pg, L, I)), F, K, L, I, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2))):
+  +am = D.Am(m, q)
+  +B4 = Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r))))))))
+  +B3 = {Cr.Cir.Stmt.seq{Mc.M.dec.part(4n, 4), B4} : Cr.Cir.Stmt}
+  +B2 = {Cr.Cir.Stmt.seq{Mc.M.dec.part(3n, 2), B3} : Cr.Cir.Stmt}
+  +b1 = U32.is_ne(U32.and(am, 1), 0)
+  +b2 = U32.is_ne(U32.and(am, 2), 0)
+  +b4 = U32.is_ne(U32.and(am, 4), 0)
+  +f2 = D.Fd(2n, m, q)
+  +f3 = D.Fd(3n, m, q)
+  +f4 = D.Fd(4n, m, q)
+  +z = D.Zz(zs, q)
+  +A1 = D.AL.part(m, P, zs, z, am, 1, f2, K, F, nx)
+  +A2 = D.AL.part(m, P, zs, z, am, 2, f3, K, F, nx)
+  +A4 = D.AL.part(m, P, zs, z, am, 4, f4, K, F, nx)
+  +hp24 = K.Bo.and_r(A1, Bool.and(A2, A4), hptq)
+  +hqc = cell.in(q, K, F, nx, hFq, hqn)
+  +D1 = D.Ps.opt(b1, f2, Nil{})
+  +D2 = D.Ps.opt(b2, f3, D1)
+  +M0 = W1s(Nil{}, m)
+  +ew = {{==} : {m == M0 : Cr.Cir.Cells}}
+  +ea = {{==} : {Qr == List.append(&2, U32, Nil{}, Qr) : List<&2, U32>}}
+  +hdv0 = {(%ew : {Dv3(am, q, m, _, Nil{}, Nil{}) == True{} : Bool}; dv3.init(am, q, m)) : {Dv3(am, q, m, M0, Nil{}, Nil{}) == True{} : Bool}}
+  +hch1 = {(%ea : {D.Chain(_, M0, D.Fd(1n, m, q)) == True{} : Bool}; (%ew : {D.Chain(Qr, _, D.Fd(1n, m, q)) == True{} : Bool}; hch0)) :
+    {D.Chain(List.append(&2, U32, Nil{}, Qr), M0, D.Fd(1n, m, q)) == True{} : Bool}}
+  dr.step(f, 2n, 1, B2, R, D.Fd(1n, m, q), T.tm.reg(R, 4n), T.tm.reg(R, 5n), q, m, Nil{}, nx, F, K, pg, L, I, P, Qr, zs, Nil{}, Nil{},
+    Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2)), {==}, hqc,
+    K.Bo.and_l(Dvm(b1, f2, m, M0, Nil{}, Nil{}), Bool.and(Dvm(b2, f3, m, M0, Nil{}, Nil{}), Dvm(b4, f4, m, M0, Nil{}, Nil{})), hdv0),
+    K.Bo.and_l(A1, Bool.and(A2, A4), hptq), hq, hsub, hcs, bk2.of(b1, b2, b4, f2, f3, f4), {==}, hdv0, hch1, {==}, {==}, {==},
+    +p3 => +p4 => +p5 => +ws => +pu => +hpt => +hdv => +hch => +hnd => +hgq => +hpp =>
+      dr.step(f, 3n, 2, B3, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, D1, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2)), {==}, hqc,
+        K.Bo.and_l(Dvm(b2, f3, m, W1s(ws, m), pu, D1), Dvm(b4, f4, m, W1s(ws, m), pu, D1),
+          K.Bo.and_r(Dvm(b1, f2, m, W1s(ws, m), pu, D1), Bool.and(Dvm(b2, f3, m, W1s(ws, m), pu, D1), Dvm(b4, f4, m, W1s(ws, m), pu, D1)), hdv)),
+        K.Bo.and_l(A2, A4, hp24), hq, hsub, hcs, bk3.of(b1, b2, b4, f2, f3, f4), hpt, hdv, hch, hnd, hgq, hpp,
+        +p3 => +p4 => +p5 => +ws => +pu => +hpt => +hdv => +hch => +hnd => +hgq => +hpp =>
+          dr.step(f, 4n, 4, B4, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, D2, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2)), {==}, hqc,
+            K.Bo.and_r(Dvm(b2, f3, m, W1s(ws, m), pu, D2), Dvm(b4, f4, m, W1s(ws, m), pu, D2),
+              K.Bo.and_r(Dvm(b1, f2, m, W1s(ws, m), pu, D2), Bool.and(Dvm(b2, f3, m, W1s(ws, m), pu, D2), Dvm(b4, f4, m, W1s(ws, m), pu, D2)), hdv)),
+            K.Bo.and_r(A2, A4, hp24), hq, hsub, hcs, bk4.of(b1, b2, b4, f2, f3, f4), hpt, hdv, hch, hnd, hgq, hpp,
+            +p3 => +p4 => +p5 => +ws => +pu => +hpt => +hdv => +hch => +hnd => +hgq => +hpp =>
+              al.reuse.end(f, r, R, pg, L, I, m, q, Qr, P, zs, K, F, nx, hq, hsub, hcs, hnp, hnqr, hzq, hk, hkf, tb, hr, hnq, hlt, hOnce, hFq, hqn, hb, p3, p4, p5, ws, pu, hpt, hdv, hch, hnd, hgq, hpp))))
+
+# M.alloc(r) from the pend list's first cell q: aq gets q, pend its field 1,
+# am its mask (a term cell, by the table) or 0 (a cell of the machine's own
+# kinds), by the tag t of q; then the drops
+def al.reuse.t(t: Bool, +f: Nat, +r: Nat, +R: List<&2, U32>, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +m: Cr.Cir.Cells, +q: U32, +Qr: List<&2, U32>, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +hq: {D.Has(P, q) == True{} : Bool}, +hsub: {D.Sub(Con{q, Qr}, P) == True{} : Bool},
+  +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hnp: {D.Nodup(P) == True{} : Bool},
+  +hnqr: {D.Has(Qr, q) == False{} : Bool}, +hzq: N.Le(291n, U32.to_nat(q)), +hk: {U32.is_le(290, K) == True{} : Bool},
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, +tb: D.Tb(m), +hr: {Nat.is_lt(r, 63n) == True{} : Bool}, +hnq: {D.Nodup(Qr) == True{} : Bool},
+  +hlt: {D.Lt(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), m, Con{q, Qr}, F, nx) == True{} : Bool}, +hOnce: {Once(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F, q) == True{} : Bool},
+  +hFq: {U32.is_le(F, q) == True{} : Bool}, +hqn: {U32.is_lt(q, nx) == True{} : Bool},
+  +hb: N.Le(Nat.add(U32.to_nat(F), Nat.sub(U32.to_nat(nx), U32.to_nat(F))), U32.to_nat(nx)),
+  +hdq: {K.AL.hd(m, Con{q, Qr}, q, F, nx) == True{} : Bool}, +hptq: {K.AL.pt(m, P, zs, q, K, F, nx) == True{} : Bool},
+  +hch0: {D.Chain(Qr, m, D.Fd(1n, m, q)) == True{} : Bool}, +hz: {U32.is_eq(q, 0) == False{} : Bool},
+  +h3: {List.get(&2, U32, D.Rg.ex(63n, R, 0n), 3n) == Some{q} : Maybe<&2, U32>},
+  +et: {U32.is_lt(U32.and(D.Fd(0n, m, q), 63), 32) == t : Bool}) ->
+  D.Ok(Cr.Cir.exec(1n+f, Mc.M.alloc(r), D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2))):
+  match t:
+    case True{}:
+      +regs = D.Rg.ex(63n, R, 0n)
+      +tg = U32.and(D.Fd(0n, m, q), 63)
+      +c0 = Cr.Cir.Cells.get(m, q)
+      +f1 = Cr.Cir.Cell.get(1n, c0)
+      +am = Cr.Cir.Cell.get(2n, Cr.Cir.Cells.get(m, U32.add(272, U32.and(Cr.Cir.Cell.get(0n, c0), 63))))
+      +st = D.S(regs, m, nx, F, K, pg, L, I)
+      +st0 = Sr.X.st(regs, m, nx, F, K, pg, L, I)
+      +st3 = Sr.X.st(Sr.X.set(Sr.X.set(Sr.X.set(regs, 6n, q), 3n, f1), 7n, am), m, nx, F, K, pg, L, I)
+      +std = Sr.X.st(Rd(R, D.Fd(1n, m, q), T.tm.reg(R, 4n), T.tm.reg(R, 5n), q, D.Am(m, q)), W1s(Nil{}, m), nx, F, K, pg, L, I)
+      +B3 = Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r)))))
+      +SQ = {Cr.Cir.Stmt.seq{Mc.M.dec.part(2n, 1), Cr.Cir.Stmt.seq{Mc.M.dec.part(3n, 2), Cr.Cir.Stmt.seq{Mc.M.dec.part(4n, 4), Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r))))))))}}} : Cr.Cir.Stmt}
+      +h19 = K.Ar.t19(tg, D.Has(Con{q, Qr}, q), et, K.al.hd.tg(m, Con{q, Qr}, q, F, nx, hdq))
+      +e0 = Sr.alloc.eq.term(1n+f, regs, m, nx, F, K, pg, L, I, r, q, {==}, h3, hz, cell.in(q, K, F, nx, hFq, hqn), et,
+        tb.cell(tg, K, F, nx, h19, hk))
+      +ex1 = {{==} : {st0 == st : Cr.Cir.State}}
+      +e0b = {(%ex1 : {Cr.Cir.exec(1n+f, Mc.M.alloc(r), _) == Cr.Cir.exec(1n+f, B3, st3) : Cr.Cir.Out}; e0) :
+        {Cr.Cir.exec(1n+f, Mc.M.alloc(r), st) == Cr.Cir.exec(1n+f, B3, st3) : Cr.Cir.Out}}
+      +eam = {(%Equal.sym(Bool, U32.is_lt(tg, 32), True{}, et) : {Bool.pick(U32, _, D.Fd(2n, m, U32.add(272, tg)), 0) == am : U32}; {==}) :
+        {D.Am(m, q) == am : U32}}
+      +est = {(%Equal.sym(U32, D.Am(m, q), am, eam) :
+          {st3 == Sr.X.st(Rd(R, D.Fd(1n, m, q), T.tm.reg(R, 4n), T.tm.reg(R, 5n), q, _), W1s(Nil{}, m), nx, F, K, pg, L, I) : Cr.Cir.State}; {==}) :
+        {st3 == std : Cr.Cir.State}}
+      +E = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec(1n+f, B3, st3), Cr.Cir.exec(1n+f, SQ, std), e0b,
+        Equal.trans(Cr.Cir.Out, Cr.Cir.exec(1n+f, B3, st3), Cr.Cir.exec(1n+f, SQ, st3), Cr.Cir.exec(1n+f, SQ, std),
+          Equal.cong(Cr.Cir.Stmt, Cr.Cir.Out, s => Cr.Cir.exec(1n+f, s, st3), B3, SQ, al.tail(r)),
+          Equal.cong(Cr.Cir.State, Cr.Cir.Out, s => Cr.Cir.exec(1n+f, SQ, s), st3, std, est)))
+      K.Ok.eq(Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec(1n+f, SQ, std), F, K, L, I, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2)),
+        Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec(1n+f, SQ, std), E),
+        al.drops(f, r, R, pg, L, I, m, q, Qr, P, zs, K, F, nx, hq, hsub, hcs, hnp, hnqr, hzq, hk, hkf, tb, hr, hnq, hlt, hOnce, hFq, hqn, hb, hptq, hch0))
+    case False{}:
+      +regs = D.Rg.ex(63n, R, 0n)
+      +tg = U32.and(D.Fd(0n, m, q), 63)
+      +c0 = Cr.Cir.Cells.get(m, q)
+      +f1 = Cr.Cir.Cell.get(1n, c0)
+      +st = D.S(regs, m, nx, F, K, pg, L, I)
+      +st0 = Sr.X.st(regs, m, nx, F, K, pg, L, I)
+      +st3 = Sr.X.st(Sr.X.set(Sr.X.set(Sr.X.set(regs, 6n, q), 3n, f1), 7n, 0), m, nx, F, K, pg, L, I)
+      +std = Sr.X.st(Rd(R, D.Fd(1n, m, q), T.tm.reg(R, 4n), T.tm.reg(R, 5n), q, D.Am(m, q)), W1s(Nil{}, m), nx, F, K, pg, L, I)
+      +B3 = Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r)))))
+      +SQ = {Cr.Cir.Stmt.seq{Mc.M.dec.part(2n, 1), Cr.Cir.Stmt.seq{Mc.M.dec.part(3n, 2), Cr.Cir.Stmt.seq{Mc.M.dec.part(4n, 4), Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.b(Sr.sel.t(Mc.M.alloc(r))))))))}}} : Cr.Cir.Stmt}
+      +e0 = Sr.alloc.eq.own(1n+f, regs, m, nx, F, K, pg, L, I, r, q, {==}, h3, hz, cell.in(q, K, F, nx, hFq, hqn), et)
+      +ex1 = {{==} : {st0 == st : Cr.Cir.State}}
+      +e0b = {(%ex1 : {Cr.Cir.exec(1n+f, Mc.M.alloc(r), _) == Cr.Cir.exec(1n+f, B3, st3) : Cr.Cir.Out}; e0) :
+        {Cr.Cir.exec(1n+f, Mc.M.alloc(r), st) == Cr.Cir.exec(1n+f, B3, st3) : Cr.Cir.Out}}
+      +eam = {(%Equal.sym(Bool, U32.is_lt(tg, 32), False{}, et) : {Bool.pick(U32, _, D.Fd(2n, m, U32.add(272, tg)), 0) == 0 : U32}; {==}) :
+        {D.Am(m, q) == 0 : U32}}
+      +est = {(%Equal.sym(U32, D.Am(m, q), 0, eam) :
+          {st3 == Sr.X.st(Rd(R, D.Fd(1n, m, q), T.tm.reg(R, 4n), T.tm.reg(R, 5n), q, _), W1s(Nil{}, m), nx, F, K, pg, L, I) : Cr.Cir.State}; {==}) :
+        {st3 == std : Cr.Cir.State}}
+      +E = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec(1n+f, B3, st3), Cr.Cir.exec(1n+f, SQ, std), e0b,
+        Equal.trans(Cr.Cir.Out, Cr.Cir.exec(1n+f, B3, st3), Cr.Cir.exec(1n+f, SQ, st3), Cr.Cir.exec(1n+f, SQ, std),
+          Equal.cong(Cr.Cir.Stmt, Cr.Cir.Out, s => Cr.Cir.exec(1n+f, s, st3), B3, SQ, al.tail(r)),
+          Equal.cong(Cr.Cir.State, Cr.Cir.Out, s => Cr.Cir.exec(1n+f, SQ, s), st3, std, est)))
+      K.Ok.eq(Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec(1n+f, SQ, std), F, K, L, I, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2)),
+        Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Mc.M.alloc(r), st), Cr.Cir.exec(1n+f, SQ, std), E),
+        al.drops(f, r, R, pg, L, I, m, q, Qr, P, zs, K, F, nx, hq, hsub, hcs, hnp, hnqr, hzq, hk, hkf, tb, hr, hnq, hlt, hOnce, hFq, hqn, hb, hptq, hch0))
+
+# M.alloc(r) with the pend list from its first cell q: the allocation's
+# invariant gives q's facts, then the run by q's tag
+def al.reuse(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
+  +I: List<&2, Word(8n)>, +P: List<&2, U32>, +q: U32, +Qr: List<&2, U32>, +zs: List<&2, D.Zs>,
+  hal: {D.AL(m, T.tm.reg(R, 3n), P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool},
+  +hr: {Nat.is_lt(r, 63n) == True{} : Bool}, +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool},
+  +hfn: {U32.is_le(F, nx) == True{} : Bool}, +tb: D.Tb(m)) ->
+  D.Ok(Cr.Cir.exec(1n+f, Mc.M.alloc(r), D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I, Al.b(Con{q, Qr}, nx), rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Con{q, Qr}, zs, w, rg, ms, nx2))):
+  +p0 = T.tm.reg(R, 3n)
+  +Q = {Con{q, Qr} : List<&2, U32>}
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +CH = D.Chain(Q, m, p0)
+  +ND = D.Nodup(Q)
+  +SB = D.Sub(Q, P)
+  +NP = D.Nodup(P)
+  +AC = D.AL.cells(P, m, P, Q, zs, K, F, nx)
+  +LQ = D.Lt(n, m, Q, F, nx)
+  +h2 = hal
+  +hA = K.Bo.and_l(Bool.and(CH, ND), Bool.and(Bool.and(SB, NP), Bool.and(AC, LQ)), h2)
+  +hB = K.Bo.and_r(Bool.and(CH, ND), Bool.and(Bool.and(SB, NP), Bool.and(AC, LQ)), h2)
+  +hch = K.Bo.and_l(CH, ND, hA)
+  +hnd = K.Bo.and_r(CH, ND, hA)
+  +hsn = K.Bo.and_l(Bool.and(SB, NP), Bool.and(AC, LQ), hB)
+  +hal2 = K.Bo.and_r(Bool.and(SB, NP), Bool.and(AC, LQ), hB)
+  +hsub = K.Bo.and_l(SB, NP, hsn)
+  +hnp = K.Bo.and_r(SB, NP, hsn)
+  +hcs = K.Bo.and_l(AC, LQ, hal2)
+  +hlt = K.Bo.and_r(AC, LQ, hal2)
+  +CR = Bool.and(Bool.not(U32.is_zero(q)), D.Chain(Qr, m, D.Fd(1n, m, q)))
+  +hpq = K.Bo.and_l(U32.is_eq(p0, q), CR, hch)
+  +hrest = K.Bo.and_r(U32.is_eq(p0, q), CR, hch)
+  +hnz = K.Bo.not_t(U32.is_zero(q), K.Bo.and_l(Bool.not(U32.is_zero(q)), D.Chain(Qr, m, D.Fd(1n, m, q)), hrest))
+  +hch0 = K.Bo.and_r(Bool.not(U32.is_zero(q)), D.Chain(Qr, m, D.Fd(1n, m, q)), hrest)
+  +hnqr = K.Bo.not_t(D.Has(Qr, q), K.Bo.and_l(Bool.not(D.Has(Qr, q)), D.Nodup(Qr), hnd))
+  +hnq = K.Bo.and_r(Bool.not(D.Has(Qr, q)), D.Nodup(Qr), hnd)
+  +hq = K.Bo.and_l(D.Has(P, q), D.Sub(Qr, P), hsub)
+  +e3 = K.U.eq(p0, q, hpq)
+  +h3 = {(%e3 : {List.get(&2, U32, D.Rg.ex(63n, R, 0n), 3n) == Some{_} : Maybe<&2, U32>}; {==}) :
+    {List.get(&2, U32, D.Rg.ex(63n, R, 0n), 3n) == Some{q} : Maybe<&2, U32>}}
+  +Hd = K.AL.hd(m, Q, q, F, nx)
+  +Pt = K.AL.pt(m, P, zs, q, K, F, nx)
+  +Ct = K.AL.ct(m, P, Q, q, F, nx)
+  +hxq = al.mem(P, m, P, Q, zs, K, F, nx, q, hq, hcs)
+  +hdq = K.Bo.and_l(Hd, Bool.and(Pt, Ct), hxq)
+  +hptq = K.Bo.and_l(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hxq))
+  +hFq = al.hd.le(m, Q, q, F, nx, hdq)
+  +hqn = K.al.hd.lt(m, Q, q, F, nx, hdq)
+  +hzq = N.le_trans(291n, U32.to_nat(F), U32.to_nat(q), F.big(K, F, hk, hkf), K.U.le(F, q, hFq))
+  +hOnce = once.q(q, F, nx, hfn, hFq, hqn)
+  +x = U32.to_nat(F)
+  +X = U32.to_nat(nx)
+  +es = Equal.sym(Nat, Nat.add(x, n), X, K.Ar.sub.add(x, X, K.U.le(F, nx, hfn)))
+  +hb = N.le_rw_l(X, Nat.add(x, n), X, es, N.le_refl(X))
+  al.reuse.t(U32.is_lt(U32.and(D.Fd(0n, m, q), 63), 32), f, r, R, pg, L, I, m, q, Qr, P, zs, K, F, nx, hq, hsub, hcs, hnp, hnqr, hzq, hk, hkf, tb, hr, hnq, hlt, hOnce, hFq, hqn, hb, hdq, hptq, hch0, hnz, h3, {==})
+
 # M.alloc(r): the cell that it gives is a new one or the first of the pend
 # list, whose reuse drops the counts of its parts; the allocation's invariant
 # holds again, without that cell; the other cells keep their fields 0, 2 to 4
@@ -2123,7 +3457,490 @@ def Al.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U
   tb: D.Tb(m)) ->
   D.Ok(Cr.Cir.exec(1n+f, Mc.M.alloc(r), D.S(D.Rg.ex(63n, R, 0n), m, nx, F, K, pg, L, I)), F, K, L, I, Al.b(Q, nx),
     rg => ms => nx2 => pg2 => D.Ex(Aw, w => Al.post(r, R, m, nx, K, F, P, Q, zs, w, rg, ms, nx2))):
-  ?TODO
+  match Q:
+    case Nil{}:
+      al.fresh.ok(f, r, R, m, nx, F, K, pg, L, I, P, zs, hal,
+        K.Bo.and_l(Nat.is_lt(r, 63n), Bool.not(Bool.and(Nat.is_le(3n, r), Nat.is_le(r, 7n))), hr), hk, hkf, hfn, tb)
+    case Con{+q, +Qr}:
+      al.reuse(f, r, R, m, nx, F, K, pg, L, I, P, q, Qr, zs, hal,
+        K.Bo.and_l(Nat.is_lt(r, 63n), Bool.not(Bool.and(Nat.is_le(3n, r), Nat.is_le(r, 7n))), hr), hk, hkf, hfn, tb)
+
+# The garbage is well-founded
+# ---------------------------
+#
+# With an empty pend list there is no garbage: a garbage cell y of the largest
+# zombie size, out of the pend list, counts its garbage pointers, at least one;
+# so a garbage cell o has y as a part, by a set bit of its mask; o's AL.part
+# then gives y a zombie size below o's, which is at most y's.
+
+# the largest zombie size of the cells P
+def Zmax(P: List<&2, U32>, +zs: List<&2, D.Zs>) -> Nat:
+  match P:
+    case Nil{}:
+      0n
+    case Con{+o, rest}:
+      +r = Zmax(rest, zs)
+      Bool.pick(Nat, Nat.is_le(r, D.Zz(zs, o)), D.Zz(zs, o), r)
+
+# a < b, when not b <= a
+def nle.lt(a: Nat, b: Nat, h: {Nat.is_le(b, a) == False{} : Bool}) -> N.Le(1n+a, b):
+  match a b:
+    case 0n 0n:
+      K.Bo.tf(N.Le(1n, 0n), Equal.sym(Bool, True{}, False{}, h))
+    case 1n+ap 0n:
+      K.Bo.tf(N.Le(2n+ap, 0n), Equal.sym(Bool, True{}, False{}, h))
+    case 0n 1n+bp:
+      N.le_zero(bp)
+    case 1n+ap 1n+bp:
+      nle.lt(ap, bp, h)
+
+# the larger of zo and r is at least each
+def zmax.top(c: Bool, +r: Nat, +zo: Nat, +z: Nat, ec: {Nat.is_le(r, zo) == c : Bool}, hz: N.Le(z, r)) ->
+  N.Le(z, Bool.pick(Nat, c, zo, r)):
+  match c:
+    case True{}:
+      N.le_trans(z, r, zo, hz, N.toLe(r, zo, ec))
+    case False{}:
+      hz
+
+def zmax.self(c: Bool, +r: Nat, +zo: Nat, ec: {Nat.is_le(r, zo) == c : Bool}) -> N.Le(zo, Bool.pick(Nat, c, zo, r)):
+  match c:
+    case True{}:
+      N.le_refl(zo)
+    case False{}:
+      N.weaken(zo, r, nle.lt(zo, r, ec))
+
+# each zombie size of P is at most the largest
+def zmax.ge.b(e: Bool, +o: U32, +rest: List<&2, U32>, +zs: List<&2, D.Zs>, +y: U32, eo: {U32.is_eq(o, y) == e : Bool},
+  h: {Bool.or(e, D.Has(rest, y)) == True{} : Bool},
+  k: {D.Has(rest, y) == True{} : Bool} -> N.Le(D.Zz(zs, y), Zmax(rest, zs))) -> N.Le(D.Zz(zs, y), Zmax(Con{o, rest}, zs)):
+  match e:
+    case True{}:
+      +r = Zmax(rest, zs)
+      +zo = D.Zz(zs, o)
+      +ey = K.U.eq(o, y, eo)
+      (%ey : N.Le(D.Zz(zs, _), Bool.pick(Nat, Nat.is_le(r, zo), zo, r)); zmax.self(Nat.is_le(r, zo), r, zo, {==}))
+    case False{}:
+      +r = Zmax(rest, zs)
+      +zo = D.Zz(zs, o)
+      zmax.top(Nat.is_le(r, zo), r, zo, D.Zz(zs, y), {==}, k(h))
+
+def zmax.ge(P: List<&2, U32>, +zs: List<&2, D.Zs>, +y: U32, h: {D.Has(P, y) == True{} : Bool}) -> N.Le(D.Zz(zs, y), Zmax(P, zs)):
+  match P:
+    case Nil{}:
+      K.Bo.tf(N.Le(D.Zz(zs, y), 0n), h)
+    case Con{+o, +rest}:
+      zmax.ge.b(U32.is_eq(o, y), o, rest, zs, y, {==}, h, hr => zmax.ge(rest, zs, y, hr))
+
+# a cell of the largest zombie size, of a list that is not empty
+def zmax.at.b(c: Bool, +o: U32, +o2: U32, +rest2: List<&2, U32>, +zs: List<&2, D.Zs>, -G: Type,
+  ec: {Nat.is_le(Zmax(Con{o2, rest2}, zs), D.Zz(zs, o)) == c : Bool},
+  k: @y: U32 -> {D.Has(Con{o, Con{o2, rest2}}, y) == True{} : Bool} ->
+    {D.Zz(zs, y) == Bool.pick(Nat, c, D.Zz(zs, o), Zmax(Con{o2, rest2}, zs)) : Nat} -> G,
+  kr: (@y: U32 -> {D.Has(Con{o2, rest2}, y) == True{} : Bool} -> {D.Zz(zs, y) == Zmax(Con{o2, rest2}, zs) : Nat} -> G) -> G) -> G:
+  match c:
+    case True{}:
+      k(o, K.Bo.or_il(U32.is_eq(o, o), D.Has(Con{o2, rest2}, o), K.U.eq_refl(o)), {==})
+    case False{}:
+      kr(+y => +hy => +ey => k(y, K.Bo.or_ir(U32.is_eq(o, y), D.Has(Con{o2, rest2}, y), hy), ey))
+
+def zmax.at(rest: List<&2, U32>, +o: U32, +zs: List<&2, D.Zs>, -G: Type,
+  k: @y: U32 -> {D.Has(Con{o, rest}, y) == True{} : Bool} -> {D.Zz(zs, y) == Zmax(Con{o, rest}, zs) : Nat} -> G) -> G:
+  match rest:
+    case Nil{}:
+      +zo = D.Zz(zs, o)
+      k(o, K.Bo.or_il(U32.is_eq(o, o), D.Has(Nil{}, o), K.U.eq_refl(o)),
+        (%Equal.sym(Bool, Nat.is_le(0n, zo), True{}, K.Na.le0(zo)) : {zo == Bool.pick(Nat, _, zo, 0n) : Nat}; {==}))
+    case Con{+o2, +rest2}:
+      zmax.at.b(Nat.is_le(Zmax(Con{o2, rest2}, zs), D.Zz(zs, o)), o, o2, rest2, zs, G, {==}, k, k2 => zmax.at(rest2, o2, zs, G, k2))
+
+# a Nat that is not 0 is at least 1
+def le1.of(x: Nat, e: {Nat.is_eq(x, 0n) == False{} : Bool}) -> N.Le(1n, x):
+  match x:
+    case 0n:
+      K.Bo.tf(N.Le(1n, 0n), Equal.sym(Bool, True{}, False{}, e))
+    case 1n+p:
+      N.le_zero(p)
+
+# the garbage's pointers to y, at least one: some garbage cell's pointers
+def pp.pos.b(z: Bool, +o: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +y: U32, -G: Type, ez: {Nat.is_eq(D.Ow(m, o, y), 0n) == z : Bool},
+  h: N.Le(1n, Nat.add(D.Ow(m, o, y), D.Pp(rest, m, y))),
+  k: @c: U32 -> {D.Has(Con{o, rest}, c) == True{} : Bool} -> N.Le(1n, D.Ow(m, c, y)) -> G,
+  kr: N.Le(1n, D.Pp(rest, m, y)) -> (@c: U32 -> {D.Has(rest, c) == True{} : Bool} -> N.Le(1n, D.Ow(m, c, y)) -> G) -> G) -> G:
+  match z:
+    case False{}:
+      k(o, K.Bo.or_il(U32.is_eq(o, o), D.Has(rest, o), K.U.eq_refl(o)), le1.of(D.Ow(m, o, y), ez))
+    case True{}:
+      kr((%K.Na.eq(D.Ow(m, o, y), 0n, ez) : N.Le(1n, Nat.add(_, D.Pp(rest, m, y))); h),
+        +c => +hc => hw => k(c, K.Bo.or_ir(U32.is_eq(o, c), D.Has(rest, c), hc), hw))
+
+def pp.pos(P: List<&2, U32>, +m: Cr.Cir.Cells, +y: U32, -G: Type, h: N.Le(1n, D.Pp(P, m, y)),
+  k: @c: U32 -> {D.Has(P, c) == True{} : Bool} -> N.Le(1n, D.Ow(m, c, y)) -> G) -> G:
+  match P:
+    case Nil{}:
+      Empty.absurd(G, h)
+    case Con{+o, +rest}:
+      pp.pos.b(Nat.is_eq(D.Ow(m, o, y), 0n), o, rest, m, y, G, {==}, h, k, h2 => k2 => pp.pos(rest, m, y, G, h2, k2))
+
+# a pointer of the cell o to y: a set bit of o's mask whose field holds y
+def ow.pos.c(t1: Bool, t2: Bool, t3: Bool, +m: Cr.Cir.Cells, +o: U32, +y: U32, -G: Type,
+  e1: {Bool.and(U32.is_ne(U32.and(D.Am(m, o), 1), 0), U32.is_eq(D.Fd(2n, m, o), y)) == t1 : Bool},
+  e2: {Bool.and(U32.is_ne(U32.and(D.Am(m, o), 2), 0), U32.is_eq(D.Fd(3n, m, o), y)) == t2 : Bool},
+  e3: {Bool.and(U32.is_ne(U32.and(D.Am(m, o), 4), 0), U32.is_eq(D.Fd(4n, m, o), y)) == t3 : Bool},
+  h: N.Le(1n, Nat.add(D.Nat.of(t1), Nat.add(D.Nat.of(t2), D.Nat.of(t3)))),
+  k2: {U32.is_zero(U32.and(D.Am(m, o), 1)) == False{} : Bool} -> {D.Fd(2n, m, o) == y : U32} -> G,
+  k3: {U32.is_zero(U32.and(D.Am(m, o), 2)) == False{} : Bool} -> {D.Fd(3n, m, o) == y : U32} -> G,
+  k4: {U32.is_zero(U32.and(D.Am(m, o), 4)) == False{} : Bool} -> {D.Fd(4n, m, o) == y : U32} -> G) -> G:
+  match t1:
+    case True{}:
+      +b = e1
+      +B1 = U32.is_ne(U32.and(D.Am(m, o), 1), 0)
+      +E2 = U32.is_eq(D.Fd(2n, m, o), y)
+      k2(K.Bo.not_t(U32.is_eq(U32.and(D.Am(m, o), 1), 0), K.Bo.and_l(B1, E2, b)), K.U.eq(D.Fd(2n, m, o), y, K.Bo.and_r(B1, E2, b)))
+    case False{}:
+      match t2:
+        case True{}:
+          +b = e2
+          +B2 = U32.is_ne(U32.and(D.Am(m, o), 2), 0)
+          +E3 = U32.is_eq(D.Fd(3n, m, o), y)
+          k3(K.Bo.not_t(U32.is_eq(U32.and(D.Am(m, o), 2), 0), K.Bo.and_l(B2, E3, b)), K.U.eq(D.Fd(3n, m, o), y, K.Bo.and_r(B2, E3, b)))
+        case False{}:
+          match t3:
+            case True{}:
+              +b = e3
+              +B4 = U32.is_ne(U32.and(D.Am(m, o), 4), 0)
+              +E4 = U32.is_eq(D.Fd(4n, m, o), y)
+              k4(K.Bo.not_t(U32.is_eq(U32.and(D.Am(m, o), 4), 0), K.Bo.and_l(B4, E4, b)), K.U.eq(D.Fd(4n, m, o), y, K.Bo.and_r(B4, E4, b)))
+            case False{}:
+              Empty.absurd(G, h)
+
+def ow.pos(+m: Cr.Cir.Cells, +o: U32, +y: U32, -G: Type, h: N.Le(1n, D.Ow(m, o, y)),
+  k2: {U32.is_zero(U32.and(D.Am(m, o), 1)) == False{} : Bool} -> {D.Fd(2n, m, o) == y : U32} -> G,
+  k3: {U32.is_zero(U32.and(D.Am(m, o), 2)) == False{} : Bool} -> {D.Fd(3n, m, o) == y : U32} -> G,
+  k4: {U32.is_zero(U32.and(D.Am(m, o), 4)) == False{} : Bool} -> {D.Fd(4n, m, o) == y : U32} -> G) -> G:
+  +a = D.Am(m, o)
+  ow.pos.c(Bool.and(U32.is_ne(U32.and(a, 1), 0), U32.is_eq(D.Fd(2n, m, o), y)), Bool.and(U32.is_ne(U32.and(a, 2), 0), U32.is_eq(D.Fd(3n, m, o), y)),
+    Bool.and(U32.is_ne(U32.and(a, 4), 0), U32.is_eq(D.Fd(4n, m, o), y)), m, o, y, G, {==}, {==}, {==}, h, k2, k3, k4)
+
+# a part p, by a set bit, of a garbage cell of the zombie size z, not 0, not
+# STATIC, whose garbage pointers are not below its count: a smaller zombie size
+def pt.zz(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +z: Nat, +am: U32, +bit: U32, +p: U32, +K: U32, +F: U32, +N: U32,
+  h: {D.AL.part(m, P, zs, z, am, bit, p, K, F, N) == True{} : Bool}, hon: {U32.is_zero(U32.and(am, bit)) == False{} : Bool},
+  hz: {U32.is_zero(p) == False{} : Bool}, hs: {D.Stc(m, p) == False{} : Bool},
+  hc: {Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))) == False{} : Bool}) -> {Nat.is_lt(D.Zz(zs, p), z) == True{} : Bool}:
+  +L1 = Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p)))
+  +A1 = Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z))
+  +R4 = Bool.or(A1, L1)
+  +R3 = Bool.or(D.Stc(m, p), R4)
+  +r1 = K.Bo.or_r(U32.is_zero(U32.and(am, bit)), Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, N), R3)), h, hon)
+  +r2 = K.Bo.or_r(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, N), R3), r1, hz)
+  +r3 = K.Bo.and_r(Cr.Cir.is_cell(p, K, F, N), R3, r2)
+  +r4 = K.Bo.or_r(D.Stc(m, p), R4, r3, hs)
+  K.Bo.and_r(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z), K.Bo.or_l(A1, L1, r4, hc))
+
+# no part of zombie size z gives a cell of zombie size at least z
+def pt.no(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +z: Nat, +am: U32, +bit: U32, +p: U32, +K: U32, +F: U32, +N: U32,
+  h: {D.AL.part(m, P, zs, z, am, bit, p, K, F, N) == True{} : Bool}, hon: {U32.is_zero(U32.and(am, bit)) == False{} : Bool},
+  hz: {U32.is_zero(p) == False{} : Bool}, hs: {D.Stc(m, p) == False{} : Bool},
+  hc: {Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))) == False{} : Bool}, hle: N.Le(z, D.Zz(zs, p))) -> Empty:
+  N.not_succ_le(D.Zz(zs, p), N.le_trans(1n+D.Zz(zs, p), z, D.Zz(zs, p), K.Na.lt1(D.Zz(zs, p), z, pt.zz(m, P, zs, z, am, bit, p, K, F, N, h, hon, hz, hs, hc)),
+    hle))
+
+# o, a garbage cell that points to y, the cell of the largest zombie size
+def al.top.at(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32, +y: U32, +o: U32,
+  +hcs: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool}, +hoP: {D.Has(P, o) == True{} : Bool}, how: N.Le(1n, D.Ow(m, o, y)),
+  +hz: {U32.is_zero(y) == False{} : Bool}, +hs: {D.Stc(m, y) == False{} : Bool},
+  +hc: {Nat.is_lt(D.Pp(P, m, y), U32.to_nat(D.Fd(1n, m, y))) == False{} : Bool}, +ey: {D.Zz(zs, y) == Zmax(P, zs) : Nat}) -> Empty:
+  +hxo = al.mem(P, m, P, Q, zs, K, F, nx, o, hoP, hcs)
+  +Hd = K.AL.hd(m, Q, o, F, nx)
+  +Pt = K.AL.pt(m, P, zs, o, K, F, nx)
+  +Ct = K.AL.ct(m, P, Q, o, F, nx)
+  +hpt = K.Bo.and_l(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hxo))
+  +a = D.Am(m, o)
+  +z = D.Zz(zs, o)
+  +A1 = D.AL.part(m, P, zs, z, a, 1, D.Fd(2n, m, o), K, F, nx)
+  +A2 = D.AL.part(m, P, zs, z, a, 2, D.Fd(3n, m, o), K, F, nx)
+  +A4 = D.AL.part(m, P, zs, z, a, 4, D.Fd(4n, m, o), K, F, nx)
+  +hle = {(%Equal.sym(Nat, D.Zz(zs, y), Zmax(P, zs), ey) : N.Le(z, _); zmax.ge(P, zs, o, hoP)) : N.Le(z, D.Zz(zs, y))}
+  ow.pos(m, o, y, Empty, how,
+    hon => e => pt.no(m, P, zs, z, a, 1, y, K, F, nx, (%e : {D.AL.part(m, P, zs, z, a, 1, _, K, F, nx) == True{} : Bool};
+      K.Bo.and_l(A1, Bool.and(A2, A4), hpt)), hon, hz, hs, hc, hle),
+    hon => e => pt.no(m, P, zs, z, a, 2, y, K, F, nx, (%e : {D.AL.part(m, P, zs, z, a, 2, _, K, F, nx) == True{} : Bool};
+      K.Bo.and_l(A2, A4, K.Bo.and_r(A1, Bool.and(A2, A4), hpt))), hon, hz, hs, hc, hle),
+    hon => e => pt.no(m, P, zs, z, a, 4, y, K, F, nx, (%e : {D.AL.part(m, P, zs, z, a, 4, _, K, F, nx) == True{} : Bool};
+      K.Bo.and_r(A2, A4, K.Bo.and_r(A1, Bool.and(A2, A4), hpt))), hon, hz, hs, hc, hle))
+
+# the garbage cell y of the largest zombie size is in the pend list
+def al.top(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32, +y: U32,
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, +hcs: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool},
+  +hy: {D.Has(P, y) == True{} : Bool}, hyq: {D.Has(Q, y) == False{} : Bool}, +ey: {D.Zz(zs, y) == Zmax(P, zs) : Nat}) -> Empty:
+  +hx = al.mem(P, m, P, Q, zs, K, F, nx, y, hy, hcs)
+  +Hd = K.AL.hd(m, Q, y, F, nx)
+  +Pt = K.AL.pt(m, P, zs, y, K, F, nx)
+  +Ct = K.AL.ct(m, P, Q, y, F, nx)
+  +hd = K.Bo.and_l(Hd, Bool.and(Pt, Ct), hx)
+  +hct = K.Bo.and_r(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hx))
+  +pp = D.Pp(P, m, y)
+  +c0 = U32.to_nat(D.Fd(1n, m, y))
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +PK = Bool.pick(Bool, D.Has(Q, y), Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp)))
+  +hpk0 = K.Bo.and_r(Nat.is_eq(D.Pc(n, m, Q, F, y), pp), PK, hct)
+  +hpk = {(%hyq : {Bool.pick(Bool, _, Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp))) == True{} : Bool}; hpk0) :
+    {Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp)) == True{} : Bool}}
+  +epc = K.Na.eq(pp, c0, K.Bo.and_l(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp), hpk))
+  +hpos = K.Na.lt1(0n, pp, K.Bo.and_r(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp), hpk))
+  +hz = K.U.nz(y, K, F, hkf, al.hd.le(m, Q, y, F, nx, hd))
+  +hs = al.hd.ns(m, Q, y, F, nx, hd)
+  +hc = na.nlt(Nat.is_lt(pp, c0), pp, c0, {==}, (%epc : N.Le(_, pp); N.le_refl(pp)))
+  pp.pos(P, m, y, Empty, hpos, +o => +hoP => how => al.top.at(m, P, Q, zs, K, F, nx, y, o, hcs, hoP, how, hz, hs, hc, ey))
+
+# with an empty pend list there is no garbage
+def al.nil(+m: Cr.Cir.Cells, +pend: U32, P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, h: {D.AL(m, pend, P, Nil{}, zs, K, F, nx) == True{} : Bool}) -> {P == Nil{} : List<&2, U32>}:
+  match P:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      +Pl = {Con{o, rest} : List<&2, U32>}
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+      +C1 = D.AL.cells(Pl, m, Pl, Nil{}, zs, K, F, nx)
+      +L1 = D.Lt(n, m, Nil{}, F, nx)
+      +S1 = Bool.and(D.Sub(Nil{}, Pl), D.Nodup(Pl))
+      +H1 = Bool.and(D.Chain(Nil{}, m, pend), D.Nodup(Nil{}))
+      +hc = K.Bo.and_l(C1, L1, K.Bo.and_r(S1, Bool.and(C1, L1), K.Bo.and_r(H1, Bool.and(S1, Bool.and(C1, L1)), h)))
+      Empty.absurd({Pl == Nil{} : List<&2, U32>}, zmax.at(rest, o, zs, Empty, +y => +hy => +ey => al.top(m, Pl, Nil{}, zs, K, F, nx, y, hkf, hc, hy, {==}, ey)))
+
+# Distinct cells are few
+# ----------------------
+#
+# Distinct cells, each one of S, are at most |S| (sub.len); the n cells from o
+# (Rng) hold each cell from o below o + n (rng.has); so distinct cells from F
+# below nx are at most nx - F (cells.few): so few are the walk's frames, and
+# its depth, at most twice them, stays far below 2^32.
+
+# |Del(S, x)| + 1 = |S|, for x one of S
+def len.del.b(e: Bool, +y: U32, +rest: List<&2, U32>, +x: U32, ey: {U32.is_eq(y, x) == e : Bool},
+  h: {Bool.or(e, D.Has(rest, x)) == True{} : Bool},
+  k: {D.Has(rest, x) == True{} : Bool} -> {1n+List.length(&2, U32, Del(rest, x)) == List.length(&2, U32, rest) : Nat}) ->
+  {1n+List.length(&2, U32, Del(Con{y, rest}, x)) == List.length(&2, U32, Con{y, rest}) : Nat}:
+  match e:
+    case True{}:
+      (%Equal.sym(Bool, U32.is_eq(y, x), True{}, ey) :
+        {1n+List.length(&2, U32, Bool.pick(List<&2, U32>, _, rest, Con{y, Del(rest, x)})) == 1n+List.length(&2, U32, rest) : Nat}; {==})
+    case False{}:
+      (%Equal.sym(Bool, U32.is_eq(y, x), False{}, ey) :
+        {1n+List.length(&2, U32, Bool.pick(List<&2, U32>, _, rest, Con{y, Del(rest, x)})) == 1n+List.length(&2, U32, rest) : Nat};
+        Equal.cong(Nat, Nat, z => 1n+z, 1n+List.length(&2, U32, Del(rest, x)), List.length(&2, U32, rest), k(h)))
+
+def len.del(S: List<&2, U32>, +x: U32, h: {D.Has(S, x) == True{} : Bool}) ->
+  {1n+List.length(&2, U32, Del(S, x)) == List.length(&2, U32, S) : Nat}:
+  match S:
+    case Nil{}:
+      K.Bo.tf({1n == 0n : Nat}, h)
+    case Con{+y, +rest}:
+      len.del.b(U32.is_eq(y, x), y, rest, x, {==}, h, hr => len.del(rest, x, hr))
+
+# distinct cells, each one of S, are at most |S|
+def sub.len(xs: List<&2, U32>, +S: List<&2, U32>, hn: {D.Nodup(xs) == True{} : Bool}, hs: {D.Sub(xs, S) == True{} : Bool}) ->
+  N.Le(List.length(&2, U32, xs), List.length(&2, U32, S)):
+  match xs:
+    case Nil{}:
+      N.le_zero(List.length(&2, U32, S))
+    case Con{+x, +rest}:
+      +hn2 = hn
+      +hs2 = hs
+      +hx = K.Bo.and_l(D.Has(S, x), D.Sub(rest, S), hs2)
+      +hrs = K.Bo.and_r(D.Has(S, x), D.Sub(rest, S), hs2)
+      +hnx = K.Bo.not_t(D.Has(rest, x), K.Bo.and_l(Bool.not(D.Has(rest, x)), D.Nodup(rest), hn2))
+      +hnr = K.Bo.and_r(Bool.not(D.Has(rest, x)), D.Nodup(rest), hn2)
+      N.le_rw_r(1n+List.length(&2, U32, rest), 1n+List.length(&2, U32, Del(S, x)), List.length(&2, U32, S), len.del(S, x, hx),
+        sub.len(rest, Del(S, x), hnr, sub.del(rest, S, x, hrs, hnx)))
+
+# the n cells from o
+def Rng(n: Nat, +o: U32) -> List<&2, U32>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      Con{o, Rng(p, U32.inc(o))}
+
+def rng.len(n: Nat, +o: U32) -> {List.length(&2, U32, Rng(n, o)) == n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, z => 1n+z, List.length(&2, U32, Rng(p, U32.inc(o))), p, rng.len(p, U32.inc(o)))
+
+# a cell q from o below o + n, all below N, is one of the n cells from o
+def rng.has.b(e: Bool, +p: Nat, +o: U32, +q: U32, +N: U32, +eo: {U32.is_eq(o, q) == e : Bool}, +h1: N.Le(U32.to_nat(o), U32.to_nat(q)),
+  +h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), 1n+p)), +ei: {U32.to_nat(U32.inc(o)) == 1n+U32.to_nat(o) : Nat},
+  +eI: {1n+Nat.add(U32.to_nat(o), p) == Nat.add(U32.to_nat(U32.inc(o)), p) : Nat}, +hb2: N.Le(Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N)),
+  k: N.Le(U32.to_nat(U32.inc(o)), U32.to_nat(q)) -> N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(U32.inc(o)), p)) ->
+    N.Le(Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N)) -> {D.Has(Rng(p, U32.inc(o)), q) == True{} : Bool}) ->
+  {Bool.or(e, D.Has(Rng(p, U32.inc(o)), q)) == True{} : Bool}:
+  match e:
+    case True{}:
+      {==}
+    case False{}:
+      +x = U32.to_nat(o)
+      +hlt = lt.of.ne(o, q, h1, eo)
+      k(N.le_rw_l(1n+x, U32.to_nat(U32.inc(o)), U32.to_nat(q), Equal.sym(Nat, U32.to_nat(U32.inc(o)), 1n+x, ei), hlt),
+        N.le_rw_r(1n+U32.to_nat(q), Nat.add(x, 1n+p), Nat.add(U32.to_nat(U32.inc(o)), p), Equal.trans(Nat, Nat.add(x, 1n+p), 1n+Nat.add(x, p),
+          Nat.add(U32.to_nat(U32.inc(o)), p), N.add_succ_r(x, p), eI), h2), hb2)
+
+def rng.has(n: Nat, +o: U32, +q: U32, +N: U32, h1: N.Le(U32.to_nat(o), U32.to_nat(q)), h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), n)),
+  hb: N.Le(Nat.add(U32.to_nat(o), n), U32.to_nat(N))) -> {D.Has(Rng(n, o), q) == True{} : Bool}:
+  match n:
+    case 0n:
+      Empty.absurd({D.Has(Rng(0n, o), q) == True{} : Bool}, N.not_succ_le(U32.to_nat(q), N.le_trans(1n+U32.to_nat(q), U32.to_nat(o), U32.to_nat(q),
+        N.le_rw_r(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), 0n), U32.to_nat(o), N.add_zero(U32.to_nat(o)), h2), h1)))
+    case 1n+(+p):
+      +x = U32.to_nat(o)
+      +h1b = N.le_rw_l(Nat.add(x, 1n+p), 1n+Nat.add(x, p), U32.to_nat(N), N.add_succ_r(x, p), hb)
+      +lt = N.le_trans(1n+x, 1n+Nat.add(x, p), U32.to_nat(N), N.le_add_r(1n+x, p), h1b)
+      +ei = K.Ar.u.inc(o, N, lt)
+      +eI = Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(o)), p), 1n+Nat.add(x, p), Equal.cong(Nat, Nat, y => Nat.add(y, p), U32.to_nat(U32.inc(o)), 1n+x, ei))
+      +hb2 = N.le_rw_l(1n+Nat.add(x, p), Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N), eI, h1b)
+      rng.has.b(U32.is_eq(o, q), p, o, q, N, {==}, h1, h2, ei, eI, hb2, a => b => c => rng.has(p, U32.inc(o), q, N, a, b, c))
+
+# each of the cells xs is from F, below nx
+def In.rng(xs: List<&2, U32>, +F: U32, +nx: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Bool.and(U32.is_le(F, x), U32.is_lt(x, nx)), In.rng(rest, F, nx))
+
+def rng.sub(xs: List<&2, U32>, +F: U32, +nx: U32, +hfn: {U32.is_le(F, nx) == True{} : Bool}, h: {In.rng(xs, F, nx) == True{} : Bool}) ->
+  {D.Sub(xs, Rng(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      +h2 = h
+      +A = Bool.and(U32.is_le(F, x), U32.is_lt(x, nx))
+      +hx = K.Bo.and_l(A, In.rng(rest, F, nx), h2)
+      +hFx = K.Bo.and_l(U32.is_le(F, x), U32.is_lt(x, nx), hx)
+      +hxn = K.Bo.and_r(U32.is_le(F, x), U32.is_lt(x, nx), hx)
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+      +es = Equal.sym(Nat, Nat.add(U32.to_nat(F), n), U32.to_nat(nx), K.Ar.sub.add(U32.to_nat(F), U32.to_nat(nx), K.U.le(F, nx, hfn)))
+      K.Bo.and_i(D.Has(Rng(n, F), x), D.Sub(rest, Rng(n, F)),
+        rng.has(n, F, x, nx, K.U.le(F, x, hFx), N.le_rw_r(1n+U32.to_nat(x), U32.to_nat(nx), Nat.add(U32.to_nat(F), n), es, K.U.lt(x, nx, hxn)),
+          N.le_rw_l(U32.to_nat(nx), Nat.add(U32.to_nat(F), n), U32.to_nat(nx), es, N.le_refl(U32.to_nat(nx)))),
+        rng.sub(rest, F, nx, hfn, K.Bo.and_r(A, In.rng(rest, F, nx), h2)))
+
+# distinct cells from F below nx are at most nx - F
+def cells.few(+xs: List<&2, U32>, +F: U32, +nx: U32, hfn: {U32.is_le(F, nx) == True{} : Bool}, hn: {D.Nodup(xs) == True{} : Bool},
+  h: {In.rng(xs, F, nx) == True{} : Bool}) -> N.Le(List.length(&2, U32, xs), Nat.sub(U32.to_nat(nx), U32.to_nat(F))):
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  N.le_rw_r(List.length(&2, U32, xs), List.length(&2, U32, Rng(n, F)), n, rng.len(n, F), sub.len(xs, Rng(n, F), hn, rng.sub(xs, F, nx, hfn, h)))
+
+# The stores of a new cell
+# ------------------------
+
+# M.make's stores, after its allocation gave the cell z in register r: the
+# header h, the count 1 and the fields a, b and c, each expression's value in
+# the state where it runs
+def make.tail(+f: Nat, +st1: Cr.Cir.State, +r: Nat, h: Cr.Cir.Expr, a: Cr.Cir.Expr, b: Cr.Cir.Expr, c: Cr.Cir.Expr, +z: U32,
+  +hv: U32, +av: U32, +bv: U32, +cv: U32,
+  ez: {List.get(&2, U32, Sr.X.regs(st1), r) == Some{z} : Maybe<&2, U32>}, hc: {Sr.X.cell(st1, z) == True{} : Bool},
+  eh: {Cr.Cir.eval(h, st1) == Some{hv} : Maybe<&2, U32>},
+  ea: {Cr.Cir.eval(a, Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1)) == Some{av} : Maybe<&2, U32>},
+  eb: {Cr.Cir.eval(b, Sr.X.store(Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1), 2n, z, av)) == Some{bv} : Maybe<&2, U32>},
+  ec: {Cr.Cir.eval(c, Sr.X.store(Sr.X.store(Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1), 2n, z, av), 3n, z, bv)) == Some{cv} : Maybe<&2, U32>}) ->
+  {Cr.Cir.exec(f, Sr.sel.b(Mc.M.make(r, h, a, b, c)), st1) ==
+    Cr.Cir.Out.next{Sr.X.store(Sr.X.store(Sr.X.store(Sr.X.store(Sr.X.store(st1, 0n, z, hv), 1n, z, 1), 2n, z, av), 3n, z, bv), 4n, z, cv)} : Cr.Cir.Out}:
+  match st1:
+    case Cr.Cir.State{+regs1, +m1, +nx1, +fi1, +im1, +pg1, +lim1, +inp1, +out1, +outn1}:
+      +g = ez
+      +c0 = hc
+      +hh = h
+      +aa = a
+      +bb = b
+      +cx = c
+      +t0 = {Cr.Cir.State{regs1, m1, nx1, fi1, im1, pg1, lim1, inp1, out1, outn1} : Cr.Cir.State}
+      +t1 = Sr.X.store(t0, 0n, z, hv)
+      +t2 = Sr.X.store(t1, 1n, z, 1)
+      +t3 = Sr.X.store(t2, 2n, z, av)
+      +t4 = Sr.X.store(t3, 3n, z, bv)
+      +t5 = Sr.X.store(t4, 4n, z, cv)
+      +q1 = Sr.sel.b(Mc.M.make(r, hh, aa, bb, cx))
+      +q2 = Sr.sel.b(q1)
+      +q3 = Sr.sel.b(q2)
+      +q4 = Sr.sel.b(q3)
+      +q5 = Sr.sel.b(q4)
+      +rhs = {Cr.Cir.Out.next{t5} : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q1), q2, t0, t1, Sr.run.store(f, 0n, Mc.M.g(r), hh, t0, z, hv, g, eh, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q2), q3, t1, t2, Sr.run.store(f, 1n, Mc.M.g(r), Mc.M.c(1), t1, z, 1, g, {==}, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q3), q4, t2, t3, Sr.run.store(f, 2n, Mc.M.g(r), aa, t2, z, av, g, ea, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q4), q5, t3, t4, Sr.run.store(f, 3n, Mc.M.g(r), bb, t3, z, bv, g, eb, c0)) : {_ == rhs : Cr.Cir.Out}
+      %Sr.rw.seq(f, Sr.sel.a(q5), Sr.sel.b(q5), t4, t5, Sr.run.store(f, 4n, Mc.M.g(r), cx, t4, z, cv, g, ec, c0)) : {_ == rhs : Cr.Cir.Out}
+      Sr.run.nop(f, t5)
+
+# the cell whose five fields were set is the cell of the five values
+def cell5(c: Cr.Cir.Cell, +v0: U32, +v1: U32, +v2: U32, +v3: U32, +v4: U32) ->
+  {Cr.Cir.Cell.set(4n, Cr.Cir.Cell.set(3n, Cr.Cir.Cell.set(2n, Cr.Cir.Cell.set(1n, Cr.Cir.Cell.set(0n, c, v0), v1), v2), v3), v4) ==
+    Cr.Cir.Cell{v0, v1, v2, v3, v4} : Cr.Cir.Cell}:
+  match c:
+    case Cr.Cir.Cell{a0, a1, a2, a3, a4}:
+      {==}
+
+# five stores to the fields of the cell i: the cell of the five values
+def put5(+m: Cr.Cir.Cells, +i: U32, +v0: U32, +v1: U32, +v2: U32, +v3: U32, +v4: U32) ->
+  {Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{v0, v1, v2, v3, v4}) ==
+    Sr.X.put(Sr.X.put(Sr.X.put(Sr.X.put(Sr.X.put(m, 0n, i, v0), 1n, i, v1), 2n, i, v2), 3n, i, v3), 4n, i, v4) : Cr.Cir.Cells}:
+  +z = {Cr.Cir.Cells.set(m, i, Cr.Cir.Cell{v0, v1, v2, v3, v4}) : Cr.Cir.Cells}
+  +c1 = Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, i), v0)
+  +c2 = Cr.Cir.Cell.set(1n, c1, v1)
+  +c3 = Cr.Cir.Cell.set(2n, c2, v2)
+  +c4 = Cr.Cir.Cell.set(3n, c3, v3)
+  %Sr.Ce.put_set(m, i, c1, 1n, v1) : {z == Sr.X.put(Sr.X.put(Sr.X.put(_, 2n, i, v2), 3n, i, v3), 4n, i, v4) : Cr.Cir.Cells}
+  %Sr.Ce.put_set(m, i, c2, 2n, v2) : {z == Sr.X.put(Sr.X.put(_, 3n, i, v3), 4n, i, v4) : Cr.Cir.Cells}
+  %Sr.Ce.put_set(m, i, c3, 3n, v3) : {z == Sr.X.put(_, 4n, i, v4) : Cr.Cir.Cells}
+  %Sr.Ce.put_set(m, i, c4, 4n, v4) : {z == _ : Cr.Cir.Cells}
+  Equal.cong(Cr.Cir.Cell, Cr.Cir.Cells, x => Cr.Cir.Cells.set(m, i, x), Cr.Cir.Cell{v0, v1, v2, v3, v4}, Cr.Cir.Cell.set(4n, c4, v4),
+    Equal.sym(Cr.Cir.Cell, Cr.Cir.Cell.set(4n, c4, v4), Cr.Cir.Cell{v0, v1, v2, v3, v4}, cell5(Cr.Cir.Cells.get(m, i), v0, v1, v2, v3, v4)))
+
+# The end of a copy
+# -----------------
+
+# M.copy.end(r, rt): register r gets field 2 of the root (in register rt);
+# the root's header becomes K.root, its field 1 the pend list (register 3,
+# the value pv), and the pend list starts at the root
+def end.run(+f: Nat, +r: Nat, +rt: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
+  +I: List<&2, Word(8n)>, +root: U32, +pv: U32, +hl: {List.length(&2, U32, regs) == 63n : Nat}, hr: {Nat.is_lt(r, 63n) == True{} : Bool},
+  hrt: {List.get(&2, U32, regs, rt) == Some{root} : Maybe<&2, U32>},
+  +hrt1: {List.get(&2, U32, List.set(&2, U32, regs, r, D.Fd(2n, m, root)), rt) == Some{root} : Maybe<&2, U32>},
+  hp1: {List.get(&2, U32, List.set(&2, U32, regs, r, D.Fd(2n, m, root)), 3n) == Some{pv} : Maybe<&2, U32>},
+  +hc: {Cr.Cir.is_cell(root, K, F, nx) == True{} : Bool}) ->
+  {Cr.Cir.exec(f, Mc.M.copy.end(r, rt), D.S(regs, m, nx, F, K, pg, L, I)) ==
+    Cr.Cir.Out.next{D.S(List.set(&2, U32, List.set(&2, U32, regs, r, D.Fd(2n, m, root)), 3n, root),
+      Sr.X.put(Sr.X.put(m, 0n, root, Mc.K.root()), 1n, root, pv), nx, F, K, pg, L, I)} : Cr.Cir.Out}:
+  +v2 = D.Fd(2n, m, root)
+  +r1 = List.set(&2, U32, regs, r, v2)
+  +r2 = List.set(&2, U32, r1, 3n, root)
+  +m1 = Sr.X.put(m, 0n, root, Mc.K.root())
+  +m2 = Sr.X.put(m1, 1n, root, pv)
+  +s0 = Sr.X.st(regs, m, nx, F, K, pg, L, I)
+  +s1 = Sr.X.st(r1, m, nx, F, K, pg, L, I)
+  +s2 = Sr.X.st(r1, m1, nx, F, K, pg, L, I)
+  +s3 = Sr.X.st(r1, m2, nx, F, K, pg, L, I)
+  +s4 = Sr.X.st(r2, m2, nx, F, K, pg, L, I)
+  +ce = Mc.M.copy.end(r, rt)
+  +b1 = Sr.sel.b(ce)
+  +b2 = Sr.sel.b(b1)
+  +rel = Sr.sel.a(b2)
+  +b4 = Sr.sel.b(rel)
+  +rhs = {Cr.Cir.Out.next{s4} : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(ce), b1, s0, s1, Sr.run.set(f, r, Mc.M.f(2n, Mc.M.g(rt)), s0, v2,
+    Sr.ev.fld(2n, Mc.M.g(rt), s0, root, hrt, hc), hl, hr)) : {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(b1), b2, s1, s2, Sr.run.store(f, 0n, Mc.M.g(rt), Mc.M.c(Mc.K.root()), s1, root, Mc.K.root(), hrt1, {==}, hc)) :
+    {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq_nop(f, rel, s2) : {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(rel), b4, s2, s3, Sr.run.store(f, 1n, Mc.M.g(rt), Mc.M.g(3n), s2, root, pv, hrt1, hp1, hc)) : {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(b4), Sr.sel.b(b4), s3, s4, Sr.run.set(f, 3n, Mc.M.g(rt), s3, root, hrt1, Sr.L.len(regs, r, v2, 63n, hl), {==})) :
+    {_ == rhs : Cr.Cir.Out}
+  Sr.run.nop(f, s4)
 
 # no garbage cell of P points to the cells ns
 def Pz(ns: List<&2, U32>, +P: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:

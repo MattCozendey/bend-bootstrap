@@ -2372,3 +2372,257 @@ def Na.le.canc(w: Nat, +x: Nat, +y: Nat, h: N.Le(Nat.add(w, x), Nat.add(w, y))) 
       h
     case 1n+p:
       Na.le.canc(p, x, y, h)
+
+# Sums of words, exactly
+# ----------------------
+#
+# Word.adc with no flip adds two words bit by bit: its number, with the carry
+# out of the top bit at 2^n, is the sum of the numbers and the carry in. A sum
+# at most the number of some word of n bits has no carry out (adc.nc); for
+# U32s (add.ex): the number of a sum at most a U32's number is the sum.
+
+# the carry of a bit sum of a, b and the carry c in, as Bool.full_add gives it
+def W.k(a: Bool, +b: Bool, +c: Bool) -> Bool:
+  match a:
+    case False{}:
+      Bool.and(b, c)
+    case True{}:
+      Bool.or(b, c)
+
+# the carry out of the top bit of a sum of words, with the carry c in
+def W.co(n: Nat, a: Word(n), b: Word(n), +c: Bool) -> Bool:
+  match n:
+    case 0n:
+      c
+    case 1n+p:
+      match a b:
+        case WCon{+ab, at} WCon{+bb, bt}:
+          W.co(p, at, bt, W.k(ab, bb, c))
+
+# the doubles of a sum with no carry, and with one
+def ex.L0(+R: Nat, +Dk: Nat, +A: Nat, +B: Nat, ih: {Nat.add(R, Dk) == Nat.add(A, B) : Nat}) ->
+  {Nat.add(Nat.double(R), Nat.double(Dk)) == Nat.add(Nat.double(A), Nat.double(B)) : Nat}:
+  Equal.trans(Nat, Nat.add(Nat.double(R), Nat.double(Dk)), Nat.double(Nat.add(R, Dk)), Nat.add(Nat.double(A), Nat.double(B)),
+    Equal.sym(Nat, Nat.double(Nat.add(R, Dk)), Nat.add(Nat.double(R), Nat.double(Dk)), N.double_add(R, Dk)),
+    Equal.trans(Nat, Nat.double(Nat.add(R, Dk)), Nat.double(Nat.add(A, B)), Nat.add(Nat.double(A), Nat.double(B)),
+      Equal.cong(Nat, Nat, z => Nat.double(z), Nat.add(R, Dk), Nat.add(A, B), ih), N.double_add(A, B)))
+
+def ex.L1(+R: Nat, +Dk: Nat, +A: Nat, +B: Nat, ih: {Nat.add(R, Dk) == 1n+Nat.add(A, B) : Nat}) ->
+  {Nat.add(Nat.double(R), Nat.double(Dk)) == 2n+Nat.add(Nat.double(A), Nat.double(B)) : Nat}:
+  Equal.trans(Nat, Nat.add(Nat.double(R), Nat.double(Dk)), Nat.double(Nat.add(R, Dk)), 2n+Nat.add(Nat.double(A), Nat.double(B)),
+    Equal.sym(Nat, Nat.double(Nat.add(R, Dk)), Nat.add(Nat.double(R), Nat.double(Dk)), N.double_add(R, Dk)),
+    Equal.trans(Nat, Nat.double(Nat.add(R, Dk)), 2n+Nat.double(Nat.add(A, B)), 2n+Nat.add(Nat.double(A), Nat.double(B)),
+      Equal.cong(Nat, Nat, z => Nat.double(z), Nat.add(R, Dk), 1n+Nat.add(A, B), ih),
+      Equal.cong(Nat, Nat, z => 2n+z, Nat.double(Nat.add(A, B)), Nat.add(Nat.double(A), Nat.double(B)), N.double_add(A, B))))
+
+# the number of a sum of words and its carry out at 2^n: the numbers and the
+# carry in
+def adc.ex(+n: Nat, +a: Word(n), +b: Word(n), +c: Bool) ->
+  {Nat.add(Word.to_nat(n, Word.adc(n, a, b, False{}, c)), N.D(n, D.Nat.of(W.co(n, a, b, c)))) ==
+    Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b))) : Nat}:
+  match n:
+    case 0n:
+      match c:
+        case False{}:
+          {==}
+        case True{}:
+          {==}
+    case 1n+p:
+      match a b c:
+        case WCon{False{}, +at} WCon{False{}, +bt} False{}:
+          ex.L0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), N.D(p, D.Nat.of(W.co(p, at, bt, False{}))), Word.to_nat(p, at),
+            Word.to_nat(p, bt), adc.ex(p, at, bt, False{}))
+        case WCon{False{}, +at} WCon{False{}, +bt} True{}:
+          Equal.cong(Nat, Nat, z => 1n+z, Nat.add(Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{}))),
+            Nat.double(N.D(p, D.Nat.of(W.co(p, at, bt, False{}))))), Nat.add(Nat.double(Word.to_nat(p, at)), Nat.double(Word.to_nat(p, bt))),
+            ex.L0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), N.D(p, D.Nat.of(W.co(p, at, bt, False{}))), Word.to_nat(p, at),
+              Word.to_nat(p, bt), adc.ex(p, at, bt, False{})))
+        case WCon{False{}, +at} WCon{True{}, +bt} False{}:
+          +R = Word.to_nat(p, Word.adc(p, at, bt, False{}, False{}))
+          +Dk = N.D(p, D.Nat.of(W.co(p, at, bt, False{})))
+          +dA = Nat.double(Word.to_nat(p, at))
+          +dB = Nat.double(Word.to_nat(p, bt))
+          Equal.trans(Nat, 1n+Nat.add(Nat.double(R), Nat.double(Dk)), 1n+Nat.add(dA, dB), Nat.add(dA, 1n+dB),
+            Equal.cong(Nat, Nat, z => 1n+z, Nat.add(Nat.double(R), Nat.double(Dk)), Nat.add(dA, dB),
+              ex.L0(R, Dk, Word.to_nat(p, at), Word.to_nat(p, bt), adc.ex(p, at, bt, False{}))),
+            Equal.sym(Nat, Nat.add(dA, 1n+dB), 1n+Nat.add(dA, dB), N.add_succ_r(dA, dB)))
+        case WCon{False{}, +at} WCon{True{}, +bt} True{}:
+          +R = Word.to_nat(p, Word.adc(p, at, bt, False{}, True{}))
+          +Dk = N.D(p, D.Nat.of(W.co(p, at, bt, True{})))
+          +dA = Nat.double(Word.to_nat(p, at))
+          +dB = Nat.double(Word.to_nat(p, bt))
+          Equal.trans(Nat, Nat.add(Nat.double(R), Nat.double(Dk)), 2n+Nat.add(dA, dB), 1n+Nat.add(dA, 1n+dB),
+            ex.L1(R, Dk, Word.to_nat(p, at), Word.to_nat(p, bt), adc.ex(p, at, bt, True{})),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(dA, dB), Nat.add(dA, 1n+dB),
+              Equal.sym(Nat, Nat.add(dA, 1n+dB), 1n+Nat.add(dA, dB), N.add_succ_r(dA, dB))))
+        case WCon{True{}, +at} WCon{False{}, +bt} False{}:
+          Equal.cong(Nat, Nat, z => 1n+z, Nat.add(Nat.double(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{}))),
+            Nat.double(N.D(p, D.Nat.of(W.co(p, at, bt, False{}))))), Nat.add(Nat.double(Word.to_nat(p, at)), Nat.double(Word.to_nat(p, bt))),
+            ex.L0(Word.to_nat(p, Word.adc(p, at, bt, False{}, False{})), N.D(p, D.Nat.of(W.co(p, at, bt, False{}))), Word.to_nat(p, at),
+              Word.to_nat(p, bt), adc.ex(p, at, bt, False{})))
+        case WCon{True{}, +at} WCon{False{}, +bt} True{}:
+          ex.L1(Word.to_nat(p, Word.adc(p, at, bt, False{}, True{})), N.D(p, D.Nat.of(W.co(p, at, bt, True{}))), Word.to_nat(p, at),
+            Word.to_nat(p, bt), adc.ex(p, at, bt, True{}))
+        case WCon{True{}, +at} WCon{True{}, +bt} False{}:
+          +R = Word.to_nat(p, Word.adc(p, at, bt, False{}, True{}))
+          +Dk = N.D(p, D.Nat.of(W.co(p, at, bt, True{})))
+          +dA = Nat.double(Word.to_nat(p, at))
+          +dB = Nat.double(Word.to_nat(p, bt))
+          Equal.trans(Nat, Nat.add(Nat.double(R), Nat.double(Dk)), 2n+Nat.add(dA, dB), 1n+Nat.add(dA, 1n+dB),
+            ex.L1(R, Dk, Word.to_nat(p, at), Word.to_nat(p, bt), adc.ex(p, at, bt, True{})),
+            Equal.cong(Nat, Nat, z => 1n+z, 1n+Nat.add(dA, dB), Nat.add(dA, 1n+dB),
+              Equal.sym(Nat, Nat.add(dA, 1n+dB), 1n+Nat.add(dA, dB), N.add_succ_r(dA, dB))))
+        case WCon{True{}, +at} WCon{True{}, +bt} True{}:
+          +R = Word.to_nat(p, Word.adc(p, at, bt, False{}, True{}))
+          +Dk = N.D(p, D.Nat.of(W.co(p, at, bt, True{})))
+          +dA = Nat.double(Word.to_nat(p, at))
+          +dB = Nat.double(Word.to_nat(p, bt))
+          Equal.trans(Nat, 1n+Nat.add(Nat.double(R), Nat.double(Dk)), 3n+Nat.add(dA, dB), 2n+Nat.add(dA, 1n+dB),
+            Equal.cong(Nat, Nat, z => 1n+z, Nat.add(Nat.double(R), Nat.double(Dk)), 2n+Nat.add(dA, dB),
+              ex.L1(R, Dk, Word.to_nat(p, at), Word.to_nat(p, bt), adc.ex(p, at, bt, True{}))),
+            Equal.cong(Nat, Nat, z => 2n+z, 1n+Nat.add(dA, dB), Nat.add(dA, 1n+dB),
+              Equal.sym(Nat, Nat.add(dA, 1n+dB), 1n+Nat.add(dA, dB), N.add_succ_r(dA, dB))))
+
+# the number of a word of n bits is below 2^n
+def W.lt(+n: Nat, +w: Word(n)) -> N.Le(1n+Word.to_nat(n, w), N.D(n, 1n)):
+  match n:
+    case 0n:
+      N.le_refl(1n)
+    case 1n+p:
+      match w:
+        case WCon{False{}, +t}:
+          N.weaken(1n+Nat.double(Word.to_nat(p, t)), Nat.double(N.D(p, 1n)),
+            N.double_mono(1n+Word.to_nat(p, t), N.D(p, 1n), W.lt(p, t)))
+        case WCon{True{}, +t}:
+          N.double_mono(1n+Word.to_nat(p, t), N.D(p, 1n), W.lt(p, t))
+
+# 2^n times 0
+def Dz(n: Nat) -> {N.D(n, 0n) == 0n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, z => Nat.double(z), N.D(p, 0n), 0n, Dz(p))
+
+# a sum S, R and a carry out at 2^n, at most W below 2^n: no carry out
+def adc.nc.b(co: Bool, +n: Nat, +R: Nat, +S: Nat, +W: Nat, ex: {Nat.add(R, N.D(n, D.Nat.of(co))) == S : Nat}, h: N.Le(S, W),
+  hw: N.Le(1n+W, N.D(n, 1n))) -> {R == S : Nat}:
+  match co:
+    case False{}:
+      Equal.trans(Nat, R, Nat.add(R, N.D(n, 0n)), S,
+        Equal.sym(Nat, Nat.add(R, N.D(n, 0n)), R, Equal.trans(Nat, Nat.add(R, N.D(n, 0n)), Nat.add(R, 0n), R,
+          Equal.cong(Nat, Nat, z => Nat.add(R, z), N.D(n, 0n), 0n, Dz(n)), N.add_zero(R))), ex)
+    case True{}:
+      +D1 = N.D(n, 1n)
+      Empty.absurd({R == S : Nat}, N.not_succ_le(W, N.le_trans(1n+W, D1, W, hw,
+        N.le_trans(D1, S, W, N.le_rw_r(D1, Nat.add(R, D1), S, ex, N.le_add_l(R, D1)), h))))
+
+# a sum of words at most a word's number: its number is the sum
+def adc.nc(+n: Nat, +a: Word(n), +b: Word(n), +c: Bool, +w: Word(n),
+  h: N.Le(Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b))), Word.to_nat(n, w))) ->
+  {Word.to_nat(n, Word.adc(n, a, b, False{}, c)) == Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b))) : Nat}:
+  adc.nc.b(W.co(n, a, b, c), n, Word.to_nat(n, Word.adc(n, a, b, False{}, c)), Nat.add(D.Nat.of(c), Nat.add(Word.to_nat(n, a), Word.to_nat(n, b))),
+    Word.to_nat(n, w), adc.ex(n, a, b, c), h, W.lt(n, w))
+
+# a sum of U32s at most a U32's number: its number is the sum
+def add.ex(+x: U32, +y: U32, +z: U32, h: N.Le(Nat.add(U32.to_nat(x), U32.to_nat(y)), U32.to_nat(z))) ->
+  {U32.to_nat(U32.add(x, y)) == Nat.add(U32.to_nat(x), U32.to_nat(y)) : Nat}:
+  match x y z:
+    case U32{+a} U32{+b} U32{+w}:
+      adc.nc(32n, a, b, False{}, w, h)
+
+# a sum of words less one of its terms, the carry turned, is the other
+def W.add_sub(+n: Nat, +x: Word(n), +y: Word(n), +c: Bool) ->
+  {Word.adc(n, Word.adc(n, x, y, False{}, c), y, True{}, Bool.not(c)) == x : Word(n)}:
+  match n:
+    case 0n:
+      match x:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match x y c:
+        case WCon{False{}, +xt} WCon{False{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{False{}, +xt} WCon{False{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{False{}, +xt} WCon{True{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{False{}, +xt} WCon{True{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+        case WCon{True{}, +xt} WCon{False{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, False{}), yt, True{}, True{}), xt,
+            W.add_sub(p, xt, yt, False{}))
+        case WCon{True{}, +xt} WCon{False{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+        case WCon{True{}, +xt} WCon{True{}, +yt} False{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+        case WCon{True{}, +xt} WCon{True{}, +yt} True{}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.adc(p, Word.adc(p, xt, yt, False{}, True{}), yt, True{}, False{}), xt,
+            W.add_sub(p, xt, yt, True{}))
+
+# (x + y) - y = x: the walk's depth after a pop is the frame's below
+def U.add_sub(+x: U32, +y: U32) -> {U32.sub(U32.add(x, y), y) == x : U32}:
+  match x y:
+    case U32{+xw} U32{+yw}:
+      Equal.cong(Word(32n), U32, z => U32{z}, Word.adc(32n, Word.adc(32n, xw, yw, False{}, False{}), yw, True{}, True{}), xw,
+        W.add_sub(32n, xw, yw, False{}))
+
+# the number of a U32 from a number at most a U32's: that number
+def to.from(d: Nat, +z: U32, +h: N.Le(d, U32.to_nat(z))) -> {U32.to_nat(U32.from_nat(d)) == d : Nat}:
+  match d:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +ih = to.from(p, z, N.weaken(p, U32.to_nat(z), h))
+      Equal.trans(Nat, U32.to_nat(U32.inc(U32.from_nat(p))), 1n+U32.to_nat(U32.from_nat(p)), 1n+p,
+        Ar.u.inc(U32.from_nat(p), z, (%Equal.sym(Nat, U32.to_nat(U32.from_nat(p)), p, ih) : N.Le(1n+_, U32.to_nat(z)); h)),
+        Equal.cong(Nat, Nat, w => 1n+w, U32.to_nat(U32.from_nat(p)), p, ih))
+
+# Registers and budgets
+# ---------------------
+
+# the registers made explicit from the (1 + i)-th of x then rest are rest's from the i-th
+def rgx.cons(n: Nat, +x: U32, +rest: List<&2, U32>, +i: Nat) -> {D.Rg.ex(n, Con{x, rest}, 1n+i) == D.Rg.ex(n, rest, i) : List<&2, U32>}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      %rgx.cons(p, x, rest, 1n+i) : {Con{T.tm.reg(Con{x, rest}, 1n+i), D.Rg.ex(p, Con{x, rest}, 2n+i)} == Con{T.tm.reg(rest, i), _} : List<&2, U32>}
+      {==}
+
+# the registers made explicit are the registers
+def rgx.self(xs: List<&2, U32>) -> {D.Rg.ex(List.length(&2, U32, xs), xs, 0n) == xs : List<&2, U32>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      %Equal.sym(List<&2, U32>, D.Rg.ex(List.length(&2, U32, rest), Con{x, rest}, 1n), D.Rg.ex(List.length(&2, U32, rest), rest, 0n),
+        rgx.cons(List.length(&2, U32, rest), x, rest, 0n)) : {Con{x, _} == Con{x, rest} : List<&2, U32>}
+      %Equal.sym(List<&2, U32>, D.Rg.ex(List.length(&2, U32, rest), rest, 0n), rest, rgx.self(rest)) : {Con{x, _} == Con{x, rest} : List<&2, U32>}
+      {==}
+
+# 63 registers made explicit are the registers
+def rgx.all(+regs: List<&2, U32>, hl: {List.length(&2, U32, regs) == 63n : Nat}) -> {D.Rg.ex(63n, regs, 0n) == regs : List<&2, U32>}:
+  %hl : {D.Rg.ex(_, regs, 0n) == regs : List<&2, U32>}
+  rgx.self(regs)
+
+# an outcome within a budget is within a larger one
+def Ok.wk(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +B: Nat, +B2: Nat,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, hb: N.Le(B, B2), h: D.Ok(o, F, K, L, I, B, Q)) -> D.Ok(o, F, K, L, I, B2, Q):
+  match o:
+    case Cr.Cir.Out.next{st}:
+      h
+    case Cr.Cir.Out.halt{s, st}:
+      h
+    case Cr.Cir.Out.out_of_memory{}:
+      N.le_trans(1n+D.Lim.bytes(L), B, B2, h, hb)
+    case Cr.Cir.Out.trap{}:
+      h
+    case Cr.Cir.Out.not_done{}:
+      h
