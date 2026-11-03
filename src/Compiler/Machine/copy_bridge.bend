@@ -5474,6 +5474,56 @@ def kcs.kl(k: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +im
               N.le_succ(U32.to_nat(c), U32.to_nat(c), N.le_refl(U32.to_nat(c))))),
           w.next(c, q, nx, hw)))
 
+# a register below the list's length holds its defaulting read
+def get.some(xs: List<&2, U32>, r: Nat, h: {Nat.is_lt(r, List.length(&2, U32, xs)) == True{} : Bool}) ->
+  {List.get(&2, U32, xs, r) == Some{T.tm.reg(xs, r)} : Maybe<&2, U32>}:
+  match xs r:
+    case Nil{} 0n:
+      CK.Bo.tf({None{} == Some{0} : Maybe<&2, U32>}, h)
+    case Nil{} 1n+p:
+      CK.Bo.tf({None{} == Some{0} : Maybe<&2, U32>}, h)
+    case Con{x, rest} 0n:
+      {==}
+    case Con{x, rest} 1n+p:
+      get.some(rest, p, h)
+
+def reg.of(+rg: List<&2, U32>, +r: Nat, +v: U32, +hlen: {List.length(&2, U32, rg) == 63n : Nat},
+  +hr: {Nat.is_lt(r, 63n) == True{} : Bool}, er: {T.tm.reg(rg, r) == v : U32}) ->
+  {List.get(&2, U32, rg, r) == Some{v} : Maybe<&2, U32>}:
+  +h = {(%Equal.sym(Nat, List.length(&2, U32, rg), 63n, hlen) : {Nat.is_lt(r, _) == True{} : Bool}; hr) : {Nat.is_lt(r, List.length(&2, U32, rg)) == True{} : Bool}}
+  Equal.trans(Maybe<&2, U32>, List.get(&2, U32, rg, r), Some{T.tm.reg(rg, r)}, Some{v}, get.some(rg, r, h),
+    Equal.cong(U32, Maybe<&2, U32>, x => Some{x}, T.tm.reg(rg, r), v, er))
+
+# the register writes of a copy give the machine's Same
+def same.output(+regs: List<&2, U32>, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, keep: List<&2, Nat>,
+  +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx: U32, +pg: U32, +ups: List<&2, S.Up>, +scr: List<&2, Nat>, +ys: List<&2, Nat>,
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +hu: {S.Ups.in(ups, scr) == True{} : Bool},
+  +hs: {Sub.nat(scr, ys) == True{} : Bool}, +hk: {D.Disj(keep, ys) == True{} : Bool},
+  erg: {rg == S.Ups(ups, S.Rg.ex(63n, regs, 0n)) : List<&2, U32>}) ->
+  D.Same(regs, fi, im, lim, inp, keep, S.S(rg, ms, nx, fi, im, pg, lim, inp)):
+  +er = Equal.cong(List<&2, U32>, List<&2, U32>, xs => S.Ups(ups, xs), S.Rg.ex(63n, regs, 0n), regs, rg.ex.all(regs, hl))
+  +erg2 = Equal.trans(List<&2, U32>, rg, S.Ups(ups, S.Rg.ex(63n, regs, 0n)), S.Ups(ups, regs), erg, er)
+  +hl2 = Equal.trans(Nat, List.length(&2, U32, rg), List.length(&2, U32, S.Ups(ups, regs)), 63n,
+    Equal.cong(List<&2, U32>, Nat, xs => List.length(&2, U32, xs), rg, S.Ups(ups, regs), erg2),
+    Equal.trans(Nat, List.length(&2, U32, S.Ups(ups, regs)), List.length(&2, U32, regs), 63n, ups.len(ups, regs), hl))
+  +hk2 = {(%Equal.sym(List<&2, U32>, rg, S.Ups(ups, regs), erg2) : D.Kept(regs, _, keep); kept.ups(keep, regs, ups, scr, ys, hu, hs, hk)) : D.Kept(regs, rg, keep)}
+  ({==}, ({==}, ({==}, ({==}, ({==}, ({==}, (hl2, hk2)))))))
+
+# an outcome that Ok allows has ended
+def ok.ends(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +B: Nat,
+  -Q: List<&2, U32> -> Cr.Cir.Cells -> U32 -> U32 -> Type, h: S.Ok(o, F, K, L, I, B, Q)) -> D.Ends(o):
+  match o:
+    case Cr.Cir.Out.next{st}:
+      Unit{}
+    case Cr.Cir.Out.halt{s, st}:
+      Empty.absurd(D.Ends(Cr.Cir.Out.halt{s, st}), h)
+    case Cr.Cir.Out.out_of_memory{}:
+      Unit{}
+    case Cr.Cir.Out.trap{}:
+      Empty.absurd(D.Ends(Cr.Cir.Out.trap{}), h)
+    case Cr.Cir.Out.not_done{}:
+      Empty.absurd(D.Ends(Cr.Cir.Out.not_done{}), h)
+
 # The laws
 # --------
 
