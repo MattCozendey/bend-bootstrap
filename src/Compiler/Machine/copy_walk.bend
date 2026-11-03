@@ -4173,7 +4173,7 @@ def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +Q0:
   D.P2({D.Kept(n0, m0, m, F, T, P, F, n0, n, Q0, Q, Pe(frs), Nil{}) == True{} : Bool},
   D.P2(Dtm(mo, m, ks, img, K, F, X, nx, hx, frs),
   D.P2({Mds(res, m, m0, S, T, cs) == True{} : Bool},
-  D.P2({Nx(res, m, X) == True{} : Bool},
+  D.P2({Nx(List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hl, res)), m, X) == True{} : Bool},
   D.P2({TkW(T, m, res, wl) == True{} : Bool},
   D.P2({Gw(P, P0, T) == True{} : Bool},
   D.P2({D.Sub(P0, List.append(&2, U32, T, P)) == True{} : Bool},
@@ -4181,3 +4181,128 @@ def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +Q0:
   D.P2({TcW(T, m, P, Q, wl, n, F) == True{} : Bool},
   D.P2({D.Pc(n, m, Q, F, root) == 0n : Nat},
     {Bool.or(U32.is_eq(nx, N0), U32.is_le(nx, 214748364)) == True{} : Bool})))))))))))))))))))
+
+# Releasing the root
+# ------------------
+
+# the cells after M.copy.end: the root is a K.root linked to the old pend
+def EndM(+m: Cr.Cir.Cells, +root: U32, +pv: U32) -> Cr.Cir.Cells:
+  Sr.X.put(Sr.X.put(m, 0n, root, Mc.K.root()), 1n, root, pv)
+
+def end.cell0(c: Cr.Cir.Cell, +pv: U32) ->
+  {Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, Cr.Cir.Cell.set(0n, c, 45), pv)) == 45 : U32}:
+  match c:
+    case Cr.Cir.Cell{a0, a1, a2, a3, a4}:
+      {==}
+
+def end.cell1(c: Cr.Cir.Cell, +pv: U32) ->
+  {Cr.Cir.Cell.get(1n, Cr.Cir.Cell.set(1n, c, pv)) == pv : U32}:
+  match c:
+    case Cr.Cir.Cell{a0, a1, a2, a3, a4}:
+      {==}
+
+def end.cell2(c: Cr.Cir.Cell, +pv: U32) ->
+  {Cr.Cir.Cell.get(2n, Cr.Cir.Cell.set(1n, Cr.Cir.Cell.set(0n, c, 45), pv)) == Cr.Cir.Cell.get(2n, c) : U32}:
+  match c:
+    case Cr.Cir.Cell{a0, a1, a2, a3, a4}:
+      {==}
+
+def end.cell3(c: Cr.Cir.Cell, +pv: U32) ->
+  {Cr.Cir.Cell.get(3n, Cr.Cir.Cell.set(1n, Cr.Cir.Cell.set(0n, c, 45), pv)) == Cr.Cir.Cell.get(3n, c) : U32}:
+  match c:
+    case Cr.Cir.Cell{a0, a1, a2, a3, a4}:
+      {==}
+
+def end.cell4(c: Cr.Cir.Cell, +pv: U32) ->
+  {Cr.Cir.Cell.get(4n, Cr.Cir.Cell.set(1n, Cr.Cir.Cell.set(0n, c, 45), pv)) == Cr.Cir.Cell.get(4n, c) : U32}:
+  match c:
+    case Cr.Cir.Cell{a0, a1, a2, a3, a4}:
+      {==}
+
+def end.f0(+m: Cr.Cir.Cells, +root: U32, +pv: U32) -> {D.Fd(0n, EndM(m, root, pv), root) == 45 : U32}:
+  +m1 = Sr.X.put(m, 0n, root, 45)
+  +m2 = EndM(m, root, pv)
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, root), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv),
+    K.Cl.get_set(m1, root, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv))) :
+    {Cr.Cir.Cell.get(0n, _) == 45 : U32}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m1, root), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45),
+    K.Cl.get_set(m, root, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45))) : {Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, _, pv)) == 45 : U32}
+  end.cell0(Cr.Cir.Cells.get(m, root), pv)
+
+def end.f1(+m: Cr.Cir.Cells, +root: U32, +pv: U32) -> {D.Fd(1n, EndM(m, root, pv), root) == pv : U32}:
+  +m1 = Sr.X.put(m, 0n, root, 45)
+  +m2 = EndM(m, root, pv)
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, root), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv),
+    K.Cl.get_set(m1, root, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv))) : {Cr.Cir.Cell.get(1n, _) == pv : U32}
+  end.cell1(Cr.Cir.Cells.get(m1, root), pv)
+
+def end.f2(+m: Cr.Cir.Cells, +root: U32, +pv: U32) -> {D.Fd(2n, EndM(m, root, pv), root) == D.Fd(2n, m, root) : U32}:
+  +m1 = Sr.X.put(m, 0n, root, 45)
+  +m2 = EndM(m, root, pv)
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, root), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv),
+    K.Cl.get_set(m1, root, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv))) : {Cr.Cir.Cell.get(2n, _) == D.Fd(2n, m, root) : U32}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m1, root), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45),
+    K.Cl.get_set(m, root, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45))) : {Cr.Cir.Cell.get(2n, Cr.Cir.Cell.set(1n, _, pv)) == D.Fd(2n, m, root) : U32}
+  end.cell2(Cr.Cir.Cells.get(m, root), pv)
+
+def end.f3(+m: Cr.Cir.Cells, +root: U32, +pv: U32) -> {D.Fd(3n, EndM(m, root, pv), root) == D.Fd(3n, m, root) : U32}:
+  +m1 = Sr.X.put(m, 0n, root, 45)
+  +m2 = EndM(m, root, pv)
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, root), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv),
+    K.Cl.get_set(m1, root, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv))) : {Cr.Cir.Cell.get(3n, _) == D.Fd(3n, m, root) : U32}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m1, root), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45),
+    K.Cl.get_set(m, root, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45))) : {Cr.Cir.Cell.get(3n, Cr.Cir.Cell.set(1n, _, pv)) == D.Fd(3n, m, root) : U32}
+  end.cell3(Cr.Cir.Cells.get(m, root), pv)
+
+def end.f4(+m: Cr.Cir.Cells, +root: U32, +pv: U32) -> {D.Fd(4n, EndM(m, root, pv), root) == D.Fd(4n, m, root) : U32}:
+  +m1 = Sr.X.put(m, 0n, root, 45)
+  +m2 = EndM(m, root, pv)
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, root), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv),
+    K.Cl.get_set(m1, root, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv))) : {Cr.Cir.Cell.get(4n, _) == D.Fd(4n, m, root) : U32}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m1, root), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45),
+    K.Cl.get_set(m, root, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45))) : {Cr.Cir.Cell.get(4n, Cr.Cir.Cell.set(1n, _, pv)) == D.Fd(4n, m, root) : U32}
+  end.cell4(Cr.Cir.Cells.get(m, root), pv)
+
+def end.fd.ne(+m: Cr.Cir.Cells, +root: U32, +pv: U32, +k: Nat, +y: U32, +ne: {U32.is_eq(y, root) == False{} : Bool}) ->
+  {D.Fd(k, EndM(m, root, pv), y) == D.Fd(k, m, y) : U32}:
+  +m1 = Sr.X.put(m, 0n, root, 45)
+  +m2 = EndM(m, root, pv)
+  Equal.trans(U32, D.Fd(k, m2, y), D.Fd(k, m1, y), D.Fd(k, m, y),
+    Equal.cong(Cr.Cir.Cell, U32, c => Cr.Cir.Cell.get(k, c), Cr.Cir.Cells.get(m2, y), Cr.Cir.Cells.get(m1, y),
+      K.Cl.get_ne(m1, y, root, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv), ne)),
+    Equal.cong(Cr.Cir.Cell, U32, c => Cr.Cir.Cell.get(k, c), Cr.Cir.Cells.get(m1, y), Cr.Cir.Cells.get(m, y),
+      K.Cl.get_ne(m, y, root, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45), ne)))
+
+def end.hz(+K: U32, +F: U32, +root: U32, +hk: {U32.is_le(290, K) == True{} : Bool},
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, +hfr: {U32.is_le(F, root) == True{} : Bool}) -> N.Le(291n, U32.to_nat(root)):
+  N.le_trans(291n, 1n+U32.to_nat(K), U32.to_nat(root), K.U.le(290, K, hk),
+    N.le_trans(1n+U32.to_nat(K), U32.to_nat(F), U32.to_nat(root), K.U.lt(K, F, hkf), K.U.le(F, root, hfr)))
+
+# a cell other than the root keeps its pointers; its pend membership does not
+# change either
+def end.ps.ne(+m: Cr.Cir.Cells, +root: U32, +pv: U32, +Q: List<&2, U32>, +o: U32,
+  +ne: {U32.is_eq(o, root) == False{} : Bool}, +hz: N.Le(291n, U32.to_nat(root))) ->
+  {D.Ps(EndM(m, root, pv), Con{root, Q}, o) == D.Ps(m, Q, o) : List<&2, U32>}:
+  +m1 = Sr.X.put(m, 0n, root, 45)
+  +m2 = EndM(m, root, pv)
+  +Q2 = {Con{root, Q} : List<&2, U32>}
+  +nr = K.U.ne.sym(o, root, ne)
+  +eh = {(%Equal.sym(Bool, U32.is_eq(root, o), False{}, nr) : {D.Has(Q, o) == Bool.or(_, D.Has(Q, o)) : Bool}; {==}) :
+    {D.Has(Q, o) == D.Has(Q2, o) : Bool}}
+  +e1 = K.ps.set(m, root, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, root), 45), Q, o, ne, hz)
+  +e2 = K.ps.set(m1, root, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m1, root), pv), Q, o, ne, hz)
+  Equal.trans(List<&2, U32>, D.Ps(m2, Q2, o), D.Ps(m2, Q, o), D.Ps(m, Q, o), ps.hq(m2, Q2, Q, o, Equal.sym(Bool, D.Has(Q, o), D.Has(Q2, o), eh)),
+    Equal.trans(List<&2, U32>, D.Ps(m2, Q, o), D.Ps(m1, Q, o), D.Ps(m, Q, o), e2, e1))
+
+# the released root has no heap pointers
+def end.ps.root(+m: Cr.Cir.Cells, +root: U32, +pv: U32, +Q: List<&2, U32>) ->
+  {D.Ps(EndM(m, root, pv), Con{root, Q}, root) == Nil{} : List<&2, U32>}:
+  %Equal.sym(U32, D.Fd(0n, EndM(m, root, pv), root), 45, end.f0(m, root, pv)) :
+    {Bool.pick(List<&2, U32>, U32.is_lt(U32.and(_, 63), 19),
+      D.Ps.term(D.Fd(2n, EndM(m, root, pv), U32.add(272, U32.and(_, 63))), D.Fd(2n, EndM(m, root, pv), root),
+        D.Fd(3n, EndM(m, root, pv), root), D.Fd(4n, EndM(m, root, pv), root)),
+      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, U32.and(_, 63)), U32.is_le(U32.and(_, 63), 40)), Bool.not(D.Has(Con{root, Q}, root))),
+        Con{D.Fd(2n, EndM(m, root, pv), root), D.Ps.opt(U32.is_eq(U32.and(_, 63), 38), D.Fd(3n, EndM(m, root, pv), root), Nil{})},
+        Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(U32.and(_, 63), 41), U32.is_ne(U32.and(_, 4096), 0)), Bool.not(D.Has(Con{root, Q}, root))),
+          [D.Fd(2n, EndM(m, root, pv), root)], Nil{}))) == Nil{} : List<&2, U32>}
+  {==}
