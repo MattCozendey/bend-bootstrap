@@ -747,8 +747,9 @@ def Nw(+ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +S: List<&2, Rt>, +T: List<&2, U32>,
 # the term u at the cell r is made of the copied cells: each node is a node
 # of the terms of S (the source and the locals) as it was in m, or a new cell
 # that, but for a Var, copies an old node of S (by the pairs ps), with its
-# parts made so too; a Ref, an Enu, a Lab, an Efq and a Rfl, of no free
-# variable, are always old
+# parts made so too; a Ref and an Enu, whose fv is 0, are always old (the
+# walk shares them), while a Lab, an Efq or a Rfl whose fv field is not 0
+# gets a copy
 def Made(u: Bk.Term, +ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +r: U32, +S: List<&2, Rt>, +T: List<&2, U32>, +ps: List<&2, Pr>) ->
   Bool:
   match u:
@@ -779,16 +780,16 @@ def Made(u: Bk.Term, +ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +r: U32, +S: List<&2, 
     case Bk.Term.Enu{_}:
       Nodes(S, m, r)
     case Bk.Term.Lab{_}:
-      Nodes(S, m, r)
+      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r))
     case Bk.Term.Mat{_, h, n}:
       Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(h, ms, m, Fd(3n, ms, r), S, T, ps), Made(n, ms, m, Fd(4n, ms, r), S, T, ps))))
     case Bk.Term.Efq{}:
-      Nodes(S, m, r)
+      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r))
     case Bk.Term.Eql{a, b, y}:
       Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(b, ms, m, Fd(3n, ms, r), S, T, ps),
         Made(y, ms, m, Fd(4n, ms, r), S, T, ps)))))
     case Bk.Term.Rfl{}:
-      Nodes(S, m, r)
+      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r))
     case Bk.Term.Rwt{e, y, f}:
       Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(e, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(y, ms, m, Fd(3n, ms, r), S, T, ps),
         Made(f, ms, m, Fd(4n, ms, r), S, T, ps)))))
