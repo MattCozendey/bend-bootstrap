@@ -9926,6 +9926,122 @@ def srck.src(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
   (hi, (ln.held(t, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, c, hi, hh),
     srck.env(es, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, a, hag, hsh)))
 
+# the result's root is an old node of S or a taken cell
+def made.top(u: Bk.Term, +ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +r: U32, +SR: List<&2, S.Rt>, +T: List<&2, U32>, +ps: List<&2, S.Pr>,
+  +hm: {S.Made(u, ms, m, r, SR, T, ps) == True{} : Bool}) -> {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}:
+  match u:
+    case Bk.Term.Var{+i}:
+      D.or.cases(S.Nodes(SR, m, r), S.New(ms, T, r, 0), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 0, e)))
+    case Bk.Term.Ref{+k}:
+      CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), hm)
+    case Bk.Term.Ann{+y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 2), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 2, CK.Bo.and_l(S.New(ms, T, r, 2), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 2), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.Let{+q, +y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 3), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 3, CK.Bo.and_l(S.New(ms, T, r, 3), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 3), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.Typ{+y}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 4), S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps)), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 4, CK.Bo.and_l(S.New(ms, T, r, 4), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 4), S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), e)))))
+    case Bk.Term.Min{+y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 5), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 5, CK.Bo.and_l(S.New(ms, T, r, 5), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 5), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.All{+q, +y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 6), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 6, CK.Bo.and_l(S.New(ms, T, r, 6), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 6), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.Lam{+q, +y}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 7), S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps)), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 7, CK.Bo.and_l(S.New(ms, T, r, 7), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 7), S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), e)))))
+    case Bk.Term.App{+q, +y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 8), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 8, CK.Bo.and_l(S.New(ms, T, r, 8), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 8), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.Sig{+q, +y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 9), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 9, CK.Bo.and_l(S.New(ms, T, r, 9), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 9), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.Tup{+q, +y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 10), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 10, CK.Bo.and_l(S.New(ms, T, r, 10), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 10), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.Prj{+y}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 11), S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps)), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 11, CK.Bo.and_l(S.New(ms, T, r, 11), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 11), S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), e)))))
+    case Bk.Term.Enu{+k}:
+      CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), hm)
+    case Bk.Term.Lab{+k}:
+      D.or.cases(S.Nodes(SR, m, r), S.Nw(ms, m, SR, T, ps, r, 13), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 13, CK.Bo.and_l(S.New(ms, T, r, 13), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), e))))
+    case Bk.Term.Mat{+k, +y, +z}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 14), Bool.and(S.Made(y, ms, m, S.Fd(3n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(4n, ms, r), SR, T, ps))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 14, CK.Bo.and_l(S.New(ms, T, r, 14), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 14), Bool.and(S.Made(y, ms, m, S.Fd(3n, ms, r), SR, T, ps), S.Made(z, ms, m, S.Fd(4n, ms, r), SR, T, ps)), e)))))
+    case Bk.Term.Efq{}:
+      D.or.cases(S.Nodes(SR, m, r), S.Nw(ms, m, SR, T, ps, r, 15), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 15, CK.Bo.and_l(S.New(ms, T, r, 15), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), e))))
+    case Bk.Term.Eql{+y, +z, +w}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 16), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), Bool.and(S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps), S.Made(w, ms, m, S.Fd(4n, ms, r), SR, T, ps)))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 16, CK.Bo.and_l(S.New(ms, T, r, 16), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 16), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), Bool.and(S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps), S.Made(w, ms, m, S.Fd(4n, ms, r), SR, T, ps))), e)))))
+    case Bk.Term.Rfl{}:
+      D.or.cases(S.Nodes(SR, m, r), S.Nw(ms, m, SR, T, ps, r, 17), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 17, CK.Bo.and_l(S.New(ms, T, r, 17), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), e))))
+    case Bk.Term.Rwt{+y, +z, +w}:
+      D.or.cases(S.Nodes(SR, m, r), Bool.and(S.Nw(ms, m, SR, T, ps, r, 18), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), Bool.and(S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps), S.Made(w, ms, m, S.Fd(4n, ms, r), SR, T, ps)))), {Bool.or(S.Nodes(SR, m, r), S.Has(T, r)) == True{} : Bool}, hm,
+        e => CK.Bo.or_il(S.Nodes(SR, m, r), S.Has(T, r), e),
+        e => CK.Bo.or_ir(S.Nodes(SR, m, r), S.Has(T, r), new.has(ms, T, r, 18, CK.Bo.and_l(S.New(ms, T, r, 18), S.Cpy(ms, m, SR, r, S.Pr.of(ps, r)), CK.Bo.and_l(S.Nw(ms, m, SR, T, ps, r, 18), Bool.and(S.Made(y, ms, m, S.Fd(2n, ms, r), SR, T, ps), Bool.and(S.Made(z, ms, m, S.Fd(3n, ms, r), SR, T, ps), S.Made(w, ms, m, S.Fd(4n, ms, r), SR, T, ps))), e)))))
+
+# what Gb says of a cell of the new garbage
+def GbC(+P: List<&2, U32>, +T: List<&2, U32>, +Qn: List<&2, U32>, +ms: Cr.Cir.Cells, +c: U32) -> Bool:
+  Bool.or(Bool.and(S.Has(P, c), Bool.not(S.Has(T, c))), Bool.and(S.Has(T, c), Bool.and(U32.is_eq(S.Fd(0n, ms, c), 45), S.Has(Qn, c))))
+
+def gb.get(Pn: List<&2, U32>, +P: List<&2, U32>, +T: List<&2, U32>, +Qn: List<&2, U32>, +ms: Cr.Cir.Cells, +c: U32,
+  h: {S.Gb(Pn, P, T, Qn, ms) == True{} : Bool}, hc: {S.Has(Pn, c) == True{} : Bool}) -> {GbC(P, T, Qn, ms, c) == True{} : Bool}:
+  match Pn:
+    case Nil{}:
+      CK.Bo.tf({GbC(P, T, Qn, ms, c) == True{} : Bool}, hc)
+    case Con{+o, +rest}:
+      +h2 = h
+      D.or.cases(U32.is_eq(o, c), S.Has(rest, c), {GbC(P, T, Qn, ms, c) == True{} : Bool}, hc,
+        e => (%CK.U.eq(o, c, e) : {GbC(P, T, Qn, ms, _) == True{} : Bool};
+          CK.Bo.and_l(GbC(P, T, Qn, ms, o), S.Gb(rest, P, T, Qn, ms), h2)),
+        e => gb.get(rest, P, T, Qn, ms, c, CK.Bo.and_r(GbC(P, T, Qn, ms, o), S.Gb(rest, P, T, Qn, ms), h2), e))
+
+# what AL.cells says of one of its cells
+def ALC(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, S.Zs>, +K: U32, +F: U32, +N: U32, +c: U32) -> Bool:
+  Bool.and(ALpl(m, c, Q, F, N), Bool.and(ALpa(m, P, zs, S.Zz(zs, c), S.Am(m, c), c, K, F, N), ALco(m, P, Q, c, F, N)))
+
+def alc.get(os: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, S.Zs>, +K: U32, +F: U32, +N: U32, +c: U32,
+  h: {S.AL.cells(os, m, P, Q, zs, K, F, N) == True{} : Bool}, hc: {S.Has(os, c) == True{} : Bool}) -> {ALC(m, P, Q, zs, K, F, N, c) == True{} : Bool}:
+  match os:
+    case Nil{}:
+      CK.Bo.tf({ALC(m, P, Q, zs, K, F, N, c) == True{} : Bool}, hc)
+    case Con{+o, +rest}:
+      +h2 = h
+      +X1 = ALpl(m, o, Q, F, N)
+      +X2 = ALpa(m, P, zs, S.Zz(zs, o), S.Am(m, o), o, K, F, N)
+      +X3 = ALco(m, P, Q, o, F, N)
+      +R = S.AL.cells(rest, m, P, Q, zs, K, F, N)
+      +h23 = CK.Bo.and_r(X1, Bool.and(X2, Bool.and(X3, R)), h2)
+      +h3 = CK.Bo.and_r(X2, Bool.and(X3, R), h23)
+      D.or.cases(U32.is_eq(o, c), S.Has(rest, c), {ALC(m, P, Q, zs, K, F, N, c) == True{} : Bool}, hc,
+        e => (%CK.U.eq(o, c, e) : {ALC(m, P, Q, zs, K, F, N, _) == True{} : Bool};
+          CK.Bo.and_i(X1, Bool.and(X2, X3), CK.Bo.and_l(X1, Bool.and(X2, Bool.and(X3, R)), h2),
+            CK.Bo.and_i(X2, X3, CK.Bo.and_l(X2, Bool.and(X3, R), h23), CK.Bo.and_l(X3, R, h3)))),
+        e => alc.get(rest, m, P, Q, zs, K, F, N, c, CK.Bo.and_r(X3, R, h3), e))
+
 # CopyQ, from Post and the result's IsK, the heap and AccK after the copy
 def cq.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg2: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
