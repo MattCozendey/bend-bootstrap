@@ -145,8 +145,8 @@ def OF(o: Nat, +NX: Nat, +B: Nat) -> Data:
 # the numbers' bounds, with P = (2^32 - 16) / 20 and G = 2^16, kept as
 # variables: the book's cells, the input's end below 2^32 - 16, in the
 # memory, and before the first cell of the machine; next at most P; the
-# cells and the output in the memory; the limit below G pages, and the pages
-# at most the limit
+# cells and the output in the memory; the limit at most G pages, and the
+# pages at most the limit
 def Bounds(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32, +inp: List<&2, Word(8n)>, +on: U32) -> Data:
   +A = U32.to_nat(a)
   +NX = U32.to_nat(nx)
@@ -156,7 +156,7 @@ def Bounds(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +l
   S.P2(S.P2(S.P2({A == PH.H.t20(1n+K) : Nat}, N.Le(1n+K, P)), S.P2(N.Le(E, PH.H.t20(P)), N.Le(E, PB(pg)))),
        S.P2(S.P2(N.Le(E, PH.H.t20(FI)), N.Le(NX, P)),
             S.P2(S.P2(CF(Nat.sub(NX, FI), NX, PB(pg)), OF(U32.to_nat(on), NX, PB(pg))),
-                 S.P2(N.Le(1n+U32.to_nat(lm), G), N.Le(U32.to_nat(pg), U32.to_nat(lm))))))
+                 S.P2(N.Le(U32.to_nat(lm), G), N.Le(U32.to_nat(pg), U32.to_nat(lm))))))
 
 # The parts of the relation
 # -------------------------
@@ -278,7 +278,7 @@ def b.of(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm:
   z1
 
 def b.lm(-P: Nat, -G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, -pg: U32, -lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
-  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(1n+U32.to_nat(lm), G):
+  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(U32.to_nat(lm), G):
   (x0, x1) = hB
   (x10, x11) = x1
   (y0, y1) = x11
@@ -440,18 +440,12 @@ def qf.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, 
 # The memory's accesses
 # ---------------------
 
-# the memory is below 2^32
-def pb.lt(-P: Nat, +G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, +pg: U32, +lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
-  +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on), +W: Nat, hG: {N.D(16n, G) == W : Nat}) -> N.Le(1n+PB(pg), W):
-  +PG = U32.to_nat(pg)
-  +h1 = N.le_trans(1n+PG, 1n+U32.to_nat(lm), G, b.pg(P, G, a, nx, fi, im, pg, lm, inp, on, hB), b.lm(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
-  N.le_trans(1n+N.D(16n, PG), N.D(16n, 1n+PG), W, Z.D.succ(16n, PG),
-    N.le_rw_r(N.D(16n, 1n+PG), N.D(16n, G), W, hG, M.D_mono(16n, 1n+PG, G, h1)))
-
 # the memory is at most 2^32
 def pb.le(-P: Nat, +G: Nat, -a: U32, -nx: U32, -fi: U32, -im: U32, +pg: U32, +lm: U32, -inp: List<&2, Word(8n)>, -on: U32,
   +hB: Bounds(P, G, a, nx, fi, im, pg, lm, inp, on), +W: Nat, hG: {N.D(16n, G) == W : Nat}) -> N.Le(PB(pg), W):
-  N.weaken(PB(pg), W, pb.lt(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG))
+  +PG = U32.to_nat(pg)
+  +h1 = N.le_trans(PG, U32.to_nat(lm), G, b.pg(P, G, a, nx, fi, im, pg, lm, inp, on, hB), b.lm(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
+  N.le_rw_r(N.D(16n, PG), N.D(16n, G), W, hG, M.D_mono(16n, PG, G, h1))
 
 # no cell is left when q >= 1
 def cf.use(q: Nat, +NX: Nat, +B: Nat, h: CF(q, NX, B), hq: N.Le(1n, q)) -> N.Le(PH.H.t20(NX), B):
@@ -488,7 +482,7 @@ def off.le(k: Nat, hk: {Nat.is_le(k, 4n) == True{} : Bool}) -> N.Le(Nat.add(U32.
 # a field of the cell i is inside the memory, when the cells up to NB fit
 def in.cell(+P: Nat, +pg: U32, +i: U32, +k: Nat, +hk: {Nat.is_le(k, 4n) == True{} : Bool}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +NB: Nat, h1: N.Le(1n+U32.to_nat(i), NB),
-  h2: N.Le(PH.H.t20(NB), PB(pg)), hIP: N.Le(U32.to_nat(i), P), hb: N.Le(1n+PB(pg), W)) ->
+  h2: N.Le(PH.H.t20(NB), PB(pg)), hIP: N.Le(U32.to_nat(i), P), hb: N.Le(PB(pg), W)) ->
   {Wa.Wasm.inside(pg, Cr.Cir.at(i), U32.shln(U32.from_nat(k), 2n), 4) == True{} : Bool}:
   match i:
     case U32{+w}:
@@ -503,7 +497,7 @@ def in.cell(+P: Nat, +pg: U32, +i: U32, +k: Nat, +hk: {Nat.is_le(k, 4n) == True{
       +l2 = N.le_rw_r(Nat.add(PH.H.t20(I), Nat.add(O, 4n)), Nat.add(PH.H.t20(I), 20n), PH.H.t20(1n+I), Z.add.comm(PH.H.t20(I), 20n), l1)
       +l3 = N.le_trans(Nat.add(PH.H.t20(I), Nat.add(O, 4n)), PH.H.t20(1n+I), PB(pg), l2,
         N.le_trans(PH.H.t20(1n+I), PH.H.t20(NB), PB(pg), PH.H.t20_mono(1n+I, NB, h1), h2))
-      Z.inside.ok(pg, Cr.Cir.at(U32{w}), o, 4, W, hW, Unit{},
+      Z.inside.le(pg, Cr.Cir.at(U32{w}), o, 4, W, hW, Unit{},
         N.le_rw_l(Nat.add(PH.H.t20(I), Nat.add(O, 4n)), Nat.add(Nat.add(T, O), 4n), PB(pg),
           Equal.sym(Nat, Nat.add(Nat.add(T, O), 4n), Nat.add(PH.H.t20(I), Nat.add(O, 4n)), s1), l3), hb)
 
@@ -518,7 +512,7 @@ def qi.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, 
   match b1:
     case True{}:
       +hB = inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
-      +hb = pb.lt(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG)
+      +hb = pb.le(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG)
       +hnz = I.and.l(Bool.not(U32.is_zero(i)), U32.is_le(i, im), e1)
       +hle = I.and.r(Bool.not(U32.is_zero(i)), U32.is_le(i, im), e1)
       +IK = Z.le.of(i, im, hle)
@@ -531,7 +525,7 @@ def qi.cell.if(b1: Bool, +P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, 
       in.cell(P, pg, i, k, hk, W, hW, hP, 1n+K, IK, h2, hIP, hb)
     case False{}:
       +hB = inv.bounds(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m, hI)
-      +hb = pb.lt(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG)
+      +hb = pb.le(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG)
       +hfi = Z.le.of(fi, i, I.and.l(U32.is_le(fi, i), U32.is_lt(i, nx), hc))
       +hnx = Z.lt.of(i, nx, I.and.r(U32.is_le(fi, i), U32.is_lt(i, nx), hc))
       +FI = U32.to_nat(fi)
@@ -582,13 +576,13 @@ def q.byte.in(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +
   +hL = get.lt(inp, X, b, hb)
   +t1 = N.le_rw_r(1n+XA, Nat.add(L, A), Nat.add(A, L), Z.add.comm(L, A), Z.le.add_r(1n+X, L, A, hL))
   +t3 = N.le_trans(1n+XA, Nat.add(A, L), PB(pg), t1, b.epb(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
-  +hb2 = pb.lt(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG)
-  +ex = Z.u32.add_ex(x, a, W, hW, N.le_trans(1n+XA, PB(pg), W, t3, N.weaken(PB(pg), W, hb2)))
+  +hb2 = pb.le(P, G, a, nx, fi, im, pg, lm, inp, on, hB, W, hG)
+  +ex = Z.u32.add_ex(x, a, W, hW, N.le_trans(1n+XA, PB(pg), W, t3, hb2))
   +Q = U32.to_nat(U32.add(x, a))
   +eq = Equal.trans(Nat, Nat.add(Nat.add(Q, 0n), 1n), Nat.add(Q, 1n), 1n+XA,
     Equal.cong(Nat, Nat, z => Nat.add(z, 1n), Nat.add(Q, 0n), Q, N.add_zero(Q)),
     Equal.trans(Nat, Nat.add(Q, 1n), Nat.add(XA, 1n), 1n+XA, Equal.cong(Nat, Nat, z => Nat.add(z, 1n), Q, XA, ex), Z.add.comm(XA, 1n)))
-  Z.inside.ok(pg, U32.add(x, a), 0, 1, W, hW, Unit{},
+  Z.inside.le(pg, U32.add(x, a), 0, 1, W, hW, Unit{},
     N.le_rw_l(1n+XA, Nat.add(Nat.add(Q, 0n), 1n), PB(pg), Equal.sym(Nat, Nat.add(Nat.add(Q, 0n), 1n), 1n+XA, eq), t3), hb2)
 
 # a byte of the input holds what Cir says

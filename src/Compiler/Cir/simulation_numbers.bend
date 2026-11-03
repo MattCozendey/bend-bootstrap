@@ -525,13 +525,6 @@ def inside.le(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n
   +Sm = Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w))
   inside.of(p, x, o, w, W, hW, hw, h, le.split(Sm, W, N.le_trans(Sm, N.D(16n, U32.to_nat(p)), W, h, hb)))
 
-# the same, when the memory is below W
-def inside.ok(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  +hw: N.Le(1n, U32.to_nat(w)),
-  +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
-  hb: N.Le(1n+N.D(16n, U32.to_nat(p)), W)) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
-  inside.le(p, x, o, w, W, hW, hw, h, N.weaken(N.D(16n, U32.to_nat(p)), W, hb))
-
 # a >= b: b <= a as numbers
 def ge.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_ge(c) == True{} : Bool}) -> N.Le(y, x):
   match c:

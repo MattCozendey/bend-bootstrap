@@ -317,7 +317,7 @@ def z5.sepb(+q: Nat, +Xn: Nat, +I: Nat, +T: Nat, +Oj: Nat, e: {T == Nat.add(Oj, 
 # the new cell keeps q bytes that end before it or start after it
 def RB.z5(+q: Nat, +m: Wa.Wasm.Bytes, +i: U32, +x: U32, +Xn: Nat, +ex: {U32.to_nat(x) == Xn : Nat},
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  +hi: N.Le(1n+U32.to_nat(i), P), +hx: N.Le(1n+Nat.add(q, Xn), W),
+  +hi: N.Le(1n+U32.to_nat(i), P), +hx: N.Le(Nat.add(q, Xn), W),
   +s: Either<&2, &2, N.Le(Nat.add(q, Xn), PH.H.t20(U32.to_nat(i))), N.Le(20n+PH.H.t20(U32.to_nat(i)), Xn)>) ->
   {Q.RB(q, z5(m, i), x) == Q.RB(q, m, x) : List<&2, Word(8n)>}:
   +I = U32.to_nat(i)
@@ -539,18 +539,17 @@ def word.in(+T: Nat, +oj: Nat, h: N.Le(4n+oj, 20n)) -> N.Le(Nat.add(Nat.add(T, o
       Equal.sym(Nat, Nat.add(Nat.add(T, oj), 4n), 4n+Nat.add(T, oj), Z.add.comm(Nat.add(T, oj), 4n))),
     Z.le.add_r(4n+oj, 20n, T, h))
 
-# the memory of p pages, at most the limit, is below W
-def pb2.lt(+p: U32, +lm: U32, +G: Nat, +W: Nat, +hG: {N.D(16n, G) == W : Nat}, hpl: N.Le(U32.to_nat(p), U32.to_nat(lm)),
-  hlm: N.Le(1n+U32.to_nat(lm), G)) -> N.Le(1n+Q.PB(p), W):
+# the memory of p pages, at most the limit, is at most W
+def pb2.le(+p: U32, +lm: U32, +G: Nat, +W: Nat, +hG: {N.D(16n, G) == W : Nat}, hpl: N.Le(U32.to_nat(p), U32.to_nat(lm)),
+  hlm: N.Le(U32.to_nat(lm), G)) -> N.Le(Q.PB(p), W):
   +PG = U32.to_nat(p)
-  N.le_trans(1n+N.D(16n, PG), N.D(16n, 1n+PG), W, Z.D.succ(16n, PG),
-    N.le_rw_r(N.D(16n, 1n+PG), N.D(16n, G), W, hG, M.D_mono(16n, 1n+PG, G, N.le_trans(1n+PG, 1n+U32.to_nat(lm), G, hpl, hlm))))
+  N.le_rw_r(N.D(16n, PG), N.D(16n, G), W, hG, M.D_mono(16n, PG, G, N.le_trans(PG, U32.to_nat(lm), G, hpl, hlm)))
 
 # word j of the cell at the first byte A0 = 20i, inside the memory of p pages
 def zin(+p: U32, +A0: U32, +o: U32, +T: Nat, +eT: {U32.to_nat(A0) == T : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  +ho: N.Le(4n+U32.to_nat(o), 20n), +hroom: N.Le(20n+T, Q.PB(p)), +hb: N.Le(1n+Q.PB(p), W)) ->
+  +ho: N.Le(4n+U32.to_nat(o), 20n), +hroom: N.Le(20n+T, Q.PB(p)), +hb: N.Le(Q.PB(p), W)) ->
   {Wa.Wasm.inside(p, A0, o, 4) == True{} : Bool}:
-  Z.inside.ok(p, A0, o, 4, W, hW, Unit{},
+  Z.inside.le(p, A0, o, 4, W, hW, Unit{},
     N.le_rw_l(Nat.add(Nat.add(T, U32.to_nat(o)), 4n), Nat.add(Nat.add(U32.to_nat(A0), U32.to_nat(o)), U32.to_nat(4)), Q.PB(p),
       Equal.cong(Nat, Nat, z => Nat.add(Nat.add(z, U32.to_nat(o)), 4n), T, U32.to_nat(A0), Equal.sym(Nat, U32.to_nat(A0), T, eT)),
       N.le_trans(Nat.add(Nat.add(T, U32.to_nat(o)), 4n), 20n+T, Q.PB(p), word.in(T, U32.to_nat(o), ho), hroom)), hb)
@@ -558,7 +557,7 @@ def zin(+p: U32, +A0: U32, +o: U32, +T: Nat, +eT: {U32.to_nat(A0) == T : Nat}, +
 # the five stores of 0 into the cell at the first byte 20i
 def zero.steps(+i: U32, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +a: U32, +n: U32, +s: U32, +nx: U32, +on: U32,
   +t: U32, +nd: U32, +rg: List<&2, U32>, +p: U32, +lm: U32, +m: Wa.Wasm.Bytes, +T: Nat, +eT: {U32.to_nat(Cr.Cir.at(i)) == T : Nat},
-  +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hroom: N.Le(20n+T, Q.PB(p)), +hb: N.Le(1n+Q.PB(p), W)) ->
+  +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hroom: N.Le(20n+T, Q.PB(p)), +hb: N.Le(Q.PB(p), W)) ->
   {PH.H.steps(15n, Q.Cfg(Cr.Cir.code.zero(K), ls, [], Q.Loc(a, n, s, nx, on, t, nd, Cr.Cir.at(i), rg), Wa.Wasm.Memory{p, lm, [], m})) ==
     Q.Cfg(K, ls, [], Q.Loc(a, n, s, nx, on, t, nd, Cr.Cir.at(i), rg), Wa.Wasm.Memory{p, lm, [], z5(m, i)}) : Wa.Wasm.Step}:
   +A0 = Cr.Cir.at(i)
@@ -781,7 +780,7 @@ def alloc.D(+r: Nat, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, 
   +t: U32, +N: U32, +ad: U32, +rg: List<&2, U32>, +p: U32, +lm: U32, +m: Wa.Wasm.Bytes,
   +hr: {U32.to_nat(Cr.Cir.l.reg(r)) == 8n+r : Nat}, +hlt: {Nat.is_lt(r, List.length(&2, U32, rg)) == True{} : Bool},
   +T: Nat, +eT: {U32.to_nat(Cr.Cir.at(nx)) == T : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  +hroom: N.Le(20n+T, Q.PB(p)), +hb: N.Le(1n+Q.PB(p), W)) ->
+  +hroom: N.Le(20n+T, Q.PB(p)), +hb: N.Le(Q.PB(p), W)) ->
   {PH.H.steps(30n, Q.Cfg(ax2(Cr.Cir.l.reg(r), K), ls, [], Q.Loc(a, n, s, nx, on, t, N, ad, rg), Wa.Wasm.Memory{p, lm, [], m})) ==
     Q.Cfg(K, ls, [], Q.Loc(a, n, s, U32.add(nx, 1), on, nx, N, Cr.Cir.at(nx), List.set(&2, U32, rg, r, nx)), Wa.Wasm.Memory{p, lm, [], z5(m, nx)}) : Wa.Wasm.Step}:
   +rr = Cr.Cir.l.reg(r)
@@ -835,13 +834,17 @@ def rel.nle(c: Cmp, +x: Nat, +y: Nat, h: N.Rel(c, x, y), e: {Cmp.is_le(c) == Fal
 def nle.u32(+a: U32, +b: U32, e: {U32.is_le(a, b) == False{} : Bool}) -> N.Le(1n+U32.to_nat(b), U32.to_nat(a)):
   rel.nle(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), e)
 
-# a memory of 1 to 2^16 - 1 pages: its size is not -1
-def pg.ne(+pg: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, hb: N.Le(1n+Q.PB(pg), W), h1: N.Le(1n, U32.to_nat(pg))) ->
+# x + 1 < 2^(2 + k) x, for x >= 1
+def D.gt2(+k: Nat, +x: Nat, h: N.Le(1n, x)) -> N.Le(2n+x, N.D(2n+k, x)):
+  N.le_trans(2n+x, Nat.double(1n+x), Nat.double(N.D(1n+k, x)), PH.H.le_double(x), N.double_mono(1n+x, N.D(1n+k, x), D.gt(k, x, h)))
+
+# a memory of 1 to 2^16 pages: its size is not -1
+def pg.ne(+pg: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, hb: N.Le(Q.PB(pg), W), h1: N.Le(1n, U32.to_nat(pg))) ->
   {U32.is_ne(pg, 4294967295) == True{} : Bool}:
   +PG = U32.to_nat(pg)
   +ne = Y.U32.ne(pg, 4294967295, e =>
-    N.not_succ_le(PG, N.le_trans(1n+PG, N.D(16n, PG), PG, D.gt(15n, PG, h1),
-      N.le_rw_r(1n+N.D(16n, PG), W, 1n+PG,
+    N.not_succ_le(1n+PG, N.le_trans(2n+PG, N.D(16n, PG), 1n+PG, D.gt2(14n, PG, h1),
+      N.le_rw_r(N.D(16n, PG), W, 1n+PG,
         Equal.trans(Nat, W, PH.H.W(32n), 1n+PG, hW,
           Equal.trans(Nat, PH.H.W(32n), 1n+Word.to_nat(32n, N.ones(32n, 32n)), 1n+PG,
             Equal.sym(Nat, 1n+Word.to_nat(32n, N.ones(32n, 32n)), PH.H.W(32n), PH.H.ones_val(32n, N.ones(32n, 32n), {==})),
@@ -1028,7 +1031,8 @@ def inv.emit(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +f
   +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +m: Wa.Wasm.Bytes, +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, pg, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +x: U32, +hp: N.Le(U32.to_nat(pg), U32.to_nat(p2)), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lm)),
-  +hroom: N.Le(1n+U32.to_nat(U32.add(Cr.Cir.at(nx), on)), Q.PB(p2))) ->
+  +hroom: N.Le(1n+U32.to_nat(U32.add(Cr.Cir.at(nx), on)), Q.PB(p2)),
+  +hge: {U32.is_ge(U32.add(Cr.Cir.at(nx), on), on) == True{} : Bool}) ->
   Q.Inv(P, G, a, n, cl, nx, fi, im, p2, lm, inp, Con{Sd.Byte.from_u32(x), ou}, U32.inc(on),
     Wa.Wasm.write8(m, U32.add(Cr.Cir.at(nx), on), Sd.Byte.from_u32(x))):
   +hI2 = inv.pg(P, G, a, n, cl, nx, fi, im, pg, p2, lm, inp, ou, on, m, hI, hp, hpl)
@@ -1047,10 +1051,8 @@ def inv.emit(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +f
   +fle = Q.inv.fle(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m, hI2)
   +ex = F.at.nat(nx, P, hP, Q.b.nx(P, G, a, nx, fi, im, p2, lm, inp, on, hB))
   +hwo = F.b.outw(P, G, a, nx, fi, im, p2, lm, inp, on, hP, W, hW, hG, hB)
-  +eb0 = Z.u32.add_ex(Cr.Cir.at(nx), on, W, hW, N.le_rw_l(1n+Nat.add(ON, X), 1n+Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), W,
-    Equal.cong(Nat, Nat, z => 1n+z, Nat.add(ON, X), Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON),
-      Equal.trans(Nat, Nat.add(ON, X), Nat.add(X, ON), Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), Z.add.comm(ON, X),
-        Equal.cong(Nat, Nat, z => Nat.add(z, ON), X, U32.to_nat(Cr.Cir.at(nx)), Equal.sym(Nat, U32.to_nat(Cr.Cir.at(nx)), X, ex)))), hwo))
+  # the check of emit: the byte's place does not wrap
+  +eb0 = Z.ge.add_ex(Cr.Cir.at(nx), on, W, hW, hge)
   +eb = Equal.trans(Nat, B, Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), Nat.add(X, ON), eb0, Equal.cong(Nat, Nat, z => Nat.add(z, ON), U32.to_nat(Cr.Cir.at(nx)), X, ex))
   +hXB = N.le_rw_r(X, Nat.add(X, ON), B, Equal.sym(Nat, B, Nat.add(X, ON), eb), N.le_add_r(X, ON))
   +hEF = N.le_trans(Nat.add(A, L), PH.H.t20(FI), X, Q.b.efi(P, G, a, nx, fi, im, p2, lm, inp, on, hB), PH.H.t20_mono(FI, NX, fle))
@@ -1072,9 +1074,12 @@ def inv.emit(+P: Nat, +G: Nat, +a: U32, +n: U32, +cl: Cr.Cir.Cells, +nx: U32, +f
     F.RC.w8(Nat.sub(NX, FI), m, b, y, fi, FI, {==}, P, hP, W, hW, hcm,
       Inl{N.le_rw_l(X, PH.H.t20(Nat.add(Nat.sub(NX, FI), FI)), B, Equal.cong(Nat, Nat, z => PH.H.t20(z), NX, Nat.add(Nat.sub(NX, FI), FI), Equal.sym(Nat, Nat.add(Nat.sub(NX, FI), FI), NX, esa)), hXB)}),
     Q.inv.mach(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m, hI2))
-  +hb2 = pb2.lt(p2, lm, G, W, hG, hpl, Q.b.lm(P, G, a, nx, fi, im, p2, lm, inp, on, hB))
-  +h2B = N.le_trans(2n+B, 1n+Q.PB(p2), W, hroom, hb2)
-  +eon1 = F.inc.nat(on, W, hW, N.le_trans(2n+ON, 2n+B, W, N.le_rw_r(ON, Nat.add(X, ON), B, Equal.sym(Nat, B, Nat.add(X, ON), eb), N.le_add_l(X, ON)), h2B))
+  +hb2 = pb2.le(p2, lm, G, W, hG, hpl, Q.b.lm(P, G, a, nx, fi, im, p2, lm, inp, on, hB))
+  +h1B = N.le_trans(1n+B, Q.PB(p2), W, hroom, hb2)
+  # outn + 1 < 20 next + outn + 1 = b + 1, as 20 next >= 20
+  +h1X = N.le_trans(1n, PH.H.t20(1n+K), X, Unit{}, h1K)
+  +eon1 = F.inc.nat(on, W, hW, N.le_trans(2n+ON, 1n+B, W,
+    N.le_rw_r(1n+ON, Nat.add(X, ON), B, Equal.sym(Nat, B, Nat.add(X, ON), eb), Z.le.add_r(1n, X, ON, h1X)), h1B))
   +ebi = Equal.trans(U32, Z.incn(ON, Cr.Cir.at(nx)), U32.add(U32.from_nat(ON), Cr.Cir.at(nx)), b, Z.incn.add(ON, Cr.Cir.at(nx)),
     Equal.trans(U32, U32.add(U32.from_nat(ON), Cr.Cir.at(nx)), U32.add(on, Cr.Cir.at(nx)), b,
       Equal.cong(U32, U32, z => U32.add(z, Cr.Cir.at(nx)), U32.from_nat(ON), on, Z.from.to(on)), U32.add_comm(on, Cr.Cir.at(nx))))
@@ -1192,21 +1197,6 @@ def room.e(+nx: U32, +on: U32, +p2: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
       Equal.cong(Nat, Nat, z => N.D(16n, z), 1n+S0, U32.to_nat(nce(nx, on)), Equal.sym(Nat, U32.to_nat(nce(nx, on)), 1n+S0, en)), shrn.up(16n, b)),
     M.D_mono(16n, U32.to_nat(nce(nx, on)), U32.to_nat(p2), hp))
 
-# the byte's place, exactly
-def eb.nat(+P: Nat, +G: Nat, +a: U32, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lm: U32, +inp: List<&2, Word(8n)>, +on: U32,
-  +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
-  +hB: Q.Bounds(P, G, a, nx, fi, im, pg, lm, inp, on)) -> N.Le(1n+U32.to_nat(eb(nx, on)), W):
-  +X = PH.H.t20(U32.to_nat(nx))
-  +ON = U32.to_nat(on)
-  +ex = F.at.nat(nx, P, hP, Q.b.nx(P, G, a, nx, fi, im, pg, lm, inp, on, hB))
-  +hwo = F.b.outw(P, G, a, nx, fi, im, pg, lm, inp, on, hP, W, hW, hG, hB)
-  +e1 = Equal.trans(Nat, Nat.add(ON, X), Nat.add(X, ON), Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), Z.add.comm(ON, X),
-    Equal.cong(Nat, Nat, z => Nat.add(z, ON), X, U32.to_nat(Cr.Cir.at(nx)), Equal.sym(Nat, U32.to_nat(Cr.Cir.at(nx)), X, ex)))
-  +h1 = N.le_rw_l(1n+Nat.add(ON, X), 1n+Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), W, Equal.cong(Nat, Nat, z => 1n+z, Nat.add(ON, X), Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), e1), hwo)
-  N.le_rw_l(1n+Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), 1n+U32.to_nat(eb(nx, on)), W,
-    Equal.cong(Nat, Nat, z => 1n+z, Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), U32.to_nat(eb(nx, on)),
-      Equal.sym(Nat, U32.to_nat(eb(nx, on)), Nat.add(U32.to_nat(Cr.Cir.at(nx)), ON), Z.u32.add_ex(Cr.Cir.at(nx), on, W, hW, h1))), h1)
-
 # the byte out, and outn one more
 def emit.E5(+v: Cr.Cir.Expr, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.Label>, +rg: List<&2, U32>, +cl: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
   +p2: U32, +lm: U32, +inp: List<&2, Word(8n)>, +ou: List<&2, Word(8n)>, +on: U32, +x: U32,
@@ -1215,7 +1205,7 @@ def emit.E5(+v: Cr.Cir.Expr, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.
   +P: Nat, +G: Nat, +a: U32, +n: U32, +t: U32, +N0: U32, +m: Wa.Wasm.Bytes,
   +hI: Q.Inv(P, G, a, n, cl, nx, fi, im, p2, lm, inp, ou, on, m),
   +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
-  +hroom: N.Le(1n+U32.to_nat(eb(nx, on)), Q.PB(p2)), +hb: N.Le(1n+Q.PB(p2), W)) ->
+  +hroom: N.Le(1n+U32.to_nat(eb(nx, on)), Q.PB(p2)), +hb: N.Le(Q.PB(p2), W)) ->
   {PH.H.steps(Nat.add(1n, Nat.add(E.cost(v), 5n)), Q.Cfg(ex2(v, K), ls, [], Q.Loc(a, n, 2, nx, on, t, N0, eb(nx, on), rg), Wa.Wasm.Memory{p2, lm, [], m})) ==
     Q.Cfg(K, ls, [], Q.Loc(a, n, 2, nx, U32.add(on, 1), E.tmpE(v, t, Q.St(rg, cl, nx, fi, im, p2, lm, inp, ou, on)), N0, eb(nx, on), rg),
       Wa.Wasm.Memory{p2, lm, [], Wa.Wasm.write8(m, U32.add(eb(nx, on), 0), Sd.Byte.from_u32(x))}) : Wa.Wasm.Step}:
@@ -1233,7 +1223,7 @@ def emit.E5(+v: Cr.Cir.Expr, +K: List<&2, Wa.Wasm.Instr>, +ls: List<&2, Wa.Wasm.
   +C2 = Q.Cfg(KS, ls, [x, b], L3, M2)
   +C3 = Q.Cfg(KR, ls, [], L3, Wa.Wasm.Memory{p2, lm, [], m3})
   +C4 = Q.Cfg(K, ls, [], Q.Loc(a, n, 2, nx, U32.add(on, 1), tv, N0, b, rg), Wa.Wasm.Memory{p2, lm, [], m3})
-  +hin = Z.inside.ok(p2, b, 0, 1, W, hW, Unit{},
+  +hin = Z.inside.le(p2, b, 0, 1, W, hW, Unit{},
     N.le_rw_l(1n+B, Nat.add(Nat.add(B, U32.to_nat(0)), U32.to_nat(1)), Q.PB(p2),
       Equal.trans(Nat, 1n+B, Nat.add(B, 1n), Nat.add(Nat.add(B, 0n), 1n), Equal.sym(Nat, Nat.add(B, 1n), 1n+B, I.add.one(B)),
         Equal.cong(Nat, Nat, z => Nat.add(z, 1n), B, Nat.add(B, 0n), Equal.sym(Nat, Nat.add(B, 0n), B, N.add_zero(B)))), hroom), hb)

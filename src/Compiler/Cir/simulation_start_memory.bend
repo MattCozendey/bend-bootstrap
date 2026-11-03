@@ -387,7 +387,7 @@ def inv0(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +p2: 
   +hEP: N.Le(Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)), PH.H.t20(P)),
   +hEB: N.Le(Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)), Q.PB(p2)),
   +hEF: N.Le(Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)), PH.H.t20(U32.to_nat(fst))),
-  +hFP: N.Le(U32.to_nat(fst), P), +hlm: N.Le(1n+U32.to_nat(lim), G), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lim))) ->
+  +hFP: N.Le(U32.to_nat(fst), P), +hlm: N.Le(U32.to_nat(lim), G), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lim))) ->
   Q.Inv(P, G, Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len, Cr.Cir.load(cells, 1, Cr.Cir.Cells.none{}), fst, fst,
     Cr.Wasm.encode.len(Cr.Cir.Cell, cells), p2, lim, i, [], 0, B2(cells, i)):
   +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
