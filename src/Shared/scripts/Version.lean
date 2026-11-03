@@ -1,3 +1,4 @@
+import Shared.Refs
 import Shared.Script
 
 -- Version
@@ -18,20 +19,9 @@ import Shared.Script
 
 open Term
 
--- the names of the defs that t refers to
-def refs : Term → List String
-  | Ref k => [k]
-  | Typ a | Prj a | Lam _ a => refs a
-  | Ann a b | Term.Min a b | Let _ a b | All _ a b | App _ a b | Sig _ a b | Tup _ a b
-  | Mat _ a b => refs a ++ refs b
-  | Eql a b c | Rwt a b c => refs a ++ refs b ++ refs c
-  | Var _ | Enu _ | Lab _ | Efq | Rfl => []
-
--- the names that the names ks need, ks among them: a book has no more rounds
--- of new names than defs
-def needs (bk : Book) (ks : List String) : List String :=
-  (List.range bk.defs.length).foldl (init := ks) fun seen _ =>
-    (seen ++ seen.flatMap fun k => ((bk.get k).map fun d => refs d.T ++ refs d.v).getD []).eraseDups
+-- the names that the names ks need through types and bodies, ks among them
+def needs (bk : Book) (ks : List String) : Std.HashSet String :=
+  bk.reach (fun d acc => d.T.refs (d.v.refs acc)) ks
 
 -- the Lean def that is the version of d: one atomic name, so that it opens no namespace in
 -- which a Bend name such as List hides Lean's

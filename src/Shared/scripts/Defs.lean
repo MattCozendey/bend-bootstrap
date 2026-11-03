@@ -1,3 +1,4 @@
+import Shared.Refs
 import Shared.Script
 
 -- Defs
@@ -32,30 +33,25 @@ import Shared.Script
 
 open Term
 
--- the names of the defs that t refers to
-def refs : Term → List String
-  | Ref k => [k]
-  | Typ a | Prj a | Lam _ a => refs a
-  | Ann a b | Term.Min a b | Let _ a b | All _ a b | App _ a b | Sig _ a b | Tup _ a b
-  | Mat _ a b => refs a ++ refs b
-  | Eql a b c | Rwt a b c => refs a ++ refs b ++ refs c
-  | Var _ | Enu _ | Lab _ | Efq | Rfl => []
+-- the names that the names ks need through types and bodies, ks among them
+def needs (bk : Book) (ks : List String) : Std.HashSet String :=
+  bk.reach (fun d acc => d.T.refs (d.v.refs acc)) ks
 
--- the names that the names ks need, ks among them (as Version.lean)
-def needs (bk : Book) (ks : List String) : List String :=
-  (List.range bk.defs.length).foldl (init := ks) fun seen _ =>
-    (seen ++ seen.flatMap fun k => ((bk.get k).map fun d => refs d.T ++ refs d.v).getD []).eraseDups
+-- every name and label of t, before acc
+def names : Term → List String → List String
+  | Ref k, acc | Lab k, acc => k :: acc
+  | Mat k a b, acc => k :: names a (names b acc)
+  | Enu ks, acc => ks ++ acc
+  | Typ a, acc | Prj a, acc | Lam _ a, acc => names a acc
+  | Ann a b, acc | Term.Min a b, acc | Let _ a b, acc | All _ a b, acc | App _ a b, acc
+  | Sig _ a b, acc | Tup _ a b, acc => names a (names b acc)
+  | Eql a b c, acc | Rwt a b c, acc => names a (names b (names c acc))
+  | Var _, acc | Efq, acc | Rfl, acc => acc
 
--- every name and label of t
-def names : Term → List String
-  | Ref k | Lab k => [k]
-  | Mat k a b => k :: names a ++ names b
-  | Enu ks => ks
-  | Typ a | Prj a | Lam _ a => names a
-  | Ann a b | Term.Min a b | Let _ a b | All _ a b | App _ a b | Sig _ a b | Tup _ a b =>
-    names a ++ names b
-  | Eql a b c | Rwt a b c => names a ++ names b ++ names c
-  | Var _ | Efq | Rfl => []
+-- the names of ns, each once, in the order of their first copies
+def uniq (ns : List String) : List String :=
+  (ns.foldl (init := (#[], ({} : Std.HashSet String))) fun (xs, seen) k =>
+    if seen.contains k then (xs, seen) else (xs.push k, seen.insert k)).1.toList
 
 -- the n of a term that is the form of the Nat n
 def natOf : Term → Option Nat
@@ -101,8 +97,9 @@ def versionDefs : IO Unit := do
   let ps ← Script.list "STRIP"
   let roots ← Script.list "ROOTS"
   let ex := needs bk (← Script.list "EXCLUDE")
-  let ks := (needs bk roots).filter (!ex.contains ·) ++ (← Script.list "ONLY")
-  let ds := bk.defs.filter (ks.contains ·.k)
+  let ks := needs bk roots
+  let only ← Script.list "ONLY"
+  let ds := bk.defs.filter fun d => ks.contains d.k && !ex.contains d.k || only.contains d.k
   let ts := (← Script.list "TYPES").filterMap bk.get
   let k' (k : String) := Script.unprefixName ps k
   let defs := String.join <| ds.map fun d =>
@@ -110,7 +107,7 @@ def versionDefs : IO Unit := do
     s!"    {lean (Script.unprefix ps d.v)},\n    {d.o}⟩\n\n"
   let types := String.join <| ts.map fun d =>
     s!"def «{name}.{k' d.k}» : String × Term :=\n  ({repr (k' d.k)},\n    {lean (Script.unprefix ps d.T)})\n\n"
-  let all := (bk.defs.flatMap fun d => d.k :: names d.T ++ names d.v).eraseDups
+  let all := uniq (bk.defs.flatMap fun d => d.k :: names d.T (names d.v []))
   let ns := if (← IO.getEnv "NAMES") != some "1" then "" else
     s!"def {name}.prefixes : List String :=\n  {repr ps}\n\n" ++
     s!"def {name}.names : List String :=\n  {repr (all.filter fun k => ps.any (·.isPrefixOf k))}\n\n"
