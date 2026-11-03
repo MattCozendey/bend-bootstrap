@@ -2,6 +2,7 @@ import Book.Generated.Reader
 import Book.Go
 import Book.Model
 import Book.Nat
+import Book.Prune
 import Book.Read
 import Book.TokenHigh
 import Book.TokenLow

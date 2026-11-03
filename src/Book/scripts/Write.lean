@@ -1,10 +1,12 @@
+import Book.Prune
 import Shared.DataForm
 import Shared.Script
 
 -- Write
 -- =====
 --
--- Writes the bytes of the book of a .bendtt file, as the Lean writer of
+-- Writes the bytes of the pruned book of a .bendtt file (src/Book/Prune.lean:
+-- the defs that a run from main can call), as the Lean writer of
 -- src/Shared/DataForm.lean writes them (AGENTS.md 3.6.4): the input of the
 -- compiler of 3.8.4.
 --
@@ -13,9 +15,9 @@ import Shared.Script
 --
 -- With JOBS, it writes each line of that file, "book<TAB>output", in one process.
 
--- writes the bytes of the book at path to output
+-- writes the bytes of the pruned book at path to output
 def writeTo (path output : String) : IO Unit := do
-  let bs := write (← Script.bookAt path)
+  let bs := write (prune (← Script.bookAt path))
   IO.FS.writeBinFile output ⟨bs.toArray⟩
   IO.println s!"{output}: {bs.length} bytes"
 
