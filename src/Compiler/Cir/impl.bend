@@ -117,7 +117,7 @@ def Wasm.encode.opcode(o: Wa.Wasm.Op) -> U32:
 def Wasm.encode.with(op: U32, imm: List<&2, Word(8n)>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   Con{Sd.Byte.from_u32(op), List.append(&2, Word(8n), imm, acc)}
 
-# a block type (spec 5.4.1): 0x40 for no values, the value type i32 (0x7F)
+# a block type (spec 5.4.2): 0x40 for no values, the value type i32 (0x7F)
 # for one result, or its type index as s33
 def Wasm.encode.blocktype(bt: Wa.Wasm.Blocktype) -> List<&2, Word(8n)>:
   match bt:
@@ -177,7 +177,7 @@ def Wasm.encode.i32s(n: Nat) -> List<&2, Word(8n)>:
     case 1n+p:
       Con{Sd.Byte.from_u32(127), Wasm.encode.i32s(p)}
 
-# a function type (spec 5.3.6): 0x60, then its parameters and results
+# a function type (spec 5.3.7): 0x60, then its parameters and results
 def Wasm.encode.functype(t: Wa.Wasm.Type) -> List<&2, Word(8n)>:
   match t:
     case Wa.Wasm.Type{p, q}:
@@ -242,7 +242,7 @@ def Wasm.encode.section(id: U32, c: List<&2, Word(8n)>, acc: List<&2, Word(8n)>)
   Con{Sd.Byte.from_u32(id), List.append(&2, Word(8n), Wasm.encode.sized(c), acc)}
 
 # the memory section, when there is a memory: one memory, of limits 0 and a
-# minimum (spec 5.3.7)
+# minimum (spec 5.3.9)
 def Wasm.encode.memory(m: Maybe<&2, Wa.Wasm.Limits>, acc: List<&2, Word(8n)>) -> List<&2, Word(8n)>:
   match m:
     case None{}:
@@ -260,7 +260,7 @@ def Wasm.encode.data(d: Maybe<&2, Wa.Wasm.Segment>) -> List<&2, Word(8n)>:
       Wasm.encode.section(11, Con{Sd.Byte.from_u32(1), Con{Sd.Byte.from_u32(0), Con{Sd.Byte.from_u32(65),
         List.append(&2, Word(8n), Wasm.encode.sleb(o), Con{Sd.Byte.from_u32(11), Wasm.encode.sized(bs)})}}}, [])
 
-# a module of the subset (spec 5.5.15): its header, then its sections in the
+# a module of the subset (spec 5.5.17): its header, then its sections in the
 # order of their ids
 def Wasm.encode(m: Wa.Wasm.Module) -> List<&2, Word(8n)>:
   match m:
