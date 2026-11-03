@@ -410,46 +410,46 @@ def nxat.out(xs: List<&2, U32>, +u: Bk.Term, +m: Cr.Cir.Cells, +r: U32, h: {W.Nx
 
 # a node of one part, in the field ka of r, stays made when the part does
 def made.una(+ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +S: List<&2, D.Rt>, +T: List<&2, U32>, +cs: List<&2, D.Pr>, +r: U32,
-  +z: U32, +xc: Cr.Cir.Cell, +ka: Nat, +y: Bk.Term,
+  +tg: U32, +z: U32, +xc: Cr.Cir.Cell, +ka: Nat, +y: Bk.Term,
   hn: {Bool.or(U32.is_eq(r, z), D.Node(y, ms, D.Fd(ka, ms, r), z)) == False{} : Bool},
-  h: {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(ms, m0, S, T, cs, r), D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs))) == True{} : Bool},
+  h: {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(ms, m0, S, T, cs, r, tg), D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs))) == True{} : Bool},
   fy: @a: U32 -> {D.Node(y, ms, a, z) == False{} : Bool} -> {D.Made(y, ms, m0, a, S, T, cs) == True{} : Bool} ->
     {D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, a, S, T, cs) == True{} : Bool}) ->
-  {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r), D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(ka, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs))) == True{} : Bool}:
+  {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r, tg), D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(ka, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs))) == True{} : Bool}:
   +M2 = Cr.Cir.Cells.set(ms, z, xc)
   +hn2 = hn
   +ne = K.or.fl(U32.is_eq(r, z), D.Node(y, ms, D.Fd(ka, ms, r), z), hn2)
   +nr = K.or.fr(U32.is_eq(r, z), D.Node(y, ms, D.Fd(ka, ms, r), z), hn2)
   %Equal.sym(U32, D.Fd(ka, M2, r), D.Fd(ka, ms, r), C.made.fd(ka, ms, r, z, xc, ne)) :
-    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r), D.Made(y, M2, m0, _, S, T, cs))) == True{} : Bool}
-  C.made.cell(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r), D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs),
-    D.Nw(M2, m0, S, T, cs, r), D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), h,
-    q => C.made.nw(ms, m0, S, T, cs, r, z, xc, ne, q),
+    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r, tg), D.Made(y, M2, m0, _, S, T, cs))) == True{} : Bool}
+  C.made.cell(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r, tg), D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs),
+    D.Nw(M2, m0, S, T, cs, r, tg), D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), h,
+    q => C.made.nw(ms, m0, S, T, cs, r, tg, z, xc, ne, q),
     q =>
       +q2 = q
       fy(D.Fd(ka, ms, r), nr, q2))
 
 # a node of two parts, in the fields ka and kb of r, stays made when each part does
 def made.bin(+ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +S: List<&2, D.Rt>, +T: List<&2, U32>, +cs: List<&2, D.Pr>, +r: U32,
-  +z: U32, +xc: Cr.Cir.Cell, +ka: Nat, +kb: Nat, +y: Bk.Term, +w: Bk.Term,
+  +tg: U32, +z: U32, +xc: Cr.Cir.Cell, +ka: Nat, +kb: Nat, +y: Bk.Term, +w: Bk.Term,
   hn: {Bool.or(U32.is_eq(r, z), Bool.or(D.Node(y, ms, D.Fd(ka, ms, r), z), D.Node(w, ms, D.Fd(kb, ms, r), z))) == False{} : Bool},
-  h: {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(ms, m0, S, T, cs, r), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs)))) == True{} : Bool},
+  h: {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(ms, m0, S, T, cs, r, tg), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs)))) == True{} : Bool},
   fy: @a: U32 -> {D.Node(y, ms, a, z) == False{} : Bool} -> {D.Made(y, ms, m0, a, S, T, cs) == True{} : Bool} ->
     {D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, a, S, T, cs) == True{} : Bool},
   fw: @a: U32 -> {D.Node(w, ms, a, z) == False{} : Bool} -> {D.Made(w, ms, m0, a, S, T, cs) == True{} : Bool} ->
     {D.Made(w, Cr.Cir.Cells.set(ms, z, xc), m0, a, S, T, cs) == True{} : Bool}) ->
-  {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r), Bool.and(D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(ka, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs), D.Made(w, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(kb, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs)))) == True{} : Bool}:
+  {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r, tg), Bool.and(D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(ka, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs), D.Made(w, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(kb, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs)))) == True{} : Bool}:
   +M2 = Cr.Cir.Cells.set(ms, z, xc)
   +hn2 = hn
   +ne = K.or.fl(U32.is_eq(r, z), Bool.or(D.Node(y, ms, D.Fd(ka, ms, r), z), D.Node(w, ms, D.Fd(kb, ms, r), z)), hn2)
   +nr = K.or.fr(U32.is_eq(r, z), Bool.or(D.Node(y, ms, D.Fd(ka, ms, r), z), D.Node(w, ms, D.Fd(kb, ms, r), z)), hn2)
   %Equal.sym(U32, D.Fd(ka, M2, r), D.Fd(ka, ms, r), C.made.fd(ka, ms, r, z, xc, ne)) :
-    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r), Bool.and(D.Made(y, M2, m0, _, S, T, cs), D.Made(w, M2, m0, D.Fd(kb, M2, r), S, T, cs)))) == True{} : Bool}
+    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r, tg), Bool.and(D.Made(y, M2, m0, _, S, T, cs), D.Made(w, M2, m0, D.Fd(kb, M2, r), S, T, cs)))) == True{} : Bool}
   %Equal.sym(U32, D.Fd(kb, M2, r), D.Fd(kb, ms, r), C.made.fd(kb, ms, r, z, xc, ne)) :
-    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, M2, m0, _, S, T, cs)))) == True{} : Bool}
-  C.made.cell(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs)),
-    D.Nw(M2, m0, S, T, cs, r), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs)), h,
-    q => C.made.nw(ms, m0, S, T, cs, r, z, xc, ne, q),
+    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r, tg), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, M2, m0, _, S, T, cs)))) == True{} : Bool}
+  C.made.cell(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r, tg), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs)),
+    D.Nw(M2, m0, S, T, cs, r, tg), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs)), h,
+    q => C.made.nw(ms, m0, S, T, cs, r, tg, z, xc, ne, q),
     q =>
       +q2 = q
       K.Bo.and_i(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs),
@@ -458,29 +458,29 @@ def made.bin(+ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +S: List<&2, D.Rt>, +T: List<
 
 # a node of three parts, in the fields ka to kc of r, stays made when each part does
 def made.ter(+ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +S: List<&2, D.Rt>, +T: List<&2, U32>, +cs: List<&2, D.Pr>, +r: U32,
-  +z: U32, +xc: Cr.Cir.Cell, +ka: Nat, +kb: Nat, +kc: Nat, +y: Bk.Term, +w: Bk.Term, +v: Bk.Term,
+  +tg: U32, +z: U32, +xc: Cr.Cir.Cell, +ka: Nat, +kb: Nat, +kc: Nat, +y: Bk.Term, +w: Bk.Term, +v: Bk.Term,
   hn: {Bool.or(U32.is_eq(r, z), Bool.or(D.Node(y, ms, D.Fd(ka, ms, r), z), Bool.or(D.Node(w, ms, D.Fd(kb, ms, r), z), D.Node(v, ms, D.Fd(kc, ms, r), z)))) == False{} : Bool},
-  h: {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(ms, m0, S, T, cs, r), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, ms, m0, D.Fd(kc, ms, r), S, T, cs))))) == True{} : Bool},
+  h: {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(ms, m0, S, T, cs, r, tg), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, ms, m0, D.Fd(kc, ms, r), S, T, cs))))) == True{} : Bool},
   fy: @a: U32 -> {D.Node(y, ms, a, z) == False{} : Bool} -> {D.Made(y, ms, m0, a, S, T, cs) == True{} : Bool} ->
     {D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, a, S, T, cs) == True{} : Bool},
   fw: @a: U32 -> {D.Node(w, ms, a, z) == False{} : Bool} -> {D.Made(w, ms, m0, a, S, T, cs) == True{} : Bool} ->
     {D.Made(w, Cr.Cir.Cells.set(ms, z, xc), m0, a, S, T, cs) == True{} : Bool},
   fv: @a: U32 -> {D.Node(v, ms, a, z) == False{} : Bool} -> {D.Made(v, ms, m0, a, S, T, cs) == True{} : Bool} ->
     {D.Made(v, Cr.Cir.Cells.set(ms, z, xc), m0, a, S, T, cs) == True{} : Bool}) ->
-  {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r), Bool.and(D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(ka, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs), Bool.and(D.Made(w, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(kb, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs), D.Made(v, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(kc, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs))))) == True{} : Bool}:
+  {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r, tg), Bool.and(D.Made(y, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(ka, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs), Bool.and(D.Made(w, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(kb, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs), D.Made(v, Cr.Cir.Cells.set(ms, z, xc), m0, D.Fd(kc, Cr.Cir.Cells.set(ms, z, xc), r), S, T, cs))))) == True{} : Bool}:
   +M2 = Cr.Cir.Cells.set(ms, z, xc)
   +hn2 = hn
   +ne = K.or.fl(U32.is_eq(r, z), Bool.or(D.Node(y, ms, D.Fd(ka, ms, r), z), Bool.or(D.Node(w, ms, D.Fd(kb, ms, r), z), D.Node(v, ms, D.Fd(kc, ms, r), z))), hn2)
   +nr = K.or.fr(U32.is_eq(r, z), Bool.or(D.Node(y, ms, D.Fd(ka, ms, r), z), Bool.or(D.Node(w, ms, D.Fd(kb, ms, r), z), D.Node(v, ms, D.Fd(kc, ms, r), z))), hn2)
   %Equal.sym(U32, D.Fd(ka, M2, r), D.Fd(ka, ms, r), C.made.fd(ka, ms, r, z, xc, ne)) :
-    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r), Bool.and(D.Made(y, M2, m0, _, S, T, cs), Bool.and(D.Made(w, M2, m0, D.Fd(kb, M2, r), S, T, cs), D.Made(v, M2, m0, D.Fd(kc, M2, r), S, T, cs))))) == True{} : Bool}
+    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r, tg), Bool.and(D.Made(y, M2, m0, _, S, T, cs), Bool.and(D.Made(w, M2, m0, D.Fd(kb, M2, r), S, T, cs), D.Made(v, M2, m0, D.Fd(kc, M2, r), S, T, cs))))) == True{} : Bool}
   %Equal.sym(U32, D.Fd(kb, M2, r), D.Fd(kb, ms, r), C.made.fd(kb, ms, r, z, xc, ne)) :
-    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, M2, m0, _, S, T, cs), D.Made(v, M2, m0, D.Fd(kc, M2, r), S, T, cs))))) == True{} : Bool}
+    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r, tg), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, M2, m0, _, S, T, cs), D.Made(v, M2, m0, D.Fd(kc, M2, r), S, T, cs))))) == True{} : Bool}
   %Equal.sym(U32, D.Fd(kc, M2, r), D.Fd(kc, ms, r), C.made.fd(kc, ms, r, z, xc, ne)) :
-    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, M2, m0, _, S, T, cs))))) == True{} : Bool}
-  C.made.cell(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, ms, m0, D.Fd(kc, ms, r), S, T, cs))),
-    D.Nw(M2, m0, S, T, cs, r), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, M2, m0, D.Fd(kc, ms, r), S, T, cs))), h,
-    q => C.made.nw(ms, m0, S, T, cs, r, z, xc, ne, q),
+    {Bool.or(D.Nodes(S, m0, r), Bool.and(D.Nw(M2, m0, S, T, cs, r, tg), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, M2, m0, _, S, T, cs))))) == True{} : Bool}
+  C.made.cell(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r, tg), Bool.and(D.Made(y, ms, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, ms, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, ms, m0, D.Fd(kc, ms, r), S, T, cs))),
+    D.Nw(M2, m0, S, T, cs, r, tg), Bool.and(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, M2, m0, D.Fd(kc, ms, r), S, T, cs))), h,
+    q => C.made.nw(ms, m0, S, T, cs, r, tg, z, xc, ne, q),
     q =>
       +q2 = q
       K.Bo.and_i(D.Made(y, M2, m0, D.Fd(ka, ms, r), S, T, cs), Bool.and(D.Made(w, M2, m0, D.Fd(kb, ms, r), S, T, cs), D.Made(v, M2, m0, D.Fd(kc, ms, r), S, T, cs)),
@@ -495,55 +495,55 @@ def made.set(u: Bk.Term, +ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +r: U32, +S: List
   h: {D.Made(u, ms, m0, r, S, T, cs) == True{} : Bool}) -> {D.Made(u, Cr.Cir.Cells.set(ms, z, xc), m0, r, S, T, cs) == True{} : Bool}:
   match u:
     case Bk.Term.Var{_}:
-      C.made.or(D.Nodes(S, m0, r), D.New(ms, T, r), D.New(Cr.Cir.Cells.set(ms, z, xc), T, r), h, q => C.made.new(ms, T, r, z, xc, hn, q))
+      C.made.or(D.Nodes(S, m0, r), D.New(ms, T, r, 0), D.New(Cr.Cir.Cells.set(ms, z, xc), T, r, 0), h, q => C.made.new(ms, T, r, 0, z, xc, hn, q))
     case Bk.Term.Ref{_}:
       h
     case Bk.Term.Ann{+y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 2, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Let{_, +y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 3, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Typ{+y}:
-      made.una(ms, m0, S, T, cs, r, z, xc, 2n, y, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q))
+      made.una(ms, m0, S, T, cs, r, 4, z, xc, 2n, y, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Min{+y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 5, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.All{_, +y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 6, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Lam{_, +y}:
-      made.una(ms, m0, S, T, cs, r, z, xc, 2n, y, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q))
+      made.una(ms, m0, S, T, cs, r, 7, z, xc, 2n, y, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.App{_, +y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 8, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Sig{_, +y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 9, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Tup{_, +y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 10, z, xc, 2n, 3n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Prj{+y}:
-      made.una(ms, m0, S, T, cs, r, z, xc, 2n, y, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q))
+      made.una(ms, m0, S, T, cs, r, 11, z, xc, 2n, y, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Enu{_}:
       h
     case Bk.Term.Lab{_}:
-      C.made.or(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r), D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r), h,
-        q => C.made.nw(ms, m0, S, T, cs, r, z, xc, hn, q))
+      C.made.or(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r, 13), D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r, 13), h,
+        q => C.made.nw(ms, m0, S, T, cs, r, 13, z, xc, hn, q))
     case Bk.Term.Mat{_, +y, +w}:
-      made.bin(ms, m0, S, T, cs, r, z, xc, 3n, 4n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.bin(ms, m0, S, T, cs, r, 14, z, xc, 3n, 4n, y, w, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Efq{}:
-      C.made.or(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r), D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r), h,
-        q => C.made.nw(ms, m0, S, T, cs, r, z, xc, hn, q))
+      C.made.or(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r, 15), D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r, 15), h,
+        q => C.made.nw(ms, m0, S, T, cs, r, 15, z, xc, hn, q))
     case Bk.Term.Eql{+y, +w, +v}:
-      made.ter(ms, m0, S, T, cs, r, z, xc, 2n, 3n, 4n, y, w, v, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.ter(ms, m0, S, T, cs, r, 16, z, xc, 2n, 3n, 4n, y, w, v, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q), a => na => q => made.set(v, ms, m0, a, S, T, cs, z, xc, na, q))
     case Bk.Term.Rfl{}:
-      C.made.or(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r), D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r), h,
-        q => C.made.nw(ms, m0, S, T, cs, r, z, xc, hn, q))
+      C.made.or(D.Nodes(S, m0, r), D.Nw(ms, m0, S, T, cs, r, 17), D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r, 17), h,
+        q => C.made.nw(ms, m0, S, T, cs, r, 17, z, xc, hn, q))
     case Bk.Term.Rwt{+y, +w, +v}:
-      made.ter(ms, m0, S, T, cs, r, z, xc, 2n, 3n, 4n, y, w, v, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
+      made.ter(ms, m0, S, T, cs, r, 18, z, xc, 2n, 3n, 4n, y, w, v, hn, h, a => na => q => made.set(y, ms, m0, a, S, T, cs, z, xc, na, q),
         a => na => q => made.set(w, ms, m0, a, S, T, cs, z, xc, na, q), a => na => q => made.set(v, ms, m0, a, S, T, cs, z, xc, na, q))
 
 # One cell across the store
