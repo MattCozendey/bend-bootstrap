@@ -2363,6 +2363,214 @@ def pb.push(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
     st1 => qa => push.go(f, ds, ks, img, st0, t, w, lim, regs, m, nx, fi, im, inp, os, fs, sp, ps, q, kf, b, b2, h, a, bx, hv, kv, bv, rest,
       htg, hq, hst, hk, hsp, hfn, eh, ea, eb, st1, qa, k))
 
+# The end of a step
+# -----------------
+#
+# A state whose registers are RG of the focus n, mode 0, sp and pend, of
+# which HS holds with the one root n of h and Acc with no temporary, stands
+# for the frames' term around h: if Eval steps t to that term, the round is a
+# step (fin.stp).
+
+# 63 registers, as RG names them, from their first four
+def rg.eq(+regs: List<&2, U32>, +a0: U32, +a1: U32, +a2: U32, +a3: U32, hl: {List.length(&2, U32, regs) == 63n : Nat},
+  h0: {List.get(&2, U32, regs, 0n) == Some{a0} : Maybe<&2, U32>}, h1: {List.get(&2, U32, regs, 1n) == Some{a1} : Maybe<&2, U32>},
+  h2: {List.get(&2, U32, regs, 2n) == Some{a2} : Maybe<&2, U32>}, h3: {List.get(&2, U32, regs, 3n) == Some{a3} : Maybe<&2, U32>}) ->
+  {regs == D.RG(a0, a1, a2, a3, D.R59.list(D.R59.of(regs))) : List<&2, U32>}:
+  +g1 = Maybe.default(&2, U32, List.get(&2, U32, regs, 1n), 0)
+  +g2 = Maybe.default(&2, U32, List.get(&2, U32, regs, 2n), 0)
+  +g3 = Maybe.default(&2, U32, List.get(&2, U32, regs, 3n), 0)
+  +R = D.R59.list(D.R59.of(regs))
+  %h0 : {regs == D.RG(Maybe.default(&2, U32, _, 0), a1, a2, a3, R) : List<&2, U32>}
+  %h1 : {regs == D.RG(Maybe.default(&2, U32, List.get(&2, U32, regs, 0n), 0), Maybe.default(&2, U32, _, 0), a2, a3, R) : List<&2, U32>}
+  %h2 : {regs == D.RG(Maybe.default(&2, U32, List.get(&2, U32, regs, 0n), 0), g1, Maybe.default(&2, U32, _, 0), a3, R) : List<&2, U32>}
+  %h3 : {regs == D.RG(Maybe.default(&2, U32, List.get(&2, U32, regs, 0n), 0), g1, g2, Maybe.default(&2, U32, _, 0), R) : List<&2, U32>}
+  rg.of(regs, hl)
+
+# a step: the round ends in a state of the term u that t steps to
+def fin.stp(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st0: Cr.Cir.State, +t: Bk.Term, +w: Nat,
+  +u: Bk.Term, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +n: U32, +h: Bk.Term, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  hs: D.HS(ds, ks, img, m, nx, fi, im, [D.Rt{n, h}], Nil{}, fs, sp, pend, ps),
+  hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{n, h}], Nil{}, sp, fs, ps, zs),
+  hl: {List.length(&2, U32, regs) == 63n : Nat}, h0: {List.get(&2, U32, regs, 0n) == Some{n} : Maybe<&2, U32>},
+  h1: {List.get(&2, U32, regs, 1n) == Some{0} : Maybe<&2, U32>}, h2: {List.get(&2, U32, regs, 2n) == Some{sp} : Maybe<&2, U32>},
+  h3: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  et: {D.A.plugs(fs, h) == u : Bk.Term}, es: {El.Eval.step(ds, t) == Some{u} : Maybe<Bk.Term>}, afs: D.AFs.ok(ds, fs),
+  hmem: N.Le(D.Mem.cells(X.X.st(regs, m, nx, fi, im, pg, lim, inp)), Nat.max(D.Mem.cells(st0), D.Need(ds, st0, t)))) ->
+  K.MV.next(ds, ks, img, st0, t, w, X.X.st(regs, m, nx, fi, im, pg, lim, inp)):
+  match hs:
+    case Tuple{Tuple{isn, _}, Tuple{_, Tuple{_, Tuple{frs, Tuple{hp, io}}}}}:
+      +rest = D.R59.of(regs)
+      +x = {D.Wit{False{}, h, fs, n, sp, pend, ps, rest} : D.Wit}
+      +w2 = D.A.w(False{}, h, fs)
+      +er = rg.eq(regs, n, 0, sp, pend, hl, h0, h1, h2, h3)
+      (Inr{(u, (es, (w2, (x, ((et, ({==}, ({==}, (afs, (er, (isn, (frs, (hp, (io, ({==}, {==})))))))))), (zs, hac))))))}, hmem)
+
+# the nodes of the first two roots, in either order
+def nodes.swap1(r1: D.Rt, r2: D.Rt, +rs: List<&2, D.Rt>, +m: Cr.Cir.Cells, +c: U32) ->
+  {D.Nodes(Con{r1, Con{r2, rs}}, m, c) == D.Nodes(Con{r2, Con{r1, rs}}, m, c) : Bool}:
+  match r1 r2:
+    case D.Rt{+a, +u} D.Rt{+b, +v}:
+      or.swap(D.Node(u, m, a, c), D.Node(v, m, b, c), D.Nodes(rs, m, c))
+
+# Roots and borrowed terms
+# ------------------------
+#
+# The roots' order does not matter to HS and Acc (hsk.swap, acc.swap: the
+# first two trade places); a node of an owned root's term may be borrowed
+# (hsk.borrow), and a borrowed term dropped (hsk.drop).
+
+# a cell is a node of the term at that cell
+def node.self(t: Bk.Term, +m: Cr.Cir.Cells, +r: U32, +c: U32, e: {U32.is_eq(r, c) == True{} : Bool}) -> {D.Node(t, m, r, c) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+i}:
+      e
+    case Bk.Term.Ref{+k}:
+      e
+    case Bk.Term.Ann{+y, +z}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), e)
+    case Bk.Term.Let{+q, +v, +f}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c)), e)
+    case Bk.Term.Typ{+y}:
+      D.or.l(U32.is_eq(r, c), D.Node(y, m, D.Fd(2n, m, r), c), e)
+    case Bk.Term.Min{+a, +b}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), e)
+    case Bk.Term.All{+q, +a, +b}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), e)
+    case Bk.Term.Lam{+q, +f}:
+      D.or.l(U32.is_eq(r, c), D.Node(f, m, D.Fd(2n, m, r), c), e)
+    case Bk.Term.App{+q, +f, +y}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c)), e)
+    case Bk.Term.Sig{+q, +a, +b}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), e)
+    case Bk.Term.Tup{+q, +a, +b}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), e)
+    case Bk.Term.Prj{+h}:
+      D.or.l(U32.is_eq(r, c), D.Node(h, m, D.Fd(2n, m, r), c), e)
+    case Bk.Term.Enu{+en}:
+      e
+    case Bk.Term.Lab{+k}:
+      e
+    case Bk.Term.Mat{+k, +h, +n}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(h, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c)), e)
+    case Bk.Term.Efq{}:
+      e
+    case Bk.Term.Eql{+a, +b, +y}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c))), e)
+    case Bk.Term.Rfl{}:
+      e
+    case Bk.Term.Rwt{+ee, +y, +f}:
+      D.or.l(U32.is_eq(r, c), Bool.or(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(y, m, D.Fd(3n, m, r), c), D.Node(f, m, D.Fd(4n, m, r), c))), e)
+
+# the roots c1, c2 count the same in either order
+def rcl.swap(+c1: U32, +c2: U32, +rs: List<&2, U32>, +c: U32) -> {D.RcL(Con{c2, Con{c1, rs}}, c) == D.RcL(Con{c1, Con{c2, rs}}, c) : Nat}:
+  +A = D.Nat.of(U32.is_eq(c1, c))
+  +B = D.Nat.of(U32.is_eq(c2, c))
+  +R = D.RcL(rs, c)
+  Equal.trans(Nat, Nat.add(B, Nat.add(A, R)), Nat.add(Nat.add(B, A), R), Nat.add(A, Nat.add(B, R)),
+    Equal.sym(Nat, Nat.add(Nat.add(B, A), R), Nat.add(B, Nat.add(A, R)), add.assoc(B, A, R)),
+    Equal.trans(Nat, Nat.add(Nat.add(B, A), R), Nat.add(Nat.add(A, B), R), Nat.add(A, Nat.add(B, R)),
+      Equal.cong(Nat, Nat, x => Nat.add(x, R), Nat.add(B, A), Nat.add(A, B), add.comm(B, A)), add.assoc(A, B, R)))
+
+def ptr.swap(+n: Nat, +m: Cr.Cir.Cells, +fi: U32, +ps: List<&2, U32>, +c1: U32, +c2: U32, +rs: List<&2, U32>, +c: U32) ->
+  {D.Ptr(n, m, fi, ps, Con{c2, Con{c1, rs}}, c) == D.Ptr(n, m, fi, ps, Con{c1, Con{c2, rs}}, c) : Nat}:
+  Equal.cong(Nat, Nat, x => Nat.add(D.Pc(n, m, ps, fi, c), x), D.RcL(Con{c2, Con{c1, rs}}, c), D.RcL(Con{c1, Con{c2, rs}}, c), rcl.swap(c1, c2, rs, c))
+
+def cnt.swap(k: Nat, +m: Cr.Cir.Cells, +o: U32, +N0: Nat, +fi: U32, +ps: List<&2, U32>, +c1: U32, +c2: U32, +rs: List<&2, U32>,
+  h: {D.Cnt(k, m, o, N0, fi, ps, Con{c1, Con{c2, rs}}) == True{} : Bool}) -> {D.Cnt(k, m, o, N0, fi, ps, Con{c2, Con{c1, rs}}) == True{} : Bool}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+j):
+      +h2 = h
+      +R1 = {Con{c1, Con{c2, rs}} : List<&2, U32>}
+      +R2 = {Con{c2, Con{c1, rs}} : List<&2, U32>}
+      D.and.i(D.CntC(Cr.Cir.Cells.get(m, o), D.Ptr(N0, m, fi, ps, R2, o), ps, o), D.Cnt(j, m, U32.inc(o), N0, fi, ps, R2),
+        (%Equal.sym(Nat, D.Ptr(N0, m, fi, ps, R2, o), D.Ptr(N0, m, fi, ps, R1, o), ptr.swap(N0, m, fi, ps, c1, c2, rs, o)) : {D.CntC(Cr.Cir.Cells.get(m, o), _, ps, o) == True{} : Bool};
+          D.and.l(D.CntC(Cr.Cir.Cells.get(m, o), D.Ptr(N0, m, fi, ps, R1, o), ps, o), D.Cnt(j, m, U32.inc(o), N0, fi, ps, R1), h2)),
+        cnt.swap(j, m, U32.inc(o), N0, fi, ps, c1, c2, rs,
+          D.and.r(D.CntC(Cr.Cir.Cells.get(m, o), D.Ptr(N0, m, fi, ps, R1, o), ps, o), D.Cnt(j, m, U32.inc(o), N0, fi, ps, R1), h2)))
+
+def pendok.swap(qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +c1: U32, +c2: U32, +rs: List<&2, U32>,
+  h: D.PendOK(qs, ps, m, fi, nx, Con{c1, Con{c2, rs}})) -> D.PendOK(qs, ps, m, fi, nx, Con{c2, Con{c1, rs}}):
+  match qs:
+    case Nil{}:
+      Unit{}
+    case Con{+p, +rest}:
+      (ho, r1) = h
+      (hs, r2) = r1
+      (htg, r3) = r2
+      (hp0, r4) = r3
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      (ho, (hs, (htg, ((%Equal.sym(Nat, D.Ptr(n, m, fi, ps, Con{c2, Con{c1, rs}}, p), D.Ptr(n, m, fi, ps, Con{c1, Con{c2, rs}}, p), ptr.swap(n, m, fi, ps, c1, c2, rs, p)) : {_ == 0n : Nat}; hp0),
+        pendok.swap(rest, ps, m, fi, nx, c1, c2, rs, r4)))))
+
+def heap.swap(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +c1: U32, +c2: U32, +rs: List<&2, U32>, +pend: U32, +ps: List<&2, U32>,
+  h: D.Heap(m, nx, fi, im, Con{c1, Con{c2, rs}}, pend, ps)) -> D.Heap(m, nx, fi, im, Con{c2, Con{c1, rs}}, pend, ps):
+  (hc, r1) = h
+  (hp, r2) = r1
+  (hcn, r3) = r2
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  (hc, (pendok.swap(ps, ps, m, fi, nx, c1, c2, rs, hp), (cnt.swap(n, m, fi, n, fi, ps, c1, c2, rs, hcn), r3)))
+
+# HS with the first two roots traded
+def hsk.swap(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +c1: U32, +u1: Bk.Term, +c2: U32, +u2: Bk.Term, +os: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
+  h: D.HSK(True{}, ds, ks, img, m, nx, fi, im, Con{D.Rt{c1, u1}, Con{D.Rt{c2, u2}, os}}, Nil{}, fs, sp, pend, ps)) ->
+  D.HSK(True{}, ds, ks, img, m, nx, fi, im, Con{D.Rt{c2, u2}, Con{D.Rt{c1, u1}, os}}, Nil{}, fs, sp, pend, ps):
+  match h:
+    case Tuple{Tuple{i1, Tuple{i2, ir}}, Tuple{hb, Tuple{_, Tuple{hfr, Tuple{hp, hio}}}}}:
+      ((i2, (i1, ir)), (hb, (Unit{}, (hfr, (heap.swap(m, nx, fi, im, c1, c2, D.Rt.cells(os), pend, ps, hp), hio)))))
+
+# Cov with the first two roots traded
+def cov.swap(n: Nat, +m: Cr.Cir.Cells, +c: U32, +r1: D.Rt, +r2: D.Rt, +rs: List<&2, D.Rt>, +xs: List<&2, U32>,
+  h: {D.Cov(n, m, c, Con{r1, Con{r2, rs}}, xs) == True{} : Bool}) -> {D.Cov(n, m, c, Con{r2, Con{r1, rs}}, xs) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      +h2 = h
+      +N1 = D.Nodes([r1], m, c)
+      +N2 = D.Nodes([r2], m, c)
+      +X1 = Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(Con{r1, Con{r2, rs}}, m, c), D.Mem(xs, c)))
+      +C1 = D.Cov(p, m, U32.inc(c), Con{r1, Con{r2, rs}}, xs)
+      D.and.i(Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(Con{r2, Con{r1, rs}}, m, c), D.Mem(xs, c))), D.Cov(p, m, U32.inc(c), Con{r2, Con{r1, rs}}, xs),
+        (%nodes.swap1(r1, r2, rs, m, c) : {Bool.or(D.Fl(m, c, 1024), Bool.or(_, D.Mem(xs, c))) == True{} : Bool}; D.and.l(X1, C1, h2)),
+        cov.swap(p, m, U32.inc(c), r1, r2, rs, xs, D.and.r(X1, C1, h2)))
+
+# Acc with the first two roots traded (no temporary)
+def acc.swap(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +r1: D.Rt, +r2: D.Rt, +os: List<&2, D.Rt>, +sp: U32, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  h: D.AccK(True{}, ds, ks, img, m, nx, fi, im, Con{r1, Con{r2, os}}, Nil{}, sp, fs, ps, zs)) ->
+  D.AccK(True{}, ds, ks, img, m, nx, fi, im, Con{r2, Con{r1, os}}, Nil{}, sp, fs, ps, zs):
+  match h:
+    case Tuple{hz, Tuple{hh, Tuple{hpz, Tuple{hcov, Tuple{hclo, _}}}}}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +R = List.append(&2, D.Rt, os, List.append(&2, D.Rt, Nil{}, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))
+      (hz, (hh, (hpz, (cov.swap(n, m, fi, r1, r2, R, List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, Nil{}, ps)), hcov),
+        (hclo, {==})))))
+
+# a node of an owned root's term, borrowed
+def hsk.borrow(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +os: List<&2, D.Rt>, +c: U32, +u: Bk.Term, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
+  hi: D.IsK(True{}, ds, m, im, fi, nx, ks, img, c, u), hn: {D.Nodes(os, m, c) == True{} : Bool},
+  h: D.HSK(True{}, ds, ks, img, m, nx, fi, im, os, Nil{}, fs, sp, pend, ps)) ->
+  D.HSK(True{}, ds, ks, img, m, nx, fi, im, os, [D.Rt{c, u}], fs, sp, pend, ps):
+  match h:
+    case Tuple{hos, Tuple{_, Tuple{_, r}}}:
+      (hos, ((hi, Unit{}), ((D.or.r(D.Fl(m, c, 1024), D.Nodes(os, m, c), hn), Unit{}), r)))
+
+# a borrowed term dropped
+def hsk.drop(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +os: List<&2, D.Rt>, +b: D.Rt, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
+  h: D.HSK(True{}, ds, ks, img, m, nx, fi, im, os, Con{b, bs}, fs, sp, pend, ps)) ->
+  D.HSK(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps):
+  match b:
+    case D.Rt{+c, +u}:
+      match h:
+        case Tuple{hos, Tuple{Tuple{_, hbs}, Tuple{Tuple{_, hh}, r}}}:
+          (hos, (hbs, (hh, r)))
+
 # The moves of move_kit.bend that this file proves
 # ------------------------------------------------
 
