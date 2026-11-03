@@ -9,8 +9,10 @@ import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
 import ../../Wasm/impl.bend as Wa
 import ../../Program/impl.bend as Pg
+import ../../Shared/shared.bend as Sd
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
+import ./cell_terms.bend as T
 import ../need_big.bend as N
 import ./definitions.bend as D
 import ./statement_runs.bend as X
@@ -2570,6 +2572,303 @@ def hsk.drop(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: Lis
       match h:
         case Tuple{hos, Tuple{Tuple{_, hbs}, Tuple{Tuple{_, hh}, r}}}:
           (hos, (hbs, (hh, r)))
+
+# Names
+# -----
+#
+# A label and a λ-match name the same name exactly when the image gives them
+# the same number (Nm): M.redex's test of the case.
+
+def byte.refl(+x: Word(8n)) -> {Sd.Byte.is_eq(x, x) == True{} : Bool}:
+  Equal.trans(Bool, Cmp.is_eq(Word.cmp(8n, x, x)), D.Weq(8n, x, x), True{}, D.weq.cmp(8n, x, x), D.weq.refl(8n, x))
+
+def byte.eq(+x: Word(8n), +y: Word(8n), h: {Sd.Byte.is_eq(x, y) == True{} : Bool}) -> {x == y : Word(8n)}:
+  D.weq.eq(8n, x, y, Equal.trans(Bool, D.Weq(8n, x, y), Cmp.is_eq(Word.cmp(8n, x, y)), True{},
+    Equal.sym(Bool, Cmp.is_eq(Word.cmp(8n, x, y)), D.Weq(8n, x, y), D.weq.cmp(8n, x, y)), h))
+
+def name.refl(a: List<&2, Word(8n)>) -> {Sd.Name.is_eq(a, a) == True{} : Bool}:
+  match a:
+    case Nil{}:
+      {==}
+    case Con{+x, +xs}:
+      D.and.i(Sd.Byte.is_eq(x, x), Sd.Name.is_eq(xs, xs), byte.refl(x), name.refl(xs))
+
+def name.eq(a: List<&2, Word(8n)>, b: List<&2, Word(8n)>, h: {Sd.Name.is_eq(a, b) == True{} : Bool}) -> {a == b : List<&2, Word(8n)>}:
+  match a b:
+    case Nil{} Nil{}:
+      {==}
+    case Nil{} Con{+y, +ys}:
+      D.bool.ft({Nil{} == Con{y, ys} : List<&2, Word(8n)>}, h)
+    case Con{+x, +xs} Nil{}:
+      D.bool.ft({Con{x, xs} == Nil{} : List<&2, Word(8n)>}, h)
+    case Con{+x, +xs} Con{+y, +ys}:
+      +h2 = h
+      +ex = byte.eq(x, y, D.and.l(Sd.Byte.is_eq(x, y), Sd.Name.is_eq(xs, ys), h2))
+      +es = name.eq(xs, ys, D.and.r(Sd.Byte.is_eq(x, y), Sd.Name.is_eq(xs, ys), h2))
+      %ex : {Con{x, xs} == Con{_, ys} : List<&2, Word(8n)>}
+      %es : {Con{x, xs} == Con{x, _} : List<&2, Word(8n)>}
+      {==}
+
+def some.inj(-a: List<&2, Word(8n)>, -b: List<&2, Word(8n)>, h: {Some{a} == Some{b} : Maybe<&2, List<&2, Word(8n)>>}) -> {a == b : List<&2, Word(8n)>}:
+  Equal.cong(Maybe<&2, List<&2, Word(8n)>>, List<&2, Word(8n)>, x => Maybe.default(&2, List<&2, Word(8n)>, x, a), Some{a}, Some{b}, h)
+
+# the numbers of two names, equal: the names are
+def nm.same(+ks: List<&2, List<&2, Word(8n)>>, +y: Cr.Cir.Cell, +x: Cr.Cir.Cell, +l: List<&2, Word(8n)>, +j: List<&2, Word(8n)>,
+  hy: D.Nm(ks, y, l), hx: D.Nm(ks, x, j), e: {Cr.Cir.Cell.get(2n, y) == Cr.Cir.Cell.get(2n, x) : U32}) -> {Sd.Name.is_eq(l, j) == True{} : Bool}:
+  match hy hx:
+    case Tuple{ny, _} Tuple{nx, _}:
+      +ny2 = Equal.trans(Maybe<&2, List<&2, Word(8n)>>, T.tm.name(ks, Cr.Cir.Cell.get(2n, x)), T.tm.name(ks, Cr.Cir.Cell.get(2n, y)), Some{l},
+        Equal.cong(U32, Maybe<&2, List<&2, Word(8n)>>, i => T.tm.name(ks, i), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(2n, y),
+          Equal.sym(U32, Cr.Cir.Cell.get(2n, y), Cr.Cir.Cell.get(2n, x), e)), ny)
+      +elj = some.inj(l, j, Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Some{l}, T.tm.name(ks, Cr.Cir.Cell.get(2n, x)), Some{j},
+        Equal.sym(Maybe<&2, List<&2, Word(8n)>>, T.tm.name(ks, Cr.Cir.Cell.get(2n, x)), Some{l}, ny2), nx))
+      %elj : {Sd.Name.is_eq(l, _) == True{} : Bool}
+      name.refl(l)
+
+def nm.diff.b(c: Bool, +ks: List<&2, List<&2, Word(8n)>>, +y: Cr.Cir.Cell, +x: Cr.Cir.Cell, +l: List<&2, Word(8n)>, +j: List<&2, Word(8n)>,
+  ec: {Sd.Name.is_eq(l, j) == c : Bool}, hy: D.Nm(ks, y, l), hx: D.Nm(ks, x, j),
+  e: {U32.is_eq(Cr.Cir.Cell.get(2n, y), Cr.Cir.Cell.get(2n, x)) == False{} : Bool}) -> {Sd.Name.is_eq(l, j) == False{} : Bool}:
+  match c:
+    case False{}:
+      ec
+    case True{}:
+      match hy hx:
+        case Tuple{_, iy} Tuple{_, ix}:
+          +elj = name.eq(l, j, ec)
+          +exy = {(%elj : {Mc.Img.id(ks, l, 0) == Mc.Img.id(ks, _, 0) : U32}; {==}) : {Mc.Img.id(ks, l, 0) == Mc.Img.id(ks, j, 0) : U32}}
+          +eyx = Equal.trans(U32, Cr.Cir.Cell.get(2n, y), Mc.Img.id(ks, j, 0), Cr.Cir.Cell.get(2n, x),
+            Equal.trans(U32, Cr.Cir.Cell.get(2n, y), Mc.Img.id(ks, l, 0), Mc.Img.id(ks, j, 0), iy, exy),
+            Equal.sym(U32, Cr.Cir.Cell.get(2n, x), Mc.Img.id(ks, j, 0), ix))
+          Empty.absurd({Sd.Name.is_eq(l, j) == False{} : Bool}, D.u32.ne(Cr.Cir.Cell.get(2n, y), Cr.Cir.Cell.get(2n, x), e, eyx))
+
+# the numbers of two names, not equal: nor are the names
+def nm.diff(+ks: List<&2, List<&2, Word(8n)>>, +y: Cr.Cir.Cell, +x: Cr.Cir.Cell, +l: List<&2, Word(8n)>, +j: List<&2, Word(8n)>,
+  hy: D.Nm(ks, y, l), hx: D.Nm(ks, x, j), e: {U32.is_eq(Cr.Cir.Cell.get(2n, y), Cr.Cir.Cell.get(2n, x)) == False{} : Bool}) ->
+  {Sd.Name.is_eq(l, j) == False{} : Bool}:
+  nm.diff.b(Sd.Name.is_eq(l, j), ks, y, x, l, j, {==}, hy, hx, e)
+
+# Eval of the λ-matches' redexes
+# -------------------------------
+
+def is.lab(t: Bk.Term) -> Bool:
+  match t:
+    case Bk.Term.Lab{_}:
+      True{}
+    case _:
+      False{}
+
+def is.tup(t: Bk.Term) -> Bool:
+  match t:
+    case Bk.Term.Tup{_, _, _}:
+      True{}
+    case _:
+      False{}
+
+def and.true(a: Bool) -> {Bool.and(a, True{}) == a : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+# M.redex's test of a λ-match's argument: the quantity is live, and the
+# argument's tag is the one of a label (13) or of a pair (10)
+def and.b2u(p: Bool, r: Bool) -> {Wa.Wasm.op(Wa.Wasm.Op.and{}, Bool.to_u32(p), Bool.to_u32(r)) == Bool.to_u32(Bool.and(p, r)) : U32}:
+  match p r:
+    case True{} True{}:
+      {==}
+    case True{} False{}:
+      {==}
+    case False{} True{}:
+      {==}
+    case False{} False{}:
+      {==}
+
+def q.live(q: Bk.Quan) -> {Wa.Wasm.op(Wa.Wasm.Op.ne{}, Mc.Img.quan(q), 0) == Bool.to_u32(El.Quan.live(q)) : U32}:
+  match q:
+    case Bk.Quan.Q0{}:
+      {==}
+    case Bk.Quan.Q1{}:
+      {==}
+    case Bk.Quan.Q2{}:
+      {==}
+
+def tag.lab(a: Bk.Term) -> {Wa.Wasm.op(Wa.Wasm.Op.eq{}, D.A.tag(a), 13) == Bool.to_u32(is.lab(a)) : U32}:
+  match a:
+    case Bk.Term.Var{+i}:
+      {==}
+    case Bk.Term.Ref{+k}:
+      {==}
+    case Bk.Term.Ann{+x, +y}:
+      {==}
+    case Bk.Term.Let{+q2, +v, +g}:
+      {==}
+    case Bk.Term.Typ{+x}:
+      {==}
+    case Bk.Term.Min{+x, +y}:
+      {==}
+    case Bk.Term.All{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Lam{+q2, +g}:
+      {==}
+    case Bk.Term.App{+q2, +g, +x}:
+      {==}
+    case Bk.Term.Sig{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Tup{+r, +x, +y}:
+      {==}
+    case Bk.Term.Prj{+g}:
+      {==}
+    case Bk.Term.Enu{+e}:
+      {==}
+    case Bk.Term.Lab{+l}:
+      {==}
+    case Bk.Term.Mat{+k, +g, +n2}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+x, +y, +z}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+x, +y, +z}:
+      {==}
+
+def tag.tup(a: Bk.Term) -> {Wa.Wasm.op(Wa.Wasm.Op.eq{}, D.A.tag(a), 10) == Bool.to_u32(is.tup(a)) : U32}:
+  match a:
+    case Bk.Term.Var{+i}:
+      {==}
+    case Bk.Term.Ref{+k}:
+      {==}
+    case Bk.Term.Ann{+x, +y}:
+      {==}
+    case Bk.Term.Let{+q2, +v, +g}:
+      {==}
+    case Bk.Term.Typ{+x}:
+      {==}
+    case Bk.Term.Min{+x, +y}:
+      {==}
+    case Bk.Term.All{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Lam{+q2, +g}:
+      {==}
+    case Bk.Term.App{+q2, +g, +x}:
+      {==}
+    case Bk.Term.Sig{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Tup{+r, +x, +y}:
+      {==}
+    case Bk.Term.Prj{+g}:
+      {==}
+    case Bk.Term.Enu{+e}:
+      {==}
+    case Bk.Term.Lab{+l}:
+      {==}
+    case Bk.Term.Mat{+k, +g, +n2}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+x, +y, +z}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+x, +y, +z}:
+      {==}
+
+# no redex of a λ-match of labels, unless its argument is a label and its
+# quantity live
+def mat.redex.none(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +j: List<&2, Word(8n)>, +h: Bk.Term, +n: Bk.Term, a: Bk.Term,
+  hg: {Bool.and(El.Quan.live(q), is.lab(a)) == False{} : Bool}) -> {El.Eval.redex(ds, q, Bk.Term.Mat{j, h, n}, a) == None{} : Maybe<Bk.Term>}:
+  match a:
+    case Bk.Term.Var{+i}:
+      {==}
+    case Bk.Term.Ref{+k}:
+      {==}
+    case Bk.Term.Ann{+x, +y}:
+      {==}
+    case Bk.Term.Let{+q2, +v, +g}:
+      {==}
+    case Bk.Term.Typ{+x}:
+      {==}
+    case Bk.Term.Min{+x, +y}:
+      {==}
+    case Bk.Term.All{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Lam{+q2, +g}:
+      {==}
+    case Bk.Term.App{+q2, +g, +x}:
+      {==}
+    case Bk.Term.Sig{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Tup{+r, +x, +y}:
+      {==}
+    case Bk.Term.Prj{+g}:
+      {==}
+    case Bk.Term.Enu{+e}:
+      {==}
+    case Bk.Term.Lab{+l}:
+      %Equal.sym(Bool, El.Quan.live(q), False{}, Equal.trans(Bool, El.Quan.live(q), Bool.and(El.Quan.live(q), True{}), False{},
+        Equal.sym(Bool, Bool.and(El.Quan.live(q), True{}), El.Quan.live(q), and.true(El.Quan.live(q))), hg)) :
+        {El.Eval.redex.if(_, El.Eval.redex.pick(Sd.Name.is_eq(l, j), h, Bk.Term.App{q, n, Bk.Term.Lab{l}})) == None{} : Maybe<Bk.Term>}
+      {==}
+    case Bk.Term.Mat{+k, +g, +n2}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+x, +y, +z}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+x, +y, +z}:
+      {==}
+
+# no redex of a λ-match of pairs, unless its argument is a pair and its
+# quantity live
+def prj.redex.none(+ds: List<&2, Bk.Def>, +q: Bk.Quan, +h: Bk.Term, a: Bk.Term,
+  hg: {Bool.and(El.Quan.live(q), is.tup(a)) == False{} : Bool}) -> {El.Eval.redex(ds, q, Bk.Term.Prj{h}, a) == None{} : Maybe<Bk.Term>}:
+  match a:
+    case Bk.Term.Var{+i}:
+      {==}
+    case Bk.Term.Ref{+k}:
+      {==}
+    case Bk.Term.Ann{+x, +y}:
+      {==}
+    case Bk.Term.Let{+q2, +v, +g}:
+      {==}
+    case Bk.Term.Typ{+x}:
+      {==}
+    case Bk.Term.Min{+x, +y}:
+      {==}
+    case Bk.Term.All{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Lam{+q2, +g}:
+      {==}
+    case Bk.Term.App{+q2, +g, +x}:
+      {==}
+    case Bk.Term.Sig{+q2, +x, +y}:
+      {==}
+    case Bk.Term.Tup{+r, +x, +y}:
+      %Equal.sym(Bool, El.Quan.live(q), False{}, Equal.trans(Bool, El.Quan.live(q), Bool.and(El.Quan.live(q), True{}), False{},
+        Equal.sym(Bool, Bool.and(El.Quan.live(q), True{}), El.Quan.live(q), and.true(El.Quan.live(q))), hg)) :
+        {El.Eval.redex.if(_, Bk.Term.App{q, Bk.Term.App{El.Quan.fld(r, q), h, x}, y}) == None{} : Maybe<Bk.Term>}
+      {==}
+    case Bk.Term.Prj{+g}:
+      {==}
+    case Bk.Term.Enu{+e}:
+      {==}
+    case Bk.Term.Lab{+l}:
+      {==}
+    case Bk.Term.Mat{+k, +g, +n2}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+x, +y, +z}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+x, +y, +z}:
+      {==}
+
 
 # The moves of move_kit.bend that this file proves
 # ------------------------------------------------
