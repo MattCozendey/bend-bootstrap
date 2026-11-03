@@ -25,6 +25,7 @@
 # closed numbers (2^18 <= 2^24) is a def of its own.
 
 import Base
+import ../../Shared/shared.bend as Sd
 import ../../Book/impl.bend as Bk
 import ../../Eval/impl.bend as El
 import ../../Wasm/impl.bend as Wa
@@ -453,19 +454,486 @@ def start.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n
   N.le_rw_r(5n+Nat.mul(72n, List.length(&2, Word(8n), i)), Pg.Program.largest.go(n, ds, t), Pg.Program.largest(p, i, n),
     Equal.sym(Nat, Pg.Program.largest(p, i, n), Pg.Program.largest.go(n, ds, t), largest.eq(p, ds, i, n, rd)), h)
 
+# Program.unword and Program.unbytes read a term by one nested pattern, whose
+# other terms give None: the proofs below take each constructor at each level
+# of it, since a default case does not say which constructor the term has
+
+def WIsNone(-n: Nat, m: Maybe<&2, Word(n)>) -> Type:
+  match m:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+def wsome.ne(-n: Nat, -x: Word(n), e: {None{} == Some{x} : Maybe<&2, Word(n)>}) -> Empty:
+  %e : WIsNone(n, _)
+  Unit{}
+
+def word.no(+n: Nat, +t: Bk.Term, -w: Word(n), e: {None{} == Some{w} : Maybe<&2, Word(n)>}) ->
+  {Pg.Term.size(t) == 3n+Nat.mul(8n, n) : Nat}:
+  Empty.absurd({Pg.Term.size(t) == 3n+Nat.mul(8n, n) : Nat}, wsome.ne(n, w, e))
+
+# a word's term, by what unword.con gives: 3 nodes for the bit and 5 more
+def wcon.size(ok: Bool, mb: Maybe<&2, Bool>, +p: Nat, mw: Maybe<&2, Word(p)>, -w: Word(1n+p), +sw: Nat,
+  e: {Pg.Program.unword.con(p, ok, mb, mw) == Some{w} : Maybe<&2, Word(1n+p)>},
+  hw: @y: Word(p) -> {mw == Some{y} : Maybe<&2, Word(p)>} -> {sw == 3n+Nat.mul(8n, p) : Nat}) ->
+  {7n+Nat.add(sw, 1n) == 3n+Nat.mul(8n, 1n+p) : Nat}:
+  match ok mb mw:
+    case True{} Some{_} Some{+y}:
+      +M = Nat.mul(8n, p)
+      %Equal.sym(Nat, sw, 3n+M, hw(y, {==})) : {7n+Nat.add(_, 1n) == 3n+Nat.mul(8n, 1n+p) : Nat}
+      Equal.trans(Nat, 7n+Nat.add(3n+M, 1n), 11n+M, 3n+Nat.mul(8n, 1n+p),
+        Equal.cong(Nat, Nat, x => 10n+x, Nat.add(M, 1n), 1n+M, add_one(M)),
+        Equal.sym(Nat, 3n+Nat.mul(8n, 1n+p), 11n+M,
+          Equal.cong(Nat, Nat, x => 3n+x, Nat.mul(8n, 1n+p), Nat.add(8n, M), mul_succ_r(8n, p))))
+    case True{} Some{_} None{}:
+      Empty.absurd({7n+Nat.add(sw, 1n) == 3n+Nat.mul(8n, 1n+p) : Nat}, wsome.ne(1n+p, w, e))
+    case True{} None{} _:
+      Empty.absurd({7n+Nat.add(sw, 1n) == 3n+Nat.mul(8n, 1n+p) : Nat}, wsome.ne(1n+p, w, e))
+    case False{} _ _:
+      Empty.absurd({7n+Nat.add(sw, 1n) == 3n+Nat.mul(8n, 1n+p) : Nat}, wsome.ne(1n+p, w, e))
+
+# a term that Program.unword reads as a word of n bits has 8 nodes a bit and
+# 3 more
+def unword.size(n: Nat, +t: Bk.Term, -w: Word(n), e: {Pg.Program.unword(n, t) == Some{w} : Maybe<&2, Word(n)>}) ->
+  {Pg.Term.size(t) == 3n+Nat.mul(8n, n) : Nat}:
+  match n:
+    case 0n:
+      match t:
+        case Bk.Term.Var{_}: word.no(0n, t, w, e)
+        case Bk.Term.Ref{_}: word.no(0n, t, w, e)
+        case Bk.Term.Ann{_, _}: word.no(0n, t, w, e)
+        case Bk.Term.Let{_, _, _}: word.no(0n, t, w, e)
+        case Bk.Term.Typ{_}: word.no(0n, t, w, e)
+        case Bk.Term.Min{_, _}: word.no(0n, t, w, e)
+        case Bk.Term.All{_, _, _}: word.no(0n, t, w, e)
+        case Bk.Term.Lam{_, _}: word.no(0n, t, w, e)
+        case Bk.Term.App{_, _, _}: word.no(0n, t, w, e)
+        case Bk.Term.Sig{_, _, _}: word.no(0n, t, w, e)
+        case Bk.Term.Tup{+q, +a, +b}:
+          match q:
+            case Bk.Quan.Q0{}: word.no(0n, t, w, e)
+            case Bk.Quan.Q1{}:
+              match a:
+                case Bk.Term.Var{_}: word.no(0n, t, w, e)
+                case Bk.Term.Ref{_}: word.no(0n, t, w, e)
+                case Bk.Term.Ann{_, _}: word.no(0n, t, w, e)
+                case Bk.Term.Let{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Typ{_}: word.no(0n, t, w, e)
+                case Bk.Term.Min{_, _}: word.no(0n, t, w, e)
+                case Bk.Term.All{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Lam{_, _}: word.no(0n, t, w, e)
+                case Bk.Term.App{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Sig{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Tup{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Prj{_}: word.no(0n, t, w, e)
+                case Bk.Term.Enu{_}: word.no(0n, t, w, e)
+                case Bk.Term.Lab{+k}:
+                  match b:
+                    case Bk.Term.Var{_}: word.no(0n, t, w, e)
+                    case Bk.Term.Ref{_}: word.no(0n, t, w, e)
+                    case Bk.Term.Ann{_, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Let{_, _, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Typ{_}: word.no(0n, t, w, e)
+                    case Bk.Term.Min{_, _}: word.no(0n, t, w, e)
+                    case Bk.Term.All{_, _, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Lam{_, _}: word.no(0n, t, w, e)
+                    case Bk.Term.App{_, _, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Sig{_, _, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Tup{_, _, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Prj{_}: word.no(0n, t, w, e)
+                    case Bk.Term.Enu{_}: word.no(0n, t, w, e)
+                    case Bk.Term.Lab{+u}:
+                      {==}
+                    case Bk.Term.Mat{_, _, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Efq{}: word.no(0n, t, w, e)
+                    case Bk.Term.Eql{_, _, _}: word.no(0n, t, w, e)
+                    case Bk.Term.Rfl{}: word.no(0n, t, w, e)
+                    case Bk.Term.Rwt{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Mat{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Efq{}: word.no(0n, t, w, e)
+                case Bk.Term.Eql{_, _, _}: word.no(0n, t, w, e)
+                case Bk.Term.Rfl{}: word.no(0n, t, w, e)
+                case Bk.Term.Rwt{_, _, _}: word.no(0n, t, w, e)
+            case Bk.Quan.Q2{}: word.no(0n, t, w, e)
+        case Bk.Term.Prj{_}: word.no(0n, t, w, e)
+        case Bk.Term.Enu{_}: word.no(0n, t, w, e)
+        case Bk.Term.Lab{_}: word.no(0n, t, w, e)
+        case Bk.Term.Mat{_, _, _}: word.no(0n, t, w, e)
+        case Bk.Term.Efq{}: word.no(0n, t, w, e)
+        case Bk.Term.Eql{_, _, _}: word.no(0n, t, w, e)
+        case Bk.Term.Rfl{}: word.no(0n, t, w, e)
+        case Bk.Term.Rwt{_, _, _}: word.no(0n, t, w, e)
+    case 1n+(+p):
+      match t:
+        case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+        case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+        case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+        case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.Tup{+q, +a, +b}:
+          match q:
+            case Bk.Quan.Q0{}: word.no(1n+p, t, w, e)
+            case Bk.Quan.Q1{}:
+              match a:
+                case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+                case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+                case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+                case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Tup{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+                case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+                case Bk.Term.Lab{+k}:
+                  match b:
+                    case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Tup{+q1, +b1, +b2}:
+                      match q1:
+                        case Bk.Quan.Q0{}: word.no(1n+p, t, w, e)
+                        case Bk.Quan.Q1{}:
+                          match b1:
+                            case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Tup{+q2, +x1, +x2}:
+                              match q2:
+                                case Bk.Quan.Q0{}: word.no(1n+p, t, w, e)
+                                case Bk.Quan.Q1{}:
+                                  match x1:
+                                    case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Tup{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Lab{+bb}:
+                                      match x2:
+                                        case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Tup{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Lab{+u1}:
+                                          match b2:
+                                            case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Tup{+q3, +x, +y}:
+                                              match q3:
+                                                case Bk.Quan.Q0{}: word.no(1n+p, t, w, e)
+                                                case Bk.Quan.Q1{}:
+                                                  match y:
+                                                    case Bk.Term.Var{_}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Ref{_}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Ann{_, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Let{_, _, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Typ{_}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Min{_, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.All{_, _, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Lam{_, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.App{_, _, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Sig{_, _, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Tup{_, _, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Lab{+u2}:
+                                                      wcon.size(Sd.Name.is_eq(k, Pg.Program.name.wcon()) && Sd.Name.is_eq(u1, Pg.Program.name.unit()) && Sd.Name.is_eq(u2, Pg.Program.name.unit()),
+                                                        Pg.Program.unbit(bb), p, Pg.Program.unword(p, x), w, Pg.Term.size(x), e, y => ey => unword.size(p, x, y, ey))
+                                                    case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+                                                    case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+                                                case Bk.Quan.Q2{}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Lab{_}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+                                            case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+                                        case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+                                    case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+                                case Bk.Quan.Q2{}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Lab{_}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+                            case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+                        case Bk.Quan.Q2{}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Lab{_}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+                    case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+                case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+                case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+                case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+            case Bk.Quan.Q2{}: word.no(1n+p, t, w, e)
+        case Bk.Term.Prj{_}: word.no(1n+p, t, w, e)
+        case Bk.Term.Enu{_}: word.no(1n+p, t, w, e)
+        case Bk.Term.Lab{_}: word.no(1n+p, t, w, e)
+        case Bk.Term.Mat{_, _, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.Efq{}: word.no(1n+p, t, w, e)
+        case Bk.Term.Eql{_, _, _}: word.no(1n+p, t, w, e)
+        case Bk.Term.Rfl{}: word.no(1n+p, t, w, e)
+        case Bk.Term.Rwt{_, _, _}: word.no(1n+p, t, w, e)
+
+# the empty list's term, by what unbytes.nil gives
+def unil.size(ok: Bool, +o: List<&2, Word(8n)>, e: {Pg.Program.unbytes.nil(ok) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  {3n == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}:
+  match ok:
+    case True{}:
+      %D.mb.inj(Nil{}, o, e) : {3n == 3n+Nat.mul(72n, List.length(&2, Word(8n), _)) : Nat}
+      {==}
+    case False{}:
+      Empty.absurd({3n == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}, osome.ne(o, e))
+
+# a list's term, by what unbytes.con gives: the byte's 67 nodes and 5 more
+def ucon.size(ok: Bool, mw: Maybe<&2, Word(8n)>, bs: Maybe<&2, List<&2, Word(8n)>>, +o: List<&2, Word(8n)>, +sw: Nat, +sr: Nat,
+  e: {Pg.Program.unbytes.con(ok, mw, bs) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  hw: @x: Word(8n) -> {mw == Some{x} : Maybe<&2, Word(8n)>} -> {sw == 3n+Nat.mul(8n, 8n) : Nat},
+  hr: @r: List<&2, Word(8n)> -> {bs == Some{r} : Maybe<&2, List<&2, Word(8n)>>} ->
+    {sr == 3n+Nat.mul(72n, List.length(&2, Word(8n), r)) : Nat}) ->
+  {3n+Nat.add(sw, 1n+Nat.add(sr, 1n)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}:
+  match ok mw bs:
+    case True{} Some{+x} Some{+r}:
+      +l = List.length(&2, Word(8n), r)
+      +M = Nat.mul(72n, l)
+      +W = {3n+Nat.mul(8n, 8n) : Nat}
+      %D.mb.inj(Con{x, r}, o, e) : {3n+Nat.add(sw, 1n+Nat.add(sr, 1n)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), _)) : Nat}
+      %Equal.sym(Nat, sw, W, hw(x, {==})) : {3n+Nat.add(_, 1n+Nat.add(sr, 1n)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), Con{x, r})) : Nat}
+      %Equal.sym(Nat, sr, 3n+M, hr(r, {==})) : {3n+Nat.add(W, 1n+Nat.add(_, 1n)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), Con{x, r})) : Nat}
+      Equal.trans(Nat, 3n+Nat.add(W, 1n+Nat.add(3n+M, 1n)), 75n+M, 3n+Nat.mul(72n, 1n+l),
+        Equal.cong(Nat, Nat, y => 74n+y, Nat.add(M, 1n), 1n+M, add_one(M)),
+        Equal.sym(Nat, 3n+Nat.mul(72n, 1n+l), 75n+M,
+          Equal.cong(Nat, Nat, y => 3n+y, Nat.mul(72n, 1n+l), Nat.add(72n, M), mul_succ_r(72n, l))))
+    case True{} Some{_} None{}:
+      Empty.absurd({3n+Nat.add(sw, 1n+Nat.add(sr, 1n)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}, osome.ne(o, e))
+    case True{} None{} _:
+      Empty.absurd({3n+Nat.add(sw, 1n+Nat.add(sr, 1n)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}, osome.ne(o, e))
+    case False{} _ _:
+      Empty.absurd({3n+Nat.add(sw, 1n+Nat.add(sr, 1n)) == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}, osome.ne(o, e))
+
+def out.no(+v: Bk.Term, +o: List<&2, Word(8n)>, e: {None{} == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  {Pg.Term.size(v) == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}:
+  Empty.absurd({Pg.Term.size(v) == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}, osome.ne(o, e))
+
 # a term that Program.unbytes reads as the bytes o has 72 nodes a byte and 3
 # more
 def out.size(+v: Bk.Term, +o: List<&2, Word(8n)>,
   e: {Pg.Program.unbytes(v) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
   {Pg.Term.size(v) == 3n+Nat.mul(72n, List.length(&2, Word(8n), o)) : Nat}:
-  ?TODO
+  match v:
+    case Bk.Term.Var{_}: out.no(v, o, e)
+    case Bk.Term.Ref{_}: out.no(v, o, e)
+    case Bk.Term.Ann{_, _}: out.no(v, o, e)
+    case Bk.Term.Let{_, _, _}: out.no(v, o, e)
+    case Bk.Term.Typ{_}: out.no(v, o, e)
+    case Bk.Term.Min{_, _}: out.no(v, o, e)
+    case Bk.Term.All{_, _, _}: out.no(v, o, e)
+    case Bk.Term.Lam{_, _}: out.no(v, o, e)
+    case Bk.Term.App{_, _, _}: out.no(v, o, e)
+    case Bk.Term.Sig{_, _, _}: out.no(v, o, e)
+    case Bk.Term.Tup{+q, +a, +b}:
+      match q:
+        case Bk.Quan.Q0{}: out.no(v, o, e)
+        case Bk.Quan.Q1{}:
+          match a:
+            case Bk.Term.Var{_}: out.no(v, o, e)
+            case Bk.Term.Ref{_}: out.no(v, o, e)
+            case Bk.Term.Ann{_, _}: out.no(v, o, e)
+            case Bk.Term.Let{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Typ{_}: out.no(v, o, e)
+            case Bk.Term.Min{_, _}: out.no(v, o, e)
+            case Bk.Term.All{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Lam{_, _}: out.no(v, o, e)
+            case Bk.Term.App{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Sig{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Tup{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Prj{_}: out.no(v, o, e)
+            case Bk.Term.Enu{_}: out.no(v, o, e)
+            case Bk.Term.Lab{+k}:
+              match b:
+                case Bk.Term.Var{_}: out.no(v, o, e)
+                case Bk.Term.Ref{_}: out.no(v, o, e)
+                case Bk.Term.Ann{_, _}: out.no(v, o, e)
+                case Bk.Term.Let{_, _, _}: out.no(v, o, e)
+                case Bk.Term.Typ{_}: out.no(v, o, e)
+                case Bk.Term.Min{_, _}: out.no(v, o, e)
+                case Bk.Term.All{_, _, _}: out.no(v, o, e)
+                case Bk.Term.Lam{_, _}: out.no(v, o, e)
+                case Bk.Term.App{_, _, _}: out.no(v, o, e)
+                case Bk.Term.Sig{_, _, _}: out.no(v, o, e)
+                case Bk.Term.Tup{+q2, +w, +b2}:
+                  match q2:
+                    case Bk.Quan.Q0{}: out.no(v, o, e)
+                    case Bk.Quan.Q1{}:
+                      match b2:
+                        case Bk.Term.Var{_}: out.no(v, o, e)
+                        case Bk.Term.Ref{_}: out.no(v, o, e)
+                        case Bk.Term.Ann{_, _}: out.no(v, o, e)
+                        case Bk.Term.Let{_, _, _}: out.no(v, o, e)
+                        case Bk.Term.Typ{_}: out.no(v, o, e)
+                        case Bk.Term.Min{_, _}: out.no(v, o, e)
+                        case Bk.Term.All{_, _, _}: out.no(v, o, e)
+                        case Bk.Term.Lam{_, _}: out.no(v, o, e)
+                        case Bk.Term.App{_, _, _}: out.no(v, o, e)
+                        case Bk.Term.Sig{_, _, _}: out.no(v, o, e)
+                        case Bk.Term.Tup{+q3, +rest, +z}:
+                          match q3:
+                            case Bk.Quan.Q0{}: out.no(v, o, e)
+                            case Bk.Quan.Q1{}:
+                              match z:
+                                case Bk.Term.Var{_}: out.no(v, o, e)
+                                case Bk.Term.Ref{_}: out.no(v, o, e)
+                                case Bk.Term.Ann{_, _}: out.no(v, o, e)
+                                case Bk.Term.Let{_, _, _}: out.no(v, o, e)
+                                case Bk.Term.Typ{_}: out.no(v, o, e)
+                                case Bk.Term.Min{_, _}: out.no(v, o, e)
+                                case Bk.Term.All{_, _, _}: out.no(v, o, e)
+                                case Bk.Term.Lam{_, _}: out.no(v, o, e)
+                                case Bk.Term.App{_, _, _}: out.no(v, o, e)
+                                case Bk.Term.Sig{_, _, _}: out.no(v, o, e)
+                                case Bk.Term.Tup{_, _, _}: out.no(v, o, e)
+                                case Bk.Term.Prj{_}: out.no(v, o, e)
+                                case Bk.Term.Enu{_}: out.no(v, o, e)
+                                case Bk.Term.Lab{+u}:
+                                  ucon.size(Sd.Name.is_eq(k, Pg.Program.name.con()) && Sd.Name.is_eq(u, Pg.Program.name.unit()),
+                                    Pg.Program.unword(8n, w), Pg.Program.unbytes(rest), o, Pg.Term.size(w), Pg.Term.size(rest), e,
+                                    x => ex => unword.size(8n, w, x, ex), r => er => out.size(rest, r, er))
+                                case Bk.Term.Mat{_, _, _}: out.no(v, o, e)
+                                case Bk.Term.Efq{}: out.no(v, o, e)
+                                case Bk.Term.Eql{_, _, _}: out.no(v, o, e)
+                                case Bk.Term.Rfl{}: out.no(v, o, e)
+                                case Bk.Term.Rwt{_, _, _}: out.no(v, o, e)
+                            case Bk.Quan.Q2{}: out.no(v, o, e)
+                        case Bk.Term.Prj{_}: out.no(v, o, e)
+                        case Bk.Term.Enu{_}: out.no(v, o, e)
+                        case Bk.Term.Lab{_}: out.no(v, o, e)
+                        case Bk.Term.Mat{_, _, _}: out.no(v, o, e)
+                        case Bk.Term.Efq{}: out.no(v, o, e)
+                        case Bk.Term.Eql{_, _, _}: out.no(v, o, e)
+                        case Bk.Term.Rfl{}: out.no(v, o, e)
+                        case Bk.Term.Rwt{_, _, _}: out.no(v, o, e)
+                    case Bk.Quan.Q2{}: out.no(v, o, e)
+                case Bk.Term.Prj{_}: out.no(v, o, e)
+                case Bk.Term.Enu{_}: out.no(v, o, e)
+                case Bk.Term.Lab{+u}:
+                  unil.size(Sd.Name.is_eq(k, Pg.Program.name.nil()) && Sd.Name.is_eq(u, Pg.Program.name.unit()), o, e)
+                case Bk.Term.Mat{_, _, _}: out.no(v, o, e)
+                case Bk.Term.Efq{}: out.no(v, o, e)
+                case Bk.Term.Eql{_, _, _}: out.no(v, o, e)
+                case Bk.Term.Rfl{}: out.no(v, o, e)
+                case Bk.Term.Rwt{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Mat{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Efq{}: out.no(v, o, e)
+            case Bk.Term.Eql{_, _, _}: out.no(v, o, e)
+            case Bk.Term.Rfl{}: out.no(v, o, e)
+            case Bk.Term.Rwt{_, _, _}: out.no(v, o, e)
+        case Bk.Quan.Q2{}: out.no(v, o, e)
+    case Bk.Term.Prj{_}: out.no(v, o, e)
+    case Bk.Term.Enu{_}: out.no(v, o, e)
+    case Bk.Term.Lab{_}: out.no(v, o, e)
+    case Bk.Term.Mat{_, _, _}: out.no(v, o, e)
+    case Bk.Term.Efq{}: out.no(v, o, e)
+    case Bk.Term.Eql{_, _, _}: out.no(v, o, e)
+    case Bk.Term.Rfl{}: out.no(v, o, e)
+    case Bk.Term.Rwt{_, _, _}: out.no(v, o, e)
+
+# a value that the run gives as a list of bytes is a list of bytes
+def out.val(b: Bool, +v: Bk.Term, +o: List<&2, Word(8n)>, e: {Pg.Program.result.if(b, v) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  {Pg.Program.unbytes(v) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}:
+  match b:
+    case True{}:
+      e
+    case False{}:
+      Empty.absurd({Pg.Program.unbytes(v) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}, osome.ne(o, e))
+
+# the result o of the run, by the end r that it reaches in n steps
+def out.of(r: Maybe<Bk.Term>, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, Word(8n)>,
+  rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  er: {El.Eval.steps(n, ds, Pg.Program.start(i)) == r : Maybe<Bk.Term>},
+  e: {Pg.Program.result(ds, r) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  N.Le(3n+Nat.mul(72n, List.length(&2, Word(8n), o)), Pg.Program.largest(p, i, n)):
+  match r:
+    case None{}:
+      Empty.absurd(N.Le(3n+Nat.mul(72n, List.length(&2, Word(8n), o)), Pg.Program.largest(p, i, n)), osome.ne(o, e))
+    case Some{+v}:
+      N.le_rw_l(Pg.Term.size(v), 3n+Nat.mul(72n, List.length(&2, Word(8n), o)), Pg.Program.largest(p, i, n),
+        out.size(v, o, out.val(El.Eval.vals(ds, v, False{}), v, o, e)), largest.ge(p, ds, i, n, n, v, rd, N.le_refl(n), er))
 
 # so the result o of the run has at most S / 72 bytes
 def out.le(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, Word(8n)>,
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   e: {Pg.Program.result(ds, El.Eval.steps(n, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
   N.Le(3n+Nat.mul(72n, List.length(&2, Word(8n), o)), Pg.Program.largest(p, i, n)):
-  ?TODO
+  out.of(El.Eval.steps(n, ds, Pg.Program.start(i)), p, ds, i, n, o, rd, {==}, e)
 
 # The book
 # --------
