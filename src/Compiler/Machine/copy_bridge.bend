@@ -6385,6 +6385,333 @@ def pssub(qs: List<&2, U32>, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +nx: U32, +ps:
       CK.Bo.and_i(Bool.or(Bool.not(U32.is_lt(q, nx)), G), D.PsSub.lt(rest, List.append(&2, U32, ps, Nil{}), m, nx), cell,
         pssub(rest, m, ms, nx, ps, P, T, Pn, Qn, CK.Bo.and_r(S.Has(Pn, q), S.Sub(rest, Pn), hs2), hgb, hig, hg))
 
+# Terms that the copy keeps
+# --------------------------
+#
+# A term whose every node keeps its fields 0, 2, 3 and 4 (Kp) stands for
+# the same term after the copy, with the larger next (isk.keep; U1's isk.put1
+# for stores to field 1 is the model).
+
+# each part of the term t, in the cell x of m, keeps its fields 0, 2, 3 and 4
+# in ms, and so do its parts
+def KpX(t: Bk.Term, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +x: Cr.Cir.Cell) -> Bool:
+  match t:
+    case Bk.Term.Var{_}:
+      True{}
+    case Bk.Term.Ref{_}:
+      True{}
+    case Bk.Term.Ann{y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))))
+    case Bk.Term.Let{_, y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))))
+    case Bk.Term.Typ{y}:
+      Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))))
+    case Bk.Term.Min{y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))))
+    case Bk.Term.All{_, y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))))
+    case Bk.Term.Lam{_, y}:
+      Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))))
+    case Bk.Term.App{_, y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))))
+    case Bk.Term.Sig{_, y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))))
+    case Bk.Term.Tup{_, y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))))
+    case Bk.Term.Prj{y}:
+      Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x))))
+    case Bk.Term.Enu{_}:
+      True{}
+    case Bk.Term.Lab{_}:
+      True{}
+    case Bk.Term.Mat{_, y, z}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(4n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x)))))
+    case Bk.Term.Efq{}:
+      True{}
+    case Bk.Term.Eql{y, z, w}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(4n, x)), KpX(w, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x))))))
+    case Bk.Term.Rfl{}:
+      True{}
+    case Bk.Term.Rwt{y, z, w}:
+      Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(2n, x)), KpX(y, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(2n, x)))), Bool.and(Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(3n, x)), KpX(z, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(3n, x)))), Bool.and(S.Same.at(m, ms, Cr.Cir.Cell.get(4n, x)), KpX(w, m, ms, Cr.Cir.Cells.get(m, Cr.Cir.Cell.get(4n, x))))))
+
+# the term t at r keeps its nodes: r keeps its fields 0, 2, 3 and 4 from m to
+# ms, and so do its parts
+def Kp(+t: Bk.Term, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +r: U32) -> Bool:
+  Bool.and(S.Same.at(m, ms, r), KpX(t, m, ms, Cr.Cir.Cells.get(m, r)))
+
+# a cell that keeps its fields 0, 2, 3 and 4 is the old one with its field 1
+def cell.eq1(x2: Cr.Cir.Cell, x: Cr.Cir.Cell, e0: {Cr.Cir.Cell.get(0n, x2) == Cr.Cir.Cell.get(0n, x) : U32},
+  e2: {Cr.Cir.Cell.get(2n, x2) == Cr.Cir.Cell.get(2n, x) : U32}, e3: {Cr.Cir.Cell.get(3n, x2) == Cr.Cir.Cell.get(3n, x) : U32},
+  e4: {Cr.Cir.Cell.get(4n, x2) == Cr.Cir.Cell.get(4n, x) : U32}) -> {x2 == Cr.Cir.Cell.set(1n, x, Cr.Cir.Cell.get(1n, x2)) : Cr.Cir.Cell}:
+  match x2 x:
+    case Cr.Cir.Cell{+a0, +a1, +a2, +a3, +a4} Cr.Cir.Cell{+b0, b1, +b2, +b3, +b4}:
+      %e0 : {Cr.Cir.Cell{a0, a1, a2, a3, a4} == Cr.Cir.Cell{_, a1, b2, b3, b4} : Cr.Cir.Cell}
+      %e2 : {Cr.Cir.Cell{a0, a1, a2, a3, a4} == Cr.Cir.Cell{a0, a1, _, b3, b4} : Cr.Cir.Cell}
+      %e3 : {Cr.Cir.Cell{a0, a1, a2, a3, a4} == Cr.Cir.Cell{a0, a1, a2, _, b4} : Cr.Cir.Cell}
+      %e4 : {Cr.Cir.Cell{a0, a1, a2, a3, a4} == Cr.Cir.Cell{a0, a1, a2, a3, _} : Cr.Cir.Cell}
+      {==}
+
+# a cell that keeps its fields 0, 2, 3 and 4 (Same.at), by its old value
+def cell.k1(+m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +p: U32, h: {S.Same.at(m, ms, p) == True{} : Bool}) ->
+  {Cr.Cir.Cells.get(ms, p) == Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, p), D.Fd(1n, ms, p)) : Cr.Cir.Cell}:
+  +h2 = h
+  +A0 = U32.is_eq(S.Fd(0n, ms, p), S.Fd(0n, m, p))
+  +A2 = U32.is_eq(S.Fd(2n, ms, p), S.Fd(2n, m, p))
+  +A3 = U32.is_eq(S.Fd(3n, ms, p), S.Fd(3n, m, p))
+  +A4 = U32.is_eq(S.Fd(4n, ms, p), S.Fd(4n, m, p))
+  +r1 = CK.Bo.and_r(A0, Bool.and(A2, Bool.and(A3, A4)), h2)
+  +r2 = CK.Bo.and_r(A2, Bool.and(A3, A4), r1)
+  cell.eq1(Cr.Cir.Cells.get(ms, p), Cr.Cir.Cells.get(m, p),
+    CK.U.eq(S.Fd(0n, ms, p), S.Fd(0n, m, p), CK.Bo.and_l(A0, Bool.and(A2, Bool.and(A3, A4)), h2)),
+    CK.U.eq(S.Fd(2n, ms, p), S.Fd(2n, m, p), CK.Bo.and_l(A2, Bool.and(A3, A4), r1)),
+    CK.U.eq(S.Fd(3n, ms, p), S.Fd(3n, m, p), CK.Bo.and_l(A3, A4, r2)),
+    CK.U.eq(S.Fd(4n, ms, p), S.Fd(4n, m, p), CK.Bo.and_r(A3, A4, r2)))
+
+# the cells of the machine and its own cells only grow with next
+def own.mono(+fi: U32, +nx: U32, +nx2: U32, +c: U32, h: {D.Own(fi, nx, c) == True{} : Bool}, +hn: {U32.is_le(nx, nx2) == True{} : Bool}) ->
+  {D.Own(fi, nx2, c) == True{} : Bool}:
+  +h2 = h
+  CK.Bo.and_i(U32.is_le(fi, c), U32.is_lt(c, nx2), CK.Bo.and_l(U32.is_le(fi, c), U32.is_lt(c, nx), h2),
+    AC.lt.mono(c, nx, nx2, CK.Bo.and_r(U32.is_le(fi, c), U32.is_lt(c, nx), h2), CK.U.le(nx, nx2, hn)))
+
+def or.own.mono(+fi: U32, +nx: U32, +nx2: U32, +c: U32, +F: Bool, h: {Bool.or(D.Own(fi, nx, c), F) == True{} : Bool},
+  +hn: {U32.is_le(nx, nx2) == True{} : Bool}) -> {Bool.or(D.Own(fi, nx2, c), F) == True{} : Bool}:
+  D.or.cases(D.Own(fi, nx, c), F, {Bool.or(D.Own(fi, nx2, c), F) == True{} : Bool}, h,
+    e => CK.Bo.or_il(D.Own(fi, nx2, c), F, own.mono(fi, nx, nx2, c, e, hn)),
+    e => CK.Bo.or_ir(D.Own(fi, nx2, c), F, e))
+
+def cell.mono(+c: U32, +K: U32, +F: U32, +N: U32, +N2: U32, h: {Cr.Cir.is_cell(c, K, F, N) == True{} : Bool},
+  +hn: {U32.is_le(N, N2) == True{} : Bool}) -> {Cr.Cir.is_cell(c, K, F, N2) == True{} : Bool}:
+  D.or.cases(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, K)), D.Own(F, N, c), {Cr.Cir.is_cell(c, K, F, N2) == True{} : Bool}, h,
+    e => CK.Bo.or_il(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, K)), D.Own(F, N2, c), e),
+    e => CK.Bo.or_ir(Bool.and(Bool.not(U32.is_zero(c)), U32.is_le(c, K)), D.Own(F, N2, c), own.mono(F, N, N2, c, e, hn)))
+
+# what a node says of itself, with a larger next
+def ndk.mono(+dk: Bool, +ds: List<&2, Bk.Def>, +im: U32, +fi: U32, +nx: U32, +nx2: U32, +c: U32, +x: Cr.Cir.Cell, +t: Bk.Term, +tag: U32,
+  h: D.NdK(dk, ds, im, fi, nx, c, x, t, tag), +hn: {U32.is_le(nx, nx2) == True{} : Bool}) -> D.NdK(dk, ds, im, fi, nx2, c, x, t, tag):
+  (h1, r1) = h
+  (h2, r2) = r1
+  (cell.mono(c, im, fi, nx, nx2, h1, hn), (or.own.mono(fi, nx, nx2, c, D.FlW(Cr.Cir.Cell.get(0n, x), 1024), h2, hn), r2))
+
+# a part of a node after the copy, which keeps its fields 0, 2, 3 and 4: its
+# STATIC flag, and its term (ih)
+def part.keep(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +nx2: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, +p: U32, -y: Bk.Term, sp: D.Sp(fi, nx, c, Cr.Cir.Cells.get(m, p)),
+  +hs: {S.Same.at(m, ms, p) == True{} : Bool}, +hn: {U32.is_le(nx, nx2) == True{} : Bool},
+  ih: D.IsCK(dk, ds, ms, im, fi, nx2, ks, img, p, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, p), D.Fd(1n, ms, p)), y)) ->
+  D.P2(D.Sp(fi, nx2, c, Cr.Cir.Cells.get(ms, p)), D.IsCK(dk, ds, ms, im, fi, nx2, ks, img, p, Cr.Cir.Cells.get(ms, p), y)):
+  +ek = cell.k1(m, ms, p, hs)
+  +e0 = Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(0n, z), Cr.Cir.Cells.get(ms, p), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, p), D.Fd(1n, ms, p)), ek)
+  (D.sp.at0(fi, nx2, c, Cr.Cir.Cells.get(ms, p), Cr.Cir.Cells.get(m, p),
+     Equal.trans(U32, Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(ms, p)), Cr.Cir.Cell.get(0n, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, p), D.Fd(1n, ms, p))),
+       Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, p)), e0, D.cg0(Cr.Cir.Cells.get(m, p), D.Fd(1n, ms, p))),
+     or.own.mono(fi, nx, nx2, c, D.FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, p)), 1024), sp, hn)),
+   D.isc.atk(dk, ds, ms, im, fi, nx2, ks, img, p, Cr.Cir.Cells.get(ms, p), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, p), D.Fd(1n, ms, p)), y, ek, ih))
+
+# the copy keeps the term of a cell x whose parts keep their nodes (KpX),
+# with field 1 changed to w and a larger next
+def isk.keep(t: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +nx2: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +c: U32, x: Cr.Cir.Cell, +w: U32,
+  hx: D.IsCK(dk, ds, m, im, fi, nx, ks, img, c, x, t), hk: {KpX(t, m, ms, x) == True{} : Bool}, +hn: {U32.is_le(nx, nx2) == True{} : Bool}) ->
+  D.IsCK(dk, ds, ms, im, fi, nx2, ks, img, c, Cr.Cir.Cell.set(1n, x, w), t):
+  match t:
+    case Bk.Term.Var{+i}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, r}:
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Var{i}, 0, nd, hn), r)
+    case Bk.Term.Ref{+k}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, r}:
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Ref{k}, 1, nd, hn), r)
+    case Bk.Term.Ann{+y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Ann{y, z}, 2, nd, hn), (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn))))
+    case Bk.Term.Let{+q, +y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{qn, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Let{q, y, z}, 3, nd, hn), (qn, (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)))))
+    case Bk.Term.Typ{+y}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{sp1, h1}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Typ{y}, 4, nd, hn), part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), hk2), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), hk2), hn)))
+    case Bk.Term.Min{+y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Min{y, z}, 5, nd, hn), (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn))))
+    case Bk.Term.All{+q, +y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{qn, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.All{q, y, z}, 6, nd, hn), (qn, (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)))))
+    case Bk.Term.Lam{+q, +y}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{qn, Tuple{sp1, h1}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Lam{q, y}, 7, nd, hn), (qn, part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), hk2), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), hk2), hn))))
+    case Bk.Term.App{+q, +y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{qn, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.App{q, y, z}, 8, nd, hn), (qn, (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)))))
+    case Bk.Term.Sig{+q, +y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{qn, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Sig{q, y, z}, 9, nd, hn), (qn, (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)))))
+    case Bk.Term.Tup{+q, +y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{qn, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Tup{q, y, z}, 10, nd, hn), (qn, (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), hk2)), hn)))))
+    case Bk.Term.Prj{+y}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{sp1, h1}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Prj{y}, 11, nd, hn), part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), hk2), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), hk2), hn)))
+    case Bk.Term.Enu{+k}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, r}:
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Enu{k}, 12, nd, hn), r)
+    case Bk.Term.Lab{+k}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, r}:
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Lab{k}, 13, nd, hn), r)
+    case Bk.Term.Mat{+k, +y, +z}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{qn, Tuple{Tuple{sp1, h1}, Tuple{sp2, h2}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Mat{k, y, z}, 14, nd, hn), (qn, (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(y, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c3), KpX(y, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(z, m, ms, Cr.Cir.Cells.get(m, c4))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(y, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c3), KpX(y, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(z, m, ms, Cr.Cir.Cells.get(m, c4))), hk2)), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c4, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c4), KpX(z, m, ms, Cr.Cir.Cells.get(m, c4)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c3), KpX(y, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(z, m, ms, Cr.Cir.Cells.get(m, c4))), hk2)), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c4, Cr.Cir.Cells.get(m, c4), D.Fd(1n, ms, c4), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c4), KpX(z, m, ms, Cr.Cir.Cells.get(m, c4)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c3), KpX(y, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(z, m, ms, Cr.Cir.Cells.get(m, c4))), hk2)), hn)))))
+    case Bk.Term.Efq{}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Efq{}, 15, hx, hn)
+    case Bk.Term.Eql{+y, +z, +w}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{Tuple{sp1, h1}, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Eql{y, z, w}, 16, nd, hn), (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2)), hn)),
+              (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c4, w, sp3, CK.Bo.and_l(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn,
+                isk.keep(w, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c4, Cr.Cir.Cells.get(m, c4), D.Fd(1n, ms, c4), h3,
+                  CK.Bo.and_r(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn)))))
+    case Bk.Term.Rfl{}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Rfl{}, 17, hx, hn)
+    case Bk.Term.Rwt{+y, +z, +w}:
+      match x:
+        case Cr.Cir.Cell{+c0, c1, +c2, +c3, +c4}:
+          match hx:
+            case Tuple{nd, Tuple{Tuple{sp1, h1}, Tuple{Tuple{sp2, h2}, Tuple{sp3, h3}}}}:
+              +hk2 = hk
+              (ndk.mono(dk, ds, im, fi, nx, nx2, c, Cr.Cir.Cell{c0, c1, c2, c3, c4}, Bk.Term.Rwt{y, z, w}, 18, nd, hn), (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c2, y, sp1, CK.Bo.and_l(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2)), hn,
+                isk.keep(y, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c2, Cr.Cir.Cells.get(m, c2), D.Fd(1n, ms, c2), h1,
+                  CK.Bo.and_r(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2)), hn)),
+              (part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c3, z, sp2, CK.Bo.and_l(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn,
+                isk.keep(z, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c3, Cr.Cir.Cells.get(m, c3), D.Fd(1n, ms, c3), h2,
+                  CK.Bo.and_r(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3)), CK.Bo.and_l(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn)),
+              part.keep(dk, ds, m, ms, im, fi, nx, nx2, ks, img, c, c4, w, sp3, CK.Bo.and_l(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn,
+                isk.keep(w, dk, ds, m, ms, im, fi, nx, nx2, ks, img, c4, Cr.Cir.Cells.get(m, c4), D.Fd(1n, ms, c4), h3,
+                  CK.Bo.and_r(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4))), CK.Bo.and_r(Bool.and(S.Same.at(m, ms, c2), KpX(y, m, ms, Cr.Cir.Cells.get(m, c2))), Bool.and(Bool.and(S.Same.at(m, ms, c3), KpX(z, m, ms, Cr.Cir.Cells.get(m, c3))), Bool.and(S.Same.at(m, ms, c4), KpX(w, m, ms, Cr.Cir.Cells.get(m, c4)))), hk2))), hn)))))
+
+# the term t at r, whose nodes the copy keeps (Kp), stands for t after it
+def isk.kept(+t: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +ms: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +nx2: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +r: U32, h: D.IsK(dk, ds, m, im, fi, nx, ks, img, r, t),
+  hk: {Kp(t, m, ms, r) == True{} : Bool}, +hn: {U32.is_le(nx, nx2) == True{} : Bool}) -> D.IsK(dk, ds, ms, im, fi, nx2, ks, img, r, t):
+  +hk2 = hk
+  D.isc.atk(dk, ds, ms, im, fi, nx2, ks, img, r, Cr.Cir.Cells.get(ms, r), Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, r), D.Fd(1n, ms, r)), t,
+    cell.k1(m, ms, r, CK.Bo.and_l(S.Same.at(m, ms, r), KpX(t, m, ms, Cr.Cir.Cells.get(m, r)), hk2)),
+    isk.keep(t, dk, ds, m, ms, im, fi, nx, nx2, ks, img, r, Cr.Cir.Cells.get(m, r), D.Fd(1n, ms, r), h,
+      CK.Bo.and_r(S.Same.at(m, ms, r), KpX(t, m, ms, Cr.Cir.Cells.get(m, r)), hk2), hn))
+
 # The laws
 # --------
 
