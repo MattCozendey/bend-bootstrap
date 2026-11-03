@@ -2654,11 +2654,15 @@ def In.ps(+m: Cr.Cir.Cells, +p: U32) -> Bool:
 def In.hdr(+m: Cr.Cir.Cells, +h: U32, +p: U32, +q: U32) -> Bool:
   Bool.or(Bool.and(U32.is_eq(h, 1866), Bool.and(In.ps(m, p), In.ps(m, q))), Bool.or(U32.is_eq(h, 842), U32.is_eq(h, 72)))
 
-# the cell o, of the value x, as the run keeps the cells that it took
-def In.okx(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell) -> Bool:
-  Bool.and(In.rd(o, F, C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1),
+# the facts of the value x of a cell that the run took: its count, parts and header
+def In.okn(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell) -> Bool:
+  Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1),
     Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))))))
+      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)))))
+
+# the cell o, of the value x: it may be read, and the facts of x
+def In.okx(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell) -> Bool:
+  Bool.and(In.rd(o, F, C), In.okn(m, F, C, x))
 
 # each of the n cells from o
 def In.Rok(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32) -> Bool:
@@ -2668,17 +2672,10 @@ def In.Rok(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32) -> Bool:
     case 1n+p:
       Bool.and(In.okx(m, F, C, o, Cr.Cir.Cells.get(m, o)), In.Rok(p, m, F, C, U32.inc(o)))
 
-# a cell that may be read is not one that may not
-def In.ne.rd(+p: U32, +z: U32, +F: U32, +C: Nat, hp: {True{} == In.rd(p, F, C) : Bool}, hz: {False{} == In.rd(z, F, C) : Bool},
-  e: {p == z : U32}) -> Empty:
-  N.true_ne_false(Equal.trans(Bool, True{}, In.rd(p, F, C), False{}, hp,
-    Equal.trans(Bool, In.rd(p, F, C), In.rd(z, F, C), False{}, Equal.cong(U32, Bool, w => In.rd(w, F, C), p, z, e),
-      Equal.sym(Bool, False{}, In.rd(z, F, C), hz))))
-
 # the facts of a part p that may be read, once a cell z that may not be read is set
 def Ps.fr(+m: Cr.Cir.Cells, +p: U32, +z: U32, +y: Cr.Cir.Cell, +F: U32, +C: Nat, hp: {True{} == In.rd(p, F, C) : Bool},
   hz: {False{} == In.rd(z, F, C) : Bool}) -> {In.ps(m, p) == In.ps(Cr.Cir.Cells.set(m, z, y), p) : Bool}:
-  %Cl.get_other(m, p, z, y, e => In.ne.rd(p, z, F, C, hp, hz, e)) :
+  %Cl.get_other(m, p, z, y, e => In.ne(p, z, F, C, hp, hz, e)) :
     {In.ps(m, p) == Bool.or(Nat.is_lt(U32.to_nat(p), 16n), U32.is_eq(Cr.Cir.Cell.get(0n, _), 1866)) : Bool}
   {==}
 
@@ -2691,40 +2688,65 @@ def Hdr.fr(+m: Cr.Cir.Cells, +h: U32, +p: U32, +q: U32, +z: U32, +y: Cr.Cir.Cell
     Bool.or(Bool.and(U32.is_eq(h, 1866), Bool.and(In.ps(m, p), _)), Bool.or(U32.is_eq(h, 842), U32.is_eq(h, 72))) : Bool}
   {==}
 
-# the part p of a cell as In.okx has it may be read
-def Okx.p(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell, h: {True{} == In.okx(m, F, C, o, x) : Bool}) ->
+# the parts of a value as In.okn has it
+def Okn.p(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell, h: {True{} == In.okn(m, F, C, x) : Bool}) ->
   {True{} == In.pt(Cr.Cir.Cell.get(2n, x), F, C) : Bool}:
-  +h1 = Bo.and_r(In.rd(o, F, C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1),
-    Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))))), h)
-  +h2 = Bo.and_r(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)))), h1)
+  +h1 = Bo.and_r(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
+      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)))), h)
   Bo.and_l(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))), h2)
+      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))), h1)
 
-def Okx.q(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell, h: {True{} == In.okx(m, F, C, o, x) : Bool}) ->
+def Okn.q(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell, h: {True{} == In.okn(m, F, C, x) : Bool}) ->
   {True{} == In.pt(Cr.Cir.Cell.get(3n, x), F, C) : Bool}:
-  +h1 = Bo.and_r(In.rd(o, F, C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1),
-    Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))))), h)
-  +h2 = Bo.and_r(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)))), h1)
-  +h3 = Bo.and_r(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))), h2)
-  Bo.and_l(In.pt(Cr.Cir.Cell.get(3n, x), F, C), In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)), h3)
+  +h1 = Bo.and_r(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
+      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)))), h)
+  +h2 = Bo.and_r(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
+      In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))), h1)
+  Bo.and_l(In.pt(Cr.Cir.Cell.get(3n, x), F, C), In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x)), h2)
 
 def Pt.rd(+p: U32, +F: U32, +C: Nat, h: {True{} == In.pt(p, F, C) : Bool}) -> {True{} == In.rd(p, F, C) : Bool}:
   Bo.and_r(Bool.not(U32.is_eq(p, 0)), In.rd(p, F, C), h)
+
+# a value as In.okn has it, once a cell z that may not be read is set
+def Okn.fr(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell, +z: U32, +y: Cr.Cir.Cell,
+  hz: {False{} == In.rd(z, F, C) : Bool}, +h: {True{} == In.okn(m, F, C, x) : Bool}) ->
+  {True{} == In.okn(Cr.Cir.Cells.set(m, z, y), F, C, x) : Bool}:
+  %Hdr.fr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x), z, y, F, C,
+    Pt.rd(Cr.Cir.Cell.get(2n, x), F, C, Okn.p(m, F, C, x, h)), Pt.rd(Cr.Cir.Cell.get(3n, x), F, C, Okn.q(m, F, C, x, h)), hz) :
+    {True{} == Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1),
+      Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C), _))) : Bool}
+  h
+
+# a part as In.pt has it, once one more cell is taken
+def Pt.up(+p: U32, +F: U32, +C: Nat, h: {True{} == In.pt(p, F, C) : Bool}) -> {True{} == In.pt(p, F, 1n+C) : Bool}:
+  Bo.and_mono(Bool.not(U32.is_eq(p, 0)), In.rd(p, F, C), In.rd(p, F, 1n+C), h, k => In.rd_up(p, F, C, k))
+
+# a value as In.okn has it, once one more cell is taken
+def Okn.up(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +x: Cr.Cir.Cell, +h: {True{} == In.okn(m, F, C, x) : Bool}) ->
+  {True{} == In.okn(m, F, 1n+C, x) : Bool}:
+  +p = Cr.Cir.Cell.get(2n, x)
+  +q = Cr.Cir.Cell.get(3n, x)
+  +hd = In.hdr(m, Cr.Cir.Cell.get(0n, x), p, q)
+  +h1 = Bo.and_r(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd)), h)
+  +h2 = Bo.and_r(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd), h1)
+  Bo.and_i(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, 1n+C), Bool.and(In.pt(q, F, 1n+C), hd)),
+    Bo.and_l(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd)), h),
+    Bo.and_i(In.pt(p, F, 1n+C), Bool.and(In.pt(q, F, 1n+C), hd),
+      Pt.up(p, F, C, Bo.and_l(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd), h1)),
+      Bo.and_i(In.pt(q, F, 1n+C), hd, Pt.up(q, F, C, Bo.and_l(In.pt(q, F, C), hd, h2)), Bo.and_r(In.pt(q, F, C), hd, h2))))
 
 # a cell as In.okx has it, once a cell z that may not be read is set
 def Okx.fr(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell, +z: U32, +y: Cr.Cir.Cell,
   hz: {False{} == In.rd(z, F, C) : Bool}, +h: {True{} == In.okx(m, F, C, o, x) : Bool}) ->
   {True{} == In.okx(Cr.Cir.Cells.set(m, z, y), F, C, o, x) : Bool}:
-  %Hdr.fr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x), z, y, F, C,
-    Pt.rd(Cr.Cir.Cell.get(2n, x), F, C, Okx.p(m, F, C, o, x, h)), Pt.rd(Cr.Cir.Cell.get(3n, x), F, C, Okx.q(m, F, C, o, x, h)), hz) :
-    {True{} == Bool.and(In.rd(o, F, C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1),
-      Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C), _)))) : Bool}
-  h
+  Bo.and_i(In.rd(o, F, C), In.okn(Cr.Cir.Cells.set(m, z, y), F, C, x), Bo.and_l(In.rd(o, F, C), In.okn(m, F, C, x), h),
+    Okn.fr(m, F, C, x, z, y, hz, Bo.and_r(In.rd(o, F, C), In.okn(m, F, C, x), h)))
+
+# and once one more cell is taken
+def Okx.up(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell, +h: {True{} == In.okx(m, F, C, o, x) : Bool}) ->
+  {True{} == In.okx(m, F, 1n+C, o, x) : Bool}:
+  Bo.and_i(In.rd(o, F, 1n+C), In.okn(m, F, 1n+C, x), In.rd_up(o, F, C, Bo.and_l(In.rd(o, F, C), In.okn(m, F, C, x), h)),
+    Okn.up(m, F, C, x, Bo.and_r(In.rd(o, F, C), In.okn(m, F, C, x), h)))
 
 # the n cells from o, once a cell z that may not be read is set
 def Rok.fr(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +z: U32, +y: Cr.Cir.Cell,
@@ -2737,34 +2759,11 @@ def Rok.fr(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +z: U32, +y: Cr.
       +x = Cr.Cir.Cells.get(m, o)
       +ha = Bo.and_l(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h)
       +hb = Bo.and_r(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h)
-      +ho = Bo.and_l(In.rd(o, F, C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1),
-        Bool.and(In.pt(Cr.Cir.Cell.get(2n, x), F, C), Bool.and(In.pt(Cr.Cir.Cell.get(3n, x), F, C),
-          In.hdr(m, Cr.Cir.Cell.get(0n, x), Cr.Cir.Cell.get(2n, x), Cr.Cir.Cell.get(3n, x))))), ha)
-      %Cl.get_other(m, o, z, y, e => In.ne.rd(o, z, F, C, ho, hz, e)) :
+      +ho = Bo.and_l(In.rd(o, F, C), In.okn(m, F, C, x), ha)
+      %Cl.get_other(m, o, z, y, e => In.ne(o, z, F, C, ho, hz, e)) :
         {True{} == Bool.and(In.okx(Cr.Cir.Cells.set(m, z, y), F, C, o, _), In.Rok(p, Cr.Cir.Cells.set(m, z, y), F, C, U32.inc(o))) : Bool}
       Bo.and_i(In.okx(Cr.Cir.Cells.set(m, z, y), F, C, o, x), In.Rok(p, Cr.Cir.Cells.set(m, z, y), F, C, U32.inc(o)),
         Okx.fr(m, F, C, o, x, z, y, hz, ha), Rok.fr(p, m, F, C, U32.inc(o), z, y, hz, hb))
-
-# a part as In.pt has it, once one more cell is taken
-def Pt.up(+p: U32, +F: U32, +C: Nat, h: {True{} == In.pt(p, F, C) : Bool}) -> {True{} == In.pt(p, F, 1n+C) : Bool}:
-  Bo.and_mono(Bool.not(U32.is_eq(p, 0)), In.rd(p, F, C), In.rd(p, F, 1n+C), h, k => In.rd_up(p, F, C, k))
-
-# a cell as In.okx has it, once one more cell is taken
-def Okx.up(+m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +x: Cr.Cir.Cell, +h: {True{} == In.okx(m, F, C, o, x) : Bool}) ->
-  {True{} == In.okx(m, F, 1n+C, o, x) : Bool}:
-  +p = Cr.Cir.Cell.get(2n, x)
-  +q = Cr.Cir.Cell.get(3n, x)
-  +hd = In.hdr(m, Cr.Cir.Cell.get(0n, x), p, q)
-  +h1 = Bo.and_r(In.rd(o, F, C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd))), h)
-  +h2 = Bo.and_r(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd)), h1)
-  +h3 = Bo.and_r(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd), h2)
-  Bo.and_i(In.rd(o, F, 1n+C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, 1n+C), Bool.and(In.pt(q, F, 1n+C), hd))),
-    In.rd_up(o, F, C, Bo.and_l(In.rd(o, F, C), Bool.and(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd))), h)),
-    Bo.and_i(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, 1n+C), Bool.and(In.pt(q, F, 1n+C), hd)),
-      Bo.and_l(U32.is_eq(Cr.Cir.Cell.get(1n, x), 1), Bool.and(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd)), h1),
-      Bo.and_i(In.pt(p, F, 1n+C), Bool.and(In.pt(q, F, 1n+C), hd),
-        Pt.up(p, F, C, Bo.and_l(In.pt(p, F, C), Bool.and(In.pt(q, F, C), hd), h2)),
-        Bo.and_i(In.pt(q, F, 1n+C), hd, Pt.up(q, F, C, Bo.and_l(In.pt(q, F, C), hd, h3)), Bo.and_r(In.pt(q, F, C), hd, h3)))))
 
 # the n cells from o, once one more cell is taken
 def Rok.up(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +h: {True{} == In.Rok(n, m, F, C, o) : Bool}) ->
@@ -2798,6 +2797,152 @@ def Rok.snoc(n: Nat, +m: Cr.Cir.Cells, +F: U32, +C: Nat, +o: U32, +h: {True{} ==
       Bo.and_i(In.okx(m, F, C, o, x), In.Rok(1n+p, m, F, C, U32.inc(o)),
         Bo.and_l(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h),
         Rok.snoc(p, m, F, C, U32.inc(o), Bo.and_r(In.okx(m, F, C, o, x), In.Rok(p, m, F, C, U32.inc(o)), h), hx))
+
+# (1 + a) - f = 1 + (a - f), for f <= a
+def In.sub_succ(+f: Nat, +a: Nat, h: N.Le(f, a)) -> {Nat.sub(1n+a, f) == 1n+Nat.sub(a, f) : Nat}:
+  match f a:
+    case 0n 0n:
+      {==}
+    case 0n 1n+b:
+      {==}
+    case 1n+g 0n:
+      Empty.absurd({Nat.sub(1n, 1n+g) == 1n+Nat.sub(0n, 1n+g) : Nat}, h)
+    case 1n+g 1n+b:
+      In.sub_succ(g, b, h)
+
+def In.sub_self(a: Nat) -> {Nat.sub(a, a) == 0n : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      In.sub_self(p)
+
+# the cell after i, when the cells from i on stay below M
+def Ld.einc(+i: U32, +n: Nat, +M: U32, hov: N.Le(Nat.add(U32.to_nat(i), 1n+n), U32.to_nat(M))) -> {U32.to_nat(U32.inc(i)) == 1n+U32.to_nat(i) : Nat}:
+  +ti = U32.to_nat(i)
+  +h1 = N.le_rw_l(Nat.add(ti, 1n+n), 1n+Nat.add(ti, n), U32.to_nat(M), N.add_succ_r(ti, n), hov)
+  +h2 = N.le_trans(1n+ti, 1n+Nat.add(ti, n), U32.to_nat(M), N.le_add_r(ti, n), h1)
+  PI.U32.inc_nat(i, Equal.sym(Bool, U32.is_zero(U32.inc(i)), False{}, PM.nz(i, M, h2)))
+
+def Ld.hov(+i: U32, +n: Nat, +M: U32, +hov: N.Le(Nat.add(U32.to_nat(i), 1n+n), U32.to_nat(M))) -> N.Le(Nat.add(U32.to_nat(U32.inc(i)), n), U32.to_nat(M)):
+  +ti = U32.to_nat(i)
+  %Equal.sym(Nat, U32.to_nat(U32.inc(i)), 1n+ti, Ld.einc(i, n, M, hov)) : N.Le(Nat.add(_, n), U32.to_nat(M))
+  N.le_rw_l(Nat.add(ti, 1n+n), 1n+Nat.add(ti, n), U32.to_nat(M), N.add_succ_r(ti, n), hov)
+
+# the cell n after o is numbered o + n, below M
+def In.incn.nat(n: Nat, +o: U32, +M: U32, +h: N.Le(Nat.add(U32.to_nat(o), n), U32.to_nat(M))) ->
+  {U32.to_nat(In.incn(n, o)) == Nat.add(U32.to_nat(o), n) : Nat}:
+  match n:
+    case 0n:
+      Equal.sym(Nat, Nat.add(U32.to_nat(o), 0n), U32.to_nat(o), N.add_zero(U32.to_nat(o)))
+    case 1n+(+p):
+      +e1 = Ld.einc(o, p, M, h)
+      Equal.trans(Nat, U32.to_nat(In.incn(p, U32.inc(o))), Nat.add(U32.to_nat(U32.inc(o)), p), Nat.add(U32.to_nat(o), 1n+p),
+        In.incn.nat(p, U32.inc(o), M, Ld.hov(o, p, M, h)),
+        Equal.trans(Nat, Nat.add(U32.to_nat(U32.inc(o)), p), 1n+Nat.add(U32.to_nat(o), p), Nat.add(U32.to_nat(o), 1n+p),
+          Equal.cong(Nat, Nat, z => Nat.add(z, p), U32.to_nat(U32.inc(o)), 1n+U32.to_nat(o), e1),
+          Equal.sym(Nat, Nat.add(U32.to_nat(o), 1n+p), 1n+Nat.add(U32.to_nat(o), p), N.add_succ_r(U32.to_nat(o), p))))
+
+# the next cell, numbered N, is the cell N - F after F
+def In.incn.eq(+next: U32, +N: Nat, +F: U32, eN: {U32.to_nat(next) == N : Nat}, +hFN: N.Le(U32.to_nat(F), N)) ->
+  {In.incn(Nat.sub(N, U32.to_nat(F)), F) == next : U32}:
+  +ea = D.add.sub(U32.to_nat(F), N, hFN)
+  +eb = Equal.trans(Nat, Nat.add(U32.to_nat(F), Nat.sub(N, U32.to_nat(F))), N, U32.to_nat(next), ea, Equal.sym(Nat, U32.to_nat(next), N, eN))
+  D.u32.eq(In.incn(Nat.sub(N, U32.to_nat(F)), F), next, D.u.nat.eq(In.incn(Nat.sub(N, U32.to_nat(F)), F), next,
+    Equal.trans(Nat, U32.to_nat(In.incn(Nat.sub(N, U32.to_nat(F)), F)), Nat.add(U32.to_nat(F), Nat.sub(N, U32.to_nat(F))), U32.to_nat(next),
+      In.incn.nat(Nat.sub(N, U32.to_nat(F)), F, next, N.le_rw_r(Nat.add(U32.to_nat(F), Nat.sub(N, U32.to_nat(F))), U32.to_nat(next), U32.to_nat(next),
+        {==}, N.le_rw_l(U32.to_nat(next), Nat.add(U32.to_nat(F), Nat.sub(N, U32.to_nat(F))), U32.to_nat(next),
+          Equal.sym(Nat, Nat.add(U32.to_nat(F), Nat.sub(N, U32.to_nat(F))), U32.to_nat(next), eb), N.le_refl(U32.to_nat(next))))),
+      eb)))
+
+# The facts of the run's cells
+# ----------------------------
+
+# the cells once the cache's entry of w8 gets v
+def In.cs(+m: Cr.Cir.Cells, +w8: Word(8n), +v: U32) -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(m, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v))
+
+# F is past the table (291 <= F); the table's masks of App (cell 280) and
+# Tup (cell 282) are 3; the field 0 of the cell 0 is 0; and the cells that
+# the run took, from F before N, are as In.Rok says
+def In.Fb(+m: Cr.Cir.Cells, +N: Nat, +F: U32) -> Data:
+  In.P(N.Le(291n, U32.to_nat(F)), In.P({D.Fd(2n, m, 280) == 3 : U32}, In.P({D.Fd(2n, m, 282) == 3 : U32},
+    In.P({D.Fd(0n, m, 0) == 0 : U32}, {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool}))))
+
+# a cell below b is not b
+def In.ne.lt(+a: U32, +b: U32, h: N.Le(1n+U32.to_nat(a), U32.to_nat(b)), e: {a == b : U32}) -> Empty:
+  N.not_succ_le(U32.to_nat(b), N.le_rw_l(1n+U32.to_nat(a), 1n+U32.to_nat(b), U32.to_nat(b), Equal.cong(U32, Nat, z => 1n+U32.to_nat(z), a, b, e), h))
+
+def In.ne.gt(+a: U32, +b: U32, h: N.Le(1n+U32.to_nat(a), U32.to_nat(b)), e: {b == a : U32}) -> Empty:
+  In.ne.lt(a, b, h, Equal.sym(U32, b, a, e))
+
+# a field of the cell j, once another cell i is set
+def Fd.fr(+k: Nat, +m: Cr.Cir.Cells, +j: U32, +i: U32, +x: Cr.Cir.Cell, +v: U32, ne: {j == i : U32} -> Empty,
+  h: {D.Fd(k, m, j) == v : U32}) -> {D.Fd(k, Cr.Cir.Cells.set(m, i, x), j) == v : U32}:
+  %Cl.get_other(m, j, i, x, ne) : {Cr.Cir.Cell.get(k, _) == v : U32}
+  h
+
+# the new cell next, numbered N, as In.okx has it once it holds x
+def Fb.hx(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, eN: {U32.to_nat(next) == N : Nat},
+  hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, hr: {True{} == In.rd(next, F, 1n+N) : Bool},
+  hx: {True{} == In.okn(m, F, N, x) : Bool}) ->
+  {True{} == In.okx(Cr.Cir.Cells.set(m, next, x), F, 1n+N, In.incn(Nat.sub(N, U32.to_nat(F)), F),
+    Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, x), In.incn(Nat.sub(N, U32.to_nat(F)), F))) : Bool}:
+  +ms = Cr.Cir.Cells.set(m, next, x)
+  %Equal.sym(U32, In.incn(Nat.sub(N, U32.to_nat(F)), F), next, In.incn.eq(next, N, F, eN, hFN)) :
+    {True{} == In.okx(ms, F, 1n+N, _, Cr.Cir.Cells.get(ms, _)) : Bool}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(ms, next), x, Cl.get_set(m, next, x)) : {True{} == In.okx(ms, F, 1n+N, next, _) : Bool}
+  Bo.and_i(In.rd(next, F, 1n+N), In.okn(ms, F, 1n+N, x), hr, Okn.up(ms, F, N, x, Okn.fr(m, F, N, x, next, x, hi, hx)))
+
+# the cells that the run took, once the cell next gets x
+def Fb.rok(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, +eN: {U32.to_nat(next) == N : Nat},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, hr: {True{} == In.rd(next, F, 1n+N) : Bool},
+  hx: {True{} == In.okn(m, F, N, x) : Bool}, rk: {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool}) ->
+  {True{} == In.Rok(Nat.sub(1n+N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, x), F, 1n+N, F) : Bool}:
+  +ms = Cr.Cir.Cells.set(m, next, x)
+  +n = Nat.sub(N, U32.to_nat(F))
+  %Equal.sym(Nat, Nat.sub(1n+N, U32.to_nat(F)), 1n+n, In.sub_succ(U32.to_nat(F), N, hFN)) : {True{} == In.Rok(_, ms, F, 1n+N, F) : Bool}
+  Rok.snoc(n, ms, F, 1n+N, F, Rok.up(n, ms, F, N, F, Rok.fr(n, m, F, N, F, next, x, hi, rk)), Fb.hx(m, next, N, F, x, eN, hFN, hi, hr, hx))
+
+# the facts, once the cell next (numbered N) gets the value x, as In.okn says
+def Fb.step(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +x: Cr.Cir.Cell, +eN: {U32.to_nat(next) == N : Nat},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, hr: {True{} == In.rd(next, F, 1n+N) : Bool},
+  hx: {True{} == In.okn(m, F, N, x) : Bool}, fb: In.Fb(m, N, F)) -> In.Fb(Cr.Cir.Cells.set(m, next, x), 1n+N, F):
+  (h291, r1) = fb
+  (e280, r2) = r1
+  (e282, r3) = r2
+  (e0, rk) = r3
+  +h291b = h291
+  +lF = N.le_rw_r(U32.to_nat(F), N, U32.to_nat(next), Equal.sym(Nat, U32.to_nat(next), N, eN), hFN)
+  +hF2 = N.le_trans(291n, U32.to_nat(F), U32.to_nat(next), h291b, lF)
+  (h291b,
+   (Fd.fr(2n, m, 280, next, x, 3, e => In.ne.lt(280, next, N.le_trans(281n, 291n, U32.to_nat(next), Unit{}, hF2), e), e280),
+    (Fd.fr(2n, m, 282, next, x, 3, e => In.ne.lt(282, next, N.le_trans(283n, 291n, U32.to_nat(next), Unit{}, hF2), e), e282),
+     (Fd.fr(0n, m, 0, next, x, 0, e => In.ne.lt(0, next, N.le_trans(1n, 291n, U32.to_nat(next), Unit{}, hF2), e), e0),
+      Fb.rok(m, next, N, F, x, eN, hFN, hi, hr, hx, rk)))))
+
+# a field of the cell j, once the cache's entry of w8 (another cell) gets v
+def Fd.cs(+k: Nat, +m: Cr.Cir.Cells, +j: U32, +w8: Word(8n), +v: U32, +u: U32, ne: {j == In.J(w8) : U32} -> Empty,
+  h: {D.Fd(k, m, j) == u : U32}) -> {D.Fd(k, In.cs(m, w8, v), j) == u : U32}:
+  Fd.fr(k, m, j, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v), u, ne, h)
+
+# the cells that the run took, once the cache's entry of w8 gets v
+def Rok.cs(+n: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +w8: Word(8n), +v: U32, hF: N.Le(272n, U32.to_nat(F)),
+  h: {True{} == In.Rok(n, m, F, N, F) : Bool}) -> {True{} == In.Rok(n, In.cs(m, w8, v), F, N, F) : Bool}:
+  Rok.fr(n, m, F, N, F, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v), In.rdJ(w8, F, N, hF), h)
+
+# the facts, once the cache's entry of w8 gets v
+def Fb.cs(+m: Cr.Cir.Cells, +N: Nat, +F: U32, +w8: Word(8n), +v: U32, fb: In.Fb(m, N, F)) -> In.Fb(In.cs(m, w8, v), N, F):
+  (h291, r1) = fb
+  (e280, r2) = r1
+  (e282, r3) = r2
+  (e0, rk) = r3
+  +h291b = h291
+  (h291b,
+   (Fd.cs(2n, m, 280, w8, v, 3, e => In.ne.gt(In.J(w8), 280, N.le_trans(1n+U32.to_nat(In.J(w8)), 272n, 280n, In.Jhi(w8), Unit{}), e), e280),
+    (Fd.cs(2n, m, 282, w8, v, 3, e => In.ne.gt(In.J(w8), 282, N.le_trans(1n+U32.to_nat(In.J(w8)), 272n, 282n, In.Jhi(w8), Unit{}), e), e282),
+     (Fd.cs(0n, m, 0, w8, v, 0, e => In.ne.lt(0, In.J(w8), N.le_trans(1n, 16n, U32.to_nat(In.J(w8)), Unit{}, In.Jlo(w8)), e), e0),
+      Rok.cs(Nat.sub(N, U32.to_nat(F)), m, F, N, w8, v, N.le_trans(272n, 291n, U32.to_nat(F), Unit{}, h291b), rk)))))
 
 # The facts of a state
 # --------------------
@@ -2875,10 +3020,6 @@ def St.step(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +c: U32, +t: Bk.Term, +
   +i: U32, +x: Cr.Cir.Cell, +hi: {False{} == In.rd(i, F, N) : Bool}, s: In.St(f, m, F, N, c, t, ks, img)) ->
   In.St(f, Cr.Cir.Cells.set(m, i, x), F, 1n+N, c, t, ks, img):
   St.up(f, Cr.Cir.Cells.set(m, i, x), F, N, c, t, ks, img, St.fr(f, m, F, N, c, t, ks, img, i, x, hi, s))
-
-# the cells once the cache's entry of w8 gets v
-def In.cs(+m: Cr.Cir.Cells, +w8: Word(8n), +v: U32) -> Cr.Cir.Cells:
-  Cr.Cir.Cells.set(m, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v))
 
 # the facts once the cache's entry of w8 gets v, which stands for its word
 def Fa.cs(+m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
@@ -4045,18 +4186,6 @@ def Im.m15(+main: U32, +F: U32, +N: Nat, +ds: List<&2, Bk.Def>) -> In.Im(80n, In
 
 # Loads
 # -----
-
-# the cell after i, when the cells from i on stay below M
-def Ld.einc(+i: U32, +n: Nat, +M: U32, hov: N.Le(Nat.add(U32.to_nat(i), 1n+n), U32.to_nat(M))) -> {U32.to_nat(U32.inc(i)) == 1n+U32.to_nat(i) : Nat}:
-  +ti = U32.to_nat(i)
-  +h1 = N.le_rw_l(Nat.add(ti, 1n+n), 1n+Nat.add(ti, n), U32.to_nat(M), N.add_succ_r(ti, n), hov)
-  +h2 = N.le_trans(1n+ti, 1n+Nat.add(ti, n), U32.to_nat(M), N.le_add_r(ti, n), h1)
-  PI.U32.inc_nat(i, Equal.sym(Bool, U32.is_zero(U32.inc(i)), False{}, PM.nz(i, M, h2)))
-
-def Ld.hov(+i: U32, +n: Nat, +M: U32, +hov: N.Le(Nat.add(U32.to_nat(i), 1n+n), U32.to_nat(M))) -> N.Le(Nat.add(U32.to_nat(U32.inc(i)), n), U32.to_nat(M)):
-  +ti = U32.to_nat(i)
-  %Equal.sym(Nat, U32.to_nat(U32.inc(i)), 1n+ti, Ld.einc(i, n, M, hov)) : N.Le(Nat.add(_, n), U32.to_nat(M))
-  N.le_rw_l(Nat.add(ti, 1n+n), 1n+Nat.add(ti, n), U32.to_nat(M), N.add_succ_r(ti, n), hov)
 
 # a load from i on keeps the cells below i
 def Ld.keep(cs: List<&2, Cr.Cir.Cell>, +i: U32, +m: Cr.Cir.Cells, +j: U32, +M: U32, hj: N.Le(1n+U32.to_nat(j), U32.to_nat(i)),
