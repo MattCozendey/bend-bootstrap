@@ -29,6 +29,7 @@ import ./statement_runs.bend as X
 import ./move_kit.bend as K
 import ./data_walk.bend as W
 import ./heap_ops.bend as HO
+import ./accounting.bend as A
 
 # Kit
 # ---
@@ -2251,6 +2252,240 @@ def ds.put1(es: List<&2, DE>, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +c: U32, +v: 
       (h0, (Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(PM.Put1(ws, m), e), Cr.Cir.Cells.get(m, e), CK(DE.top(rest), Cl(m0, p, c)),
          PM.put1.out(ws, m, e, took.out(ws, ps, m, e, ck.tg(m, e, DE.top(rest), Cl(m0, p, c), h1b), hw)), h1b),
         (h2, (h3, ds.put1(rest, m, m0, c, v, nx0, xs0, ws, ps, hw, hr)))))
+
+# What the check keeps (Kept.cells)
+# ---------------------------------
+#
+# The check writes the cells that it may (Wr: new ones, of the pend list where
+# it begins, or term cells there) and sets DATA on term cells: so each cell
+# that Kept.cells keeps (an own cell below nx0, out of xs, of tag 19 or more
+# in m0) keeps its value. A kept cell keeps its tag, so it is no term cell now
+# either (NK).
+
+# z is a cell that the check may write, or a term cell of m
+def NK(+m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +nx0: U32, +xs: List<&2, U32>, +z: U32) -> Bool:
+  Bool.or(Wr(m0, nx0, xs, z), U32.is_lt(PM.Tg(m, z), 19))
+
+# a cell q below nx0, out of xs, of no term in m0 nor in m, is none of them
+def nk.ne.b(b: Bool, +q: U32, +z: U32, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +nx0: U32, +xs: List<&2, U32>, eb: {U32.is_eq(q, z) == b : Bool},
+  hz: {NK(m0, m, nx0, xs, z) == True{} : Bool}, hq: {U32.is_lt(q, nx0) == True{} : Bool}, hx: {PM.Mem(xs, q) == False{} : Bool},
+  h0: {U32.is_lt(PM.Tg(m0, q), 19) == False{} : Bool}, h1: {U32.is_lt(PM.Tg(m, q), 19) == False{} : Bool}) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      +e = PM.u32.eq(q, z, eb)
+      +L = Bool.not(U32.is_lt(q, nx0))
+      +M = Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19))
+      +nkf = or.ff(Bool.or(L, M), U32.is_lt(PM.Tg(m, q), 19),
+        or.ff(L, M, (%Equal.sym(Bool, U32.is_lt(q, nx0), True{}, hq) : {Bool.not(_) == False{} : Bool}; {==}),
+          or.ff(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19), hx, h0)), h1)
+      Equal.trans(Bool, True{}, NK(m0, m, nx0, xs, q), False{},
+        Equal.sym(Bool, NK(m0, m, nx0, xs, q), True{}, (%Equal.sym(U32, q, z, e) : {NK(m0, m, nx0, xs, _) == True{} : Bool}; hz)), nkf)
+
+# a kept cell (its value is m0's) keeps m0's tag
+def kt.tg(+m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +q: U32, h: {Cr.Cir.Cells.get(m, q) == Cr.Cir.Cells.get(m0, q) : Cr.Cir.Cell},
+  h0: {U32.is_lt(PM.Tg(m0, q), 19) == False{} : Bool}) -> {U32.is_lt(PM.Tg(m, q), 19) == False{} : Bool}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, q), Cr.Cir.Cells.get(m0, q), h) : {U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19) == False{} : Bool}; h0)
+
+# Kept.at of q under a store at a cell z that NK says is none of the kept ones
+def kat.set.b(b: Bool, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +xs: List<&2, U32>, +q: U32, +z: U32, +Y: Cr.Cir.Cell, +nx0: U32,
+  eb: {Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)) == b : Bool}, hz: {NK(m0, m, nx0, xs, z) == True{} : Bool},
+  hq: {U32.is_lt(q, nx0) == True{} : Bool}, h: PM.Kept.if(b, {Cr.Cir.Cells.get(m, q) == Cr.Cir.Cells.get(m0, q) : Cr.Cir.Cell})) ->
+  PM.Kept.if(b, {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, Y), q) == Cr.Cir.Cells.get(m0, q) : Cr.Cir.Cell}):
+  match b:
+    case True{}:
+      Unit{}
+    case False{}:
+      +h2 = h
+      +eb2 = eb
+      +h0 = PM.or.f.r(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19), eb2)
+      +ne = nk.ne.b(U32.is_eq(q, z), q, z, m0, m, nx0, xs, {==}, hz, hq, PM.or.f.l(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19), eb2), h0,
+        kt.tg(m, m0, q, h2, h0))
+      Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, z, Y), q), Cr.Cir.Cells.get(m, q), Cr.Cir.Cells.get(m0, q),
+        PM.cl.go(m, q, z, Y, ne), h2)
+
+# q + (1 + p) = n0 gives q < n0, and inc(q) + p = n0
+def nat.lt.of(+x: Nat, +p: Nat, -n0: Nat, h: {Nat.add(x, 1n+p) == n0 : Nat}) -> N.Le(1n+x, n0):
+  N.le_rw_r(1n+x, 1n+Nat.add(x, p), n0, Equal.trans(Nat, 1n+Nat.add(x, p), Nat.add(x, 1n+p), n0, Equal.sym(Nat, Nat.add(x, 1n+p), 1n+Nat.add(x, p), N.add_succ_r(x, p)), h),
+    N.le_add_r(x, p))
+
+def kg.next(+q: U32, +p: Nat, +nx0: U32, +hn: {Nat.add(U32.to_nat(q), 1n+p) == U32.to_nat(nx0) : Nat}) ->
+  {Nat.add(U32.to_nat(U32.inc(q)), p) == U32.to_nat(nx0) : Nat}:
+  %Equal.sym(Nat, U32.to_nat(U32.inc(q)), 1n+U32.to_nat(q), PM.u.inc(q, nx0, nat.lt.of(U32.to_nat(q), p, U32.to_nat(nx0), hn))) :
+    {Nat.add(_, p) == U32.to_nat(nx0) : Nat}
+  Equal.trans(Nat, 1n+Nat.add(U32.to_nat(q), p), Nat.add(U32.to_nat(q), 1n+p), U32.to_nat(nx0),
+    Equal.sym(Nat, Nat.add(U32.to_nat(q), 1n+p), 1n+Nat.add(U32.to_nat(q), p), N.add_succ_r(U32.to_nat(q), p)), hn)
+
+# Kept.go under a store at a cell z that NK says is none of the kept ones
+def kg.set(n: Nat, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +xs: List<&2, U32>, +q: U32, +z: U32, +Y: Cr.Cir.Cell, +nx0: U32,
+  +hz: {NK(m0, m, nx0, xs, z) == True{} : Bool}, +hn: {Nat.add(U32.to_nat(q), n) == U32.to_nat(nx0) : Nat},
+  h: PM.Kept.go(n, m0, m, xs, q)) -> PM.Kept.go(n, m0, Cr.Cir.Cells.set(m, z, Y), xs, q):
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+(+p):
+      (ha, hr) = h
+      (kat.set.b(Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)), m0, m, xs, q, z, Y, nx0, {==}, hz,
+         A.lt.of(q, nx0, nat.lt.of(U32.to_nat(q), p, U32.to_nat(nx0), hn)), ha),
+        kg.set(p, m0, m, xs, U32.inc(q), z, Y, nx0, hz, kg.next(q, p, nx0, hn), hr))
+
+# Kept.at of q under M.alloc's stores of field 1 (to term cells)
+def kat.put1.b(b: Bool, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +xs: List<&2, U32>, +q: U32, +ws: List<&2, PM.W1>, +ps: List<&2, U32>,
+  eb: {Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)) == b : Bool}, hw: {PM.Took(ws, ps, m) == True{} : Bool},
+  h: PM.Kept.if(b, {Cr.Cir.Cells.get(m, q) == Cr.Cir.Cells.get(m0, q) : Cr.Cir.Cell})) ->
+  PM.Kept.if(b, {Cr.Cir.Cells.get(PM.Put1(ws, m), q) == Cr.Cir.Cells.get(m0, q) : Cr.Cir.Cell}):
+  match b:
+    case True{}:
+      Unit{}
+    case False{}:
+      +h2 = h
+      Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(PM.Put1(ws, m), q), Cr.Cir.Cells.get(m, q), Cr.Cir.Cells.get(m0, q),
+        PM.put1.out(ws, m, q, took.out(ws, ps, m, q, kt.tg(m, m0, q, h2, PM.or.f.r(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19), eb)), hw)), h2)
+
+def kg.put1(n: Nat, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +xs: List<&2, U32>, +q: U32, +ws: List<&2, PM.W1>, +ps: List<&2, U32>,
+  +hw: {PM.Took(ws, ps, m) == True{} : Bool}, h: PM.Kept.go(n, m0, m, xs, q)) -> PM.Kept.go(n, m0, PM.Put1(ws, m), xs, q):
+  match n:
+    case 0n:
+      Unit{}
+    case 1n+p:
+      (ha, hr) = h
+      (kat.put1.b(Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)), m0, m, xs, q, ws, ps, {==}, hw, ha),
+        kg.put1(p, m0, m, xs, U32.inc(q), ws, ps, hw, hr))
+
+# the cell q, from base on and below base + n, is one that Kept.go keeps
+def kg.at.b(b: Bool, +n: Nat, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +xs: List<&2, U32>, +base: U32, +q: U32,
+  eb: {U32.is_eq(base, q) == b : Bool}, h1: N.Le(U32.to_nat(base), U32.to_nat(q)), h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(base), 1n+n)),
+  ha: PM.Kept.at(m0, m, xs, base),
+  ih: N.Le(U32.to_nat(U32.inc(base)), U32.to_nat(q)) -> N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(U32.inc(base)), n)) -> PM.Kept.at(m0, m, xs, q)) ->
+  PM.Kept.at(m0, m, xs, q):
+  match b:
+    case True{}:
+      (%PM.u32.eq(base, q, eb) : PM.Kept.at(m0, m, xs, _); ha)
+    case False{}:
+      +lt = PM.lt.ne(U32.cmp(base, q), U32.to_nat(base), U32.to_nat(q), N.U32.rel(base, q), eb, h1)
+      +ei = PM.u.inc(base, q, lt)
+      ih((%Equal.sym(Nat, U32.to_nat(U32.inc(base)), 1n+U32.to_nat(base), ei) : N.Le(_, U32.to_nat(q)); lt),
+        (%Equal.sym(Nat, U32.to_nat(U32.inc(base)), 1n+U32.to_nat(base), ei) : N.Le(1n+U32.to_nat(q), Nat.add(_, n));
+          N.le_rw_r(1n+U32.to_nat(q), Nat.add(U32.to_nat(base), 1n+n), 1n+Nat.add(U32.to_nat(base), n), N.add_succ_r(U32.to_nat(base), n), h2)))
+
+def kg.at(n: Nat, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +xs: List<&2, U32>, +base: U32, +q: U32,
+  h1: N.Le(U32.to_nat(base), U32.to_nat(q)), h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(base), n)),
+  h: PM.Kept.go(n, m0, m, xs, base)) -> PM.Kept.at(m0, m, xs, q):
+  match n:
+    case 0n:
+      Empty.absurd(PM.Kept.at(m0, m, xs, q), N.not_succ_le(U32.to_nat(q),
+        N.le_trans(1n+U32.to_nat(q), U32.to_nat(base), U32.to_nat(q), N.le_rw_r(1n+U32.to_nat(q), Nat.add(U32.to_nat(base), 0n), U32.to_nat(base), N.add_zero(U32.to_nat(base)), h2), h1)))
+    case 1n+(+p):
+      (ha, hr) = h
+      kg.at.b(U32.is_eq(base, q), p, m0, m, xs, base, q, {==}, h1, h2, ha,
+        g1 => g2 => kg.at(p, m0, m, xs, U32.inc(base), q, g1, g2, hr))
+
+# a <= b of U32s, from their Nats
+def le.of.b(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(x, y)) -> {Cmp.is_le(c) == True{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, h)))
+
+def le.of(+a: U32, +b: U32, h: N.Le(U32.to_nat(a), U32.to_nat(b))) -> {U32.is_le(a, b) == True{} : Bool}:
+  le.of.b(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), h)
+
+# a is not below c when c <= a
+def lt.le.f(b: Bool, +a: U32, +c: U32, eb: {U32.is_lt(a, c) == b : Bool}, h: N.Le(U32.to_nat(c), U32.to_nat(a))) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(U32.to_nat(a), N.le_trans(1n+U32.to_nat(a), U32.to_nat(c), U32.to_nat(a), PM.u.lt(a, c, eb), h)))
+
+# a cell of the pend list ps, whose cells below nx0 PsSub.lt bounds, is one that the check may write
+def pssub.wr.b(b: Bool, +q: U32, -rest: List<&2, U32>, +xs: List<&2, U32>, +m0: Cr.Cir.Cells, +nx0: U32, +z: U32,
+  eb: {U32.is_eq(q, z) == b : Bool}, hm: {Bool.or(b, PM.Mem(rest, z)) == True{} : Bool}, hq: {Wr(m0, nx0, xs, q) == True{} : Bool},
+  ih: {PM.Mem(rest, z) == True{} : Bool} -> {Wr(m0, nx0, xs, z) == True{} : Bool}) -> {Wr(m0, nx0, xs, z) == True{} : Bool}:
+  match b:
+    case True{}:
+      (%PM.u32.eq(q, z, eb) : {Wr(m0, nx0, xs, _) == True{} : Bool}; hq)
+    case False{}:
+      ih(hm)
+
+def pssub.wr(ps: List<&2, U32>, +xs: List<&2, U32>, +m0: Cr.Cir.Cells, +nx0: U32, +z: U32, hm: {PM.Mem(ps, z) == True{} : Bool},
+  +hp: {PM.PsSub.lt(ps, xs, m0, nx0) == True{} : Bool}) -> {Wr(m0, nx0, xs, z) == True{} : Bool}:
+  match ps:
+    case Nil{}:
+      Empty.absurd({Wr(m0, nx0, xs, z) == True{} : Bool}, N.false_ne_true(hm))
+    case Con{+q, rest}:
+      +C = Wr(m0, nx0, xs, q)
+      pssub.wr.b(U32.is_eq(q, z), q, rest, xs, m0, nx0, z, {==}, hm, PM.and.l(C, PM.PsSub.lt(rest, xs, m0, nx0), hp),
+        e => pssub.wr(rest, xs, m0, nx0, z, e, PM.and.r(C, PM.PsSub.lt(rest, xs, m0, nx0), hp)))
+
+# next, from nx0 on, is a cell that the check may write
+def wr.nx(+z: U32, +nx: U32, +nx0: U32, +xs: List<&2, U32>, +m0: Cr.Cir.Cells, ez: {U32.is_eq(z, nx) == True{} : Bool},
+  hn: {U32.is_le(nx0, nx) == True{} : Bool}) -> {Wr(m0, nx0, xs, z) == True{} : Bool}:
+  (%Equal.sym(U32, z, nx, PM.u32.eq(z, nx, ez)) : {Wr(m0, nx0, xs, _) == True{} : Bool};
+    PM.or.l(Bool.not(U32.is_lt(nx, nx0)), Bool.or(PM.Mem(xs, nx), U32.is_lt(PM.Tg(m0, nx), 19)),
+      (%Equal.sym(Bool, U32.is_lt(nx, nx0), False{}, lt.le.f(U32.is_lt(nx, nx0), nx, nx0, {==}, PM.u.le(nx0, nx, hn))) : {Bool.not(_) == True{} : Bool}; {==})))
+
+# M.alloc's cell (in ps, or next) is one that the check may write
+def al.wr(+z: U32, +ps: List<&2, U32>, +nx: U32, +xs: List<&2, U32>, +m0: Cr.Cir.Cells, +nx0: U32,
+  hz: {Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool}, +hp: {PM.PsSub.lt(ps, xs, m0, nx0) == True{} : Bool},
+  +hn: {U32.is_le(nx0, nx) == True{} : Bool}) -> {Wr(m0, nx0, xs, z) == True{} : Bool}:
+  PM.or.cases(PM.Mem(ps, z), U32.is_eq(z, nx), {Wr(m0, nx0, xs, z) == True{} : Bool}, hz,
+    e => pssub.wr(ps, xs, m0, nx0, z, e, hp), e => wr.nx(z, nx, nx0, xs, m0, e, hn))
+
+# a term cell of m below nx0, kept by Kept.go, is out of xs only when it was one in m0
+def wr.kept.b(b: Bool, +q: U32, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +xs: List<&2, U32>,
+  eb: {Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)) == b : Bool}, ht: {U32.is_lt(PM.Tg(m, q), 19) == True{} : Bool},
+  h: PM.Kept.if(b, {Cr.Cir.Cells.get(m, q) == Cr.Cir.Cells.get(m0, q) : Cr.Cir.Cell})) ->
+  {Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)) == True{} : Bool}:
+  match b:
+    case True{}:
+      eb
+    case False{}:
+      Empty.absurd({Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)) == True{} : Bool}, N.true_ne_false(
+        Equal.trans(Bool, True{}, U32.is_lt(PM.Tg(m, q), 19), False{}, Equal.sym(Bool, U32.is_lt(PM.Tg(m, q), 19), True{}, ht),
+          kt.tg(m, m0, q, h, PM.or.f.r(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19), eb)))))
+
+# a term cell of m, an own cell, is one that the check may write
+def wr.lt.b(b: Bool, +q: U32, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +xs: List<&2, U32>, +fi: U32, +nx0: U32, +n0: Nat,
+  eb: {U32.is_lt(q, nx0) == b : Bool}, hf: {U32.is_le(fi, q) == True{} : Bool}, ht: {U32.is_lt(PM.Tg(m, q), 19) == True{} : Bool},
+  +hn0: {Nat.add(U32.to_nat(fi), n0) == U32.to_nat(nx0) : Nat}, +hk: PM.Kept.go(n0, m0, m, xs, fi)) -> {Wr(m0, nx0, xs, q) == True{} : Bool}:
+  match b:
+    case False{}:
+      (%Equal.sym(Bool, U32.is_lt(q, nx0), False{}, eb) : {Bool.or(Bool.not(_), Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19))) == True{} : Bool}; {==})
+    case True{}:
+      +ka = kg.at(n0, m0, m, xs, fi, q, PM.u.le(fi, q, hf),
+        N.le_rw_r(1n+U32.to_nat(q), U32.to_nat(nx0), Nat.add(U32.to_nat(fi), n0), Equal.sym(Nat, Nat.add(U32.to_nat(fi), n0), U32.to_nat(nx0), hn0),
+          PM.u.lt(q, nx0, eb)), hk)
+      PM.or.r(Bool.not(U32.is_lt(q, nx0)), Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)),
+        wr.kept.b(Bool.or(PM.Mem(xs, q), U32.is_lt(PM.Tg(m0, q), 19)), q, m, m0, xs, {==}, ht, ka))
+
+# the pend list after M.alloc (cells of ps, or term cells of m): each cell of
+# it below nx0 is still one that the check may write
+def pssub.al(ps2: List<&2, U32>, +qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +m0: Cr.Cir.Cells,
+  +xs: List<&2, U32>, +fi: U32, +nx2: U32, +nx0: U32, +n0: Nat, +rs: List<&2, U32>,
+  hs: {PM.PsSub(ps2, ps, m) == True{} : Bool}, ho: PM.PendOK(ps2, qs, m2, fi, nx2, rs), +hp: {PM.PsSub.lt(ps, xs, m0, nx0) == True{} : Bool},
+  +hn0: {Nat.add(U32.to_nat(fi), n0) == U32.to_nat(nx0) : Nat}, +hk: PM.Kept.go(n0, m0, m, xs, fi)) ->
+  {PM.PsSub.lt(ps2, xs, m0, nx0) == True{} : Bool}:
+  match ps2:
+    case Nil{}:
+      {==}
+    case Con{+q, rest}:
+      (hq, r1) = ho
+      (_, r2) = r1
+      (_, r3) = r2
+      (_, hr) = r3
+      +hs2 = hs
+      +S = Bool.or(PM.Mem(ps, q), U32.is_lt(PM.Tg(m, q), 19))
+      +hf = PM.and.l(U32.is_le(fi, q), U32.is_lt(q, nx2), hq)
+      PM.and.i(Wr(m0, nx0, xs, q), PM.PsSub.lt(rest, xs, m0, nx0),
+        PM.or.cases(PM.Mem(ps, q), U32.is_lt(PM.Tg(m, q), 19), {Wr(m0, nx0, xs, q) == True{} : Bool}, PM.and.l(S, PM.PsSub(rest, ps, m), hs2),
+          e => pssub.wr(ps, xs, m0, nx0, q, e, hp),
+          e => wr.lt.b(U32.is_lt(q, nx0), q, m, m0, xs, fi, nx0, n0, {==}, hf, e, hn0, hk)),
+        pssub.al(rest, qs, ps, m, m2, m0, xs, fi, nx2, nx0, n0, rs, PM.and.r(S, PM.PsSub(rest, ps, m), hs2), hr, hp, hn0, hk))
 
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
