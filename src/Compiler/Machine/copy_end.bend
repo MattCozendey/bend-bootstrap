@@ -1358,3 +1358,254 @@ def al.end(+m: Cr.Cir.Cells, +pend: U32, +P: List<&2, U32>, +Q: List<&2, U32>, +
           ct.z(m, P, Q, zs, K, F, N, z, xc, r, hcs, hPz, hz, h0, honce, hps, hpz, hpc),
           al.cells.end(P, m, P, Q, zs, K, F, N, z, xc, r, hcs, hPz, hz, h0, honce, hps, hPz, hPr, hpz, hcs)),
         lt.end(n, m, Q, F, N, z, xc, hz, h0, hpc, K.Bo.and_r(C1, L1, hCL)))))
+
+# The release
+# -----------
+
+# an own cell (from F on, past the image K) is below next
+def cell.own.of(b: Bool, +x: U32, +K: U32, +F: U32, +N: U32, eb: {Bool.and(Bool.not(U32.is_zero(x)), U32.is_le(x, K)) == b : Bool},
+  +hkx: {U32.is_lt(K, x) == True{} : Bool}, h: {Bool.or(b, Bool.and(U32.is_le(F, x), U32.is_lt(x, N))) == True{} : Bool}) ->
+  {U32.is_lt(x, N) == True{} : Bool}:
+  match b:
+    case True{}:
+      K.U.lt_ge(K, x, {U32.is_lt(x, N) == True{} : Bool}, hkx, K.Bo.and_r(Bool.not(U32.is_zero(x)), U32.is_le(x, K), eb))
+    case False{}:
+      K.Bo.and_r(U32.is_le(F, x), U32.is_lt(x, N), h)
+
+def cell.own(+x: U32, +K: U32, +F: U32, +N: U32, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +hfx: {U32.is_le(F, x) == True{} : Bool},
+  h: {Cr.Cir.is_cell(x, K, F, N) == True{} : Bool}) -> {U32.is_lt(x, N) == True{} : Bool}:
+  cell.own.of(Bool.and(Bool.not(U32.is_zero(x)), U32.is_le(x, K)), x, K, F, N, {==}, K.U.lt_le(K, F, x, hkf, hfx), h)
+
+# a cell past the image K and at or past next N is none
+def cell.past.b(a: Bool, c: Bool, +z: U32, +K: U32, +F: U32, +N: U32, ea: {U32.is_le(z, K) == a : Bool}, ec: {U32.is_lt(z, N) == c : Bool},
+  +hkz: {U32.is_lt(K, z) == True{} : Bool}, +hnz: {U32.is_le(N, z) == True{} : Bool}) ->
+  {Bool.or(Bool.and(Bool.not(U32.is_zero(z)), a), Bool.and(U32.is_le(F, z), c)) == False{} : Bool}:
+  match a c:
+    case True{} _:
+      K.U.lt_ge(K, z, {Bool.or(Bool.and(Bool.not(U32.is_zero(z)), True{}), Bool.and(U32.is_le(F, z), c)) == False{} : Bool}, hkz, ea)
+    case False{} True{}:
+      K.U.lt_ge(z, N, {Bool.or(Bool.and(Bool.not(U32.is_zero(z)), False{}), Bool.and(U32.is_le(F, z), True{})) == False{} : Bool}, ec, hnz)
+    case False{} False{}:
+      %Equal.sym(Bool, Bool.and(Bool.not(U32.is_zero(z)), False{}), False{}, W.and.f(Bool.not(U32.is_zero(z)))) :
+        {Bool.or(_, Bool.and(U32.is_le(F, z), False{})) == False{} : Bool}
+      W.and.f(U32.is_le(F, z))
+
+def cell.past(+z: U32, +K: U32, +F: U32, +N: U32, +hkz: {U32.is_lt(K, z) == True{} : Bool}, +hnz: {U32.is_le(N, z) == True{} : Bool}) ->
+  {Cr.Cir.is_cell(z, K, F, N) == False{} : Bool}:
+  cell.past.b(U32.is_le(z, K), U32.is_lt(z, N), z, K, F, N, {==}, {==}, hkz, hnz)
+
+# a cell of X may not be read
+def al.has(+K: U32, +F: U32, +X: List<&2, U32>, +N: U32, +z: U32, hx: {D.Has(X, z) == True{} : Bool}) -> {D.Al(K, F, X, N, z) == False{} : Bool}:
+  %Equal.sym(Bool, D.Has(X, z), True{}, hx) : {Bool.and(Cr.Cir.is_cell(z, K, F, N), Bool.and(Bool.not(_), Bool.not(D.Tbc(z)))) == False{} : Bool}
+  W.and.f(Cr.Cir.is_cell(z, K, F, N))
+
+def al.out.b(b: Bool, +K: U32, +F: U32, +X0: List<&2, U32>, +E: List<&2, U32>, +N: U32, +z: U32, eb: {D.Has(X0, z) == b : Bool},
+  +hkz: {U32.is_lt(K, z) == True{} : Bool}, h: {Bool.or(b, U32.is_le(N, z)) == True{} : Bool}) ->
+  {D.Al(K, F, List.append(&2, U32, X0, E), N, z) == False{} : Bool}:
+  match b:
+    case True{}:
+      %Equal.sym(Bool, D.Has(List.append(&2, U32, X0, E), z), Bool.or(D.Has(X0, z), D.Has(E, z)), K.has.app(X0, E, z)) :
+        {Bool.and(Cr.Cir.is_cell(z, K, F, N), Bool.and(Bool.not(_), Bool.not(D.Tbc(z)))) == False{} : Bool}
+      %Equal.sym(Bool, D.Has(X0, z), True{}, eb) :
+        {Bool.and(Cr.Cir.is_cell(z, K, F, N), Bool.and(Bool.not(Bool.or(_, D.Has(E, z))), Bool.not(D.Tbc(z)))) == False{} : Bool}
+      W.and.f(Cr.Cir.is_cell(z, K, F, N))
+    case False{}:
+      %Equal.sym(Bool, Cr.Cir.is_cell(z, K, F, N), False{}, cell.past(z, K, F, N, hkz, h)) :
+        {Bool.and(_, Bool.and(Bool.not(D.Has(List.append(&2, U32, X0, E), z)), Bool.not(D.Tbc(z)))) == False{} : Bool}
+      {==}
+
+# a cell that was garbage at the start (in X0) or not yet a cell (at or past
+# N) may not be read with the start's X0 ++ E and N
+def al.out(+K: U32, +F: U32, +X0: List<&2, U32>, +E: List<&2, U32>, +N: U32, +z: U32, +hkz: {U32.is_lt(K, z) == True{} : Bool},
+  h: {Bool.or(D.Has(X0, z), U32.is_le(N, z)) == True{} : Bool}) -> {D.Al(K, F, List.append(&2, U32, X0, E), N, z) == False{} : Bool}:
+  al.out.b(D.Has(X0, z), K, F, X0, E, N, z, {==}, hkz, h)
+
+# the fuel of the result's checked term, when hx
+def end.g(hx: Bool, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32, +P: List<&2, U32>,
+  +E: List<&2, U32>, +nx: U32, +root: U32, +u: Bk.Term,
+  h: D.Hx(hx, D.Ex(Nat, g => {D.Tm(g, m, ks, img, K, F, List.append(&2, U32, P, Con{root, E}), nx, D.Fd(2n, m, root)) == Some{u} : Maybe<&2, Bk.Term>}))) -> Nat:
+  match hx:
+    case True{}:
+      (g0, _) = h
+      g0
+    case False{}:
+      0n
+
+# the result's checked term after the release: the root, which the term
+# never reads, joins the garbage
+def end.tm(hx: Bool, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32, +P: List<&2, U32>,
+  +E: List<&2, U32>, +nx: U32, +root: U32, +xc: Cr.Cir.Cell, +u: Bk.Term, +hkn: {U32.is_lt(K, nx) == True{} : Bool},
+  h: D.Hx(hx, D.Ex(Nat, g => {D.Tm(g, m, ks, img, K, F, List.append(&2, U32, P, Con{root, E}), nx, D.Fd(2n, m, root)) == Some{u} : Maybe<&2, Bk.Term>}))) ->
+  D.Hx(hx, {D.Tm(end.g(hx, m, ks, img, K, F, P, E, nx, root, u, h), Cr.Cir.Cells.set(m, root, xc), ks, img, K, F,
+    List.append(&2, U32, Con{root, P}, E), nx, D.Fd(2n, m, root)) == Some{u} : Maybe<&2, Bk.Term>}):
+  match hx:
+    case True{}:
+      (g0, htm) = h
+      +g = g0
+      +ms = Cr.Cir.Cells.set(m, root, xc)
+      +X = {List.append(&2, U32, P, Con{root, E}) : List<&2, U32>}
+      +hin = K.Bo.and_i(U32.is_le(nx, nx), D.Incl.go(Con{root, List.append(&2, U32, P, E)}, X, nx), K.U.le_t(nx, nx, N.le_refl(U32.to_nat(nx))),
+        K.Bo.and_i(Bool.or(D.Has(X, root), U32.is_le(nx, root)), D.Incl.go(List.append(&2, U32, P, E), X, nx),
+          K.Bo.or_il(D.Has(X, root), U32.is_le(nx, root), has.mid(P, root, E)),
+          incl.sub(List.append(&2, U32, P, E), X, nx, K.sub.app(P, E, X, sub.l(P, Con{root, E}), sub.r(P, root, E)))))
+      +hi = Equal.sym(Bool, D.Al(K, F, X, nx, root), False{}, al.has(K, F, X, nx, root, has.mid(P, root, E)))
+      C.Tm.mono(g, ms, ks, img, K, F, X, nx, List.append(&2, U32, Con{root, P}, E), nx, D.Fd(2n, m, root), u, hin, hkn,
+        C.Tm.wx(g, m, ks, img, K, F, X, nx, D.Fd(2n, m, root), root, xc, u, hi, htm))
+    case False{}:
+      Unit{}
+
+# M.copy.end, at the walk's end (no frames): register rr gets the copy from
+# the root (register rt), whose release gives Post's facts; ups are the
+# registers' writes, rg the registers before, and hbc says that Bc is the
+# own cells' budget of the walk's accounting
+def end.post(+f: Nat, +hx: Bool, +mo: D.Mo, +t: Bk.Term, +regs: List<&2, U32>, +scr: List<&2, Nat>, +rr: Nat, +rt: Nat,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>,
+  +m0: Cr.Cir.Cells, +P0: List<&2, U32>, +Q0: List<&2, U32>, +E: List<&2, U32>, +N0: U32, +Bc: Nat, +rs: List<&2, D.Rt>,
+  +ts: List<&2, D.Tmp>, +kc: List<&2, D.Kc>, +S: List<&2, D.Rt>, +B0: Nat, +e: Nat, +zs: List<&2, D.Zs>, +cs: List<&2, D.Pr>,
+  +x: U32, -Bu: Nat, +rg: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +P: List<&2, U32>, +Q: List<&2, U32>, +pend: U32, +root: U32,
+  +T: List<&2, U32>, +ups: List<&2, D.Up>,
+  +hl: {List.length(&2, U32, rg) == 63n : Nat}, +hr: {Nat.is_lt(rr, 63n) == True{} : Bool},
+  +hrt: {List.get(&2, U32, rg, rt) == Some{root} : Maybe<&2, U32>},
+  +hrt1: {List.get(&2, U32, List.set(&2, U32, rg, rr, D.Fd(2n, m, root)), rt) == Some{root} : Maybe<&2, U32>},
+  +hp1: {List.get(&2, U32, List.set(&2, U32, rg, rr, D.Fd(2n, m, root)), 3n) == Some{pend} : Maybe<&2, U32>},
+  +hups: {List.set(&2, U32, List.set(&2, U32, rg, rr, D.Fd(2n, m, root)), 3n, root) == D.Ups(ups, D.Rg.ex(63n, regs, 0n)) : List<&2, U32>},
+  +hin: {D.Ups.in(ups, scr) == True{} : Bool},
+  +hrr: {T.tm.reg(List.set(&2, U32, List.set(&2, U32, rg, rr, D.Fd(2n, m, root)), 3n, root), rr) == D.Fd(2n, m, root) : U32},
+  +h3: {T.tm.reg(List.set(&2, U32, List.set(&2, U32, rg, rr, D.Fd(2n, m, root)), 3n, root), 3n) == root : U32},
+  +hbc: {Nat.add(B0, Nat.add(e, 1n+Pg.Term.size(D.Mo.F(mo, t, 0n)))) == Bc : Nat},
+  +hk: {U32.is_le(290, K) == True{} : Bool}, +hkf: {U32.is_lt(K, F) == True{} : Bool}, +hfn: {U32.is_le(F, nx) == True{} : Bool},
+  +hrc: {Cr.Cir.is_cell(root, K, F, nx) == True{} : Bool}, +hfr: {U32.is_le(F, root) == True{} : Bool},
+  hdj: {W.Dj(Con{root, Nil{}}, List.append(&2, U32, P, E)) == True{} : Bool},
+  hroot: W.Root(mo, m, ks, img, K, F, List.append(&2, U32, P, Con{root, E}), nx, hx, Nil{}, root, x, t),
+  hal: {D.AL(m, pend, P, Q, zs, K, F, nx) == True{} : Bool},
+  hincl: {D.Incl(P0, N0, List.append(&2, U32, P, Con{root, E}), nx) == True{} : Bool},
+  htb: D.Tb(m),
+  hrts: D.Rts(m, ks, img, K, F, List.append(&2, U32, P0, E), N0, List.append(&2, D.Rt, rs, D.Tmp.held(ts))),
+  hkcs: D.Kcs(m, K, F, List.append(&2, U32, P0, E), N0, E, kc),
+  hpz: {W.Pz(Con{root, Nil{}}, P, m) == True{} : Bool},
+  hacc: W.Acc(mo, m0, K, F, P0, Q0, N0, E, rs, ts, B0, e, t, hx, S, cs, ks, img, m, nx, Nil{}, P, Q, root, T)) ->
+  D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.copy.end(rr, rt), Cr.Cir.Stmt.nop{}}, D.S(rg, m, nx, F, K, pg, L, I)), F, K, L, I, Bu,
+    rg => ms => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(hx, mo, t, regs, scr, rr, ks, img, K, F, m0, P0, Q0, E, N0, Bc, rs, ts, kc, S, w, rg, ms, nx3))):
+  (ht11, rhx) = hroot
+  (acv, a1) = hacc
+  (aclo, a2) = a1
+  (_, a3) = a2
+  (acnt, a4) = a3
+  (_, a5) = a4
+  (aincl, a6) = a5
+  (asubw, a7) = a6
+  (anfx, a8) = a7
+  (asame, a9) = a8
+  (akept, a10) = a9
+  (_, a11) = a10
+  (amds, a12) = a11
+  (anx, a13) = a12
+  (atkw, a14) = a13
+  (agw, a15) = a14
+  (asub, a16) = a15
+  (ainall, a17) = a16
+  (atcw, a18) = a17
+  (apc, a19) = a18
+  (ab214, abc) = a19
+  +htb2 = htb
+  +agw2 = agw
+  +apc2 = apc
+  +anx2 = anx
+  +aincl2 = aincl
+  +X = {List.append(&2, U32, P, Con{root, E}) : List<&2, U32>}
+  +r = D.Fd(2n, m, root)
+  +u = D.Mo.F(mo, t, 0n)
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +n0 = Nat.sub(U32.to_nat(N0), U32.to_nat(F))
+  +hl0 = D.Tmp.held(ts)
+  +RH = List.append(&2, D.Rt, rs, hl0)
+  +xc = Ec(m, root, pend)
+  +ms = Cr.Cir.Cells.set(m, root, xc)
+  +Pn = {Con{root, P} : List<&2, U32>}
+  +Qn = {Con{root, Q} : List<&2, U32>}
+  +h0 = {end.c0(Cr.Cir.Cells.get(m, root), pend) : {Cr.Cir.Cell.get(0n, xc) == 45 : U32}}
+  +h1 = {end.c1(Cr.Cir.Cells.get(m, root), pend) : {Cr.Cir.Cell.get(1n, xc) == pend : U32}}
+  +hz = end.hz(K, F, root, hk, hkf, hfr)
+  +hzn = cell.own(root, K, F, nx, hkf, hfr, hrc)
+  +eFn = K.Ar.sub.add(U32.to_nat(F), U32.to_nat(nx), K.U.le(F, nx, hfn))
+  +eNF = Equal.sym(Nat, Nat.add(U32.to_nat(F), n), U32.to_nat(nx), eFn)
+  +honce = W.once.at(n, F, root, nx, K.U.le(F, root, hfr),
+    N.le_rw_r(1n+U32.to_nat(root), U32.to_nat(nx), Nat.add(U32.to_nat(F), n), eNF, K.U.lt(root, nx, hzn)),
+    N.le_rw_l(U32.to_nat(nx), Nat.add(U32.to_nat(F), n), U32.to_nat(nx), eNF, N.le_refl(U32.to_nat(nx))))
+  +hps = ps.prj(m, Q, root, ht11, htb2)
+  +hPE = K.Bo.not_t(D.Has(List.append(&2, U32, P, E), root), K.Bo.and_l(Bool.not(D.Has(List.append(&2, U32, P, E), root)),
+    W.Dj(Nil{}, List.append(&2, U32, P, E)), hdj))
+  +hPEo = Equal.trans(Bool, Bool.or(D.Has(P, root), D.Has(E, root)), D.Has(List.append(&2, U32, P, E), root), False{},
+    Equal.sym(Bool, D.Has(List.append(&2, U32, P, E), root), Bool.or(D.Has(P, root), D.Has(E, root)), K.has.app(P, E, root)), hPE)
+  +hPz = K.or.fl(D.Has(P, root), D.Has(E, root), hPEo)
+  +hEz = K.or.fr(D.Has(P, root), D.Has(E, root), hPEo)
+  +hTz = K.Bo.and_l(D.Has(T, root), D.Sub(Nil{}, T), asubw)
+  +hpzP = K.Na.eq(D.Pp(P, m, root), 0n, K.Bo.and_l(Nat.is_eq(D.Pp(P, m, root), 0n), W.Pz(Nil{}, P, m), hpz))
+  +nxa = K.Bo.and_l(W.Nx.at(X, u, m, r), W.Nx(RH, m, X), anx2)
+  +hnz = nxat.has(X, u, m, r, root, has.mid(P, root, E), nxa)
+  +hNrz = nx.has(Con{D.Rt{0n, r, u}, RH}, m, X, root, has.mid(P, root, E), anx2)
+  +hXr = Equal.trans(Bool, Bool.or(D.Has(P, r), D.Has(Con{root, E}, r)), D.Has(X, r), False{},
+    Equal.sym(Bool, D.Has(X, r), Bool.or(D.Has(P, r), D.Has(Con{root, E}, r)), K.has.app(P, Con{root, E}, r)), nxat.out(X, u, m, r, nxa))
+  +hPr = K.or.fl(D.Has(P, r), D.Has(Con{root, E}, r), hXr)
+  +hinT = C.Has.incl(T, P0, N0, root, aincl2, hTz)
+  +hal0 = al.out(K, F, P0, E, N0, root, K.U.lt_le(K, F, root, hkf, hfr), hinT)
+  +hkn = K.U.lt_le(K, F, nx, hkf, hfn)
+  +rh = rhx
+  +g = end.g(hx, m, ks, img, K, F, P, E, nx, root, u, rh)
+  +htm2 = end.tm(hx, m, ks, img, K, F, P, E, nx, root, xc, u, hkn, rh)
+  +rg2 = List.set(&2, U32, List.set(&2, U32, rg, rr, r), 3n, root)
+  +st = D.S(rg, m, nx, F, K, pg, L, I)
+  +ce = Mc.M.copy.end(rr, rt)
+  +st1 = D.S(rg2, EndM(m, root, pend), nx, F, K, pg, L, I)
+  +hrun = W.end.run(1n+f, rr, rt, rg, m, nx, F, K, pg, L, I, root, pend, hl, hr, hrt, hrt1, hp1, hrc)
+  +hseq = K.X.seq(f, ce, Cr.Cir.Stmt.nop{}, st, st1, Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, ce, st), Cr.Cir.Out.next{st1}, hrun))
+  +hone = Equal.cong(Cr.Cir.Cells, Cr.Cir.Out, w => Cr.Cir.Out.next{D.S(rg2, w, nx, F, K, pg, L, I)}, EndM(m, root, pend), ms, end.one(m, root, pend))
+  +eo = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{ce, Cr.Cir.Stmt.nop{}}, st), Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, st1),
+    Cr.Cir.Out.next{D.S(rg2, ms, nx, F, K, pg, L, I)}, hseq,
+    Equal.trans(Cr.Cir.Out, Cr.Cir.exec(1n+f, Cr.Cir.Stmt.nop{}, st1), Cr.Cir.Out.next{st1}, Cr.Cir.Out.next{D.S(rg2, ms, nx, F, K, pg, L, I)},
+      Sr.run.nop(1n+f, st1), hone))
+  +c5 = {(%Equal.sym(U32, T.tm.reg(rg2, 3n), root, h3) : {D.AL(ms, _, Pn, Qn, zs, K, F, nx) == True{} : Bool};
+      al.end(m, pend, P, Q, zs, K, F, nx, root, xc, r, hkf, hfr, hzn, hz, h0, h1, honce, hps, hpzP, apc2, hPz, hPr, hal)) :
+    {D.AL(ms, T.tm.reg(rg2, 3n), Pn, Qn, zs, K, F, nx) == True{} : Bool}}
+  +c6 = K.Bo.and_i(U32.is_le(N0, nx), D.Incl.go(Pn, P0, N0), K.Bo.and_l(U32.is_le(N0, nx), D.Incl.go(X, P0, N0), hincl),
+    K.Bo.and_i(Bool.or(D.Has(P0, root), U32.is_le(N0, root)), D.Incl.go(P, P0, N0), hinT, incl.gw(P, P0, T, N0, agw2)))
+  +G0 = Bool.and(D.Has(T, root), Bool.and(U32.is_eq(D.Fd(0n, ms, root), 45), D.Has(Qn, root)))
+  +c14 = K.Bo.and_i(Bool.or(Bool.and(D.Has(P0, root), Bool.not(D.Has(T, root))), G0), D.Gb(P, P0, T, Qn, ms),
+    K.Bo.or_ir(Bool.and(D.Has(P0, root), Bool.not(D.Has(T, root))), G0,
+      K.Bo.and_i(D.Has(T, root), Bool.and(U32.is_eq(D.Fd(0n, ms, root), 45), D.Has(Qn, root)), hTz,
+        K.Bo.and_i(U32.is_eq(D.Fd(0n, ms, root), 45), D.Has(Qn, root),
+          (%Equal.sym(U32, D.Fd(0n, ms, root), 45, f0.z(m, root, xc, h0)) : {U32.is_eq(_, 45) == True{} : Bool}; {==}), has.cons.eq(root, Q)))),
+    gb.gw(P, P0, T, Qn, ms, agw2))
+  +hne = K.Ar.ne.all(U32.to_nat(K), 1, root, N.le_trans(Nat.add(U32.to_nat(1), U32.to_nat(K)), U32.to_nat(F), U32.to_nat(root),
+    K.U.lt(K, F, hkf), K.U.le(F, root, hfr)))
+  +c23 = {(%hbc : {Bool.or(U32.is_eq(nx, N0), Nat.is_le(n, _)) == True{} : Bool}; abc) : {Bool.or(U32.is_eq(nx, N0), Nat.is_le(n, Bc)) == True{} : Bool}}
+  +acnt2 = N.le_rw_l(Nat.add(U32.to_nat(nx), Nat.add(List.length(&2, U32, P0), 0n)), Nat.add(U32.to_nat(nx), List.length(&2, U32, P0)),
+    Nat.add(U32.to_nat(N0), Nat.add(List.length(&2, U32, P), 1n+Pg.Term.size(u))),
+    Equal.cong(Nat, Nat, w => Nat.add(U32.to_nat(nx), w), Nat.add(List.length(&2, U32, P0), 0n), List.length(&2, U32, P0),
+      N.add_zero(List.length(&2, U32, P0))), acnt)
+  +c24 = N.le_rw_r(Nat.add(U32.to_nat(nx), List.length(&2, U32, P0)), Nat.add(U32.to_nat(N0), Nat.add(List.length(&2, U32, P), 1n+Pg.Term.size(u))),
+    Nat.add(U32.to_nat(N0), 1n+Nat.add(List.length(&2, U32, P), Pg.Term.size(u))),
+    Equal.cong(Nat, Nat, w => Nat.add(U32.to_nat(N0), w), Nat.add(List.length(&2, U32, P), 1n+Pg.Term.size(u)),
+      1n+Nat.add(List.length(&2, U32, P), Pg.Term.size(u)), N.add_succ_r(List.length(&2, U32, P), Pg.Term.size(u))), acnt2)
+  K.Ok.eq(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{ce, Cr.Cir.Stmt.nop{}}, st), Cr.Cir.Out.next{D.S(rg2, ms, nx, F, K, pg, L, I)}, F, K, L, I, Bu,
+    rg => ms => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(hx, mo, t, regs, scr, rr, ks, img, K, F, m0, P0, Q0, E, N0, Bc, rs, ts, kc, S, w, rg, ms, nx3)),
+    Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{ce, Cr.Cir.Stmt.nop{}}, st), Cr.Cir.Out.next{D.S(rg2, ms, nx, F, K, pg, L, I)}, eo),
+    K.Ok.next(rg2, ms, nx, F, K, pg, L, I, Bu,
+      rg => ms => nx3 => pg3 => D.Ex(D.Wt, w => D.Post(hx, mo, t, regs, scr, rr, ks, img, K, F, m0, P0, Q0, E, N0, Bc, rs, ts, kc, S, w, rg, ms, nx3)),
+      (D.Wt{ups, r, g, Pn, Qn, zs, T, cs},
+        (hups, (hin, (hrr, (htm2, (c5, (c6, (K.tb.set(m, root, xc, hz, htb2),
+        (rts.wx(RH, m, ks, img, K, F, List.append(&2, U32, P0, E), N0, root, xc, Equal.sym(Bool, D.Al(K, F, List.append(&2, U32, P0, E), N0, root), False{}, hal0), hrts),
+        (kcs.wx(kc, m, K, F, List.append(&2, U32, P0, E), N0, E, root, xc, hal0, hEz, hkcs),
+        (cv.end(n, m, F, P, root, xc, g, r, u, RH, List.append(&2, U32, D.Tmp.cells(ts), E), hNrz, acv),
+        (clo.end(n, m, F, Q, root, xc, D.Tmp.cells(ts), D.Rt.cells(hl0), E, hz, h0, apc2, aclo),
+        (made.set(u, m, m0, r, S, T, cs, root, xc, hnz, K.Bo.and_l(D.Made(u, m, m0, r, S, T, cs), W.Mds(Nil{}, m, m0, S, T, cs), amds)),
+        (tk.end(T, m, P, root, xc, r, u, hnz, h0, atkw),
+        (c14,
+        (sub.ins(P0, T, root, P, asub),
+        (aincl2,
+        (ainall,
+        (nf.end(T, m, root, xc, h0, anfx),
+        (tc.end(T, m, P, Q, n, F, root, xc, r, hz, h0, honce, hps, atcw),
+        (same.ne(U32.to_nat(K), m0, m, root, xc, 1, hne, asame),
+        (kept.end(n0, m0, m, F, T, P, F, n0, n, Q0, Q, root, xc, r, hTz, hz, h0, honce, hps, akept),
+        (ab214, (c23, c24))))))))))))))))))))))))))
