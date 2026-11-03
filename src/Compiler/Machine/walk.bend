@@ -11,6 +11,7 @@
 
 import Base
 import ../../Book/impl.bend as Bk
+import ../../Shared/shared.bend as Sd
 import ../../Eval/impl.bend as El
 import ../../Program/impl.bend as Pg
 import ../../Wasm/impl.bend as Wa
@@ -1800,6 +1801,34 @@ def mat.fail(+h: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
           ws.ev(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Mat{k, h0, n0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5), hn),
         wh.kc(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, m2, nx2, c, Bk.Term.Mat{k, h0, n0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, ws.wh(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Mat{k, h0, n0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5)), wh.st(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, m2, nx2, c, Bk.Term.Mat{k, h0, n0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, ws.wh(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Mat{k, h0, n0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5)), wh.mem(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, m2, nx2, c, Bk.Term.Mat{k, h0, n0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, ws.wh(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Mat{k, h0, n0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5)))}))
 
+# the walk of a live label whose name is the case's: the case's first arm
+def mat.ev.hit(+q0: Bk.Quan, +j: List<&2, Word(8n)>, +k: List<&2, Word(8n)>, +h0: Bk.Term, +n0: Bk.Term,
+  +e: List<&2, Bk.Term>, +rest: List<&2, El.Arg>,
+  hq: {El.Quan.live(q0) == True{} : Bool}, hj: {Sd.Name.is_eq(j, k) == True{} : Bool}) ->
+  {El.Eval.walk(Bk.Term.Mat{k, h0, n0}, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest}) ==
+    El.Eval.walk(h0, e, rest) : Maybe<Maybe<Bk.Term>>}:
+  (%Equal.sym(Bool, El.Quan.live(q0), True{}, hq) :
+     {El.Eval.walk.if(_, El.Eval.walk.pick(Sd.Name.is_eq(j, k), El.Eval.walk(h0, e, rest), El.Eval.walk(n0, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest}))) ==
+      El.Eval.walk(h0, e, rest) : Maybe<Maybe<Bk.Term>>};
+   %Equal.sym(Bool, Sd.Name.is_eq(j, k), True{}, hj) :
+     {El.Eval.walk.pick(_, El.Eval.walk(h0, e, rest), El.Eval.walk(n0, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest})) ==
+      El.Eval.walk(h0, e, rest) : Maybe<Maybe<Bk.Term>>};
+   {==})
+
+# the walk of a live label of another name: the case's second arm
+def mat.ev.miss(+q0: Bk.Quan, +j: List<&2, Word(8n)>, +k: List<&2, Word(8n)>, +h0: Bk.Term, +n0: Bk.Term,
+  +e: List<&2, Bk.Term>, +rest: List<&2, El.Arg>,
+  hq: {El.Quan.live(q0) == True{} : Bool}, hj: {Sd.Name.is_eq(j, k) == False{} : Bool}) ->
+  {El.Eval.walk(Bk.Term.Mat{k, h0, n0}, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest}) ==
+    El.Eval.walk(n0, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest}) : Maybe<Maybe<Bk.Term>>}:
+  (%Equal.sym(Bool, El.Quan.live(q0), True{}, hq) :
+     {El.Eval.walk.if(_, El.Eval.walk.pick(Sd.Name.is_eq(j, k), El.Eval.walk(h0, e, rest), El.Eval.walk(n0, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest}))) ==
+      El.Eval.walk(n0, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest}) : Maybe<Maybe<Bk.Term>>};
+   %Equal.sym(Bool, Sd.Name.is_eq(j, k), False{}, hj) :
+     {El.Eval.walk.pick(_, El.Eval.walk(h0, e, rest), El.Eval.walk(n0, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest})) ==
+      El.Eval.walk(n0, e, Con{El.Arg{q0, Bk.Term.Lab{j}}, rest}) : Maybe<Maybe<Bk.Term>>};
+   {==})
+
 # a live Lab: the test passes; the case on the label
 def mat.lab(+h: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
@@ -2014,6 +2043,16 @@ def prj.fail(+h: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
         Equal.trans(Maybe<Maybe<Bk.Term>>, El.Eval.walk(tt, Nil{}, xs), El.Eval.walk(Bk.Term.Prj{h0}, D.Arg.terms(e), Con{El.Arg{q0, x0}, rest}), None{},
           ws.ev(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Prj{h0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5), hn),
         wh.kc(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, m2, nx2, c, Bk.Term.Prj{h0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, ws.wh(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Prj{h0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5)), wh.st(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, m2, nx2, c, Bk.Term.Prj{h0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, ws.wh(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Prj{h0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5)), wh.mem(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, m2, nx2, c, Bk.Term.Prj{h0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, ws.wh(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs2, 22n, args), 24n, D.Qn(m2, args)), 23n, D.Fd(2n, m2, args)), m2, nx2, c, Bk.Term.Prj{h0}, env, e, args, Con{El.Arg{q0, x0}, rest}, pend2, ps2, w5)))}))
+
+# the walk of a live pair: its split (Eval.walk's Prj rule, live)
+def prj.ev(+h0: Bk.Term, +q0: Bk.Quan, +r1: Bk.Quan, +a1: Bk.Term, +b1: Bk.Term, +e: List<&2, Bk.Term>, +rest: List<&2, El.Arg>,
+  hq: {El.Quan.live(q0) == True{} : Bool}) ->
+  {El.Eval.walk(Bk.Term.Prj{h0}, e, Con{El.Arg{q0, Bk.Term.Tup{r1, a1, b1}}, rest}) ==
+    El.Eval.walk(h0, e, Con{El.Arg{El.Quan.fld(r1, q0), a1}, Con{El.Arg{q0, b1}, rest}}) : Maybe<Maybe<Bk.Term>>}:
+  (%Equal.sym(Bool, El.Quan.live(q0), True{}, hq) :
+     {El.Eval.walk.if(_, El.Eval.walk(h0, e, Con{El.Arg{El.Quan.fld(r1, q0), a1}, Con{El.Arg{q0, b1}, rest}})) ==
+      El.Eval.walk(h0, e, Con{El.Arg{El.Quan.fld(r1, q0), a1}, Con{El.Arg{q0, b1}, rest}}) : Maybe<Maybe<Bk.Term>>};
+   {==})
 
 # a live Tup: the test passes; its split
 def prj.tup(+h: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
@@ -2281,6 +2320,15 @@ def lam.fail(+h: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
 
 # both live or both dead: the check when the λ's quantity is 2, then the
 # argument becomes a local
+# the walk of a λ whose argument binds: the body, with the argument bound
+def lam.ev(+p: Bk.Quan, +f: Bk.Term, +q0: Bk.Quan, +x0: Bk.Term, +e: List<&2, Bk.Term>, +rest: List<&2, El.Arg>,
+  hb: {El.Quan.binds(p, q0, x0) == True{} : Bool}) ->
+  {El.Eval.walk(Bk.Term.Lam{p, f}, e, Con{El.Arg{q0, x0}, rest}) ==
+    El.Eval.walk(f, Con{x0, e}, rest) : Maybe<Maybe<Bk.Term>>}:
+  (%Equal.sym(Bool, El.Quan.binds(p, q0, x0), True{}, hb) :
+     {El.Eval.walk.if(_, El.Eval.walk(f, Con{x0, e}, rest)) == El.Eval.walk(f, Con{x0, e}, rest) : Maybe<Maybe<Bk.Term>>};
+   {==})
+
 def lam.live(+h: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
   +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +tc: U32, +tt: Bk.Term,
