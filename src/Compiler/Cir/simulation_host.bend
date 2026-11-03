@@ -30,6 +30,7 @@ import ./simulation_stmt.bend as T
 import ./simulation_alloc_run.bend as AF
 import ./simulation_run_start.bend as PR
 import ./simulation_start_memory.bend as IN
+import ./simulation_code_size.bend as CS
 
 # Numbers
 # -------
@@ -725,6 +726,44 @@ def host.all(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Ce
   host.mem(U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m), n, prog, regs, cells, i, m, o, MX, MD, P, G, W, hW, hP, gw(W, hW), eK, hK, hK1, hX0, eA, eG, lim.le(m, G, eG),
     ok, hR, hd, {==}, e)
 
+# the bytes of prog's module decode to the module (M.round.sized), which is
+# valid (V.valid.module): their run is the instance's (q)
+def run.of(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hr: {Nat.is_le(6n+regs, U32.to_nat(50000)) == True{} : Bool},
+  hs: N.Le(1n+List.length(&2, Word(8n), Cr.Wasm.encode.codes([Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)),
+    Cr.Cir.run(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells))])), U32.to_nat(4294967295)),
+  q: &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.valid(True{}, Cr.Cir.module(prog, regs, cells), m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
+  &f:Nat -> {Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  (+f0, pr) = q
+  +X = Cr.Cir.module(prog, regs, cells)
+  +w = Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells))
+  +rd = M.round.sized(prog, regs, cells, 67108864, 4294967295, 50000, G.val_M2(), M.val_MAX(), {==},
+    M.lt_le(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864), small), N.toLe(6n+regs, U32.to_nat(50000), hr), hs)
+  +rest = {(
+    %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(w), Some{X}, rd) :
+      {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(_, m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+    %Equal.sym(Wa.Wasm.Made, Wa.Wasm.instantiate.decoded(Some{X}, m, []), Wa.Wasm.instantiate.valid(Wa.Wasm.valid.module(X), X, m, []), PH.H.inst.dec(X, m, [])) :
+      {Wa.Wasm.run.made(f0, _, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+    %Equal.sym(Bool, Wa.Wasm.valid.module(X), True{}, V.valid.module(prog, regs, cells, ok, hr)) :
+      {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.valid(_, X, m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+    pr) : {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(w), m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}}
+  (f0, Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run(f0, w, i, Wa.Wasm.Engine{m, []}),
+    Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(w), m, []), i), Wa.Wasm.Outcome.result{o},
+    PH.H.run.eq(f0, w, i, m, []), rest))
+
+# the run of the bytes of prog's module, on an engine that grants each grow:
+# Cir's result
+def run.all(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  +MX: U32, +MD: U32, +small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
+  hr: {Nat.is_le(6n+regs, U32.to_nat(50000)) == True{} : Bool},
+  hs: N.Le(1n+List.length(&2, Word(8n), Cr.Wasm.encode.codes([Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)),
+    Cr.Cir.run(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells))])), U32.to_nat(4294967295)),
+  e: {Cr.Cir.result(n, prog, regs, cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
+  &f:Nat -> {Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  run.of(prog, regs, cells, i, m, o, small, ok, hr, hs, host.all(n, prog, regs, cells, i, m, o, MX, MD, small, ok, hR, hd, e))
+
 # The machine (mach_wasm.result.all)
 
 # the machine's registers, as locals, have numbers below 50000
@@ -734,3 +773,11 @@ def mach.hR() -> N.Le(8n+Mc.Mach.regs(), U32.to_nat(50000)):
 # the labels of the machine's code are fewer than 50000
 def mach.hd() -> N.Le(T.dep(Mc.Mach.code()), U32.to_nat(50000)):
   N.toLe(T.dep(Mc.Mach.code()), U32.to_nat(50000), {==})
+
+# the machine's module, run on an engine that grants each grow, gives Cir's
+# result
+def mach.all(+n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
+  e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
+  &f:Nat -> {Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(Mc.Mach.code(), Mc.Mach.regs(), cells)), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  run.all(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m, o, 50000, 50000, small, V.mach.ok(), mach.hR(), mach.hd(), {==}, CS.mach.size(cells), e)
