@@ -359,3 +359,81 @@ def call.nd(+F: Nat, +N0: Nat, +fr: Wa.Wasm.Frame, +m: Wa.Wasm.Memory, h: N.Le(F
           Empty.absurd({Wa.Wasm.call.go(1n+F1, PH.H.TS(), fr, m) == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}, h)
         case 1n+N1:
           call.nd.go(F1, N1, Wa.Wasm.step(PH.H.TS(), fr, m), h, p)
+
+# the call c of a run that reaches the status [1], in the memory mm: out of fuel, or ended with that status
+def DICH(c: Wa.Wasm.Call, -mm: Wa.Wasm.Memory) -> Data:
+  OR({c == Wa.Wasm.Call.not_done{} : Wa.Wasm.Call}, EX(j => {c == Wa.Wasm.Call.done{[1], mm, j} : Wa.Wasm.Call}))
+
+# one more step of the call
+def dich.plus(c: Wa.Wasm.Call, -mm: Wa.Wasm.Memory, q: DICH(c, mm)) -> DICH(Wa.Wasm.call.plus(c), mm):
+  match q:
+    case Inl{e}:
+      Inl{Equal.cong(Wa.Wasm.Call, Wa.Wasm.Call, z => Wa.Wasm.call.plus(z), c, Wa.Wasm.Call.not_done{}, e)}
+    case Inr{r}:
+      (+j, ec) = r
+      Inr{(1n+j, Equal.cong(Wa.Wasm.Call, Wa.Wasm.Call, z => Wa.Wasm.call.plus(z), c, Wa.Wasm.Call.done{[1], mm, j}, ec))}
+
+# a done step, whose run reaches the status [1] in the memory mm, ends the call with them (q)
+def dich.done.of(-rs: List<&2, U32>, -m1: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory, q: P2({rs == [1] : List<&2, U32>}, {m1 == mm : Wa.Wasm.Memory})) ->
+  {Wa.Wasm.Call.done{rs, m1, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call}:
+  (er, em) = q
+  (%Equal.sym(List<&2, U32>, rs, [1], er) : {Wa.Wasm.Call.done{_, m1, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call};
+    (%Equal.sym(Wa.Wasm.Memory, m1, mm, em) : {Wa.Wasm.Call.done{[1], _, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call};
+      {==}))
+
+def dich.done(+N0: Nat, -rs: List<&2, U32>, -m1: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory,
+  e: {PH.H.steps(N0, Wa.Wasm.Step.done{rs, m1}) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) ->
+  {Wa.Wasm.Call.done{rs, m1, 1n} == Wa.Wasm.Call.done{[1], mm, 1n} : Wa.Wasm.Call}:
+  dich.done.of(rs, m1, mm, gd.done(rs, m1, [1], mm, Equal.trans(Wa.Wasm.Step, Wa.Wasm.Step.done{rs, m1}, PH.H.steps(N0, Wa.Wasm.Step.done{rs, m1}), Wa.Wasm.Step.done{[1], mm},
+    Equal.sym(Wa.Wasm.Step, PH.H.steps(N0, Wa.Wasm.Step.done{rs, m1}), Wa.Wasm.Step.done{rs, m1}, steps.done(N0, rs, m1)), e)))
+
+# a trap is not a run that reaches the status [1]
+def dich.trap(+N0: Nat, -m1: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory,
+  e: {PH.H.steps(N0, Wa.Wasm.Step.trap{m1}) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) -> Empty:
+  trap.not_done(m1, [1], mm, Equal.trans(Wa.Wasm.Step, Wa.Wasm.Step.trap{m1}, PH.H.steps(N0, Wa.Wasm.Step.trap{m1}), Wa.Wasm.Step.done{[1], mm},
+    Equal.sym(Wa.Wasm.Step, PH.H.steps(N0, Wa.Wasm.Step.trap{m1}), Wa.Wasm.Step.trap{m1}, steps.trap(N0, m1)), e))
+
+# the call of a step s, whose run reaches the status [1] in the memory mm after N0 steps
+def dich.go(+F: Nat, +N0: Nat, +s: Wa.Wasm.Step, -mm: Wa.Wasm.Memory, e: {PH.H.steps(N0, s) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) ->
+  DICH(Wa.Wasm.call.stepped(s, g => m => Wa.Wasm.call.go(F, PH.H.TS(), g, m)), mm):
+  match F:
+    case 0n:
+      match s:
+        case Wa.Wasm.Step.next{+g, +m1}:
+          Inl{{==}}
+        case Wa.Wasm.Step.done{+rs, +m1}:
+          Inr{(1n, dich.done(N0, rs, m1, mm, e))}
+        case Wa.Wasm.Step.trap{+m1}:
+          Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{m1}, h => m => Wa.Wasm.call.go(0n, PH.H.TS(), h, m)), mm), dich.trap(N0, m1, mm, e))
+    case 1n+F1:
+      match N0:
+        case 0n:
+          match s:
+            case Wa.Wasm.Step.next{+g, +m1}:
+              Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.next{g, m1}, h => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), h, m)), mm), next.not_done(g, m1, [1], mm, e))
+            case Wa.Wasm.Step.done{+rs, +m1}:
+              Inr{(1n, dich.done(0n, rs, m1, mm, e))}
+            case Wa.Wasm.Step.trap{+m1}:
+              Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{m1}, h => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), h, m)), mm), dich.trap(0n, m1, mm, e))
+        case 1n+N1:
+          match s:
+            case Wa.Wasm.Step.next{+g, +m1}:
+              dich.plus(Wa.Wasm.call.go(1n+F1, PH.H.TS(), g, m1), mm, dich.go(F1, N1, Wa.Wasm.step(PH.H.TS(), g, m1), mm, e))
+            case Wa.Wasm.Step.done{+rs, +m1}:
+              Inr{(1n, dich.done(1n+N1, rs, m1, mm, e))}
+            case Wa.Wasm.Step.trap{+m1}:
+              Empty.absurd(DICH(Wa.Wasm.call.stepped(Wa.Wasm.Step.trap{m1}, h => m => Wa.Wasm.call.go(1n+F1, PH.H.TS(), h, m)), mm), dich.trap(1n+N1, m1, mm, e))
+
+# the call of a frame whose run reaches the status [1], in the memory mm, after N0 steps: with any fuel F, it is
+# out of fuel or ends with that status
+def call.dich(+F: Nat, +N0: Nat, +fr: Wa.Wasm.Frame, +m: Wa.Wasm.Memory, -mm: Wa.Wasm.Memory,
+  e: {PH.H.steps(N0, Wa.Wasm.Step.next{fr, m}) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}) -> DICH(Wa.Wasm.call.go(F, PH.H.TS(), fr, m), mm):
+  match F:
+    case 0n:
+      Inl{{==}}
+    case 1n+F1:
+      match N0:
+        case 0n:
+          Empty.absurd(DICH(Wa.Wasm.call.go(1n+F1, PH.H.TS(), fr, m), mm), next.not_done(fr, m, [1], mm, e))
+        case 1n+N1:
+          dich.go(F1, N1, Wa.Wasm.step(PH.H.TS(), fr, m), mm, e)
