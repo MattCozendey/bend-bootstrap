@@ -123,7 +123,6 @@ const OPCODES = {
 const HEADER = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 // how long the reference interpreter may take for all the modules
 const ORACLE_MS = 600_000;
-const HERE = import.meta.dir;
 
 // functions
 
@@ -387,19 +386,13 @@ const getInvalid = (key: string, m: Module): Module => {
         ),
       };
     case 2:
-      return withBody((i) => [i.op.startsWith("local") ? ({ ...i, index: 64 } as Instr) : i]);
+      return withBody((i) => ["index" in i ? { ...i, index: 64 } : i]);
     case 3:
-      return withBody((i) => [
-        i.op === "br" || i.op === "br_if" ? ({ ...i, depth: 64 } as Instr) : i,
-      ]);
+      return withBody((i) => ["depth" in i ? { ...i, depth: 64 } : i]);
     case 4:
       return { ...m, extraTypes: 1 };
     case 5:
-      return withBody((i) =>
-        ["i32.load", "i32.store", "i32.load8_u", "i32.store8"].includes(i.op)
-          ? [{ ...i, align: 3 } as Instr]
-          : [i],
-      );
+      return withBody((i) => ["align" in i ? { ...i, align: 3 } : i]);
     case 6:
       return { ...m, memory: undefined };
     case 7:
@@ -615,9 +608,10 @@ const getCase = (seed: number): Case => {
   return { seed, bytes, calls };
 };
 
-// a module of the text format of a script, of the bytes
-const getModuleText = (bs: readonly number[]): string =>
-  `(module binary "${bs.map((b) => `\\${b.toString(16).padStart(2, "0")}`).join("")}")`;
+// a module of the binary format, as the command kind ("module", or "module definition") of a
+// script writes it
+const getModuleText = (kind: string, bs: readonly number[]): string =>
+  `(${kind} binary "${bs.map((b) => `\\${b.toString(16).padStart(2, "0")}`).join("")}")`;
 
 const getInvoke = (call: Case["calls"][number]): string =>
   `(invoke "${call.name}"${call.args.map((a) => ` (i32.const 0x${a.toString(16)})`).join("")})`;
@@ -627,10 +621,10 @@ const getInvoke = (call: Case["calls"][number]): string =>
 // its values, or traps. Anything else is no answer of the reference interpreter's, and no script
 const getScript = (c: Case, said: readonly string[]): string | undefined => {
   const [module = "", instance = "", ...results] = said;
-  const text = getModuleText(c.bytes);
-  if (module === "invalid" || module === "malformed") return `(assert_${module} ${text} "")\n`;
-  const defined = `(module definition binary "${text.slice('(module binary "'.length)}\n`;
+  if (module === "invalid" || module === "malformed")
+    return `(assert_${module} ${getModuleText("module", c.bytes)} "")\n`;
   if (module !== "valid") return undefined;
+  const defined = `${getModuleText("module definition", c.bytes)}\n`;
   if (instance === "trap") return `${defined}(assert_trap (module instance) "")\n`;
   const asserts = c.calls.map((call, i) => {
     const [kind = "", ...values] = (results[i] ?? "").split(" ");
@@ -660,7 +654,7 @@ mkdirSync(at("bin"));
 cases.forEach((c) =>
   writeFileSync(
     at(`gen/s${c.seed}.wast`),
-    [getModuleText(c.bytes), ...c.calls.map(getInvoke)].join("\n"),
+    [getModuleText("module", c.bytes), ...c.calls.map(getInvoke)].join("\n"),
   ),
 );
 const oracle = Bun.spawnSync([spec.oracle], {
