@@ -519,3 +519,223 @@ def find.refs(+es: List<&2, Mc.Img.Def>, +k: List<&2, Word(8n)>) ->
       Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, Mc.Img.ref(es, k)),
         Mc.Img.trie.get(k, Mc.Img.Trie.none{}), None{}, get.none(k)),
       maybe.of.none(Mc.Img.ref(es, k))))
+
+# The number of a name in ks
+# --------------------------
+#
+# Img.ids numbers the names of ks in order, each at the place of its first
+# copy: num.nat is that place, as a Nat, and first is the name there. They
+# agree: the name at the place is the first copy.
+
+# the place of the first copy of k in ks
+def num.nat(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>) -> Nat:
+  match ks:
+    case Nil{}:
+      0n
+    case Con{+n, +rest}:
+      Bool.pick(Nat, Sd.Name.is_eq(n, k), 0n, 1n+num.nat(rest, k))
+
+# the first copy of k in ks, if any
+def first(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>) -> Maybe<&2, List<&2, Word(8n)>>:
+  match ks:
+    case Nil{}:
+      None{}
+    case Con{+n, +rest}:
+      Bool.pick(Maybe<&2, List<&2, Word(8n)>>, Sd.Name.is_eq(n, k), Some{n}, first(rest, k))
+
+# Bool.pick at a side known True
+def pick.true(-A: Type, b: Bool, t: A, f: A, h: {b == True{} : Bool}) -> {Bool.pick(A, b, t, f) == t : A}:
+  %Equal.sym(Bool, b, True{}, h) : {Bool.pick(A, _, t, f) == t : A}
+  {==}
+
+# Bool.pick at a side known False
+def pick.false(-A: Type, b: Bool, t: A, f: A, h: {b == False{} : Bool}) -> {Bool.pick(A, b, t, f) == f : A}:
+  %Equal.sym(Bool, b, False{}, h) : {Bool.pick(A, _, t, f) == f : A}
+  {==}
+
+# the name at the place of k's first copy is the first copy
+def get.num(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>) ->
+  {List.get(&2, List<&2, Word(8n)>, ks, num.nat(ks, k)) == first(ks, k) : Maybe<&2, List<&2, Word(8n)>>}:
+  match ks:
+    case Nil{}:
+      {==}
+    case Con{+n, +rest}:
+      name.split(n, k, Sd.Name.is_eq(n, k), {==},
+        {List.get(&2, List<&2, Word(8n)>, Con{n, rest}, num.nat(Con{n, rest}, k)) == first(Con{n, rest}, k) : Maybe<&2, List<&2, Word(8n)>>},
+        +eq => +hb =>
+          +en = pick.true(Nat, Sd.Name.is_eq(n, k), 0n, 1n+num.nat(rest, k), hb)
+          +ef = pick.true(Maybe<&2, List<&2, Word(8n)>>, Sd.Name.is_eq(n, k), Some{n}, first(rest, k), hb)
+          %Equal.sym(Nat, num.nat(Con{n, rest}, k), 0n, en) : {List.get(&2, List<&2, Word(8n)>, Con{n, rest}, _) == first(Con{n, rest}, k) : Maybe<&2, List<&2, Word(8n)>>}
+          %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, first(Con{n, rest}, k), Some{n}, ef) : {List.get(&2, List<&2, Word(8n)>, Con{n, rest}, 0n) == _ : Maybe<&2, List<&2, Word(8n)>>}
+          {==},
+        ne => +hb =>
+          +en = pick.false(Nat, Sd.Name.is_eq(n, k), 0n, 1n+num.nat(rest, k), hb)
+          +ef = pick.false(Maybe<&2, List<&2, Word(8n)>>, Sd.Name.is_eq(n, k), Some{n}, first(rest, k), hb)
+          %Equal.sym(Nat, num.nat(Con{n, rest}, k), 1n+num.nat(rest, k), en) : {List.get(&2, List<&2, Word(8n)>, Con{n, rest}, _) == first(Con{n, rest}, k) : Maybe<&2, List<&2, Word(8n)>>}
+          %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, first(Con{n, rest}, k), first(rest, k), ef) : {List.get(&2, List<&2, Word(8n)>, Con{n, rest}, 1n+num.nat(rest, k)) == _ : Maybe<&2, List<&2, Word(8n)>>}
+          Equal.trans(Maybe<&2, List<&2, Word(8n)>>,
+            List.get(&2, List<&2, Word(8n)>, Con{n, rest}, 1n+num.nat(rest, k)),
+            List.get(&2, List<&2, Word(8n)>, rest, num.nat(rest, k)),
+            first(rest, k),
+            {==},
+            get.num(rest, k)))
+
+# Img.ref.if at a side known
+# --------------------------
+
+def ref.if.true(b: Bool, +at: U32, more: Unit -> U32, h: {b == True{} : Bool}) ->
+  {Mc.Img.ref.if(b, at, more) == at : U32}:
+  %Equal.sym(Bool, b, True{}, h) : {Mc.Img.ref.if(_, at, more) == at : U32}
+  {==}
+
+def ref.if.false(b: Bool, +at: U32, more: Unit -> U32, h: {b == False{} : Bool}) ->
+  {Mc.Img.ref.if(b, at, more) == more(Unit{}) : U32}:
+  %Equal.sym(Bool, b, False{}, h) : {Mc.Img.ref.if(_, at, more) == more(Unit{}) : U32}
+  {==}
+
+# a None is no Some
+def is.none(m: Maybe<&2, List<&2, Word(8n)>>) -> Type:
+  match m:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+def none.ne.some(-k: List<&2, Word(8n)>, e: {None{} == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) -> Empty:
+  %e : is.none(_)
+  Unit{}
+
+# Img.ids numbers each name it holds with Img.id's number
+# ------------------------------------------------------
+
+# the number that Img.ids writes for k, or 0 when ks has no k
+def ids.num(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +i: U32) -> U32:
+  match ks:
+    case Nil{}:
+      0
+    case Con{+n, +rest}:
+      Mc.Img.ref.if(Sd.Name.is_eq(n, k), i, u => ids.num(rest, k, U32.inc(i)))
+
+# find of ids: the trie's value for k, or the number that Img.ids writes
+def ids.find(ks: List<&2, List<&2, Word(8n)>>, +i: U32, +t: Mc.Img.Trie, +k: List<&2, Word(8n)>) ->
+  {Mc.Img.trie.find(Mc.Img.ids(ks, i, t), k) == maybe.of(Mc.Img.trie.get(k, t), ids.num(ks, k, i)) : U32}:
+  match ks:
+    case Nil{}:
+      find.of.maybe(Mc.Img.trie.get(k, t))
+    case Con{+n, +rest}:
+      Equal.trans(U32,
+        Mc.Img.trie.find(Mc.Img.ids(Con{n, rest}, i, t), k),
+        maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add(t, n, i)), ids.num(rest, k, U32.inc(i))),
+        maybe.of(Mc.Img.trie.get(k, t), ids.num(Con{n, rest}, k, i)),
+        ids.find(rest, U32.inc(i), Mc.Img.trie.add(t, n, i), k),
+        name.split(n, k, Sd.Name.is_eq(n, k), {==},
+          {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, i)), ids.num(rest, k, U32.inc(i))) ==
+           maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), i, u => ids.num(rest, k, U32.inc(i)))) : U32},
+          +eq => +hb =>
+            maybe.split(Mc.Img.trie.get(n, t),
+              {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, i)), ids.num(rest, k, U32.inc(i))) ==
+               maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), i, u => ids.num(rest, k, U32.inc(i)))) : U32},
+              hr => add.read.same.none(n, i, t, k, ids.num(rest, k, U32.inc(i)), eq, hb, hr),
+              v => hs => add.read.same.some(n, i, t, k, ids.num(rest, k, U32.inc(i)), eq, hb, v, hs)),
+          ne => +hb =>
+            maybe.split(Mc.Img.trie.get(n, t),
+              {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, i)), ids.num(rest, k, U32.inc(i))) ==
+               maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), i, u => ids.num(rest, k, U32.inc(i)))) : U32},
+              hr => add.read.diff.none(n, i, t, k, ids.num(rest, k, U32.inc(i)), ne, hb, hr),
+              v => hs => add.read.diff.some(n, i, t, k, ids.num(rest, k, U32.inc(i)), hb, v, hs))))
+
+# find of ids from an empty trie is the number that Img.ids writes
+def find.ids(+ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>) ->
+  {Mc.Img.trie.find(Mc.Img.ids(ks, 0, Mc.Img.Trie.none{}), k) == ids.num(ks, k, 0) : U32}:
+  Equal.trans(U32,
+    Mc.Img.trie.find(Mc.Img.ids(ks, 0, Mc.Img.Trie.none{}), k),
+    maybe.of(Mc.Img.trie.get(k, Mc.Img.Trie.none{}), ids.num(ks, k, 0)),
+    ids.num(ks, k, 0),
+    ids.find(ks, 0, Mc.Img.Trie.none{}, k),
+    Equal.trans(U32,
+      maybe.of(Mc.Img.trie.get(k, Mc.Img.Trie.none{}), ids.num(ks, k, 0)),
+      maybe.of(None{}, ids.num(ks, k, 0)),
+      ids.num(ks, k, 0),
+      Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, ids.num(ks, k, 0)),
+        Mc.Img.trie.get(k, Mc.Img.Trie.none{}), None{}, get.none(k)),
+      maybe.of.none(ids.num(ks, k, 0))))
+
+# a name that ks holds has Img.id's number
+def ids.num.occ(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +i: U32,
+  +h: {first(ks, k) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  {ids.num(ks, k, i) == Mc.Img.id(ks, k, i) : U32}:
+  match ks:
+    case Nil{}:
+      Empty.absurd({ids.num(Nil{}, k, i) == Mc.Img.id(Nil{}, k, i) : U32}, none.ne.some(k, h))
+    case Con{+n, +rest}:
+      name.split(n, k, Sd.Name.is_eq(n, k), {==},
+        {ids.num(Con{n, rest}, k, i) == Mc.Img.id(Con{n, rest}, k, i) : U32},
+        +eq => +hb =>
+          Equal.trans(U32,
+            ids.num(Con{n, rest}, k, i),
+            i,
+            Mc.Img.id(Con{n, rest}, k, i),
+            ref.if.true(Sd.Name.is_eq(n, k), i, u => ids.num(rest, k, U32.inc(i)), hb),
+            Equal.sym(U32, Mc.Img.id(Con{n, rest}, k, i), i,
+              ref.if.true(Sd.Name.is_eq(n, k), i, u => Mc.Img.id(rest, k, U32.inc(i)), hb))),
+        ne => +hb =>
+          +ef = pick.false(Maybe<&2, List<&2, Word(8n)>>, Sd.Name.is_eq(n, k), Some{n}, first(rest, k), hb)
+          +h2 = Equal.trans(Maybe<&2, List<&2, Word(8n)>>, first(rest, k), first(Con{n, rest}, k), Some{k},
+            Equal.sym(Maybe<&2, List<&2, Word(8n)>>, first(Con{n, rest}, k), first(rest, k), ef), h)
+          Equal.trans(U32,
+            ids.num(Con{n, rest}, k, i),
+            ids.num(rest, k, U32.inc(i)),
+            Mc.Img.id(Con{n, rest}, k, i),
+            ref.if.false(Sd.Name.is_eq(n, k), i, u => ids.num(rest, k, U32.inc(i)), hb),
+            Equal.trans(U32,
+              ids.num(rest, k, U32.inc(i)),
+              Mc.Img.id(rest, k, U32.inc(i)),
+              Mc.Img.id(Con{n, rest}, k, i),
+              ids.num.occ(rest, k, U32.inc(i), h2),
+              Equal.sym(U32, Mc.Img.id(Con{n, rest}, k, i), Mc.Img.id(rest, k, U32.inc(i)),
+                ref.if.false(Sd.Name.is_eq(n, k), i, u => Mc.Img.id(rest, k, U32.inc(i)), hb)))))
+
+# Img.id's number, at the place of the first copy of k
+def id.from(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, +j: Nat) ->
+  {Mc.Img.id(ks, k, U32.from_nat(j)) == U32.from_nat(Nat.add(j, num.nat(ks, k))) : U32}:
+  match ks:
+    case Nil{}:
+      Equal.sym(U32, U32.from_nat(Nat.add(j, 0n)), U32.from_nat(j),
+        Equal.cong(Nat, U32, z => U32.from_nat(z), Nat.add(j, 0n), j, N.add_zero(j)))
+    case Con{+n, +rest}:
+      name.split(n, k, Sd.Name.is_eq(n, k), {==},
+        {Mc.Img.id(Con{n, rest}, k, U32.from_nat(j)) == U32.from_nat(Nat.add(j, num.nat(Con{n, rest}, k))) : U32},
+        +eq => +hb =>
+          +en = pick.true(Nat, Sd.Name.is_eq(n, k), 0n, 1n+num.nat(rest, k), hb)
+          +e1 = ref.if.true(Sd.Name.is_eq(n, k), U32.from_nat(j), u => Mc.Img.id(rest, k, U32.inc(U32.from_nat(j))), hb)
+          %Equal.sym(U32, Mc.Img.ref.if(Sd.Name.is_eq(n, k), U32.from_nat(j), u => Mc.Img.id(rest, k, U32.inc(U32.from_nat(j)))), U32.from_nat(j), e1) : {_ == U32.from_nat(Nat.add(j, num.nat(Con{n, rest}, k))) : U32}
+          %Equal.sym(Nat, num.nat(Con{n, rest}, k), 0n, en) : {U32.from_nat(j) == U32.from_nat(Nat.add(j, _)) : U32}
+          %Equal.sym(Nat, Nat.add(j, 0n), j, N.add_zero(j)) : {U32.from_nat(j) == U32.from_nat(_) : U32}
+          {==},
+        ne => +hb =>
+          +en = pick.false(Nat, Sd.Name.is_eq(n, k), 0n, 1n+num.nat(rest, k), hb)
+          +e1 = ref.if.false(Sd.Name.is_eq(n, k), U32.from_nat(j), u => Mc.Img.id(rest, k, U32.inc(U32.from_nat(j))), hb)
+          +ih = id.from(rest, k, 1n+j)
+          +es = Equal.cong(Nat, U32, z => U32.from_nat(z),
+            Nat.add(1n, Nat.add(j, num.nat(rest, k))), Nat.add(j, Nat.add(1n, num.nat(rest, k))),
+            N.add_swap(1n, j, num.nat(rest, k)))
+          +ec = Equal.cong(Nat, U32, z => U32.from_nat(Nat.add(j, z)), num.nat(Con{n, rest}, k), 1n+num.nat(rest, k), en)
+          Equal.trans(U32,
+            Mc.Img.id(Con{n, rest}, k, U32.from_nat(j)),
+            Mc.Img.id(rest, k, U32.from_nat(1n+j)),
+            U32.from_nat(Nat.add(j, num.nat(Con{n, rest}, k))),
+            e1,
+            Equal.trans(U32,
+              Mc.Img.id(rest, k, U32.from_nat(1n+j)),
+              U32.from_nat(Nat.add(1n, Nat.add(j, num.nat(rest, k)))),
+              U32.from_nat(Nat.add(j, num.nat(Con{n, rest}, k))),
+              ih,
+              Equal.trans(U32,
+                U32.from_nat(Nat.add(1n, Nat.add(j, num.nat(rest, k)))),
+                U32.from_nat(Nat.add(j, Nat.add(1n, num.nat(rest, k)))),
+                U32.from_nat(Nat.add(j, num.nat(Con{n, rest}, k))),
+                es,
+                Equal.sym(U32,
+                  U32.from_nat(Nat.add(j, num.nat(Con{n, rest}, k))),
+                  U32.from_nat(Nat.add(j, Nat.add(1n, num.nat(rest, k)))),
+                  ec)))))
