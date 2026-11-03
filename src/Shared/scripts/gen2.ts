@@ -17,10 +17,12 @@
 // never commit a partial as a finished proof.
 //
 // RUN (bun; in WSL through ~/lead/heavy.sh, as every bend2 load):
-//   bun src/Shared/scripts/gen2.ts prove <file.bend> <def> [options]
-//       prove <def> of <file.bend> (a def of the file itself): when its body is exactly ?TODO, the
-//       whole body (case splits allowed); otherwise each ?TODO in its body (leaf tactics only).
-//       Prints the proof text (ready to paste) on stdout; progress on stderr.
+//   bun src/Shared/scripts/gen2.ts prove <file.bend> <def> [<def> ...] [--only RE] [options]
+//       prove each <def> of <file.bend> (defs of the file itself; with --only RE also every def of the
+//       file whose body is exactly ?TODO and whose name matches RE), the book loaded once for all:
+//       a body that is exactly ?TODO is proven whole (case splits allowed); otherwise each ?TODO in
+//       the body (leaf tactics, then decomposition). Prints the proof text (ready to paste) on stdout,
+//       under a `# <def>` line when there are several; a miss prints its partial; exit 2 if any miss.
 //   bun src/Shared/scripts/gen2.ts batch <file.bend> [--out DIR] [--only RE] [options]
 //       every def of the book (the file and all it imports, not Base) with a ?TODO in its body: a body
 //       that is exactly ?TODO is proven whole, other holes one by one. Writes DIR/report.txt (per hole:
@@ -327,15 +329,22 @@ const key = (t: LTerm): string => {
     default: return B.term_key(t);
   }
 };
-const size = (t: LTerm): number => {
-  switch (t.$) {
-    case "App": return 1 + size(t.f) + size(t.x);
-    case "Ctr": case "ADT": return 1 + t.x.reduce((a, x) => a + size(x), 0);
-    case "Eql": return 1 + size(t.a) + size(t.b);
-    case "All": return 1 + size(t.A) + size(t.B as LTerm);
-    case "Lam": return 1 + size(t.f as LTerm);
-    default: return 1;
+// node count, stopping past cap (iterative: a deep term cannot overflow the stack)
+const size = (t0: LTerm, cap = 100000): number => {
+  const st: LTerm[] = [t0];
+  let n = 0;
+  while (st.length && n <= cap) {
+    const t = st.pop()!;
+    n++;
+    switch (t.$) {
+      case "App": st.push(t.f, t.x); break;
+      case "Ctr": case "ADT": st.push(...t.x); break;
+      case "Eql": st.push(t.a, t.b); break;
+      case "All": st.push(t.A, t.B as LTerm); break;
+      case "Lam": st.push(t.f as LTerm); break;
+    }
   }
+  return n;
 };
 const unapply = (t: LTerm): [LTerm, LTerm[]] => B.term_unapply(t);
 const hasMeta = (t: LTerm): boolean => {
@@ -786,7 +795,25 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
     o2 = openMeta(c.T, c.n, toH(sol));
     if (!o2) return null;
   }
-  if (sol.some((s, j) => !s && !prem[j])) return null;
+  if (sol.some((s, j) => !s && !prem[j])) {
+    // still open: unify a premise with an indexed lemma's conclusion (le_trans's middle term from
+    // the lemma that proves its first premise); at most 3 alternatives, each one completed
+    // only at the top of a leaf (premise level 0) with depth for the premises: it is costly
+    if (depth < 2 || g.lvl > 0) return null;
+    for (const alt of forwardBinds(g, c, sol, prem, viaHyp, o2).slice(0, 2)) {
+      const s2 = sol.slice();
+      for (const [j, t] of alt) s2[j] = t;
+      if (s2.some((x, j) => !x && !prem[j])) continue;
+      const o3 = openMeta(c.T, c.n, toH(s2));
+      if (!o3) continue;
+      const r = finish(g, c, s2, viaHyp, o3, depth, rw, path, holesOk);
+      if (r) { tag("forward"); return r; }
+    }
+    return null;
+  }
+  return finish(g, c, sol, viaHyp, o2, depth, rw, path, holesOk);
+};
+const finish = (g: Goal, c: Callee, sol: (LTerm | null)[], viaHyp: (string | null)[], o2: { doms: { q: B.Quant; k: string; A: HTerm }[] }, depth: number, rw: number, path: Set<string>, holesOk: boolean): Applied | null => {
   const args: string[] = [];
   const holes: Goal[] = [];
   for (let j = 0; j < c.n; j++) {
@@ -800,6 +827,97 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
   }
   return { args, doms: o2.doms, sol, holes };
 };
+// two-sided first-order unification; metavariables >= META on both sides (the callee's below META2)
+const META2 = 2 * META;
+const shiftMetas = (t: LTerm): LTerm => {
+  switch (t.$) {
+    case "Var": return t.i >= META ? B.Var(t.k, t.i + META) : t;
+    case "App": return B.App(shiftMetas(t.f), shiftMetas(t.x));
+    case "Ctr": return B.Ctr<[LTerm]>(t.k, t.x.map(shiftMetas));
+    case "Eql": return B.Eql(shiftMetas(t.a), shiftMetas(t.b), shiftMetas(t.T));
+    case "ADT": return B.ADT(t.k, t.x.map(shiftMetas), undefined, t.r);
+    default: return t;
+  }
+};
+const deref = (t: LTerm, s: Map<number, LTerm>): LTerm => { while (t.$ === "Var" && t.i >= META && s.has(t.i)) t = s.get(t.i)!; return t; };
+const resolve = (t: LTerm, s: Map<number, LTerm>, n = 0): LTerm => {
+  t = deref(t, s);
+  if (n > 200) return t;
+  switch (t.$) {
+    case "App": return B.App(resolve(t.f, s, n + 1), resolve(t.x, s, n + 1));
+    case "Ctr": return B.Ctr<[LTerm]>(t.k, t.x.map((x) => resolve(x, s, n + 1)));
+    case "Eql": return B.Eql(resolve(t.a, s, n + 1), resolve(t.b, s, n + 1), resolve(t.T, s, n + 1));
+    case "ADT": return B.ADT(t.k, t.x.map((x) => resolve(x, s, n + 1)), undefined, t.r);
+    default: return t;
+  }
+};
+const occurs = (i: number, t: LTerm, s: Map<number, LTerm>): boolean => {
+  t = deref(t, s);
+  switch (t.$) {
+    case "Var": return t.i === i;
+    case "App": return occurs(i, t.f, s) || occurs(i, t.x, s);
+    case "Ctr": case "ADT": return t.x.some((x) => occurs(i, x, s));
+    case "Eql": return occurs(i, t.a, s) || occurs(i, t.b, s);
+    default: return false;
+  }
+};
+const unify = (a: LTerm, b: LTerm, s: Map<number, LTerm>, d: number): boolean => {
+  a = deref(a, s); b = deref(b, s);
+  if (a.$ === "Var" && b.$ === "Var" && a.i === b.i) return true;
+  if (a.$ === "Var" && a.i >= META) { if (occurs(a.i, b, s)) return false; s.set(a.i, b); return true; }
+  if (b.$ === "Var" && b.i >= META) { if (occurs(b.i, a, s)) return false; s.set(b.i, a); return true; }
+  if (a.$ === "Lit" && b.$ === "Ctr") { const x = litStep(a); return !!x && unify(x, b, s, d); }
+  if (b.$ === "Lit" && a.$ === "Ctr") { const x = litStep(b); return !!x && unify(a, x, s, d); }
+  switch (a.$) {
+    case "Var": return false;
+    case "Ref": return b.$ === "Ref" && a.k === b.k;
+    case "App": return b.$ === "App" && unify(a.f, b.f, s, d) && unify(a.x, b.x, s, d);
+    case "Ctr": return b.$ === "Ctr" && a.k === b.k && a.x.length === b.x.length && a.x.every((x, i) => unify(x, (b as any).x[i], s, d));
+    case "Lit": return b.$ === "Lit" && a.k === b.k && a.v === b.v;
+    case "Eql": return b.$ === "Eql" && unify(a.a, b.a, s, d) && unify(a.b, b.b, s, d) && (unify(a.T, b.T, s, d) || true);
+    case "ADT": return b.$ === "ADT" && a.k === b.k && a.x.length === b.x.length && a.x.every((x, i) => unify(x, (b as any).x[i], s, d));
+    default: return key(a) === key(b);
+  }
+};
+// bindings of the callee's open parameters that make one of its premises an instance of an indexed
+// lemma's conclusion (ground values only)
+const forwardBinds = (g: Goal, c: Callee, sol: (LTerm | null)[], prem: boolean[], viaHyp: (string | null)[], o2: { doms: { A: HTerm }[] }): [number, LTerm][][] => {
+  const out: [number, LTerm][][] = [];
+  const seen = new Set<string>();
+  for (let j = 0; j < c.n && out.length < 3; j++) {
+    if (!prem[j] || viaHyp[j]) continue;
+    const A = attempt(FUEL_NF, () => lower(o2.doms[j].A, g.d));
+    if (!A || !hasMeta(A)) continue;
+    const open: number[] = [];
+    for (let m = 0; m < c.n; m++) if (!sol[m] && !prem[m]) open.push(META + m);
+    let looked = 0;
+    for (const L of applyIndex.get(headKey(A)) ?? []) {
+      if (out.length >= 3 || looked++ > 64) break;
+      if (L.order >= job.order || L.k === job.k || L.k === shortKey(c)) continue;
+      const o = attempt(FUEL_NF, () => openMeta((RAW[L.k] as B.Def).T, L.n));
+      if (!o) continue;
+      const P = attempt(FUEL_NF, () => shiftMetas(lower(o.concl, g.d)));
+      if (!P) continue;
+      const sb = new Map<number, LTerm>();
+      if (!unify(P, A, sb, g.d)) continue;
+      const alt: [number, LTerm][] = [];
+      let ok = true;
+      for (const m of open) {
+        if (!sb.has(m)) continue;
+        const v = resolve(B.Var("?", m), sb);
+        if (hasMeta(v) || !closedBelow(v, g.d)) { ok = false; break; }
+        alt.push([m - META, v]);
+      }
+      if (!ok || alt.length === 0) continue;
+      const k = alt.map(([m, v]) => m + "=" + key(v)).join(";");
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(alt);
+    }
+  }
+  return out;
+};
+const shortKey = (c: Callee) => c.text;
 const nfPat = new WeakMap<object, Map<number, LTerm | null>>();
 const nfPattern = (c: Callee, concl: HTerm, d: number): LTerm | null => {
   let m = nfPat.get(c.T);
@@ -975,7 +1093,7 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
 type RwCand = { from: LTerm; to: LTerm; e: string; kind: string; score: number };
 const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null => {
   const N = attempt(FUEL_NF * 2, () => nf(g.ty, g.d + 1));
-  if (!N || size(N) > 600) return null;
+  if (!N || size(N, 600) > 600) return null;
   const subs = new Map<string, LTerm>();
   subterms(N, subs);
   const blk: LTerm[] = [];
@@ -1547,26 +1665,45 @@ if (MODE === "bench") {
 } else if (MODE === "batch") {
   batch();
 } else if (MODE === "prove") {
-  const k = Object.keys(RAW).find((x) => nsOf(x) === "" && shortOf(x) === TARGET && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b);
-  if (!k) { console.error("gen2: no def " + TARGET + " in " + FILE); process.exit(1); }
-  const ds = defSrc(k);
-  if (!ds) { console.error("gen2: no source for " + k); process.exit(1); }
-  if (ds.body.trim() === "?TODO" || flag("whole")) {
-    const def = RAW[k] as B.Def;
-    RAW[k] = { ...def, v: null };
-    const o = proveDef(k, BUDGET);
-    RAW[k] = def;
-    if (o.ok) { console.log(o.text); console.error("[gen2] proven in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]"); }
-    else {
-      console.error("[gen2] no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
-      if (o.partial) { console.log("# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial); }
-      process.exit(2);
-    }
-  } else {
-    const r = proveHoles(k, BUDGET);
-    console.log(r.body);
-    console.error("[gen2] " + r.done + "/" + r.n + " holes filled");
+  // the defs: the names after the file (options excluded), and with --only RE every def of the file
+  // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp"].includes(xs[i - 1])));
+  const own = (x: string) => nsOf(x) === "" && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
+  const ks: string[] = [];
+  for (const nm of names) {
+    const k = Object.keys(RAW).find((x) => own(x) && shortOf(x) === nm);
+    if (!k) { console.error("gen2: no def " + nm + " in " + FILE); process.exit(1); }
+    ks.push(k);
   }
+  if (argv.includes("--only")) {
+    const re = new RegExp(opt("only", ".*"));
+    for (const k of book.order) if (own(k) && re.test(shortOf(k)) && !ks.includes(k) && defSrc(k)?.body.trim() === "?TODO") ks.push(k);
+  }
+  if (ks.length === 0) { console.error("gen2: no def to prove"); process.exit(1); }
+  let failed = 0;
+  for (const k of ks) {
+    const ds = defSrc(k);
+    if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }
+    if (ks.length > 1) console.log("# " + shortOf(k));
+    if (ds.body.trim() === "?TODO" || flag("whole")) {
+      const def = RAW[k] as B.Def;
+      RAW[k] = { ...def, v: null };
+      let o: Outcome;
+      try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
+      if (o.ok) { console.log(o.text); console.error("[gen2] " + shortOf(k) + ": proven in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]"); }
+      else {
+        failed++;
+        console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
+        console.log(o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "# NO PROOF");
+      }
+    } else {
+      const r = proveHoles(k, BUDGET);
+      console.log(r.body);
+      if (r.done < r.n) failed++;
+      console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled");
+    }
+  }
+  if (failed) process.exit(2);
 } else {
   console.error("usage: bun gen2.ts prove <file.bend> <def> | batch <file.bend> | bench <file.bend> [options] (see the header)");
   process.exit(1);
