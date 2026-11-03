@@ -497,6 +497,15 @@ for (const k of Object.keys(RAW)) {
   if (hk === "V" || hk === "Typ") continue;
   if (!applyIndex.has(hk)) applyIndex.set(hk, []);
   applyIndex.get(hk)!.push(L);
+  // also by the head of the conclusion's normal form (Le(a, b) is T(..) once unfolded)
+  if (t.n > 0) {
+    const cn = attempt(20000, () => nf(o.concl, 0));
+    const nk = cn ? headKey(cn) : "*";
+    if (nk !== hk && nk !== "*" && nk !== "V" && nk !== "E|*" && nk !== "E|V") {
+      if (!applyIndex.has(nk)) applyIndex.set(nk, []);
+      applyIndex.get(nk)!.push(L);
+    }
+  }
   if (c.$ === "Eql") {
     for (const side of [0, 1] as const) {
       const s = side === 0 ? c.a : c.b;
@@ -653,7 +662,7 @@ type Callee = { text: string; T: HTerm; n: number; kind: string };
 
 // apply a callee whose conclusion matches one of targets; premises proven at depth - 1
 type Applied = { args: string[]; doms: any[]; sol: (LTerm | null)[] };
-const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl: ((o: LTerm) => LTerm | null) | null, accept: (a: Applied) => boolean): Applied | null => {
+const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl: ((o: LTerm) => LTerm | null) | null, accept: (a: Applied) => boolean, cnt?: { n: number }): Applied | null => {
   const toH = (s: (LTerm | null)[]) => s.map((x) => (x ? B.term_higher(x, g.env) : null));
   const o = openMeta(c.T, c.n);
   if (!o) return null;
@@ -677,6 +686,7 @@ const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: nu
     if (pn && key(pn) !== key(pc)) push(pn, targets[targets.length - 1]);
   }
   for (const s0 of sols) {
+    if (cnt) cnt.n++;
     const r = complete(g, c, s0, toH, depth, rw, path);
     if (r && accept(r)) return r;
   }
@@ -748,8 +758,7 @@ const lemmaCands = (g: Goal, targets: LTerm[]): Callee[] => {
       }
     }
   }
-  out.sort(() => 0);
-  return out.slice(0, MAX_CANDS);
+  return out;
 };
 const ihCallee = (): Callee => ({ text: job.short, T: job.def.T, n: job.def.n, kind: "ih" });
 
@@ -872,9 +881,11 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
     }
     if (job.ih && g.split) callees.push(ihCallee());
     callees.push(...lemmaCands(g, targets));
+    const tries = { n: 0 };
     for (const c of callees) {
       if (performance.now() > deadline) throw TIMEOUT;
-      const a = applyCallee(g, c, targets, depth, rw, path, null, (a) => tryText(g, callText(c, a.args)));
+      if (tries.n >= MAX_CANDS) break;
+      const a = applyCallee(g, c, targets, depth, rw, path, null, (a) => tryText(g, callText(c, a.args)), tries);
       if (a) { tag("apply:" + c.kind); return tm(callText(c, a.args)); }
     }
   }
