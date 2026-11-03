@@ -1415,6 +1415,192 @@ def dv.all(+m: Cr.Cir.Cells, +q: U32, +ws: List<&2, W1>, +pu: List<&2, U32>, +y:
   dv.all.c(Bool.and(U32.is_ne(U32.and(a, 1), 0), U32.is_eq(D.Fd(2n, m, q), y)), Bool.and(U32.is_ne(U32.and(a, 2), 0), U32.is_eq(D.Fd(3n, m, q), y)),
     Bool.and(U32.is_ne(U32.and(a, 4), 0), U32.is_eq(D.Fd(4n, m, q), y)), m, q, ws, pu, y, {==}, {==}, {==}, hz, hdv, hpt, hpp)
 
+# The garbage and the pend list after a reuse
+# -------------------------------------------
+
+# a or b, with b giving b2
+def or.mono_r(a: Bool, -b: Bool, -b2: Bool, h: {Bool.or(a, b) == True{} : Bool}, k: {b == True{} : Bool} -> {b2 == True{} : Bool}) ->
+  {Bool.or(a, b2) == True{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      k(h)
+
+# Del of q keeps every other cell
+def has.del.b(e: Bool, +o: U32, +rest: List<&2, U32>, +q: U32, +x: U32, +eo: {U32.is_eq(o, q) == e : Bool},
+  +ne: {U32.is_eq(x, q) == False{} : Bool}, k: {D.Has(Del(rest, q), x) == D.Has(rest, x) : Bool}) ->
+  {D.Has(Bool.pick(List<&2, U32>, e, rest, Con{o, Del(rest, q)}), x) == Bool.or(U32.is_eq(o, x), D.Has(rest, x)) : Bool}:
+  match e:
+    case True{}:
+      +eq = K.U.eq(o, q, eo)
+      +nox = {(%Equal.sym(U32, o, q, eq) : {U32.is_eq(_, x) == False{} : Bool}; K.U.ne.sym(x, q, ne)) : {U32.is_eq(o, x) == False{} : Bool}}
+      %Equal.sym(Bool, U32.is_eq(o, x), False{}, nox) : {D.Has(rest, x) == Bool.or(_, D.Has(rest, x)) : Bool}
+      {==}
+    case False{}:
+      Equal.cong(Bool, Bool, w => Bool.or(U32.is_eq(o, x), w), D.Has(Del(rest, q), x), D.Has(rest, x), k)
+
+def has.del(P: List<&2, U32>, +q: U32, +x: U32, +ne: {U32.is_eq(x, q) == False{} : Bool}) -> {D.Has(Del(P, q), x) == D.Has(P, x) : Bool}:
+  match P:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      has.del.b(U32.is_eq(o, q), o, rest, q, x, {==}, ne, has.del(rest, q, x, ne))
+
+def has.del.le.b(e: Bool, +o: U32, +rest: List<&2, U32>, +q: U32, +x: U32,
+  h: {D.Has(Bool.pick(List<&2, U32>, e, rest, Con{o, Del(rest, q)}), x) == True{} : Bool},
+  k: {D.Has(Del(rest, q), x) == True{} : Bool} -> {D.Has(rest, x) == True{} : Bool}) ->
+  {Bool.or(U32.is_eq(o, x), D.Has(rest, x)) == True{} : Bool}:
+  match e:
+    case True{}:
+      K.Bo.or_ir(U32.is_eq(o, x), D.Has(rest, x), h)
+    case False{}:
+      or.mono_r(U32.is_eq(o, x), D.Has(Del(rest, q), x), D.Has(rest, x), h, k)
+
+def has.del.le(P: List<&2, U32>, +q: U32, +x: U32, h: {D.Has(Del(P, q), x) == True{} : Bool}) -> {D.Has(P, x) == True{} : Bool}:
+  match P:
+    case Nil{}:
+      h
+    case Con{+o, +rest}:
+      has.del.le.b(U32.is_eq(o, q), o, rest, q, x, h, h2 => has.del.le(rest, q, x, h2))
+
+def has.del.f.b(v: Bool, +L: List<&2, U32>, +q: U32, +x: U32, ev: {D.Has(Del(L, q), x) == v : Bool}, h: {D.Has(L, x) == False{} : Bool}) ->
+  {D.Has(Del(L, q), x) == False{} : Bool}:
+  match v:
+    case True{}:
+      K.Bo.ft({D.Has(Del(L, q), x) == False{} : Bool}, Equal.trans(Bool, True{}, D.Has(L, x), False{},
+        Equal.sym(Bool, D.Has(L, x), True{}, has.del.le(L, q, x, ev)), h))
+    case False{}:
+      ev
+
+def has.del.f(+L: List<&2, U32>, +q: U32, +x: U32, h: {D.Has(L, x) == False{} : Bool}) -> {D.Has(Del(L, q), x) == False{} : Bool}:
+  has.del.f.b(D.Has(Del(L, q), x), L, q, x, {==}, h)
+
+# q is no more in Del(P, q), when it was once in P
+def del.nhas.b(e: Bool, +o: U32, +rest: List<&2, U32>, +q: U32, +eo: {U32.is_eq(o, q) == e : Bool},
+  h: {Bool.and(Bool.not(D.Has(rest, o)), D.Nodup(rest)) == True{} : Bool}, k: {D.Nodup(rest) == True{} : Bool} -> {D.Has(Del(rest, q), q) == False{} : Bool}) ->
+  {D.Has(Bool.pick(List<&2, U32>, e, rest, Con{o, Del(rest, q)}), q) == False{} : Bool}:
+  match e:
+    case True{}:
+      +h2 = h
+      +eq = K.U.eq(o, q, eo)
+      (%eq : {D.Has(rest, _) == False{} : Bool}; K.Bo.not_t(D.Has(rest, o), K.Bo.and_l(Bool.not(D.Has(rest, o)), D.Nodup(rest), h2)))
+    case False{}:
+      +h2 = h
+      %Equal.sym(Bool, U32.is_eq(o, q), False{}, eo) : {Bool.or(_, D.Has(Del(rest, q), q)) == False{} : Bool}
+      k(K.Bo.and_r(Bool.not(D.Has(rest, o)), D.Nodup(rest), h2))
+
+def del.nhas(P: List<&2, U32>, +q: U32, h: {D.Nodup(P) == True{} : Bool}) -> {D.Has(Del(P, q), q) == False{} : Bool}:
+  match P:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      del.nhas.b(U32.is_eq(o, q), o, rest, q, {==}, h, h2 => del.nhas(rest, q, h2))
+
+def nodup.del.b(e: Bool, +o: U32, +rest: List<&2, U32>, +q: U32, h: {Bool.and(Bool.not(D.Has(rest, o)), D.Nodup(rest)) == True{} : Bool},
+  k: {D.Nodup(rest) == True{} : Bool} -> {D.Nodup(Del(rest, q)) == True{} : Bool}) ->
+  {D.Nodup(Bool.pick(List<&2, U32>, e, rest, Con{o, Del(rest, q)})) == True{} : Bool}:
+  match e:
+    case True{}:
+      K.Bo.and_r(Bool.not(D.Has(rest, o)), D.Nodup(rest), h)
+    case False{}:
+      +h2 = h
+      K.Bo.and_i(Bool.not(D.Has(Del(rest, q), o)), D.Nodup(Del(rest, q)),
+        K.Bo.not_i(D.Has(Del(rest, q), o), has.del.f(rest, q, o, K.Bo.not_t(D.Has(rest, o), K.Bo.and_l(Bool.not(D.Has(rest, o)), D.Nodup(rest), h2)))),
+        k(K.Bo.and_r(Bool.not(D.Has(rest, o)), D.Nodup(rest), h2)))
+
+def nodup.del(P: List<&2, U32>, +q: U32, h: {D.Nodup(P) == True{} : Bool}) -> {D.Nodup(Del(P, q)) == True{} : Bool}:
+  match P:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      nodup.del.b(U32.is_eq(o, q), o, rest, q, h, h2 => nodup.del(rest, q, h2))
+
+# cells of P, none q, are cells of Del(P, q)
+def sub.del(L: List<&2, U32>, +P: List<&2, U32>, +q: U32, hs: {D.Sub(L, P) == True{} : Bool}, hn: {D.Has(L, q) == False{} : Bool}) ->
+  {D.Sub(L, Del(P, q)) == True{} : Bool}:
+  match L:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      +hs2 = hs
+      +hn2 = hn
+      +ne = K.or.fl(U32.is_eq(x, q), D.Has(rest, q), hn2)
+      K.Bo.and_i(D.Has(Del(P, q), x), D.Sub(rest, Del(P, q)),
+        (%Equal.sym(Bool, D.Has(Del(P, q), x), D.Has(P, x), has.del(P, q, x, ne)) : {_ == True{} : Bool};
+          K.Bo.and_l(D.Has(P, x), D.Sub(rest, P), hs2)),
+        sub.del(rest, P, q, K.Bo.and_r(D.Has(P, x), D.Sub(rest, P), hs2), K.or.fr(U32.is_eq(x, q), D.Has(rest, q), hn2)))
+
+# the garbage's pointers, without q's
+def pp.del.b(e: Bool, +o: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +q: U32, +c: U32, +eo: {U32.is_eq(o, q) == e : Bool},
+  h: {Bool.or(U32.is_eq(o, q), D.Has(rest, q)) == True{} : Bool},
+  k: {D.Has(rest, q) == True{} : Bool} -> {D.Pp(rest, m, c) == Nat.add(D.Ow(m, q, c), D.Pp(Del(rest, q), m, c)) : Nat}) ->
+  {Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c)) == Nat.add(D.Ow(m, q, c), D.Pp(Bool.pick(List<&2, U32>, e, rest, Con{o, Del(rest, q)}), m, c)) : Nat}:
+  match e:
+    case True{}:
+      +eq = K.U.eq(o, q, eo)
+      (%eq : {Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c)) == Nat.add(D.Ow(m, _, c), D.Pp(rest, m, c)) : Nat}; {==})
+    case False{}:
+      +A = D.Ow(m, o, c)
+      +B = D.Ow(m, q, c)
+      +C = D.Pp(Del(rest, q), m, c)
+      Equal.trans(Nat, Nat.add(A, D.Pp(rest, m, c)), Nat.add(A, Nat.add(B, C)), Nat.add(B, Nat.add(A, C)),
+        Equal.cong(Nat, Nat, z => Nat.add(A, z), D.Pp(rest, m, c), Nat.add(B, C), k((%eo : {Bool.or(_, D.Has(rest, q)) == True{} : Bool}; h))),
+        N.add_swap(A, B, C))
+
+def pp.del(P: List<&2, U32>, +m: Cr.Cir.Cells, +q: U32, +c: U32, h: {D.Has(P, q) == True{} : Bool}) ->
+  {D.Pp(P, m, c) == Nat.add(D.Ow(m, q, c), D.Pp(Del(P, q), m, c)) : Nat}:
+  match P:
+    case Nil{}:
+      K.Bo.tf({0n == Nat.add(D.Ow(m, q, c), 0n) : Nat}, h)
+    case Con{+o, +rest}:
+      pp.del.b(U32.is_eq(o, q), o, rest, m, q, c, {==}, h, h2 => pp.del(rest, m, q, c, h2))
+
+# the pushed cells: garbage out of the pend list
+def gq.sub(pu: List<&2, U32>, +P: List<&2, U32>, +Q: List<&2, U32>, h: {Gq(pu, P, Q) == True{} : Bool}) -> {D.Sub(pu, P) == True{} : Bool}:
+  match pu:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      +h2 = h
+      +A = Bool.and(D.Has(P, x), Bool.not(D.Has(Q, x)))
+      K.Bo.and_i(D.Has(P, x), D.Sub(rest, P), K.Bo.and_l(D.Has(P, x), Bool.not(D.Has(Q, x)), K.Bo.and_l(A, Gq(rest, P, Q), h2)),
+        gq.sub(rest, P, Q, K.Bo.and_r(A, Gq(rest, P, Q), h2)))
+
+def gq.dsj(pu: List<&2, U32>, +P: List<&2, U32>, +q: U32, +Qr: List<&2, U32>, h: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}) ->
+  {K.Dsj(pu, Qr) == True{} : Bool}:
+  match pu:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      +h2 = h
+      +A = Bool.and(D.Has(P, x), Bool.not(D.Has(Con{q, Qr}, x)))
+      +hn = K.Bo.not_t(D.Has(Con{q, Qr}, x), K.Bo.and_r(D.Has(P, x), Bool.not(D.Has(Con{q, Qr}, x)), K.Bo.and_l(A, Gq(rest, P, Con{q, Qr}), h2)))
+      K.Bo.and_i(Bool.not(D.Has(Qr, x)), K.Dsj(rest, Qr), K.Bo.not_i(D.Has(Qr, x), K.or.fr(U32.is_eq(q, x), D.Has(Qr, x), hn)),
+        gq.dsj(rest, P, q, Qr, K.Bo.and_r(A, Gq(rest, P, Con{q, Qr}), h2)))
+
+def gq.mem.b(e: Bool, +x: U32, +rest: List<&2, U32>, +P: List<&2, U32>, +Q: List<&2, U32>, +y: U32, +ex: {U32.is_eq(x, y) == e : Bool},
+  h: {Bool.and(Bool.and(D.Has(P, x), Bool.not(D.Has(Q, x))), Gq(rest, P, Q)) == True{} : Bool},
+  hy: {Bool.or(U32.is_eq(x, y), D.Has(rest, y)) == True{} : Bool},
+  k: {Gq(rest, P, Q) == True{} : Bool} -> {D.Has(rest, y) == True{} : Bool} -> {Bool.and(D.Has(P, y), Bool.not(D.Has(Q, y))) == True{} : Bool}) ->
+  {Bool.and(D.Has(P, y), Bool.not(D.Has(Q, y))) == True{} : Bool}:
+  match e:
+    case True{}:
+      +A = Bool.and(D.Has(P, x), Bool.not(D.Has(Q, x)))
+      +eq = K.U.eq(x, y, ex)
+      (%eq : {Bool.and(D.Has(P, _), Bool.not(D.Has(Q, _))) == True{} : Bool}; K.Bo.and_l(A, Gq(rest, P, Q), h))
+    case False{}:
+      +A = Bool.and(D.Has(P, x), Bool.not(D.Has(Q, x)))
+      k(K.Bo.and_r(A, Gq(rest, P, Q), h), (%ex : {Bool.or(_, D.Has(rest, y)) == True{} : Bool}; hy))
+
+def gq.mem(pu: List<&2, U32>, +P: List<&2, U32>, +Q: List<&2, U32>, +y: U32, h: {Gq(pu, P, Q) == True{} : Bool},
+  hy: {D.Has(pu, y) == True{} : Bool}) -> {Bool.and(D.Has(P, y), Bool.not(D.Has(Q, y))) == True{} : Bool}:
+  match pu:
+    case Nil{}:
+      K.Bo.tf({Bool.and(D.Has(P, y), Bool.not(D.Has(Q, y))) == True{} : Bool}, hy)
+    case Con{+x, +rest}:
+      gq.mem.b(U32.is_eq(x, y), x, rest, P, Q, y, {==}, h, hy, h2 => hy2 => gq.mem(rest, P, Q, y, h2, hy2))
+
 # The allocation's run: a new cell
 # --------------------------------
 
