@@ -3638,6 +3638,414 @@ def tm.hs(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
         heap.fn(m, nx, fi, im, D.Rt.cells(List.append(&2, D.Rt, us, os)), pend, ps, hheap), hb, ho, hm, hzs, nf.tag(D.Tg(m, z), hzt), hz0, hzf,
         hx1, hf, hi)
 
+# The flag DATA
+# -------------
+#
+# DATA (512) is outside the tag (bits 0-5), the quantity (6-7), VALUE (256),
+# STATIC (1024), K (2048), OWNED (4096) and the bound of free variables
+# (bits 13 on): setting it at the cell cf (AC.Flag) keeps every cell's facts
+# but DATA's, which data.flag's hd gives for the terms at cf. Every cell
+# keeps its value but field 0 at cf.
+
+# a shifted pad keeps an or
+def pad.or(p: Nat, a: Word(p), b: Word(p)) ->
+  {Word.or(1n+p, Word.shr.pad(p, a), Word.shr.pad(p, b)) == Word.shr.pad(p, Word.or(p, a, b)) : Word(1n+p)}:
+  match p:
+    case 0n:
+      match a b:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+(+q):
+      match a b:
+        case WCon{+a1, +at} WCon{+b1, +bt}:
+          %pad.or(q, at, bt) : {WCon{Bool.or(a1, b1), Word.or(1n+q, Word.shr.pad(q, at), Word.shr.pad(q, bt))} == WCon{Bool.or(a1, b1), _} : Word(2n+q)}
+          {==}
+
+# a shift keeps an or
+def shr.or(n: Nat, x: Word(n), y: Word(n)) -> {Word.or(n, Word.shr(n, x), Word.shr(n, y)) == Word.shr(n, Word.or(n, x, y)) : Word(n)}:
+  match n:
+    case 0n:
+      match x y:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+(+p):
+      match x y:
+        case WCon{a, +xt} WCon{b, +yt}:
+          pad.or(p, xt, yt)
+
+def u.shr.or(a: U32, b: U32) -> {U32.or(U32.shr(a), U32.shr(b)) == U32.shr(U32.or(a, b)) : U32}:
+  match a b:
+    case U32{+x} U32{+y}:
+      %shr.or(32n, x, y) : {U32{Word.or(32n, Word.shr(32n, x), Word.shr(32n, y))} == U32{_} : U32}
+      {==}
+
+def u.shrn.or(+a: U32, +b: U32, n: Nat) -> {U32.or(U32.shrn(a, n), U32.shrn(b, n)) == U32.shrn(U32.or(a, b), n) : U32}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+k):
+      %u.shrn.or(a, b, k) : {U32.or(U32.shr(U32.shrn(a, k)), U32.shr(U32.shrn(b, k))) == U32.shr(_) : U32}
+      u.shr.or(U32.shrn(a, k), U32.shrn(b, k))
+
+# w | 0 is w
+def w.or.z(+n: Nat, +w: Word(n)) -> {Word.or(n, w, Word.zero(n)) == w : Word(n)}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match w:
+        case WCon{False{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, Word.or(p, t, Word.zero(p)), t, w.or.z(p, t))
+        case WCon{True{}, +t}:
+          Equal.cong(Word(p), Word(1n+p), z => WCon{True{}, z}, Word.or(p, t, Word.zero(p)), t, w.or.z(p, t))
+
+def u32.or.z(+x: U32) -> {U32.or(x, U32{Word.zero(32n)}) == x : U32}:
+  match x:
+    case U32{+w}:
+      Equal.cong(Word(32n), U32, z => U32{z}, Word.or(32n, w, Word.zero(32n)), w, w.or.z(32n, w))
+
+# 512 >> 13 is 0, 512 >> 6 is 8, 8 & 3 is 0, 512 & 256 is 0, 512 & 2048 is 0
+def dat.s13() -> {U32{Word.zero(32n)} == U32.shrn(512, 13n) : U32}:
+  {==}
+
+def dat.s6() -> {U32.shrn(512, 6n) == 8 : U32}:
+  {==}
+
+def dat.q() -> {U32.and(8, 3) == 0 : U32}:
+  {==}
+
+def dat.v() -> {U32.and(512, 256) == 0 : U32}:
+  {==}
+
+def dat.k() -> {U32.and(512, 2048) == 0 : U32}:
+  {==}
+
+# the bound of free variables, past DATA
+def fv.dat(+f0: U32) -> {D.FvW(U32.or(f0, 512)) == D.FvW(f0) : U32}:
+  +s = U32.shrn(f0, 13n)
+  Equal.trans(U32, U32.shrn(U32.or(f0, 512), 13n), U32.or(s, U32.shrn(512, 13n)), s,
+    Equal.sym(U32, U32.or(s, U32.shrn(512, 13n)), U32.shrn(U32.or(f0, 512), 13n), u.shrn.or(f0, 512, 13n)),
+    (%dat.s13() : {U32.or(s, _) == s : U32}; u32.or.z(s)))
+
+# the quantity, past DATA
+def qn.dat(+f0: U32) -> {D.QnW(U32.or(f0, 512)) == D.QnW(f0) : U32}:
+  +s = U32.shrn(f0, 6n)
+  Equal.trans(U32, U32.and(U32.shrn(U32.or(f0, 512), 6n), 3), U32.and(U32.or(s, 8), 3), U32.and(s, 3),
+    Equal.cong(U32, U32, w => U32.and(w, 3), U32.shrn(U32.or(f0, 512), 6n), U32.or(s, 8),
+      Equal.trans(U32, U32.shrn(U32.or(f0, 512), 6n), U32.or(s, U32.shrn(512, 6n)), U32.or(s, 8),
+        Equal.sym(U32, U32.or(s, U32.shrn(512, 6n)), U32.shrn(U32.or(f0, 512), 6n), u.shrn.or(f0, 512, 6n)),
+        Equal.cong(U32, U32, w => U32.or(s, w), U32.shrn(512, 6n), 8, dat.s6()))),
+    AC.u32.and.or(s, 8, 3, dat.q()))
+
+# field 0 at cf after the flag, and at another cell
+def fd0.cf(+m: Cr.Cir.Cells, +cf: U32) -> {D.Fd(0n, AC.Flag(m, cf), cf) == U32.or(D.Fd(0n, m, cf), 512) : U32}:
+  +X = Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512))
+  Equal.trans(U32, D.Fd(0n, AC.Flag(m, cf), cf), Cr.Cir.Cell.get(0n, X), U32.or(D.Fd(0n, m, cf), 512),
+    Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(0n, y), Cr.Cir.Cells.get(AC.Flag(m, cf), cf), X, D.cl.gs(m, cf, X)),
+    AC.s0g0(Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)))
+
+def fd0.ne(+m: Cr.Cir.Cells, +cf: U32, +o: U32, eb: {U32.is_eq(o, cf) == False{} : Bool}) ->
+  {D.Fd(0n, AC.Flag(m, cf), o) == D.Fd(0n, m, o) : U32}:
+  Equal.cong(Cr.Cir.Cell, U32, y => Cr.Cir.Cell.get(0n, y), Cr.Cir.Cells.get(AC.Flag(m, cf), o), Cr.Cir.Cells.get(m, o),
+    D.cl.go(m, o, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), eb))
+
+# the quantity and the bound of free variables of every cell stay
+def qn.flag.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, eb: {U32.is_eq(o, cf) == b : Bool}) ->
+  {D.QnW(D.Fd(0n, AC.Flag(m, cf), o)) == D.QnW(D.Fd(0n, m, o)) : U32}:
+  match b:
+    case True{}:
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) : {D.QnW(D.Fd(0n, AC.Flag(m, cf), _)) == D.QnW(D.Fd(0n, m, _)) : U32}
+      %Equal.sym(U32, D.Fd(0n, AC.Flag(m, cf), cf), U32.or(D.Fd(0n, m, cf), 512), fd0.cf(m, cf)) : {D.QnW(_) == D.QnW(D.Fd(0n, m, cf)) : U32}
+      qn.dat(D.Fd(0n, m, cf))
+    case False{}:
+      Equal.cong(U32, U32, w => D.QnW(w), D.Fd(0n, AC.Flag(m, cf), o), D.Fd(0n, m, o), fd0.ne(m, cf, o, eb))
+
+def qn.flag(+m: Cr.Cir.Cells, +cf: U32, +o: U32) -> {D.QnW(D.Fd(0n, AC.Flag(m, cf), o)) == D.QnW(D.Fd(0n, m, o)) : U32}:
+  qn.flag.b(U32.is_eq(o, cf), m, cf, o, {==})
+
+def fv.flag.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, eb: {U32.is_eq(o, cf) == b : Bool}) ->
+  {D.FvW(D.Fd(0n, AC.Flag(m, cf), o)) == D.FvW(D.Fd(0n, m, o)) : U32}:
+  match b:
+    case True{}:
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) : {D.FvW(D.Fd(0n, AC.Flag(m, cf), _)) == D.FvW(D.Fd(0n, m, _)) : U32}
+      %Equal.sym(U32, D.Fd(0n, AC.Flag(m, cf), cf), U32.or(D.Fd(0n, m, cf), 512), fd0.cf(m, cf)) : {D.FvW(_) == D.FvW(D.Fd(0n, m, cf)) : U32}
+      fv.dat(D.Fd(0n, m, cf))
+    case False{}:
+      Equal.cong(U32, U32, w => D.FvW(w), D.Fd(0n, AC.Flag(m, cf), o), D.Fd(0n, m, o), fd0.ne(m, cf, o, eb))
+
+def fv.flag(+m: Cr.Cir.Cells, +cf: U32, +o: U32) -> {D.FvW(D.Fd(0n, AC.Flag(m, cf), o)) == D.FvW(D.Fd(0n, m, o)) : U32}:
+  fv.flag.b(U32.is_eq(o, cf), m, cf, o, {==})
+
+# a cell after the flag: its old fields, field 0 the new one
+def cell.eta0(+y: Cr.Cir.Cell, +w: U32) ->
+  {Cr.Cir.Cell.set(0n, y, w) == Cr.Cir.Cell{w, Cr.Cir.Cell.get(1n, y), Cr.Cir.Cell.get(2n, y), Cr.Cir.Cell.get(3n, y), Cr.Cir.Cell.get(4n, y)} : Cr.Cir.Cell}:
+  match y:
+    case Cr.Cir.Cell{a, b, c2, c3, c4}:
+      {==}
+
+def set0.id(+y: Cr.Cir.Cell) -> {y == Cr.Cir.Cell.set(0n, y, Cr.Cir.Cell.get(0n, y)) : Cr.Cir.Cell}:
+  match y:
+    case Cr.Cir.Cell{a, b, c2, c3, c4}:
+      {==}
+
+def fl.at.b(b: Bool, +m: Cr.Cir.Cells, +cf: U32, +o: U32, +eb: {U32.is_eq(o, cf) == b : Bool}) ->
+  {Cr.Cir.Cells.get(AC.Flag(m, cf), o) == Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, o), D.Fd(0n, AC.Flag(m, cf), o)) : Cr.Cir.Cell}:
+  match b:
+    case True{}:
+      +X = Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512))
+      %Equal.sym(U32, o, cf, D.u32.eq(o, cf, eb)) :
+        {Cr.Cir.Cells.get(AC.Flag(m, cf), _) == Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, _), D.Fd(0n, AC.Flag(m, cf), _)) : Cr.Cir.Cell}
+      %Equal.sym(U32, D.Fd(0n, AC.Flag(m, cf), cf), U32.or(D.Fd(0n, m, cf), 512), fd0.cf(m, cf)) :
+        {Cr.Cir.Cells.get(AC.Flag(m, cf), cf) == Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), _) : Cr.Cir.Cell}
+      D.cl.gs(m, cf, X)
+    case False{}:
+      +Y = Cr.Cir.Cells.get(m, o)
+      %Equal.sym(U32, D.Fd(0n, AC.Flag(m, cf), o), D.Fd(0n, m, o), fd0.ne(m, cf, o, eb)) :
+        {Cr.Cir.Cells.get(AC.Flag(m, cf), o) == Cr.Cir.Cell.set(0n, Y, _) : Cr.Cir.Cell}
+      Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(AC.Flag(m, cf), o), Y, Cr.Cir.Cell.set(0n, Y, Cr.Cir.Cell.get(0n, Y)),
+        D.cl.go(m, o, cf, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, cf), U32.or(D.Fd(0n, m, cf), 512)), eb), set0.id(Y))
+
+# the cell o after the flag, as a cell of its fields
+def flag.cell(+m: Cr.Cir.Cells, +cf: U32, +o: U32) ->
+  {Cr.Cir.Cells.get(AC.Flag(m, cf), o) ==
+    Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), o), D.Fd(1n, m, o), D.Fd(2n, m, o), D.Fd(3n, m, o), D.Fd(4n, m, o)} : Cr.Cir.Cell}:
+  Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(AC.Flag(m, cf), o), Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, o), D.Fd(0n, AC.Flag(m, cf), o)),
+    Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), o), D.Fd(1n, m, o), D.Fd(2n, m, o), D.Fd(3n, m, o), D.Fd(4n, m, o)},
+    fl.at.b(U32.is_eq(o, cf), m, cf, o, {==}), cell.eta0(Cr.Cir.Cells.get(m, o), D.Fd(0n, AC.Flag(m, cf), o)))
+
+# DATA set in field 0, when (for dk) the term is Data
+def dat.or(dk: Bool, +f: U32, -t: Bk.Term, h: D.DataK(dk, 512, t)) -> D.DataK(dk, U32.or(f, 512), t):
+  match dk:
+    case True{}:
+      D.or.r(Bool.not(D.FlW(U32.or(f, 512), 512)), El.Term.is_data(t), h)
+    case False{}:
+      Unit{}
+
+# DATA's meaning at a node, of the term t
+def ndk.data(-dk: Bool, -ds: List<&2, Bk.Def>, -im: U32, -fi: U32, -nx: U32, -c: U32, -x: Cr.Cir.Cell, -t: Bk.Term, -tag: U32,
+  h: D.NdK(dk, ds, im, fi, nx, c, x, t, tag)) -> D.DataK(dk, Cr.Cir.Cell.get(0n, x), t):
+  (_, r0) = h
+  (_, r1) = r0
+  (_, r2) = r1
+  (_, r3) = r2
+  (e4, _) = r3
+  e4
+
+# DATA's meaning after the flag at the cell c of t: by hd at cf, as before
+# elsewhere. hd is used once: after it, a cell stands for one term (U1's
+# isk.uniq) gives DATA's meaning of every other term at cf from that one
+def root.dat(b: Bool, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +im: U32, +fi: U32, +nx: U32, +cf: U32, +c: U32, +t: Bk.Term, +eb: {U32.is_eq(c, cf) == b : Bool},
+  +h: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, t), hd: @t2: Bk.Term -> D.IsK(dk, ds, m, im, fi, nx, ks, img, cf, t2) -> D.DataK(dk, 512, t2), -R: Type,
+  ck: (@t2: Bk.Term -> D.IsK(dk, ds, m, im, fi, nx, ks, img, cf, t2) -> D.DataK(dk, 512, t2)) -> D.DataK(dk, D.Fd(0n, AC.Flag(m, cf), c), t) -> R) -> R:
+  match b:
+    case True{}:
+      +e = D.u32.eq(c, cf, eb)
+      +hs = {(%e : D.IsK(dk, ds, m, im, fi, nx, ks, img, _, t); h) : D.IsK(dk, ds, m, im, fi, nx, ks, img, cf, t)}
+      +dat = hd(t, hs)
+      ck(t2 => h2 => (%AC.isk.uniq(dk, ds, m, im, fi, nx, ks, img, cf, t, t2, hs, h2) : D.DataK(dk, 512, _); dat),
+        (%Equal.sym(U32, c, cf, e) : D.DataK(dk, D.Fd(0n, AC.Flag(m, cf), _), t);
+          (%Equal.sym(U32, D.Fd(0n, AC.Flag(m, cf), cf), U32.or(D.Fd(0n, m, cf), 512), fd0.cf(m, cf)) : D.DataK(dk, _, t);
+            dat.or(dk, D.Fd(0n, m, cf), t, dat))))
+    case False{}:
+      ck(hd, (%Equal.sym(U32, D.Fd(0n, AC.Flag(m, cf), c), D.Fd(0n, m, c), fd0.ne(m, cf, c, eb)) : D.DataK(dk, _, t);
+        ndk.data(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), t, D.A.tag(t), isk.nd(dk, t, ds, m, im, fi, nx, ks, img, c, h))))
+
+# a node's facts after the flag, its field 0 now that of the flag (DATA's
+# meaning given)
+def ndk.flag(-dk: Bool, -ds: List<&2, Bk.Def>, +im: U32, +fi: U32, +nx: U32, +m: Cr.Cir.Cells, +cf: U32, +c: U32, -t: Bk.Term, -tag: U32,
+  hdat: D.DataK(dk, D.Fd(0n, AC.Flag(m, cf), c), t), h: D.NdK(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), t, tag)) ->
+  D.NdK(dk, ds, im, fi, nx, c, Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, t, tag):
+  (e0, r0) = h
+  (e1, r1) = r0
+  (e2, r2) = r1
+  (e3, r3) = r2
+  (_, e5) = r3
+  +W = D.Fd(0n, AC.Flag(m, cf), c)
+  +f0 = D.Fd(0n, m, c)
+  (e0, ((%Equal.sym(Bool, D.Fl(AC.Flag(m, cf), c, 1024), D.Fl(m, c, 1024), AC.fl.flag(m, cf, c, 1024, AC.and.dat.st())) :
+      {Bool.or(D.Own(fi, nx, c), _) == True{} : Bool}; e1),
+    (Equal.trans(U32, D.TgW(W), D.TgW(f0), tag, AC.tg.flag(m, cf, c), e2),
+    ((%Equal.sym(Bool, D.Fl(AC.Flag(m, cf), c, 256), D.Fl(m, c, 256), AC.fl.flag(m, cf, c, 256, dat.v())) :
+        {Bool.or(Bool.not(_), El.Eval.vals(ds, t, False{})) == True{} : Bool}; e3),
+    (hdat, (%Equal.sym(U32, D.FvW(W), D.FvW(f0), fv.flag(m, cf, c)) :
+        {Bool.or(U32.is_eq(_, 524287), D.Term.below(t, U32.to_nat(_))) == True{} : Bool}; e5))))))
+
+# a part's Sp after the flag: STATIC stays
+def sp.flag(+fi: U32, +nx: U32, +c: U32, +m: Cr.Cir.Cells, +cf: U32, +y: U32, h: D.Sp(fi, nx, c, Cr.Cir.Cells.get(m, y))) ->
+  D.Sp(fi, nx, c, Cr.Cir.Cells.get(AC.Flag(m, cf), y)):
+  %Equal.sym(Bool, D.Fl(AC.Flag(m, cf), y, 1024), D.Fl(m, y, 1024), AC.fl.flag(m, cf, y, 1024, AC.and.dat.st())) :
+    {Bool.or(D.Own(fi, nx, c), _) == True{} : Bool}
+  h
+
+# a cell stands for its term after the flag (hd is threaded: k gets what
+# is left of it)
+def isk.dat(+dk: Bool, t: Bk.Term, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +cf: U32, +c: U32, +h: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, t),
+  hd: @t2: Bk.Term -> D.IsK(dk, ds, m, im, fi, nx, ks, img, cf, t2) -> D.DataK(dk, 512, t2), -R: Type, ck: (@t2: Bk.Term -> D.IsK(dk, ds, m, im, fi, nx, ks, img, cf, t2) -> D.DataK(dk, 512, t2)) -> D.IsK(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, t) -> R) -> R:
+  match t:
+    case Bk.Term.Var{+i}:
+      (+nd, hi) = h
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Var{i}, {==}, h, hd, R, hd0 => dat =>
+        ck(hd0, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Var{i}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Var{i}, 0, dat, nd), hi))))
+    case Bk.Term.Ref{+k}:
+      (+nd, r) = h
+      (hm, r2) = r
+      (hfv, hrf) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Ref{k}, {==}, h, hd, R, hd0 => dat =>
+        ck(hd0, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Ref{k}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Ref{k}, 1, dat, nd), (hm, (Equal.trans(U32, D.FvW(D.Fd(0n, AC.Flag(m, cf), c)), D.FvW(D.Fd(0n, m, c)), 0, fv.flag(m, cf, c), hfv), hrf))))))
+    case Bk.Term.Ann{+t1, +t2}:
+      (+nd, r0) = h
+      (p2, r1) = r0
+      (sp2, h2) = p2
+      (sp3, h3) = r1
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Ann{t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            ck(hd3, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Ann{t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Ann{t1, t2}, 2, dat, nd), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), (sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3))))))))
+    case Bk.Term.Let{+q, +t1, +t2}:
+      (+nd, r0) = h
+      (hq, r1) = r0
+      (p2, r2) = r1
+      (sp2, h2) = p2
+      (sp3, h3) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Let{q, t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            ck(hd3, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Let{q, t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Let{q, t1, t2}, 3, dat, nd), (Equal.trans(U32, D.QnW(D.Fd(0n, AC.Flag(m, cf), c)), D.QnW(D.Fd(0n, m, c)), Mc.Img.quan(q), qn.flag(m, cf, c), hq), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), (sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3)))))))))
+    case Bk.Term.Typ{+t1}:
+      (+nd, r0) = h
+      (sp2, h2) = r0
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Typ{t1}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          ck(hd2, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Typ{t1}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Typ{t1}, 4, dat, nd), (sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2))))))
+    case Bk.Term.Min{+t1, +t2}:
+      (+nd, r0) = h
+      (p2, r1) = r0
+      (sp2, h2) = p2
+      (sp3, h3) = r1
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Min{t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            ck(hd3, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Min{t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Min{t1, t2}, 5, dat, nd), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), (sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3))))))))
+    case Bk.Term.All{+q, +t1, +t2}:
+      (+nd, r0) = h
+      (hq, r1) = r0
+      (p2, r2) = r1
+      (sp2, h2) = p2
+      (sp3, h3) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.All{q, t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            ck(hd3, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.All{q, t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.All{q, t1, t2}, 6, dat, nd), (Equal.trans(U32, D.QnW(D.Fd(0n, AC.Flag(m, cf), c)), D.QnW(D.Fd(0n, m, c)), Mc.Img.quan(q), qn.flag(m, cf, c), hq), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), (sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3)))))))))
+    case Bk.Term.Lam{+q, +t1}:
+      (+nd, r0) = h
+      (hq, r1) = r0
+      (sp2, h2) = r1
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Lam{q, t1}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          ck(hd2, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Lam{q, t1}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Lam{q, t1}, 7, dat, nd), (Equal.trans(U32, D.QnW(D.Fd(0n, AC.Flag(m, cf), c)), D.QnW(D.Fd(0n, m, c)), Mc.Img.quan(q), qn.flag(m, cf, c), hq), (sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2)))))))
+    case Bk.Term.App{+q, +t1, +t2}:
+      (+nd, r0) = h
+      (hq, r1) = r0
+      (p2, r2) = r1
+      (sp2, h2) = p2
+      (sp3, h3) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.App{q, t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            ck(hd3, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.App{q, t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.App{q, t1, t2}, 8, dat, nd), (Equal.trans(U32, D.QnW(D.Fd(0n, AC.Flag(m, cf), c)), D.QnW(D.Fd(0n, m, c)), Mc.Img.quan(q), qn.flag(m, cf, c), hq), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), (sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3)))))))))
+    case Bk.Term.Sig{+q, +t1, +t2}:
+      (+nd, r0) = h
+      (hq, r1) = r0
+      (p2, r2) = r1
+      (sp2, h2) = p2
+      (sp3, h3) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Sig{q, t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            ck(hd3, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Sig{q, t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Sig{q, t1, t2}, 9, dat, nd), (Equal.trans(U32, D.QnW(D.Fd(0n, AC.Flag(m, cf), c)), D.QnW(D.Fd(0n, m, c)), Mc.Img.quan(q), qn.flag(m, cf, c), hq), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), (sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3)))))))))
+    case Bk.Term.Tup{+q, +t1, +t2}:
+      (+nd, r0) = h
+      (hq, r1) = r0
+      (p2, r2) = r1
+      (sp2, h2) = p2
+      (sp3, h3) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Tup{q, t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            ck(hd3, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Tup{q, t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Tup{q, t1, t2}, 10, dat, nd), (Equal.trans(U32, D.QnW(D.Fd(0n, AC.Flag(m, cf), c)), D.QnW(D.Fd(0n, m, c)), Mc.Img.quan(q), qn.flag(m, cf, c), hq), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), (sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3)))))))))
+    case Bk.Term.Prj{+t1}:
+      (+nd, r0) = h
+      (sp2, h2) = r0
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Prj{t1}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          ck(hd2, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Prj{t1}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Prj{t1}, 11, dat, nd), (sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2))))))
+    case Bk.Term.Enu{+k}:
+      (+nd, r) = h
+      (hm, hfv) = r
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Enu{k}, {==}, h, hd, R, hd0 => dat =>
+        ck(hd0, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Enu{k}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Enu{k}, 12, dat, nd), (hm, Equal.trans(U32, D.FvW(D.Fd(0n, AC.Flag(m, cf), c)), D.FvW(D.Fd(0n, m, c)), 0, fv.flag(m, cf, c), hfv))))))
+    case Bk.Term.Lab{+k}:
+      (+nd, hn) = h
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Lab{k}, {==}, h, hd, R, hd0 => dat =>
+        ck(hd0, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Lab{k}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Lab{k}, 13, dat, nd), hn))))
+    case Bk.Term.Mat{+k, +t1, +t2}:
+      (+nd, r0) = h
+      (hn, r1) = r0
+      (p3, r2) = r1
+      (sp3, h3) = p3
+      (sp4, h4) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Mat{k, t1, t2}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd0, R, hd3 => q3 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(4n, m, c), h4, hd3, R, hd4 => q4 =>
+            ck(hd4, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Mat{k, t1, t2}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Mat{k, t1, t2}, 14, dat, nd), (hn, ((sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3), (sp.flag(fi, nx, c, m, cf, D.Fd(4n, m, c), sp4), q4)))))))))
+    case Bk.Term.Efq{}:
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Efq{}, {==}, h, hd, R, hd0 => dat =>
+        ck(hd0, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Efq{}, flag.cell(m, cf, c), ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Efq{}, 15, dat, h))))
+    case Bk.Term.Eql{+t1, +t2, +t3}:
+      (+nd, r0) = h
+      (p2, r1) = r0
+      (sp2, h2) = p2
+      (p3, r2) = r1
+      (sp3, h3) = p3
+      (sp4, h4) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Eql{t1, t2, t3}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            isk.dat(dk, t3, ds, m, im, fi, nx, ks, img, cf, D.Fd(4n, m, c), h4, hd3, R, hd4 => q4 =>
+              ck(hd4, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Eql{t1, t2, t3}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Eql{t1, t2, t3}, 16, dat, nd), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), ((sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3), (sp.flag(fi, nx, c, m, cf, D.Fd(4n, m, c), sp4), q4))))))))))
+    case Bk.Term.Rfl{}:
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Rfl{}, {==}, h, hd, R, hd0 => dat =>
+        ck(hd0, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Rfl{}, flag.cell(m, cf, c), ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Rfl{}, 17, dat, h))))
+    case Bk.Term.Rwt{+t1, +t2, +t3}:
+      (+nd, r0) = h
+      (p2, r1) = r0
+      (sp2, h2) = p2
+      (p3, r2) = r1
+      (sp3, h3) = p3
+      (sp4, h4) = r2
+      root.dat(U32.is_eq(c, cf), dk, ds, ks, img, m, im, fi, nx, cf, c, Bk.Term.Rwt{t1, t2, t3}, {==}, h, hd, R, hd0 => dat =>
+        isk.dat(dk, t1, ds, m, im, fi, nx, ks, img, cf, D.Fd(2n, m, c), h2, hd0, R, hd2 => q2 =>
+          isk.dat(dk, t2, ds, m, im, fi, nx, ks, img, cf, D.Fd(3n, m, c), h3, hd2, R, hd3 => q3 =>
+            isk.dat(dk, t3, ds, m, im, fi, nx, ks, img, cf, D.Fd(4n, m, c), h4, hd3, R, hd4 => q4 =>
+              ck(hd4, D.isc.atk(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, c, Cr.Cir.Cells.get(AC.Flag(m, cf), c), Cr.Cir.Cell{D.Fd(0n, AC.Flag(m, cf), c), D.Fd(1n, m, c), D.Fd(2n, m, c), D.Fd(3n, m, c), D.Fd(4n, m, c)}, Bk.Term.Rwt{t1, t2, t3}, flag.cell(m, cf, c), (ndk.flag(dk, ds, im, fi, nx, m, cf, c, Bk.Term.Rwt{t1, t2, t3}, 18, dat, nd), ((sp.flag(fi, nx, c, m, cf, D.Fd(2n, m, c), sp2), q2), ((sp.flag(fi, nx, c, m, cf, D.Fd(3n, m, c), sp3), q3), (sp.flag(fi, nx, c, m, cf, D.Fd(4n, m, c), sp4), q4))))))))))
+
+def rtsk.dat(+dk: Bool, rs: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +cf: U32, h: D.RtsK(dk, ds, m, im, fi, nx, ks, img, rs),
+  hd: @t2: Bk.Term -> D.IsK(dk, ds, m, im, fi, nx, ks, img, cf, t2) -> D.DataK(dk, 512, t2), -R: Type, ck: (@t2: Bk.Term -> D.IsK(dk, ds, m, im, fi, nx, ks, img, cf, t2) -> D.DataK(dk, 512, t2)) -> D.RtsK(dk, ds, AC.Flag(m, cf), im, fi, nx, ks, img, rs) -> R) -> R:
+  match rs:
+    case Nil{}:
+      ck(hd, Unit{})
+    case Con{D.Rt{+c, +u}, +rest}:
+      match h:
+        case Tuple{+hu, hr}:
+          isk.dat(dk, u, ds, m, im, fi, nx, ks, img, cf, c, hu, hd, R, hd1 => q1 =>
+            rtsk.dat(dk, rest, ds, m, im, fi, nx, ks, img, cf, hr, hd1, R, hd2 => q2 => ck(hd2, (q1, q2))))
+
+
 # The laws
 # --------
 
