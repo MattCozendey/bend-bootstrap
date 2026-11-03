@@ -4982,7 +4982,7 @@ def from.pend.b(b: Bool, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im
   +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +xs: List<&2, D.TmpE>, +os: List<&2, D.Rt>,
   +fs: List<&2, D.AF>, +sp: U32, +zs: List<&2, D.Rt>, +c: U32, +u: Bk.Term, +hcu: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u),
   +hRS: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))),
-  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.Rt.cells(zs) == D.Pend.terms(ps, m) : List<&2, U32>},
+  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.AllIn(D.Pend.terms(ps, m), D.Rt.cells(zs)) == True{} : Bool},
   +hfr: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
   +htk: {D.Tmp.ok(xs, m, fi, nx, ps, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}) == True{} : Bool},
   +o: U32, eb: {U32.is_lt(D.Tg(m, o), 19) == b : Bool}, e2: {D.Mem(ps, o) == True{} : Bool},
@@ -4996,7 +4996,7 @@ def from.pend.b(b: Bool, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im
       +W = List.append(&2, D.Rt, hl, FZ)
       +RS = List.append(&2, D.Rt, os, W)
       +hpt = pend.terms.mem(ps, m, o, eb, e2)
-      +hzo = {(%Equal.sym(List<&2, U32>, D.Rt.cells(zs), D.Pend.terms(ps, m), he) : {D.Mem(_, o) == True{} : Bool}; hpt) : {D.Mem(D.Rt.cells(zs), o) == True{} : Bool}}
+      +hzo = allin.mem(D.Pend.terms(ps, m), D.Rt.cells(zs), o, he, hpt)
       D.or.r(D.Fl(m, c, 1024), D.Nodes(RS, m, c), nodes.inr(os, W, m, c, nodes.inr(hl, FZ, m, c, nodes.inr(frt, zs, m, c,
         nodes.fs(zs, dk, ds, m, im, fi, nx, ks, img, ps, tbl, o, c, hz, nodes.root(zs, m, o, hzo), hmem)))))
     case False{}:
@@ -5008,7 +5008,7 @@ def from.tmp(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: 
   +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +xs: List<&2, D.TmpE>, +os: List<&2, D.Rt>,
   +fs: List<&2, D.AF>, +sp: U32, +zs: List<&2, D.Rt>, +c: U32, +u: Bk.Term, +hcu: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u),
   +hRS: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))),
-  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.Rt.cells(zs) == D.Pend.terms(ps, m) : List<&2, U32>},
+  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.AllIn(D.Pend.terms(ps, m), D.Rt.cells(zs)) == True{} : Bool},
   +hfr: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
   +htk: {D.Tmp.ok(xs, m, fi, nx, ps, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}) == True{} : Bool},
   +o: U32, e2: {D.Mem(D.Tmp.cells(xs), o) == True{} : Bool}, +hclo: {D.Clo.at(m, o, ps, D.Tmp.cells(xs), D.Rt.cells(D.Tmp.held(xs))) == True{} : Bool},
@@ -5036,7 +5036,7 @@ def from.xs(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U
   +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +xs: List<&2, D.TmpE>, +os: List<&2, D.Rt>,
   +fs: List<&2, D.AF>, +sp: U32, +zs: List<&2, D.Rt>, +c: U32, +u: Bk.Term, +hcu: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u),
   +hRS: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))),
-  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.Rt.cells(zs) == D.Pend.terms(ps, m) : List<&2, U32>},
+  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.AllIn(D.Pend.terms(ps, m), D.Rt.cells(zs)) == True{} : Bool},
   +hfr: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
   +htk: {D.Tmp.ok(xs, m, fi, nx, ps, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}) == True{} : Bool},
   +o: U32, hx: {D.Mem(List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps)), o) == True{} : Bool}, +hclo: {D.Clo.at(m, o, ps, D.Tmp.cells(xs), D.Rt.cells(D.Tmp.held(xs))) == True{} : Bool},
@@ -5065,7 +5065,7 @@ def from.cell(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi:
   +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +xs: List<&2, D.TmpE>, +os: List<&2, D.Rt>,
   +fs: List<&2, D.AF>, +sp: U32, +zs: List<&2, D.Rt>, +c: U32, +u: Bk.Term, +hcu: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u),
   +hRS: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))),
-  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.Rt.cells(zs) == D.Pend.terms(ps, m) : List<&2, U32>},
+  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.AllIn(D.Pend.terms(ps, m), D.Rt.cells(zs)) == True{} : Bool},
   +hfr: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
   +htk: {D.Tmp.ok(xs, m, fi, nx, ps, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}) == True{} : Bool},
   +o: U32, hco: {Bool.or(D.Fl(m, o, 1024), Bool.or(D.Nodes(Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}, m, o), D.Mem(List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps)), o))) == True{} : Bool},
@@ -5094,7 +5094,7 @@ def pc.cl(n: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, 
   +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +xs: List<&2, D.TmpE>, +os: List<&2, D.Rt>,
   +fs: List<&2, D.AF>, +sp: U32, +zs: List<&2, D.Rt>, +c: U32, +u: Bk.Term, +hcu: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u),
   +hRS: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))),
-  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.Rt.cells(zs) == D.Pend.terms(ps, m) : List<&2, U32>},
+  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.AllIn(D.Pend.terms(ps, m), D.Rt.cells(zs)) == True{} : Bool},
   +hfr: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
   +htk: {D.Tmp.ok(xs, m, fi, nx, ps, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}) == True{} : Bool},
   +o: U32, hp: N.Le(1n, D.Pc(n, m, ps, o, c)), hcov: {D.Cov(n, m, o, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}, List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))) == True{} : Bool},
@@ -5118,7 +5118,7 @@ def hd.cl(+dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32
   +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +xs: List<&2, D.TmpE>, +os: List<&2, D.Rt>,
   +fs: List<&2, D.AF>, +sp: U32, +zs: List<&2, D.Rt>, +c: U32, +u: Bk.Term, +hcu: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u),
   +hRS: D.RtsK(dk, ds, m, im, fi, nx, ks, img, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))),
-  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.Rt.cells(zs) == D.Pend.terms(ps, m) : List<&2, U32>},
+  +hz: D.RtsK(dk, ds, m, im, fi, nx, ks, img, zs), +he: {D.AllIn(D.Pend.terms(ps, m), D.Rt.cells(zs)) == True{} : Bool},
   +hfr: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
   +htk: {D.Tmp.ok(xs, m, fi, nx, ps, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}) == True{} : Bool},
   hd: {D.Hd(m, nx, fi, ps, D.Rt.cells(os), c) == True{} : Bool}, +hcov: {D.Cov(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))}, List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, D.Tmp.cells(xs), ps))) == True{} : Bool},
@@ -5365,7 +5365,8 @@ def acc.drop(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>
       +htk = {htok : {D.Tmp.ok(xs, m, fi, nx, ps, R0) == True{} : Bool}}
       +hRS = rtsk.app(dk, os, W, ds, m, im, fi, nx, ks, img, hro2, rtsk.app(dk, hl, FZ, ds, m, im, fi, nx, ks, img, hh,
         rtsk.app(dk, frt, zs, ds, m, im, fi, nx, ks, img, frs.rtsk(dk, ds, m, im, fi, nx, ks, img, ps, fs, sp, hfr), hz)))
-      +hr = hd.cl(dk, ds, m, im, fi, nx, ks, img, ps, tb, xs, os, fs, sp, zs, c, u, hcu, hRS, hz, he, hfr, htk, hd, hc, hcl)
+      +hpz = {(%he : {D.AllIn(_, D.Rt.cells(zs)) == True{} : Bool}; D.allin.refl(D.Rt.cells(zs))) : {D.AllIn(D.Pend.terms(ps, m), D.Rt.cells(zs)) == True{} : Bool}}
+      +hr = hd.cl(dk, ds, m, im, fi, nx, ks, img, ps, tb, xs, os, fs, sp, zs, c, u, hcu, hRS, hz, hpz, hfr, htk, hd, hc, hcl)
       (hz, (hh, (he, (cov.drop(n, dk, ds, m, im, fi, nx, ks, img, ps, cs, D.Rt.cells(hl), RS, XS, tb, hRS, hcl, c, u, hcu, hr, fi, hc),
         (hcl, tmp.ok.drop(xs, m, fi, nx, ps, D.Rt{c, u}, RS, htk))))))
 
