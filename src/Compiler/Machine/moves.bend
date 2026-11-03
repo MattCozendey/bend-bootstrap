@@ -1126,7 +1126,7 @@ def round.peak.next(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -i
   -st: Cr.Cir.State, -t: Bk.Term, -w: Nat, -s: Cr.Cir.State, h: K.MV.next(ds, ks, img, st, t, w, s)) ->
   N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))):
   match h:
-    case Tuple{_, peak}:
+    case Tuple{_, Tuple{peak, _}}:
       peak
 
 def round.peak.mv(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
