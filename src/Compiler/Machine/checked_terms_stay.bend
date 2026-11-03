@@ -701,16 +701,18 @@ def made.fd(+k: Nat, +ms: Cr.Cir.Cells, +r: U32, +z: U32, +xc: Cr.Cir.Cell, ne: 
     K.Cl.get_ne(ms, r, z, xc, ne))
 
 # a new copy's accounting reads only its own cell
-def made.new(+ms: Cr.Cir.Cells, +T: List<&2, U32>, +r: U32, +z: U32, +xc: Cr.Cir.Cell,
-  +ne: {U32.is_eq(r, z) == False{} : Bool}, h: {D.New(ms, T, r) == True{} : Bool}) ->
-  {D.New(Cr.Cir.Cells.set(ms, z, xc), T, r) == True{} : Bool}:
+def made.new(+ms: Cr.Cir.Cells, +T: List<&2, U32>, +r: U32, +tg: U32, +z: U32, +xc: Cr.Cir.Cell,
+  +ne: {U32.is_eq(r, z) == False{} : Bool}, h: {D.New(ms, T, r, tg) == True{} : Bool}) ->
+  {D.New(Cr.Cir.Cells.set(ms, z, xc), T, r, tg) == True{} : Bool}:
   +M2 = Cr.Cir.Cells.set(ms, z, xc)
   +e0 = made.fd(0n, ms, r, z, xc, ne)
   +e1 = made.fd(1n, ms, r, z, xc, ne)
   %Equal.sym(U32, D.Fd(0n, M2, r), D.Fd(0n, ms, r), e0) :
-    {Bool.and(D.Has(T, r), Bool.and(U32.is_eq(D.Fd(1n, M2, r), 1), U32.is_zero(U32.and(_, 7936)))) == True{} : Bool}
+    {Bool.and(D.Has(T, r), Bool.and(U32.is_eq(D.Fd(1n, M2, r), 1), Bool.and(U32.is_zero(U32.and(_, 7936)),
+      U32.is_eq(U32.and(_, 63), tg)))) == True{} : Bool}
   %Equal.sym(U32, D.Fd(1n, M2, r), D.Fd(1n, ms, r), e1) :
-    {Bool.and(D.Has(T, r), Bool.and(U32.is_eq(_, 1), U32.is_zero(U32.and(D.Fd(0n, ms, r), 7936)))) == True{} : Bool}
+    {Bool.and(D.Has(T, r), Bool.and(U32.is_eq(_, 1), Bool.and(U32.is_zero(U32.and(D.Fd(0n, ms, r), 7936)),
+      U32.is_eq(U32.and(D.Fd(0n, ms, r), 63), tg)))) == True{} : Bool}
   h
 
 # a copied cell's comparison reads only its own cell in the new memory
@@ -732,13 +734,13 @@ def made.cpy(+ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +S: List<&2, D.Rt>, +r: U32, 
 
 # both parts of a new node stay
 def made.nw(+ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +S: List<&2, D.Rt>, +T: List<&2, U32>, +cs: List<&2, D.Pr>,
-  +r: U32, +z: U32, +xc: Cr.Cir.Cell, +ne: {U32.is_eq(r, z) == False{} : Bool},
-  h: {D.Nw(ms, m0, S, T, cs, r) == True{} : Bool}) -> {D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r) == True{} : Bool}:
+  +r: U32, +tg: U32, +z: U32, +xc: Cr.Cir.Cell, +ne: {U32.is_eq(r, z) == False{} : Bool},
+  h: {D.Nw(ms, m0, S, T, cs, r, tg) == True{} : Bool}) -> {D.Nw(Cr.Cir.Cells.set(ms, z, xc), m0, S, T, cs, r, tg) == True{} : Bool}:
   +M2 = Cr.Cir.Cells.set(ms, z, xc)
   +h2 = h
-  K.Bo.and_i(D.New(M2, T, r), D.Cpy(M2, m0, S, r, D.Pr.of(cs, r)),
-    made.new(ms, T, r, z, xc, ne, K.Bo.and_l(D.New(ms, T, r), D.Cpy(ms, m0, S, r, D.Pr.of(cs, r)), h2)),
-    made.cpy(ms, m0, S, r, D.Pr.of(cs, r), z, xc, ne, K.Bo.and_r(D.New(ms, T, r), D.Cpy(ms, m0, S, r, D.Pr.of(cs, r)), h2)))
+  K.Bo.and_i(D.New(M2, T, r, tg), D.Cpy(M2, m0, S, r, D.Pr.of(cs, r)),
+    made.new(ms, T, r, tg, z, xc, ne, K.Bo.and_l(D.New(ms, T, r, tg), D.Cpy(ms, m0, S, r, D.Pr.of(cs, r)), h2)),
+    made.cpy(ms, m0, S, r, D.Pr.of(cs, r), z, xc, ne, K.Bo.and_r(D.New(ms, T, r, tg), D.Cpy(ms, m0, S, r, D.Pr.of(cs, r)), h2)))
 
 # keep the old-node alternative, or transport the new-node alternative
 def made.or(s: Bool, -a: Bool, -b: Bool, h: {Bool.or(s, a) == True{} : Bool}, k: {a == True{} : Bool} -> {b == True{} : Bool}) ->

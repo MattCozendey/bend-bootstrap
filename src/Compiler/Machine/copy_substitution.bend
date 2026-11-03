@@ -737,62 +737,65 @@ def Cpy(+ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +S: List<&2, Rt>, +c: U32, +s: U32)
   Bool.and(Nodes(S, m, s), Bool.and(U32.is_eq(U32.and(f0, 255), U32.and(Fd(0n, m, s), 255)),
     Bool.or(Bool.not(Bool.or(U32.is_eq(tg, 13), U32.is_eq(tg, 14))), U32.is_eq(Fd(2n, ms, c), Fd(2n, m, s)))))
 
-# the cell r (in ms) is a new one: taken (T), one pointer counted, no flag
-def New(+ms: Cr.Cir.Cells, +T: List<&2, U32>, +r: U32) -> Bool:
-  Bool.and(Has(T, r), Bool.and(U32.is_eq(Fd(1n, ms, r), 1), U32.is_zero(U32.and(Fd(0n, ms, r), 7936))))
+# the cell r (in ms) is a new one of the tag tg: taken (T), one pointer
+# counted, no flag
+def New(+ms: Cr.Cir.Cells, +T: List<&2, U32>, +r: U32, +tg: U32) -> Bool:
+  Bool.and(Has(T, r), Bool.and(U32.is_eq(Fd(1n, ms, r), 1), Bool.and(U32.is_zero(U32.and(Fd(0n, ms, r), 7936)),
+    U32.is_eq(U32.and(Fd(0n, ms, r), 63), tg))))
 
-# the cell r is new and copies the old cell that the pairs ps give it
-def Nw(+ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +S: List<&2, Rt>, +T: List<&2, U32>, +ps: List<&2, Pr>, +r: U32) -> Bool:
-  Bool.and(New(ms, T, r), Cpy(ms, m, S, r, Pr.of(ps, r)))
+# the cell r is new, of the tag tg, and copies the old cell that the pairs ps
+# give it
+def Nw(+ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +S: List<&2, Rt>, +T: List<&2, U32>, +ps: List<&2, Pr>, +r: U32, +tg: U32) -> Bool:
+  Bool.and(New(ms, T, r, tg), Cpy(ms, m, S, r, Pr.of(ps, r)))
 
 # the term u at the cell r is made of the copied cells: each node is a node
 # of the terms of S (the source and the locals) as it was in m, or a new cell
-# that, but for a Var, copies an old node of S (by the pairs ps), with its
-# parts made so too; a Ref and an Enu, whose fv is 0, are always old (the
-# walk shares them), while a Lab, an Efq or a Rfl whose fv field is not 0
-# gets a copy
+# of its term's tag that, but for a Var, copies an old node of S (by the
+# pairs ps), with its parts made so too; a Ref and an Enu, whose fv is 0, are
+# always old (the walk shares them), while a Lab, an Efq or a Rfl whose fv
+# field is not 0 gets a copy
 def Made(u: Bk.Term, +ms: Cr.Cir.Cells, +m: Cr.Cir.Cells, +r: U32, +S: List<&2, Rt>, +T: List<&2, U32>, +ps: List<&2, Pr>) ->
   Bool:
   match u:
     case Bk.Term.Var{_}:
-      Bool.or(Nodes(S, m, r), New(ms, T, r))
+      Bool.or(Nodes(S, m, r), New(ms, T, r, 0))
     case Bk.Term.Ref{_}:
       Nodes(S, m, r)
     case Bk.Term.Ann{y, z}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(y, ms, m, Fd(2n, ms, r), S, T, ps), Made(z, ms, m, Fd(3n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 2), Bool.and(Made(y, ms, m, Fd(2n, ms, r), S, T, ps), Made(z, ms, m, Fd(3n, ms, r), S, T, ps))))
     case Bk.Term.Let{_, v, f}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(v, ms, m, Fd(2n, ms, r), S, T, ps), Made(f, ms, m, Fd(3n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 3), Bool.and(Made(v, ms, m, Fd(2n, ms, r), S, T, ps), Made(f, ms, m, Fd(3n, ms, r), S, T, ps))))
     case Bk.Term.Typ{y}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Made(y, ms, m, Fd(2n, ms, r), S, T, ps)))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 4), Made(y, ms, m, Fd(2n, ms, r), S, T, ps)))
     case Bk.Term.Min{a, b}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 5), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
     case Bk.Term.All{_, a, b}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 6), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
     case Bk.Term.Lam{_, f}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Made(f, ms, m, Fd(2n, ms, r), S, T, ps)))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 7), Made(f, ms, m, Fd(2n, ms, r), S, T, ps)))
     case Bk.Term.App{_, f, y}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(f, ms, m, Fd(2n, ms, r), S, T, ps), Made(y, ms, m, Fd(3n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 8), Bool.and(Made(f, ms, m, Fd(2n, ms, r), S, T, ps), Made(y, ms, m, Fd(3n, ms, r), S, T, ps))))
     case Bk.Term.Sig{_, a, b}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 9), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
     case Bk.Term.Tup{_, a, b}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 10), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Made(b, ms, m, Fd(3n, ms, r), S, T, ps))))
     case Bk.Term.Prj{h}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Made(h, ms, m, Fd(2n, ms, r), S, T, ps)))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 11), Made(h, ms, m, Fd(2n, ms, r), S, T, ps)))
     case Bk.Term.Enu{_}:
       Nodes(S, m, r)
     case Bk.Term.Lab{_}:
-      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r))
+      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r, 13))
     case Bk.Term.Mat{_, h, n}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(h, ms, m, Fd(3n, ms, r), S, T, ps), Made(n, ms, m, Fd(4n, ms, r), S, T, ps))))
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 14), Bool.and(Made(h, ms, m, Fd(3n, ms, r), S, T, ps), Made(n, ms, m, Fd(4n, ms, r), S, T, ps))))
     case Bk.Term.Efq{}:
-      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r))
+      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r, 15))
     case Bk.Term.Eql{a, b, y}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(b, ms, m, Fd(3n, ms, r), S, T, ps),
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 16), Bool.and(Made(a, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(b, ms, m, Fd(3n, ms, r), S, T, ps),
         Made(y, ms, m, Fd(4n, ms, r), S, T, ps)))))
     case Bk.Term.Rfl{}:
-      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r))
+      Bool.or(Nodes(S, m, r), Nw(ms, m, S, T, ps, r, 17))
     case Bk.Term.Rwt{e, y, f}:
-      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r), Bool.and(Made(e, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(y, ms, m, Fd(3n, ms, r), S, T, ps),
+      Bool.or(Nodes(S, m, r), Bool.and(Nw(ms, m, S, T, ps, r, 18), Bool.and(Made(e, ms, m, Fd(2n, ms, r), S, T, ps), Bool.and(Made(y, ms, m, Fd(3n, ms, r), S, T, ps),
         Made(f, ms, m, Fd(4n, ms, r), S, T, ps)))))
 
 # each taken cell of T is a node of the result u at r, or a root given back
@@ -935,17 +938,17 @@ def Ok(o: Cr.Cir.Out, +F: U32, +K: U32, +L: U32, +I: List<&2, Word(8n)>, +B: Nat
 # roots rs, the terms that the temporaries ts hold and the kept cells kc
 # stay; the cover and the closure again, with the result among the roots;
 # what the result is made of (Made: the old nodes of S, the source and the
-# locals, and new cells, by the pairs ps); the cells taken (T) are the
-# result's new nodes and roots given back, the new garbage the old garbage
-# not taken and those roots, pending; the taken cells were garbage or new,
-# and each new cell is taken; they hold no flag, and but those given back
-# they count their pointers, the result's register's too; the others keep
-# their fields 0 and 2 to 4 (Kept, and the image's: Same) and their counts
-# follow the pointers, the result's register counting one more; when next
-# grows, it stays at most 214748364, and the own cells (from F to next) are
-# at most Bc, the cells that the out-of-memory budget counts (a new cell is
-# taken only once the garbage is gone); and the cells taken, less those
-# given back, are at most the result's nodes
+# locals, and new cells of their terms' tags, by the pairs ps); the cells
+# taken (T) are the result's new nodes and roots given back, the new garbage
+# the old garbage not taken and those roots, pending; the taken cells were
+# garbage or new, and each new cell is taken; they hold no flag, and but
+# those given back they count their pointers, the result's register's too;
+# the others keep their fields 0 and 2 to 4 (Kept, and the image's: Same)
+# and their counts follow the pointers, the result's register counting one
+# more; when next grows, it stays at most 214748364, and the own cells (from
+# F to next) are at most Bc, the cells that the out-of-memory budget counts
+# (a new cell is taken only once the garbage is gone); and the cells taken,
+# less those given back, are at most the result's nodes
 type Wt is Data:
   Wt{ups: List<&2, Up>, r: U32, g: Nat, Pn: List<&2, U32>, Qn: List<&2, U32>, zn: List<&2, Zs>, T: List<&2, U32>,
     ps: List<&2, Pr>}
