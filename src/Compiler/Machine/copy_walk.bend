@@ -743,6 +743,14 @@ def pt.fx(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, 
 # The drop's steps
 # ----------------
 
+# each of the cells xs is a part of c
+def Pts(xs: List<&2, U32>, +m: Cr.Cir.Cells, +c: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Nat.is_lt(0n, D.Ow(m, c, x)), Pts(rest, m, c))
+
 # the registers at a drop: Rg.ex's, with pend, dx, dr, aq and am
 def Rd(+R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +am: U32) -> List<&2, U32>:
   Rp([p3, p4, p5, q, am], D.Rg.ex(63n, R, 0n))
@@ -766,7 +774,7 @@ def Dk(+f: Nat, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +q: U32, +m: Cr.Cir.Cells, +
   @p3: U32 -> @p4: U32 -> @p5: U32 -> @ws: List<&2, W1> -> @pu: List<&2, U32> ->
     {W1s.pt(ws, m, q) == True{} : Bool} -> {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool} ->
     {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool} -> {D.Nodup(pu) == True{} : Bool} ->
-    {Gq(pu, P, Con{q, Qr}) == True{} : Bool} ->
+    {Gq(pu, P, Con{q, Qr}) == True{} : Bool} -> {Pts(pu, m, q) == True{} : Bool} ->
     D.Ok(Cr.Cir.exec(1n+f, B, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq)
 
 # a statement a whose run is M.dec's, which reaches st2 (st3), then B
@@ -884,7 +892,7 @@ def dr.z(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
   +hz0: {U32.is_eq(D.Fd(k, m, q), 0) == True{} : Bool}, e1: {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, Con{D.Fd(k, m, q), done}, Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   +am = D.Am(m, q)
@@ -901,7 +909,7 @@ def dr.z(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
   +hx = K.Bo.or_il(U32.is_zero(x0), Dv(m, M, pu, x0, D.Occ(Con{x0, done}, x0)), hz0)
   dr.run(f, Mc.M.dec.part(k, bit), B, st0, st1, st1, Sr.X.st(Rd(R, p3, x0, p5, q, am), M, nx, F, K, pg, L, I), F, K, L, I, Bud, Rq, e1, e2, e3,
     kont(p3, x0, p5, ws, pu, hpt, dv3.step(am, q, m, M, M, pu, pu, done, x0, hdv, hx, +ne => {==}, +ne => {==}, +ne => {==}, +ne => {==},
-      +ne => {==}, +ne => {==}), hch, hnd, hgq))
+      +ne => {==}, +ne => {==}), hch, hnd, hgq, hpp))
 
 # the drop of a STATIC part: nothing
 def dr.s(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
@@ -910,7 +918,7 @@ def dr.s(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
   +hz: {U32.is_eq(D.Fd(k, m, q), 0) == False{} : Bool}, +hc: {Cr.Cir.is_cell(D.Fd(k, m, q), K, F, nx) == True{} : Bool}, +hs: {D.Stc(m, D.Fd(k, m, q)) == True{} : Bool}, +hcur: {Dv(m, W1s(ws, m), pu, D.Fd(k, m, q), D.Occ(done, D.Fd(k, m, q))) == True{} : Bool}, e1: {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, Con{D.Fd(k, m, q), done}, Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   +am = D.Am(m, q)
@@ -927,7 +935,7 @@ def dr.s(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
     dv.s(m, M, pu, x0, D.Occ(done, x0), D.Occ(Con{x0, done}, x0), hs, hcur))
   dr.run(f, Mc.M.dec.part(k, bit), B, st0, st1, st1, Sr.X.st(Rd(R, p3, x0, p5, q, am), M, nx, F, K, pg, L, I), F, K, L, I, Bud, Rq, e1, e2, e3,
     kont(p3, x0, p5, ws, pu, hpt, dv3.step(am, q, m, M, M, pu, pu, done, x0, hdv, hx, +ne => {==}, +ne => {==}, +ne => {==}, +ne => {==},
-      +ne => {==}, +ne => {==}), hch, hnd, hgq))
+      +ne => {==}, +ne => {==}), hch, hnd, hgq, hpp))
 
 # the drop of a part whose count stays above 0
 def dr.n(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
@@ -937,7 +945,7 @@ def dr.n(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
   +hd: {U32.is_eq(U32.sub(D.Fd(1n, W1s(ws, m), D.Fd(k, m, q)), 1), 0) == False{} : Bool}, +hcur: {Dv(m, W1s(ws, m), pu, D.Fd(k, m, q), D.Occ(done, D.Fd(k, m, q))) == True{} : Bool}, +hpf: {PtF(m, P, Con{q, Qr}, q, D.Fd(k, m, q)) == True{} : Bool}, +hbd: N.Le(1n+D.Occ(done, D.Fd(k, m, q)), D.Ow(m, q, D.Fd(k, m, q))), e1: {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, Con{D.Fd(k, m, q), done}, Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   +am = D.Am(m, q)
@@ -975,7 +983,7 @@ def dr.n(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
     Rd(R, p3, x0, dn, q, am), rd.n(R, p3, p4, p5, q, am, x0, dn))
   dr.run(f, Mc.M.dec.part(k, bit), B, st0, st1, Sr.X.st(Sr.X.set(regs4, 5n, dn), Sr.X.put(M, 1n, x0, dn), nx, F, K, pg, L, I),
     Sr.X.st(Rd(R, p3, x0, dn, q, am), W1s(Con{W1{x0, dn}, ws}, m), nx, F, K, pg, L, I), F, K, L, I, Bud, Rq, e1, e2, e3,
-    kont(p3, x0, dn, Con{W1{x0, dn}, ws}, pu, hpt2, hdv2, hch2, hnd, hgq))
+    kont(p3, x0, dn, Con{W1{x0, dn}, ws}, pu, hpt2, hdv2, hch2, hnd, hgq, hpp))
 
 # the drop of a part whose count reaches 0: it goes to the pend list
 def dr.p(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
@@ -985,7 +993,7 @@ def dr.p(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
   +hd: {U32.is_eq(U32.sub(D.Fd(1n, W1s(ws, m), D.Fd(k, m, q)), 1), 0) == True{} : Bool}, +hcur: {Dv(m, W1s(ws, m), pu, D.Fd(k, m, q), D.Occ(done, D.Fd(k, m, q))) == True{} : Bool}, +hpf: {PtF(m, P, Con{q, Qr}, q, D.Fd(k, m, q)) == True{} : Bool}, +hbd: N.Le(1n+D.Occ(done, D.Fd(k, m, q)), D.Ow(m, q, D.Fd(k, m, q))), e1: {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, Con{D.Fd(k, m, q), done}, Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   +am = D.Am(m, q)
@@ -1043,7 +1051,8 @@ def dr.p(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U
   dr.run(f, Mc.M.dec.part(k, bit), B, st0, st1, Sr.X.st(Sr.X.set(Sr.X.set(regs4, 5n, dn), 3n, x0), Sr.X.put(Sr.X.put(M, 1n, x0, dn), 1n, x0, p3),
     nx, F, K, pg, L, I), Sr.X.st(Rd(R, x0, x0, dn, q, am), W1s(Con{W1{x0, p3}, Con{W1{x0, dn}, ws}}, m), nx, F, K, pg, L, I),
     F, K, L, I, Bud, Rq, e1, e2, e3,
-    kont(x0, x0, dn, Con{W1{x0, p3}, Con{W1{x0, dn}, ws}}, Con{x0, pu}, hpt2, hdv2, hch2, hnd2, hgq2))
+    kont(x0, x0, dn, Con{W1{x0, p3}, Con{W1{x0, dn}, ws}}, Con{x0, pu}, hpt2, hdv2, hch2, hnd2, hgq2,
+      K.Bo.and_i(Nat.is_lt(0n, ow), Pts(pu, m, q), lt0, hpp)))
 
 # a drop of a part neither 0 nor STATIC, by whether its count reaches 0
 def dr.ns(b: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
@@ -1053,14 +1062,14 @@ def dr.ns(b: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U3
   +hcur: {Dv(m, W1s(ws, m), pu, D.Fd(k, m, q), D.Occ(done, D.Fd(k, m, q))) == True{} : Bool}, +hpf: {PtF(m, P, Con{q, Qr}, q, D.Fd(k, m, q)) == True{} : Bool}, +hbd: N.Le(1n+D.Occ(done, D.Fd(k, m, q)), D.Ow(m, q, D.Fd(k, m, q))), e1: {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, Con{D.Fd(k, m, q), done}, Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   match b:
     case False{}:
-      dr.n(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, hz, hc, hs, eb, hcur, hpf, hbd, e1, hpt, hdv, hch, hnd, hgq, kont)
+      dr.n(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, hz, hc, hs, eb, hcur, hpf, hbd, e1, hpt, hdv, hch, hnd, hgq, hpp, kont)
     case True{}:
-      dr.p(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, hz, hc, hs, eb, hcur, hpf, hbd, e1, hpt, hdv, hch, hnd, hgq, kont)
+      dr.p(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, hz, hc, hs, eb, hcur, hpf, hbd, e1, hpt, hdv, hch, hnd, hgq, hpp, kont)
 
 # a drop of a part that is not 0, by whether it is STATIC
 def dr.nz(s: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
@@ -1071,17 +1080,17 @@ def dr.nz(s: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U3
   +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hbd: N.Le(1n+D.Occ(done, D.Fd(k, m, q)), D.Ow(m, q, D.Fd(k, m, q))), e1: {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, Con{D.Fd(k, m, q), done}, Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   match s:
     case True{}:
-      dr.s(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, hz, hc, es, hcur, e1, hpt, hdv, hch, hnd, hgq, kont)
+      dr.s(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, hz, hc, es, hcur, e1, hpt, hdv, hch, hnd, hgq, hpp, kont)
     case False{}:
       +x0 = D.Fd(k, m, q)
       +hb1 = N.le_trans(1n, 1n+D.Occ(done, x0), D.Ow(m, q, x0), N.le_zero(D.Occ(done, x0)), hbd)
       +hpf = pt.fx(m, P, Con{q, Qr}, zs, q, D.Am(m, q), bit, x0, K, F, nx, hpart, hon, hz, es, hq, hsub, hcs, hb1)
-      dr.ns(U32.is_eq(U32.sub(D.Fd(1n, W1s(ws, m), x0), 1), 0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hz, hc, es, hcur, hpf, hbd, e1, hpt, hdv, hch, hnd, hgq, kont)
+      dr.ns(U32.is_eq(U32.sub(D.Fd(1n, W1s(ws, m), x0), 1), 0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hz, hc, es, hcur, hpf, hbd, e1, hpt, hdv, hch, hnd, hgq, hpp, kont)
 
 # a drop of a part, by whether it is 0
 def dr.on(z: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
@@ -1093,17 +1102,17 @@ def dr.on(z: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U3
   +hcs: {D.AL.cells(P, m, P, Con{q, Qr}, zs, K, F, nx) == True{} : Bool}, +hbd: N.Le(1n+D.Occ(done, D.Fd(k, m, q)), D.Ow(m, q, D.Fd(k, m, q))), e1: {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, Con{D.Fd(k, m, q), done}, Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   match z:
     case True{}:
-      dr.z(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, ez, e1, hpt, hdv, hch, hnd, hgq, kont)
+      dr.z(f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, ez, e1, hpt, hdv, hch, hnd, hgq, hpp, kont)
     case False{}:
       +x0 = D.Fd(k, m, q)
       +hc = pt.cell(m, P, zs, D.Zz(zs, q), D.Am(m, q), bit, x0, K, F, nx, hpart, hon, ez)
       +hv = K.Bo.or_r(U32.is_zero(x0), Dv(m, W1s(ws, m), pu, x0, D.Occ(done, x0)), hcur, ez)
-      dr.nz(D.Stc(m, x0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hon, ez, hc, hv, hpart, hq, hsub, hcs, hbd, e1, hpt, hdv, hch, hnd, hgq, kont)
+      dr.nz(D.Stc(m, x0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hon, ez, hc, hv, hpart, hq, hsub, hcs, hbd, e1, hpt, hdv, hch, hnd, hgq, hpp, kont)
 
 # the drop of the part in field k of q, by the bit of its mask
 def dr.step.b(b: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
@@ -1117,7 +1126,7 @@ def dr.step.b(b: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2
   +hbd: {Bool.or(Bool.not(b), Nat.is_le(1n+D.Occ(done, D.Fd(k, m, q)), D.Ow(m, q, D.Fd(k, m, q)))) == True{} : Bool},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, D.Ps.opt(b, D.Fd(k, m, q), done), Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
   match b:
@@ -1136,7 +1145,7 @@ def dr.step.b(b: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2
         Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, st0), Cr.Cir.exec(1n+f, B, st0),
           K.X.seq(f, Mc.M.dec.part(k, bit), B, st0, st0,
             Equal.sym(Cr.Cir.Out, Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), st0), Cr.Cir.Out.next{st0}, e1))),
-        kont(p3, p4, p5, ws, pu, hpt, hdv, hch, hnd, hgq))
+        kont(p3, p4, p5, ws, pu, hpt, hdv, hch, hnd, hgq, hpp))
     case True{}:
       +am = D.Am(m, q)
       +M = W1s(ws, m)
@@ -1150,7 +1159,7 @@ def dr.step.b(b: Bool, +f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2
       +e1a = Sr.dec.part.on(1n+f, regs, M, nx, F, K, pg, L, I, k, bit, am, q, {==}, {==}, {==}, hb, hqc)
       +e1 = {(%fd.w1s(ws, m, k, hk, q) : {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), st0) ==
           Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(regs, 4n, _), M, nx, F, K, pg, L, I)) : Cr.Cir.Out}; e1a) : {Cr.Cir.exec(1n+f, Mc.M.dec.part(k, bit), Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)) == Cr.Cir.exec(1n+f, Mc.M.dec(4n), Sr.X.st(Sr.X.set(Rd(R, p3, p4, p5, q, D.Am(m, q)), 4n, D.Fd(k, m, q)), W1s(ws, m), nx, F, K, pg, L, I)) : Cr.Cir.Out}}
-      dr.on(U32.is_eq(x0, 0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hb, hcur, hpart, hq, hsub, hcs, N.toLe(1n+D.Occ(done, x0), D.Ow(m, q, x0), hbd), e1, hpt, hdv, hch, hnd, hgq, kont)
+      dr.on(U32.is_eq(x0, 0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hb, hcur, hpart, hq, hsub, hcs, N.toLe(1n+D.Occ(done, x0), D.Ow(m, q, x0), hbd), e1, hpt, hdv, hch, hnd, hgq, hpp, kont)
 
 def dr.step(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3: U32, +p4: U32, +p5: U32, +q: U32, +m: Cr.Cir.Cells,
   +ws: List<&2, W1>, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32, +I: List<&2, Word(8n)>, +P: List<&2, U32>, +Qr: List<&2, U32>,
@@ -1162,10 +1171,10 @@ def dr.step(+f: Nat, +k: Nat, +bit: U32, +B: Cr.Cir.Stmt, +R: List<&2, U32>, +p3
   +hbd: {Bool.or(Bool.not(U32.is_ne(U32.and(D.Am(m, q), bit), 0)), Nat.is_le(1n+D.Occ(done, D.Fd(k, m, q)), D.Ow(m, q, D.Fd(k, m, q)))) == True{} : Bool},
   hpt: {W1s.pt(ws, m, q) == True{} : Bool}, +hdv: {Dv3(D.Am(m, q), q, m, W1s(ws, m), pu, done) == True{} : Bool},
   hch: {D.Chain(List.append(&2, U32, pu, Qr), W1s(ws, m), p3) == True{} : Bool}, hnd: {D.Nodup(pu) == True{} : Bool},
-  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool},
+  hgq: {Gq(pu, P, Con{q, Qr}) == True{} : Bool}, hpp: {Pts(pu, m, q) == True{} : Bool},
   kont: Dk(f, B, R, q, m, nx, F, K, pg, L, I, P, Qr, D.Ps.opt(U32.is_ne(U32.and(D.Am(m, q), bit), 0), D.Fd(k, m, q), done), Bud, Rq)) ->
   D.Ok(Cr.Cir.exec(1n+f, Cr.Cir.Stmt.seq{Mc.M.dec.part(k, bit), B}, Sr.X.st(Rd(R, p3, p4, p5, q, D.Am(m, q)), W1s(ws, m), nx, F, K, pg, L, I)), F, K, L, I, Bud, Rq):
-  dr.step.b(U32.is_ne(U32.and(D.Am(m, q), bit), 0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hk, hqc, hcur, hpart, hq, hsub, hcs, hbd, hpt, hdv, hch, hnd, hgq, kont)
+  dr.step.b(U32.is_ne(U32.and(D.Am(m, q), bit), 0), f, k, bit, B, R, p3, p4, p5, q, m, ws, nx, F, K, pg, L, I, P, Qr, zs, pu, done, Bud, Rq, {==}, hk, hqc, hcur, hpart, hq, hsub, hcs, hbd, hpt, hdv, hch, hnd, hgq, hpp, kont)
 
 # The allocation's run: a new cell
 # --------------------------------
