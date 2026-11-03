@@ -118,3 +118,215 @@ def occ.names(t: Bk.Term, +ys: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8
     case Bk.Term.Rwt{+x, +y, +z}:
       occ.names(x, Mc.Img.names(y, Mc.Img.names(z, ys)), k,
         occ.names(y, Mc.Img.names(z, ys), k, occ.names(z, ys, k, o)))
+
+# every name of a term is in a list, as a P2 tree
+# ------------------------------------------------
+
+def GAll(t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>) -> Data:
+  match t:
+    case Bk.Term.Var{_}:
+      Unit
+    case Bk.Term.Ref{_}:
+      Unit
+    case Bk.Term.Ann{+x, +y}:
+      D.P2(GAll(x, ks), GAll(y, ks))
+    case Bk.Term.Let{_, +x, +y}:
+      D.P2(GAll(x, ks), GAll(y, ks))
+    case Bk.Term.Typ{+x}:
+      GAll(x, ks)
+    case Bk.Term.Min{+x, +y}:
+      D.P2(GAll(x, ks), GAll(y, ks))
+    case Bk.Term.All{_, +x, +y}:
+      D.P2(GAll(x, ks), GAll(y, ks))
+    case Bk.Term.Lam{_, +x}:
+      GAll(x, ks)
+    case Bk.Term.App{_, +x, +y}:
+      D.P2(GAll(x, ks), GAll(y, ks))
+    case Bk.Term.Sig{_, +x, +y}:
+      D.P2(GAll(x, ks), GAll(y, ks))
+    case Bk.Term.Tup{_, +x, +y}:
+      D.P2(GAll(x, ks), GAll(y, ks))
+    case Bk.Term.Prj{+x}:
+      GAll(x, ks)
+    case Bk.Term.Enu{_}:
+      Unit
+    case Bk.Term.Lab{+k}:
+      Occ(ks, k)
+    case Bk.Term.Mat{+k, +x, +y}:
+      D.P2(Occ(ks, k), D.P2(GAll(x, ks), GAll(y, ks)))
+    case Bk.Term.Efq{}:
+      Unit
+    case Bk.Term.Eql{+x, +y, +z}:
+      D.P2(GAll(x, ks), D.P2(GAll(y, ks), GAll(z, ks)))
+    case Bk.Term.Rfl{}:
+      Unit
+    case Bk.Term.Rwt{+x, +y, +z}:
+      D.P2(GAll(x, ks), D.P2(GAll(y, ks), GAll(z, ks)))
+
+# a copy in ks is a copy in p, then ks
+def gall.prefix(+p: List<&2, List<&2, Word(8n)>>, t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>,
+  g: GAll(t, ks)) -> GAll(t, List.append(&2, List<&2, Word(8n)>, p, ks)):
+  match t:
+    case Bk.Term.Var{_}:
+      Unit{}
+    case Bk.Term.Ref{_}:
+      Unit{}
+    case Bk.Term.Ann{+x, +y}:
+      (gx, gy) = g
+      Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}
+    case Bk.Term.Let{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}
+    case Bk.Term.Typ{+x}:
+      gall.prefix(p, x, ks, g)
+    case Bk.Term.Min{+x, +y}:
+      (gx, gy) = g
+      Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}
+    case Bk.Term.All{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}
+    case Bk.Term.Lam{_, +x}:
+      gall.prefix(p, x, ks, g)
+    case Bk.Term.App{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}
+    case Bk.Term.Sig{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}
+    case Bk.Term.Tup{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}
+    case Bk.Term.Prj{+x}:
+      gall.prefix(p, x, ks, g)
+    case Bk.Term.Enu{_}:
+      Unit{}
+    case Bk.Term.Lab{+k}:
+      occ.append.r(p, ks, k, g)
+    case Bk.Term.Mat{+k, +x, +y}:
+      (gk, r) = g
+      (gx, gy) = r
+      Tuple{occ.append.r(p, ks, k, gk), Tuple{gall.prefix(p, x, ks, gx), gall.prefix(p, y, ks, gy)}}
+    case Bk.Term.Efq{}:
+      Unit{}
+    case Bk.Term.Eql{+x, +y, +z}:
+      (gx, r) = g
+      (gy, gz) = r
+      Tuple{gall.prefix(p, x, ks, gx), Tuple{gall.prefix(p, y, ks, gy), gall.prefix(p, z, ks, gz)}}
+    case Bk.Term.Rfl{}:
+      Unit{}
+    case Bk.Term.Rwt{+x, +y, +z}:
+      (gx, r) = g
+      (gy, gz) = r
+      Tuple{gall.prefix(p, x, ks, gx), Tuple{gall.prefix(p, y, ks, gy), gall.prefix(p, z, ks, gz)}}
+
+# a copy in ks is a copy in the names of h, then ks
+def gall.names(+h: Bk.Term, t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, g: GAll(t, ks)) ->
+  GAll(t, Mc.Img.names(h, ks)):
+  match t:
+    case Bk.Term.Var{_}:
+      Unit{}
+    case Bk.Term.Ref{_}:
+      Unit{}
+    case Bk.Term.Ann{+x, +y}:
+      (gx, gy) = g
+      Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}
+    case Bk.Term.Let{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}
+    case Bk.Term.Typ{+x}:
+      gall.names(h, x, ks, g)
+    case Bk.Term.Min{+x, +y}:
+      (gx, gy) = g
+      Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}
+    case Bk.Term.All{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}
+    case Bk.Term.Lam{_, +x}:
+      gall.names(h, x, ks, g)
+    case Bk.Term.App{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}
+    case Bk.Term.Sig{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}
+    case Bk.Term.Tup{_, +x, +y}:
+      (gx, gy) = g
+      Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}
+    case Bk.Term.Prj{+x}:
+      gall.names(h, x, ks, g)
+    case Bk.Term.Enu{_}:
+      Unit{}
+    case Bk.Term.Lab{+k}:
+      occ.names(h, ks, k, g)
+    case Bk.Term.Mat{+k, +x, +y}:
+      (gk, r) = g
+      (gx, gy) = r
+      Tuple{occ.names(h, ks, k, gk), Tuple{gall.names(h, x, ks, gx), gall.names(h, y, ks, gy)}}
+    case Bk.Term.Efq{}:
+      Unit{}
+    case Bk.Term.Eql{+x, +y, +z}:
+      (gx, r) = g
+      (gy, gz) = r
+      Tuple{gall.names(h, x, ks, gx), Tuple{gall.names(h, y, ks, gy), gall.names(h, z, ks, gz)}}
+    case Bk.Term.Rfl{}:
+      Unit{}
+    case Bk.Term.Rwt{+x, +y, +z}:
+      (gx, r) = g
+      (gy, gz) = r
+      Tuple{gall.names(h, x, ks, gx), Tuple{gall.names(h, y, ks, gy), gall.names(h, z, ks, gz)}}
+
+# a copy in ks is a copy in n, then ks
+def gall.cons(n: List<&2, Word(8n)>, t: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, g: GAll(t, ks)) ->
+  GAll(t, Con{n, ks}):
+  gall.prefix(Con{n, Nil{}}, t, ks, g)
+
+# every name of a term is in the term's names, then x
+def names.all(t: Bk.Term, +x: List<&2, List<&2, Word(8n)>>) -> GAll(t, Mc.Img.names(t, x)):
+  match t:
+    case Bk.Term.Var{_}:
+      Unit{}
+    case Bk.Term.Ref{_}:
+      Unit{}
+    case Bk.Term.Ann{+a, +b}:
+      Tuple{names.all(a, Mc.Img.names(b, x)), gall.names(a, b, Mc.Img.names(b, x), names.all(b, x))}
+    case Bk.Term.Let{_, +a, +b}:
+      Tuple{names.all(a, Mc.Img.names(b, x)), gall.names(a, b, Mc.Img.names(b, x), names.all(b, x))}
+    case Bk.Term.Typ{+a}:
+      names.all(a, x)
+    case Bk.Term.Min{+a, +b}:
+      Tuple{names.all(a, Mc.Img.names(b, x)), gall.names(a, b, Mc.Img.names(b, x), names.all(b, x))}
+    case Bk.Term.All{_, +a, +b}:
+      Tuple{names.all(a, Mc.Img.names(b, x)), gall.names(a, b, Mc.Img.names(b, x), names.all(b, x))}
+    case Bk.Term.Lam{_, +a}:
+      names.all(a, x)
+    case Bk.Term.App{_, +a, +b}:
+      Tuple{names.all(a, Mc.Img.names(b, x)), gall.names(a, b, Mc.Img.names(b, x), names.all(b, x))}
+    case Bk.Term.Sig{_, +a, +b}:
+      Tuple{names.all(a, Mc.Img.names(b, x)), gall.names(a, b, Mc.Img.names(b, x), names.all(b, x))}
+    case Bk.Term.Tup{_, +a, +b}:
+      Tuple{names.all(a, Mc.Img.names(b, x)), gall.names(a, b, Mc.Img.names(b, x), names.all(b, x))}
+    case Bk.Term.Prj{+a}:
+      names.all(a, x)
+    case Bk.Term.Enu{_}:
+      Unit{}
+    case Bk.Term.Lab{+k}:
+      occ.head(k, x)
+    case Bk.Term.Mat{+k, +a, +b}:
+      Tuple{occ.head(k, Mc.Img.names(a, Mc.Img.names(b, x))),
+        Tuple{gall.cons(k, a, Mc.Img.names(a, Mc.Img.names(b, x)), names.all(a, Mc.Img.names(b, x))),
+          gall.cons(k, b, Mc.Img.names(a, Mc.Img.names(b, x)),
+            gall.names(a, b, Mc.Img.names(b, x), names.all(b, x)))}}
+    case Bk.Term.Efq{}:
+      Unit{}
+    case Bk.Term.Eql{+a, +b, +c}:
+      Tuple{names.all(a, Mc.Img.names(b, Mc.Img.names(c, x))),
+        Tuple{gall.names(a, b, Mc.Img.names(b, Mc.Img.names(c, x)), names.all(b, Mc.Img.names(c, x))),
+          gall.names(a, c, Mc.Img.names(b, Mc.Img.names(c, x)),
+            gall.names(b, c, Mc.Img.names(c, x), names.all(c, x)))}}
+    case Bk.Term.Rfl{}:
+      Unit{}
+    case Bk.Term.Rwt{+a, +b, +c}:
+      Tuple{names.all(a, Mc.Img.names(b, Mc.Img.names(c, x))),
+        Tuple{gall.names(a, b, Mc.Img.names(b, Mc.Img.names(c, x)), names.all(b, Mc.Img.names(c, x))),
+          gall.names(a, c, Mc.Img.names(b, Mc.Img.names(c, x)),
+            gall.names(b, c, Mc.Img.names(c, x), names.all(c, x)))}}
