@@ -47,8 +47,8 @@
 # three lemmas; the choice of the moves (round.post, round.done); the moves
 # mv.ev.val, mv.ev.former, mv.ev.var and mv.out. Open (?TODO): the other
 # moves, the premises above, the frame conditions of allocation (is.pend,
-# is.fresh), Eval's ev.stops and ev.stuck, that the output fits at halt 0
-# (code.fits), and mach.memory with what it needs (round.peak, round.room).
+# is.fresh), Eval's ev.stops and ev.stuck, and mach.memory with what it
+# needs (round.peak, round.room).
 
 import Base
 import ../../Book/impl.bend as Bk
@@ -65,6 +65,7 @@ import ./eval_facts.bend as EV
 import ./cell_stands_for.bend as PI
 import ./out_bytes_from_is.bend as OI
 import ./swap_moves.bend as SW
+import ./cir_fits.bend as CF
 
 # Open: the premises (the phases' lemmas)
 # ---------------------------------------
@@ -1945,12 +1946,27 @@ def HaltFits(o: Cr.Cir.Out) -> Type:
     case _:
       Unit
 
-# Open: a run of Mach.code from the start has its output in the memory at
-# halt 0. Unit U3 proves it (cir_fits.bend: fits.code, then fits.wasm); unit
-# U15 wires it
+# an outcome that fits (CF.FitsOut) has its output in the memory at halt 0
+def halt.fits(o: Cr.Cir.Out, h: CF.FitsOut(o)) -> HaltFits(o):
+  match o:
+    case Cr.Cir.Out.next{st}:
+      Unit{}
+    case Cr.Cir.Out.halt{s, Cr.Cir.State{rg, m, +nx, fi, im, +pg, lim, inp, out, +on}}:
+      e0 => CF.fits.wasm(nx, pg, on, h)
+    case Cr.Cir.Out.out_of_memory{}:
+      Unit{}
+    case Cr.Cir.Out.trap{}:
+      Unit{}
+    case Cr.Cir.Out.not_done{}:
+      Unit{}
+
+# a run of Mach.code from the start has its output in the memory at halt 0:
+# the start's pend register holds 0, so the run fits (CF.fits.code), and what
+# fits passes the host's check (CF.fits.wasm, in halt.fits)
 def code.fits(+n: Nat, +cells: List<&2, Cr.Cir.Cell>, +first: U32, +k: U32, +pg: U32, +lim: U32, +i: List<&2, Word(8n)>) ->
   HaltFits(Cr.Cir.exec(n, Mc.Mach.code(), D.St0(Mc.Mach.regs(), cells, first, k, pg, lim, i))):
-  ?TODO
+  halt.fits(Cr.Cir.exec(n, Mc.Mach.code(), D.St0(Mc.Mach.regs(), cells, first, k, pg, lim, i)),
+    CF.fits.code(n, D.St0(Mc.Mach.regs(), cells, first, k, pg, lim, i), {==}))
 
 # a run that halts only as HE says, with its output in the memory at halt 0,
 # never traps
