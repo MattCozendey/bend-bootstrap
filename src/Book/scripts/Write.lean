@@ -5,10 +5,9 @@ import Shared.Script
 -- Write
 -- =====
 --
--- Writes the bytes of the pruned book of a .bendtt file (src/Book/Prune.lean:
--- the defs that a run from main can call), as the Lean writer of
--- src/Shared/DataForm.lean writes them (AGENTS.md 3.6.4): the input of the
--- compiler of 3.8.4.
+-- Writes the bytes of the pruned book (AGENTS.md 3.6.8) of a .bendtt file, as
+-- the Lean writer of src/Shared/DataForm.lean writes them (3.6.4): the input of
+-- the compiler of 3.8.4.
 --
 --   BOOK=prog.bendtt OUTPUT=prog.book lake lean src/Book/scripts/Write.lean
 --   JOBS=jobs lake lean src/Book/scripts/Write.lean

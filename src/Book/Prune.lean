@@ -1,69 +1,25 @@
 import Interpreter.Program
+import Shared.Refs
 
 -- Prune
 -- =====
 --
--- AGENTS.md 3.6.8: the defs that a run of a program can call. Eval reads the
--- book in one place only, the body of a called def (Eval.call, Value.call), and
--- it never makes a name (3.3.7). So a run from `main` calls only the defs that
--- main's body reaches through the bodies of defs, and the book of those defs
--- gives what the whole book gives (prune_gives). A def's type never runs.
---
--- prune finds that set fast (reach, a worklist over a HashSet) and then checks
--- it (closed, one pass over the book): only the check is proven, so when it
--- fails, prune keeps the whole book, which is always right.
+-- AGENTS.md 3.6.8. Eval reads the book only at the body of a called def
+-- (Eval.call, Value.call), and a def's type never runs. prune finds the names
+-- that main reaches through bodies (Book.reach, unproven), and keeps their defs
+-- only when a proven check (one pass over the book) says that no kept body
+-- names a dropped def; else it keeps the whole book.
 
 open Quan Term
 
--- Names
--- -----
-
 -- each name of a Ref in t satisfies p
 def Term.refsIn (p : String → Bool) : Term → Bool
-  | Var _ => true
   | Ref k => p k
-  | Ann x T => x.refsIn p && T.refsIn p
-  | Let _ v f => v.refsIn p && f.refsIn p
-  | Typ q => q.refsIn p
-  | Min a b => a.refsIn p && b.refsIn p
-  | All _ A B => A.refsIn p && B.refsIn p
-  | Lam _ f => f.refsIn p
-  | App _ f x => f.refsIn p && x.refsIn p
-  | Sig _ A B => A.refsIn p && B.refsIn p
-  | Tup _ a b => a.refsIn p && b.refsIn p
-  | Prj h => h.refsIn p
-  | Enu _ => true
-  | Lab _ => true
-  | Mat _ h m => h.refsIn p && m.refsIn p
-  | Efq => true
-  | Eql a b T => a.refsIn p && b.refsIn p && T.refsIn p
-  | Rfl => true
-  | Rwt e P f => e.refsIn p && P.refsIn p && f.refsIn p
-
--- the names of the Refs in t, before acc
-def Term.refs : Term → List String → List String
-  | Var _, acc => acc
-  | Ref k, acc => k :: acc
-  | Ann x T, acc => x.refs (T.refs acc)
-  | Let _ v f, acc => v.refs (f.refs acc)
-  | Typ q, acc => q.refs acc
-  | Min a b, acc => a.refs (b.refs acc)
-  | All _ A B, acc => A.refs (B.refs acc)
-  | Lam _ f, acc => f.refs acc
-  | App _ f x, acc => f.refs (x.refs acc)
-  | Sig _ A B, acc => A.refs (B.refs acc)
-  | Tup _ a b, acc => a.refs (b.refs acc)
-  | Prj h, acc => h.refs acc
-  | Enu _, acc => acc
-  | Lab _, acc => acc
-  | Mat _ h m, acc => h.refs (m.refs acc)
-  | Efq, acc => acc
-  | Eql a b T, acc => a.refs (b.refs (T.refs acc))
-  | Rfl, acc => acc
-  | Rwt e P f, acc => e.refs (P.refs (f.refs acc))
-
--- The book of the defs that p keeps
--- ---------------------------------
+  | Typ a | Prj a | Lam _ a => a.refsIn p
+  | Ann a b | Min a b | Let _ a b | All _ a b | App _ a b | Sig _ a b | Tup _ a b
+  | Mat _ a b => a.refsIn p && b.refsIn p
+  | Eql a b c | Rwt a b c => a.refsIn p && b.refsIn p && c.refsIn p
+  | Var _ | Enu _ | Lab _ | Efq | Rfl => true
 
 -- the defs whose names p keeps, in their order
 def Book.keep (p : String → Bool) (bk : Book) : Book :=
@@ -73,22 +29,8 @@ def Book.keep (p : String → Bool) (bk : Book) : Book :=
 def Book.closed (p : String → Bool) (bk : Book) : Bool :=
   bk.defs.all fun d => !p d.k || d.v.refsIn p
 
--- the names that main reaches through the bodies of defs: one pop of the
--- worklist for each name in it, so fuel for each Ref of every body, and main
-def Book.reach (bk : Book) : Nat → List String → Std.HashSet String → Std.HashSet String
-  | 0, _, seen => seen
-  | _, [], seen => seen
-  | n + 1, k :: ks, seen =>
-    if seen.contains k then Book.reach bk n ks seen
-    else Book.reach bk n (((bk.get k).map (·.v.refs ks)).getD ks) (seen.insert k)
-
-def Book.fuel (bk : Book) : Nat :=
-  bk.defs.foldl (fun n d => n + (d.v.refs []).length) 1
-
--- the book of the defs that a run from main can call, when the check passes,
--- else the whole book
 def prune (bk : Book) : Book :=
-  let seen := Book.reach bk bk.fuel ["main"] {}
+  let seen := bk.reach (·.v.refs ·) ["main"]
   let p := (seen.contains ·)
   if p "main" && bk.closed p then bk.keep p else bk
 
@@ -387,8 +329,7 @@ theorem keep_gives (hm : p "main" = true) (hc : bk.closed p = true) :
     obtain ⟨s', hr⟩ := s.keep hg (closed_bodies hc) ht
     exact ⟨v, s', Value.keep hg hv hr, hu⟩
 
--- AGENTS.md 3.6.8: the pruned book gives what the book gives, after the same
--- number of steps
+-- AGENTS.md 3.6.8
 theorem prune_gives : Gives (prune bk) i r n ↔ Gives bk i r n := by
   unfold prune
   dsimp only

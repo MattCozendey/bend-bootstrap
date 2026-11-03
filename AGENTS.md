@@ -173,8 +173,8 @@ How a `.bend` file becomes a trusted binary. Each link is either trusted (3.7) o
 1. Our `.bend` source becomes `.bendtt` text through `bend -o`. Trusted: 3.7.3.
 2. The kernel reads that text as a Book (`Book.parse`) and checks it (`--verdict`). Trusted:
    3.7.2.
-3. The Lean writer writes the pruned Book (the defs that a run from `main` can call) as a list of
-   bytes; the Bend reader reads it back as that Book's data form. Proven: 3.6.8 and 3.6.4.
+3. The Lean writer writes the pruned Book (3.6.8) as a list of bytes; the Bend reader reads it back
+   as that Book's data form. Proven: 3.6.8 and 3.6.4.
 4. The compiler turns the data form into the target's bytes. Proven: the laws (3.6), through the
    Bend version of `Eval` (3.6.3) and of the target's meaning (3.9).
 5. The Lean interpreter runs the compiler. Proven: 3.6.5, and joined to the laws by 3.6.6.
@@ -221,8 +221,8 @@ The theorems are written in Lean, because only Lean can see the kernel's `Eval` 
   about the interpreter. Without this theorem, nothing says that the laws hold for what really runs.
 - **3.6.7** One result: a run of `Eval` reaches at most one value, after one number of steps. Why:
   the laws speak of "the result" of a run.
-- **3.6.8** Pruning: the pruned Book of a Book (only the defs that `main`'s body reaches through the
-  bodies of defs) gives what the Book gives, after the same number of steps. Why: a Book holds its
+- **3.6.8** Pruning: the pruned Book of a Book (the Book, less defs that a run from `main` cannot
+  call) gives what the Book gives, after the same number of steps. Why: a Book holds its
   proofs, which `Eval` never runs, so the compiler need not read them. Without pruning, the
   compiler's own Book (about 99% proofs) is too large for the interpreter and the targets to
   compile it.
@@ -256,8 +256,8 @@ In order. Each step says what to write and what to prove.
 - **3.8.6** The joining theorem (3.6.6).
 - **3.8.7** Self-hosting: the interpreter runs the compiler on the compiler's own pruned Book, and
   the binary that it writes becomes our compiler. By 3.6.6, the laws and 3.6.8, that binary gives
-  what our compiler's Book gives by `Eval`. From then on, it compiles any program, itself included, without the
-  interpreter(we keep the interpreter tho for posterity).
+  what our compiler's Book gives by `Eval`. From then on, it compiles any program, itself
+  included, without the interpreter(we keep the interpreter tho for posterity).
 - **3.8.8** For each target, the extra steps that its entry lists.
 
 ### 3.9 Targets
