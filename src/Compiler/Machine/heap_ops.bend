@@ -5765,6 +5765,178 @@ def al.fresh(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, W
     +pg2 => hlt => hQ(Cr.Cir.State{List.set(&2, U32, regs, r, nx), Cr.Cir.Cells.set(m, nx, Cr.Cir.Cell.zero()), U32.inc(nx), fi, im, pg2, lim, inp, Nil{}, 0},
       al.fresh.q(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, pend, xs, zs, pg2, hs, hac, hl, hp, hr, hk, hlt)))
 
+# M.alloc's reuse
+# ---------------
+#
+# M.alloc takes the pend list's first cell p: pend gets p's link, and each
+# part y of p (the parts F, by p's mask a) loses p's pointer, by M.dec, before
+# p gets zeros. The proof follows the cells L that the run would hold had p
+# got its zeros first (the logical cells): there p is out of the pend list,
+# and its parts are roots (as Zs.of reads their terms), so each M.dec is
+# dec.post's on a root (dec.hs.s, dec.hs.n, dec.hs.p). A store to field 1 of
+# a part and the zeros of p commute (put1.set). RI is the state between the
+# steps; Kept (U1's, for acc.reuse) holds of F all along: a part is pending,
+# or STATIC, or has a pointer.
+
+# A chain holds each cell once
+# ----------------------------
+#
+# If the head of a chain were in its rest, the rest from there would be the
+# chain itself, and longer than itself. (copy_bridge.bend's chain.det,
+# chain.at, chain.loop and chain.out, with D.Mem: it can import these.)
+
+# a chain from p is the only one
+def ch.det(+xs: List<&2, U32>, +ys: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +hx: D.Chain(xs, m, p), +hy: D.Chain(ys, m, p)) ->
+  {xs == ys : List<&2, U32>}:
+  match xs ys:
+    case Nil{} Nil{}:
+      {==}
+    case Nil{} Con{+y, +yr}:
+      (ey, ry) = hy
+      (ez, hy2) = ry
+      D.bool.ft({Nil{} == Con{y, yr} : List<&2, U32>}, Equal.trans(Bool, False{}, U32.is_eq(y, 0), True{}, Equal.sym(Bool, U32.is_eq(y, 0), False{}, ez),
+        (%Equal.trans(U32, y, p, 0, Equal.sym(U32, p, y, ey), hx) : {U32.is_eq(y, _) == True{} : Bool}; D.u32.refl(y))))
+    case Con{+x, +xr} Nil{}:
+      (ex, rx) = hx
+      (ez, hx2) = rx
+      D.bool.ft({Con{x, xr} == Nil{} : List<&2, U32>}, Equal.trans(Bool, False{}, U32.is_eq(x, 0), True{}, Equal.sym(Bool, U32.is_eq(x, 0), False{}, ez),
+        (%Equal.trans(U32, x, p, 0, Equal.sym(U32, p, x, ex), hy) : {U32.is_eq(x, _) == True{} : Bool}; D.u32.refl(x))))
+    case Con{+x, +xr} Con{+y, +yr}:
+      (ex, rx) = hx
+      (ezx, hx2) = rx
+      (ey, ry) = hy
+      (ezy, hy2) = ry
+      +exy = Equal.trans(U32, x, p, y, Equal.sym(U32, p, x, ex), ey)
+      +er = ch.det(xr, yr, m, D.Fd(1n, m, x), hx2, (%Equal.sym(U32, x, y, exy) : D.Chain(yr, m, D.Fd(1n, m, _)); hy2))
+      %exy : {Con{x, xr} == Con{_, yr} : List<&2, U32>}
+      %er : {Con{x, xr} == Con{x, _} : List<&2, U32>}
+      {==}
+
+def ch.at.r(+rest: List<&2, U32>, +m: Cr.Cir.Cells, +x: U32,
+  +r: D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, rest))))) ->
+  D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), 1n+List.length(&2, U32, rest)))):
+  (+ys, rr) = r
+  (hc, hl) = rr
+  (ys, (hc, N.le_succ(List.length(&2, U32, ys), List.length(&2, U32, rest), hl)))
+
+# the place of x in a chain from p: the rest from there is a chain from x, at most as long
+def ch.at.b(+b: Bool, +y: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +x: U32, +eb: {U32.is_eq(y, x) == b : Bool},
+  +h: D.Chain(Con{y, rest}, m, p), +hx: {Bool.or(b, D.Mem(rest, x)) == True{} : Bool},
+  k: {D.Mem(rest, x) == True{} : Bool} -> D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, rest))))) ->
+  D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), 1n+List.length(&2, U32, rest)))):
+  match b:
+    case True{}:
+      (h1, h2) = h
+      (Con{y, rest}, ((Equal.sym(U32, y, x, D.u32.eq(y, x, eb)), h2), N.le_refl(1n+List.length(&2, U32, rest))))
+    case False{}:
+      ch.at.r(rest, m, x, k(hx))
+
+def ch.at(+xs: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +x: U32, +h: D.Chain(xs, m, p), +hx: {D.Mem(xs, x) == True{} : Bool}) ->
+  D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, xs)))):
+  match xs:
+    case Nil{}:
+      D.bool.ft(D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), 0n))), hx)
+    case Con{+y, +rest}:
+      (h1, h2) = h
+      (h3, h4) = h2
+      ch.at.b(U32.is_eq(y, x), y, rest, m, p, x, {==}, h, hx, e => ch.at(rest, m, D.Fd(1n, m, y), x, h4, e))
+
+# a chain from x, at most as long as rest, is not x then rest
+def ch.loop(+x: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells,
+  +r: D.Ex(List<&2, U32>, ys => D.P2(D.Chain(ys, m, x), N.Le(List.length(&2, U32, ys), List.length(&2, U32, rest)))),
+  hx: D.Chain(Con{x, rest}, m, x)) -> {True{} == False{} : Bool}:
+  (+ys, rr) = r
+  (hc, hl) = rr
+  +e = ch.det(ys, Con{x, rest}, m, x, hc, hx)
+  Empty.absurd({True{} == False{} : Bool}, N.not_succ_le(List.length(&2, U32, rest),
+    (%e : N.Le(List.length(&2, U32, _), List.length(&2, U32, rest)); hl)))
+
+# the head of a chain is not in its rest
+def ch.out(+b: Bool, +x: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +p: U32, +eb: {D.Mem(rest, x) == b : Bool},
+  +h: D.Chain(Con{x, rest}, m, p)) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      (h1, h2) = h
+      (h3, h4) = h2
+      ch.loop(x, rest, m, ch.at(rest, m, D.Fd(1n, m, x), x, h4, eb), (%h1 : D.Chain(Con{x, rest}, m, _); h))
+
+# Stores at two cells commute
+# ---------------------------
+
+def sw.at(n: Nat, +v: Word(n), +w: Word(n), +M: Cr.Cir.Cells, +a: Cr.Cir.Cell, +b: Cr.Cir.Cell, h: {D.Weq(n, v, w) == False{} : Bool}) ->
+  {Cr.Cir.Cells.set.at(n, w, Cr.Cir.Cells.set.at(n, v, M, a), b) == Cr.Cir.Cells.set.at(n, v, Cr.Cir.Cells.set.at(n, w, M, b), a) : Cr.Cir.Cells}:
+  match n:
+    case 0n:
+      match v w:
+        case WNil{} WNil{}:
+          D.bool.ft({Cr.Cir.Cells.set.at(0n, WNil{}, Cr.Cir.Cells.set.at(0n, WNil{}, M, a), b) ==
+            Cr.Cir.Cells.set.at(0n, WNil{}, Cr.Cir.Cells.set.at(0n, WNil{}, M, b), a) : Cr.Cir.Cells}, Equal.sym(Bool, True{}, False{}, h))
+    case 1n+(+p):
+      match v w M:
+        case WCon{False{}, +s} WCon{False{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
+          Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, z => Cr.Cir.Cells.node{z, hi}, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.set.at(p, s, lo, a), b),
+            Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.set.at(p, t, lo, b), a), sw.at(p, s, t, lo, a, b, h))
+        case WCon{False{}, +s} WCon{False{}, +t} Cr.Cir.Cells.none{}:
+          Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, z => Cr.Cir.Cells.node{z, Cr.Cir.Cells.none{}},
+            Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.none{}, a), b),
+            Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, b), a), sw.at(p, s, t, Cr.Cir.Cells.none{}, a, b, h))
+        case WCon{False{}, +s} WCon{False{}, +t} Cr.Cir.Cells.one{+d}:
+          Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, z => Cr.Cir.Cells.node{z, Cr.Cir.Cells.none{}},
+            Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.none{}, a), b),
+            Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, b), a), sw.at(p, s, t, Cr.Cir.Cells.none{}, a, b, h))
+        case WCon{False{}, +s} WCon{True{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
+          {==}
+        case WCon{False{}, +s} WCon{True{}, +t} Cr.Cir.Cells.none{}:
+          {==}
+        case WCon{False{}, +s} WCon{True{}, +t} Cr.Cir.Cells.one{+d}:
+          {==}
+        case WCon{True{}, +s} WCon{False{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
+          {==}
+        case WCon{True{}, +s} WCon{False{}, +t} Cr.Cir.Cells.none{}:
+          {==}
+        case WCon{True{}, +s} WCon{False{}, +t} Cr.Cir.Cells.one{+d}:
+          {==}
+        case WCon{True{}, +s} WCon{True{}, +t} Cr.Cir.Cells.node{+lo, +hi}:
+          Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, z => Cr.Cir.Cells.node{lo, z}, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.set.at(p, s, hi, a), b),
+            Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.set.at(p, t, hi, b), a), sw.at(p, s, t, hi, a, b, h))
+        case WCon{True{}, +s} WCon{True{}, +t} Cr.Cir.Cells.none{}:
+          Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, z => Cr.Cir.Cells.node{Cr.Cir.Cells.none{}, z},
+            Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.none{}, a), b),
+            Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, b), a), sw.at(p, s, t, Cr.Cir.Cells.none{}, a, b, h))
+        case WCon{True{}, +s} WCon{True{}, +t} Cr.Cir.Cells.one{+d}:
+          Equal.cong(Cr.Cir.Cells, Cr.Cir.Cells, z => Cr.Cir.Cells.node{Cr.Cir.Cells.none{}, z},
+            Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.none{}, a), b),
+            Cr.Cir.Cells.set.at(p, s, Cr.Cir.Cells.set.at(p, t, Cr.Cir.Cells.none{}, b), a), sw.at(p, s, t, Cr.Cir.Cells.none{}, a, b, h))
+
+# stores at the cells i and j, not i, commute
+def cells.sw(+M: Cr.Cir.Cells, +i: U32, +j: U32, +a: Cr.Cir.Cell, +b: Cr.Cir.Cell, h: {U32.is_eq(i, j) == False{} : Bool}) ->
+  {Cr.Cir.Cells.set(Cr.Cir.Cells.set(M, i, a), j, b) == Cr.Cir.Cells.set(Cr.Cir.Cells.set(M, j, b), i, a) : Cr.Cir.Cells}:
+  match i j:
+    case U32{+v} U32{+w}:
+      sw.at(32n, v, w, M, a, b, Equal.trans(Bool, D.Weq(32n, v, w), Cmp.is_eq(Word.cmp(32n, v, w)), False{},
+        Equal.sym(Bool, Cmp.is_eq(Word.cmp(32n, v, w)), D.Weq(32n, v, w), D.weq.cmp(32n, v, w)), h))
+
+# stores to field 1 at cells other than p, and the cell x at p, commute
+def put1.set(ws: List<&2, D.W1>, +M: Cr.Cir.Cells, +p: U32, +x: Cr.Cir.Cell, h: {D.Mem(D.W1.cells(ws), p) == False{} : Bool}) ->
+  {D.Put1(ws, Cr.Cir.Cells.set(M, p, x)) == Cr.Cir.Cells.set(D.Put1(ws, M), p, x) : Cr.Cir.Cells}:
+  match ws:
+    case Nil{}:
+      {==}
+    case Con{D.W1{+c, +v}, +rest}:
+      +h2 = h
+      +ne = D.or.f.l(U32.is_eq(c, p), D.Mem(D.W1.cells(rest), p), h2)
+      +A = D.Put1(rest, Cr.Cir.Cells.set(M, p, x))
+      +B = D.Put1(rest, M)
+      +e = put1.set(rest, M, p, x, D.or.f.r(U32.is_eq(c, p), D.Mem(D.W1.cells(rest), p), h2))
+      +eg = D.cl.go(B, c, p, x, ne)
+      %Equal.sym(Cr.Cir.Cells, A, Cr.Cir.Cells.set(B, p, x), e) :
+        {Cr.Cir.Cells.set(_, c, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(_, c), v)) == Cr.Cir.Cells.set(Cr.Cir.Cells.set(B, c, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(B, c), v)), p, x) : Cr.Cir.Cells}
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(B, p, x), c), Cr.Cir.Cells.get(B, c), eg) :
+        {Cr.Cir.Cells.set(Cr.Cir.Cells.set(B, p, x), c, Cr.Cir.Cell.set(1n, _, v)) == Cr.Cir.Cells.set(Cr.Cir.Cells.set(B, c, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(B, c), v)), p, x) : Cr.Cir.Cells}
+      cells.sw(B, p, c, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(B, c), v), D.ne.sym(c, p, ne))
+
 # The laws
 # --------
 
