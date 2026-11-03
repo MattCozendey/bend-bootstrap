@@ -1119,12 +1119,53 @@ def mach.complete.proof(
     Inr{{==}},
     +kk => +len => +pg => +lim => +first => s => comp.of(k, p, ds, i, m, o, kk, len, pg, lim, first, rd, small, s, e))
 
+def round.peak.next(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
+  -st: Cr.Cir.State, -t: Bk.Term, -w: Nat, -s: Cr.Cir.State, h: K.MV.next(ds, ks, img, st, t, w, s)) ->
+  N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))):
+  match h:
+    case Tuple{_, peak}:
+      peak
+
+def round.peak.mv(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, h: K.MV(ds, ks, img, st, t, w)) ->
+  D.Post(False{}, Cr.Cir.exec(f, D.B.body(), st), s => N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))), s => st2 => Unit):
+  match h:
+    case Tuple{p, _}:
+      post.wk(False{}, Cr.Cir.exec(f, D.B.body(), st), s => N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))),
+        s => st2 => D.HR(ds, t, s, st2), s => st2 => Unit,
+        D.postb.post(False{}, Cr.Cir.exec(f, D.B.body(), st), s => K.MV.next(ds, ks, img, st, t, w, s),
+          s => N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))), s => st2 => D.HR(ds, t, s, st2),
+          D.Budget(ds, st, t), D.St.lim(st), p(f), s => r => round.peak.next(ds, ks, img, st, t, w, s, r)),
+        s => st2 => r => Unit{})
+
+def round.room.out(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +b: Nat, +lim: U32,
+  h: D.PostB(False{}, o, Q, H, b, lim), room: N.Le(b, D.Lim.bytes(lim))) -> D.NoOom(o):
+  match o:
+    case Cr.Cir.Out.out_of_memory{}:
+      N.not_succ_le(D.Lim.bytes(lim), N.le_trans(1n+D.Lim.bytes(lim), b, D.Lim.bytes(lim), h, room))
+    case Cr.Cir.Out.next{_}:
+      Unit{}
+    case Cr.Cir.Out.halt{_, _}:
+      Unit{}
+    case Cr.Cir.Out.trap{}:
+      Unit{}
+    case Cr.Cir.Out.not_done{}:
+      Unit{}
+
+def round.room.mv(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, h: K.MV(ds, ks, img, st, t, w),
+  room: N.Le(D.Budget(ds, st, t), D.Lim.bytes(D.St.lim(st)))) -> D.NoOom(Cr.Cir.exec(f, D.B.body(), st)):
+  match h:
+    case Tuple{p, _}:
+      round.room.out(Cr.Cir.exec(f, D.B.body(), st), s => K.MV.next(ds, ks, img, st, t, w, s),
+        s => st2 => D.HR(ds, t, s, st2), D.Budget(ds, st, t), D.St.lim(st), p(f), room)
+
 # Open (U15): a round keeps the machine's own cells within the peak of its
 # term and of its step's result (MV's peak)
 def round.peak(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
   +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w)) ->
   D.Post(False{}, Cr.Cir.exec(f, D.B.body(), st), s => N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))), s => st2 => Unit):
-  ?TODO
+  round.peak.mv(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv))
 
 # Open (U15): a round whose limit has room for its budget (the peak, the
 # bytes before first and the output) does not run out of memory (MV's PostB)
@@ -1132,7 +1173,7 @@ def round.room(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>
   +st: Cr.Cir.State, +t: Bk.Term, +w: Nat, inv: D.Inv(ds, ks, img, st, t, w),
   room: N.Le(D.Budget(ds, st, t), D.Lim.bytes(D.St.lim(st)))) ->
   D.NoOom(Cr.Cir.exec(f, D.B.body(), st)):
-  ?TODO
+  round.room.mv(f, ds, ks, img, st, t, w, round.mv(ds, ks, img, st, t, w, inv), room)
 
 # B: with the memory of AGENTS.md 3.9.1.4, the machine gives the list of bytes
 # (open, U15: loop.mem from round.room, and memory_bound.bend's Budget <= F)
