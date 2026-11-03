@@ -105,7 +105,7 @@ def Sh.WI(+a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +
       D.P2({U32.is_le(F, root) == True{} : Bool},
       D.P2({W.Dj(Con{root, W.Ns(frs)}, List.append(&2, U32, P, E)) == True{} : Bool},
       D.P2(W.Frs(mo, m, ks, img, K, F, X, nx, frs, stack, True{}, 0, Bk.Term.Efq{}, 0n),
-      D.P2(W.Root(mo, m, ks, img, K, F, X, nx, frs, root, x, t),
+      D.P2(W.Root(mo, m, ks, img, K, F, X, nx, hx, frs, root, x, t),
       D.P2(W.Dp(frs, depth),
       D.P2({W.DB(frs, Wm0) == True{} : Bool},
       D.P2({D.AL(m, pend, P, Q, zs, K, F, nx) == True{} : Bool},
@@ -116,7 +116,7 @@ def Sh.WI(+a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +
       D.P2({D.Ex.ok(E, P, F, nx) == True{} : Bool},
       D.P2({Nat.is_le(W.Wm(frs), Wm0) == True{} : Bool},
       D.P2({W.Pz(Con{root, W.Ns(frs)}, P, m) == True{} : Bool},
-        W.Acc(mo, m0, K, F, P0, Q0, N0, E, rs, ts, B0, t, m, nx, frs, P, Q, root, T)))))))))))))))))))
+        W.Acc(mo, m0, K, F, P0, Q0, N0, E, rs, ts, B0, t, hx, S, cs, ks, img, m, nx, frs, P, Q, root, T)))))))))))))))))))
 
 # the invariant of a state, by its witness w, with the registers rg
 def Sh.WI.of(+regs0: List<&2, U32>, +a: U32, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,

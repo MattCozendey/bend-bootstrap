@@ -274,14 +274,17 @@ def Wm(frs: List<&2, Fr>) -> Nat:
 # t, at the depth 0, in the cell root; once the frames are gone, the root's field 2 holds the
 # copy, of Mo.F(mo, t, 0)
 def Root(+mo: D.Mo, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
-  +X: List<&2, U32>, +N: U32, frs: List<&2, Fr>, +root: U32, +x: U32, +t: Bk.Term) -> Data:
+  +X: List<&2, U32>, +N: U32, +hx: Bool, frs: List<&2, Fr>, +root: U32, +x: U32, +t: Bk.Term) -> Data:
   match frs:
     case Nil{}:
-      D.Ex(Nat, g => {D.Tm(g, m, ks, img, K, F, X, N, D.Fd(2n, m, root)) == Some{D.Mo.F(mo, t, 0n)} : Maybe<&2, Bk.Term>})
+      D.P2({U32.and(D.Fd(0n, m, root), 255) == 11 : U32},
+      D.P2({D.Fd(3n, m, root) == 0 : U32},
+      D.P2({D.Fd(4n, m, root) == 0 : U32},
+        D.Hx(hx, D.Ex(Nat, g => {D.Tm(g, m, ks, img, K, F, X, N, D.Fd(2n, m, root)) == Some{D.Mo.F(mo, t, 0n)} : Maybe<&2, Bk.Term>})))))
     case Con{Fr{n, h, _, _, y2, _, _, t2, _, _, _, _, _, d}, Nil{}}:
       D.P2({n == root : U32}, D.P2({h == 11 : U32}, D.P2({y2 == x : U32}, D.P2({t2 == t : Bk.Term}, {d == 0n : Nat}))))
     case Con{_, rest}:
-      Root(mo, m, ks, img, K, F, X, N, rest, root, x, t)
+      Root(mo, m, ks, img, K, F, X, N, hx, rest, root, x, t)
 
 # no frame's cell is in P
 def Dj(xs: List<&2, U32>, +P: List<&2, U32>) -> Bool:
@@ -4057,6 +4060,86 @@ def NfX(T: List<&2, U32>, +ms: Cr.Cir.Cells, +ws: List<&2, U32>) -> Bool:
     case Con{+c, rest}:
       Bool.and(Bool.or(D.Has(ws, c), U32.is_zero(U32.and(D.Fd(0n, ms, c), 7936))), NfX(rest, ms, ws))
 
+# the result joins the done parts once the frames are gone
+def Res(+mo: D.Mo, +m: Cr.Cir.Cells, frs: List<&2, Fr>, +root: U32, +t: Bk.Term) -> List<&2, D.Rt>:
+  match frs:
+    case Nil{}:
+      [D.Rt{0n, D.Fd(2n, m, root), D.Mo.F(mo, t, 0n)}]
+    case Con{_, _}:
+      Dn(mo, m, frs)
+
+# a done part's checked term is exact when hx holds
+def Dtm.at(+mo: D.Mo, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +hx: Bool, +v: U32, t: Bk.Term, s: St, +dd: Nat) -> Data:
+  match s:
+    case St.dn{}:
+      D.Hx(hx, D.Ex(Nat, g => {D.Tm(g, m, ks, img, K, F, X, N, v) == Some{D.Mo.F(mo, t, dd)} : Maybe<&2, Bk.Term>}))
+    case _:
+      Unit
+
+def Dtm(+mo: D.Mo, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +K: U32, +F: U32,
+  +X: List<&2, U32>, +N: U32, +hx: Bool, frs: List<&2, Fr>) -> Data:
+  match frs:
+    case Nil{}:
+      Unit
+    case Con{Fr{+n, +h, _, _, _, _, _, +t2, +t3, +t4, +s2, +s3, +s4, +d}, rest}:
+      +tg = Fr.tag(h)
+      D.P2(Dtm.at(mo, m, ks, img, K, F, X, N, hx, D.Fd(2n, m, n), t2, s2, Nat.add(d, Tg.b(tg, 2n))),
+      D.P2(Dtm.at(mo, m, ks, img, K, F, X, N, hx, D.Fd(3n, m, n), t3, s3, Nat.add(d, Tg.b(tg, 3n))),
+      D.P2(Dtm.at(mo, m, ks, img, K, F, X, N, hx, D.Fd(4n, m, n), t4, s4, Nat.add(d, Tg.b(tg, 4n))),
+        Dtm(mo, m, ks, img, K, F, X, N, hx, rest))))
+
+# every root is made of old nodes and accounted new copies
+def Mds(rs: List<&2, D.Rt>, +ms: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +S: List<&2, D.Rt>, +T: List<&2, U32>,
+  +cs: List<&2, D.Pr>) -> Bool:
+  match rs:
+    case Nil{}:
+      True{}
+    case Con{D.Rt{_, +r, u}, rest}:
+      Bool.and(D.Made(u, ms, m0, r, S, T, cs), Mds(rest, ms, m0, S, T, cs))
+
+# no node of a root at r is one of xs
+def Nx.at(xs: List<&2, U32>, +u: Bk.Term, +m: Cr.Cir.Cells, +r: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+c, rest}:
+      Bool.and(Bool.not(D.Node(u, m, r, c)), Nx.at(rest, u, m, r))
+
+def Nx(rs: List<&2, D.Rt>, +m: Cr.Cir.Cells, +xs: List<&2, U32>) -> Bool:
+  match rs:
+    case Nil{}:
+      True{}
+    case Con{D.Rt{_, +r, u}, rest}:
+      Bool.and(Nx.at(xs, u, m, r), Nx(rest, m, xs))
+
+# before the end, a taken cell is a node of a finished root or a walk cell
+def TkW(T: List<&2, U32>, +m: Cr.Cir.Cells, +rs: List<&2, D.Rt>, +ws: List<&2, U32>) -> Bool:
+  match T:
+    case Nil{}:
+      True{}
+    case Con{+c, rest}:
+      Bool.and(Bool.or(D.Nodes(rs, m, c), D.Has(ws, c)), TkW(rest, m, rs, ws))
+
+# the current garbage is old and not taken
+def Gw(P: List<&2, U32>, +P0: List<&2, U32>, +T: List<&2, U32>) -> Bool:
+  match P:
+    case Nil{}:
+      True{}
+    case Con{+c, rest}:
+      Bool.and(Bool.and(D.Has(P0, c), Bool.not(D.Has(T, c))), Gw(rest, P0, T))
+
+# before the result gets its register, a taken cell that is neither garbage
+# nor a walk cell counts exactly the own cells' pointers to it
+def TcW(T: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +ws: List<&2, U32>, +n: Nat,
+  +F: U32) -> Bool:
+  match T:
+    case Nil{}:
+      True{}
+    case Con{+c, rest}:
+      Bool.and(Bool.or(D.Has(P, c), Bool.or(D.Has(ws, c),
+        Nat.is_eq(U32.to_nat(D.Fd(1n, m, c)), D.Pc(n, m, Q, F, c)))), TcW(rest, m, P, Q, ws, n, F))
+
 # the accounting at a round of a walk of the mode mo, from the start's cells
 # m0, garbage P0 and next N0, of the source term t: the cover (the done
 # parts among the roots, the walk's cells among the temporaries' cells), the
@@ -4066,14 +4149,17 @@ def NfX(T: List<&2, U32>, +ms: Cr.Cir.Cells, +ws: List<&2, U32>) -> Bool:
 # within the same, the taken cells T (the walk's among them, the others with
 # no flag), what stays, and next at most 214748364 once it grows
 def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +Q0: List<&2, U32>, +N0: U32, +E: List<&2, U32>,
-  +rs: List<&2, D.Rt>, +ts: List<&2, D.Tmp>, +B0: Nat, +t: Bk.Term, +m: Cr.Cir.Cells, +nx: U32, +frs: List<&2, Fr>,
+  +rs: List<&2, D.Rt>, +ts: List<&2, D.Tmp>, +B0: Nat, +t: Bk.Term, +hx: Bool, +S: List<&2, D.Rt>, +cs: List<&2, D.Pr>,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +frs: List<&2, Fr>,
   +P: List<&2, U32>, +Q: List<&2, U32>, +root: U32, +T: List<&2, U32>) -> Data:
   +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
   +n0 = Nat.sub(U32.to_nat(N0), U32.to_nat(F))
   +hl = D.Tmp.held(ts)
   +wl = Wl(root, frs)
+  +X = {List.append(&2, U32, P, List.append(&2, U32, wl, E)) : List<&2, U32>}
+  +res = Res(mo, m, frs, root, t)
   +C = {1n+Pg.Term.size(D.Mo.F(mo, t, 0n)) : Nat}
-  D.P2({D.Cv(n, m, F, P, List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hl, Dn(mo, m, frs))),
+  D.P2({D.Cv(n, m, F, P, List.append(&2, D.Rt, rs, List.append(&2, D.Rt, hl, res)),
     List.append(&2, U32, wl, List.append(&2, U32, D.Tmp.cells(ts), E))) == True{} : Bool},
   D.P2({D.Clo(n, m, F, Q, D.Tmp.cells(ts), D.Rt.cells(hl), List.append(&2, U32, wl, E)) == True{} : Bool},
   D.P2(N.Le(n0, Nat.add(B0, List.length(&2, U32, P0))),
@@ -4085,4 +4171,13 @@ def Acc(+mo: D.Mo, +m0: Cr.Cir.Cells, +K: U32, +F: U32, +P0: List<&2, U32>, +Q0:
   D.P2({NfX(T, m, wl) == True{} : Bool},
   D.P2({D.Same(U32.to_nat(K), m0, m, 1) == True{} : Bool},
   D.P2({D.Kept(n0, m0, m, F, T, P, F, n0, n, Q0, Q, Pe(frs), Nil{}) == True{} : Bool},
-    {Bool.or(U32.is_eq(nx, N0), U32.is_le(nx, 214748364)) == True{} : Bool}))))))))))
+  D.P2(Dtm(mo, m, ks, img, K, F, X, nx, hx, frs),
+  D.P2({Mds(res, m, m0, S, T, cs) == True{} : Bool},
+  D.P2({Nx(res, m, X) == True{} : Bool},
+  D.P2({TkW(T, m, res, wl) == True{} : Bool},
+  D.P2({Gw(P, P0, T) == True{} : Bool},
+  D.P2({D.Sub(P0, List.append(&2, U32, T, P)) == True{} : Bool},
+  D.P2({D.In.all(Nat.sub(U32.to_nat(nx), U32.to_nat(N0)), N0, T) == True{} : Bool},
+  D.P2({TcW(T, m, P, Q, wl, n, F) == True{} : Bool},
+  D.P2({D.Pc(n, m, Q, F, root) == 0n : Nat},
+    {Bool.or(U32.is_eq(nx, N0), U32.is_le(nx, 214748364)) == True{} : Bool})))))))))))))))))))
