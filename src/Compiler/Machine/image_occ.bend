@@ -593,3 +593,80 @@ def names.app(t: Bk.Term, +ys: List<&2, List<&2, Word(8n)>>) ->
         {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), nc), ys) ==
          List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
       {==}
+
+# every body's names are in ks
+# -----------------------------
+
+def GallD(dl: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>) -> Data:
+  match dl:
+    case Nil{}:
+      Unit
+    case Con{Bk.Def{_, _, +v, _}, +rest}:
+      D.P2(GAll(v, ks), GallD(rest, ks))
+
+# a copy in ks0 is a copy in ks
+def gall.rw(+t: Bk.Term, +ks0: List<&2, List<&2, Word(8n)>>, +ks: List<&2, List<&2, Word(8n)>>,
+  +e: {ks0 == ks : List<&2, List<&2, Word(8n)>>}, g: GAll(t, ks0)) -> GAll(t, ks):
+  %e : GAll(t, _)
+  g
+
+# every body's names are in acc, then the defs' names
+def gall.defs(dl: List<&2, Bk.Def>, +acc: List<&2, List<&2, Word(8n)>>, +ks: List<&2, List<&2, Word(8n)>>,
+  +e: {List.append(&2, List<&2, Word(8n)>, acc, Mc.Img.names.defs(dl)) == ks : List<&2, List<&2, Word(8n)>>}) ->
+  GallD(dl, ks):
+  match dl:
+    case Nil{}:
+      Unit{}
+    case Con{Bk.Def{_, _, +v, _}, +rest}:
+      +nv = Mc.Img.names(v, Nil{})
+      +c = Mc.Img.names.defs(rest)
+      +hg = gall.rw(v, List.append(&2, List<&2, Word(8n)>, acc, Mc.Img.names(v, c)), ks, e,
+        gall.prefix(acc, v, Mc.Img.names(v, c), names.all(v, c)))
+      +ea = Equal.cong(List<&2, List<&2, Word(8n)>>, List<&2, List<&2, Word(8n)>>,
+        z => List.append(&2, List<&2, Word(8n)>, acc, z),
+        Mc.Img.names(v, c), List.append(&2, List<&2, Word(8n)>, nv, c), names.app(v, c))
+      +eb = app.assoc(acc, nv, c)
+      +et = Equal.trans(List<&2, List<&2, Word(8n)>>,
+        List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, acc, nv), c),
+        List.append(&2, List<&2, Word(8n)>, acc, List.append(&2, List<&2, Word(8n)>, nv, c)),
+        ks, eb,
+        Equal.trans(List<&2, List<&2, Word(8n)>>,
+          List.append(&2, List<&2, Word(8n)>, acc, List.append(&2, List<&2, Word(8n)>, nv, c)),
+          List.append(&2, List<&2, Word(8n)>, acc, Mc.Img.names(v, c)),
+          ks,
+          Equal.sym(List<&2, List<&2, Word(8n)>>,
+            List.append(&2, List<&2, Word(8n)>, acc, Mc.Img.names(v, c)),
+            List.append(&2, List<&2, Word(8n)>, acc, List.append(&2, List<&2, Word(8n)>, nv, c)), ea),
+          e))
+      Tuple{hg, gall.defs(rest, List.append(&2, List<&2, Word(8n)>, acc, nv), ks, et)}
+
+# the first copy of k in ks, from a copy in ks
+# ---------------------------------------------
+
+def occ.first(ks: List<&2, List<&2, Word(8n)>>, +k: List<&2, Word(8n)>, o: Occ(ks, k)) ->
+  {TR.first(ks, k) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}:
+  match ks:
+    case Nil{}:
+      Empty.absurd({TR.first(Nil{}, k) == Some{k} : Maybe<&2, List<&2, Word(8n)>>}, o)
+    case Con{+n, +rest}:
+      match o:
+        case Inl{e}:
+          +hb = e
+          %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, TR.first(Con{n, rest}, k), Some{n},
+              TR.pick.true(Maybe<&2, List<&2, Word(8n)>>, Sd.Name.is_eq(n, k), Some{n}, TR.first(rest, k), hb)) :
+            {_ == Some{k} : Maybe<&2, List<&2, Word(8n)>>}
+          Equal.cong(List<&2, Word(8n)>, Maybe<&2, List<&2, Word(8n)>>, z => Some{z}, n, k,
+            Nm.Name.eq.true(n, k, hb))
+        case Inr{o2}:
+          TR.name.split(n, k, Sd.Name.is_eq(n, k), {==},
+            {TR.first(Con{n, rest}, k) == Some{k} : Maybe<&2, List<&2, Word(8n)>>},
+            +eq => +hb2 =>
+              %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, TR.first(Con{n, rest}, k), Some{n},
+                  TR.pick.true(Maybe<&2, List<&2, Word(8n)>>, Sd.Name.is_eq(n, k), Some{n}, TR.first(rest, k), hb2)) :
+                {_ == Some{k} : Maybe<&2, List<&2, Word(8n)>>}
+              Equal.cong(List<&2, Word(8n)>, Maybe<&2, List<&2, Word(8n)>>, z => Some{z}, n, k, eq),
+            ne => +hb2 =>
+              %Equal.sym(Maybe<&2, List<&2, Word(8n)>>, TR.first(Con{n, rest}, k), TR.first(rest, k),
+                  TR.pick.false(Maybe<&2, List<&2, Word(8n)>>, Sd.Name.is_eq(n, k), Some{n}, TR.first(rest, k), hb2)) :
+                {_ == Some{k} : Maybe<&2, List<&2, Word(8n)>>}
+              occ.first(rest, k, o2))
