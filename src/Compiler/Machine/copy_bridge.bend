@@ -7988,6 +7988,148 @@ def ag.kept(es: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, 
          CK.Bo.or_ir(D.Fl(ms, y, 1024), Bool.not(D.Mem(Qn, y)), CK.Bo.not_i(D.Mem(Qn, y), hqy))),
       (%Equal.sym(U32, D.Fd(1n, ms, a), V1, e1s) : D.Ag(ds, ms, im, fi, nx2, ks, img, Qn, os, Nil{}, _, rest); hrest)))))))))))))
 
+# The whole of CopyQ
+# ------------------
+#
+# CopyQ from Post (with hx), HS, AccK and the locals' chain, given the parts
+# that follow from the copy's new cells: the result stands for u (IsK), the
+# heap of the copy's state, and AccK of it (cq.of). The rest is above.
+
+# AL's pend list is part of its garbage
+def al.sq(+ms: Cr.Cir.Cells, +pend: U32, +Pn: List<&2, U32>, +Qn: List<&2, U32>, +zn: List<&2, S.Zs>, +K: U32, +F: U32, +N: U32,
+  h: {S.AL(ms, pend, Pn, Qn, zn, K, F, N) == True{} : Bool}) -> {S.Sub(Qn, Pn) == True{} : Bool}:
+  +A = Bool.and(S.Chain(Qn, ms, pend), S.Nodup(Qn))
+  +B = Bool.and(Bool.and(S.Sub(Qn, Pn), S.Nodup(Pn)), Bool.and(S.AL.cells(Pn, ms, Pn, Qn, zn, K, F, N), S.Lt(Nat.sub(U32.to_nat(N), U32.to_nat(F)), ms, Qn, F, N)))
+  +hb = CK.Bo.and_r(A, B, h)
+  +hc = CK.Bo.and_l(Bool.and(S.Sub(Qn, Pn), S.Nodup(Pn)), Bool.and(S.AL.cells(Pn, ms, Pn, Qn, zn, K, F, N), S.Lt(Nat.sub(U32.to_nat(N), U32.to_nat(F)), ms, Qn, F, N)), hb)
+  CK.Bo.and_l(S.Sub(Qn, Pn), S.Nodup(Pn), hc)
+
+# CopyQ, from Post and the result's IsK, the heap and AccK after the copy
+def cq.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg2: U32, +lim: U32, +inp: List<&2, Word(8n)>, +keep: List<&2, Nat>,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +t: Bk.Term,
+  +ce: U32, +es: List<&2, El.Arg>, +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  +hs: D.HS(ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, t}, bs}, fs, sp, pend, ps),
+  +hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs), sp, fs, ps, zs),
+  +hl: {List.length(&2, U32, regs) == 63n : Nat},
+  +env: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, Nil{}, ce, es),
+  +hk: {D.Disj(keep, D.Copy.scr(Mc.R.n())) == True{} : Bool},
+  +SRC: List<&2, S.Rt>, +rg: List<&2, U32>, +ms: Cr.Cir.Cells, +nx2: U32,
+  +ups: List<&2, S.Up>, +r: U32, +g: Nat, +Pn: List<&2, U32>, +Qn: List<&2, U32>, +zn: List<&2, S.Zs>, +T: List<&2, U32>, +prs: List<&2, S.Pr>,
+  hpost: S.Post(True{}, S.Mo.subst{D.Arg.terms(es)}, t, regs, S.Cp.scratch(Mc.R.n()), Mc.R.n(), ks, img, im, fi, m,
+    Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs)), fs, m, sp),
+      Yc(fs, m, sp, D.Tmp.cells(List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs)))),
+    ps, D.Fr.cells(fs, m, sp), nx,
+    Nat.add(D.Acc.need(m, nx, fi, os, List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs), sp, fs), 2n+Pg.Term.size(El.Term.subst(t, D.Arg.terms(es), 0n))),
+    Rs.of(List.append(&2, D.Rt, os, D.Fr.rts(fs, m, sp))), Tmps.of(List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs)),
+    Kl(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps), SRC, S.Wt{ups, r, g, Pn, Qn, zn, T, prs}, rg, ms, nx2),
+  hres: D.IsK(True{}, ds, ms, im, fi, nx2, ks, img, r, El.Term.subst(t, D.Arg.terms(es), 0n)),
+  hheap: D.Heap(ms, nx2, fi, im, D.Rt.cells(Con{D.Rt{r, El.Term.subst(t, D.Arg.terms(es), 0n)}, os}), T.tm.reg(rg, 3n), Qn),
+  hacc2: D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, ms, nx2, fi, im, Con{D.Rt{r, El.Term.subst(t, D.Arg.terms(es), 0n)}, os},
+    List.append(&2, D.TmpE, D.Ag.cells(es, ms, ce), xs), sp, fs, Qn, zs2))) ->
+  D.CopyQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, Mc.R.n(), keep, os, Con{D.Rt{c, t}, bs}, fs, sp, ps, t, ce, es, xs,
+    S.S(rg, ms, nx2, fi, im, pg2, lim, inp)):
+  (_, hs1) = hs
+  (+hbs, hs2) = hs1
+  (+hheld, hs3) = hs2
+  (+hfrs, hs4) = hs3
+  (+hh, +hi) = hs4
+  (_, hh1) = hh
+  (_, hh2) = hh1
+  (_, hh3) = hh2
+  (_, hh4) = hh3
+  (_, +hfn) = hh4
+  (_, hi1) = hi
+  (_, hi2) = hi1
+  (_, hi3) = hi2
+  (_, hi4) = hi3
+  (_, hi5) = hi4
+  (_, hi6) = hi5
+  (_, +hKF) = hi6
+  (_, ha1) = hac
+  (_, ha2) = ha1
+  (_, ha3) = ha2
+  (+hcov, _) = ha3
+  (+erg, p1) = hpost
+  (+hu, p2) = p1
+  (+hrr, p3) = p2
+  (_, p4) = p3
+  (+hal, p5) = p4
+  (+hincl, p6) = p5
+  (+htb, p7) = p6
+  (_, p8) = p7
+  (+hkcs, p9) = p8
+  (_, p10) = p9
+  (_, p11) = p10
+  (_, p12) = p11
+  (_, p13) = p12
+  (+hgb, p14) = p13
+  (_, p15) = p14
+  (+hig, p16) = p15
+  (+hin, p17) = p16
+  (+hnf, p18) = p17
+  (_, p19) = p18
+  (+hsame, p20) = p19
+  (+hkept, p21) = p20
+  (_, p22) = p21
+  (+hbc, _) = p22
+  +XS = List.append(&2, D.TmpE, D.Ag.cells(es, m, ce), xs)
+  +AC0 = D.Ag.cells(es, m, ce)
+  +n0 = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +n2 = Nat.sub(U32.to_nat(nx2), U32.to_nat(fi))
+  +L = Lst(os, D.Tmp.held(XS), fs, m, sp)
+  +Y = Yc(fs, m, sp, D.Tmp.cells(XS))
+  +P = Gb.of(n0, m, fi, L, Y)
+  +E = D.Fr.cells(fs, m, sp)
+  +X = List.append(&2, U32, P, E)
+  +u = El.Term.subst(t, D.Arg.terms(es), 0n)
+  +B = Nat.add(D.Acc.need(m, nx, fi, os, XS, sp, fs), 2n+Pg.Term.size(u))
+  +g0 = gc.of(ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, t}, bs}, XS, fs, sp, pend, ps, zs, hs, hac)
+  +hn2 = CK.Bo.and_l(U32.is_le(nx, nx2), S.Incl.go(Pn, P, nx), hincl)
+  +hsq = al.sq(ms, T.tm.reg(rg, 3n), Pn, Qn, zn, im, fi, nx2, hal)
+  +k = {(hkept, (hsame, (hig, (hKF, (hfn, hn2))))) : KF(m, ms, nx, nx2, fi, im, L, Y, T, Pn, n2, ps, Qn, r)}
+  +hsd = same.output(regs, fi, im, lim, inp, keep, rg, ms, nx2, pg2, ups, S.Cp.scratch(Mc.R.n()), D.Copy.scr(Mc.R.n()), hl, hu, scr.sub(), hk, erg)
+  +erg2 = Equal.trans(List<&2, U32>, rg, S.Ups(ups, S.Rg.ex(63n, regs, 0n)), S.Ups(ups, regs), erg,
+    Equal.cong(List<&2, U32>, List<&2, U32>, xs2 => S.Ups(ups, xs2), S.Rg.ex(63n, regs, 0n), regs, rg.ex.all(regs, hl)))
+  +hlen = Equal.trans(Nat, List.length(&2, U32, rg), List.length(&2, U32, S.Ups(ups, regs)), 63n,
+    Equal.cong(List<&2, U32>, Nat, xs2 => List.length(&2, U32, xs2), rg, S.Ups(ups, regs), erg2),
+    Equal.trans(Nat, List.length(&2, U32, S.Ups(ups, regs)), List.length(&2, U32, regs), 63n, ups.len(ups, regs), hl))
+  +hstat = stat.end(m, ms, nx, nx2, fi, T, Pn, ps, Qn, r, hkept, hin, hnf, hfn, hn2)
+  +hmem = mem.cq(nx, nx2, fi, B, hbc)
+  +hrg = reg.of(rg, Mc.R.n(), r, hlen, {==}, hrr)
+  +hr3 = reg.of(rg, 3n, T.tm.reg(rg, 3n), hlen, {==}, {==})
+  +hkc = {(hn2, (kept.go(n0, m, ms, fi, ps, im, fi, X, nx, E, hkcs),
+      pssub(Qn, m, ms, nx, ps, P, T, Pn, Qn, hsq, hgb, hig, gts.gb(n0, ds, ks, img, m, nx, fi, im, os, XS, fs, sp, ps, zs, g0, fi, hcov)))) :
+    D.Kept.cells(m, nx, fi, ps, Nil{}, ms, nx2, Qn)}
+  +hosK = {(hres, rts.kept(os, ds, ks, img, m, ms, nx, nx2, fi, im, os, XS, fs, sp, ps, zs, g0, T, Pn, n2, Qn, r, k,
+      gc.os(ds, ks, img, m, nx, fi, im, os, XS, fs, sp, ps, zs, g0),
+      ndall.os(D.Rt.cells(os), ds, ks, img, m, nx, fi, im, os, XS, fs, sp, ps, zs, g0, D.allin.refl(D.Rt.cells(os))))) :
+    D.RtsK(True{}, ds, ms, im, fi, nx2, ks, img, Con{D.Rt{r, u}, os})}
+  +hbsK = rts.held(Con{D.Rt{c, t}, bs}, ds, ks, img, m, ms, nx, nx2, fi, im, os, XS, fs, sp, ps, zs, g0, T, Pn, n2, Qn, r, k, hbs, hheld)
+  +hheldK = held.kept(Con{D.Rt{c, t}, bs}, ds, ks, img, m, ms, nx, nx2, fi, im, os, XS, fs, sp, ps, zs, g0, T, Pn, n2, Qn, r, u, k, hbs, hheld)
+  +hfrR = rts.kept(D.Fr.rts(fs, m, sp), ds, ks, img, m, ms, nx, nx2, fi, im, os, XS, fs, sp, ps, zs, g0, T, Pn, n2, Qn, r, k,
+    AC.frs.rtsk(True{}, ds, m, im, fi, nx, ks, img, ps, fs, sp, hfrs),
+    ndall.fr(D.Rt.cells(D.Fr.rts(fs, m, sp)), ds, ks, img, m, nx, fi, im, os, XS, fs, sp, ps, zs, g0, D.allin.refl(D.Rt.cells(D.Fr.rts(fs, m, sp)))))
+  +hfrsK = frs.kept(fs, ds, ks, img, m, ms, im, fi, nx, nx2, ps, Qn, L, Y, T, Pn, im, fi, X, nx, E, sp, hig, hgb, hsq, hkcs, hn2, hfrs, hfrR,
+    allin.l(D.Fr.cells(fs, m, sp), D.Tmp.cells(XS)))
+  +himg = img.kept(ds, ks, img, m, ms, nx, nx2, fi, im, L, Y, T, Pn, n2, ps, Qn, r, k, ps, D.Tmp.cells(XS), D.Rt.cells(D.Tmp.held(XS)),
+    gc.clo(ds, ks, img, m, nx, fi, im, os, XS, fs, sp, ps, zs, g0), hi, htb)
+  +hsh0 = {(%Equal.sym(List<&2, U32>, D.Rt.cells(D.Tmp.held(XS)), List.append(&2, U32, D.Rt.cells(D.Tmp.held(AC0)), D.Rt.cells(D.Tmp.held(xs))),
+        Equal.trans(List<&2, U32>, D.Rt.cells(D.Tmp.held(XS)), D.Rt.cells(List.append(&2, D.Rt, D.Tmp.held(AC0), D.Tmp.held(xs))),
+          List.append(&2, U32, D.Rt.cells(D.Tmp.held(AC0)), D.Rt.cells(D.Tmp.held(xs))),
+          Equal.cong(List<&2, D.Rt>, List<&2, U32>, l => D.Rt.cells(l), D.Tmp.held(XS), List.append(&2, D.Rt, D.Tmp.held(AC0), D.Tmp.held(xs)), tmp.held.app(AC0, xs)),
+          rt.cells.app(D.Tmp.held(AC0), D.Tmp.held(xs)))) :
+      {D.AllIn(D.Rt.cells(D.Tmp.held(AC0)), _) == True{} : Bool};
+      allin.l(D.Rt.cells(D.Tmp.held(AC0)), D.Rt.cells(D.Tmp.held(xs)))) :
+    {D.AllIn(D.Rt.cells(D.Tmp.held(AC0)), D.Rt.cells(D.Tmp.held(XS))) == True{} : Bool}}
+  +hsc0 = {(%Equal.sym(List<&2, U32>, D.Tmp.cells(XS), List.append(&2, U32, D.Tmp.cells(AC0), D.Tmp.cells(xs)), tmp.cells.app(AC0, xs)) :
+      {D.AllIn(D.Tmp.cells(AC0), _) == True{} : Bool};
+      allin.l(D.Tmp.cells(AC0), D.Tmp.cells(xs))) :
+    {D.AllIn(D.Tmp.cells(AC0), D.Tmp.cells(XS)) == True{} : Bool}}
+  +hag = ag.kept(es, ds, ks, img, m, ms, nx, nx2, fi, im, os, XS, fs, sp, ps, zs, g0, T, Pn, n2, Qn, r, k, im, fi, X, nx, E, hkcs, hgb, hsq,
+    ce, env, hsh0, hsc0)
+  (hsd, (hstat, (hmem, (r, (T.tm.reg(rg, 3n), (Qn, (hrg, (hr3, (hkc, ((hosK, (hbsK, (hheldK, (hfrsK, (hheap, himg))))), (hag, hacc2)))))))))))
+
 # The laws
 # --------
 
