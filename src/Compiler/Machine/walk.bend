@@ -1666,6 +1666,22 @@ def wr.s25(+n2: Nat, +regs: List<&2, U32>, +keep: List<&2, Nat>, +regs2: List<&2
    (X.L.go(regs2, 25n, 21n, U32.from_nat(n2), args, {==}, g21), (X.L.gs(regs2, 25n, U32.from_nat(n2), X.L.lt(regs2, 25n, hl, {==})),
     X.L.go(regs2, 25n, 3n, U32.from_nat(n2), pend2, {==}, g3)))))))
 
+# a release sets pend (register 3) to the released cell
+def wr.s3(+v: U32, +regs: List<&2, U32>, +keep: List<&2, Nat>, +regs2: List<&2, U32>, +c: U32, +env: U32, +n: Nat,
+  +args: U32, +pend2: U32, +hk: {D.Disj(keep, D.Walk.scr()) == True{} : Bool},
+  w: WR(regs, keep, regs2, c, env, n, args, pend2)) ->
+  WR(regs, keep, List.set(&2, U32, regs2, 3n, v), c, env, n, args, v):
+  (+hl, w1) = w
+  (hkp, w2) = w1
+  (g19, w3) = w2
+  (g20, w4) = w3
+  (g21, w5) = w4
+  (g25, g3) = w5
+  (X.L.len(regs2, 3n, v, 63n, hl), (kept.set(regs, regs2, keep, D.Walk.scr(), 3n, v, hk, {==}, hkp),
+   (X.L.go(regs2, 3n, 19n, v, c, {==}, g19), (X.L.go(regs2, 3n, 20n, v, env, {==}, g20),
+   (X.L.go(regs2, 3n, 21n, v, args, {==}, g21), (X.L.go(regs2, 3n, 25n, v, U32.from_nat(n), {==}, g25),
+    X.L.gs(regs2, 3n, v, X.L.lt(regs2, 3n, hl, {==}))))))))
+
 # the parts of an argument's K.arg that the rounds read
 def ag.cell(-ds: List<&2, Bk.Def>, -m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, -ks: List<&2, List<&2, Word(8n)>>,
   -img: List<&2, Bk.Term>, -ps: List<&2, U32>, -os: List<&2, D.Rt>, -vs: List<&2, U32>, -a: U32, -q: Bk.Quan, -x: Bk.Term,
