@@ -3465,6 +3465,251 @@ def Al.ok(+f: Nat, +r: Nat, +R: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U
       al.reuse(f, r, R, m, nx, F, K, pg, L, I, P, q, Qr, zs, hal,
         K.Bo.and_l(Nat.is_lt(r, 63n), Bool.not(Bool.and(Nat.is_le(3n, r), Nat.is_le(r, 7n))), hr), hk, hkf, hfn, tb)
 
+# The garbage is well-founded
+# ---------------------------
+#
+# With an empty pend list there is no garbage: a garbage cell y of the largest
+# zombie size, out of the pend list, counts its garbage pointers, at least one;
+# so a garbage cell o has y as a part, by a set bit of its mask; o's AL.part
+# then gives y a zombie size below o's, which is at most y's.
+
+# the largest zombie size of the cells P
+def Zmax(P: List<&2, U32>, +zs: List<&2, D.Zs>) -> Nat:
+  match P:
+    case Nil{}:
+      0n
+    case Con{+o, rest}:
+      +r = Zmax(rest, zs)
+      Bool.pick(Nat, Nat.is_le(r, D.Zz(zs, o)), D.Zz(zs, o), r)
+
+# a < b, when not b <= a
+def nle.lt(a: Nat, b: Nat, h: {Nat.is_le(b, a) == False{} : Bool}) -> N.Le(1n+a, b):
+  match a b:
+    case 0n 0n:
+      K.Bo.tf(N.Le(1n, 0n), Equal.sym(Bool, True{}, False{}, h))
+    case 1n+ap 0n:
+      K.Bo.tf(N.Le(2n+ap, 0n), Equal.sym(Bool, True{}, False{}, h))
+    case 0n 1n+bp:
+      N.le_zero(bp)
+    case 1n+ap 1n+bp:
+      nle.lt(ap, bp, h)
+
+# the larger of zo and r is at least each
+def zmax.top(c: Bool, +r: Nat, +zo: Nat, +z: Nat, ec: {Nat.is_le(r, zo) == c : Bool}, hz: N.Le(z, r)) ->
+  N.Le(z, Bool.pick(Nat, c, zo, r)):
+  match c:
+    case True{}:
+      N.le_trans(z, r, zo, hz, N.toLe(r, zo, ec))
+    case False{}:
+      hz
+
+def zmax.self(c: Bool, +r: Nat, +zo: Nat, ec: {Nat.is_le(r, zo) == c : Bool}) -> N.Le(zo, Bool.pick(Nat, c, zo, r)):
+  match c:
+    case True{}:
+      N.le_refl(zo)
+    case False{}:
+      N.weaken(zo, r, nle.lt(zo, r, ec))
+
+# each zombie size of P is at most the largest
+def zmax.ge.b(e: Bool, +o: U32, +rest: List<&2, U32>, +zs: List<&2, D.Zs>, +y: U32, eo: {U32.is_eq(o, y) == e : Bool},
+  h: {Bool.or(e, D.Has(rest, y)) == True{} : Bool},
+  k: {D.Has(rest, y) == True{} : Bool} -> N.Le(D.Zz(zs, y), Zmax(rest, zs))) -> N.Le(D.Zz(zs, y), Zmax(Con{o, rest}, zs)):
+  match e:
+    case True{}:
+      +r = Zmax(rest, zs)
+      +zo = D.Zz(zs, o)
+      +ey = K.U.eq(o, y, eo)
+      (%ey : N.Le(D.Zz(zs, _), Bool.pick(Nat, Nat.is_le(r, zo), zo, r)); zmax.self(Nat.is_le(r, zo), r, zo, {==}))
+    case False{}:
+      +r = Zmax(rest, zs)
+      +zo = D.Zz(zs, o)
+      zmax.top(Nat.is_le(r, zo), r, zo, D.Zz(zs, y), {==}, k(h))
+
+def zmax.ge(P: List<&2, U32>, +zs: List<&2, D.Zs>, +y: U32, h: {D.Has(P, y) == True{} : Bool}) -> N.Le(D.Zz(zs, y), Zmax(P, zs)):
+  match P:
+    case Nil{}:
+      K.Bo.tf(N.Le(D.Zz(zs, y), 0n), h)
+    case Con{+o, +rest}:
+      zmax.ge.b(U32.is_eq(o, y), o, rest, zs, y, {==}, h, hr => zmax.ge(rest, zs, y, hr))
+
+# a cell of the largest zombie size, of a list that is not empty
+def zmax.at.b(c: Bool, +o: U32, +o2: U32, +rest2: List<&2, U32>, +zs: List<&2, D.Zs>, -G: Type,
+  ec: {Nat.is_le(Zmax(Con{o2, rest2}, zs), D.Zz(zs, o)) == c : Bool},
+  k: @y: U32 -> {D.Has(Con{o, Con{o2, rest2}}, y) == True{} : Bool} ->
+    {D.Zz(zs, y) == Bool.pick(Nat, c, D.Zz(zs, o), Zmax(Con{o2, rest2}, zs)) : Nat} -> G,
+  kr: (@y: U32 -> {D.Has(Con{o2, rest2}, y) == True{} : Bool} -> {D.Zz(zs, y) == Zmax(Con{o2, rest2}, zs) : Nat} -> G) -> G) -> G:
+  match c:
+    case True{}:
+      k(o, K.Bo.or_il(U32.is_eq(o, o), D.Has(Con{o2, rest2}, o), K.U.eq_refl(o)), {==})
+    case False{}:
+      kr(+y => +hy => +ey => k(y, K.Bo.or_ir(U32.is_eq(o, y), D.Has(Con{o2, rest2}, y), hy), ey))
+
+def zmax.at(rest: List<&2, U32>, +o: U32, +zs: List<&2, D.Zs>, -G: Type,
+  k: @y: U32 -> {D.Has(Con{o, rest}, y) == True{} : Bool} -> {D.Zz(zs, y) == Zmax(Con{o, rest}, zs) : Nat} -> G) -> G:
+  match rest:
+    case Nil{}:
+      +zo = D.Zz(zs, o)
+      k(o, K.Bo.or_il(U32.is_eq(o, o), D.Has(Nil{}, o), K.U.eq_refl(o)),
+        (%Equal.sym(Bool, Nat.is_le(0n, zo), True{}, K.Na.le0(zo)) : {zo == Bool.pick(Nat, _, zo, 0n) : Nat}; {==}))
+    case Con{+o2, +rest2}:
+      zmax.at.b(Nat.is_le(Zmax(Con{o2, rest2}, zs), D.Zz(zs, o)), o, o2, rest2, zs, G, {==}, k, k2 => zmax.at(rest2, o2, zs, G, k2))
+
+# a Nat that is not 0 is at least 1
+def le1.of(x: Nat, e: {Nat.is_eq(x, 0n) == False{} : Bool}) -> N.Le(1n, x):
+  match x:
+    case 0n:
+      K.Bo.tf(N.Le(1n, 0n), Equal.sym(Bool, True{}, False{}, e))
+    case 1n+p:
+      N.le_zero(p)
+
+# the garbage's pointers to y, at least one: some garbage cell's pointers
+def pp.pos.b(z: Bool, +o: U32, +rest: List<&2, U32>, +m: Cr.Cir.Cells, +y: U32, -G: Type, ez: {Nat.is_eq(D.Ow(m, o, y), 0n) == z : Bool},
+  h: N.Le(1n, Nat.add(D.Ow(m, o, y), D.Pp(rest, m, y))),
+  k: @c: U32 -> {D.Has(Con{o, rest}, c) == True{} : Bool} -> N.Le(1n, D.Ow(m, c, y)) -> G,
+  kr: N.Le(1n, D.Pp(rest, m, y)) -> (@c: U32 -> {D.Has(rest, c) == True{} : Bool} -> N.Le(1n, D.Ow(m, c, y)) -> G) -> G) -> G:
+  match z:
+    case False{}:
+      k(o, K.Bo.or_il(U32.is_eq(o, o), D.Has(rest, o), K.U.eq_refl(o)), le1.of(D.Ow(m, o, y), ez))
+    case True{}:
+      kr((%K.Na.eq(D.Ow(m, o, y), 0n, ez) : N.Le(1n, Nat.add(_, D.Pp(rest, m, y))); h),
+        +c => +hc => hw => k(c, K.Bo.or_ir(U32.is_eq(o, c), D.Has(rest, c), hc), hw))
+
+def pp.pos(P: List<&2, U32>, +m: Cr.Cir.Cells, +y: U32, -G: Type, h: N.Le(1n, D.Pp(P, m, y)),
+  k: @c: U32 -> {D.Has(P, c) == True{} : Bool} -> N.Le(1n, D.Ow(m, c, y)) -> G) -> G:
+  match P:
+    case Nil{}:
+      Empty.absurd(G, h)
+    case Con{+o, +rest}:
+      pp.pos.b(Nat.is_eq(D.Ow(m, o, y), 0n), o, rest, m, y, G, {==}, h, k, h2 => k2 => pp.pos(rest, m, y, G, h2, k2))
+
+# a pointer of the cell o to y: a set bit of o's mask whose field holds y
+def ow.pos.c(t1: Bool, t2: Bool, t3: Bool, +m: Cr.Cir.Cells, +o: U32, +y: U32, -G: Type,
+  e1: {Bool.and(U32.is_ne(U32.and(D.Am(m, o), 1), 0), U32.is_eq(D.Fd(2n, m, o), y)) == t1 : Bool},
+  e2: {Bool.and(U32.is_ne(U32.and(D.Am(m, o), 2), 0), U32.is_eq(D.Fd(3n, m, o), y)) == t2 : Bool},
+  e3: {Bool.and(U32.is_ne(U32.and(D.Am(m, o), 4), 0), U32.is_eq(D.Fd(4n, m, o), y)) == t3 : Bool},
+  h: N.Le(1n, Nat.add(D.Nat.of(t1), Nat.add(D.Nat.of(t2), D.Nat.of(t3)))),
+  k2: {U32.is_zero(U32.and(D.Am(m, o), 1)) == False{} : Bool} -> {D.Fd(2n, m, o) == y : U32} -> G,
+  k3: {U32.is_zero(U32.and(D.Am(m, o), 2)) == False{} : Bool} -> {D.Fd(3n, m, o) == y : U32} -> G,
+  k4: {U32.is_zero(U32.and(D.Am(m, o), 4)) == False{} : Bool} -> {D.Fd(4n, m, o) == y : U32} -> G) -> G:
+  match t1:
+    case True{}:
+      +b = e1
+      +B1 = U32.is_ne(U32.and(D.Am(m, o), 1), 0)
+      +E2 = U32.is_eq(D.Fd(2n, m, o), y)
+      k2(K.Bo.not_t(U32.is_eq(U32.and(D.Am(m, o), 1), 0), K.Bo.and_l(B1, E2, b)), K.U.eq(D.Fd(2n, m, o), y, K.Bo.and_r(B1, E2, b)))
+    case False{}:
+      match t2:
+        case True{}:
+          +b = e2
+          +B2 = U32.is_ne(U32.and(D.Am(m, o), 2), 0)
+          +E3 = U32.is_eq(D.Fd(3n, m, o), y)
+          k3(K.Bo.not_t(U32.is_eq(U32.and(D.Am(m, o), 2), 0), K.Bo.and_l(B2, E3, b)), K.U.eq(D.Fd(3n, m, o), y, K.Bo.and_r(B2, E3, b)))
+        case False{}:
+          match t3:
+            case True{}:
+              +b = e3
+              +B4 = U32.is_ne(U32.and(D.Am(m, o), 4), 0)
+              +E4 = U32.is_eq(D.Fd(4n, m, o), y)
+              k4(K.Bo.not_t(U32.is_eq(U32.and(D.Am(m, o), 4), 0), K.Bo.and_l(B4, E4, b)), K.U.eq(D.Fd(4n, m, o), y, K.Bo.and_r(B4, E4, b)))
+            case False{}:
+              Empty.absurd(G, h)
+
+def ow.pos(+m: Cr.Cir.Cells, +o: U32, +y: U32, -G: Type, h: N.Le(1n, D.Ow(m, o, y)),
+  k2: {U32.is_zero(U32.and(D.Am(m, o), 1)) == False{} : Bool} -> {D.Fd(2n, m, o) == y : U32} -> G,
+  k3: {U32.is_zero(U32.and(D.Am(m, o), 2)) == False{} : Bool} -> {D.Fd(3n, m, o) == y : U32} -> G,
+  k4: {U32.is_zero(U32.and(D.Am(m, o), 4)) == False{} : Bool} -> {D.Fd(4n, m, o) == y : U32} -> G) -> G:
+  +a = D.Am(m, o)
+  ow.pos.c(Bool.and(U32.is_ne(U32.and(a, 1), 0), U32.is_eq(D.Fd(2n, m, o), y)), Bool.and(U32.is_ne(U32.and(a, 2), 0), U32.is_eq(D.Fd(3n, m, o), y)),
+    Bool.and(U32.is_ne(U32.and(a, 4), 0), U32.is_eq(D.Fd(4n, m, o), y)), m, o, y, G, {==}, {==}, {==}, h, k2, k3, k4)
+
+# a part p, by a set bit, of a garbage cell of the zombie size z, not 0, not
+# STATIC, whose garbage pointers are not below its count: a smaller zombie size
+def pt.zz(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +z: Nat, +am: U32, +bit: U32, +p: U32, +K: U32, +F: U32, +N: U32,
+  h: {D.AL.part(m, P, zs, z, am, bit, p, K, F, N) == True{} : Bool}, hon: {U32.is_zero(U32.and(am, bit)) == False{} : Bool},
+  hz: {U32.is_zero(p) == False{} : Bool}, hs: {D.Stc(m, p) == False{} : Bool},
+  hc: {Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))) == False{} : Bool}) -> {Nat.is_lt(D.Zz(zs, p), z) == True{} : Bool}:
+  +L1 = Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p)))
+  +A1 = Bool.and(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z))
+  +R4 = Bool.or(A1, L1)
+  +R3 = Bool.or(D.Stc(m, p), R4)
+  +r1 = K.Bo.or_r(U32.is_zero(U32.and(am, bit)), Bool.or(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, N), R3)), h, hon)
+  +r2 = K.Bo.or_r(U32.is_zero(p), Bool.and(Cr.Cir.is_cell(p, K, F, N), R3), r1, hz)
+  +r3 = K.Bo.and_r(Cr.Cir.is_cell(p, K, F, N), R3, r2)
+  +r4 = K.Bo.or_r(D.Stc(m, p), R4, r3, hs)
+  K.Bo.and_r(D.Has(P, p), Nat.is_lt(D.Zz(zs, p), z), K.Bo.or_l(A1, L1, r4, hc))
+
+# no part of zombie size z gives a cell of zombie size at least z
+def pt.no(+m: Cr.Cir.Cells, +P: List<&2, U32>, +zs: List<&2, D.Zs>, +z: Nat, +am: U32, +bit: U32, +p: U32, +K: U32, +F: U32, +N: U32,
+  h: {D.AL.part(m, P, zs, z, am, bit, p, K, F, N) == True{} : Bool}, hon: {U32.is_zero(U32.and(am, bit)) == False{} : Bool},
+  hz: {U32.is_zero(p) == False{} : Bool}, hs: {D.Stc(m, p) == False{} : Bool},
+  hc: {Nat.is_lt(D.Pp(P, m, p), U32.to_nat(D.Fd(1n, m, p))) == False{} : Bool}, hle: N.Le(z, D.Zz(zs, p))) -> Empty:
+  N.not_succ_le(D.Zz(zs, p), N.le_trans(1n+D.Zz(zs, p), z, D.Zz(zs, p), K.Na.lt1(D.Zz(zs, p), z, pt.zz(m, P, zs, z, am, bit, p, K, F, N, h, hon, hz, hs, hc)),
+    hle))
+
+# o, a garbage cell that points to y, the cell of the largest zombie size
+def al.top.at(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32, +y: U32, +o: U32,
+  +hcs: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool}, +hoP: {D.Has(P, o) == True{} : Bool}, how: N.Le(1n, D.Ow(m, o, y)),
+  +hz: {U32.is_zero(y) == False{} : Bool}, +hs: {D.Stc(m, y) == False{} : Bool},
+  +hc: {Nat.is_lt(D.Pp(P, m, y), U32.to_nat(D.Fd(1n, m, y))) == False{} : Bool}, +ey: {D.Zz(zs, y) == Zmax(P, zs) : Nat}) -> Empty:
+  +hxo = al.mem(P, m, P, Q, zs, K, F, nx, o, hoP, hcs)
+  +Hd = K.AL.hd(m, Q, o, F, nx)
+  +Pt = K.AL.pt(m, P, zs, o, K, F, nx)
+  +Ct = K.AL.ct(m, P, Q, o, F, nx)
+  +hpt = K.Bo.and_l(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hxo))
+  +a = D.Am(m, o)
+  +z = D.Zz(zs, o)
+  +A1 = D.AL.part(m, P, zs, z, a, 1, D.Fd(2n, m, o), K, F, nx)
+  +A2 = D.AL.part(m, P, zs, z, a, 2, D.Fd(3n, m, o), K, F, nx)
+  +A4 = D.AL.part(m, P, zs, z, a, 4, D.Fd(4n, m, o), K, F, nx)
+  +hle = {(%Equal.sym(Nat, D.Zz(zs, y), Zmax(P, zs), ey) : N.Le(z, _); zmax.ge(P, zs, o, hoP)) : N.Le(z, D.Zz(zs, y))}
+  ow.pos(m, o, y, Empty, how,
+    hon => e => pt.no(m, P, zs, z, a, 1, y, K, F, nx, (%e : {D.AL.part(m, P, zs, z, a, 1, _, K, F, nx) == True{} : Bool};
+      K.Bo.and_l(A1, Bool.and(A2, A4), hpt)), hon, hz, hs, hc, hle),
+    hon => e => pt.no(m, P, zs, z, a, 2, y, K, F, nx, (%e : {D.AL.part(m, P, zs, z, a, 2, _, K, F, nx) == True{} : Bool};
+      K.Bo.and_l(A2, A4, K.Bo.and_r(A1, Bool.and(A2, A4), hpt))), hon, hz, hs, hc, hle),
+    hon => e => pt.no(m, P, zs, z, a, 4, y, K, F, nx, (%e : {D.AL.part(m, P, zs, z, a, 4, _, K, F, nx) == True{} : Bool};
+      K.Bo.and_r(A2, A4, K.Bo.and_r(A1, Bool.and(A2, A4), hpt))), hon, hz, hs, hc, hle))
+
+# the garbage cell y of the largest zombie size is in the pend list
+def al.top(+m: Cr.Cir.Cells, +P: List<&2, U32>, +Q: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32, +y: U32,
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, +hcs: {D.AL.cells(P, m, P, Q, zs, K, F, nx) == True{} : Bool},
+  +hy: {D.Has(P, y) == True{} : Bool}, hyq: {D.Has(Q, y) == False{} : Bool}, +ey: {D.Zz(zs, y) == Zmax(P, zs) : Nat}) -> Empty:
+  +hx = al.mem(P, m, P, Q, zs, K, F, nx, y, hy, hcs)
+  +Hd = K.AL.hd(m, Q, y, F, nx)
+  +Pt = K.AL.pt(m, P, zs, y, K, F, nx)
+  +Ct = K.AL.ct(m, P, Q, y, F, nx)
+  +hd = K.Bo.and_l(Hd, Bool.and(Pt, Ct), hx)
+  +hct = K.Bo.and_r(Pt, Ct, K.Bo.and_r(Hd, Bool.and(Pt, Ct), hx))
+  +pp = D.Pp(P, m, y)
+  +c0 = U32.to_nat(D.Fd(1n, m, y))
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  +PK = Bool.pick(Bool, D.Has(Q, y), Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp)))
+  +hpk0 = K.Bo.and_r(Nat.is_eq(D.Pc(n, m, Q, F, y), pp), PK, hct)
+  +hpk = {(%hyq : {Bool.pick(Bool, _, Nat.is_eq(pp, 0n), Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp))) == True{} : Bool}; hpk0) :
+    {Bool.and(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp)) == True{} : Bool}}
+  +epc = K.Na.eq(pp, c0, K.Bo.and_l(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp), hpk))
+  +hpos = K.Na.lt1(0n, pp, K.Bo.and_r(Nat.is_eq(pp, c0), Nat.is_lt(0n, pp), hpk))
+  +hz = K.U.nz(y, K, F, hkf, al.hd.le(m, Q, y, F, nx, hd))
+  +hs = al.hd.ns(m, Q, y, F, nx, hd)
+  +hc = na.nlt(Nat.is_lt(pp, c0), pp, c0, {==}, (%epc : N.Le(_, pp); N.le_refl(pp)))
+  pp.pos(P, m, y, Empty, hpos, +o => +hoP => how => al.top.at(m, P, Q, zs, K, F, nx, y, o, hcs, hoP, how, hz, hs, hc, ey))
+
+# with an empty pend list there is no garbage
+def al.nil(+m: Cr.Cir.Cells, +pend: U32, P: List<&2, U32>, +zs: List<&2, D.Zs>, +K: U32, +F: U32, +nx: U32,
+  +hkf: {U32.is_lt(K, F) == True{} : Bool}, h: {D.AL(m, pend, P, Nil{}, zs, K, F, nx) == True{} : Bool}) -> {P == Nil{} : List<&2, U32>}:
+  match P:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      +Pl = {Con{o, rest} : List<&2, U32>}
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+      +C1 = D.AL.cells(Pl, m, Pl, Nil{}, zs, K, F, nx)
+      +L1 = D.Lt(n, m, Nil{}, F, nx)
+      +S1 = Bool.and(D.Sub(Nil{}, Pl), D.Nodup(Pl))
+      +H1 = Bool.and(D.Chain(Nil{}, m, pend), D.Nodup(Nil{}))
+      +hc = K.Bo.and_l(C1, L1, K.Bo.and_r(S1, Bool.and(C1, L1), K.Bo.and_r(H1, Bool.and(S1, Bool.and(C1, L1)), h)))
+      Empty.absurd({Pl == Nil{} : List<&2, U32>}, zmax.at(rest, o, zs, Empty, +y => +hy => +ey => al.top(m, Pl, Nil{}, zs, K, F, nx, y, hkf, hc, hy, {==}, ey)))
+
 # no garbage cell of P points to the cells ns
 def Pz(ns: List<&2, U32>, +P: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
   match ns:
