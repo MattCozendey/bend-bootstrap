@@ -4367,6 +4367,149 @@ def Bg.end(+m: Cr.Cir.Cells, +N: Nat, +F: U32, +T: Nat, bg: In.Bg(m, N, F, T)) -
   N.le_trans(D.Stat(Nat.sub(N, U32.to_nat(F)), m, F), Nat.add(D.Stat(Nat.sub(N, U32.to_nat(F)), m, F), In.Bud(256n, m, 16)), T,
     N.le_add_r(D.Stat(Nat.sub(N, U32.to_nat(F)), m, F), In.Bud(256n, m, 16)), bg)
 
+# The run's head
+# --------------
+#
+# The head h of the term th (register il; t1 and t2 inside a list cell; the
+# focus at the end), as In.St has it, with its counts and covers (In.Hh)
+# and the cache's budget within the total T (In.Bg). A STATIC pair or the
+# cache's store keeps the head; a list cell or the focus over the head is
+# the new head.
+
+def In.Hs(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +N: Nat, +h: U32, +th: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +T: Nat) -> Data:
+  In.P(In.St(f, m, F, N, h, th, ks, img), In.P(In.Hh(m, F, N, h, th), In.Bg(m, N, F, T)))
+
+# its parts
+def Hs.St(-f: Nat, -m: Cr.Cir.Cells, -F: U32, -N: Nat, -h: U32, -th: Bk.Term, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
+  -T: Nat, hs: In.Hs(f, m, F, N, h, th, ks, img, T)) -> In.St(f, m, F, N, h, th, ks, img):
+  (s, r) = hs
+  s
+
+def Hs.Hh(-f: Nat, -m: Cr.Cir.Cells, -F: U32, -N: Nat, -h: U32, -th: Bk.Term, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
+  -T: Nat, hs: In.Hs(f, m, F, N, h, th, ks, img, T)) -> In.Hh(m, F, N, h, th):
+  (s, r) = hs
+  (hh, bg) = r
+  hh
+
+def Hs.Bg(-f: Nat, -m: Cr.Cir.Cells, -F: U32, -N: Nat, -h: U32, -th: Bk.Term, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
+  -T: Nat, hs: In.Hs(f, m, F, N, h, th, ks, img, T)) -> In.Bg(m, N, F, T):
+  (s, r) = hs
+  (hh, bg) = r
+  bg
+
+# a part p as In.pt has it is not 0
+def Bo.not_t(b: Bool, h: {True{} == Bool.not(b) : Bool}) -> {b == False{} : Bool}:
+  match b:
+    case True{}:
+      h
+    case False{}:
+      {==}
+
+def Pt.nz(+p: U32, +F: U32, +C: Nat, h: {True{} == In.pt(p, F, C) : Bool}) -> {U32.is_eq(p, 0) == False{} : Bool}:
+  Bo.not_t(U32.is_eq(p, 0), Bo.and_l(Bool.not(U32.is_eq(p, 0)), In.rd(p, F, C), h))
+
+# the head at the start: the image's cell 11, no cell taken, the start's budget
+def Hs.start(+f: Nat, +m: Cr.Cir.Cells, +F: U32, +th: Bk.Term, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  s: In.St(f, m, F, U32.to_nat(F), 11, th, ks, img)) -> In.Hs(f, m, F, U32.to_nat(F), 11, th, ks, img, In.Bud(256n, m, 16)):
+  (s, (Hh.start(m, F, 11, th), Bg.start(m, F)))
+
+# the head's term, by an equation
+def Hs.cast(-f: Nat, -m: Cr.Cir.Cells, -F: U32, -N: Nat, -h: U32, -t: Bk.Term, -u: Bk.Term, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
+  -T: Nat, e: {t == u : Bk.Term}, hs: In.Hs(f, m, F, N, h, t, ks, img, T)) -> In.Hs(f, m, F, N, h, u, ks, img, T):
+  %e : In.Hs(f, m, F, N, h, _, ks, img, T)
+  hs
+
+# the headers of the pairs, as numbers
+def In.hd.t() -> {1866 == In.hd(True{}) : U32}:
+  {==}
+
+def In.hd.f() -> {842 == In.hd(False{}) : U32}:
+  {==}
+
+# a STATIC pair of STATIC parts a and b, taken at next: the head stays, the
+# total grows by 1
+def Hs.pair(+fl: Nat, +m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +h: U32, +th: Bk.Term, +a: U32, +b: U32, +T: Nat, +hF: N.Le(272n, U32.to_nat(F)), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
+  +pa: {True{} == In.ps(m, a) : Bool}, +pb: {True{} == In.ps(m, b) : Bool}, hs: In.Hs(fl, m, F, N, h, th, ks, img, T)) ->
+  In.Hs(fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(True{}), 1, a, b, 0}), F, 1n+N, h, th, ks, img, 1n+T):
+  (+s, r) = hs
+  (hh, bg) = r
+  +hi = Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa)
+  +eN = Fa.eN(m, next, N, F, f0, fc, ks, img, fa)
+  +hFN = Fa.hFN(m, next, N, F, f0, fc, ks, img, fa)
+  +fb = Fa.fb(m, next, N, F, f0, fc, ks, img, fa)
+  (St.step(fl, m, F, N, h, th, ks, img, next, Cr.Cir.Cell{In.hd(True{}), 1, a, b, 0}, hi, s),
+   ((%In.hd.t() : In.Hh(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{_, 1, a, b, 0}), F, 1n+N, h, th);
+      Hh.st(m, next, a, b, F, N, h, th, fl, eN, hFN, hi, fb, St.nrd(fl, m, F, N, h, th, ks, img, s), pa, pb, hh)),
+    Bg.st(m, next, N, F, a, b, T, eN, hFN, hi, hF, Fb.rk(m, N, F, fb), bg)))
+
+# the cache's store of the cell v (not 0) in the empty entry of w8: the head
+# stays, the total shrinks by 24
+def Hs.store(+fl: Nat, +m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +h: U32, +th: Bk.Term, +w8: Word(8n), +v: U32, +T: Nat, +hF: N.Le(272n, U32.to_nat(F)), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
+  +e0: {U32.is_eq(D.Fd(2n, m, In.J(w8)), 0) == True{} : Bool}, +ev: {U32.is_eq(v, 0) == False{} : Bool},
+  hs: In.Hs(fl, m, F, N, h, th, ks, img, 24n+T)) -> In.Hs(fl, In.cs(m, w8, v), F, N, h, th, ks, img, T):
+  (+s, r) = hs
+  (hh, bg) = r
+  +fb = Fa.fb(m, next, N, F, f0, fc, ks, img, fa)
+  (St.fr(fl, m, F, N, h, th, ks, img, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v), In.rdJ(w8, F, N, hF), s),
+   (Hh.cs(m, w8, v, F, N, h, th, fl, hF, fb, St.nrd(fl, m, F, N, h, th, ks, img, s), hh),
+    Bg.cs(m, w8, v, N, F, T, hF, Fb.rk(m, N, F, fb), e0, ev, bg)))
+
+# the list's cell next, a Tup of the head h and the STATIC part b, is the head
+def Hs.l2(+fl: Nat, +m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +h: U32, +th: Bk.Term, +b: U32, +tb: Bk.Term, +T: Nat, +hF: N.Le(272n, U32.to_nat(F)), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
+  +pb: {True{} == In.ps(m, b) : Bool}, +sb: In.St(fl, m, F, N, b, tb, ks, img), hs: In.Hs(fl, m, F, N, h, th, ks, img, T)) ->
+  In.Hs(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, h, b, 0}), F, 1n+N, next, Bk.Term.Tup{Bk.Quan.Q1{}, th, tb}, ks, img, T):
+  (+s, r) = hs
+  (hh, bg) = r
+  +hi = Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa)
+  +eN = Fa.eN(m, next, N, F, f0, fc, ks, img, fa)
+  +hFN = Fa.hFN(m, next, N, F, f0, fc, ks, img, fa)
+  +fb = Fa.fb(m, next, N, F, f0, fc, ks, img, fa)
+  +e0 = Fa.e0(m, next, N, F, f0, fc, ks, img, fa)
+  (In.tup(False{}, fl, m, F, N, next, h, b, th, tb, ks, img, s, sb, hi, Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa)),
+   ((%In.hd.f() : In.Hh(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{_, 1, h, b, 0}), F, 1n+N, next, Bk.Term.Tup{Bk.Quan.Q1{}, th, tb});
+      Hh.l2(m, next, h, b, th, tb, F, N, fl, eN, hFN, hi, fb, St.nrd(fl, m, F, N, h, th, ks, img, s), pb,
+        St.pt(fl, m, F, N, h, th, ks, img, e0, s), St.pt(fl, m, F, N, b, tb, ks, img, e0, sb), hh)),
+    Bg.ls(m, next, N, F, In.hd(False{}), h, b, T, eN, hFN, hi, hF, Fb.rk(m, N, F, fb), {==}, bg)))
+
+# the list's cell next, a Tup of the STATIC part a and the head h, is the head
+def Hs.l3(+fl: Nat, +m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +h: U32, +th: Bk.Term, +a: U32, +ta: Bk.Term, +T: Nat, +hF: N.Le(272n, U32.to_nat(F)), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
+  +pa: {True{} == In.ps(m, a) : Bool}, +sa: In.St(fl, m, F, N, a, ta, ks, img), hs: In.Hs(fl, m, F, N, h, th, ks, img, T)) ->
+  In.Hs(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{In.hd(False{}), 1, a, h, 0}), F, 1n+N, next, Bk.Term.Tup{Bk.Quan.Q1{}, ta, th}, ks, img, T):
+  (+s, r) = hs
+  (hh, bg) = r
+  +hi = Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa)
+  +eN = Fa.eN(m, next, N, F, f0, fc, ks, img, fa)
+  +hFN = Fa.hFN(m, next, N, F, f0, fc, ks, img, fa)
+  +fb = Fa.fb(m, next, N, F, f0, fc, ks, img, fa)
+  +e0 = Fa.e0(m, next, N, F, f0, fc, ks, img, fa)
+  (In.tup(False{}, fl, m, F, N, next, a, h, ta, th, ks, img, sa, s, hi, Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa)),
+   ((%In.hd.f() : In.Hh(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{_, 1, a, h, 0}), F, 1n+N, next, Bk.Term.Tup{Bk.Quan.Q1{}, ta, th});
+      Hh.l3(m, next, a, h, ta, th, F, N, fl, eN, hFN, hi, fb, St.nrd(fl, m, F, N, h, th, ks, img, s), pa,
+        St.pt(fl, m, F, N, a, ta, ks, img, e0, sa), St.pt(fl, m, F, N, h, th, ks, img, e0, s), hh)),
+    Bg.ls(m, next, N, F, In.hd(False{}), a, h, T, eN, hFN, hi, hF, Fb.rk(m, N, F, fb), {==}, bg)))
+
+# the focus next, an App of the STATIC part a and the head h, is the head
+def Hs.f3(+fl: Nat, +m: Cr.Cir.Cells, +next: U32, +N: Nat, +F: U32, +f0: Nat, +fc: Nat, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +h: U32, +th: Bk.Term, +a: U32, +ta: Bk.Term, +T: Nat, +hF: N.Le(272n, U32.to_nat(F)), +fa: In.Fa(m, next, N, F, f0, fc, ks, img),
+  +pa: {True{} == In.ps(m, a) : Bool}, +sa: In.St(fl, m, F, N, a, ta, ks, img), hs: In.Hs(fl, m, F, N, h, th, ks, img, T)) ->
+  In.Hs(1n+fl, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{72, 1, a, h, 0}), F, 1n+N, next, Bk.Term.App{Bk.Quan.Q1{}, ta, th}, ks, img, T):
+  (+s, r) = hs
+  (hh, bg) = r
+  +hi = Fa.hi(m, next, N, F, f0, fc, ks, img, hF, fa)
+  +eN = Fa.eN(m, next, N, F, f0, fc, ks, img, fa)
+  +hFN = Fa.hFN(m, next, N, F, f0, fc, ks, img, fa)
+  +fb = Fa.fb(m, next, N, F, f0, fc, ks, img, fa)
+  +e0 = Fa.e0(m, next, N, F, f0, fc, ks, img, fa)
+  (In.app(fl, m, F, N, next, a, h, ta, th, ks, img, sa, s, hi, Fa.hr(m, next, N, F, f0, fc, ks, img, hF, fa)),
+   (Hh.f3(m, next, a, h, ta, th, F, N, fl, eN, hFN, hi, fb, St.nrd(fl, m, F, N, h, th, ks, img, s), pa,
+      St.pt(fl, m, F, N, a, ta, ks, img, e0, sa), St.pt(fl, m, F, N, h, th, ks, img, e0, s), hh),
+    Bg.ls(m, next, N, F, 72, a, h, T, eN, hFN, hi, hF, Fb.rk(m, N, F, fb), {==}, bg)))
+
 # The registers
 # -------------
 
