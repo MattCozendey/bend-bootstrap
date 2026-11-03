@@ -320,12 +320,13 @@ def Rp(+a: List<&2, U32>, xs: List<&2, U32>) -> List<&2, U32>:
 type W1 is Data:
   W1{x: U32, v: U32}
 
+# the cells m after the writes ws, the last first (definitions.bend's Put1)
 def W1s(ws: List<&2, W1>, +m: Cr.Cir.Cells) -> Cr.Cir.Cells:
   match ws:
     case Nil{}:
       m
-    case Con{W1{+x, v}, rest}:
-      W1s(rest, Cr.Cir.Cells.set(m, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(m, x), v)))
+    case Con{W1{+x, +v}, +rest}:
+      K.St1(W1s(rest, m), x, v)
 
 # each write is to a part of the cell c (by its mask, D.Ow)
 def W1s.pt(ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> Bool:
@@ -334,6 +335,90 @@ def W1s.pt(ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> Bool:
       True{}
     case Con{W1{+x, _}, rest}:
       Bool.and(Nat.is_lt(0n, D.Ow(m, c, x)), W1s.pt(rest, m, c))
+
+# the writes keep every field but 1 of every cell
+def fd.w1s(ws: List<&2, W1>, +m: Cr.Cir.Cells, +k: Nat, +hk: {Nat.is_eq(k, 1n) == False{} : Bool}, +y: U32) ->
+  {D.Fd(k, W1s(ws, m), y) == D.Fd(k, m, y) : U32}:
+  match ws:
+    case Nil{}:
+      {==}
+    case Con{W1{+x, +v}, +rest}:
+      Equal.trans(U32, D.Fd(k, K.St1(W1s(rest, m), x, v), y), D.Fd(k, W1s(rest, m), y), D.Fd(k, m, y),
+        K.fd.st1(W1s(rest, m), x, v, k, hk, y), fd.w1s(rest, m, k, hk, y))
+
+# so they keep the flags, masks and pointers
+def stc.w1s(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +y: U32) -> {D.Stc(W1s(ws, m), y) == D.Stc(m, y) : Bool}:
+  K.stc.eq(W1s(ws, m), m, y, fd.w1s(ws, m, 0n, {==}, y))
+
+def am.w1s(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +o: U32) -> {D.Am(W1s(ws, m), o) == D.Am(m, o) : U32}:
+  K.am.eq(W1s(ws, m), m, o, fd.w1s(ws, m, 0n, {==}, o), fd.w1s(ws, m, 2n, {==}, U32.add(272, U32.and(D.Fd(0n, m, o), 63))))
+
+def ow.w1s(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +o: U32, +c: U32) -> {D.Ow(W1s(ws, m), o, c) == D.Ow(m, o, c) : Nat}:
+  K.ow.eq(W1s(ws, m), m, o, c, am.w1s(ws, m, o), fd.w1s(ws, m, 2n, {==}, o), fd.w1s(ws, m, 3n, {==}, o), fd.w1s(ws, m, 4n, {==}, o))
+
+def ps.w1s(+ws: List<&2, W1>, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32) -> {D.Ps(W1s(ws, m), Q, o) == D.Ps(m, Q, o) : List<&2, U32>}:
+  K.ps.eq(W1s(ws, m), m, Q, o, fd.w1s(ws, m, 0n, {==}, o), fd.w1s(ws, m, 2n, {==}, U32.add(272, U32.and(D.Fd(0n, m, o), 63))),
+    fd.w1s(ws, m, 2n, {==}, o), fd.w1s(ws, m, 3n, {==}, o), fd.w1s(ws, m, 4n, {==}, o))
+
+def pp.w1s(L: List<&2, U32>, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32) -> {D.Pp(L, W1s(ws, m), c) == D.Pp(L, m, c) : Nat}:
+  match L:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      %Equal.sym(Nat, D.Ow(W1s(ws, m), o, c), D.Ow(m, o, c), ow.w1s(ws, m, o, c)) :
+        {Nat.add(_, D.Pp(rest, W1s(ws, m), c)) == Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c)) : Nat}
+      %Equal.sym(Nat, D.Pp(rest, W1s(ws, m), c), D.Pp(rest, m, c), pp.w1s(rest, ws, m, c)) :
+        {Nat.add(D.Ow(m, o, c), _) == Nat.add(D.Ow(m, o, c), D.Pp(rest, m, c)) : Nat}
+      {==}
+
+def pc.w1s(n: Nat, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +c: U32) ->
+  {D.Pc(n, W1s(ws, m), Q, o, c) == D.Pc(n, m, Q, o, c) : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      %Equal.sym(List<&2, U32>, D.Ps(W1s(ws, m), Q, o), D.Ps(m, Q, o), ps.w1s(ws, m, Q, o)) :
+        {Nat.add(D.Occ(_, c), D.Pc(p, W1s(ws, m), Q, U32.inc(o), c)) == Nat.add(D.Occ(D.Ps(m, Q, o), c), D.Pc(p, m, Q, U32.inc(o), c)) : Nat}
+      %Equal.sym(Nat, D.Pc(p, W1s(ws, m), Q, U32.inc(o), c), D.Pc(p, m, Q, U32.inc(o), c), pc.w1s(p, ws, m, Q, U32.inc(o), c)) :
+        {Nat.add(D.Occ(D.Ps(m, Q, o), c), _) == Nat.add(D.Occ(D.Ps(m, Q, o), c), D.Pc(p, m, Q, U32.inc(o), c)) : Nat}
+      {==}
+
+def lt.w1s(n: Nat, +ws: List<&2, W1>, +m: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, +N: U32) ->
+  {D.Lt(n, W1s(ws, m), Q, o, N) == D.Lt(n, m, Q, o, N) : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      %Equal.sym(List<&2, U32>, D.Ps(W1s(ws, m), Q, o), D.Ps(m, Q, o), ps.w1s(ws, m, Q, o)) :
+        {Bool.and(D.All.lt(_, N), D.Lt(p, W1s(ws, m), Q, U32.inc(o), N)) == Bool.and(D.All.lt(D.Ps(m, Q, o), N), D.Lt(p, m, Q, U32.inc(o), N)) : Bool}
+      %Equal.sym(Bool, D.Lt(p, W1s(ws, m), Q, U32.inc(o), N), D.Lt(p, m, Q, U32.inc(o), N), lt.w1s(p, ws, m, Q, U32.inc(o), N)) :
+        {Bool.and(D.All.lt(D.Ps(m, Q, o), N), _) == Bool.and(D.All.lt(D.Ps(m, Q, o), N), D.Lt(p, m, Q, U32.inc(o), N)) : Bool}
+      {==}
+
+# a write to a part of c is not to y, of which c has no part
+def ne.ow(b: Bool, +m: Cr.Cir.Cells, +c: U32, +x: U32, +y: U32, eb: {U32.is_eq(y, x) == b : Bool},
+  hx: {Nat.is_lt(0n, D.Ow(m, c, x)) == True{} : Bool}, h0: {D.Ow(m, c, y) == 0n : Nat}) -> {U32.is_eq(y, x) == False{} : Bool}:
+  match b:
+    case True{}:
+      +e = K.U.eq(y, x, eb)
+      +h1 = {%e : {D.Ow(m, c, _) == 0n : Nat}; h0 : {D.Ow(m, c, x) == 0n : Nat}}
+      K.Bo.tf({U32.is_eq(y, x) == False{} : Bool}, (%h1 : {Nat.is_lt(0n, _) == True{} : Bool}; hx))
+    case False{}:
+      eb
+
+# the writes to the parts of c keep each cell y of which c has no part
+def w1s.get(ws: List<&2, W1>, +m: Cr.Cir.Cells, +c: U32, +y: U32, h: {W1s.pt(ws, m, c) == True{} : Bool},
+  +h0: {D.Ow(m, c, y) == 0n : Nat}) -> {Cr.Cir.Cells.get(W1s(ws, m), y) == Cr.Cir.Cells.get(m, y) : Cr.Cir.Cell}:
+  match ws:
+    case Nil{}:
+      {==}
+    case Con{W1{+x, +v}, +rest}:
+      +h2 = h
+      +M = W1s(rest, m)
+      +ne = ne.ow(U32.is_eq(y, x), m, c, x, y, {==}, K.Bo.and_l(Nat.is_lt(0n, D.Ow(m, c, x)), W1s.pt(rest, m, c), h2), h0)
+      Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(K.St1(M, x, v), y), Cr.Cir.Cells.get(M, y), Cr.Cir.Cells.get(m, y),
+        K.Cl.get_ne(M, y, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v), ne),
+        w1s.get(rest, m, c, y, K.Bo.and_r(Nat.is_lt(0n, D.Ow(m, c, x)), W1s.pt(rest, m, c), h2), h0))
 
 # xs without its first x
 def Del(xs: List<&2, U32>, +x: U32) -> List<&2, U32>:
