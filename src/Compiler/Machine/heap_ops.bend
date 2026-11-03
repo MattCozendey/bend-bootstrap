@@ -2494,6 +2494,185 @@ def dec.hs.p(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>
             ((hch2, (hpk2, (cnt.pend(n, m, c, d, pend, fi, n, fi, ps, rs, hfz, hcnt), (hpts2, hr)))),
               imgokk.p1(dk, ds, ks, img, m, im, fi, nx, ws, gt.two(dk, ds, ks, img, m, im, fi, nx, c, d, pend, himg, hz), himg))))))
 
+# M.dec of a root c that is no STATIC cell, by its count less one (d): c
+# keeps a pointer, or it heads the pend list
+def dec.cnt(b: Bool, +f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term,
+  +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  +eb: {U32.is_eq(U32.sub(D.Fd(1n, m, c), 1), 0) == b : Bool},
+  +hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, bs, fs, sp, pend, ps),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs),
+  hb: D.Held(m, os, bs),
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>},
+  +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, +h5: {Nat.is_eq(5n, r) == False{} : Bool},
+  +hz: {U32.is_eq(c, 0) == False{} : Bool}, +hcell: {Cr.Cir.is_cell(c, im, fi, nx) == True{} : Bool},
+  +hf: {D.Fl(m, c, 1024) == False{} : Bool}, +own: {D.Own(fi, nx, c) == True{} : Bool},
+  +hpn: {D.Mem(ps, c) == False{} : Bool}, +et: {D.Tg(m, c) == D.A.tag(u) : U32}, +ht: {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool},
+  +himg: D.ImgOKK(dk, ds, ks, img, m, im, fi, nx),
+  +ed: {U32.to_nat(U32.sub(D.Fd(1n, m, c), 1)) == D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(os), c) : Nat}) ->
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+    st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+      D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+      D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+      D.P2(D.HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2),
+        D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2))))))))),
+    s => st2 => Empty, 0n, lim):
+  match b:
+    case False{}:
+      +d = U32.sub(D.Fd(1n, m, c), 1)
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +rs = D.Rt.cells(os)
+      +hlt = {(%ed : {Nat.is_lt(0n, _) == True{} : Bool}; u32.pos(d, eb)) :
+        {Nat.is_lt(0n, D.Ptr(n, m, fi, ps, rs, c)) == True{} : Bool}}
+      +hd = D.or.r(D.Fl(m, c, 1024), Nat.is_lt(0n, D.Ptr(n, m, fi, ps, rs, c)), hlt)
+      +hsk = dec.hs.n(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, d, hs, hb, hpn, et,
+        gt.one(dk, ds, ks, img, m, im, fi, nx, c, d, himg, own), ed)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+          Cr.Cir.Out.next{X.X.st(X.X.set(regs, 5n, d), X.X.put(m, 1n, c, d), nx, fi, im, pg, lim, inp)},
+          X.dec.eq.n(f, regs, m, nx, fi, im, pg, lim, inp, r, c, hl, hc, hz, hcell, hf, eb, h5)) :
+        D.PostB(False{}, _,
+          st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+            D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+            D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+            D.P2(D.HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2),
+              D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2))))))))),
+          s => st2 => Empty, 0n, lim)
+      (X.X.put(m, 1n, c, d), (d, (pend, (ps,
+        ((%Equal.sym(List<&2, U32>, List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend), List.set(&2, U32, regs, 5n, d),
+              set.same(List.set(&2, U32, regs, 5n, d), 3n, pend, X.L.go(regs, 5n, 3n, d, pend, {==}, hp))) :
+            {Cr.Cir.State{List.set(&2, U32, regs, 5n, d), X.X.put(m, 1n, c, d), nx, fi, im, pg, lim, inp, Nil{}, 0} ==
+              Cr.Cir.State{_, X.X.put(m, 1n, c, d), nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State};
+          {==}),
+        (AC.stat.put1(n, [D.W1{c, d}], m, fi),
+        ((%put1.one(m, c, d) : D.HSK(dk, ds, ks, img, _, nx, fi, im, os, bs, fs, sp, pend, ps); hsk),
+          (zs, AC.acc.dec.keep(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, d, xs, zs, hs, hac, ht, hd)))))))))
+    case True{}:
+      +d = U32.sub(D.Fd(1n, m, c), 1)
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +rs = D.Rt.cells(os)
+      +e0 = Equal.trans(Nat, D.Ptr(n, m, fi, ps, rs, c), U32.to_nat(d), 0n, Equal.sym(Nat, U32.to_nat(d), D.Ptr(n, m, fi, ps, rs, c), ed),
+        Equal.cong(U32, Nat, w => U32.to_nat(w), d, 0, D.u32.eq(d, 0, eb)))
+      +hsk = dec.hs.p(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, d, hs, hb, own, hz, hf, hpn, et, ht, e0)
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+          Cr.Cir.Out.next{X.X.st(X.X.set(X.X.set(regs, 5n, d), 3n, c), X.X.put(X.X.put(m, 1n, c, d), 1n, c, pend), nx, fi, im, pg, lim, inp)},
+          X.dec.eq.p(f, regs, m, nx, fi, im, pg, lim, inp, r, c, pend, hl, hc, hp, hz, hcell, hf, eb, h5)) :
+        D.PostB(False{}, _,
+          st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+            D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+            D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+            D.P2(D.HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2),
+              D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2))))))))),
+          s => st2 => Empty, 0n, lim)
+      (X.X.put(X.X.put(m, 1n, c, d), 1n, c, pend), (d, (c, (Con{c, ps}, ({==},
+        ((%put1.two(m, c, d, pend) : {D.Stat(n, _, fi) == D.Stat(n, m, fi) : Nat}; AC.stat.put1(n, [D.W1{c, pend}, D.W1{c, d}], m, fi)),
+        ((%put1.two(m, c, d, pend) : D.HSK(dk, ds, ks, img, _, nx, fi, im, os, bs, fs, sp, c, Con{c, ps}); hsk),
+          (Con{D.Rt{c, u}, zs}, AC.acc.dec.pend(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, d, xs, zs, hs, hac, ht)))))))))
+
+# M.dec of the owned root c of u, by the flag STATIC of c
+def dec.go(b: Bool, +f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term,
+  +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  +eb: {D.Fl(m, c, 1024) == b : Bool},
+  +hos: D.RtsK(dk, ds, m, im, fi, nx, ks, img, Con{D.Rt{c, u}, os}), +hbs: D.RtsK(dk, ds, m, im, fi, nx, ks, img, bs),
+  +hheld: D.Held(m, Con{D.Rt{c, u}, os}, bs), +hfrs: D.FrsK(dk, ds, m, im, fi, nx, ks, img, ps, sp, fs),
+  +hheap: D.Heap(m, nx, fi, im, Con{c, D.Rt.cells(os)}, pend, ps), +himg: D.ImgOKK(dk, ds, ks, img, m, im, fi, nx),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs),
+  hb: D.Held(m, os, bs),
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>},
+  +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, +h5: {Nat.is_eq(5n, r) == False{} : Bool}) ->
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+    st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+      D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+      D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+      D.P2(D.HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2),
+        D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2))))))))),
+    s => st2 => Empty, 0n, lim):
+  match b:
+    case True{}:
+      +hs = {(hos, (hbs, (hheld, (hfrs, (hheap, himg))))) : D.HSK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, bs, fs, sp, pend, ps)}
+      +hu = D.Ex.fst(D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u), _ => D.RtsK(dk, ds, m, im, fi, nx, ks, img, os), hos)
+      +nd = isk.nd(dk, u, ds, m, im, fi, nx, ks, img, c, hu)
+      +hcell = ndk.cell(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), u, D.A.tag(u), nd)
+      +hz = cell.nz(c, im, fi, nx, hcell, img.lt(dk, ds, ks, img, m, im, fi, nx, himg))
+      +rs = D.Rt.cells(os)
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +hsk = dec.hs.s(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, hs, hb, eb)
+      +hd = D.or.l(D.Fl(m, c, 1024), Nat.is_lt(0n, D.Ptr(n, m, fi, ps, rs, c)), eb)
+      +d5 = Maybe.default(&2, U32, List.get(&2, U32, regs, 5n), 0)
+      +g5 = get.some(regs, 5n, X.L.lt(regs, 5n, hl, {==}))
+      %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+          Cr.Cir.Out.next{X.X.st(regs, m, nx, fi, im, pg, lim, inp)}, X.dec.eq.s(f, regs, m, nx, fi, im, pg, lim, inp, r, c, hc, hz, hcell, eb)) :
+        D.PostB(False{}, _,
+          st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+            D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+            D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+            D.P2(D.HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2),
+              D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2))))))))),
+          s => st2 => Empty, 0n, lim)
+      (m, (d5, (pend, (ps,
+        ((%Equal.sym(List<&2, U32>, List.set(&2, U32, regs, 5n, d5), regs, set.same(regs, 5n, d5, g5)) :
+            {Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0} ==
+              Cr.Cir.State{List.set(&2, U32, _, 3n, pend), m, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State};
+          (%Equal.sym(List<&2, U32>, List.set(&2, U32, regs, 3n, pend), regs, set.same(regs, 3n, pend, hp)) :
+              {Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0} == Cr.Cir.State{_, m, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State};
+            {==})),
+        ({==}, (hsk, (zs, AC.acc.drop(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, xs, zs, hs, hac, hd)))))))))
+    case False{}:
+      +hs = {(hos, (hbs, (hheld, (hfrs, (hheap, himg))))) : D.HSK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, bs, fs, sp, pend, ps)}
+      +hu = D.Ex.fst(D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u), _ => D.RtsK(dk, ds, m, im, fi, nx, ks, img, os), hos)
+      +nd = isk.nd(dk, u, ds, m, im, fi, nx, ks, img, c, hu)
+      +hcell = ndk.cell(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), u, D.A.tag(u), nd)
+      +hz = cell.nz(c, im, fi, nx, hcell, img.lt(dk, ds, ks, img, m, im, fi, nx, himg))
+      +rs = D.Rt.cells(os)
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +et = {D.nd.tgk(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), u, D.A.tag(u), nd) : {D.Tg(m, c) == D.A.tag(u) : U32}}
+      +ht = {(%Equal.sym(U32, D.Tg(m, c), D.A.tag(u), et) : {U32.is_lt(_, 19) == True{} : Bool}; atag.lt(u)) : {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool}}
+      +own = or.false(D.Own(fi, nx, c), D.FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, c)), 1024),
+        ndk.own(dk, ds, im, fi, nx, c, Cr.Cir.Cells.get(m, c), u, D.A.tag(u), nd), eb)
+      +hpk = D.heap.pend(m, nx, fi, im, Con{c, rs}, pend, ps, hheap)
+      +er = ptr.root(n, m, fi, ps, rs, c)
+      +hlt0 = {(%Equal.sym(Nat, D.Ptr(n, m, fi, ps, Con{c, rs}, c), 1n+D.Ptr(n, m, fi, ps, rs, c), er) : {Nat.is_lt(0n, _) == True{} : Bool}; {==}) :
+        {Nat.is_lt(0n, D.Ptr(n, m, fi, ps, Con{c, rs}, c)) == True{} : Bool}}
+      +hpn = notin.ps(D.Mem(ps, c), ps, m, fi, nx, Con{c, rs}, c, {==}, hpk, hlt0)
+      +h1 = D.u.le(fi, c, D.and.l(U32.is_le(fi, c), U32.is_lt(c, nx), own))
+      +hl1 = D.u.lt(c, nx, D.and.r(U32.is_le(fi, c), U32.is_lt(c, nx), own))
+      +es = D.add.sub(U32.to_nat(fi), U32.to_nat(nx), N.le_trans(U32.to_nat(fi), U32.to_nat(c), U32.to_nat(nx), h1, N.weaken(U32.to_nat(c), U32.to_nat(nx), hl1)))
+      +h2 = N.le_rw_r(1n+U32.to_nat(c), U32.to_nat(nx), Nat.add(U32.to_nat(fi), n), Equal.sym(Nat, Nat.add(U32.to_nat(fi), n), U32.to_nat(nx), es), hl1)
+      +hcc = cnt.get(n, m, fi, c, n, fi, ps, Con{c, rs}, h1, h2, heap.cnt(m, nx, fi, im, Con{c, rs}, pend, ps, hheap))
+      +hfv = cntc.val(m, c, D.Ptr(n, m, fi, ps, Con{c, rs}, c), ps, hcc, ht, eb, hpn)
+      +f1 = D.Fd(1n, m, c)
+      +ef1 = Equal.trans(Nat, U32.to_nat(f1), D.Ptr(n, m, fi, ps, Con{c, rs}, c), 1n+D.Ptr(n, m, fi, ps, rs, c), hfv, er)
+      +hge = {(%Equal.sym(Nat, U32.to_nat(f1), 1n+D.Ptr(n, m, fi, ps, rs, c), ef1) : N.Le(1n, _); N.le_zero(D.Ptr(n, m, fi, ps, rs, c))) :
+        N.Le(1n, U32.to_nat(f1))}
+      +ed = succ.inj(U32.to_nat(U32.sub(f1, 1)), D.Ptr(n, m, fi, ps, rs, c),
+        Equal.trans(Nat, 1n+U32.to_nat(U32.sub(f1, 1)), U32.to_nat(f1), 1n+D.Ptr(n, m, fi, ps, rs, c), u32.dec(f1, hge), ef1))
+      dec.cnt(U32.is_eq(U32.sub(f1, 1), 0), f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, c, u, xs, zs, {==}, hs, hac, hb, hl, hc, hp, h5,
+        hz, hcell, eb, own, hpn, et, ht, himg, ed)
+
+# M.dec: the parts of HSK, and the flag STATIC of c
+def dec.top(+f: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
+  +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32, +u: Bk.Term,
+  +xs: List<&2, D.TmpE>, +zs: List<&2, D.Rt>,
+  hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, bs, fs, sp, pend, ps),
+  hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs),
+  hb: D.Held(m, os, bs),
+  +hl: {List.length(&2, U32, regs) == 63n : Nat}, +hc: {List.get(&2, U32, regs, r) == Some{c} : Maybe<&2, U32>},
+  +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>}, +h5: {Nat.is_eq(5n, r) == False{} : Bool}) ->
+  D.PostB(False{}, Cr.Cir.exec(f, Mc.M.dec(r), Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, Nil{}, 0}),
+    st2 => D.Ex(Cr.Cir.Cells, m2 => D.Ex(U32, d => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 =>
+      D.P2({st2 == Cr.Cir.State{List.set(&2, U32, List.set(&2, U32, regs, 5n, d), 3n, pend2), m2, nx, fi, im, pg, lim, inp, Nil{}, 0} : Cr.Cir.State},
+      D.P2({D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m2, fi) == D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi) : Nat},
+      D.P2(D.HSK(dk, ds, ks, img, m2, nx, fi, im, os, bs, fs, sp, pend2, ps2),
+        D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, m2, nx, fi, im, os, xs, sp, fs, ps2, zs2))))))))),
+    s => st2 => Empty, 0n, lim):
+  match hs:
+    case Tuple{hos, Tuple{hbs, Tuple{hheld, Tuple{hfrs, Tuple{hheap, himg}}}}}:
+      dec.go(D.Fl(m, c, 1024), f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, c, u, xs, zs, {==},
+        hos, hbs, hheld, hfrs, hheap, himg, hac, hb, hl, hc, hp, h5)
+
 # The laws
 # --------
 
@@ -2501,7 +2680,7 @@ def D.inc.post(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs,
   inc.top(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, c, u, xs, zs, hs, hac, hn, hc)
 
 def D.dec.post(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, c, u, xs, zs, hs, hac, hb, hl, hc, hp, h5):
-  ?TODO
+  dec.top(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, c, u, xs, zs, hs, hac, hb, hl, hc, hp, h5)
 
 def D.alloc.post(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, ps, xs, zs, hs, hac, hl, hp, hr, hk):
   ?TODO
