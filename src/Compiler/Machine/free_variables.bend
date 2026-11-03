@@ -522,7 +522,41 @@ def fv.args(
           PM.Terms.below(PM.Arg.terms(xs), B),
           fv.and_r(PM.Term.below(f, B), PM.Term.below(x, B), ht),
           hx))
-    case _:
+    case Bk.Term.Var{_}:
+      hx
+    case Bk.Term.Ref{_}:
+      hx
+    case Bk.Term.Ann{_, _}:
+      hx
+    case Bk.Term.Let{_, _, _}:
+      hx
+    case Bk.Term.Typ{_}:
+      hx
+    case Bk.Term.Min{_, _}:
+      hx
+    case Bk.Term.All{_, _, _}:
+      hx
+    case Bk.Term.Lam{_, _}:
+      hx
+    case Bk.Term.Sig{_, _, _}:
+      hx
+    case Bk.Term.Tup{_, _, _}:
+      hx
+    case Bk.Term.Prj{_}:
+      hx
+    case Bk.Term.Enu{_}:
+      hx
+    case Bk.Term.Lab{_}:
+      hx
+    case Bk.Term.Mat{_, _, _}:
+      hx
+    case Bk.Term.Efq{}:
+      hx
+    case Bk.Term.Eql{_, _, _}:
+      hx
+    case Bk.Term.Rfl{}:
+      hx
+    case Bk.Term.Rwt{_, _, _}:
       hx
 
 # Eval's results
@@ -612,8 +646,26 @@ def fv.walk.leaf(
     case False{}:
       hu
 
+# a leaf of a walk, the case tree u with e put in and applied to ys, below B
+def fv.walk.lf(
+  +u: Bk.Term,
+  +e: List<&2, Bk.Term>,
+  +ys: List<&2, El.Arg>,
+  +B: Nat,
+  +ht: {PM.Term.below(u, Nat.add(List.length(&2, Bk.Term, e), B)) == True{} : Bool},
+  +he: {PM.Terms.below(e, B) == True{} : Bool},
+  +hx: {PM.Terms.below(PM.Arg.terms(ys), B) == True{} : Bool}
+) -> {fv.Mm(El.Eval.walk.leaf(El.Term.takes(u), ys, El.Term.spine(ys, El.Term.subst(u, e, 0n))), B) == True{} : Bool}:
+  fv.walk.leaf(
+    El.Term.takes(u),
+    ys,
+    El.Term.spine(ys, El.Term.subst(u, e, 0n)),
+    B,
+    fv.spine(ys, El.Term.subst(u, e, 0n), B, fv.sb(u, e, 0n, B, ht, he), hx))
+
 # the walk of a case tree t below |e| + B, with e bound below B, on arguments
-# below B: its leaf is below B
+# below B: its leaf is below B. Each case that is a leaf names its tree and
+# its first argument, so that Eval.walk's own match takes it
 def fv.walk(
   +t: Bk.Term,
   +e: List<&2, Bk.Term>,
@@ -642,7 +694,7 @@ def fv.walk(
       +rs = PM.Terms.below(PM.Arg.terms(rest), B)
       +ab = Bool.and(PM.Term.below(a, B), PM.Term.below(b, B))
       +hab = fv.and_l(ab, rs, hx)
-      +ys = Con{El.Arg{El.Quan.fld(r, q), a}, Con{El.Arg{q, b}, rest}}
+      +ys : List<&2, El.Arg> = Con{El.Arg{El.Quan.fld(r, q), a}, Con{El.Arg{q, b}, rest}}
       fv.walk.if(
         El.Quan.live(q),
         El.Eval.walk(hh, e, ys),
@@ -665,7 +717,7 @@ def fv.walk(
               fv.and_r(ab, rs, hx)))))
     case Bk.Term.Mat{+k, +hh, +mm} Con{El.Arg{+q, Bk.Term.Lab{+j}}, +rest}:
       +L = Nat.add(List.length(&2, Bk.Term, e), B)
-      +ys = Con{El.Arg{q, Bk.Term.Lab{j}}, rest}
+      +ys : List<&2, El.Arg> = Con{El.Arg{q, Bk.Term.Lab{j}}, rest}
       fv.walk.if(
         El.Quan.live(q),
         El.Eval.walk.pick(Sd.Name.is_eq(j, k), El.Eval.walk(hh, e, rest), El.Eval.walk(mm, e, ys)),
@@ -679,8 +731,8 @@ def fv.walk(
           fv.walk(mm, e, ys, B, fv.and_r(PM.Term.below(hh, L), PM.Term.below(mm, L), ht), he, hx)))
     case Bk.Term.App{+q, +f, Bk.Term.Var{+v}} ys:
       +L = Nat.add(List.length(&2, Bk.Term, e), B)
-      +u = Bk.Term.App{q, f, Bk.Term.Var{v}}
-      +zs = Con{El.Arg{q, El.Env.sub(e, v)}, ys}
+      +u : Bk.Term = Bk.Term.App{q, f, Bk.Term.Var{v}}
+      +zs : List<&2, El.Arg> = Con{El.Arg{q, El.Env.sub(e, v)}, ys}
       fv.walk.app(
         El.Term.takes(El.Term.head(f)),
         El.Eval.walk(f, e, zs),
@@ -699,13 +751,150 @@ def fv.walk(
             fv.env(e, v, B, fv.and_r(PM.Term.below(f, L), Nat.is_lt(v, L), ht), he),
             hx)),
         fv.spine(ys, El.Term.subst(u, e, 0n), B, fv.sb(u, e, 0n, B, ht, he), hx))
-    case u ys:
-      fv.walk.leaf(
-        El.Term.takes(u),
-        ys,
-        El.Term.spine(ys, El.Term.subst(u, e, 0n)),
-        B,
-        fv.spine(ys, El.Term.subst(u, e, 0n), B, fv.sb(u, e, 0n, B, ht, he), hx))
+    case Bk.Term.Var{+a1} ys:
+      fv.walk.lf(Bk.Term.Var{a1}, e, ys, B, ht, he, hx)
+    case Bk.Term.Ref{+a1} ys:
+      fv.walk.lf(Bk.Term.Ref{a1}, e, ys, B, ht, he, hx)
+    case Bk.Term.Ann{+a1, +a2} ys:
+      fv.walk.lf(Bk.Term.Ann{a1, a2}, e, ys, B, ht, he, hx)
+    case Bk.Term.Let{+a1, +a2, +a3} ys:
+      fv.walk.lf(Bk.Term.Let{a1, a2, a3}, e, ys, B, ht, he, hx)
+    case Bk.Term.Typ{+a1} ys:
+      fv.walk.lf(Bk.Term.Typ{a1}, e, ys, B, ht, he, hx)
+    case Bk.Term.Min{+a1, +a2} ys:
+      fv.walk.lf(Bk.Term.Min{a1, a2}, e, ys, B, ht, he, hx)
+    case Bk.Term.All{+a1, +a2, +a3} ys:
+      fv.walk.lf(Bk.Term.All{a1, a2, a3}, e, ys, B, ht, he, hx)
+    case Bk.Term.Sig{+a1, +a2, +a3} ys:
+      fv.walk.lf(Bk.Term.Sig{a1, a2, a3}, e, ys, B, ht, he, hx)
+    case Bk.Term.Tup{+a1, +a2, +a3} ys:
+      fv.walk.lf(Bk.Term.Tup{a1, a2, a3}, e, ys, B, ht, he, hx)
+    case Bk.Term.Enu{+a1} ys:
+      fv.walk.lf(Bk.Term.Enu{a1}, e, ys, B, ht, he, hx)
+    case Bk.Term.Lab{+a1} ys:
+      fv.walk.lf(Bk.Term.Lab{a1}, e, ys, B, ht, he, hx)
+    case Bk.Term.Efq{} ys:
+      fv.walk.lf(Bk.Term.Efq{}, e, ys, B, ht, he, hx)
+    case Bk.Term.Eql{+a1, +a2, +a3} ys:
+      fv.walk.lf(Bk.Term.Eql{a1, a2, a3}, e, ys, B, ht, he, hx)
+    case Bk.Term.Rfl{} ys:
+      fv.walk.lf(Bk.Term.Rfl{}, e, ys, B, ht, he, hx)
+    case Bk.Term.Rwt{+a1, +a2, +a3} ys:
+      fv.walk.lf(Bk.Term.Rwt{a1, a2, a3}, e, ys, B, ht, he, hx)
+    case Bk.Term.Lam{+a1, +a2} Nil{}:
+      fv.walk.lf(Bk.Term.Lam{a1, a2}, e, Nil{}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Nil{}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Nil{}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Nil{}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Nil{}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Var{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Var{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Ref{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Ref{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Ann{+c1, +c2}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Ann{c1, c2}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Let{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Let{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Typ{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Typ{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Min{+c1, +c2}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Min{c1, c2}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.All{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.All{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Lam{+c1, +c2}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Lam{c1, c2}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.App{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.App{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Sig{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Sig{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Prj{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Prj{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Enu{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Enu{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Lab{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Lab{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Mat{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Mat{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Efq{}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Efq{}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Eql{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Eql{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Rfl{}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Rfl{}}, rest}, B, ht, he, hx)
+    case Bk.Term.Prj{+a1} Con{El.Arg{+q, Bk.Term.Rwt{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Prj{a1}, e, Con{El.Arg{q, Bk.Term.Rwt{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Var{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Var{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Ref{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Ref{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Ann{+c1, +c2}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Ann{c1, c2}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Let{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Let{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Typ{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Typ{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Min{+c1, +c2}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Min{c1, c2}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.All{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.All{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Lam{+c1, +c2}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Lam{c1, c2}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.App{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.App{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Sig{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Sig{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Tup{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Tup{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Prj{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Prj{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Enu{+c1}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Enu{c1}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Mat{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Mat{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Efq{}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Efq{}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Eql{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Eql{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Rfl{}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Rfl{}}, rest}, B, ht, he, hx)
+    case Bk.Term.Mat{+a1, +a2, +a3} Con{El.Arg{+q, Bk.Term.Rwt{+c1, +c2, +c3}}, +rest}:
+      fv.walk.lf(Bk.Term.Mat{a1, a2, a3}, e, Con{El.Arg{q, Bk.Term.Rwt{c1, c2, c3}}, rest}, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Ref{+c1}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Ref{c1}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Ann{+c1, +c2}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Ann{c1, c2}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Let{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Let{c1, c2, c3}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Typ{+c1}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Typ{c1}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Min{+c1, +c2}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Min{c1, c2}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.All{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.All{c1, c2, c3}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Lam{+c1, +c2}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Lam{c1, c2}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.App{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.App{c1, c2, c3}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Sig{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Sig{c1, c2, c3}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Tup{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Tup{c1, c2, c3}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Prj{+c1}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Prj{c1}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Enu{+c1}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Enu{c1}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Lab{+c1}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Lab{c1}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Mat{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Mat{c1, c2, c3}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Efq{}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Efq{}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Eql{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Eql{c1, c2, c3}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Rfl{}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Rfl{}}, e, ys, B, ht, he, hx)
+    case Bk.Term.App{+q, +f, Bk.Term.Rwt{+c1, +c2, +c3}} ys:
+      fv.walk.lf(Bk.Term.App{q, f, Bk.Term.Rwt{c1, c2, c3}}, e, ys, B, ht, he, hx)
 
 # Calls
 # -----
@@ -767,7 +956,41 @@ def fv.cw.head(
   match h:
     case Bk.Term.Ref{+k}:
       fv.cw.def(El.Book.get(ds, k), xs, B, fv.get(ds, k, B, hd), hx)
-    case _:
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Ann{_, _}:
+      {==}
+    case Bk.Term.Let{_, _, _}:
+      {==}
+    case Bk.Term.Typ{_}:
+      {==}
+    case Bk.Term.Min{_, _}:
+      {==}
+    case Bk.Term.All{_, _, _}:
+      {==}
+    case Bk.Term.Lam{_, _}:
+      {==}
+    case Bk.Term.App{_, _, _}:
+      {==}
+    case Bk.Term.Sig{_, _, _}:
+      {==}
+    case Bk.Term.Tup{_, _, _}:
+      {==}
+    case Bk.Term.Prj{_}:
+      {==}
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_}:
+      {==}
+    case Bk.Term.Mat{_, _, _}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{_, _, _}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{_, _, _}:
       {==}
 
 # the walk of a call below B, in defs below B: its leaf is below B
@@ -789,7 +1012,11 @@ def fv.call.if(
   match ok r:
     case True{} Some{Some{u}}:
       hr
-    case _ _:
+    case True{} Some{None{}}:
+      {==}
+    case True{} None{}:
+      {==}
+    case False{} _:
       {==}
 
 # the step of a call below B, in defs below B
@@ -846,7 +1073,7 @@ def fv.redex(
     case Bk.Term.Lam{+p, +b} y:
       fv.redex.if(El.Quan.binds(p, q, y), El.Term.inst(b, y), B, fv.inst(b, y, B, hf, hx))
     case Bk.Term.Prj{+h} Bk.Term.Tup{+r, +a, +b}:
-      +g = Bk.Term.App{El.Quan.fld(r, q), h, a}
+      +g : Bk.Term = Bk.Term.App{El.Quan.fld(r, q), h, a}
       fv.redex.if(
         El.Quan.live(q),
         Bk.Term.App{q, g, b},
@@ -857,7 +1084,7 @@ def fv.redex(
           fv.and_i(PM.Term.below(h, B), PM.Term.below(a, B), hf, fv.and_l(PM.Term.below(a, B), PM.Term.below(b, B), hx)),
           fv.and_r(PM.Term.below(a, B), PM.Term.below(b, B), hx)))
     case Bk.Term.Mat{+k, +h, +m} Bk.Term.Lab{+j}:
-      +w = Bk.Term.App{q, m, Bk.Term.Lab{j}}
+      +w : Bk.Term = Bk.Term.App{q, m, Bk.Term.Lab{j}}
       fv.redex.if(
         El.Quan.live(q),
         El.Eval.redex.pick(Sd.Name.is_eq(j, k), h, w),
@@ -869,8 +1096,110 @@ def fv.redex(
           B,
           fv.and_l(PM.Term.below(h, B), PM.Term.below(m, B), hf),
           fv.and_i(PM.Term.below(m, B), True{}, fv.and_r(PM.Term.below(h, B), PM.Term.below(m, B), hf), {==})))
-    case g y:
-      fv.call(ds, Bk.Term.App{q, g, y}, B, hd, fv.and_i(PM.Term.below(g, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Var{+a1} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Var{a1}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Var{a1}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Ref{+a1} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Ref{a1}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Ref{a1}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Ann{+a1, +a2} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Ann{a1, a2}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Ann{a1, a2}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Let{+a1, +a2, +a3} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Let{a1, a2, a3}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Let{a1, a2, a3}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Typ{+a1} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Typ{a1}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Typ{a1}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Min{+a1, +a2} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Min{a1, a2}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Min{a1, a2}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.All{+a1, +a2, +a3} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.All{a1, a2, a3}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.All{a1, a2, a3}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.App{+a1, +a2, +a3} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.App{a1, a2, a3}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.App{a1, a2, a3}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Sig{+a1, +a2, +a3} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Sig{a1, a2, a3}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Sig{a1, a2, a3}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Tup{+a1, +a2, +a3} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Tup{a1, a2, a3}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Tup{a1, a2, a3}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Enu{+a1} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Enu{a1}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Enu{a1}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Lab{+a1} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Lab{a1}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Lab{a1}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Efq{} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Efq{}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Efq{}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Eql{+a1, +a2, +a3} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Eql{a1, a2, a3}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Eql{a1, a2, a3}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Rfl{} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Rfl{}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Rfl{}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Rwt{+a1, +a2, +a3} y:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Rwt{a1, a2, a3}, y}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Rwt{a1, a2, a3}, B), PM.Term.below(y, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Var{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Var{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Var{c1}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Ref{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Ref{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Ref{c1}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Ann{+c1, +c2}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Ann{c1, c2}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Ann{c1, c2}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Let{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Let{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Let{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Typ{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Typ{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Typ{c1}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Min{+c1, +c2}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Min{c1, c2}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Min{c1, c2}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.All{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.All{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.All{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Lam{+c1, +c2}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Lam{c1, c2}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Lam{c1, c2}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.App{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.App{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.App{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Sig{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Sig{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Sig{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Prj{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Prj{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Prj{c1}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Enu{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Enu{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Enu{c1}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Lab{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Lab{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Lab{c1}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Mat{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Mat{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Mat{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Efq{}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Efq{}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Efq{}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Eql{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Eql{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Eql{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Rfl{}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Rfl{}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Rfl{}, B), hf, hx))
+    case Bk.Term.Prj{+a1} Bk.Term.Rwt{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Prj{a1}, Bk.Term.Rwt{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Prj{a1}, B), PM.Term.below(Bk.Term.Rwt{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Var{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Var{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Var{c1}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Ref{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Ref{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Ref{c1}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Ann{+c1, +c2}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Ann{c1, c2}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Ann{c1, c2}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Let{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Let{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Let{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Typ{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Typ{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Typ{c1}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Min{+c1, +c2}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Min{c1, c2}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Min{c1, c2}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.All{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.All{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.All{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Lam{+c1, +c2}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Lam{c1, c2}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Lam{c1, c2}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.App{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.App{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.App{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Sig{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Sig{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Sig{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Tup{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Tup{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Tup{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Prj{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Prj{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Prj{c1}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Enu{+c1}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Enu{c1}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Enu{c1}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Mat{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Mat{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Mat{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Efq{}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Efq{}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Efq{}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Eql{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Eql{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Eql{c1, c2, c3}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Rfl{}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Rfl{}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Rfl{}, B), hf, hx))
+    case Bk.Term.Mat{+a1, +a2, +a3} Bk.Term.Rwt{+c1, +c2, +c3}:
+      fv.call(ds, Bk.Term.App{q, Bk.Term.Mat{a1, a2, a3}, Bk.Term.Rwt{c1, c2, c3}}, B, hd, fv.and_i(PM.Term.below(Bk.Term.Mat{a1, a2, a3}, B), PM.Term.below(Bk.Term.Rwt{c1, c2, c3}, B), hf, hx))
 
 # Steps
 # -----
@@ -884,7 +1213,7 @@ def fv.step.app(
   live: Bool,
   sx: Maybe<Bk.Term>,
   vx: Bool,
-  +r: Maybe<Bk.Term>,
+  r: Maybe<Bk.Term>,
   +B: Nat,
   +hf: {PM.Term.below(f, B) == True{} : Bool},
   +hx: {PM.Term.below(x, B) == True{} : Bool},
@@ -976,7 +1305,7 @@ def fv.step.tup(
   live: Bool,
   sa: Maybe<Bk.Term>,
   va: Bool,
-  +sb: Maybe<Bk.Term>,
+  sb: Maybe<Bk.Term>,
   +B: Nat,
   +ha: {PM.Term.below(a, B) == True{} : Bool},
   +hb: {PM.Term.below(b, B) == True{} : Bool},
@@ -1002,7 +1331,41 @@ def fv.step.cast(e: Bk.Term, f: Bk.Term, +B: Nat, hf: {PM.Term.below(f, B) == Tr
   match e:
     case Bk.Term.Rfl{}:
       hf
-    case _:
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Ref{_}:
+      {==}
+    case Bk.Term.Ann{_, _}:
+      {==}
+    case Bk.Term.Let{_, _, _}:
+      {==}
+    case Bk.Term.Typ{_}:
+      {==}
+    case Bk.Term.Min{_, _}:
+      {==}
+    case Bk.Term.All{_, _, _}:
+      {==}
+    case Bk.Term.Lam{_, _}:
+      {==}
+    case Bk.Term.App{_, _, _}:
+      {==}
+    case Bk.Term.Sig{_, _, _}:
+      {==}
+    case Bk.Term.Tup{_, _, _}:
+      {==}
+    case Bk.Term.Prj{_}:
+      {==}
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_}:
+      {==}
+    case Bk.Term.Mat{_, _, _}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{_, _, _}:
+      {==}
+    case Bk.Term.Rwt{_, _, _}:
       {==}
 
 def fv.step.rwt(
@@ -1034,7 +1397,9 @@ def fv.meet.of(i: Maybe<Bk.Quan>, j: Maybe<Bk.Quan>, +B: Nat) -> {fv.Mt(El.Eval.
   match i j:
     case Some{_} Some{_}:
       {==}
-    case _ _:
+    case Some{_} None{}:
+      {==}
+    case None{} _:
       {==}
 
 # the meet of two terms is a label, or none
@@ -1042,7 +1407,77 @@ def fv.meet(a: Bk.Term, b: Bk.Term, +B: Nat) -> {fv.Mt(El.Eval.meet(a, b), B) ==
   match a b:
     case Bk.Term.Lab{+i} Bk.Term.Lab{+j}:
       fv.meet.of(El.Quan.read(i), El.Quan.read(j), B)
-    case _ _:
+    case Bk.Term.Var{_} _:
+      {==}
+    case Bk.Term.Ref{_} _:
+      {==}
+    case Bk.Term.Ann{_, _} _:
+      {==}
+    case Bk.Term.Let{_, _, _} _:
+      {==}
+    case Bk.Term.Typ{_} _:
+      {==}
+    case Bk.Term.Min{_, _} _:
+      {==}
+    case Bk.Term.All{_, _, _} _:
+      {==}
+    case Bk.Term.Lam{_, _} _:
+      {==}
+    case Bk.Term.App{_, _, _} _:
+      {==}
+    case Bk.Term.Sig{_, _, _} _:
+      {==}
+    case Bk.Term.Tup{_, _, _} _:
+      {==}
+    case Bk.Term.Prj{_} _:
+      {==}
+    case Bk.Term.Enu{_} _:
+      {==}
+    case Bk.Term.Mat{_, _, _} _:
+      {==}
+    case Bk.Term.Efq{} _:
+      {==}
+    case Bk.Term.Eql{_, _, _} _:
+      {==}
+    case Bk.Term.Rfl{} _:
+      {==}
+    case Bk.Term.Rwt{_, _, _} _:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Ref{_}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Ann{_, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Let{_, _, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Typ{_}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Min{_, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.All{_, _, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Lam{_, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.App{_, _, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Sig{_, _, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Tup{_, _, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Prj{_}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Mat{_, _, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Eql{_, _, _}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Lab{_} Bk.Term.Rwt{_, _, _}:
       {==}
 
 def fv.step.min(
@@ -1170,7 +1605,29 @@ def fv.st(
         fv.st(ds, a, B, hd, ha),
         fv.st(ds, b, B, hd, hb),
         fv.meet(a, b, B))
-    case _:
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Typ{_}:
+      {==}
+    case Bk.Term.All{_, _, _}:
+      {==}
+    case Bk.Term.Lam{_, _}:
+      {==}
+    case Bk.Term.Sig{_, _, _}:
+      {==}
+    case Bk.Term.Prj{_}:
+      {==}
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{_}:
+      {==}
+    case Bk.Term.Mat{_, _, _}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{_, _, _}:
+      {==}
+    case Bk.Term.Rfl{}:
       {==}
 
 # (a) Eval never raises the largest free variable
