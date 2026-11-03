@@ -2594,6 +2594,50 @@ def alq.st(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
       k(regs2, m2, nx2, pg2, z, pend2, ps2, ws, zs2,
         (hk2, (hl2, (hr, (hp, (hz0, (ho, (hm, (hzp, (hnx, (hcs, (htk, (hps, (hpt, (hs2, (hac2, hle))))))))))))))))
 
+# Statement lists by WP
+# ---------------------
+#
+# The check's code is M.do of statement lists: WP of M.do(Con{s, T}) is WP of
+# s, then of M.do(T).
+
+def do.set(+F: Nat, +r: Nat, +e: Cr.Cir.Expr, +T: List<&2, Cr.Cir.Stmt>, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32,
+  +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, -Q: Cr.Cir.State -> Type, +B: Nat, +lb: U32, +v: U32,
+  ob: W.Ob(e, X.X.st(regs, m, nx, fi, im, pg, lim, inp)), ev: {W.Ev(e, X.X.st(regs, m, nx, fi, im, pg, lim, inp)) == v : U32},
+  hl: {List.length(&2, U32, regs) == 63n : Nat}, hr: {Nat.is_lt(r, 63n) == True{} : Bool},
+  k: W.WP(Mc.M.do(T), F, X.X.st(List.set(&2, U32, regs, r, v), m, nx, fi, im, pg, lim, inp), Q, B, lb)) ->
+  W.WP(Mc.M.do(Con{Mc.M.set(r, e), T}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, B, lb):
+  wp.set(F, r, e, regs, m, nx, fi, im, pg, lim, inp, t => W.WP(Mc.M.do(T), F, t, Q, B, lb), B, lb, v, ob, ev, hl, hr, k)
+
+def do.store(+F: Nat, +k: Nat, +c: Cr.Cir.Expr, +v: Cr.Cir.Expr, +T: List<&2, Cr.Cir.Stmt>, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, -Q: Cr.Cir.State -> Type, +B: Nat, +lb: U32, +i: U32,
+  +x: U32, oc: W.Ob(c, X.X.st(regs, m, nx, fi, im, pg, lim, inp)), ov: W.Ob(v, X.X.st(regs, m, nx, fi, im, pg, lim, inp)),
+  ec: {W.Ev(c, X.X.st(regs, m, nx, fi, im, pg, lim, inp)) == i : U32}, evv: {W.Ev(v, X.X.st(regs, m, nx, fi, im, pg, lim, inp)) == x : U32},
+  hc: {Cr.Cir.is_cell(i, im, fi, nx) == True{} : Bool},
+  q: W.WP(Mc.M.do(T), F, X.X.st(regs, X.X.put(m, k, i, x), nx, fi, im, pg, lim, inp), Q, B, lb)) ->
+  W.WP(Mc.M.do(Con{Mc.M.st(k, c, v), T}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, B, lb):
+  wp.store(F, k, c, v, regs, m, nx, fi, im, pg, lim, inp, t => W.WP(Mc.M.do(T), F, t, Q, B, lb), B, lb, i, x, oc, ov, ec, evv, hc, q)
+
+# M.alloc(r), then the list T: alloc.post's states, within the budget B
+def do.alloc(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +xs: List<&2, PM.TmpE>,
+  +zs: List<&2, PM.Rt>, +T: List<&2, Cr.Cir.Stmt>, -Q: Cr.Cir.State -> Type, +B: Nat,
+  +hs: PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
+  hac: PM.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs),
+  hl: {List.length(&2, U32, regs) == 63n : Nat},
+  +hp: {List.get(&2, U32, regs, 3n) == Some{pend} : Maybe<&2, U32>},
+  hr: {Bool.and(Nat.is_lt(r, 63n), Bool.not(Nat.is_eq(r, 3n))) == True{} : Bool},
+  hk: {PM.Disj(keep, [r, 3n, 4n, 5n, 6n, 7n]) == True{} : Bool},
+  hb: {PM.Pend.none(ps) == True{} : Bool} -> N.Le(Nat.mul(20n, Nat.add(U32.to_nat(nx), 1n)), B),
+  k: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> @z: U32 -> @pend2: U32 -> @ps2: List<&2, U32> ->
+    @ws: List<&2, PM.W1> -> @zs2: List<&2, PM.Rt> ->
+    AlP(dk, ds, ks, img, regs, m, nx, fi, im, r, keep, os, bs, fs, sp, ps, xs, regs2, m2, nx2, z, pend2, ps2, ws, zs2) ->
+    W.WP(Mc.M.do(T), F, X.X.st(regs2, m2, nx2, fi, im, pg2, lim, inp), Q, B, lim)) ->
+  W.WP(Mc.M.do(Con{Mc.M.alloc(r), T}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, B, lim):
+  al.ok(F, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, ps, xs, zs, t => W.WP(Mc.M.do(T), F, t, Q, B, lim), B,
+    hs, hac, hl, hp, hr, hk, hb,
+    st2 => q => alq.st(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, ps, xs, st2, t => W.WP(Mc.M.do(T), F, t, Q, B, lim), q, k))
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
