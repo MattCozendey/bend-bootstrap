@@ -1979,3 +1979,160 @@ def U.pos.of(x: Nat, +d: U32, ex: {U32.to_nat(d) == x : Nat}, h: {U32.is_eq(d, 0
 
 def U.pos(+d: U32, h: {U32.is_eq(d, 0) == False{} : Bool}) -> N.Le(1n, U32.to_nat(d)):
   U.pos.of(U32.to_nat(d), d, {==}, h)
+
+# Stores of field 1
+# -----------------
+#
+# A store of field 1 (a count or a link) is seen by none of the pointers
+# (Ps, Am, Ow, Pp, Pc, Lt) nor the flags: they read fields 0, 2, 3 and 4.
+
+# the cells M with field 1 of the cell x set to v
+def St1(+M: Cr.Cir.Cells, +x: U32, +v: U32) -> Cr.Cir.Cells:
+  Cr.Cir.Cells.set(M, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v))
+
+# a field but 1 of a cell with another field 1
+def cg.k(k: Nat, hk: {Nat.is_eq(k, 1n) == False{} : Bool}, c: Cr.Cir.Cell, -w: U32) ->
+  {Cr.Cir.Cell.get(k, Cr.Cir.Cell.set(1n, c, w)) == Cr.Cir.Cell.get(k, c) : U32}:
+  match k:
+    case 0n:
+      match c:
+        case Cr.Cir.Cell{a, b, x2, x3, x4}:
+          {==}
+    case 1n+k1:
+      match k1:
+        case 0n:
+          Bo.ft({Cr.Cir.Cell.get(1n, Cr.Cir.Cell.set(1n, c, w)) == Cr.Cir.Cell.get(1n, c) : U32}, hk)
+        case 1n+k2:
+          match k2:
+            case 0n:
+              match c:
+                case Cr.Cir.Cell{a, b, x2, x3, x4}:
+                  {==}
+            case 1n+k3:
+              match k3:
+                case 0n:
+                  match c:
+                    case Cr.Cir.Cell{a, b, x2, x3, x4}:
+                      {==}
+                case 1n+k4:
+                  match c:
+                    case Cr.Cir.Cell{a, b, x2, x3, x4}:
+                      {==}
+
+def fd.st1.b(b: Bool, +k: Nat, +hk: {Nat.is_eq(k, 1n) == False{} : Bool}, +M: Cr.Cir.Cells, +x: U32, +v: U32, +y: U32,
+  eb: {U32.is_eq(y, x) == b : Bool}) -> {D.Fd(k, St1(M, x, v), y) == D.Fd(k, M, y) : U32}:
+  match b:
+    case True{}:
+      +e = U.eq(y, x, eb)
+      %Equal.sym(U32, y, x, e) : {D.Fd(k, St1(M, x, v), _) == D.Fd(k, M, _) : U32}
+      Equal.trans(U32, D.Fd(k, St1(M, x, v), x), Cr.Cir.Cell.get(k, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v)), D.Fd(k, M, x),
+        Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(k, z), Cr.Cir.Cells.get(St1(M, x, v), x),
+          Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v), Cl.get_set(M, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v))),
+        cg.k(k, hk, Cr.Cir.Cells.get(M, x), v))
+    case False{}:
+      Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(k, z), Cr.Cir.Cells.get(St1(M, x, v), y), Cr.Cir.Cells.get(M, y),
+        Cl.get_ne(M, y, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v), eb))
+
+# a store of field 1 keeps every other field of every cell
+def fd.st1(+M: Cr.Cir.Cells, +x: U32, +v: U32, +k: Nat, +hk: {Nat.is_eq(k, 1n) == False{} : Bool}, +y: U32) ->
+  {D.Fd(k, St1(M, x, v), y) == D.Fd(k, M, y) : U32}:
+  fd.st1.b(U32.is_eq(y, x), k, hk, M, x, v, y, {==})
+
+def cg1.set(c: Cr.Cir.Cell, +v: U32) -> {Cr.Cir.Cell.get(1n, Cr.Cir.Cell.set(1n, c, v)) == v : U32}:
+  match c:
+    case Cr.Cir.Cell{a, b, x2, x3, x4}:
+      {==}
+
+# a store of field 1 at x gives x the field v
+def f1.st1(+M: Cr.Cir.Cells, +x: U32, +v: U32) -> {D.Fd(1n, St1(M, x, v), x) == v : U32}:
+  Equal.trans(U32, D.Fd(1n, St1(M, x, v), x), Cr.Cir.Cell.get(1n, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v)), v,
+    Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(1n, z), Cr.Cir.Cells.get(St1(M, x, v), x),
+      Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v), Cl.get_set(M, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v))),
+    cg1.set(Cr.Cir.Cells.get(M, x), v))
+
+# a store of field 1 at x keeps field 1 of another cell
+def f1.st1.ne(+M: Cr.Cir.Cells, +x: U32, +v: U32, +y: U32, ne: {U32.is_eq(y, x) == False{} : Bool}) ->
+  {D.Fd(1n, St1(M, x, v), y) == D.Fd(1n, M, y) : U32}:
+  Equal.cong(Cr.Cir.Cell, U32, z => Cr.Cir.Cell.get(1n, z), Cr.Cir.Cells.get(St1(M, x, v), y), Cr.Cir.Cells.get(M, y),
+    Cl.get_ne(M, y, x, Cr.Cir.Cell.set(1n, Cr.Cir.Cells.get(M, x), v), ne))
+
+# the flag, the mask and the pointers of a cell o, by its fields
+def stc.eq(+M1: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +y: U32, e0: {D.Fd(0n, M1, y) == D.Fd(0n, M2, y) : U32}) ->
+  {D.Stc(M1, y) == D.Stc(M2, y) : Bool}:
+  Equal.cong(U32, Bool, z => U32.is_ne(U32.and(z, 1024), 0), D.Fd(0n, M1, y), D.Fd(0n, M2, y), e0)
+
+def am.eq(+M1: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +o: U32, e0: {D.Fd(0n, M1, o) == D.Fd(0n, M2, o) : U32},
+  et: {D.Fd(2n, M1, U32.add(272, U32.and(D.Fd(0n, M2, o), 63))) == D.Fd(2n, M2, U32.add(272, U32.and(D.Fd(0n, M2, o), 63))) : U32}) ->
+  {D.Am(M1, o) == D.Am(M2, o) : U32}:
+  +b0 = D.Fd(0n, M2, o)
+  +ix = U32.add(272, U32.and(b0, 63))
+  %Equal.sym(U32, D.Fd(0n, M1, o), b0, e0) :
+    {Bool.pick(U32, U32.is_lt(U32.and(_, 63), 32), D.Fd(2n, M1, U32.add(272, U32.and(_, 63))), 0) == D.Am(M2, o) : U32}
+  %Equal.sym(U32, D.Fd(2n, M1, ix), D.Fd(2n, M2, ix), et) :
+    {Bool.pick(U32, U32.is_lt(U32.and(b0, 63), 32), _, 0) == D.Am(M2, o) : U32}
+  {==}
+
+def ow.eq(+M1: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +o: U32, +c: U32, ea: {D.Am(M1, o) == D.Am(M2, o) : U32},
+  e2: {D.Fd(2n, M1, o) == D.Fd(2n, M2, o) : U32}, e3: {D.Fd(3n, M1, o) == D.Fd(3n, M2, o) : U32},
+  e4: {D.Fd(4n, M1, o) == D.Fd(4n, M2, o) : U32}) -> {D.Ow(M1, o, c) == D.Ow(M2, o, c) : Nat}:
+  +A2 = D.Am(M2, o)
+  +g2 = D.Fd(2n, M2, o)
+  +g3 = D.Fd(3n, M2, o)
+  +g4 = D.Fd(4n, M2, o)
+  %Equal.sym(U32, D.Am(M1, o), A2, ea) :
+    {Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 1), 0), U32.is_eq(D.Fd(2n, M1, o), c))),
+      Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 2), 0), U32.is_eq(D.Fd(3n, M1, o), c))),
+        D.Nat.of(Bool.and(U32.is_ne(U32.and(_, 4), 0), U32.is_eq(D.Fd(4n, M1, o), c))))) == D.Ow(M2, o, c) : Nat}
+  %Equal.sym(U32, D.Fd(2n, M1, o), g2, e2) :
+    {Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 1), 0), U32.is_eq(_, c))),
+      Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 2), 0), U32.is_eq(D.Fd(3n, M1, o), c))),
+        D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 4), 0), U32.is_eq(D.Fd(4n, M1, o), c))))) == D.Ow(M2, o, c) : Nat}
+  %Equal.sym(U32, D.Fd(3n, M1, o), g3, e3) :
+    {Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 1), 0), U32.is_eq(g2, c))),
+      Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 2), 0), U32.is_eq(_, c))),
+        D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 4), 0), U32.is_eq(D.Fd(4n, M1, o), c))))) == D.Ow(M2, o, c) : Nat}
+  %Equal.sym(U32, D.Fd(4n, M1, o), g4, e4) :
+    {Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 1), 0), U32.is_eq(g2, c))),
+      Nat.add(D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 2), 0), U32.is_eq(g3, c))),
+        D.Nat.of(Bool.and(U32.is_ne(U32.and(A2, 4), 0), U32.is_eq(_, c))))) == D.Ow(M2, o, c) : Nat}
+  {==}
+
+# Ps of a cell by its fields: f0, the table's field t2, and f2 to f4
+def PsF(+f0: U32, +t2: U32, +f2: U32, +f3: U32, +f4: U32, +Q: List<&2, U32>, +o: U32) -> List<&2, U32>:
+  +tg = U32.and(f0, 63)
+  Bool.pick(List<&2, U32>, U32.is_lt(tg, 19), D.Ps.term(t2, f2, f3, f4),
+    Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40)), Bool.not(D.Has(Q, o))),
+      Con{f2, D.Ps.opt(U32.is_eq(tg, 38), f3, Nil{})},
+      Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(tg, 41), U32.is_ne(U32.and(f0, 4096), 0)), Bool.not(D.Has(Q, o))),
+        [f2], Nil{})))
+
+def ps.f(+M: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32) ->
+  {D.Ps(M, Q, o) == PsF(D.Fd(0n, M, o), D.Fd(2n, M, U32.add(272, U32.and(D.Fd(0n, M, o), 63))), D.Fd(2n, M, o), D.Fd(3n, M, o),
+    D.Fd(4n, M, o), Q, o) : List<&2, U32>}:
+  {==}
+
+def ps.eq(+M1: Cr.Cir.Cells, +M2: Cr.Cir.Cells, +Q: List<&2, U32>, +o: U32, e0: {D.Fd(0n, M1, o) == D.Fd(0n, M2, o) : U32},
+  et: {D.Fd(2n, M1, U32.add(272, U32.and(D.Fd(0n, M2, o), 63))) == D.Fd(2n, M2, U32.add(272, U32.and(D.Fd(0n, M2, o), 63))) : U32},
+  e2: {D.Fd(2n, M1, o) == D.Fd(2n, M2, o) : U32}, e3: {D.Fd(3n, M1, o) == D.Fd(3n, M2, o) : U32},
+  e4: {D.Fd(4n, M1, o) == D.Fd(4n, M2, o) : U32}) -> {D.Ps(M1, Q, o) == D.Ps(M2, Q, o) : List<&2, U32>}:
+  +b0 = D.Fd(0n, M2, o)
+  +ix = U32.add(272, U32.and(b0, 63))
+  +t2 = D.Fd(2n, M2, ix)
+  +g2 = D.Fd(2n, M2, o)
+  +g3 = D.Fd(3n, M2, o)
+  +g4 = D.Fd(4n, M2, o)
+  +R2 = PsF(b0, t2, g2, g3, g4, Q, o)
+  +a1 = PsF(D.Fd(0n, M1, o), D.Fd(2n, M1, U32.add(272, U32.and(D.Fd(0n, M1, o), 63))), D.Fd(2n, M1, o), D.Fd(3n, M1, o), D.Fd(4n, M1, o), Q, o)
+  +e = {%Equal.sym(U32, D.Fd(0n, M1, o), b0, e0) :
+      {PsF(_, D.Fd(2n, M1, U32.add(272, U32.and(_, 63))), D.Fd(2n, M1, o), D.Fd(3n, M1, o), D.Fd(4n, M1, o), Q, o) == R2 : List<&2, U32>};
+    %Equal.sym(U32, D.Fd(2n, M1, ix), t2, et) :
+      {PsF(b0, _, D.Fd(2n, M1, o), D.Fd(3n, M1, o), D.Fd(4n, M1, o), Q, o) == R2 : List<&2, U32>};
+    %Equal.sym(U32, D.Fd(2n, M1, o), g2, e2) :
+      {PsF(b0, t2, _, D.Fd(3n, M1, o), D.Fd(4n, M1, o), Q, o) == R2 : List<&2, U32>};
+    %Equal.sym(U32, D.Fd(3n, M1, o), g3, e3) :
+      {PsF(b0, t2, g2, _, D.Fd(4n, M1, o), Q, o) == R2 : List<&2, U32>};
+    %Equal.sym(U32, D.Fd(4n, M1, o), g4, e4) :
+      {PsF(b0, t2, g2, g3, _, Q, o) == R2 : List<&2, U32>};
+    {==} : {a1 == R2 : List<&2, U32>}}
+  Equal.trans(List<&2, U32>, D.Ps(M1, Q, o), a1, D.Ps(M2, Q, o), ps.f(M1, Q, o),
+    Equal.trans(List<&2, U32>, a1, R2, D.Ps(M2, Q, o), e, Equal.sym(List<&2, U32>, D.Ps(M2, Q, o), R2, ps.f(M2, Q, o))))
