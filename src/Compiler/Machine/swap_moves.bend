@@ -10,14 +10,16 @@
 # The store to sp is one store (sw.mem): the cell {hd, y1, foc, y3, y4}. It
 # keeps every term (a frame's tag is 32 or more: is.st), the rest of the
 # frames (sp is not in the rest of its own chain, by the chain's length:
-# Hops, frs.st), the image (ImgOK.fz: nothing points to a frame) and the heap:
+# Hops, frs.st.c), the image (ImgOK.fz: nothing points to a frame) and the heap:
 # the pointer of sp's field 2 and the root trade places (Ptr.sw, Heap.sw).
 # In the accounting, they trade places as Cov's roots too (sw.acc).
 #
 # Also here: the step of Ann x y to x (mv.ev.ann, through the heap laws
-# inc.post and dec.post), with what the step moves share: a step of the
-# focus is a step of the frames' term (step.plugs), a run with no loop ends
-# (ends.plain), and two owned roots trade places (hsk.sw2, acc.sw2).
+# inc.post and dec.post), the moves of M.ret that pop the frame (Rwt □ P f:
+# mv.ret.rwt; Min a □: mv.ret.mina; Tup q a □: mv.ret.tupa), and what they
+# share: a step of the focus is a step of the frames' term (step.plugs), a
+# run with no loop ends (ends.nw), and two owned roots trade places
+# (hsk.sw2, acc.sw2).
 
 import Base
 import ../../Shared/shared.bend as Sd
@@ -556,17 +558,6 @@ def frs.st.c(fs: List<&2, D.AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U
                    D.and.r(Bool.not(U32.is_eq(fr, 0)), Hops(List.length(&2, D.AF, rest), m, D.Fd(1n, m, fr)), hf),
                    N.weaken(1n+List.length(&2, D.AF, rest), n, hl2), ir)))))))))))))
 
-def frs.st(+fs: List<&2, D.AF>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
-  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +sx: U32, +sv: Cr.Cir.Cell, +fr: U32, +n: Nat,
-  +ht: {U32.is_lt(D.TgW(D.Fd(0n, m, sx)), 32) == False{} : Bool}, +hn: {Hops(n, m, sx) == True{} : Bool},
-  hl: N.Le(1n+List.length(&2, D.AF, fs), n), +h: D.Frs(ds, m, im, fi, nx, ks, img, ps, fr, fs)) ->
-  D.Frs(ds, Cr.Cir.Cells.set(m, sx, sv), im, fi, nx, ks, img, ps, fr, fs):
-  frs.st.c(fs, ds, m, im, fi, nx, ks, img, ps, sx, sv, fr, n, ht, hn, frs.hops(fs, ds, m, im, fi, nx, ks, img, ps, fr, h), hl, h)
-
-# The store to the top frame
-# --------------------------
-
-# a frame's tag is 32 or more
 def fk.lt32(kind: D.FK) -> {U32.is_lt(D.FK.tag(kind), 32) == False{} : Bool}:
   match kind:
     case D.FK.arg{}:
@@ -1744,8 +1735,9 @@ def sw.minb.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: L
 # Runs with no loop end
 # ---------------------
 #
-# A statement with no while, alloc or emit (Plain) ends with no fuel: only
-# a while takes fuel. The moves give Ends this way.
+# A statement with no while or emit (NW) ends with no fuel: only a while
+# takes fuel. The moves give Ends this way (ends.nw). One with no alloc
+# either (Plain) also never runs out of memory, with any fuel (calm.plain).
 
 # a statement with no while, alloc or emit
 def Plain(s: Cr.Cir.Stmt) -> Bool:
@@ -1883,23 +1875,109 @@ def calm.plain(f: Nat, s: Cr.Cir.Stmt, +st: Cr.Cir.State, h: {Plain(s) == True{}
         case Cr.Cir.Stmt.halt{_}:
           (Unit{}, Unit{})
 
-def ends.plain(s: Cr.Cir.Stmt, +st: Cr.Cir.State, h: {Plain(s) == True{} : Bool}) -> D.Ends(Cr.Cir.exec(0n, s, st)):
-  D.Ex.fst(D.Ends(Cr.Cir.exec(0n, s, st)), _ => D.NoOom(Cr.Cir.exec(0n, s, st)), calm.plain(0n, s, st, h))
+# a statement with no while or emit (an alloc may take a new cell)
+def NW(s: Cr.Cir.Stmt) -> Bool:
+  match s:
+    case Cr.Cir.Stmt.seq{a, b}:
+      Bool.and(NW(a), NW(b))
+    case Cr.Cir.Stmt.if{_, t, e}:
+      Bool.and(NW(t), NW(e))
+    case Cr.Cir.Stmt.while{_, _}:
+      False{}
+    case Cr.Cir.Stmt.emit{_}:
+      False{}
+    case _:
+      True{}
 
-# a run that never runs out of memory needs no budget
-def postb.noom(o: Cr.Cir.Out, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, -B: Nat, -B2: Nat, -lim: U32,
-  h: D.PostB(False{}, o, Q, H, B, lim), hn: D.NoOom(o)) -> D.PostB(False{}, o, Q, H, B2, lim):
+def ends.took(r: Nat, +i: U32, st: Cr.Cir.State, next: U32, pages: U32) -> D.Ends(Cr.Cir.exec.took(r, i, st, next, pages)):
+  match st:
+    case Cr.Cir.State{+regs, +m, _, +fi, +im, _, +lim, +inp, +out, +outn}:
+      D.Ex.fst(D.Ends(Cr.Cir.exec.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn})),
+        _ => D.NoOom(Cr.Cir.exec.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn})),
+        calm.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn}))
+
+def ends.bump.of(r: Nat, +next: U32, st: Cr.Cir.State, pages: Maybe<&2, U32>) -> D.Ends(Cr.Cir.exec.bump.of(r, next, st, pages)):
+  match pages:
+    case Some{p}:
+      ends.took(r, next, st, U32.inc(next), p)
+    case None{}:
+      Unit{}
+
+def ends.bump.if(fits: Bool, r: Nat, +next: U32, +pages: U32, lim: U32, st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.bump.if(fits, r, next, pages, lim, st)):
+  match fits:
+    case True{}:
+      ends.bump.of(r, next, st, Cr.Cir.room(U32.add(Cr.Cir.at(next), 19), pages, lim))
+    case False{}:
+      Unit{}
+
+def ends.alloc.if(no_out: Bool, r: Nat, +st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.alloc.if(no_out, r, st)):
+  match no_out st:
+    case True{} Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      ends.bump.if(U32.is_lt(nx, 214748364), r, nx, pg, lim, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
+    case False{} _:
+      Unit{}
+
+def ends.alloc(r: Nat, +st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.alloc(r, st)):
+  match st:
+    case Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
+      ends.alloc.if(U32.is_zero(outn), r, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
+
+def ends.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, d: D.Ends(o), dk: @t: Cr.Cir.State -> D.Ends(k(t))) ->
+  D.Ends(Cr.Cir.exec.then(o, k)):
   match o:
-    case Cr.Cir.Out.next{_}:
-      h
+    case Cr.Cir.Out.next{s}:
+      dk(s)
     case Cr.Cir.Out.halt{_, _}:
-      h
+      Unit{}
     case Cr.Cir.Out.out_of_memory{}:
-      Empty.absurd(D.PostB(False{}, Cr.Cir.Out.out_of_memory{}, Q, H, B2, lim), hn)
+      Unit{}
     case Cr.Cir.Out.trap{}:
-      h
+      Unit{}
     case Cr.Cir.Out.not_done{}:
-      h
+      d
+
+def ends.ifof(z: Bool, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
+  D.Ends(Cr.Cir.exec.if.of(z, yes, no)):
+  match z:
+    case False{}:
+      dy
+    case True{}:
+      dn
+
+def ends.if(c: Maybe<&2, U32>, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
+  D.Ends(Cr.Cir.exec.if(c, yes, no)):
+  match c:
+    case Some{+x}:
+      ends.ifof(U32.is_zero(x), yes, no, dy, dn)
+    case None{}:
+      Unit{}
+
+# so it ends with no fuel
+def ends.nw(s: Cr.Cir.Stmt, +st: Cr.Cir.State, h: {NW(s) == True{} : Bool}) -> D.Ends(Cr.Cir.exec(0n, s, st)):
+  match s:
+    case Cr.Cir.Stmt.nop{}:
+      Unit{}
+    case Cr.Cir.Stmt.set{+r, +e}:
+      D.Ex.fst(D.Ends(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st)), _ => D.NoOom(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st)), calm.set(r, Cr.Cir.eval(e, st), st))
+    case Cr.Cir.Stmt.store{+k, +c, +v}:
+      D.Ex.fst(D.Ends(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)),
+        _ => D.NoOom(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)), calm.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st))
+    case Cr.Cir.Stmt.alloc{+r}:
+      ends.alloc(r, st)
+    case Cr.Cir.Stmt.emit{+v}:
+      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st)), h)
+    case Cr.Cir.Stmt.seq{+a, +b}:
+      +h2 = h
+      ends.then(Cr.Cir.exec(0n, a, st), t => Cr.Cir.exec(0n, b, t), ends.nw(a, st, D.and.l(NW(a), NW(b), h2)),
+        t => ends.nw(b, t, D.and.r(NW(a), NW(b), h2)))
+    case Cr.Cir.Stmt.if{+c, +t, +e}:
+      +h2 = h
+      ends.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st),
+        ends.nw(t, st, D.and.l(NW(t), NW(e), h2)), ends.nw(e, st, D.and.r(NW(t), NW(e), h2)))
+    case Cr.Cir.Stmt.while{+c, +b}:
+      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, b}, st)), h)
+    case Cr.Cir.Stmt.halt{_}:
+      Unit{}
 
 # Eval under frames
 # -----------------
@@ -2185,7 +2263,7 @@ def ann.regs(x: D.R59, +foc: U32, +sp: U32, +pend: U32, +tg: U32, +n: U32, +d: U
       {==}
 
 # M.ev.ann then nop is plain
-def plain.ann() -> {Plain(Cr.Cir.Stmt.seq{Mc.M.ev.ann(), Cr.Cir.Stmt.nop{}}) == True{} : Bool}:
+def nw.ann() -> {NW(Cr.Cir.Stmt.seq{Mc.M.ev.ann(), Cr.Cir.Stmt.nop{}}) == True{} : Bool}:
   {==}
 
 # a round from mode 0 whose focus is Ann x y: c and tag are set, and
@@ -2410,7 +2488,7 @@ def ann.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
       (f => ann.round(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, x, y, zs, et, afs, isf, frs, hp, io, hv, hac),
         (0n, (%Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, D.B.body(), S0), Cr.Cir.exec(0n, Cr.Cir.Stmt.seq{Mc.M.ev.ann(), Cr.Cir.Stmt.nop{}}, st2),
             ann.E(0n, ds, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, x, y, nd, tb, hv)) : D.Ends(_);
-          ends.plain(Cr.Cir.Stmt.seq{Mc.M.ev.ann(), Cr.Cir.Stmt.nop{}}, st2, plain.ann()))))
+          ends.nw(Cr.Cir.Stmt.seq{Mc.M.ev.ann(), Cr.Cir.Stmt.nop{}}, st2, nw.ann()))))
 
 # The pop of a frame
 # ------------------
@@ -2950,7 +3028,7 @@ def rwt.regs(x: D.R59, +foc: U32, +sp: U32, +pend: U32, +Q: U32, +y: U32, +n: U3
     case D.R59{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62}:
       {==}
 
-def plain.rwt() -> {Plain(Mc.M.ret.rwt()) == True{} : Bool}:
+def nw.rwt() -> {NW(Mc.M.ret.rwt()) == True{} : Bool}:
   {==}
 
 # Eval: Rwt v P f with a value v that is not Rfl has no cast
@@ -3289,7 +3367,7 @@ def rwt.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
       (f => rwt.round(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, iv, hac),
         (0n, (%Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), Cr.Cir.exec(0n, Mc.M.ret.rwt(), st3),
             rwt.E(0n, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) : D.Ends(_);
-          ends.plain(Mc.M.ret.rwt(), st3, plain.rwt()))))
+          ends.nw(Mc.M.ret.rwt(), st3, nw.rwt()))))
 
 # Quantity labels
 # ---------------
@@ -3578,7 +3656,7 @@ def heap.st(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +n: U32, +rs: List<&
   (hc, (pendok.st(ps, ps, m, fi, nx, n, rs, hs, hp), (cnt.st(N, m, fi, N, fi, ps, n, rs, hs, hcn), r3)))
 
 # one root, where there was none, keeps the accounting
-def acc.root(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
+def acc.first(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +r: D.Rt, +sp: U32, +fs: List<&2, D.AF>, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
   h: D.AccK(True{}, ds, ks, img, m, nx, fi, im, Nil{}, Nil{}, sp, fs, ps, zs)) ->
   D.AccK(True{}, ds, ks, img, m, nx, fi, im, [r], Nil{}, sp, fs, ps, zs):
@@ -3818,7 +3896,7 @@ def mina.regs(x: D.R59, +foc: U32, +sp: U32, +pend: U32, +QQ: U32, +xa: U32, +f1
     case D.R59{+r4, +r5, +r6, +r7, +r8, +r9, +r10, +r11, +r12, +r13, +r14, +r15, +r16, +r17, +r18, +r19, +r20, +r21, +r22, +r23, +r24, +r25, +r26, +r27, +r28, +r29, +r30, +r31, +r32, +r33, +r34, +r35, +r36, +r37, +r38, +r39, +r40, +r41, +r42, +r43, +r44, +r45, +r46, +r47, +r48, +r49, +r50, +r51, +r52, +r53, +r54, +r55, +r56, +r57, +r58, +r59, +r60, +r61, +r62}:
       {==}
 
-def plain.min() -> {Plain(Mc.M.ret.min()) == True{} : Bool}:
+def nw.min() -> {NW(Mc.M.ret.min()) == True{} : Bool}:
   {==}
 
 # a round from mode 1 with a Min a □ frame on top: M.ret.min
@@ -3882,7 +3960,7 @@ def mn.fin(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +i
         {U32.is_le(N0, 290) == True{} : Bool}}
       +hsN = lab.st(ds, m3, im, fi, nx, ks, img, N0, El.Quan.name(mq), isn, hlN, img.hz(ds, ks, img, m3, im, fi, nx, img3))
       +heapN = heap.st(m3, nx, fi, im, N0, Nil{}, p2, ps2, hsN, heap3)
-      +hacN = acc.root(ds, ks, img, m3, nx, fi, im, D.Rt{N0, lb}, f1, fs, ps2, zs2, hac3)
+      +hacN = acc.first(ds, ks, img, m3, nx, fi, im, D.Rt{N0, lb}, f1, fs, ps2, zs2, hac3)
       +pk = le.max.l(D.Mem.cells(S0), D.Need(ds, S0, t))
       +inv = {(D.Wit{False{}, lb, fs, N0, f1, p2, ps2, R59.mina(rest, sp, QQ, xa, D.Fd(2n, D.Put1([D.W1{sp, pend}], m), D.Fd(2n, m, sp)), D.Fd(2n, D.Put1([D.W1{sp, pend}], m), foc), N0, d2)},
         (({==}, ({==}, ({==}, (afs2, (mina.regs(rest, foc, sp, pend, QQ, xa, f1, D.Fd(2n, D.Put1([D.W1{sp, pend}], m), D.Fd(2n, m, sp)), D.Fd(2n, D.Put1([D.W1{sp, pend}], m), foc), N0, d1, p1, d2, p2),
@@ -4294,7 +4372,7 @@ def mn.go(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
       (f => mn.round(f, ds, ks, img, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, t, w, fs, ps, q, k, a, b, zs, v, iv, hac),
         (0n, (%Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, D.B.body(), D.S(foc, 1, sp, pend, rest, m, nx, fi, im, pg, lim, inp)), Cr.Cir.exec(0n, Mc.M.ret.min(), st3),
             mina.E(0n, foc, sp, pend, rest, m, nx, fi, im, pg, lim, inp, hz, hc, ht)) : D.Ends(_);
-          ends.plain(Mc.M.ret.min(), st3, plain.min()))))
+          ends.nw(Mc.M.ret.min(), st3, nw.min()))))
 
 # The Tup value
 # -------------
@@ -4921,110 +4999,6 @@ def fv.new(q: Bk.Quan, +a: Bk.Term, +v: Bk.Term, +F0: U32, +F1: U32,
   %Equal.sym(U32, U32.shrn(hd.tup(Mc.Img.quan(q), MX), 13n), MX, eF) :
     {Bool.or(U32.is_eq(_, 524287), Bool.and(D.Term.below(a, U32.to_nat(_)), D.Term.below(v, U32.to_nat(_)))) == True{} : Bool}
   fv.max(g, a, v, D.FvW(F0), D.FvW(F1), 524287, {==}, fv.bd(F0), fv.bd(F1), hx, hf)
-
-# a statement with no while or emit (an alloc may take a new cell)
-def NW(s: Cr.Cir.Stmt) -> Bool:
-  match s:
-    case Cr.Cir.Stmt.seq{a, b}:
-      Bool.and(NW(a), NW(b))
-    case Cr.Cir.Stmt.if{_, t, e}:
-      Bool.and(NW(t), NW(e))
-    case Cr.Cir.Stmt.while{_, _}:
-      False{}
-    case Cr.Cir.Stmt.emit{_}:
-      False{}
-    case _:
-      True{}
-
-def ends.took(r: Nat, +i: U32, st: Cr.Cir.State, next: U32, pages: U32) -> D.Ends(Cr.Cir.exec.took(r, i, st, next, pages)):
-  match st:
-    case Cr.Cir.State{+regs, +m, _, +fi, +im, _, +lim, +inp, +out, +outn}:
-      D.Ex.fst(D.Ends(Cr.Cir.exec.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn})),
-        _ => D.NoOom(Cr.Cir.exec.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn})),
-        calm.set(r, Some{i}, Cr.Cir.State{regs, Cr.Cir.Cells.set(m, i, Cr.Cir.Cell.zero()), next, fi, im, pages, lim, inp, out, outn}))
-
-def ends.bump.of(r: Nat, +next: U32, st: Cr.Cir.State, pages: Maybe<&2, U32>) -> D.Ends(Cr.Cir.exec.bump.of(r, next, st, pages)):
-  match pages:
-    case Some{p}:
-      ends.took(r, next, st, U32.inc(next), p)
-    case None{}:
-      Unit{}
-
-def ends.bump.if(fits: Bool, r: Nat, +next: U32, +pages: U32, lim: U32, st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.bump.if(fits, r, next, pages, lim, st)):
-  match fits:
-    case True{}:
-      ends.bump.of(r, next, st, Cr.Cir.room(U32.add(Cr.Cir.at(next), 19), pages, lim))
-    case False{}:
-      Unit{}
-
-def ends.alloc.if(no_out: Bool, r: Nat, +st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.alloc.if(no_out, r, st)):
-  match no_out st:
-    case True{} Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      ends.bump.if(U32.is_lt(nx, 214748364), r, nx, pg, lim, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
-    case False{} _:
-      Unit{}
-
-def ends.alloc(r: Nat, +st: Cr.Cir.State) -> D.Ends(Cr.Cir.exec.alloc(r, st)):
-  match st:
-    case Cr.Cir.State{+regs, +m, +nx, +fi, +im, +pg, +lim, +inp, +out, +outn}:
-      ends.alloc.if(U32.is_zero(outn), r, Cr.Cir.State{regs, m, nx, fi, im, pg, lim, inp, out, outn})
-
-def ends.then(o: Cr.Cir.Out, -k: Cr.Cir.State -> Cr.Cir.Out, d: D.Ends(o), dk: @t: Cr.Cir.State -> D.Ends(k(t))) ->
-  D.Ends(Cr.Cir.exec.then(o, k)):
-  match o:
-    case Cr.Cir.Out.next{s}:
-      dk(s)
-    case Cr.Cir.Out.halt{_, _}:
-      Unit{}
-    case Cr.Cir.Out.out_of_memory{}:
-      Unit{}
-    case Cr.Cir.Out.trap{}:
-      Unit{}
-    case Cr.Cir.Out.not_done{}:
-      d
-
-def ends.ifof(z: Bool, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
-  D.Ends(Cr.Cir.exec.if.of(z, yes, no)):
-  match z:
-    case False{}:
-      dy
-    case True{}:
-      dn
-
-def ends.if(c: Maybe<&2, U32>, -yes: Unit -> Cr.Cir.Out, -no: Unit -> Cr.Cir.Out, dy: D.Ends(yes(Unit{})), dn: D.Ends(no(Unit{}))) ->
-  D.Ends(Cr.Cir.exec.if(c, yes, no)):
-  match c:
-    case Some{+x}:
-      ends.ifof(U32.is_zero(x), yes, no, dy, dn)
-    case None{}:
-      Unit{}
-
-# so it ends with no fuel
-def ends.nw(s: Cr.Cir.Stmt, +st: Cr.Cir.State, h: {NW(s) == True{} : Bool}) -> D.Ends(Cr.Cir.exec(0n, s, st)):
-  match s:
-    case Cr.Cir.Stmt.nop{}:
-      Unit{}
-    case Cr.Cir.Stmt.set{+r, +e}:
-      D.Ex.fst(D.Ends(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st)), _ => D.NoOom(Cr.Cir.exec.set(r, Cr.Cir.eval(e, st), st)), calm.set(r, Cr.Cir.eval(e, st), st))
-    case Cr.Cir.Stmt.store{+k, +c, +v}:
-      D.Ex.fst(D.Ends(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)),
-        _ => D.NoOom(Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st)), calm.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(v, st), st))
-    case Cr.Cir.Stmt.alloc{+r}:
-      ends.alloc(r, st)
-    case Cr.Cir.Stmt.emit{+v}:
-      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st)), h)
-    case Cr.Cir.Stmt.seq{+a, +b}:
-      +h2 = h
-      ends.then(Cr.Cir.exec(0n, a, st), t => Cr.Cir.exec(0n, b, t), ends.nw(a, st, D.and.l(NW(a), NW(b), h2)),
-        t => ends.nw(b, t, D.and.r(NW(a), NW(b), h2)))
-    case Cr.Cir.Stmt.if{+c, +t, +e}:
-      +h2 = h
-      ends.if(Cr.Cir.eval(c, st), u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st),
-        ends.nw(t, st, D.and.l(NW(t), NW(e), h2)), ends.nw(e, st, D.and.r(NW(t), NW(e), h2)))
-    case Cr.Cir.Stmt.while{+c, +b}:
-      D.bool.ft(D.Ends(Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, b}, st)), h)
-    case Cr.Cir.Stmt.halt{_}:
-      Unit{}
 
 def nw.tup() -> {NW(Mc.M.ret.tup()) == True{} : Bool}:
   {==}
