@@ -3501,6 +3501,187 @@ def L2(g: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)
           cs => e43 => L2(g2, dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, lim, inp, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs, Mc.R.dc(), e), Mc.R.ds(), DE.top(rest)), Mc.R.pend(), e), X.X.put(m, 1n, e, pend), nx, pg, e, Con{e, ps}, rest, ns, zs, Q, ok, cs,
             Equal.trans(Maybe<&2, U32>, List.get(&2, U32, List.set(&2, U32, List.set(&2, U32, List.set(&2, U32, regs, Mc.R.dc(), e), Mc.R.ds(), DE.top(rest)), Mc.R.pend(), e), 43n), List.get(&2, U32, regs, 43n), Some{ok}, e43, h43), hk0, hn0, k)))
 
+# The flag DATA
+# -------------
+
+# an or with the bits of c keeps them
+def b.ando(a: Bool, b: Bool) -> {Bool.and(Bool.or(a, b), b) == b : Bool}:
+  match a b:
+    case False{} False{}:
+      {==}
+    case False{} True{}:
+      {==}
+    case True{} False{}:
+      {==}
+    case True{} True{}:
+      {==}
+
+def w.ando(n: Nat, a: Word(n), c: Word(n)) -> {Word.and(n, Word.or(n, a, c), c) == c : Word(n)}:
+  match n:
+    case 0n:
+      match a c:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+(+p):
+      match a c:
+        case WCon{+ab, +at} WCon{+cb, +ct}:
+          %Equal.sym(Bool, Bool.and(Bool.or(ab, cb), cb), cb, b.ando(ab, cb)) : {WCon{_, Word.and(p, Word.or(p, at, ct), ct)} == WCon{cb, ct} : Word(1n+p)}
+          %Equal.sym(Word(p), Word.and(p, Word.or(p, at, ct), ct), ct, w.ando(p, at, ct)) : {WCon{cb, _} == WCon{cb, ct} : Word(1n+p)}
+          {==}
+
+def u.ando(+x: U32, +c: U32) -> {U32.and(U32.or(x, c), c) == c : U32}:
+  match x c:
+    case U32{+w} U32{+cw}:
+      %Equal.sym(Word(32n), Word.and(32n, Word.or(32n, w, cw), cw), cw, w.ando(32n, w, cw)) : {U32{_} == U32{cw} : U32}
+      {==}
+
+# a cell flagged DATA by an or has the flag
+def fl.or512(+x: U32) -> {U32.is_ne(U32.and(U32.or(x, 512), 512), 0) == True{} : Bool}:
+  %Equal.sym(U32, U32.and(U32.or(x, 512), 512), 512, u.ando(x, 512)) : {U32.is_ne(_, 0) == True{} : Bool}
+  {==}
+
+# a cell of v's tree that has no flag DATA is none of ns
+def nf.ns.b(b: Bool, +m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +y: U32, +ns: List<&2, U32>, eb: {PM.Mem(ns, y) == b : Bool},
+  f0: {PM.Fd(0n, m, y) == F0(m0, y, ns) : U32}, hnf: {PM.Fl(m, y, 512) == False{} : Bool}) -> {b == False{} : Bool}:
+  match b:
+    case False{}:
+      {==}
+    case True{}:
+      +e0 = Equal.trans(U32, PM.Fd(0n, m, y), F0(m0, y, ns), U32.or(PM.Fd(0n, m0, y), 512), f0,
+        (%Equal.sym(Bool, PM.Mem(ns, y), True{}, eb) : {Bool.pick(U32, _, U32.or(PM.Fd(0n, m0, y), 512), PM.Fd(0n, m0, y)) == U32.or(PM.Fd(0n, m0, y), 512) : U32}; {==}))
+      Equal.trans(Bool, True{}, PM.Fl(m, y, 512), False{},
+        Equal.sym(Bool, PM.Fl(m, y, 512), True{}, (%Equal.sym(U32, PM.Fd(0n, m, y), U32.or(PM.Fd(0n, m0, y), 512), e0) : {U32.is_ne(U32.and(_, 512), 0) == True{} : Bool};
+          fl.or512(PM.Fd(0n, m0, y)))), hnf)
+
+def nf.ns(+m0: Cr.Cir.Cells, +m: Cr.Cir.Cells, +y: U32, +ns: List<&2, U32>, fv: FV(m0, m, y, ns), hnf: {PM.Fl(m, y, 512) == False{} : Bool}) ->
+  {PM.Mem(ns, y) == False{} : Bool}:
+  (f0, _) = fv
+  nf.ns.b(PM.Mem(ns, y), m0, m, y, ns, {==}, f0, hnf)
+
+# a term's tag is below 19
+def tag.small(t: Bk.Term) -> {U32.is_lt(PM.A.tag(t), 19) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+o0}:
+      {==}
+    case Bk.Term.Ref{+o0}:
+      {==}
+    case Bk.Term.Ann{+o0, +o1}:
+      {==}
+    case Bk.Term.Let{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Typ{+o0}:
+      {==}
+    case Bk.Term.Min{+o0, +o1}:
+      {==}
+    case Bk.Term.All{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Lam{+o0, +o1}:
+      {==}
+    case Bk.Term.App{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Sig{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Tup{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Prj{+o0}:
+      {==}
+    case Bk.Term.Enu{+o0}:
+      {==}
+    case Bk.Term.Lab{+o0}:
+      {==}
+    case Bk.Term.Mat{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+o0, +o1, +o2}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+o0, +o1, +o2}:
+      {==}
+
+# a term cell is none of the stack's
+def ds.ntg(es: List<&2, DE>, +m: Cr.Cir.Cells, +m0: Cr.Cir.Cells, +c: U32, +v: Bk.Term, +nx0: U32, +xs0: List<&2, U32>, +y: U32,
+  +hy: {U32.is_lt(PM.Tg(m, y), 19) == True{} : Bool}, h: DS(es, m, m0, c, v, nx0, xs0)) ->
+  {PM.Mem(PM.Tmp.cells(List.append(&2, PM.TmpE, DE.tmps(es), Nil{})), y) == False{} : Bool}:
+  match es:
+    case Nil{}:
+      {==}
+    case Con{DE{+e, +p, +u}, +rest}:
+      (_, r1) = h
+      (h1, r2) = r1
+      (_, r3) = r2
+      (_, hr) = r3
+      or.ff(U32.is_eq(e, y), PM.Mem(PM.Tmp.cells(List.append(&2, PM.TmpE, DE.tmps(rest), Nil{})), y),
+        u32.ne.sym(y, e, ne.tg(U32.is_eq(y, e), y, e, m, {==}, hy, ck.tg(m, e, DE.top(rest), Cl(m0, p, c), h1))),
+        ds.ntg(rest, m, m0, c, v, nx0, xs0, y, hy, hr))
+
+# the flag DATA at the cell of the part u, at the path p, that register t1 holds
+def flag.go(+F: Nat, +dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs0: List<&2, U32>, +keep0: List<&2, Nat>, +m0: Cr.Cir.Cells, +nx0: U32, +fi: U32, +im: U32, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps0: List<&2, U32>, +c: U32, +v: Bk.Term, +xs0: List<&2, PM.TmpE>, +lim: U32, +inp: List<&2, Word(8n)>, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +pend: U32, +ps: List<&2, U32>, +es: List<&2, DE>, +ns: List<&2, U32>, +zs: List<&2, PM.Rt>, +pg: U32, +p: List<&2, Bool>, +u: Bk.Term,
+  +T: List<&2, Cr.Cir.Stmt>, -Q: Cr.Cir.State -> Type,
+  +h: CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, m, nx, pend, ps, es, ns, zs), +h61: {List.get(&2, U32, regs, 61n) == Some{Cl(m0, p, c)} : Maybe<&2, U32>},
+  +hsub: {Sub(p, v) == Some{u} : Maybe<&2, Bk.Term>}, +hnf: {PM.Fl(m, Cl(m0, p, c), 512) == False{} : Bool},
+  hd: @t2: Bk.Term -> PM.IsK(dk, ds, m, im, fi, nx, ks, img, Cl(m0, p, c), t2) -> PM.DataK(dk, 512, t2),
+  +hk0: {PM.Disj(keep0, PM.Data.scr()) == True{} : Bool}, +hn0: {Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx0), U32.to_nat(fi))) == U32.to_nat(nx0) : Nat},
+  k: CS(dk, ds, ks, img, regs0, keep0, m0, nx0, fi, im, os, bs, fs, sp, ps0, c, v, xs0, regs, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), nx, pend, ps, es, Con{Cl(m0, p, c), ns}, zs) -> W.WP(Mc.M.do(T), F, X.X.st(regs, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim)) ->
+  W.WP(Mc.M.do(Con{Mc.M.st(0n, Mc.M.g(Mc.R.t1()), Mc.M.or(Mc.M.f(0n, Mc.M.g(Mc.R.t1())), Mc.M.c(Mc.F.data()))), T}), F, X.X.st(regs, m, nx, fi, im, pg, lim, inp), Q, PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v))), lim):
+  (hK, r1) = h
+  (hl, r2) = r1
+  (h42, r3) = r2
+  (h3, r4) = r3
+  (hs, r5) = r4
+  (hac, r6) = r5
+  (hds, r7) = r6
+  (hkv, r8) = r7
+  (hkc, r9) = r8
+  (hkle, kr) = hkc
+  (hkg, hpsl) = kr
+  (hst, hS) = r9
+  +X0 = List.append(&2, U32, ps0, Nil{})
+  +n0 = Nat.sub(U32.to_nat(nx0), U32.to_nat(fi))
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +y = Cl(m0, p, c)
+  +B = PM.Cells.bytes(fi, Nat.add(PM.Acc.need(m0, nx0, fi, os, xs0, sp, fs), 1n+Pg.Term.size(v)))
+  +bs1 = {Con{PM.Rt{c, v}, bs} : List<&2, PM.Rt>}
+  +xs = List.append(&2, PM.TmpE, DE.tmps(es), xs0)
+  +hsD = {hs : PM.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{PM.Rt{c, v}, bs}, fs, sp, pend, ps)}
+  +hkvD = {hkv : KV(v, m0, m, c, ns)}
+  +hvc = rtsk.hd(dk, ds, m, im, fi, nx, ks, img, c, v, bs, hsk.bs(dk, ds, ks, img, m, nx, fi, im, os, bs1, fs, sp, pend, ps, hsD))
+  +hyu = {(%cl.keep(p, v, m0, m, c, ns, u, hkvD, hsub) : PM.IsK(dk, ds, m, im, fi, nx, ks, img, _, u);
+    is.sub(dk, ds, m, im, fi, nx, ks, img, p, v, c, u, hvc, hsub)) : PM.IsK(dk, ds, m, im, fi, nx, ks, img, y, u)}
+  +hcy = isk.cell(dk, ds, m, im, fi, nx, ks, img, y, u, hyu)
+  +nd = isk.nd(dk, ds, m, im, fi, nx, ks, img, y, u, hyu)
+  +hco = fst2({Bool.or(PM.Own(fi, nx, y), PM.FlW(PM.Fd(0n, m, y), 1024)) == True{} : Bool},
+    PM.P2({PM.TgW(PM.Fd(0n, m, y)) == PM.A.tag(u) : U32},
+    PM.P2({Bool.or(Bool.not(PM.FlW(PM.Fd(0n, m, y), 256)), El.Eval.vals(ds, u, False{})) == True{} : Bool},
+    PM.P2(PM.DataK(dk, PM.Fd(0n, m, y), u),
+      {Bool.or(U32.is_eq(PM.FvW(PM.Fd(0n, m, y)), 524287), PM.Term.below(u, U32.to_nat(PM.FvW(PM.Fd(0n, m, y))))) == True{} : Bool}))),
+    snd2({Cr.Cir.is_cell(y, im, fi, nx) == True{} : Bool}, PM.P2({Bool.or(PM.Own(fi, nx, y), PM.FlW(PM.Fd(0n, m, y), 1024)) == True{} : Bool},
+      PM.P2({PM.TgW(PM.Fd(0n, m, y)) == PM.A.tag(u) : U32},
+      PM.P2({Bool.or(Bool.not(PM.FlW(PM.Fd(0n, m, y), 256)), El.Eval.vals(ds, u, False{})) == True{} : Bool},
+      PM.P2(PM.DataK(dk, PM.Fd(0n, m, y), u),
+        {Bool.or(U32.is_eq(PM.FvW(PM.Fd(0n, m, y)), 524287), PM.Term.below(u, U32.to_nat(PM.FvW(PM.Fd(0n, m, y))))) == True{} : Bool})))), nd))
+  +htg = {(%Equal.sym(U32, PM.TgW(PM.Fd(0n, m, y)), PM.A.tag(u), isk.tag(dk, ds, m, im, fi, nx, ks, img, y, u, hyu)) : {U32.is_lt(_, 19) == True{} : Bool};
+    tag.small(u)) : {U32.is_lt(PM.Tg(m, y), 19) == True{} : Bool}}
+  +hns = nf.ns(m0, m, y, ns, kv.at(p, v, m0, m, c, ns, u, hkvD, hsub), hnf)
+  +hfl = PM.data.flag(dk, ds, ks, img, m, nx, fi, im, os, bs1, fs, sp, pend, ps, y, xs, zs, hsD, hac, hd, hco)
+  do.store(F, 0n, Mc.M.g(Mc.R.t1()), Mc.M.or(Mc.M.f(0n, Mc.M.g(Mc.R.t1())), Mc.M.c(Mc.F.data())), T, regs, m, nx, fi, im, pg, lim, inp, Q, B, lim,
+    y, U32.or(PM.Fd(0n, m, y), 512),
+    ob.g(Mc.R.t1(), regs, m, nx, fi, im, pg, lim, inp, y, h61), (ob.f(0n, Mc.R.t1(), regs, m, nx, fi, im, pg, lim, inp, y, h61, hcy), Unit{}),
+    ev.g(Mc.R.t1(), regs, m, nx, fi, im, pg, lim, inp, y, h61),
+    (%Equal.sym(U32, W.Ev(Mc.M.f(0n, Mc.M.g(Mc.R.t1())), X.X.st(regs, m, nx, fi, im, pg, lim, inp)), PM.Fd(0n, m, y), ev.f(0n, Mc.R.t1(), regs, m, nx, fi, im, pg, lim, inp, y, h61)) :
+      {U32.or(_, Mc.F.data()) == U32.or(PM.Fd(0n, m, y), 512) : U32}; {==}), hcy,
+    k((hK, (hl, (h42, (h3,
+      (fst2(PM.HSK(dk, ds, ks, img, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), nx, fi, im, os, bs1, fs, sp, pend, ps), PM.AccK(dk, ds, ks, img, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), nx, fi, im, os, xs, sp, fs, ps, zs), hfl),
+      (snd2(PM.HSK(dk, ds, ks, img, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), nx, fi, im, os, bs1, fs, sp, pend, ps), PM.AccK(dk, ds, ks, img, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), nx, fi, im, os, xs, sp, fs, ps, zs), hfl),
+      (ds.set(es, m, m0, c, v, nx0, X0, Nil{}, y, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, y), U32.or(PM.Fd(0n, m, y), 512)),
+         ds.ntg(es, m, m0, c, v, nx0, X0, y, htg, hds), hds),
+      (kv.flag(v, m0, m, c, ns, y, hkvD, hns),
+      ((hkle, (kg.set(n0, m0, m, X0, fi, y, Cr.Cir.Cell.set(0n, Cr.Cir.Cells.get(m, y), U32.or(PM.Fd(0n, m, y), 512)), nx0,
+          PM.or.r(Wr(m0, nx0, X0, y), U32.is_lt(PM.Tg(m, y), 19), htg), hn0, hkg), hpsl)),
+      (N.le_rw_l(PM.Stat(n, m, fi), PM.Stat(n, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), fi), PM.Stat(Nat.sub(U32.to_nat(nx0), U32.to_nat(fi)), m0, fi), Equal.sym(Nat, PM.Stat(n, X.X.put(m, 0n, Cl(m0, p, c), U32.or(PM.Fd(0n, m, Cl(m0, p, c)), 512)), fi), PM.Stat(n, m, fi), A.stat.flag(n, m, fi, y)), hst),
+        hS))))))))))))
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
