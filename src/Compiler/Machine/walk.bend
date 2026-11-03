@@ -2953,6 +2953,140 @@ def W.go(g: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img:
         case Inr{q}:
           W.end(h, ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, B, t, q)
 
+# Cells of the machine's own kinds
+# --------------------------------
+#
+# A cell of a tag of 19 or more (a K.arg, a frame, a check) has no pointer:
+# every pointer is to a term cell (Pts), every owned root a term's cell.
+
+def ne.lt19(b: Bool, +m: Cr.Cir.Cells, +x: U32, +z: U32, eb: {U32.is_eq(x, z) == b : Bool},
+  hx: {U32.is_lt(D.Tg(m, x), 19) == True{} : Bool}, hz: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool}) ->
+  {U32.is_eq(x, z) == False{} : Bool}:
+  match b:
+    case False{}:
+      eb
+    case True{}:
+      DW.tf({U32.is_eq(x, z) == False{} : Bool},
+        Equal.trans(Bool, False{}, U32.is_lt(D.Tg(m, z), 19), True{}, Equal.sym(Bool, U32.is_lt(D.Tg(m, z), 19), False{}, hz),
+          (%D.u32.eq(x, z, eb) : {U32.is_lt(D.Tg(m, _), 19) == True{} : Bool}; hx)))
+
+def rcl.lt0(xs: List<&2, U32>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +z: U32,
+  +hz: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool}, +h: {D.Lt.all(xs, m, im, fi, nx) == True{} : Bool}) ->
+  {D.RcL(xs, z) == 0n : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      +hx = D.and.l(D.LtC(x, Cr.Cir.Cells.get(m, x), im, fi, nx), D.Lt.all(rest, m, im, fi, nx), h)
+      +ht = D.and.r(U32.is_lt(x, nx), U32.is_lt(D.Tg(m, x), 19),
+        D.and.l(Bool.and(U32.is_lt(x, nx), U32.is_lt(D.Tg(m, x), 19)),
+          Bool.and(Cr.Cir.is_cell(x, im, fi, nx), Bool.or(D.Own(fi, nx, x), D.Fl(m, x, 1024))), hx))
+      (%Equal.sym(Bool, U32.is_eq(x, z), False{}, ne.lt19(U32.is_eq(x, z), m, x, z, {==}, ht, hz)) :
+         {Nat.add(D.Nat.of(_), D.RcL(rest, z)) == 0n : Nat};
+       rcl.lt0(rest, m, im, fi, nx, z, hz, D.and.r(D.LtC(x, Cr.Cir.Cells.get(m, x), im, fi, nx), D.Lt.all(rest, m, im, fi, nx), h)))
+
+def pc.lt0(n: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +im: U32, +fi: U32, +nx: U32, +z: U32,
+  +hz: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool}, +h: {D.Pts(n, m, ps, o, im, fi, nx) == True{} : Bool}) ->
+  {D.Pc(n, m, ps, o, z) == 0n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      (%Equal.sym(Nat, D.RcL(D.Fs(m, ps, o), z), 0n,
+          rcl.lt0(D.Fs(m, ps, o), m, im, fi, nx, z, hz, D.and.l(D.Lt.all(D.Fs(m, ps, o), m, im, fi, nx), D.Pts(p, m, ps, U32.inc(o), im, fi, nx), h))) :
+         {Nat.add(_, D.Pc(p, m, ps, U32.inc(o), z)) == 0n : Nat};
+       pc.lt0(p, m, ps, U32.inc(o), im, fi, nx, z, hz, D.and.r(D.Lt.all(D.Fs(m, ps, o), m, im, fi, nx), D.Pts(p, m, ps, U32.inc(o), im, fi, nx), h)))
+
+# a term's tag is below 19
+def atag.lt(t: Bk.Term) -> {U32.is_lt(D.A.tag(t), 19) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+i}:
+      {==}
+    case Bk.Term.Ref{+k}:
+      {==}
+    case Bk.Term.Ann{+y1, +y2}:
+      {==}
+    case Bk.Term.Let{+q1, +v1, +f1}:
+      {==}
+    case Bk.Term.Typ{+y1}:
+      {==}
+    case Bk.Term.Min{+y1, +y2}:
+      {==}
+    case Bk.Term.All{+q1, +y1, +y2}:
+      {==}
+    case Bk.Term.Lam{+q1, +f1}:
+      {==}
+    case Bk.Term.App{+q1, +f1, +y1}:
+      {==}
+    case Bk.Term.Sig{+q1, +y1, +y2}:
+      {==}
+    case Bk.Term.Tup{+q1, +y1, +y2}:
+      {==}
+    case Bk.Term.Prj{+h1}:
+      {==}
+    case Bk.Term.Enu{+k}:
+      {==}
+    case Bk.Term.Lab{+k}:
+      {==}
+    case Bk.Term.Mat{+k, +h1, +n1}:
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+y1, +y2, +y3}:
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+y1, +y2, +y3}:
+      {==}
+
+# no owned root is z
+def rts.lt0(os: List<&2, D.Rt>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +z: U32, +hz: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool},
+  h: D.Rts(ds, m, im, fi, nx, ks, img, os)) -> {D.RcL(D.Rt.cells(os), z) == 0n : Nat}:
+  match os:
+    case Nil{}:
+      {==}
+    case Con{D.Rt{+r, +u}, +rest}:
+      (+hi, hr) = h
+      +ht = {(%Equal.sym(U32, D.Tg(m, r), D.A.tag(u), is.tg(ds, m, im, fi, nx, ks, img, r, u, hi)) :
+        {U32.is_lt(_, 19) == True{} : Bool}; atag.lt(u)) : {U32.is_lt(D.Tg(m, r), 19) == True{} : Bool}}
+      (%Equal.sym(Bool, U32.is_eq(r, z), False{}, ne.lt19(U32.is_eq(r, z), m, r, z, {==}, ht, hz)) :
+         {Nat.add(D.Nat.of(_), D.RcL(D.Rt.cells(rest), z)) == 0n : Nat};
+       rts.lt0(rest, ds, m, im, fi, nx, ks, img, z, hz, hr))
+
+def hs.pts(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, D.Rt>, -bs: List<&2, D.Rt>, -fs: List<&2, D.AF>, -sp: U32, -pend: U32,
+  -ps: List<&2, U32>, h: D.HS(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) ->
+  {D.Pts(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, ps, fi, im, fi, nx) == True{} : Bool}:
+  (_, h1) = h
+  (_, h2) = h1
+  (_, h3) = h2
+  (_, h4) = h3
+  (hp, _) = h4
+  (_, p1) = hp
+  (_, p2) = p1
+  (_, p3) = p2
+  (x, _) = p3
+  x
+
+def hs.os(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, D.Rt>, -bs: List<&2, D.Rt>, -fs: List<&2, D.AF>, -sp: U32, -pend: U32,
+  -ps: List<&2, U32>, h: D.HS(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> D.Rts(ds, m, im, fi, nx, ks, img, os):
+  (x, _) = h
+  x
+
+# a cell of a tag of 19 or more has no pointer
+def ptr.lt0(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
+  +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32,
+  +ps: List<&2, U32>, +z: U32, +hz: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool},
+  +h: D.HS(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) ->
+  {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(os), z) == 0n : Nat}:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  (%Equal.sym(Nat, D.Pc(n, m, ps, fi, z), 0n, pc.lt0(n, m, ps, fi, im, fi, nx, z, hz, hs.pts(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, h))) :
+     {Nat.add(_, D.RcL(D.Rt.cells(os), z)) == 0n : Nat};
+   (%Equal.sym(Nat, D.RcL(D.Rt.cells(os), z), 0n, rts.lt0(os, ds, m, im, fi, nx, ks, img, z, hz, hs.os(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, h))) :
+      {Nat.add(0n, _) == 0n : Nat}; {==}))
+
 # The walk
 # --------
 #
