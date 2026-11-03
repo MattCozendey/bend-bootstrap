@@ -3710,6 +3710,131 @@ def al.nil(+m: Cr.Cir.Cells, +pend: U32, P: List<&2, U32>, +zs: List<&2, D.Zs>, 
       +hc = K.Bo.and_l(C1, L1, K.Bo.and_r(S1, Bool.and(C1, L1), K.Bo.and_r(H1, Bool.and(S1, Bool.and(C1, L1)), h)))
       Empty.absurd({Pl == Nil{} : List<&2, U32>}, zmax.at(rest, o, zs, Empty, +y => +hy => +ey => al.top(m, Pl, Nil{}, zs, K, F, nx, y, hkf, hc, hy, {==}, ey)))
 
+# Distinct cells are few
+# ----------------------
+#
+# Distinct cells, each one of S, are at most |S| (sub.len); the n cells from o
+# (Rng) hold each cell from o below o + n (rng.has); so distinct cells from F
+# below nx are at most nx - F (cells.few): so few are the walk's frames, and
+# its depth, at most twice them, stays far below 2^32.
+
+# |Del(S, x)| + 1 = |S|, for x one of S
+def len.del.b(e: Bool, +y: U32, +rest: List<&2, U32>, +x: U32, ey: {U32.is_eq(y, x) == e : Bool},
+  h: {Bool.or(e, D.Has(rest, x)) == True{} : Bool},
+  k: {D.Has(rest, x) == True{} : Bool} -> {1n+List.length(&2, U32, Del(rest, x)) == List.length(&2, U32, rest) : Nat}) ->
+  {1n+List.length(&2, U32, Del(Con{y, rest}, x)) == List.length(&2, U32, Con{y, rest}) : Nat}:
+  match e:
+    case True{}:
+      (%Equal.sym(Bool, U32.is_eq(y, x), True{}, ey) :
+        {1n+List.length(&2, U32, Bool.pick(List<&2, U32>, _, rest, Con{y, Del(rest, x)})) == 1n+List.length(&2, U32, rest) : Nat}; {==})
+    case False{}:
+      (%Equal.sym(Bool, U32.is_eq(y, x), False{}, ey) :
+        {1n+List.length(&2, U32, Bool.pick(List<&2, U32>, _, rest, Con{y, Del(rest, x)})) == 1n+List.length(&2, U32, rest) : Nat};
+        Equal.cong(Nat, Nat, z => 1n+z, 1n+List.length(&2, U32, Del(rest, x)), List.length(&2, U32, rest), k(h)))
+
+def len.del(S: List<&2, U32>, +x: U32, h: {D.Has(S, x) == True{} : Bool}) ->
+  {1n+List.length(&2, U32, Del(S, x)) == List.length(&2, U32, S) : Nat}:
+  match S:
+    case Nil{}:
+      K.Bo.tf({1n == 0n : Nat}, h)
+    case Con{+y, +rest}:
+      len.del.b(U32.is_eq(y, x), y, rest, x, {==}, h, hr => len.del(rest, x, hr))
+
+# distinct cells, each one of S, are at most |S|
+def sub.len(xs: List<&2, U32>, +S: List<&2, U32>, hn: {D.Nodup(xs) == True{} : Bool}, hs: {D.Sub(xs, S) == True{} : Bool}) ->
+  N.Le(List.length(&2, U32, xs), List.length(&2, U32, S)):
+  match xs:
+    case Nil{}:
+      N.le_zero(List.length(&2, U32, S))
+    case Con{+x, +rest}:
+      +hn2 = hn
+      +hs2 = hs
+      +hx = K.Bo.and_l(D.Has(S, x), D.Sub(rest, S), hs2)
+      +hrs = K.Bo.and_r(D.Has(S, x), D.Sub(rest, S), hs2)
+      +hnx = K.Bo.not_t(D.Has(rest, x), K.Bo.and_l(Bool.not(D.Has(rest, x)), D.Nodup(rest), hn2))
+      +hnr = K.Bo.and_r(Bool.not(D.Has(rest, x)), D.Nodup(rest), hn2)
+      N.le_rw_r(1n+List.length(&2, U32, rest), 1n+List.length(&2, U32, Del(S, x)), List.length(&2, U32, S), len.del(S, x, hx),
+        sub.len(rest, Del(S, x), hnr, sub.del(rest, S, x, hrs, hnx)))
+
+# the n cells from o
+def Rng(n: Nat, +o: U32) -> List<&2, U32>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      Con{o, Rng(p, U32.inc(o))}
+
+def rng.len(n: Nat, +o: U32) -> {List.length(&2, U32, Rng(n, o)) == n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.cong(Nat, Nat, z => 1n+z, List.length(&2, U32, Rng(p, U32.inc(o))), p, rng.len(p, U32.inc(o)))
+
+# a cell q from o below o + n, all below N, is one of the n cells from o
+def rng.has.b(e: Bool, +p: Nat, +o: U32, +q: U32, +N: U32, +eo: {U32.is_eq(o, q) == e : Bool}, +h1: N.Le(U32.to_nat(o), U32.to_nat(q)),
+  +h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), 1n+p)), +ei: {U32.to_nat(U32.inc(o)) == 1n+U32.to_nat(o) : Nat},
+  +eI: {1n+Nat.add(U32.to_nat(o), p) == Nat.add(U32.to_nat(U32.inc(o)), p) : Nat}, +hb2: N.Le(Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N)),
+  k: N.Le(U32.to_nat(U32.inc(o)), U32.to_nat(q)) -> N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(U32.inc(o)), p)) ->
+    N.Le(Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N)) -> {D.Has(Rng(p, U32.inc(o)), q) == True{} : Bool}) ->
+  {Bool.or(e, D.Has(Rng(p, U32.inc(o)), q)) == True{} : Bool}:
+  match e:
+    case True{}:
+      {==}
+    case False{}:
+      +x = U32.to_nat(o)
+      +hlt = lt.of.ne(o, q, h1, eo)
+      k(N.le_rw_l(1n+x, U32.to_nat(U32.inc(o)), U32.to_nat(q), Equal.sym(Nat, U32.to_nat(U32.inc(o)), 1n+x, ei), hlt),
+        N.le_rw_r(1n+U32.to_nat(q), Nat.add(x, 1n+p), Nat.add(U32.to_nat(U32.inc(o)), p), Equal.trans(Nat, Nat.add(x, 1n+p), 1n+Nat.add(x, p),
+          Nat.add(U32.to_nat(U32.inc(o)), p), N.add_succ_r(x, p), eI), h2), hb2)
+
+def rng.has(n: Nat, +o: U32, +q: U32, +N: U32, h1: N.Le(U32.to_nat(o), U32.to_nat(q)), h2: N.Le(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), n)),
+  hb: N.Le(Nat.add(U32.to_nat(o), n), U32.to_nat(N))) -> {D.Has(Rng(n, o), q) == True{} : Bool}:
+  match n:
+    case 0n:
+      Empty.absurd({D.Has(Rng(0n, o), q) == True{} : Bool}, N.not_succ_le(U32.to_nat(q), N.le_trans(1n+U32.to_nat(q), U32.to_nat(o), U32.to_nat(q),
+        N.le_rw_r(1n+U32.to_nat(q), Nat.add(U32.to_nat(o), 0n), U32.to_nat(o), N.add_zero(U32.to_nat(o)), h2), h1)))
+    case 1n+(+p):
+      +x = U32.to_nat(o)
+      +h1b = N.le_rw_l(Nat.add(x, 1n+p), 1n+Nat.add(x, p), U32.to_nat(N), N.add_succ_r(x, p), hb)
+      +lt = N.le_trans(1n+x, 1n+Nat.add(x, p), U32.to_nat(N), N.le_add_r(1n+x, p), h1b)
+      +ei = K.Ar.u.inc(o, N, lt)
+      +eI = Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(o)), p), 1n+Nat.add(x, p), Equal.cong(Nat, Nat, y => Nat.add(y, p), U32.to_nat(U32.inc(o)), 1n+x, ei))
+      +hb2 = N.le_rw_l(1n+Nat.add(x, p), Nat.add(U32.to_nat(U32.inc(o)), p), U32.to_nat(N), eI, h1b)
+      rng.has.b(U32.is_eq(o, q), p, o, q, N, {==}, h1, h2, ei, eI, hb2, a => b => c => rng.has(p, U32.inc(o), q, N, a, b, c))
+
+# each of the cells xs is from F, below nx
+def In.rng(xs: List<&2, U32>, +F: U32, +nx: U32) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case Con{+x, rest}:
+      Bool.and(Bool.and(U32.is_le(F, x), U32.is_lt(x, nx)), In.rng(rest, F, nx))
+
+def rng.sub(xs: List<&2, U32>, +F: U32, +nx: U32, +hfn: {U32.is_le(F, nx) == True{} : Bool}, h: {In.rng(xs, F, nx) == True{} : Bool}) ->
+  {D.Sub(xs, Rng(Nat.sub(U32.to_nat(nx), U32.to_nat(F)), F)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      +h2 = h
+      +A = Bool.and(U32.is_le(F, x), U32.is_lt(x, nx))
+      +hx = K.Bo.and_l(A, In.rng(rest, F, nx), h2)
+      +hFx = K.Bo.and_l(U32.is_le(F, x), U32.is_lt(x, nx), hx)
+      +hxn = K.Bo.and_r(U32.is_le(F, x), U32.is_lt(x, nx), hx)
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+      +es = Equal.sym(Nat, Nat.add(U32.to_nat(F), n), U32.to_nat(nx), K.Ar.sub.add(U32.to_nat(F), U32.to_nat(nx), K.U.le(F, nx, hfn)))
+      K.Bo.and_i(D.Has(Rng(n, F), x), D.Sub(rest, Rng(n, F)),
+        rng.has(n, F, x, nx, K.U.le(F, x, hFx), N.le_rw_r(1n+U32.to_nat(x), U32.to_nat(nx), Nat.add(U32.to_nat(F), n), es, K.U.lt(x, nx, hxn)),
+          N.le_rw_l(U32.to_nat(nx), Nat.add(U32.to_nat(F), n), U32.to_nat(nx), es, N.le_refl(U32.to_nat(nx)))),
+        rng.sub(rest, F, nx, hfn, K.Bo.and_r(A, In.rng(rest, F, nx), h2)))
+
+# distinct cells from F below nx are at most nx - F
+def cells.few(+xs: List<&2, U32>, +F: U32, +nx: U32, hfn: {U32.is_le(F, nx) == True{} : Bool}, hn: {D.Nodup(xs) == True{} : Bool},
+  h: {In.rng(xs, F, nx) == True{} : Bool}) -> N.Le(List.length(&2, U32, xs), Nat.sub(U32.to_nat(nx), U32.to_nat(F))):
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(F))
+  N.le_rw_r(List.length(&2, U32, xs), List.length(&2, U32, Rng(n, F)), n, rng.len(n, F), sub.len(xs, Rng(n, F), hn, rng.sub(xs, F, nx, hfn, h)))
+
 # no garbage cell of P points to the cells ns
 def Pz(ns: List<&2, U32>, +P: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
   match ns:
