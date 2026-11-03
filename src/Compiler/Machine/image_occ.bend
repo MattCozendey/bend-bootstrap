@@ -330,3 +330,266 @@ def names.all(t: Bk.Term, +x: List<&2, List<&2, Word(8n)>>) -> GAll(t, Mc.Img.na
         Tuple{gall.names(a, b, Mc.Img.names(b, Mc.Img.names(c, x)), names.all(b, Mc.Img.names(c, x))),
           gall.names(a, c, Mc.Img.names(b, Mc.Img.names(c, x)),
             gall.names(b, c, Mc.Img.names(c, x), names.all(c, x)))}}
+
+# a term's names, then ys, split as the term's names alone, then ys
+# ------------------------------------------------------------------
+
+# (xs, then ys), then zs is xs, then (ys, then zs)
+def app.assoc(xs: List<&2, List<&2, Word(8n)>>, +ys: List<&2, List<&2, Word(8n)>>,
+  +zs: List<&2, List<&2, Word(8n)>>) ->
+  {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, xs, ys), zs) ==
+   List.append(&2, List<&2, Word(8n)>, xs, List.append(&2, List<&2, Word(8n)>, ys, zs)) :
+    List<&2, List<&2, Word(8n)>>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+n, +rest}:
+      %app.assoc(rest, ys, zs) :
+        {Con{n, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, rest, ys), zs)} ==
+         Con{n, _} : List<&2, List<&2, Word(8n)>>}
+      {==}
+
+def names.app(t: Bk.Term, +ys: List<&2, List<&2, Word(8n)>>) ->
+  {Mc.Img.names(t, ys) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(t, Nil{}), ys) :
+    List<&2, List<&2, Word(8n)>>}:
+  match t:
+    case Bk.Term.Var{_}:
+      {==}
+    case Bk.Term.Ref{_}:
+      {==}
+    case Bk.Term.Ann{+a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Mc.Img.names(a, _) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Let{_, +a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Mc.Img.names(a, _) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Typ{+a}:
+      names.app(a, ys)
+    case Bk.Term.Min{+a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Mc.Img.names(a, _) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.All{_, +a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Mc.Img.names(a, _) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Lam{_, +a}:
+      names.app(a, ys)
+    case Bk.Term.App{_, +a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Mc.Img.names(a, _) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Sig{_, +a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Mc.Img.names(a, _) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Tup{_, +a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Mc.Img.names(a, _) == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Prj{+a}:
+      names.app(a, ys)
+    case Bk.Term.Enu{_}:
+      {==}
+    case Bk.Term.Lab{+k}:
+      {==}
+    case Bk.Term.Mat{+k, +a, +b}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, ys),
+          List.append(&2, List<&2, Word(8n)>, nb, ys), names.app(b, ys)) :
+        {Con{k, Mc.Img.names(a, _)} ==
+         Con{k, List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys)} : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, ys)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, ys))) :
+        {Con{k, _} == Con{k, List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys)} :
+          List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, ys) :
+        {Con{k, _} == Con{k, List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, nb), ys)} :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, nb),
+          List.append(&2, List<&2, Word(8n)>, na, nb), names.app(a, nb)) :
+        {Con{k, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), ys)} ==
+         Con{k, List.append(&2, List<&2, Word(8n)>, _, ys)} : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{+a, +b, +c}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      +nc = Mc.Img.names(c, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(c, ys),
+          List.append(&2, List<&2, Word(8n)>, nc, ys), names.app(c, ys)) :
+        {Mc.Img.names(a, Mc.Img.names(b, _)) ==
+         List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, List.append(&2, List<&2, Word(8n)>, nc, ys)),
+          List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys)),
+          names.app(b, List.append(&2, List<&2, Word(8n)>, nc, ys))) :
+        {Mc.Img.names(a, _) ==
+         List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>,
+          Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys))),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys))),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys)))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, List.append(&2, List<&2, Word(8n)>, nc, ys)) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %app.assoc(List.append(&2, List<&2, Word(8n)>, na, nb), nc, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, nc),
+          List.append(&2, List<&2, Word(8n)>, nb, nc), names.app(b, nc)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), nc), ys) ==
+         List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, _), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, nc)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, nc)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, nc))) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), nc), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, nc) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), nc), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{+a, +b, +c}:
+      +na = Mc.Img.names(a, Nil{})
+      +nb = Mc.Img.names(b, Nil{})
+      +nc = Mc.Img.names(c, Nil{})
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(c, ys),
+          List.append(&2, List<&2, Word(8n)>, nc, ys), names.app(c, ys)) :
+        {Mc.Img.names(a, Mc.Img.names(b, _)) ==
+         List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, List.append(&2, List<&2, Word(8n)>, nc, ys)),
+          List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys)),
+          names.app(b, List.append(&2, List<&2, Word(8n)>, nc, ys))) :
+        {Mc.Img.names(a, _) ==
+         List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>,
+          Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys))),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys))),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, List.append(&2, List<&2, Word(8n)>, nc, ys)))) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, List.append(&2, List<&2, Word(8n)>, nc, ys)) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %app.assoc(List.append(&2, List<&2, Word(8n)>, na, nb), nc, ys) :
+        {_ == List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, Mc.Img.names(b, nc)), ys) :
+          List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(b, nc),
+          List.append(&2, List<&2, Word(8n)>, nb, nc), names.app(b, nc)) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), nc), ys) ==
+         List.append(&2, List<&2, Word(8n)>, Mc.Img.names(a, _), ys) : List<&2, List<&2, Word(8n)>>}
+      %Equal.sym(List<&2, List<&2, Word(8n)>>, Mc.Img.names(a, List.append(&2, List<&2, Word(8n)>, nb, nc)),
+          List.append(&2, List<&2, Word(8n)>, na, List.append(&2, List<&2, Word(8n)>, nb, nc)),
+          names.app(a, List.append(&2, List<&2, Word(8n)>, nb, nc))) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), nc), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      %app.assoc(na, nb, nc) :
+        {List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, List.append(&2, List<&2, Word(8n)>, na, nb), nc), ys) ==
+         List.append(&2, List<&2, Word(8n)>, _, ys) : List<&2, List<&2, Word(8n)>>}
+      {==}
