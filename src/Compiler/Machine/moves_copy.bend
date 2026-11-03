@@ -656,3 +656,99 @@ def one.post(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, 
     one.make(f, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, os, bs, fs, sp, pend, ps, zs, yv, B, hroom, hs, hac, hl, h3, h12), s => st2 => e => e,
     +st5 => qm => one.fin(f, ds, ks, img, regs, m, nx, fi, im, lim, inp, os, bs, fs, sp, ps, yv, B,
       K.hsk.fin(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, hs), st5, qm))
+
+# M.one's cell is the chain of one K.arg (Ag)
+# -------------------------------------------
+#
+# The value's cell yv, borrowed during M.one (a node of an owned root's term),
+# stands for v in the cell's field 2: the locals' chain for M.copy.
+
+# a field of a cell set to the value X
+def ga.fd(+M: Cr.Cir.Cells, +z: U32, +X: Cr.Cir.Cell, +k: Nat, e: {Cr.Cir.Cells.get(M, z) == X : Cr.Cir.Cell}) ->
+  {D.Fd(k, M, z) == Cr.Cir.Cell.get(k, X) : U32}:
+  Equal.cong(Cr.Cir.Cell, U32, c => Cr.Cir.Cell.get(k, c), Cr.Cir.Cells.get(M, z), X, e)
+
+# a or b, then c or d false: a or (b or (False or False))
+def or.ab0(a: Bool, b: Bool, h: {Bool.or(a, b) == True{} : Bool}) -> {Bool.or(a, Bool.or(b, Bool.or(False{}, False{}))) == True{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      match b:
+        case True{}:
+          {==}
+        case False{}:
+          h
+
+# HSK's parts
+def hsk.bs1(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, D.Rt>, -c: U32, -u: Bk.Term, -bs: List<&2, D.Rt>, -fs: List<&2, D.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, u}, bs}, fs, sp, pend, ps)) -> D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u):
+  match h:
+    case Tuple{_, Tuple{Tuple{e, _}, _}}:
+      e
+
+def hsk.heap(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, D.Rt>, -bs: List<&2, D.Rt>, -fs: List<&2, D.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> D.Heap(m, nx, fi, im, D.Rt.cells(os), pend, ps):
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{e, _}}}}}:
+      e
+
+def held1(-m: Cr.Cir.Cells, -os: List<&2, D.Rt>, -c: U32, -u: Bk.Term, -bs: List<&2, D.Rt>, h: D.Held(m, os, Con{D.Rt{c, u}, bs})) ->
+  {Bool.or(D.Fl(m, c, 1024), D.Nodes(os, m, c)) == True{} : Bool}:
+  match h:
+    case Tuple{e, _}:
+      e
+
+# a held cell is STATIC or out of the pend list
+def held.np(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +c: U32,
+  +hs: D.HSK(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps), hn: {Bool.or(D.Fl(m, c, 1024), D.Nodes(os, m, c)) == True{} : Bool}) ->
+  {Bool.or(D.Fl(m, c, 1024), Bool.not(D.Mem(ps, c))) == True{} : Bool}:
+  +P = D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(os), c)
+  D.or.cases(D.Fl(m, c, 1024), Nat.is_lt(0n, P), {Bool.or(D.Fl(m, c, 1024), Bool.not(D.Mem(ps, c))) == True{} : Bool},
+    D.held.ptr(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, hs, hn),
+    e => D.or.l(D.Fl(m, c, 1024), Bool.not(D.Mem(ps, c)), e),
+    e => D.or.r(D.Fl(m, c, 1024), Bool.not(D.Mem(ps, c)),
+      (%Equal.sym(Bool, D.Mem(ps, c), False{}, U2.notin.ps(D.Mem(ps, c), ps, m, fi, nx, D.Rt.cells(os), c, {==},
+          D.heap.pend(m, nx, fi, im, D.Rt.cells(os), pend, ps, hsk.heap(True{}, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, hs)), e)) :
+        {Bool.not(_) == True{} : Bool}; {==})))
+
+# M.one's cell z, {41, 0, yv, 0, 0}, with yv borrowed for v: the chain of one argument v of Q0
+def one.ag(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m1: Cr.Cir.Cells, +nx1: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +pend2: U32, +ps2: List<&2, U32>, +z: U32, +yv: U32, +v: Bk.Term,
+  +hsk: D.HSK(True{}, ds, ks, img, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, os, [D.Rt{yv, v}], fs, sp, pend2, ps2),
+  +hown: {D.Own(fi, nx1, z) == True{} : Bool}, +hmz: {D.Mem(ps2, z) == False{} : Bool}) ->
+  D.Ag(ds, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), im, fi, nx1, ks, img, ps2, os, Nil{}, z, [El.Arg{Bk.Quan.Q0{}, v}]):
+  +XC = {Cr.Cir.Cell{41, 0, yv, 0, 0} : Cr.Cir.Cell}
+  +M3 = Cr.Cir.Cells.set(m1, z, XC)
+  +gs = X.Ce.get_set(m1, z, XC)
+  +e0 = Equal.sym(U32, D.Fd(0n, M3, z), 41, ga.fd(M3, z, XC, 0n, gs))
+  +e1 = Equal.sym(U32, D.Fd(1n, M3, z), 0, ga.fd(M3, z, XC, 1n, gs))
+  +e2 = Equal.sym(U32, D.Fd(2n, M3, z), yv, ga.fd(M3, z, XC, 2n, gs))
+  +io = hsk.io(True{}, ds, ks, img, M3, nx1, fi, im, os, [D.Rt{yv, v}], fs, sp, pend2, ps2, hsk)
+  +lo = U10.img.lo(True{}, ds, ks, img, M3, im, fi, nx1, io)
+  +hh = held1(M3, os, yv, v, Nil{}, hsk.held(True{}, ds, ks, img, M3, nx1, fi, im, os, [D.Rt{yv, v}], fs, sp, pend2, ps2, hsk))
+  +c1 = U10.own.nz(fi, nx1, im, z, U10.p2.fst.b(U32.is_le(290, im), U32.is_lt(im, fi), lo), U10.p2.snd.b(U32.is_le(290, im), U32.is_lt(im, fi), lo), hown)
+  +c2 = U10.own.cell(fi, nx1, im, z, hown)
+  +c4 = {(%e0 : {U32.is_ne(U32.and(_, 1024), 0) == False{} : Bool}; {==}) : {D.Fl(M3, z, 1024) == False{} : Bool}}
+  +c6 = {(%e0 : {U32.and(_, 63) == 41 : U32}; {==}) : {D.Tg(M3, z) == 41 : U32}}
+  +c7 = {(%e0 : {D.QnW(_) == Mc.Img.quan(Bk.Quan.Q0{}) : U32}; {==}) : D.Qs(Cr.Cir.Cells.get(M3, z), Bk.Quan.Q0{})}
+  +c8 = {(%e0 : {Bool.or(Bool.not(U32.is_ne(U32.and(_, 2048), 0)), El.Eval.vals(ds, v, False{})) == True{} : Bool}; {==}) :
+    {Bool.or(Bool.not(D.Fl(M3, z, 2048)), El.Eval.vals(ds, v, False{})) == True{} : Bool}}
+  +c9 = {(%e0 : {Bool.or(Bool.not(U32.is_ne(U32.and(_, 4096), 0)), D.Term.is_var(v)) == True{} : Bool}; {==}) :
+    {Bool.or(Bool.not(D.Fl(M3, z, 4096)), D.Term.is_var(v)) == True{} : Bool}}
+  +c10 = {(%e2 : D.Is(ds, M3, im, fi, nx1, ks, img, _, v); hsk.bs1(True{}, ds, ks, img, M3, nx1, fi, im, os, yv, v, Nil{}, fs, sp, pend2, ps2, hsk)) :
+    D.Is(ds, M3, im, fi, nx1, ks, img, D.Fd(2n, M3, z), v)}
+  +c11 = {(%e0 : {Bool.or(U32.is_ne(U32.and(_, 4096), 0), Bool.or(D.Fl(M3, D.Fd(2n, M3, z), 1024), Bool.or(D.Nodes(os, M3, D.Fd(2n, M3, z)),
+        Bool.or(D.Mem(Nil{}, D.Fd(2n, M3, z)), D.Mem(D.Ag.vars(Nil{}, M3, D.Fd(1n, M3, z)), D.Fd(2n, M3, z)))))) == True{} : Bool};
+      %e2 : {Bool.or(D.Fl(M3, _, 1024), Bool.or(D.Nodes(os, M3, _), Bool.or(D.Mem(Nil{}, _), D.Mem(D.Ag.vars(Nil{}, M3, D.Fd(1n, M3, z)), _)))) == True{} : Bool};
+      or.ab0(D.Fl(M3, yv, 1024), D.Nodes(os, M3, yv), hh)) :
+    {Bool.or(D.Fl(M3, z, 4096), Bool.or(D.Fl(M3, D.Fd(2n, M3, z), 1024), Bool.or(D.Nodes(os, M3, D.Fd(2n, M3, z)),
+        Bool.or(D.Mem(Nil{}, D.Fd(2n, M3, z)), D.Mem(D.Ag.vars(Nil{}, M3, D.Fd(1n, M3, z)), D.Fd(2n, M3, z)))))) == True{} : Bool}}
+  +c12 = {(%e2 : {Bool.or(D.Fl(M3, _, 1024), Bool.not(D.Mem(ps2, _))) == True{} : Bool};
+      held.np(ds, ks, img, M3, nx1, fi, im, os, [D.Rt{yv, v}], fs, sp, pend2, ps2, yv, hsk, hh)) :
+    {Bool.or(D.Fl(M3, D.Fd(2n, M3, z), 1024), Bool.not(D.Mem(ps2, D.Fd(2n, M3, z)))) == True{} : Bool}}
+  +c13 = {(%e1 : {_ == 0 : U32}; {==}) : {D.Fd(1n, M3, z) == 0 : U32}}
+  (c1, (c2, (hown, (c4, (hmz, (c6, (c7, (c8, (c9, (c10, (c11, (c12, c13))))))))))))
