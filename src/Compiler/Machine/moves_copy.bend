@@ -784,3 +784,72 @@ def below.plugs(fs: List<&2, D.AF>, +t: Bk.Term, +n: Nat, h: {D.Term.below(D.A.p
       h
     case Con{+fr, rest}:
       below.plug(fr, t, n, below.plugs(rest, D.A.plug(fr, t), n, h))
+
+# M.copy of the let's body f with v put in
+# ----------------------------------------
+#
+# After M.one, z := field 3 of the let's cell (its body's cell c, borrowed:
+# a node of the focus' term); M.copy(n, z) with the locals' chain z of the
+# one argument v of Q0 (one.ag), the temporary z (Ag.cells: z, holding no
+# term, for its flag OWNED is off).
+
+# the borrowed cell of v gives way to the let's body's cell c: HS for M.copy
+def ul.hs(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +M: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +foc: U32, +q: Bk.Quan, +v: Bk.Term, +b: Bk.Term, +yv: U32, +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>,
+  h: D.HSK(True{}, ds, ks, img, M, nx, fi, im, [D.Rt{foc, Bk.Term.Let{q, v, b}}], [D.Rt{yv, v}], fs, sp, pend, ps)) ->
+  D.HS(ds, ks, img, M, nx, fi, im, [D.Rt{foc, Bk.Term.Let{q, v, b}}], [D.Rt{D.Fd(3n, M, foc), b}], fs, sp, pend, ps):
+  match h:
+    case Tuple{Tuple{+isf, _}, Tuple{_, Tuple{_, r}}}:
+      ((isf, Unit{}), ((U10.let.y(ds, ks, img, M, nx, fi, im, foc, q, v, b, isf), Unit{}), ((U10.let.n3(M, foc, q, v, b), Unit{}), r)))
+
+# the chain of one K.arg z with no flag OWNED, as temporaries: z, with no term
+def ul.ag1(+M: Cr.Cir.Cells, +z: U32, +q: Bk.Quan, +x: Bk.Term, h: {D.Fl(M, z, 4096) == False{} : Bool}) ->
+  {[D.TmpE{z, Nil{}}] == List.append(&2, D.TmpE, D.Ag.cells([El.Arg{q, x}], M, z), Nil{}) : List<&2, D.TmpE>}:
+  %Equal.sym(Bool, D.Fl(M, z, 4096), False{}, h) :
+    {[D.TmpE{z, Nil{}}] == List.append(&2, D.TmpE, [D.TmpE{z, Bool.pick(List<&2, D.Rt>, _, [D.Rt{D.Fd(2n, M, z), x}], Nil{})}], Nil{}) : List<&2, D.TmpE>}
+  {==}
+
+# the cell {41, 0, yv, 0, 0} has no flag OWNED
+def ul.fl41(+M: Cr.Cir.Cells, +z: U32, +yv: U32, e: {Cr.Cir.Cells.get(M, z) == Cr.Cir.Cell{41, 0, yv, 0, 0} : Cr.Cir.Cell}) ->
+  {D.Fl(M, z, 4096) == False{} : Bool}:
+  %Equal.sym(U32, D.Fd(0n, M, z), 41, ga.fd(M, z, Cr.Cir.Cell{41, 0, yv, 0, 0}, 0n, e)) : {U32.is_ne(U32.and(_, 4096), 0) == False{} : Bool}
+  {==}
+
+# one term below n
+def ul.below1(+q: Bk.Quan, +x: Bk.Term, +n: Nat, h: {D.Term.below(x, n) == True{} : Bool}) -> {D.Terms.below(D.Arg.terms([El.Arg{q, x}]), n) == True{} : Bool}:
+  %Equal.sym(Bool, D.Term.below(x, n), True{}, h) : {Bool.and(_, True{}) == True{} : Bool}
+  {==}
+
+# M.copy(n, z): copy.post and copy.done, from M.one's state with z := c
+def ul.cp(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m1: Cr.Cir.Cells,
+  +nx1: U32, +fi: U32, +im: U32, +pg1: U32, +lim: U32, +inp: List<&2, Word(8n)>, +foc: U32, +q: Bk.Quan, +v: Bk.Term, +b: Bk.Term,
+  +fs: List<&2, D.AF>, +sp: U32, +pend2: U32, +ps2: List<&2, U32>, +zs2: List<&2, D.Rt>, +z: U32, +yv: U32,
+  +hsk: D.HSK(True{}, ds, ks, img, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, [D.Rt{foc, Bk.Term.Let{q, v, b}}], [D.Rt{yv, v}], fs, sp, pend2, ps2),
+  +hac: D.AccK(True{}, ds, ks, img, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, [D.Rt{foc, Bk.Term.Let{q, v, b}}], [D.TmpE{z, Nil{}}], sp, fs, ps2, zs2),
+  +hown: {D.Own(fi, nx1, z) == True{} : Bool}, +hmz: {D.Mem(ps2, z) == False{} : Bool},
+  +hl: {List.length(&2, U32, regs) == 63n : Nat},
+  +h13: {List.get(&2, U32, regs, 13n) == Some{D.Fd(3n, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), foc)} : Maybe<&2, U32>},
+  +h3: {List.get(&2, U32, regs, 3n) == Some{pend2} : Maybe<&2, U32>}, +h36: {List.get(&2, U32, regs, 36n) == Some{z} : Maybe<&2, U32>},
+  +h37: {List.get(&2, U32, regs, 37n) == Some{1} : Maybe<&2, U32>},
+  +hv: {D.Term.below(v, U32.to_nat(2147483648)) == True{} : Bool}) ->
+  (@f: Nat -> D.PostB(False{}, Cr.Cir.exec(f, Mc.M.copy(Mc.R.n(), Mc.R.z()), Cr.Cir.State{regs, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, pg1, lim, inp, Nil{}, 0}),
+    st2 => D.CopyQ(ds, ks, img, regs, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, lim, inp, Mc.R.n(), [1n, 2n, 8n, 22n], [D.Rt{foc, Bk.Term.Let{q, v, b}}],
+      [D.Rt{D.Fd(3n, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), foc), b}], fs, sp, ps2, b, z, [El.Arg{Bk.Quan.Q0{}, v}], Nil{}, st2),
+    s => st2 => Empty,
+    D.Cells.bytes(fi, D.Copy.need(Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, [D.Rt{foc, Bk.Term.Let{q, v, b}}], Nil{}, sp, fs, z, [El.Arg{Bk.Quan.Q0{}, v}], b)), lim)) &
+  D.Ex(Nat, f => D.Ends(Cr.Cir.exec(f, Mc.M.copy(Mc.R.n(), Mc.R.z()), Cr.Cir.State{regs, Cr.Cir.Cells.set(m1, z, Cr.Cir.Cell{41, 0, yv, 0, 0}), nx1, fi, im, pg1, lim, inp, Nil{}, 0}))):
+  +XC = {Cr.Cir.Cell{41, 0, yv, 0, 0} : Cr.Cir.Cell}
+  +M3 = Cr.Cir.Cells.set(m1, z, XC)
+  +os = {[D.Rt{foc, Bk.Term.Let{q, v, b}}] : List<&2, D.Rt>}
+  +es = {[El.Arg{Bk.Quan.Q0{}, v}] : List<&2, El.Arg>}
+  +c = D.Fd(3n, M3, foc)
+  +hs = ul.hs(ds, ks, img, M3, nx1, fi, im, foc, q, v, b, yv, fs, sp, pend2, ps2, hsk)
+  +eag = ul.ag1(M3, z, Bk.Quan.Q0{}, v, ul.fl41(M3, z, yv, X.Ce.get_set(m1, z, XC)))
+  +hac2 = {(%eag : D.AccK(True{}, ds, ks, img, M3, nx1, fi, im, os, _, sp, fs, ps2, zs2); hac) :
+    D.AccK(True{}, ds, ks, img, M3, nx1, fi, im, os, List.append(&2, D.TmpE, D.Ag.cells(es, M3, z), Nil{}), sp, fs, ps2, zs2)}
+  +env = one.ag(ds, ks, img, m1, nx1, fi, im, os, fs, sp, pend2, ps2, z, yv, v, hsk, hown, hmz)
+  +hb = ul.below1(Bk.Quan.Q0{}, v, U32.to_nat(2147483648), hv)
+  (+f => K.copy.post(f, ds, ks, img, regs, M3, nx1, fi, im, pg1, lim, inp, False{}, [1n, 2n, 8n, 22n], os, Nil{}, fs, sp, pend2, ps2, c, b, z, es, Nil{}, zs2,
+      hs, hac2, hl, h13, h3, h36, h37, env, Unit{}, hb, {==}),
+    K.copy.done(ds, ks, img, regs, M3, nx1, fi, im, pg1, lim, inp, False{}, os, Nil{}, fs, sp, pend2, ps2, c, b, z, es, Nil{}, zs2,
+      hs, hac2, hl, h13, h3, h36, h37, env, Unit{}, hb))
