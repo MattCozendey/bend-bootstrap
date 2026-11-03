@@ -3503,7 +3503,76 @@ def acc.dec.pend(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8
   ht: {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool}) ->
   D.AccK(dk, ds, ks, img, X.X.put(X.X.put(m, 1n, c, d), 1n, c, pend), nx, fi, im, os, xs, sp, fs, Con{c, ps},
     Con{D.Rt{c, u}, zs}):
-  ?TODO
+  match hs hac:
+    case Tuple{Tuple{hcu, _}, Tuple{_, Tuple{_, Tuple{hf, _}}}} Tuple{hz, Tuple{hh, Tuple{he, Tuple{hc, Tuple{hcl, htok}}}}}:
+      +r = {D.Rt{c, u} : D.Rt}
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +cs = D.Tmp.cells(xs)
+      +hl = D.Tmp.held(xs)
+      +frt = D.Fr.rts(fs, m, sp)
+      +frc = D.Fr.cells(fs, m, sp)
+      +RS0 = List.append(&2, D.Rt, Con{r, os}, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, frt, zs)))
+      +XS1 = List.append(&2, U32, frc, List.append(&2, U32, cs, Con{c, ps}))
+      +htk = {htok : {D.Tmp.ok(xs, m, fi, nx, ps, RS0) == True{} : Bool}}
+      +ht2 = ht
+      +hc1 = cov.cell(n, m, fi, c, RS0, List.append(&2, U32, frc, List.append(&2, U32, cs, ps)), hc)
+      +hc2 = cov.mv(D.Cov(n, m, fi, RS0, Con{c, List.append(&2, U32, frc, List.append(&2, U32, cs, ps))}),
+        D.Cov(n, m, fi, RS0, List.append(&2, U32, frc, Con{c, List.append(&2, U32, cs, ps)})),
+        cov.perm.x(n, m, fi, RS0, Nil{}, [c], frc, List.append(&2, U32, cs, ps)), hc1)
+      +hc3 = cov.mv(D.Cov(n, m, fi, RS0, List.append(&2, U32, frc, Con{c, List.append(&2, U32, cs, ps)})), D.Cov(n, m, fi, RS0, XS1),
+        cov.perm.x(n, m, fi, RS0, frc, [c], cs, ps), hc2)
+      +W = List.append(&2, D.Rt, frt, zs)
+      +hr1 = cov.mv(D.Cov(n, m, fi, RS0, XS1), D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{r, List.append(&2, D.Rt, hl, W)}), XS1),
+        cov.perm(n, m, fi, Nil{}, [r], os, List.append(&2, D.Rt, hl, W), XS1), hc3)
+      +hr2 = cov.mv(D.Cov(n, m, fi, List.append(&2, D.Rt, os, Con{r, List.append(&2, D.Rt, hl, W)}), XS1),
+        D.Cov(n, m, fi, List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W})), XS1), cov.perm(n, m, fi, os, [r], hl, W, XS1), hr1)
+      +hr3 = cov.mv(D.Cov(n, m, fi, List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W})), XS1),
+        D.Cov(n, m, fi, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W}), XS1),
+        Equal.cong(List<&2, D.Rt>, Bool, L => D.Cov(n, m, fi, L, XS1), List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W})),
+          List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W}),
+          Equal.sym(List<&2, D.Rt>, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W}), List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W})),
+            app.assoc(os, hl, Con{r, W}))), hr2)
+      +hr4 = cov.mv(D.Cov(n, m, fi, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W}), XS1),
+        D.Cov(n, m, fi, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), List.append(&2, D.Rt, frt, Con{r, zs})), XS1),
+        cov.perm(n, m, fi, List.append(&2, D.Rt, os, hl), [r], frt, zs, XS1), hr3)
+      +hr5 = cov.mv(D.Cov(n, m, fi, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), List.append(&2, D.Rt, frt, Con{r, zs})), XS1),
+        D.Cov(n, m, fi, List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, frt, Con{r, zs}))), XS1),
+        Equal.cong(List<&2, D.Rt>, Bool, L => D.Cov(n, m, fi, L, XS1), List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), List.append(&2, D.Rt, frt, Con{r, zs})),
+          List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, frt, Con{r, zs}))),
+          app.assoc(os, hl, List.append(&2, D.Rt, frt, Con{r, zs}))), hr4)
+      +hcl2 = cov.mv(D.Clo(n, m, fi, ps, cs, D.Rt.cells(hl)), D.Clo(n, m, fi, Con{c, ps}, cs, D.Rt.cells(hl)),
+        Equal.sym(Bool, D.Clo(n, m, fi, Con{c, ps}, cs, D.Rt.cells(hl)), D.Clo(n, m, fi, ps, cs, D.Rt.cells(hl)), clo.pend(n, m, fi, ps, c, cs, D.Rt.cells(hl), ht2)),
+        hcl)
+      +P1 = {Con{c, ps} : List<&2, U32>}
+      +hcn = tmp.notnode(xs, m, fi, nx, ps, RS0, c, htk,
+        D.or.l(D.Node(u, m, c, c), D.Nodes(List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, W)), m, c), node.root(u, m, c, c, D.u32.refl(c))))
+      +ht0 = cov.mv(D.Tmp.ok(xs, m, fi, nx, ps, RS0), D.Tmp.ok(xs, m, fi, nx, P1, RS0),
+        Equal.sym(Bool, D.Tmp.ok(xs, m, fi, nx, P1, RS0), D.Tmp.ok(xs, m, fi, nx, ps, RS0), tmp.ok.pend(xs, m, fi, nx, ps, c, RS0, hcn)), htk)
+      +ht1 = cov.mv(D.Tmp.ok(xs, m, fi, nx, P1, RS0), D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, os, Con{r, List.append(&2, D.Rt, hl, W)})),
+        tmp.ok.perm(xs, m, fi, nx, P1, Nil{}, [r], os, List.append(&2, D.Rt, hl, W)), ht0)
+      +ht2b = cov.mv(D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, os, Con{r, List.append(&2, D.Rt, hl, W)})),
+        D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W}))), tmp.ok.perm(xs, m, fi, nx, P1, os, [r], hl, W), ht1)
+      +ht3 = cov.mv(D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W}))),
+        D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W})),
+        Equal.cong(List<&2, D.Rt>, Bool, L => D.Tmp.ok(xs, m, fi, nx, P1, L), List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W})),
+          List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W}),
+          Equal.sym(List<&2, D.Rt>, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W}), List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, Con{r, W})),
+            app.assoc(os, hl, Con{r, W}))), ht2b)
+      +ht4 = cov.mv(D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), Con{r, W})),
+        D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), List.append(&2, D.Rt, frt, Con{r, zs}))),
+        tmp.ok.perm(xs, m, fi, nx, P1, List.append(&2, D.Rt, os, hl), [r], frt, zs), ht3)
+      +ht5 = cov.mv(D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), List.append(&2, D.Rt, frt, Con{r, zs}))),
+        D.Tmp.ok(xs, m, fi, nx, P1, List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, frt, Con{r, zs})))),
+        Equal.cong(List<&2, D.Rt>, Bool, L => D.Tmp.ok(xs, m, fi, nx, P1, L), List.append(&2, D.Rt, List.append(&2, D.Rt, os, hl), List.append(&2, D.Rt, frt, Con{r, zs})),
+          List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, frt, Con{r, zs}))),
+          app.assoc(os, hl, List.append(&2, D.Rt, frt, Con{r, zs}))), ht4)
+      +pt = {(%Equal.sym(Bool, U32.is_lt(D.Tg(m, c), 19), True{}, ht2) :
+          {Con{c, D.Rt.cells(zs)} == Bool.pick(List<&2, U32>, _, Con{c, D.Pend.terms(ps, m)}, D.Pend.terms(ps, m)) : List<&2, U32>};
+        Equal.cong(List<&2, U32>, List<&2, U32>, l => Con{c, l}, D.Rt.cells(zs), D.Pend.terms(ps, m), he)) :
+        {D.Rt.cells(Con{r, zs}) == D.Pend.terms(Con{c, ps}, m) : List<&2, U32>}}
+      +acc1 = {((hcu, hz), (hh, (pt, (hr5, (hcl2, ht5))))) : D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Con{c, ps}, Con{r, zs})}
+      acc.f1(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Con{c, ps}, Con{r, zs}, [D.W1{c, pend}, D.W1{c, d}], acc1,
+        outs.two(D.Fr.cells(fs, m, sp), c, fr.out.lo(dk, ds, m, im, fi, nx, ks, img, ps, fs, sp, c, hf, lt.below32(D.Tg(m, c), ht2))))
 
 # a root whose cell is STATIC or keeps a pointer without it leaves the roots:
 # each of its nodes is still accounted for, through the cell that points to it
@@ -3540,7 +3609,30 @@ def acc.release(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n
   hm: {D.Mem(ps, z) == False{} : Bool},
   hfs: {D.Fs(m, ps, z) == Nil{} : List<&2, U32>}) ->
   D.AccK(dk, ds, ks, img, X.X.put(m, 1n, z, pend), nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs):
-  ?TODO
+  match hs hac:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{hf, Tuple{Tuple{_, Tuple{_, Tuple{_, Tuple{hpts, _}}}}, _}}}}} Tuple{hz, Tuple{hh, Tuple{he, Tuple{hc, Tuple{hcl, htok}}}}}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +cs = D.Tmp.cells(xs)
+      +hl = D.Tmp.held(xs)
+      +RS = List.append(&2, D.Rt, os, List.append(&2, D.Rt, hl, List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))
+      +frc = D.Fr.cells(fs, m, sp)
+      +hnt = nlt.below19(D.Tg(m, z), ht)
+      +hm2 = hm
+      +hfs2 = hfs
+      +htk = {htok : {D.Tmp.ok(Con{D.TmpE{z, Nil{}}, xs}, m, fi, nx, ps, RS) == True{} : Bool}}
+      +pt = {(%Equal.sym(Bool, U32.is_lt(D.Tg(m, z), 19), False{}, hnt) :
+          {D.Rt.cells(zs) == Bool.pick(List<&2, U32>, _, Con{z, D.Pend.terms(ps, m)}, D.Pend.terms(ps, m)) : List<&2, U32>}; he) :
+        {D.Rt.cells(zs) == D.Pend.terms(Con{z, ps}, m) : List<&2, U32>}}
+      +hc2 = cov.mv(D.Cov(n, m, fi, RS, List.append(&2, U32, frc, Con{z, List.append(&2, U32, cs, ps)})),
+        D.Cov(n, m, fi, RS, List.append(&2, U32, frc, List.append(&2, U32, cs, Con{z, ps}))), cov.perm.x(n, m, fi, RS, frc, [z], cs, ps), hc)
+      +hcl2 = clo.release(n, m, fi, ps, z, cs, D.Rt.cells(hl), im, fi, nx, hnt, hfs2, hpts, hcl)
+      +htok2 = cov.mv(D.Tmp.ok(xs, m, fi, nx, ps, RS), D.Tmp.ok(xs, m, fi, nx, Con{z, ps}, RS),
+        Equal.sym(Bool, D.Tmp.ok(xs, m, fi, nx, Con{z, ps}, RS), D.Tmp.ok(xs, m, fi, nx, ps, RS),
+          tmp.ok.pend(xs, m, fi, nx, ps, z, RS, tok.dist(z, Nil{}, xs, m, fi, nx, ps, RS, htk))),
+        tok.rest(z, Nil{}, xs, m, fi, nx, ps, RS, htk))
+      +acc1 = {(hz, (hh, (pt, (hc2, (hcl2, htok2))))) : D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs)}
+      acc.f1(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, Con{z, ps}, zs, [D.W1{z, pend}], acc1,
+        outs.one(D.Fr.cells(fs, m, sp), z, fr.out.nil(dk, ds, m, im, fi, nx, ks, img, ps, fs, sp, z, hf, hm2, hfs2)))
 
 # a store at z, the first temporary, which nothing points to (so no
 # temporary holds it: Tmp.ok), is not STATIC, is out of the pend list and
