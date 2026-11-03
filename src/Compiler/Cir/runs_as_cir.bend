@@ -17,6 +17,12 @@ import ./impl.bend as Cr
 import ../Machine/impl.bend as Mc
 import ../impl.bend as C
 import ./halt.bend as PH
+import ./simulation_host.bend as H
+
+# the module that Compiler.module.of makes of prog is Cir.module's, encoded
+def module.of(prog: Cr.Cir.Stmt, regs: Nat, cells: List<&2, Cr.Cir.Cell>) ->
+  {Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)) == C.Compiler.module.of(prog, regs, cells) : List<&2, Word(8n)>}:
+  {==}
 
 # A: a result of the machine's module, on any engine, is one that Cir gives
 # with the engine's pages: a grow that the engine refuses makes the module
@@ -46,7 +52,8 @@ def mach_wasm.result.all(
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
 ) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
-  ?TODO
+  %module.of(Mc.Mach.code(), Mc.Mach.regs(), cells) : &f:Nat -> {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+  H.mach.all(n, cells, i, m, o, small, e)
 
 # A: when Cir runs out of memory, so does the machine's module, on any
 # engine with the same pages
