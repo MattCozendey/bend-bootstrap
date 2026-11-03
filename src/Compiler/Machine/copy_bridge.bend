@@ -4986,6 +4986,249 @@ def al.all(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
         al.cells(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, fi, hcov, gc.cnt(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g), N.le_refl(U32.to_nat(fi)), hw0, hgt),
         lt.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, ps, fi, im, fi, nx, hpts))))
 
+
+# Pre's other facts
+# -----------------
+#
+# The copy's view: the cells it may not read are the garbage P and the frames
+# (E); its roots are the owned ones and the frames' terms, its temporaries the
+# move's, holding their terms; its kept cells the own cells of the machine's
+# own kinds out of the pend list (Kl); its bound the cells that Acc counts.
+
+# a cell of A ++ B is one of A or of B (the copy's Has)
+def has.app(A: List<&2, U32>, +B: List<&2, U32>, +x: U32) ->
+  {S.Has(List.append(&2, U32, A, B), x) == Bool.or(S.Has(A, x), S.Has(B, x)) : Bool}:
+  match A:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      %Equal.sym(Bool, S.Has(List.append(&2, U32, rest, B), x), Bool.or(S.Has(rest, x), S.Has(B, x)), has.app(rest, B, x)) :
+        {Bool.or(U32.is_eq(y, x), _) == Bool.or(Bool.or(U32.is_eq(y, x), S.Has(rest, x)), S.Has(B, x)) : Bool}
+      Equal.sym(Bool, Bool.or(Bool.or(U32.is_eq(y, x), S.Has(rest, x)), S.Has(B, x)),
+        Bool.or(U32.is_eq(y, x), Bool.or(S.Has(rest, x), S.Has(B, x))), AC.or.assoc(U32.is_eq(y, x), S.Has(rest, x), S.Has(B, x)))
+
+# the table's cells hold no STATIC flag
+def NoSt(cs: List<&2, Cr.Cir.Cell>) -> Bool:
+  match cs:
+    case Nil{}:
+      True{}
+    case Con{c, rest}:
+      Bool.and(U32.is_zero(U32.and(Cr.Cir.Cell.get(0n, c), 1024)), NoSt(rest))
+
+def tbl.nost() -> {NoSt(Mc.Img.table([])) == True{} : Bool}:
+  {==}
+
+def tbl.len() -> {Nat.add(U32.to_nat(272), List.length(&2, Cr.Cir.Cell, Mc.Img.table([]))) == 291n : Nat}:
+  {==}
+
+def tbl.st.b(b: Bool, +c: Cr.Cir.Cell, +rest: List<&2, Cr.Cir.Cell>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +at: U32, +x: U32,
+  +eb: {U32.is_eq(at, x) == b : Bool}, h: D.Tbl.go(Con{c, rest}, m, im, fi, nx, at), hcs: {NoSt(Con{c, rest}) == True{} : Bool},
+  +h1: N.Le(U32.to_nat(at), U32.to_nat(x)), +h2: N.Le(1n+U32.to_nat(x), Nat.add(U32.to_nat(at), 1n+List.length(&2, Cr.Cir.Cell, rest))),
+  ih: D.Tbl.go(rest, m, im, fi, nx, U32.inc(at)) -> {NoSt(rest) == True{} : Bool} -> N.Le(U32.to_nat(U32.inc(at)), U32.to_nat(x)) ->
+    N.Le(1n+U32.to_nat(x), Nat.add(U32.to_nat(U32.inc(at)), List.length(&2, Cr.Cir.Cell, rest))) -> {D.Fl(m, x, 1024) == False{} : Bool}) ->
+  {D.Fl(m, x, 1024) == False{} : Bool}:
+  match b:
+    case True{}:
+      (hc0, w1) = h
+      (hget, hrest) = w1
+      %D.u32.eq(at, x, eb) : {D.Fl(m, _, 1024) == False{} : Bool}
+      %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m, at), c, hget) : {U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0) == False{} : Bool}
+      %Equal.sym(Bool, U32.is_zero(U32.and(Cr.Cir.Cell.get(0n, c), 1024)), True{}, CK.Bo.and_l(U32.is_zero(U32.and(Cr.Cir.Cell.get(0n, c), 1024)), NoSt(rest), hcs)) :
+        {Bool.not(_) == False{} : Bool}
+      {==}
+    case False{}:
+      (hc0, w1) = h
+      (hget, hrest) = w1
+      ih(hrest, CK.Bo.and_r(U32.is_zero(U32.and(Cr.Cir.Cell.get(0n, c), 1024)), NoSt(rest), hcs), rng.lo(List.length(&2, Cr.Cir.Cell, rest), at, x, eb, h1),
+        rng.hi(List.length(&2, Cr.Cir.Cell, rest), at, x, eb, h1, h2))
+
+def tbl.st(cs: List<&2, Cr.Cir.Cell>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +at: U32, +x: U32, h: D.Tbl.go(cs, m, im, fi, nx, at),
+  hcs: {NoSt(cs) == True{} : Bool}, h1: N.Le(U32.to_nat(at), U32.to_nat(x)), h2: N.Le(1n+U32.to_nat(x), Nat.add(U32.to_nat(at), List.length(&2, Cr.Cir.Cell, cs)))) ->
+  {D.Fl(m, x, 1024) == False{} : Bool}:
+  match cs:
+    case Nil{}:
+      rng.none({D.Fl(m, x, 1024) == False{} : Bool}, at, x, h1, h2)
+    case Con{+c, +rest}:
+      tbl.st.b(U32.is_eq(at, x), c, rest, m, im, fi, nx, at, x, {==}, h, hcs, h1, h2,
+        a => b => d => e => tbl.st(rest, m, im, fi, nx, U32.inc(at), x, a, b, d, e))
+
+# a cell of the table is not STATIC
+def tbc.st(+m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +x: U32, h: D.Tbl(m, im, fi, nx), +ht: {S.Tbc(x) == True{} : Bool}) ->
+  {D.Fl(m, x, 1024) == False{} : Bool}:
+  tbl.st(Mc.Img.table([]), m, im, fi, nx, 272, x, h, tbl.nost(), CK.U.le(272, x, CK.Bo.and_l(U32.is_le(272, x), U32.is_le(x, 290), ht)),
+    N.le_rw_r(1n+U32.to_nat(x), 291n, Nat.add(U32.to_nat(272), List.length(&2, Cr.Cir.Cell, Mc.Img.table([]))), Equal.sym(Nat, Nat.add(U32.to_nat(272), List.length(&2, Cr.Cir.Cell, Mc.Img.table([]))), 291n, tbl.len()),
+      CK.U.le(x, 290, CK.Bo.and_r(U32.is_le(272, x), U32.is_le(x, 290), ht))))
+
+# a live node may be read: no garbage, no frame (its tag is below 19), no table cell
+def rx.at(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), +hK: {U32.is_le(290, im) == True{} : Bool}, +hKF: {U32.is_lt(im, fi) == True{} : Bool}, +x: U32, +v: Bk.Term,
+  +h: D.IsK(True{}, ds, m, im, fi, nx, ks, img, x, v), hl: {Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), x) == True{} : Bool}) -> {Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), x) == True{} : Bool}:
+  +h19 = {(%Equal.sym(U32, D.Tg(m, x), D.A.tag(v), isk.atag(v, True{}, ds, m, im, fi, nx, ks, img, x, h)) : {U32.is_lt(_, 19) == True{} : Bool}; atag.lt(v)) :
+    {U32.is_lt(D.Tg(m, x), 19) == True{} : Bool}}
+  +np = gb.not(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs)), x, CK.Bo.or_il(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), x), D.Mem(Yc(fs, m, sp, D.Tmp.cells(xs)), x), hl))
+  +nf = bool.case(D.Mem(D.Fr.cells(fs, m, sp), x), D.Mem(D.Fr.cells(fs, m, sp), x), {D.Mem(D.Fr.cells(fs, m, sp), x) == False{} : Bool}, {==},
+    e => CK.U.lt_ge(D.Tg(m, x), 32, {D.Mem(D.Fr.cells(fs, m, sp), x) == False{} : Bool}, CK.U.lt_le(D.Tg(m, x), 19, 32, h19, {==}),
+      frn.tag(ps, fi, nx, m, x, fr.nps(fs, True{}, ds, m, im, fi, nx, ks, img, ps, sp, x, gc.frs(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g), e))),
+    e => e)
+  +nfs = {(%mem.has(D.Fr.cells(fs, m, sp), x) : {_ == False{} : Bool}; nf) : {S.Has(D.Fr.cells(fs, m, sp), x) == False{} : Bool}}
+  +ntb = bool.case(S.Tbc(x), S.Tbc(x), {S.Tbc(x) == False{} : Bool}, {==},
+    +e => CK.Bo.tf({S.Tbc(x) == False{} : Bool}, Equal.trans(Bool, False{}, D.Fl(m, x, 1024), True{},
+      Equal.sym(Bool, D.Fl(m, x, 1024), False{}, tbc.st(m, im, fi, nx, x, gc.tbl(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g), e)),
+      or.drop(D.Own(fi, nx, x), D.Fl(m, x, 1024), isk.own(v, True{}, ds, m, im, fi, nx, ks, img, x, h),
+        bool.case(U32.is_le(fi, x), U32.is_le(fi, x), {D.Own(fi, nx, x) == False{} : Bool}, {==},
+          e2 => CK.U.lt_ge(x, fi, {D.Own(fi, nx, x) == False{} : Bool},
+            CK.U.le_lt(x, im, fi, CK.U.le_t(x, im, N.le_trans(U32.to_nat(x), U32.to_nat(290), U32.to_nat(im),
+              CK.U.le(x, 290, CK.Bo.and_r(U32.is_le(272, x), U32.is_le(x, 290), e)), CK.U.le(290, im, hK))), hKF), e2),
+          e2 => (%Equal.sym(Bool, U32.is_le(fi, x), False{}, e2) : {Bool.and(_, U32.is_lt(x, nx)) == False{} : Bool}; {==}))))),
+    e => e)
+  CK.Bo.and_i(Bool.not(S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), x)), Bool.not(S.Tbc(x)),
+    CK.Bo.not_i(S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), x), (%Equal.sym(Bool, S.Has(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), x), Bool.or(S.Has(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), x), S.Has(D.Fr.cells(fs, m, sp), x)), has.app(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp), x)) :
+      {_ == False{} : Bool}; or.ff(S.Has(Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), x), S.Has(D.Fr.cells(fs, m, sp), x), np, nfs))),
+    CK.Bo.not_i(S.Tbc(x), ntb))
+# every node of a term at r, live (Ln), may be read: Rx.all
+def rx.ln(t: Bk.Term, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32,
+  +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  +g: GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs), +hK: {U32.is_le(290, im) == True{} : Bool}, +hKF: {U32.is_lt(im, fi) == True{} : Bool},
+  +r: U32, +h: D.IsK(True{}, ds, m, im, fi, nx, ks, img, r, t), hln: {Ln(t, m, r, Lst(os, D.Tmp.held(xs), fs, m, sp)) == True{} : Bool}) ->
+  {Rx.all(t, m, r, List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+i}:
+      rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Var{i}, h, hln)
+    case Bk.Term.Ref{+k}:
+      rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Ref{k}, h, hln)
+    case Bk.Term.Ann{+y, +z}:
+      (+nd, w0) = h
+      (py, pz) = w0
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Ann{y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.Let{+q, +y, +z}:
+      (+nd, w0) = h
+      (hq, w2) = w0
+      (py, pz) = w2
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Let{q, y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.Typ{+y}:
+      (+nd, w0) = h
+      (sy, hy) = w0
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Typ{y}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hl2)),
+        rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, hp))
+    case Bk.Term.Min{+y, +z}:
+      (+nd, w0) = h
+      (py, pz) = w0
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Min{y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.All{+q, +y, +z}:
+      (+nd, w0) = h
+      (hq, w2) = w0
+      (py, pz) = w2
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.All{q, y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.Lam{+q, +y}:
+      (+nd, w0) = h
+      (hq, w2) = w0
+      (sy, hy) = w2
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Lam{q, y}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hl2)),
+        rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, hp))
+    case Bk.Term.App{+q, +y, +z}:
+      (+nd, w0) = h
+      (hq, w2) = w0
+      (py, pz) = w2
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.App{q, y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.Sig{+q, +y, +z}:
+      (+nd, w0) = h
+      (hq, w2) = w0
+      (py, pz) = w2
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Sig{q, y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.Tup{+q, +y, +z}:
+      (+nd, w0) = h
+      (hq, w2) = w0
+      (py, pz) = w2
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Tup{q, y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.Prj{+y}:
+      (+nd, w0) = h
+      (sy, hy) = w0
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Prj{y}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hl2)),
+        rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, hp))
+    case Bk.Term.Enu{+e}:
+      rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Enu{e}, h, hln)
+    case Bk.Term.Lab{+k}:
+      rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Lab{k}, h, hln)
+    case Bk.Term.Mat{+k, +y, +z}:
+      (+nd, w0) = h
+      (nm, w2) = w0
+      (py, pz) = w2
+      (sy, hy) = py
+      (sz, hz) = pz
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Mat{k, y, z}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(z, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp)), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(4n, m, r), hz, CK.Bo.and_r(Ln(y, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(z, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), hp))))
+    case Bk.Term.Efq{}:
+      rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Efq{}, h, hln)
+    case Bk.Term.Eql{+y, +z, +w}:
+      (+nd, w0) = h
+      (py, w2) = w0
+      (sy, hy) = py
+      (pz, pw) = w2
+      (sz, hz) = pz
+      (sw, hw) = pw
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Bool.and(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Eql{y, z, w}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Bool.and(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp)), CK.Bo.and_i(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_l(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp))), rx.ln(w, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(4n, m, r), hw, CK.Bo.and_r(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp))))))
+    case Bk.Term.Rfl{}:
+      rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Rfl{}, h, hln)
+    case Bk.Term.Rwt{+y, +z, +w}:
+      (+nd, w0) = h
+      (py, w2) = w0
+      (sy, hy) = py
+      (pz, pw) = w2
+      (sz, hz) = pz
+      (sw, hw) = pw
+      +hl2 = hln
+      +hp = CK.Bo.and_r(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)))), hl2)
+      CK.Bo.and_i(Rx(List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)), r), Bool.and(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Bool.and(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))))), rx.at(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, r, Bk.Term.Rwt{y, z, w}, h, CK.Bo.and_l(Lv0(m, Lst(os, D.Tmp.held(xs), fs, m, sp), r), Bool.and(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)))), hl2)),
+        CK.Bo.and_i(Rx.all(y, m, D.Fd(2n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Bool.and(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp)))), rx.ln(y, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(2n, m, r), hy, CK.Bo.and_l(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp)), CK.Bo.and_i(Rx.all(z, m, D.Fd(3n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), Rx.all(w, m, D.Fd(4n, m, r), List.append(&2, U32, Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, Lst(os, D.Tmp.held(xs), fs, m, sp), Yc(fs, m, sp, D.Tmp.cells(xs))), D.Fr.cells(fs, m, sp))), rx.ln(z, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(3n, m, r), hz, CK.Bo.and_l(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp))), rx.ln(w, ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs, g, hK, hKF, D.Fd(4n, m, r), hw, CK.Bo.and_r(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), CK.Bo.and_r(Ln(y, m, D.Fd(2n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Bool.and(Ln(z, m, D.Fd(3n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp)), Ln(w, m, D.Fd(4n, m, r), Lst(os, D.Tmp.held(xs), fs, m, sp))), hp))))))
+
+
 # The laws
 # --------
 
