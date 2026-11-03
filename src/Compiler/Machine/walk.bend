@@ -20,6 +20,7 @@ import ./definitions.bend as D
 import ./statement_runs.bend as X
 import ./data_walk.bend as DW
 import ./move_kit.bend as K
+import ../need_big.bend as N
 
 # Phases inside WP
 # ----------------
@@ -818,8 +819,54 @@ def WR(+regs: List<&2, U32>, +keep: List<&2, Nat>, +regs2: List<&2, U32>, +c: U3
   D.P2({List.get(&2, U32, regs2, 25n) == Some{U32.from_nat(n)} : Maybe<&2, U32>},
     {List.get(&2, U32, regs2, 3n) == Some{pend2} : Maybe<&2, U32>}))))))
 
+# each term of ts has at most n nodes
+def TS.le(ts: List<&2, Bk.Term>, +n: Nat) -> Data:
+  match ts:
+    case Nil{}:
+      Unit
+    case Con{t, rest}:
+      D.P2(N.Le(Pg.Term.size(t), n), TS.le(rest, n))
+
+def ts.le.mono(ts: List<&2, Bk.Term>, +n: Nat, +n2: Nat, h: TS.le(ts, n), +hn: N.Le(n, n2)) -> TS.le(ts, n2):
+  match ts:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      (h1, hr) = h
+      (N.le_trans(Pg.Term.size(t), n, n2, h1, hn), ts.le.mono(rest, n, n2, hr, hn))
+
+def ts.le.self(ts: List<&2, Bk.Term>) -> TS.le(ts, 1n+D.Terms.size(ts)):
+  match ts:
+    case Nil{}:
+      Unit{}
+    case Con{+t, +rest}:
+      (N.le_succ(Pg.Term.size(t), Nat.add(Pg.Term.size(t), D.Terms.size(rest)), N.le_add_r(Pg.Term.size(t), D.Terms.size(rest))),
+       ts.le.mono(rest, 1n+D.Terms.size(rest), 1n+Nat.add(Pg.Term.size(t), D.Terms.size(rest)), ts.le.self(rest),
+         N.le_add_l(Pg.Term.size(t), D.Terms.size(rest))))
+
+def mem.app.r(ys: List<&2, U32>, +zs: List<&2, U32>, +c: U32, h: {D.Mem(zs, c) == True{} : Bool}) ->
+  {D.Mem(List.append(&2, U32, ys, zs), c) == True{} : Bool}:
+  match ys:
+    case Nil{}:
+      h
+    case Con{+y, +rest}:
+      D.or.r(U32.is_eq(y, c), D.Mem(List.append(&2, U32, rest, zs), c), mem.app.r(rest, zs, c, h))
+
+def allin.app.r(xs: List<&2, U32>, +ys: List<&2, U32>, +zs: List<&2, U32>, +h: {D.AllIn(xs, zs) == True{} : Bool}) ->
+  {D.AllIn(xs, List.append(&2, U32, ys, zs)) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+x, +rest}:
+      D.and.i(D.Mem(List.append(&2, U32, ys, zs), x), D.AllIn(rest, List.append(&2, U32, ys, zs)),
+        mem.app.r(ys, zs, x, D.and.l(D.Mem(zs, x), D.AllIn(rest, zs), h)),
+        allin.app.r(rest, ys, zs, D.and.r(D.Mem(zs, x), D.AllIn(rest, zs), h)))
+
 # the heap: HS with the subtree first among the borrowed terms, the chains,
-# what the walk keeps, and Acc with the chains among the temporaries
+# what the walk keeps, Acc with the chains among the temporaries, the
+# chains' cells below nx of ps ++ es or term cells (as the walk took them),
+# the budget's measure (Acc.need, and two cells a node of the tree left) and
+# the nodes of the chains' terms (at most 1 + those of xs)
 def WH(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells, +nx: U32,
   +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +fs: List<&2, D.AF>, +sp: U32, +ps: List<&2, U32>,
   +tc: U32, +tt: Bk.Term, +a: U32, +xs: List<&2, El.Arg>, +xs0: List<&2, D.TmpE>, +m2: Cr.Cir.Cells, +nx2: U32,
@@ -829,8 +876,14 @@ def WH(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, 
   D.P2(D.Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, Nil{}, env, e),
   D.P2(D.Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, D.Ag.vars(e, m2, env), args, ys),
   D.P2(D.Kept.cells(m, nx, fi, ps, D.Tmp.cells(D.Ag.cells(xs, m, a)), m2, nx2, ps2),
-    D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m2, nx2, fi, im, os,
-      List.append(&2, D.TmpE, D.Ag.cells(e, m2, env), List.append(&2, D.TmpE, D.Ag.cells(ys, m2, args), xs0)), sp, fs, ps2, zs2))))))
+  D.P2(D.Ex(List<&2, D.Rt>, zs2 => D.AccK(True{}, ds, ks, img, m2, nx2, fi, im, os,
+      List.append(&2, D.TmpE, D.Ag.cells(e, m2, env), List.append(&2, D.TmpE, D.Ag.cells(ys, m2, args), xs0)), sp, fs, ps2, zs2)),
+  D.P2({D.PsSub.lt(D.Tmp.cells(List.append(&2, D.TmpE, D.Ag.cells(e, m2, env), D.Ag.cells(ys, m2, args))),
+      List.append(&2, U32, ps, D.Tmp.cells(D.Ag.cells(xs, m, a))), m, nx) == True{} : Bool},
+  D.P2(N.Le(Nat.add(D.Acc.need(m2, nx2, fi, os,
+      List.append(&2, D.TmpE, D.Ag.cells(e, m2, env), List.append(&2, D.TmpE, D.Ag.cells(ys, m2, args), xs0)), sp, fs), Nat.mul(2n, Pg.Term.size(s))),
+    Nat.add(D.Acc.need(m, nx, fi, os, List.append(&2, D.TmpE, D.Ag.cells(xs, m, a), xs0), sp, fs), Nat.mul(2n, Pg.Term.size(tt)))),
+    TS.le(List.append(&2, Bk.Term, D.Arg.terms(e), D.Arg.terms(ys)), 1n+D.Terms.size(D.Arg.terms(xs))))))))))
 
 # a round's start
 def WS(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>, +m: Cr.Cir.Cells,
@@ -1095,7 +1148,8 @@ def ex.one(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
   (+hs, h1) = hh
   (hge, h2) = h1
   (hga, h3) = h2
-  (hkc, hac) = h3
+  (hkc, h4) = h3
+  (hac, _) = h4
   ex.q(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, 1, regs2, m2, nx2, pg2, c, env,
     List.length(&2, El.Arg, e), args, pend2, ps2, hw, hk, hkc,
     hs.tail(ds, ks, img, m2, nx2, fi, im, os, D.Rt{c, s}, Con{D.Rt{tc, tt}, bs}, fs, sp, pend2, ps2, hs),
@@ -1116,7 +1170,8 @@ def ex.two(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<
   (hs, h1) = hh
   (hge, h2) = h1
   (hga, h3) = h2
-  (hkc, hac) = h3
+  (hkc, h4) = h3
+  (hac, _) = h4
   ex.q(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, 2, regs2, m2, nx2, pg2, c, env,
     List.length(&2, El.Arg, e), args, pend2, ps2, hw, hk, hkc,
     hs.tail(ds, ks, img, m2, nx2, fi, im, os, D.Rt{c, s}, Con{D.Rt{tc, tt}, bs}, fs, sp, pend2, ps2, hs),
@@ -3218,6 +3273,105 @@ def ag.fz(xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U3
         (%Equal.sym(U32, D.Fd(1n, m2, a), f1, e1) : D.Ag(ds, m2, im, fi, nx, ks, img, ps, os, vs, _, rest);
          ag.fz(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, f1, z, xc, tbl, hz0, hzs, hro, ho, hr, h12))))))))))))))
 
+# What the walk keeps under a store
+# ---------------------------------
+#
+# A store at z keeps Kept.cells when z, below the start's nx, is one of ps ++
+# es or a term cell of the start's cells (as PsSub.lt says of a pend list):
+# Kept.go's cells are below nx.
+
+def u.lt.t.of(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), h: N.Le(1n+x, y)) -> {Cmp.is_lt(c) == True{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_rw_l(1n+x, 1n+y, y, Equal.cong(Nat, Nat, z => 1n+z, x, y, r), h)))
+    case GT{}:
+      Empty.absurd({False{} == True{} : Bool}, N.not_succ_le(y, N.le_trans(1n+y, x, y, r, N.weaken(x, y, h))))
+
+def u.lt.t(+a: U32, +b: U32, h: N.Le(1n+U32.to_nat(a), U32.to_nat(b))) -> {U32.is_lt(a, b) == True{} : Bool}:
+  u.lt.t.of(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), h)
+
+def sub.z(a: Nat, b: Nat, h: {Nat.is_le(a, b) == False{} : Bool}) -> {Nat.sub(b, a) == 0n : Nat}:
+  match a b:
+    case 0n 0n:
+      DW.ft({Nat.sub(0n, 0n) == 0n : Nat}, h)
+    case 0n 1n+q:
+      DW.ft({Nat.sub(1n+q, 0n) == 0n : Nat}, h)
+    case 1n+p 0n:
+      {==}
+    case 1n+p 1n+q:
+      sub.z(p, q, h)
+
+def kne.lt(b: Bool, +L: List<&2, U32>, +m: Cr.Cir.Cells, +c: U32, +nx: U32, +z: U32, eb: {U32.is_eq(c, z) == b : Bool},
+  eo: {Bool.or(D.Mem(L, c), U32.is_lt(D.Tg(m, c), 19)) == False{} : Bool}, hc: {U32.is_lt(c, nx) == True{} : Bool},
+  hz: {Bool.or(Bool.not(U32.is_lt(z, nx)), Bool.or(D.Mem(L, z), U32.is_lt(D.Tg(m, z), 19))) == True{} : Bool}) ->
+  {U32.is_eq(c, z) == False{} : Bool}:
+  match b:
+    case False{}:
+      eb
+    case True{}:
+      DW.ft({U32.is_eq(c, z) == False{} : Bool},
+        Equal.trans(Bool, True{}, Bool.or(Bool.not(U32.is_lt(c, nx)), Bool.or(D.Mem(L, c), U32.is_lt(D.Tg(m, c), 19))), False{},
+          Equal.sym(Bool, Bool.or(Bool.not(U32.is_lt(c, nx)), Bool.or(D.Mem(L, c), U32.is_lt(D.Tg(m, c), 19))), True{},
+            (%Equal.sym(U32, c, z, D.u32.eq(c, z, eb)) :
+               {Bool.or(Bool.not(U32.is_lt(_, nx)), Bool.or(D.Mem(L, _), U32.is_lt(D.Tg(m, _), 19))) == True{} : Bool}; hz)),
+          (%Equal.sym(Bool, U32.is_lt(c, nx), True{}, hc) :
+             {Bool.or(Bool.not(_), Bool.or(D.Mem(L, c), U32.is_lt(D.Tg(m, c), 19))) == False{} : Bool}; eo)))
+
+def kat.fz(b: Bool, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +L: List<&2, U32>, +c: U32, +nx: U32, +z: U32, +xc: Cr.Cir.Cell,
+  eb: {Bool.or(D.Mem(L, c), U32.is_lt(D.Tg(m, c), 19)) == b : Bool}, hc: {U32.is_lt(c, nx) == True{} : Bool},
+  hz: {Bool.or(Bool.not(U32.is_lt(z, nx)), Bool.or(D.Mem(L, z), U32.is_lt(D.Tg(m, z), 19))) == True{} : Bool},
+  h: D.Kept.if(b, {Cr.Cir.Cells.get(m2, c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell})) ->
+  D.Kept.if(b, {Cr.Cir.Cells.get(Cr.Cir.Cells.set(m2, z, xc), c) == Cr.Cir.Cells.get(m, c) : Cr.Cir.Cell}):
+  match b:
+    case True{}:
+      Unit{}
+    case False{}:
+      Equal.trans(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m2, z, xc), c), Cr.Cir.Cells.get(m2, c), Cr.Cir.Cells.get(m, c),
+        D.cl.go(m2, c, z, xc, kne.lt(U32.is_eq(c, z), L, m, c, nx, z, {==}, eb, hc, hz)), h)
+
+def kg.fz(k: Nat, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +L: List<&2, U32>, +c: U32, +nx: U32, +z: U32, +xc: Cr.Cir.Cell,
+  hb: N.Le(Nat.add(U32.to_nat(c), k), U32.to_nat(nx)),
+  +hz: {Bool.or(Bool.not(U32.is_lt(z, nx)), Bool.or(D.Mem(L, z), U32.is_lt(D.Tg(m, z), 19))) == True{} : Bool},
+  h: D.Kept.go(k, m, m2, L, c)) -> D.Kept.go(k, m, Cr.Cir.Cells.set(m2, z, xc), L, c):
+  match k:
+    case 0n:
+      Unit{}
+    case 1n+(+p):
+      (h1, hr) = h
+      +tc = U32.to_nat(c)
+      +hb2 = {N.le_rw_l(Nat.add(tc, 1n+p), 1n+Nat.add(tc, p), U32.to_nat(nx), N.add_succ_r(tc, p), hb) : N.Le(1n+Nat.add(tc, p), U32.to_nat(nx))}
+      +h1c = N.le_trans(1n+tc, 1n+Nat.add(tc, p), U32.to_nat(nx), N.le_add_r(tc, p), hb2)
+      +ei = D.u.inc(c, nx, h1c)
+      (kat.fz(Bool.or(D.Mem(L, c), U32.is_lt(D.Tg(m, c), 19)), m, m2, L, c, nx, z, xc, {==}, u.lt.t(c, nx, h1c), hz, h1),
+       kg.fz(p, m, m2, L, U32.inc(c), nx, z, xc,
+         (%Equal.sym(Nat, U32.to_nat(U32.inc(c)), 1n+tc, ei) : N.Le(Nat.add(_, p), U32.to_nat(nx)); hb2), hz, hr))
+
+def kc.go(bl: Bool, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +m2: Cr.Cir.Cells, +L: List<&2, U32>, +z: U32, +xc: Cr.Cir.Cell,
+  ebl: {Nat.is_le(U32.to_nat(fi), U32.to_nat(nx)) == bl : Bool},
+  hz: {Bool.or(Bool.not(U32.is_lt(z, nx)), Bool.or(D.Mem(L, z), U32.is_lt(D.Tg(m, z), 19))) == True{} : Bool},
+  h: D.Kept.go(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, m2, L, fi)) ->
+  D.Kept.go(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, Cr.Cir.Cells.set(m2, z, xc), L, fi):
+  match bl:
+    case True{}:
+      kg.fz(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, m2, L, fi, nx, z, xc,
+        (%Equal.sym(Nat, Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx), U32.to_nat(fi))), U32.to_nat(nx),
+            D.add.sub(U32.to_nat(fi), U32.to_nat(nx), N.toT(Nat.is_le(U32.to_nat(fi), U32.to_nat(nx)), ebl))) :
+          N.Le(_, U32.to_nat(nx)); N.le_refl(U32.to_nat(nx))), hz, h)
+    case False{}:
+      (%Equal.sym(Nat, Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), 0n, sub.z(U32.to_nat(fi), U32.to_nat(nx), ebl)) :
+         D.Kept.go(_, m, Cr.Cir.Cells.set(m2, z, xc), L, fi); Unit{})
+
+# Kept.cells after a store at z
+def kc.fz(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +es: List<&2, U32>, +m2: Cr.Cir.Cells, +nx2: U32,
+  +ps2: List<&2, U32>, +z: U32, +xc: Cr.Cir.Cell,
+  hz: {Bool.or(Bool.not(U32.is_lt(z, nx)), Bool.or(D.Mem(List.append(&2, U32, ps, es), z), U32.is_lt(D.Tg(m, z), 19))) == True{} : Bool},
+  h: D.Kept.cells(m, nx, fi, ps, es, m2, nx2, ps2)) -> D.Kept.cells(m, nx, fi, ps, es, Cr.Cir.Cells.set(m2, z, xc), nx2, ps2):
+  (h1, h2) = h
+  (hg, h3) = h2
+  (h1, (kc.go(Nat.is_le(U32.to_nat(fi), U32.to_nat(nx)), m, nx, fi, m2, List.append(&2, U32, ps, es), z, xc, {==}, hz, hg), h3))
+
 # The walk
 # --------
 #
@@ -3355,7 +3509,11 @@ def walk.wp(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +
   +g3 = X.L.go(r2, 26n, 3n, 0, pend, {==}, X.L.go(r1, 25n, 3n, 0, pend, {==}, X.L.go(regs, 20n, 3n, 0, pend, {==}, hp)))
   +ws = {((l3, (k3, (g19, (g20, (g21, (g25, g3)))))), (g26, ({==}, (hst,
       (hs.dup(ds, ks, img, m, nx, fi, im, os, D.Rt{tc, tt}, bs, fs, sp, pend, ps, hs), ({==}, (args,
-        (kc.refl(m, nx, fi, ps, D.Tmp.cells(D.Ag.cells(xs, m, a))), (zs, hac))))))))) :
+        (kc.refl(m, nx, fi, ps, D.Tmp.cells(D.Ag.cells(xs, m, a))), ((zs, hac),
+        (pssub.in(D.Tmp.cells(D.Ag.cells(xs, m, a)), List.append(&2, U32, ps, D.Tmp.cells(D.Ag.cells(xs, m, a))), m, nx,
+           allin.app.r(D.Tmp.cells(D.Ag.cells(xs, m, a)), ps, D.Tmp.cells(D.Ag.cells(xs, m, a)), D.allin.refl(D.Tmp.cells(D.Ag.cells(xs, m, a))))),
+        (N.le_refl(Nat.add(D.Acc.need(m, nx, fi, os, List.append(&2, D.TmpE, D.Ag.cells(xs, m, a), xs0), sp, fs), Nat.mul(2n, Pg.Term.size(tt)))),
+          ts.le.self(D.Arg.terms(xs))))))))))))) :
     WS(ds, ks, img, regs, m, nx, fi, im, keep, os, bs, fs, sp, ps, tc, tt, a, xs, xs0, r3, m, nx, tc, tt, 0, Nil{}, a, xs, pend, ps)}
   wp.set.k(f, 20n, 0, regs, m, nx, fi, im, pg, lim, inp, t => DW.WP(W.t1(), f, t, st2 => D.WalkQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, Con{D.Rt{tc, tt}, bs}, fs, sp, ps, tt, a, xs, xs0, st2), B, lim), B, hl, {==},
     wp.set.k(f, 25n, 0, r1, m, nx, fi, im, pg, lim, inp, t => DW.WP(W.t2(), f, t, st2 => D.WalkQ(ds, ks, img, regs, m, nx, fi, im, lim, inp, keep, os, Con{D.Rt{tc, tt}, bs}, fs, sp, ps, tt, a, xs, xs0, st2), B, lim), B, l1, {==},
