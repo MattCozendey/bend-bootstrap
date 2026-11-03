@@ -3815,6 +3815,124 @@ def mem.f.cons(+ca: U32, +rest: List<&2, D.TmpE>, +c: U32, +he: {U32.is_eq(ca, c
   +hr: {D.Mem(D.Tmp.cells(rest), c) == False{} : Bool}) -> {D.Mem(Con{ca, D.Tmp.cells(rest)}, c) == False{} : Bool}:
   or.ff(U32.is_eq(ca, c), D.Mem(D.Tmp.cells(rest), c), he, hr)
 
+# The single temporary moved to the front (U7)
+# -------------------------------------------
+# mat.lab releases the first cell of the arguments' chain, which sits after the
+# environment's cells: AccK's temporaries go from X ++ [z] ++ C to [z] ++ X ++ C.
+# AccK's other facts are sets (Cov and Clo read Mem), and the terms that the
+# temporaries hold do not change (the moved one, a Lab's argument, holds none),
+# so only Tmp.ok needs the move: (a) dropping z shrinks every remaining tail,
+# (b) z's own facts come out of the list, (c) z is in no cell before it.
+
+# A ++ B ++ C, with A's, B's and C's
+def tmp.app.assoc(A: List<&2, D.TmpE>, +B: List<&2, D.TmpE>, +C: List<&2, D.TmpE>) ->
+  {List.append(&2, D.TmpE, List.append(&2, D.TmpE, A, B), C) == List.append(&2, D.TmpE, A, List.append(&2, D.TmpE, B, C)) : List<&2, D.TmpE>}:
+  match A:
+    case Nil{}:
+      {==}
+    case Con{D.TmpE{c, h}, +rest}:
+      %tmp.app.assoc(rest, B, C) : {Con{D.TmpE{c, h}, List.append(&2, D.TmpE, List.append(&2, D.TmpE, rest, B), C)} == Con{D.TmpE{c, h}, _} : List<&2, D.TmpE>}
+      {==}
+
+# a cell of a suffix is a cell of the suffix with a temporary put first
+def mem.ins(+p: U32, +fr: List<&2, U32>, +L: List<&2, U32>, +x: U32,
+  h: {D.Mem(List.append(&2, U32, fr, L), x) == True{} : Bool}) ->
+  {D.Mem(List.append(&2, U32, fr, Con{p, L}), x) == True{} : Bool}:
+  D.or.cases(D.Mem(fr, x), D.Mem(L, x), {D.Mem(List.append(&2, U32, fr, Con{p, L}), x) == True{} : Bool}, AC.mem.split(fr, L, x, h),
+    e => AC.mem.inl(fr, Con{p, L}, x, e),
+    e => AC.mem.inr(fr, Con{p, L}, x, D.or.r(U32.is_eq(p, x), D.Mem(L, x), e)))
+
+# and a cell that a suffix with a temporary put first does not hold is no cell of the suffix
+def mem.ins.f(+p: U32, +fr: List<&2, U32>, +L: List<&2, U32>, +x: U32,
+  h: {D.Mem(List.append(&2, U32, fr, Con{p, L}), x) == False{} : Bool}) ->
+  {D.Mem(List.append(&2, U32, fr, L), x) == False{} : Bool}:
+  AC.bool.mt(D.Mem(List.append(&2, U32, fr, L), x), D.Mem(List.append(&2, U32, fr, Con{p, L}), x),
+    e => mem.ins(p, fr, L, x, e), h)
+
+# Tmp.ok of a list with a temporary dropped: every other tail only shrinks
+def tmp.ok.del.z(X: List<&2, D.TmpE>, +z: U32, +C: List<&2, D.TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32,
+  +ps: List<&2, U32>, +rs: List<&2, D.Rt>,
+  +h: {D.Tmp.ok(List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C}), m, fi, nx, ps, rs) == True{} : Bool}) ->
+  {D.Tmp.ok(List.append(&2, D.TmpE, X, C), m, fi, nx, ps, rs) == True{} : Bool}:
+  match X:
+    case Nil{}:
+      AC.tok.rest(z, Nil{}, C, m, fi, nx, ps, rs, h)
+    case Con{D.TmpE{+c, +hc}, +rest}:
+      +tail = List.append(&2, D.TmpE, rest, Con{D.TmpE{z, Nil{}}, C})
+      +ih = tmp.ok.del.z(rest, z, C, m, fi, nx, ps, rs, AC.tok.rest(c, hc, tail, m, fi, nx, ps, rs, h))
+      +hd = {(%tmp.cells.app(rest, Con{D.TmpE{z, Nil{}}, C}) : {D.Mem(_, c) == False{} : Bool};
+          AC.tok.dist(c, hc, tail, m, fi, nx, ps, rs, h)) :
+        {D.Mem(List.append(&2, U32, D.Tmp.cells(rest), Con{z, D.Tmp.cells(C)}), c) == False{} : Bool}}
+      +p3 = {(%Equal.sym(List<&2, U32>, D.Tmp.cells(List.append(&2, D.TmpE, rest, C)), List.append(&2, U32, D.Tmp.cells(rest), D.Tmp.cells(C)), tmp.cells.app(rest, C)) :
+          {D.Mem(_, c) == False{} : Bool};
+        mem.ins.f(z, D.Tmp.cells(rest), D.Tmp.cells(C), c, hd)) :
+        {D.Mem(D.Tmp.cells(List.append(&2, D.TmpE, rest, C)), c) == False{} : Bool}}
+      AC.tok.mk(c, hc, List.append(&2, D.TmpE, rest, C), m, fi, nx, ps, rs,
+        AC.tok.own(c, hc, tail, m, fi, nx, ps, rs, h),
+        AC.tok.fl(c, hc, tail, m, fi, nx, ps, rs, h),
+        AC.tok.ps(c, hc, tail, m, fi, nx, ps, rs, h),
+        p3,
+        AC.tok.nd(c, hc, tail, m, fi, nx, ps, rs, h),
+        AC.tok.fs(c, hc, tail, m, fi, nx, ps, rs, h),
+        ih)
+
+# Tmp.ok of the entry z, out of the list before it
+def tmp.ok.at.z(X: List<&2, D.TmpE>, +z: U32, +C: List<&2, D.TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32,
+  +ps: List<&2, U32>, +rs: List<&2, D.Rt>,
+  +h: {D.Tmp.ok(List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C}), m, fi, nx, ps, rs) == True{} : Bool}) ->
+  {D.Tmp.ok(Con{D.TmpE{z, Nil{}}, C}, m, fi, nx, ps, rs) == True{} : Bool}:
+  match X:
+    case Nil{}:
+      h
+    case Con{D.TmpE{+c, +hc}, +rest}:
+      tmp.ok.at.z(rest, z, C, m, fi, nx, ps, rs,
+        AC.tok.rest(c, hc, List.append(&2, D.TmpE, rest, Con{D.TmpE{z, Nil{}}, C}), m, fi, nx, ps, rs, h))
+
+# the moved temporary is in no cell before it: the entries before it exclude their tails
+def tmp.ok.notmem(X: List<&2, D.TmpE>, +z: U32, +C: List<&2, D.TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32,
+  +ps: List<&2, U32>, +rs: List<&2, D.Rt>,
+  +h: {D.Tmp.ok(List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C}), m, fi, nx, ps, rs) == True{} : Bool}) ->
+  {D.Mem(D.Tmp.cells(X), z) == False{} : Bool}:
+  match X:
+    case Nil{}:
+      {==}
+    case Con{D.TmpE{+c, +hc}, +rest}:
+      +tail = List.append(&2, D.TmpE, rest, Con{D.TmpE{z, Nil{}}, C})
+      +hd = {(%tmp.cells.app(rest, Con{D.TmpE{z, Nil{}}, C}) : {D.Mem(_, c) == False{} : Bool};
+          AC.tok.dist(c, hc, tail, m, fi, nx, ps, rs, h)) :
+        {D.Mem(List.append(&2, U32, D.Tmp.cells(rest), Con{z, D.Tmp.cells(C)}), c) == False{} : Bool}}
+      +h2 = {(%AC.mem.app(D.Tmp.cells(rest), Con{z, D.Tmp.cells(C)}, c) : {_ == False{} : Bool}; hd) :
+        {Bool.or(D.Mem(D.Tmp.cells(rest), c), D.Mem(Con{z, D.Tmp.cells(C)}, c)) == False{} : Bool}}
+      +hz = D.or.f.l(U32.is_eq(z, c), D.Mem(D.Tmp.cells(C), c),
+        D.or.f.r(D.Mem(D.Tmp.cells(rest), c), D.Mem(Con{z, D.Tmp.cells(C)}, c), h2))
+      or.ff(U32.is_eq(c, z), D.Mem(D.Tmp.cells(rest), z), D.ne.sym(z, c, hz),
+        tmp.ok.notmem(rest, z, C, m, fi, nx, ps, rs, AC.tok.rest(c, hc, tail, m, fi, nx, ps, rs, h)))
+
+# Tmp.ok with the single temporary z moved to the front
+def tmp.ok.move(+z: U32, +X: List<&2, D.TmpE>, +C: List<&2, D.TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32,
+  +ps: List<&2, U32>, +rs: List<&2, D.Rt>,
+  +h: {D.Tmp.ok(List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C}), m, fi, nx, ps, rs) == True{} : Bool}) ->
+  {D.Tmp.ok(Con{D.TmpE{z, Nil{}}, List.append(&2, D.TmpE, X, C)}, m, fi, nx, ps, rs) == True{} : Bool}:
+  +hz = tmp.ok.at.z(X, z, C, m, fi, nx, ps, rs, h)
+  +ht = tmp.ok.del.z(X, z, C, m, fi, nx, ps, rs, h)
+  +hn = tmp.ok.notmem(X, z, C, m, fi, nx, ps, rs, h)
+  +hzc = AC.tok.dist(z, Nil{}, C, m, fi, nx, ps, rs, hz)
+  +p3 = {(%Equal.sym(Bool, D.Mem(List.append(&2, U32, D.Tmp.cells(X), D.Tmp.cells(C)), z),
+        Bool.or(D.Mem(D.Tmp.cells(X), z), D.Mem(D.Tmp.cells(C), z)), AC.mem.app(D.Tmp.cells(X), D.Tmp.cells(C), z)) :
+      {_ == False{} : Bool};
+      or.ff(D.Mem(D.Tmp.cells(X), z), D.Mem(D.Tmp.cells(C), z), hn, hzc)) :
+    {D.Mem(List.append(&2, U32, D.Tmp.cells(X), D.Tmp.cells(C)), z) == False{} : Bool}}
+  AC.tok.mk(z, Nil{}, List.append(&2, D.TmpE, X, C), m, fi, nx, ps, rs,
+    AC.tok.own(z, Nil{}, C, m, fi, nx, ps, rs, hz),
+    AC.tok.fl(z, Nil{}, C, m, fi, nx, ps, rs, hz),
+    AC.tok.ps(z, Nil{}, C, m, fi, nx, ps, rs, hz),
+    (%Equal.sym(List<&2, U32>, D.Tmp.cells(List.append(&2, D.TmpE, X, C)), List.append(&2, U32, D.Tmp.cells(X), D.Tmp.cells(C)), tmp.cells.app(X, C)) :
+      {D.Mem(_, z) == False{} : Bool};
+      p3),
+    AC.tok.nd(z, Nil{}, C, m, fi, nx, ps, rs, hz),
+    AC.tok.fs(z, Nil{}, C, m, fi, nx, ps, rs, hz),
+    ht)
+
 # The premises walk.post and walk.done of move_kit.bend (U7; U0 left them as ?TODO)
 # ------------------------------------------------------------------------------
 
