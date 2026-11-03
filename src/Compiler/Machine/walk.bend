@@ -3933,6 +3933,121 @@ def tmp.ok.move(+z: U32, +X: List<&2, D.TmpE>, +C: List<&2, D.TmpE>, +m: Cr.Cir.
     AC.tok.fs(z, Nil{}, C, m, fi, nx, ps, rs, hz),
     ht)
 
+# AccK under one temporary moved to the front (U7)
+# ------------------------------------------------
+# WH's AccK holds the chains' cells in order, and mat.lab releases the head of
+# the arguments' chain, which is not first when the environment's chain is not
+# empty; acc.release needs it first. AccK's facts are about sets, except this
+# order: Cov and Clo read Mem of the cells, RtsK and Tmp.ok read the terms that
+# the temporaries hold (the Lab argument holds none).
+
+# (A ++ B) ++ C is A ++ (B ++ C), for the cells' lists
+def app.assoc.u(A: List<&2, U32>, +B: List<&2, U32>, +C: List<&2, U32>) ->
+  {List.append(&2, U32, List.append(&2, U32, A, B), C) == List.append(&2, U32, A, List.append(&2, U32, B, C)) : List<&2, U32>}:
+  match A:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      %app.assoc.u(rest, B, C) : {Con{y, List.append(&2, U32, List.append(&2, U32, rest, B), C)} == Con{y, _} : List<&2, U32>}
+      {==}
+
+# (A ++ (B ++ C)) ++ D is A ++ (B ++ (C ++ D))
+def app.assoc.u3(A: List<&2, U32>, +B: List<&2, U32>, +C: List<&2, U32>, +D: List<&2, U32>) ->
+  {List.append(&2, U32, List.append(&2, U32, A, List.append(&2, U32, B, C)), D) ==
+    List.append(&2, U32, A, List.append(&2, U32, B, List.append(&2, U32, C, D))) : List<&2, U32>}:
+  Equal.trans(List<&2, U32>,
+    List.append(&2, U32, List.append(&2, U32, A, List.append(&2, U32, B, C)), D),
+    List.append(&2, U32, A, List.append(&2, U32, List.append(&2, U32, B, C), D)),
+    List.append(&2, U32, A, List.append(&2, U32, B, List.append(&2, U32, C, D))),
+    app.assoc.u(A, List.append(&2, U32, B, C), D),
+    Equal.cong(List<&2, U32>, List<&2, U32>, l => List.append(&2, U32, A, l),
+      List.append(&2, U32, List.append(&2, U32, B, C), D),
+      List.append(&2, U32, B, List.append(&2, U32, C, D)), app.assoc.u(B, C, D)))
+
+# the temporaries hold no term of the first one: its cell holds none
+def tmp.held.hd(+z: U32, +C: List<&2, D.TmpE>) ->
+  {D.Tmp.held(Con{D.TmpE{z, Nil{}}, C}) == D.Tmp.held(C) : List<&2, D.Rt>}:
+  {==}
+
+def tmp.held.move(+X: List<&2, D.TmpE>, +z: U32, +C: List<&2, D.TmpE>) ->
+  {D.Tmp.held(List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C})) ==
+    D.Tmp.held(Con{D.TmpE{z, Nil{}}, List.append(&2, D.TmpE, X, C)}) : List<&2, D.Rt>}:
+  Equal.trans(List<&2, D.Rt>, D.Tmp.held(List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C})),
+    List.append(&2, D.Rt, D.Tmp.held(X), D.Tmp.held(C)),
+    D.Tmp.held(Con{D.TmpE{z, Nil{}}, List.append(&2, D.TmpE, X, C)}),
+    Equal.trans(List<&2, D.Rt>, D.Tmp.held(List.append(&2, D.TmpE, X, Con{D.TmpE{z, Nil{}}, C})),
+      List.append(&2, D.Rt, D.Tmp.held(X), D.Tmp.held(Con{D.TmpE{z, Nil{}}, C})),
+      List.append(&2, D.Rt, D.Tmp.held(X), D.Tmp.held(C)),
+      tmp.held.app(X, Con{D.TmpE{z, Nil{}}, C}),
+      Equal.cong(List<&2, D.Rt>, List<&2, D.Rt>, l => List.append(&2, D.Rt, D.Tmp.held(X), l),
+        D.Tmp.held(Con{D.TmpE{z, Nil{}}, C}), D.Tmp.held(C), tmp.held.hd(z, C))),
+    Equal.sym(List<&2, D.Rt>, D.Tmp.held(Con{D.TmpE{z, Nil{}}, List.append(&2, D.TmpE, X, C)}),
+      List.append(&2, D.Rt, D.Tmp.held(X), D.Tmp.held(C)),
+      Equal.trans(List<&2, D.Rt>, D.Tmp.held(Con{D.TmpE{z, Nil{}}, List.append(&2, D.TmpE, X, C)}),
+        D.Tmp.held(List.append(&2, D.TmpE, X, C)),
+        List.append(&2, D.Rt, D.Tmp.held(X), D.Tmp.held(C)),
+        tmp.held.hd(z, List.append(&2, D.TmpE, X, C)),
+        tmp.held.app(X, C))))
+
+# Cov does not change when the roots are rewritten to an equal list
+def cov.rw(n: Nat, +m: Cr.Cir.Cells, +c: U32, +rs1: List<&2, D.Rt>, +rs2: List<&2, D.Rt>, +xs: List<&2, U32>,
+  +e: {rs1 == rs2 : List<&2, D.Rt>}) ->
+  {D.Cov(n, m, c, rs1, xs) == D.Cov(n, m, c, rs2, xs) : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+k):
+      %Equal.cong(List<&2, D.Rt>, Bool, l => D.Nodes(l, m, c), rs1, rs2, e) :
+        {Bool.and(Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(rs1, m, c), D.Mem(xs, c))), D.Cov(k, m, U32.inc(c), rs1, xs)) ==
+          Bool.and(Bool.or(D.Fl(m, c, 1024), Bool.or(_, D.Mem(xs, c))), D.Cov(k, m, U32.inc(c), rs2, xs)) : Bool}
+      %cov.rw(k, m, U32.inc(c), rs1, rs2, xs, e) :
+        {Bool.and(Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(rs1, m, c), D.Mem(xs, c))), D.Cov(k, m, U32.inc(c), rs1, xs)) ==
+          Bool.and(Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(rs1, m, c), D.Mem(xs, c))), _) : Bool}
+      {==}
+
+# All.held does not change when two blocks of the cells trade places
+def all.held.swap(ys: List<&2, U32>, +m: Cr.Cir.Cells, +P: List<&2, U32>, +A: List<&2, U32>, +B: List<&2, U32>,
+  +C: List<&2, U32>, +hc: List<&2, U32>) ->
+  {D.All.held(ys, m, List.append(&2, U32, P, List.append(&2, U32, A, List.append(&2, U32, B, C))), hc) ==
+    D.All.held(ys, m, List.append(&2, U32, P, List.append(&2, U32, B, List.append(&2, U32, A, C))), hc) : Bool}:
+  match ys:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +X1 = List.append(&2, U32, P, List.append(&2, U32, A, List.append(&2, U32, B, C)))
+      +X2 = List.append(&2, U32, P, List.append(&2, U32, B, List.append(&2, U32, A, C)))
+      %AC.mem.perm(P, A, B, C, y) :
+        {Bool.and(Bool.or(D.Fl(m, y, 1024), Bool.or(D.Mem(X1, y), D.Mem(hc, y))), D.All.held(rest, m, X1, hc)) ==
+          Bool.and(Bool.or(D.Fl(m, y, 1024), Bool.or(_, D.Mem(hc, y))), D.All.held(rest, m, X2, hc)) : Bool}
+      %all.held.swap(rest, m, P, A, B, C, hc) :
+        {Bool.and(Bool.or(D.Fl(m, y, 1024), Bool.or(D.Mem(X1, y), D.Mem(hc, y))), D.All.held(rest, m, X1, hc)) ==
+          Bool.and(Bool.or(D.Fl(m, y, 1024), Bool.or(D.Mem(X1, y), D.Mem(hc, y))), _) : Bool}
+      {==}
+
+# Clo does not change when two blocks of the cells trade places
+def clo.swap(n: Nat, +m: Cr.Cir.Cells, +c: U32, +ps: List<&2, U32>, +P: List<&2, U32>, +A: List<&2, U32>,
+  +B: List<&2, U32>, +C: List<&2, U32>, +hc: List<&2, U32>) ->
+  {D.Clo(n, m, c, ps, List.append(&2, U32, P, List.append(&2, U32, A, List.append(&2, U32, B, C))), hc) ==
+    D.Clo(n, m, c, ps, List.append(&2, U32, P, List.append(&2, U32, B, List.append(&2, U32, A, C))), hc) : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+(+k):
+      +X1 = List.append(&2, U32, P, List.append(&2, U32, A, List.append(&2, U32, B, C)))
+      +X2 = List.append(&2, U32, P, List.append(&2, U32, B, List.append(&2, U32, A, C)))
+      +F = D.Fs(m, ps, c)
+      +S1 = Bool.or(Bool.not(D.Fl(m, c, 1024)), D.All.static(F, m))
+      %AC.mem.perm(P, A, B, C, c) :
+        {Bool.and(Bool.and(S1, Bool.or(Bool.not(D.Mem(X1, c)), D.All.held(F, m, X1, hc))), D.Clo(k, m, U32.inc(c), ps, X1, hc)) ==
+          Bool.and(Bool.and(S1, Bool.or(Bool.not(_), D.All.held(F, m, X2, hc))), D.Clo(k, m, U32.inc(c), ps, X2, hc)) : Bool}
+      %all.held.swap(F, m, P, A, B, C, hc) :
+        {Bool.and(Bool.and(S1, Bool.or(Bool.not(D.Mem(X1, c)), D.All.held(F, m, X1, hc))), D.Clo(k, m, U32.inc(c), ps, X1, hc)) ==
+          Bool.and(Bool.and(S1, Bool.or(Bool.not(D.Mem(X1, c)), _)), D.Clo(k, m, U32.inc(c), ps, X2, hc)) : Bool}
+      %clo.swap(k, m, U32.inc(c), ps, P, A, B, C, hc) :
+        {Bool.and(Bool.and(S1, Bool.or(Bool.not(D.Mem(X1, c)), D.All.held(F, m, X1, hc))), D.Clo(k, m, U32.inc(c), ps, X1, hc)) ==
+          Bool.and(Bool.and(S1, Bool.or(Bool.not(D.Mem(X1, c)), D.All.held(F, m, X1, hc))), _) : Bool}
+      {==}
+
 # The premises walk.post and walk.done of move_kit.bend (U7; U0 left them as ?TODO)
 # ------------------------------------------------------------------------------
 
