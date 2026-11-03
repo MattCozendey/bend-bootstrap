@@ -2841,6 +2841,379 @@ def ln.stat(t: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im:
         CK.Bo.and_i(Ln(y, m, D.Fd(2n, m, r), L), Bool.and(Ln(z, m, D.Fd(3n, m, r), L), Ln(w, m, D.Fd(4n, m, r), L)), ln.stat(y, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, tbl, L, D.Fd(2n, m, r), hy, part.st(D.Own(fi, nx, r), m, ps, fi, nx, cs, hc, r, D.Fd(2n, m, r), {==}, hs, hcl, sy, D.hm.at(m, ps, r, 18, 7, D.Fd(2n, m, r), et, {==}, em, CK.Bo.or_il(U32.is_eq(D.Fd(2n, m, r), D.Fd(2n, m, r)), Bool.or(U32.is_eq(D.Fd(3n, m, r), D.Fd(2n, m, r)), Bool.or(U32.is_eq(D.Fd(4n, m, r), D.Fd(2n, m, r)), False{})), CK.U.eq_refl(D.Fd(2n, m, r))))), hcl), CK.Bo.and_i(Ln(z, m, D.Fd(3n, m, r), L), Ln(w, m, D.Fd(4n, m, r), L), ln.stat(z, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, tbl, L, D.Fd(3n, m, r), hz, part.st(D.Own(fi, nx, r), m, ps, fi, nx, cs, hc, r, D.Fd(3n, m, r), {==}, hs, hcl, sz, D.hm.at(m, ps, r, 18, 7, D.Fd(3n, m, r), et, {==}, em, CK.Bo.or_ir(U32.is_eq(D.Fd(2n, m, r), D.Fd(3n, m, r)), Bool.or(U32.is_eq(D.Fd(3n, m, r), D.Fd(3n, m, r)), Bool.or(U32.is_eq(D.Fd(4n, m, r), D.Fd(3n, m, r)), False{})), CK.Bo.or_il(U32.is_eq(D.Fd(3n, m, r), D.Fd(3n, m, r)), Bool.or(U32.is_eq(D.Fd(4n, m, r), D.Fd(3n, m, r)), False{}), CK.U.eq_refl(D.Fd(3n, m, r)))))), hcl), ln.stat(w, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, tbl, L, D.Fd(4n, m, r), hw, part.st(D.Own(fi, nx, r), m, ps, fi, nx, cs, hc, r, D.Fd(4n, m, r), {==}, hs, hcl, sw, D.hm.at(m, ps, r, 18, 7, D.Fd(4n, m, r), et, {==}, em, CK.Bo.or_ir(U32.is_eq(D.Fd(2n, m, r), D.Fd(4n, m, r)), Bool.or(U32.is_eq(D.Fd(3n, m, r), D.Fd(4n, m, r)), Bool.or(U32.is_eq(D.Fd(4n, m, r), D.Fd(4n, m, r)), False{})), CK.Bo.or_ir(U32.is_eq(D.Fd(3n, m, r), D.Fd(4n, m, r)), Bool.or(U32.is_eq(D.Fd(4n, m, r), D.Fd(4n, m, r)), False{}), CK.Bo.or_il(U32.is_eq(D.Fd(4n, m, r), D.Fd(4n, m, r)), False{}, CK.U.eq_refl(D.Fd(4n, m, r))))))), hcl))))
 
 
+# The garbage
+# -----------
+#
+# The copy's garbage P: the machine's own cells, from fi, that are not live
+# (Lv: STATIC, a node of a term of the live roots L, or one of the cells Y,
+# the frames and the temporaries), in order (Gb.of). Its zombie sizes are the
+# sizes of the terms that T.tm.of reads from its cells (Zsz). The pointers to
+# a cell are the garbage's and the live cells' (pc.split).
+
+# x is live: STATIC, a node of a term of L, or one of the cells Y
+def Lv(+m: Cr.Cir.Cells, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32) -> Bool:
+  Bool.or(Lv0(m, L, x), D.Mem(Y, x))
+
+# the cells that are not live, of the k cells from c
+def Gb.of(k: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>) -> List<&2, U32>:
+  match k:
+    case 0n:
+      Nil{}
+    case 1n+(+p):
+      Bool.pick(List<&2, U32>, Lv(m, L, Y, c), Gb.of(p, m, U32.inc(c), L, Y), Con{c, Gb.of(p, m, U32.inc(c), L, Y)})
+
+# a cell that is not live is not one that is
+def lv.ne(+m: Cr.Cir.Cells, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +c: U32, +x: U32, ec: {Lv(m, L, Y, c) == False{} : Bool},
+  hx: {Lv(m, L, Y, x) == True{} : Bool}) -> {U32.is_eq(c, x) == False{} : Bool}:
+  bool.case(U32.is_eq(c, x), U32.is_eq(c, x), {U32.is_eq(c, x) == False{} : Bool}, {==},
+    e => CK.Bo.tf({U32.is_eq(c, x) == False{} : Bool}, Equal.trans(Bool, False{}, Lv(m, L, Y, c), True{}, Equal.sym(Bool, Lv(m, L, Y, c), False{}, ec),
+      (%Equal.sym(U32, c, x, CK.U.eq(c, x, e)) : {Lv(m, L, Y, _) == True{} : Bool}; hx))),
+    e => e)
+
+def lv.ne2(+m: Cr.Cir.Cells, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +c: U32, +x: U32, ec: {Lv(m, L, Y, c) == True{} : Bool},
+  hx: {Lv(m, L, Y, x) == False{} : Bool}) -> {U32.is_eq(c, x) == False{} : Bool}:
+  bool.case(U32.is_eq(c, x), U32.is_eq(c, x), {U32.is_eq(c, x) == False{} : Bool}, {==},
+    e => CK.Bo.tf({U32.is_eq(c, x) == False{} : Bool}, Equal.trans(Bool, False{}, Lv(m, L, Y, x), True{}, Equal.sym(Bool, Lv(m, L, Y, x), False{}, hx),
+      (%CK.U.eq(c, x, e) : {Lv(m, L, Y, _) == True{} : Bool}; ec))),
+    e => e)
+
+# a live cell is not in the garbage
+def gb.not.b(b: Bool, +p: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32,
+  eb: {Lv(m, L, Y, c) == b : Bool}, hx: {Lv(m, L, Y, x) == True{} : Bool},
+  ih: {S.Has(Gb.of(p, m, U32.inc(c), L, Y), x) == False{} : Bool}) ->
+  {S.Has(Bool.pick(List<&2, U32>, b, Gb.of(p, m, U32.inc(c), L, Y), Con{c, Gb.of(p, m, U32.inc(c), L, Y)}), x) == False{} : Bool}:
+  match b:
+    case True{}:
+      ih
+    case False{}:
+      %Equal.sym(Bool, U32.is_eq(c, x), False{}, lv.ne(m, L, Y, c, x, eb, hx)) : {Bool.or(_, S.Has(Gb.of(p, m, U32.inc(c), L, Y), x)) == False{} : Bool}
+      ih
+
+def gb.not(k: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32, +hx: {Lv(m, L, Y, x) == True{} : Bool}) ->
+  {S.Has(Gb.of(k, m, c, L, Y), x) == False{} : Bool}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      gb.not.b(Lv(m, L, Y, c), p, m, c, L, Y, x, {==}, hx, gb.not(p, m, U32.inc(c), L, Y, x, hx))
+
+# a cell of the garbage is not live
+def gb.lv(+k: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32,
+  +hx: {S.Has(Gb.of(k, m, c, L, Y), x) == True{} : Bool}) -> {Lv(m, L, Y, x) == False{} : Bool}:
+  bool.case(Lv(m, L, Y, x), Lv(m, L, Y, x), {Lv(m, L, Y, x) == False{} : Bool}, {==},
+    e => CK.Bo.tf({Lv(m, L, Y, x) == False{} : Bool}, Equal.trans(Bool, False{}, S.Has(Gb.of(k, m, c, L, Y), x), True{},
+      Equal.sym(Bool, S.Has(Gb.of(k, m, c, L, Y), x), False{}, gb.not(k, m, c, L, Y, x, e)), hx)),
+    e => e)
+
+# a cell from c on, before k cells from c, that is not live, is in the garbage
+def gb.has.b(b: Bool, +p: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32,
+  eb: {Lv(m, L, Y, c) == b : Bool}, +hx: {Lv(m, L, Y, x) == False{} : Bool},
+  +h1: N.Le(U32.to_nat(c), U32.to_nat(x)), +h2: N.Le(1n+U32.to_nat(x), Nat.add(U32.to_nat(c), 1n+p)),
+  ih: N.Le(U32.to_nat(U32.inc(c)), U32.to_nat(x)) -> N.Le(1n+U32.to_nat(x), Nat.add(U32.to_nat(U32.inc(c)), p)) ->
+    {S.Has(Gb.of(p, m, U32.inc(c), L, Y), x) == True{} : Bool}) ->
+  {S.Has(Bool.pick(List<&2, U32>, b, Gb.of(p, m, U32.inc(c), L, Y), Con{c, Gb.of(p, m, U32.inc(c), L, Y)}), x) == True{} : Bool}:
+  match b:
+    case True{}:
+      +ne = lv.ne2(m, L, Y, c, x, eb, hx)
+      ih(rng.lo(p, c, x, ne, h1), rng.hi(p, c, x, ne, h1, h2))
+    case False{}:
+      bool.case(U32.is_eq(c, x), U32.is_eq(c, x), {Bool.or(U32.is_eq(c, x), S.Has(Gb.of(p, m, U32.inc(c), L, Y), x)) == True{} : Bool}, {==},
+        e => CK.Bo.or_il(U32.is_eq(c, x), S.Has(Gb.of(p, m, U32.inc(c), L, Y), x), e),
+        +e => CK.Bo.or_ir(U32.is_eq(c, x), S.Has(Gb.of(p, m, U32.inc(c), L, Y), x), ih(rng.lo(p, c, x, e, h1), rng.hi(p, c, x, e, h1, h2))))
+
+def gb.has(k: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32, +hx: {Lv(m, L, Y, x) == False{} : Bool},
+  h1: N.Le(U32.to_nat(c), U32.to_nat(x)), h2: N.Le(1n+U32.to_nat(x), Nat.add(U32.to_nat(c), k))) ->
+  {S.Has(Gb.of(k, m, c, L, Y), x) == True{} : Bool}:
+  match k:
+    case 0n:
+      rng.none({S.Has(Gb.of(0n, m, c, L, Y), x) == True{} : Bool}, c, x, h1, h2)
+    case 1n+(+p):
+      gb.has.b(Lv(m, L, Y, c), p, m, c, L, Y, x, {==}, hx, h1, h2, a => b => gb.has(p, m, U32.inc(c), L, Y, x, hx, a, b))
+
+# with c + 1 + p cells before e: c is below e
+def w.lt(+c: U32, +p: Nat, +e: U32, hw: N.Le(Nat.add(U32.to_nat(c), 1n+p), U32.to_nat(e))) -> N.Le(1n+U32.to_nat(c), U32.to_nat(e)):
+  N.le_trans(1n+U32.to_nat(c), Nat.add(U32.to_nat(c), 1n+p), U32.to_nat(e),
+    N.le_rw_r(1n+U32.to_nat(c), 1n+Nat.add(U32.to_nat(c), p), Nat.add(U32.to_nat(c), 1n+p),
+      Equal.sym(Nat, Nat.add(U32.to_nat(c), 1n+p), 1n+Nat.add(U32.to_nat(c), p), N.add_succ_r(U32.to_nat(c), p)),
+      N.le_add_r(U32.to_nat(c), p)), hw)
+
+# and from c + 1, p cells before e
+def w.next(+c: U32, +p: Nat, +e: U32, +hw: N.Le(Nat.add(U32.to_nat(c), 1n+p), U32.to_nat(e))) -> N.Le(Nat.add(U32.to_nat(U32.inc(c)), p), U32.to_nat(e)):
+  +ei = D.u.inc(c, e, w.lt(c, p, e, hw))
+  N.le_rw_l(Nat.add(U32.to_nat(c), 1n+p), Nat.add(U32.to_nat(U32.inc(c)), p), U32.to_nat(e),
+    Equal.trans(Nat, Nat.add(U32.to_nat(c), 1n+p), 1n+Nat.add(U32.to_nat(c), p), Nat.add(U32.to_nat(U32.inc(c)), p),
+      N.add_succ_r(U32.to_nat(c), p),
+      Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(c)), p), 1n+Nat.add(U32.to_nat(c), p),
+        Equal.cong(Nat, Nat, x => Nat.add(x, p), U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), ei))), hw)
+
+# the garbage from c holds cells from c on (with no wrap: c + k <= e)
+def gb.lo.b(b: Bool, +p: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32, +e: U32,
+  hw: N.Le(Nat.add(U32.to_nat(c), 1n+p), U32.to_nat(e)),
+  hx: {S.Has(Bool.pick(List<&2, U32>, b, Gb.of(p, m, U32.inc(c), L, Y), Con{c, Gb.of(p, m, U32.inc(c), L, Y)}), x) == True{} : Bool},
+  ih: {S.Has(Gb.of(p, m, U32.inc(c), L, Y), x) == True{} : Bool} -> N.Le(U32.to_nat(U32.inc(c)), U32.to_nat(x))) ->
+  N.Le(U32.to_nat(c), U32.to_nat(x)):
+  match b:
+    case True{}:
+      N.weaken(U32.to_nat(c), U32.to_nat(x), N.le_rw_l(U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), U32.to_nat(x), D.u.inc(c, e, w.lt(c, p, e, hw)), ih(hx)))
+    case False{}:
+      D.or.cases(U32.is_eq(c, x), S.Has(Gb.of(p, m, U32.inc(c), L, Y), x), N.Le(U32.to_nat(c), U32.to_nat(x)), hx,
+        e2 => (%CK.U.eq(c, x, e2) : N.Le(U32.to_nat(c), U32.to_nat(_)); N.le_refl(U32.to_nat(c))),
+        e2 => N.weaken(U32.to_nat(c), U32.to_nat(x), N.le_rw_l(U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), U32.to_nat(x), D.u.inc(c, e, w.lt(c, p, e, hw)), ih(e2))))
+
+def gb.lo(k: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +x: U32, +e: U32,
+  +hw: N.Le(Nat.add(U32.to_nat(c), k), U32.to_nat(e)), hx: {S.Has(Gb.of(k, m, c, L, Y), x) == True{} : Bool}) ->
+  N.Le(U32.to_nat(c), U32.to_nat(x)):
+  match k:
+    case 0n:
+      CK.Bo.tf(N.Le(U32.to_nat(c), U32.to_nat(x)), hx)
+    case 1n+(+p):
+      gb.lo.b(Lv(m, L, Y, c), p, m, c, L, Y, x, e, hw, hx, h => gb.lo(p, m, U32.inc(c), L, Y, x, e, w.next(c, p, e, hw), h))
+
+# the garbage holds each cell once
+def gb.nodup.b(b: Bool, +p: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +e: U32,
+  +hw: N.Le(Nat.add(U32.to_nat(c), 1n+p), U32.to_nat(e)), ih: {S.Nodup(Gb.of(p, m, U32.inc(c), L, Y)) == True{} : Bool}) ->
+  {S.Nodup(Bool.pick(List<&2, U32>, b, Gb.of(p, m, U32.inc(c), L, Y), Con{c, Gb.of(p, m, U32.inc(c), L, Y)})) == True{} : Bool}:
+  match b:
+    case True{}:
+      ih
+    case False{}:
+      +ei = D.u.inc(c, e, w.lt(c, p, e, hw))
+      CK.Bo.and_i(Bool.not(S.Has(Gb.of(p, m, U32.inc(c), L, Y), c)), S.Nodup(Gb.of(p, m, U32.inc(c), L, Y)),
+        CK.Bo.not_i(S.Has(Gb.of(p, m, U32.inc(c), L, Y), c),
+          bool.case(S.Has(Gb.of(p, m, U32.inc(c), L, Y), c), S.Has(Gb.of(p, m, U32.inc(c), L, Y), c),
+            {S.Has(Gb.of(p, m, U32.inc(c), L, Y), c) == False{} : Bool}, {==},
+            h => Empty.absurd({S.Has(Gb.of(p, m, U32.inc(c), L, Y), c) == False{} : Bool}, N.not_succ_le(U32.to_nat(c),
+              N.le_rw_l(U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), U32.to_nat(c), ei, gb.lo(p, m, U32.inc(c), L, Y, c, e, w.next(c, p, e, hw), h)))),
+            h => h)),
+        ih)
+
+def gb.nodup(k: Nat, +m: Cr.Cir.Cells, +c: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>, +e: U32,
+  +hw: N.Le(Nat.add(U32.to_nat(c), k), U32.to_nat(e))) -> {S.Nodup(Gb.of(k, m, c, L, Y)) == True{} : Bool}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+p):
+      gb.nodup.b(Lv(m, L, Y, c), p, m, c, L, Y, e, hw, gb.nodup(p, m, U32.inc(c), L, Y, e, w.next(c, p, e, hw)))
+
+# Zombie sizes
+# ------------
+
+def Zsz.of(r: Maybe<&2, Bk.Term>) -> Nat:
+  match r:
+    case None{}:
+      0n
+    case Some{v}:
+      Pg.Term.size(v)
+
+# the zombie size of the cell x: the nodes of the term that T.tm.of reads
+# from it, with the fuel f
+def Zsz(+f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +x: U32) -> Nat:
+  Zsz.of(T.tm.of(f, m, ks, img, x))
+
+# the cells xs with their zombie sizes
+def Zl(xs: List<&2, U32>, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>) -> List<&2, S.Zs>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{+x, rest}:
+      Con{S.Zs{x, Zsz(f, m, ks, img, x)}, Zl(rest, f, m, ks, img)}
+
+# a cell p of xs: its zombie size in Zl(xs) is Zsz's
+def zz.of.b(b: Bool, +x: U32, +rest: List<&2, U32>, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +p: U32, eb: {U32.is_eq(x, p) == b : Bool}, h: {Bool.or(b, S.Has(rest, p)) == True{} : Bool},
+  ih: {S.Has(rest, p) == True{} : Bool} -> {S.Zz(Zl(rest, f, m, ks, img), p) == Zsz(f, m, ks, img, p) : Nat}) ->
+  {Bool.pick(Nat, b, Zsz(f, m, ks, img, x), S.Zz(Zl(rest, f, m, ks, img), p)) == Zsz(f, m, ks, img, p) : Nat}:
+  match b:
+    case True{}:
+      Equal.cong(U32, Nat, y => Zsz(f, m, ks, img, y), x, p, CK.U.eq(x, p, eb))
+    case False{}:
+      ih(h)
+
+def zz.of(xs: List<&2, U32>, +f: Nat, +m: Cr.Cir.Cells, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +p: U32,
+  h: {S.Has(xs, p) == True{} : Bool}) -> {S.Zz(Zl(xs, f, m, ks, img), p) == Zsz(f, m, ks, img, p) : Nat}:
+  match xs:
+    case Nil{}:
+      CK.Bo.tf({S.Zz(Zl(Nil{}, f, m, ks, img), p) == Zsz(f, m, ks, img, p) : Nat}, h)
+    case Con{+x, +rest}:
+      zz.of.b(U32.is_eq(x, p), x, rest, f, m, ks, img, p, {==}, h, hh => zz.of(rest, f, m, ks, img, p, hh))
+
+# a cell that stands for v, with the fuel f >= its size: its zombie size is v's size
+def zsz.at(+f: Nat, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +x: U32, +v: Bk.Term, le: N.Le(Pg.Term.size(v), f), h: D.Is(ds, m, im, fi, nx, ks, img, x, v)) ->
+  {Zsz(f, m, ks, img, x) == Pg.Term.size(v) : Nat}:
+  %Equal.sym(Maybe<&2, Bk.Term>, T.tm.of(f, m, ks, img, x), Some{v}, CF.is.tm.at(f, ds, m, im, fi, nx, ks, img, x, v, le, h)) :
+    {Zsz.of(_) == Pg.Term.size(v) : Nat}
+  {==}
+
+# The pointers to a cell
+# ----------------------
+
+# the pointers to p of the cells G
+def PcG(G: List<&2, U32>, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +p: U32) -> Nat:
+  match G:
+    case Nil{}:
+      0n
+    case Con{+o, rest}:
+      Nat.add(D.RcL(D.Fs(m, ps, o), p), PcG(rest, m, ps, p))
+
+# the pointers to p of the live cells of the k cells from c
+def PcN(k: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +c: U32, +p: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>) -> Nat:
+  match k:
+    case 0n:
+      0n
+    case 1n+q:
+      Nat.add(Bool.pick(Nat, Lv(m, L, Y, c), D.RcL(D.Fs(m, ps, c), p), 0n), PcN(q, m, ps, U32.inc(c), p, L, Y))
+
+# the pointers to p of the k cells from c: the garbage's and the live cells'
+def pc.split.b(b: Bool, +q: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +c: U32, +p: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>,
+  ih: {D.Pc(q, m, ps, U32.inc(c), p) == Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), PcN(q, m, ps, U32.inc(c), p, L, Y)) : Nat}) ->
+  {Nat.add(D.RcL(D.Fs(m, ps, c), p), D.Pc(q, m, ps, U32.inc(c), p)) ==
+    Nat.add(PcG(Bool.pick(List<&2, U32>, b, Gb.of(q, m, U32.inc(c), L, Y), Con{c, Gb.of(q, m, U32.inc(c), L, Y)}), m, ps, p),
+      Nat.add(Bool.pick(Nat, b, D.RcL(D.Fs(m, ps, c), p), 0n), PcN(q, m, ps, U32.inc(c), p, L, Y))) : Nat}:
+  match b:
+    case True{}:
+      %Equal.sym(Nat, D.Pc(q, m, ps, U32.inc(c), p), Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), PcN(q, m, ps, U32.inc(c), p, L, Y)), ih) :
+        {Nat.add(D.RcL(D.Fs(m, ps, c), p), _) == Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p),
+          Nat.add(D.RcL(D.Fs(m, ps, c), p), PcN(q, m, ps, U32.inc(c), p, L, Y))) : Nat}
+      Equal.trans(Nat, Nat.add(D.RcL(D.Fs(m, ps, c), p), Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), PcN(q, m, ps, U32.inc(c), p, L, Y))),
+        Nat.add(Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), D.RcL(D.Fs(m, ps, c), p)), PcN(q, m, ps, U32.inc(c), p, L, Y)),
+        Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), Nat.add(D.RcL(D.Fs(m, ps, c), p), PcN(q, m, ps, U32.inc(c), p, L, Y))),
+        N.add_comm3(D.RcL(D.Fs(m, ps, c), p), PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), PcN(q, m, ps, U32.inc(c), p, L, Y)),
+        N.add_assoc(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), D.RcL(D.Fs(m, ps, c), p), PcN(q, m, ps, U32.inc(c), p, L, Y)))
+    case False{}:
+      %Equal.sym(Nat, D.Pc(q, m, ps, U32.inc(c), p), Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), PcN(q, m, ps, U32.inc(c), p, L, Y)), ih) :
+        {Nat.add(D.RcL(D.Fs(m, ps, c), p), _) == Nat.add(Nat.add(D.RcL(D.Fs(m, ps, c), p), PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p)),
+          PcN(q, m, ps, U32.inc(c), p, L, Y)) : Nat}
+      Equal.sym(Nat, Nat.add(Nat.add(D.RcL(D.Fs(m, ps, c), p), PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p)), PcN(q, m, ps, U32.inc(c), p, L, Y)),
+        Nat.add(D.RcL(D.Fs(m, ps, c), p), Nat.add(PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), PcN(q, m, ps, U32.inc(c), p, L, Y))),
+        N.add_assoc(D.RcL(D.Fs(m, ps, c), p), PcG(Gb.of(q, m, U32.inc(c), L, Y), m, ps, p), PcN(q, m, ps, U32.inc(c), p, L, Y)))
+
+def pc.split(k: Nat, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +c: U32, +p: U32, +L: List<&2, D.Rt>, +Y: List<&2, U32>) ->
+  {D.Pc(k, m, ps, c, p) == Nat.add(PcG(Gb.of(k, m, c, L, Y), m, ps, p), PcN(k, m, ps, c, p, L, Y)) : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+q):
+      pc.split.b(Lv(m, L, Y, c), q, m, ps, c, p, L, Y, pc.split(q, m, ps, U32.inc(c), p, L, Y))
+
+# The garbage's pointers (Pp) by the heap's (Fs)
+# --------------------------------------------
+
+# the pointer v in the list, when b holds: counted when it is c
+def rcl.opt(b: Bool, +v: U32, +rest: List<&2, U32>, +c: U32) ->
+  {D.RcL(D.Fs.opt(b, v, rest), c) == Nat.add(S.Nat.of(Bool.and(b, U32.is_eq(v, c))), D.RcL(rest, c)) : Nat}:
+  match b:
+    case True{}:
+      Equal.cong(Nat, Nat, w => Nat.add(w, D.RcL(rest, c)), D.Nat.of(U32.is_eq(v, c)), S.Nat.of(U32.is_eq(v, c)), nat.of.eq(U32.is_eq(v, c)))
+    case False{}:
+      {==}
+
+# the parts of a term cell of the mask a that are c
+def rcl.term(+a: U32, +x2: U32, +x3: U32, +x4: U32, +c: U32) ->
+  {D.RcL(D.Fs.term(a, x2, x3, x4), c) == Nat.add(S.Nat.of(Bool.and(U32.is_ne(U32.and(a, 1), 0), U32.is_eq(x2, c))),
+    Nat.add(S.Nat.of(Bool.and(U32.is_ne(U32.and(a, 2), 0), U32.is_eq(x3, c))), S.Nat.of(Bool.and(U32.is_ne(U32.and(a, 4), 0), U32.is_eq(x4, c))))) : Nat}:
+  +b1 = U32.is_ne(U32.and(a, 1), 0)
+  +b2 = U32.is_ne(U32.and(a, 2), 0)
+  +b4 = U32.is_ne(U32.and(a, 4), 0)
+  +A1 = S.Nat.of(Bool.and(b1, U32.is_eq(x2, c)))
+  +A2 = S.Nat.of(Bool.and(b2, U32.is_eq(x3, c)))
+  +A4 = S.Nat.of(Bool.and(b4, U32.is_eq(x4, c)))
+  +e3 = Equal.trans(Nat, D.RcL(D.Fs.opt(b4, x4, Nil{}), c), Nat.add(A4, 0n), A4, rcl.opt(b4, x4, Nil{}, c), N.add_zero(A4))
+  +e2 = Equal.trans(Nat, D.RcL(D.Fs.opt(b2, x3, D.Fs.opt(b4, x4, Nil{})), c), Nat.add(A2, D.RcL(D.Fs.opt(b4, x4, Nil{}), c)), Nat.add(A2, A4),
+    rcl.opt(b2, x3, D.Fs.opt(b4, x4, Nil{}), c), Equal.cong(Nat, Nat, w => Nat.add(A2, w), D.RcL(D.Fs.opt(b4, x4, Nil{}), c), A4, e3))
+  Equal.trans(Nat, D.RcL(D.Fs.opt(b1, x2, D.Fs.opt(b2, x3, D.Fs.opt(b4, x4, Nil{}))), c),
+    Nat.add(A1, D.RcL(D.Fs.opt(b2, x3, D.Fs.opt(b4, x4, Nil{})), c)), Nat.add(A1, Nat.add(A2, A4)),
+    rcl.opt(b1, x2, D.Fs.opt(b2, x3, D.Fs.opt(b4, x4, Nil{})), c),
+    Equal.cong(Nat, Nat, w => Nat.add(A1, w), D.RcL(D.Fs.opt(b2, x3, D.Fs.opt(b4, x4, Nil{})), c), Nat.add(A2, A4), e2))
+
+def and.f(a: Bool) -> {Bool.and(a, False{}) == False{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+# a cell of the pend list of a tag of 19 or more holds no pointer
+def fs.nil(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, h19: {U32.is_lt(D.Tg(m, o), 19) == False{} : Bool},
+  hm: {D.Mem(ps, o) == True{} : Bool}) -> {D.Fs(m, ps, o) == Nil{} : List<&2, U32>}:
+  +tg = D.Tg(m, o)
+  +A1 = Bool.and(U32.is_le(32, tg), U32.is_le(tg, 40))
+  +A2 = Bool.and(U32.is_eq(tg, 41), D.FlW(D.Fd(0n, m, o), 4096))
+  %Equal.sym(Bool, U32.is_lt(tg, 19), False{}, h19) : {D.FsP(_, m, ps, o, tg) == Nil{} : List<&2, U32>}
+  %Equal.sym(Bool, D.Mem(ps, o), True{}, hm) : {Bool.pick(List<&2, U32>, Bool.and(A1, Bool.not(_)), Con{D.Fd(2n, m, o), D.Fs.opt(U32.is_eq(tg, 38), D.Fd(3n, m, o), Nil{})},
+    Bool.pick(List<&2, U32>, Bool.and(A2, Bool.not(_)), [D.Fd(2n, m, o)], Nil{})) == Nil{} : List<&2, U32>}
+  %Equal.sym(Bool, Bool.and(A1, False{}), False{}, and.f(A1)) : {Bool.pick(List<&2, U32>, _, Con{D.Fd(2n, m, o), D.Fs.opt(U32.is_eq(tg, 38), D.Fd(3n, m, o), Nil{})},
+    Bool.pick(List<&2, U32>, Bool.and(A2, False{}), [D.Fd(2n, m, o)], Nil{})) == Nil{} : List<&2, U32>}
+  %Equal.sym(Bool, Bool.and(A2, False{}), False{}, and.f(A2)) : {Bool.pick(List<&2, U32>, _, [D.Fd(2n, m, o)], Nil{}) == Nil{} : List<&2, U32>}
+  {==}
+
+# the mask that a reuse drops, of a term cell: its table entry's
+def am.lt(+m: Cr.Cir.Cells, +o: U32, h: {U32.is_lt(D.Tg(m, o), 32) == True{} : Bool}) ->
+  {S.Am(m, o) == D.Fd(2n, m, U32.add(272, D.Tg(m, o))) : U32}:
+  %Equal.sym(Bool, U32.is_lt(D.Tg(m, o), 32), True{}, h) : {Bool.pick(U32, _, D.Fd(2n, m, U32.add(272, D.Tg(m, o))), 0) == D.Fd(2n, m, U32.add(272, D.Tg(m, o))) : U32}
+  {==}
+
+# and of a cell of the machine's own kinds: none
+def am.ge(+m: Cr.Cir.Cells, +o: U32, h: {U32.is_lt(D.Tg(m, o), 32) == False{} : Bool}) -> {S.Am(m, o) == 0 : U32}:
+  %Equal.sym(Bool, U32.is_lt(D.Tg(m, o), 32), False{}, h) : {Bool.pick(U32, _, D.Fd(2n, m, U32.add(272, D.Tg(m, o))), 0) == 0 : U32}
+  {==}
+
+# the garbage's pointers by the mask of a reuse (Ow), with the mask a
+def OwA(+a: U32, +m: Cr.Cir.Cells, +o: U32, +c: U32) -> Nat:
+  Nat.add(S.Nat.of(Bool.and(U32.is_ne(U32.and(a, 1), 0), U32.is_eq(D.Fd(2n, m, o), c))),
+    Nat.add(S.Nat.of(Bool.and(U32.is_ne(U32.and(a, 2), 0), U32.is_eq(D.Fd(3n, m, o), c))),
+      S.Nat.of(Bool.and(U32.is_ne(U32.and(a, 4), 0), U32.is_eq(D.Fd(4n, m, o), c)))))
+
+# a cell of the pend list of the machine's own kinds: its reuse drops none
+def ow.pend(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32, +h32: {U32.is_le(32, D.Tg(m, o)) == True{} : Bool},
+  hm: {D.Mem(ps, o) == True{} : Bool}) -> {S.Ow(m, o, c) == D.RcL(D.Fs(m, ps, o), c) : Nat}:
+  +tg = D.Tg(m, o)
+  +nlt = bool.case(U32.is_lt(tg, 32), U32.is_lt(tg, 32), {U32.is_lt(tg, 32) == False{} : Bool}, {==},
+    e => CK.U.lt_ge(tg, 32, {U32.is_lt(tg, 32) == False{} : Bool}, e, h32), e => e)
+  +n19 = bool.case(U32.is_lt(tg, 19), U32.is_lt(tg, 19), {U32.is_lt(tg, 19) == False{} : Bool}, {==},
+    e => CK.U.lt_ge(tg, 32, {U32.is_lt(tg, 19) == False{} : Bool}, CK.U.lt_le(tg, 19, 32, e, {==}), h32), e => e)
+  Equal.trans(Nat, S.Ow(m, o, c), OwA(0, m, o, c), D.RcL(D.Fs(m, ps, o), c),
+    Equal.cong(U32, Nat, a => OwA(a, m, o, c), S.Am(m, o), 0, am.ge(m, o, nlt)),
+    Equal.cong(List<&2, U32>, Nat, xs => D.RcL(xs, c), Nil{}, D.Fs(m, ps, o), Equal.sym(List<&2, U32>, D.Fs(m, ps, o), Nil{}, fs.nil(m, ps, o, n19, hm))))
+
+# a term cell, or one of the pend list of the machine's own kinds: the
+# pointers that its reuse drops (Ow) are the heap's (Fs)
+def ow.fs(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +o: U32, +c: U32,
+  h: {Bool.or(U32.is_lt(D.Tg(m, o), 19), Bool.and(U32.is_le(32, D.Tg(m, o)), D.Mem(ps, o))) == True{} : Bool}) ->
+  {S.Ow(m, o, c) == D.RcL(D.Fs(m, ps, o), c) : Nat}:
+  +tg = D.Tg(m, o)
+  +mask = D.Fd(2n, m, U32.add(272, tg))
+  D.or.cases(U32.is_lt(tg, 19), Bool.and(U32.is_le(32, tg), D.Mem(ps, o)), {S.Ow(m, o, c) == D.RcL(D.Fs(m, ps, o), c) : Nat}, h,
+    +e => Equal.trans(Nat, S.Ow(m, o, c), OwA(mask, m, o, c), D.RcL(D.Fs(m, ps, o), c),
+      Equal.cong(U32, Nat, a => OwA(a, m, o, c), S.Am(m, o), mask, am.lt(m, o, CK.U.lt_le(tg, 19, 32, e, {==}))),
+      Equal.trans(Nat, OwA(mask, m, o, c), D.RcL(D.Fs.term(mask, D.Fd(2n, m, o), D.Fd(3n, m, o), D.Fd(4n, m, o)), c), D.RcL(D.Fs(m, ps, o), c),
+        Equal.sym(Nat, D.RcL(D.Fs.term(mask, D.Fd(2n, m, o), D.Fd(3n, m, o), D.Fd(4n, m, o)), c), OwA(mask, m, o, c),
+          rcl.term(mask, D.Fd(2n, m, o), D.Fd(3n, m, o), D.Fd(4n, m, o), c)),
+        Equal.cong(List<&2, U32>, Nat, xs => D.RcL(xs, c), D.Fs.term(mask, D.Fd(2n, m, o), D.Fd(3n, m, o), D.Fd(4n, m, o)), D.Fs(m, ps, o),
+          Equal.sym(List<&2, U32>, D.Fs(m, ps, o), D.Fs.term(mask, D.Fd(2n, m, o), D.Fd(3n, m, o), D.Fd(4n, m, o)),
+            D.fs.term(m, ps, o, tg, mask, {==}, e, {==}))))),
+    +e => ow.pend(m, ps, o, c, CK.Bo.and_l(U32.is_le(32, tg), D.Mem(ps, o), e), CK.Bo.and_r(U32.is_le(32, tg), D.Mem(ps, o), e)))
+
+# each cell of G is a term cell, or one of the pend list of the machine's own kinds
+def GTs(G: List<&2, U32>, +m: Cr.Cir.Cells, +ps: List<&2, U32>) -> Bool:
+  match G:
+    case Nil{}:
+      True{}
+    case Con{+o, rest}:
+      Bool.and(Bool.or(U32.is_lt(D.Tg(m, o), 19), Bool.and(U32.is_le(32, D.Tg(m, o)), D.Mem(ps, o))), GTs(rest, m, ps))
+
+# the garbage's pointers to p are the heap's (PcG)
+def pp.pcg(G: List<&2, U32>, +m: Cr.Cir.Cells, +ps: List<&2, U32>, +p: U32, h: {GTs(G, m, ps) == True{} : Bool}) ->
+  {S.Pp(G, m, p) == PcG(G, m, ps, p) : Nat}:
+  match G:
+    case Nil{}:
+      {==}
+    case Con{+o, +rest}:
+      +h2 = h
+      add.cong(S.Ow(m, o, p), D.RcL(D.Fs(m, ps, o), p), S.Pp(rest, m, p), PcG(rest, m, ps, p),
+        ow.fs(m, ps, o, p, CK.Bo.and_l(Bool.or(U32.is_lt(D.Tg(m, o), 19), Bool.and(U32.is_le(32, D.Tg(m, o)), D.Mem(ps, o))), GTs(rest, m, ps), h2)),
+        pp.pcg(rest, m, ps, p, CK.Bo.and_r(Bool.or(U32.is_lt(D.Tg(m, o), 19), Bool.and(U32.is_le(32, D.Tg(m, o)), D.Mem(ps, o))), GTs(rest, m, ps), h2)))
+
 # The laws
 # --------
 
