@@ -35,6 +35,15 @@ def mach_wasm.sound(
 ) -> &n:Nat -> {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
   ?TODO
 
+# the machine's module, on an engine with the answers gs, gives what Cir gives
+# or runs out of memory (q): without the refusal's index
+def mach_wasm.result.of(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, +o: List<&2, Word(8n)>,
+  q: &f:Nat -> H.HO(Wa.Wasm.Outcome.result{o}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}))) ->
+  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
+  (+f, p) = q
+  (f, H.ho.or(Wa.Wasm.Outcome.result{o}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), p))
+
 # A: a result that Cir gives is one of the machine's module, or the module
 # runs out of memory, on any engine with the same pages
 def mach_wasm.result(
@@ -43,7 +52,17 @@ def mach_wasm.result(
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
 ) -> &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
   {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
-  ?TODO
+  mach_wasm.result.of(cells, i, m, gs, o,
+    (%module.of(Mc.Mach.code(), Mc.Mach.regs(), cells) : &f:Nat -> H.HO(Wa.Wasm.Outcome.result{o}, gs, Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}));
+      H.mach.all(n, cells, i, m, Wa.Wasm.Outcome.result{o}, gs, small, Unit{}, e)))
+
+# the machine's module, on an engine that grants each grow, gives what Cir
+# gives (q)
+def mach_wasm.result.all.of(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  q: &f:Nat -> H.HO(Wa.Wasm.Outcome.result{o}, [], Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, []}))) ->
+  &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  (+f, p) = q
+  (f, H.ho.empty(Wa.Wasm.Outcome.result{o}, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, []}), p))
 
 # A: a result that Cir gives is one of the machine's module, on an engine
 # that grants each grow within the pages
@@ -52,8 +71,17 @@ def mach_wasm.result.all(
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
 ) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
-  %module.of(Mc.Mach.code(), Mc.Mach.regs(), cells) : &f:Nat -> {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-  H.mach.all(n, cells, i, m, o, small, e)
+  mach_wasm.result.all.of(cells, i, m, o,
+    (%module.of(Mc.Mach.code(), Mc.Mach.regs(), cells) : &f:Nat -> H.HO(Wa.Wasm.Outcome.result{o}, [], Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, []}));
+      H.mach.all(n, cells, i, m, Wa.Wasm.Outcome.result{o}, [], small, Unit{}, e)))
+
+# the machine's module, on an engine with the answers gs, runs out of memory
+# when Cir does (q)
+def mach_wasm.oom.of(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
+  q: &f:Nat -> H.HO(Wa.Wasm.Outcome.out_of_memory{}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}))) ->
+  &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  (+f, p) = q
+  (f, H.ho.oom(gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), p))
 
 # A: when Cir runs out of memory, so does the machine's module, on any
 # engine with the same pages
@@ -62,7 +90,9 @@ def mach_wasm.oom(
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
 ) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
-  ?TODO
+  mach_wasm.oom.of(cells, i, m, gs,
+    (%module.of(Mc.Mach.code(), Mc.Mach.regs(), cells) : &f:Nat -> H.HO(Wa.Wasm.Outcome.out_of_memory{}, gs, Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}));
+      H.mach.all(n, cells, i, m, Wa.Wasm.Outcome.out_of_memory{}, gs, small, Unit{}, e)))
 
 # A: a module that halts at once with a status other than 0 gives no result,
 # on any engine

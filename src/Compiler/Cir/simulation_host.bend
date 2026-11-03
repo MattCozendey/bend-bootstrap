@@ -377,77 +377,158 @@ def is.host(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +mem:
 
 # The call of run (H2)
 
-# run's run from its frame fr in the memory mem, for Cir's result o: N2
-# steps end with a status s0, of a memory that the host reads as o
-def RS(+o: List<&2, Word(8n)>, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) -> Data:
+# an outcome that a completed host call can give here
+def is.ro(x: Wa.Wasm.Outcome) -> Data:
+  match x:
+    case Wa.Wasm.Outcome.result{_}:
+      Unit
+    case Wa.Wasm.Outcome.out_of_memory{}:
+      Unit
+    case _:
+      Empty
+
+# an outcome of the other forms (hy) is not one of these
+def ro.bad(+x: Wa.Wasm.Outcome, +y: Wa.Wasm.Outcome, hx: is.ro(x), hy: is.ro(y) -> Empty, e: {y == x : Wa.Wasm.Outcome}) -> Empty:
+  hy((%Equal.sym(Wa.Wasm.Outcome, y, x, e) : is.ro(_); hx))
+
+# run's run from its frame fr in the memory mem: N2 steps end with a status
+# s0, of a memory that the host reads as x
+def RS(+x: Wa.Wasm.Outcome, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) -> Data:
   S.EX(N2 => T.EXM(mm => Q.EXU(s0 => S.P2({PH.H.steps(N2, Wa.Wasm.Step.next{fr, mem}) == Wa.Wasm.Step.done{[s0], mm} : Wa.Wasm.Step},
-    {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}))))
+    {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == x : Wa.Wasm.Outcome}))))
+
+# an engine refusal ends run with 1, and k is the answer that refused it
+def OMS(+gs: List<&2, Bool>, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) -> Data:
+  S.EX(N2 => T.EXM(mm => S.EX(k => S.P2({List.get(&2, Bool, gs, k) == Some{False{}} : Maybe<&2, Bool>},
+    {PH.H.steps(N2, Wa.Wasm.Step.next{fr, mem}) == Wa.Wasm.Step.done{[1], mm} : Wa.Wasm.Step}))))
+
+# either the host's exact outcome, or out of memory after a refused grow
+def RSO(+x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory) -> Data:
+  S.OR(RS(x, fr, mem), OMS(gs, fr, mem))
+
+# the host's outcome, with the refusing answer retained
+def HO(+x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +y: Wa.Wasm.Outcome) -> Data:
+  S.OR({y == x : Wa.Wasm.Outcome}, S.EX(k => S.P2({List.get(&2, Bool, gs, k) == Some{False{}} : Maybe<&2, Bool>},
+    {y == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome})))
+
+# no answer can refuse a grow
+def ho.empty(+x: Wa.Wasm.Outcome, +y: Wa.Wasm.Outcome, q: HO(x, [], y)) -> {y == x : Wa.Wasm.Outcome}:
+  match q:
+    case Inl{e}:
+      e
+    case Inr{r}:
+      (+k, p) = r
+      (hg, eq) = p
+      Empty.absurd({y == x : Wa.Wasm.Outcome}, S.none.someb(False{}, hg))
+
+# drop the witness of a refusal
+def ho.or(+x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +y: Wa.Wasm.Outcome, q: HO(x, gs, y)) ->
+  Or({y == x : Wa.Wasm.Outcome}, {y == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
+  match q:
+    case Inl{e}:
+      Inl{e}
+    case Inr{r}:
+      (+k, p) = r
+      (hg, eq) = p
+      Inr{eq}
+
+# the host's outcome is out of memory, when Cir's is
+def ho.oom(+gs: List<&2, Bool>, +y: Wa.Wasm.Outcome, q: HO(Wa.Wasm.Outcome.out_of_memory{}, gs, y)) ->
+  {y == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  match q:
+    case Inl{e}:
+      e
+    case Inr{r}:
+      (+k, p) = r
+      (hg, eq) = p
+      eq
 
 # run's run, by how Cir's program ends (oc): a result only at a halt, whose
-# status the host reads as Cir.ended says (HaltOK)
-def rs.out(oc: Cr.Cir.Out, +o: List<&2, Word(8n)>, +X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32,
-  +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +m: Wa.Wasm.Bytes, +P: Nat, +G: Nat,
-  +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +N1: Nat,
-  pre: {PH.H.steps(N1, Wa.Wasm.Step.next{fr, mem}) == T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, m) : Wa.Wasm.Step},
-  sp: T.SPost(oc, X, [T.RL()], [], [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, m, P, G),
-  e: {Cr.Cir.ended(oc) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) -> RS(o, fr, mem):
+# status the host reads as Cir.ended says (HaltOK); an engine refusal ends at 1
+def rs.out(oc: Cr.Cir.Out, +x: Wa.Wasm.Outcome, +X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32,
+  +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +gs: List<&2, Bool>, +m: Wa.Wasm.Bytes, +P: Nat, +G: Nat,
+  +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +N1: Nat, +hx: is.ro(x),
+  pre: {PH.H.steps(N1, Wa.Wasm.Step.next{fr, mem}) == T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m) : Wa.Wasm.Step},
+  sp: T.GPost(oc, X, [T.RL()], [], [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m, P, G),
+  e: {Cr.Cir.ended(oc) == x : Wa.Wasm.Outcome}) -> RSO(x, gs, fr, mem):
   match oc:
     case Cr.Cir.Out.next{_}:
-      Empty.absurd(RS(o, fr, mem), res.is(Wa.Wasm.Outcome.no_result{}, o, e))
+      Empty.absurd(RSO(x, gs, fr, mem), ro.bad(x, Wa.Wasm.Outcome.no_result{}, hx, z => z, e))
     case Cr.Cir.Out.halt{+s0, st2}:
       match st2:
         case Cr.Cir.State{+rg2, +cl2, +nx2, +fi2, +im2, +pg2, +lm2, +inp2, +ou2, +on2}:
-          (+N2, p1) = sp
-          (+mm, p2) = p1
-          (eq, ok) = p2
-          (Nat.add(N1, N2), (mm, (s0, (S.steps.then(N1, N2, Wa.Wasm.Step.next{fr, mem}, T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, m),
-            Wa.Wasm.Step.done{[s0], mm}, pre, eq),
-            Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm),
-              Cr.Cir.ended.halt(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), Wa.Wasm.fits(pg2, Cr.Cir.at(nx2), on2), ou2),
-              Wa.Wasm.Outcome.result{o}, ok, e)))))
+          match sp:
+            case Inl{q}:
+              (+k, r0) = q
+              (+N2, p1) = r0
+              (+mm, p2) = p1
+              (eq, ok) = p2
+              Inl{(Nat.add(N1, N2), (mm, (s0, (S.steps.then(N1, N2, Wa.Wasm.Step.next{fr, mem}, T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m),
+                Wa.Wasm.Step.done{[s0], mm}, pre, eq),
+                Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm),
+                  Cr.Cir.ended.halt(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), Wa.Wasm.fits(pg2, Cr.Cir.at(nx2), on2), ou2), x, ok, e)))))}
+            case Inr{q}:
+              (+N2, p1) = q
+              (+mm, p2) = p1
+              (+k, p3) = p2
+              (hg, eq) = p3
+              Inr{(Nat.add(N1, N2), (mm, (k, (hg, S.steps.then(N1, N2, Wa.Wasm.Step.next{fr, mem},
+                T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m), Wa.Wasm.Step.done{[1], mm}, pre, eq)))))}
     case Cr.Cir.Out.out_of_memory{}:
-      Empty.absurd(RS(o, fr, mem), res.is(Wa.Wasm.Outcome.out_of_memory{}, o, e))
+      match sp:
+        case Inl{q}:
+          (+k, r0) = q
+          (+N2, p1) = r0
+          (+mm, eq) = p1
+          Inl{(Nat.add(N1, N2), (mm, (1, (S.steps.then(N1, N2, Wa.Wasm.Step.next{fr, mem},
+            T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m), Wa.Wasm.Step.done{[1], mm}, pre, eq), e))))}
+        case Inr{q}:
+          (+N2, p1) = q
+          (+mm, p2) = p1
+          (+k, p3) = p2
+          (hg, eq) = p3
+          Inr{(Nat.add(N1, N2), (mm, (k, (hg, S.steps.then(N1, N2, Wa.Wasm.Step.next{fr, mem},
+            T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m), Wa.Wasm.Step.done{[1], mm}, pre, eq)))))}
     case Cr.Cir.Out.trap{}:
-      Empty.absurd(RS(o, fr, mem), res.is(Wa.Wasm.Outcome.trap{}, o, e))
+      Empty.absurd(RSO(x, gs, fr, mem), ro.bad(x, Wa.Wasm.Outcome.trap{}, hx, z => z, e))
     case Cr.Cir.Out.not_done{}:
-      Empty.absurd(RS(o, fr, mem), res.is(Wa.Wasm.Outcome.not_done{}, o, e))
+      Empty.absurd(RSO(x, gs, fr, mem), ro.bad(x, Wa.Wasm.Outcome.not_done{}, hx, z => z, e))
 
 # the call of run gives the status s0 and the memory mm (c): the host reads
 # what the status gives (ok)
-def ran.go(+o: List<&2, Word(8n)>, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +X: Wa.Wasm.Module, +F: Nat, +N2: Nat, +mm: Wa.Wasm.Memory, +s0: U32,
-  ok: {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+def ran.go(+x: Wa.Wasm.Outcome, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +X: Wa.Wasm.Module, +F: Nat, +N2: Nat, +mm: Wa.Wasm.Memory, +s0: U32,
+  ok: {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == x : Wa.Wasm.Outcome},
   c: S.EX(j => S.P2({Wa.Wasm.call.go(F, PH.H.TS(), fr, mem) == Wa.Wasm.Call.done{[s0], mm, j} : Wa.Wasm.Call}, N.Le(j, N2)))) ->
-  {Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.call.go(F, PH.H.TS(), fr, mem), X)) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  {Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.call.go(F, PH.H.TS(), fr, mem), X)) == x : Wa.Wasm.Outcome}:
   (+j, r1) = c
   (ec, hj) = r1
   %Equal.sym(Wa.Wasm.Call, Wa.Wasm.call.go(F, PH.H.TS(), fr, mem), Wa.Wasm.Call.done{[s0], mm, j}, ec) :
-    {Wa.Wasm.run.ran(Wa.Wasm.invoked(_, X)) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+    {Wa.Wasm.run.ran(Wa.Wasm.invoked(_, X)) == x : Wa.Wasm.Outcome}
   ok
 
 # the call of run, from a run that ends at the status s0 in N2 steps, with
 # fuel F >= N2 (S.run.call)
-def ran.of(+o: List<&2, Word(8n)>, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +X: Wa.Wasm.Module, +F: Nat, +N2: Nat, +mm: Wa.Wasm.Memory, +s0: U32,
+def ran.of(+x: Wa.Wasm.Outcome, +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +X: Wa.Wasm.Module, +F: Nat, +N2: Nat, +mm: Wa.Wasm.Memory, +s0: U32,
   eq: {PH.H.steps(N2, Wa.Wasm.Step.next{fr, mem}) == Wa.Wasm.Step.done{[s0], mm} : Wa.Wasm.Step},
-  ok: {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-  hF: N.Le(N2, F)) -> {Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.call.go(F, PH.H.TS(), fr, mem), X)) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
-  ran.go(o, fr, mem, X, F, N2, mm, s0, ok, S.run.call(N2, F, fr, mem, [s0], mm, eq, hF))
+  ok: {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == x : Wa.Wasm.Outcome},
+  hF: N.Le(N2, F)) -> {Wa.Wasm.run.ran(Wa.Wasm.invoked(Wa.Wasm.call.go(F, PH.H.TS(), fr, mem), X)) == x : Wa.Wasm.Outcome}:
+  ran.go(x, fr, mem, X, F, N2, mm, s0, ok, S.run.call(N2, F, fr, mem, [s0], mm, eq, hF))
 
 # run's run of prog from the program's block, which run's start reaches
 # (pre): the relation there (IN.inv0), then the program (T.sim.stmt)
 def rs.pre(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +p2: U32, +lim: U32,
-  +o: List<&2, Word(8n)>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +eK: {U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)) == List.length(&2, Cr.Cir.Cell, cells) : Nat}, +hK: N.Le(2n+List.length(&2, Cr.Cir.Cell, cells), P), +hX0: N.Le(U32.to_nat(U32.inc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), P),
   +eLn: {len == Cr.Wasm.encode.len(Word(8n), i) : U32},
   +eE: {U32.to_nat(U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)) == Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)) : Nat},
   +hEP: N.Le(Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)), PH.H.t20(P)), +hEB: N.Le(Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)), Q.PB(p2)),
   +hlm: N.Le(U32.to_nat(lim), G), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lim)),
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
   e: {Cr.Cir.ended(Cr.Cir.exec(n, prog, Cr.Cir.State{List.replicate(U32, regs, 0), Cr.Cir.load(cells, 1, Cr.Cir.Cells.none{}),
-    Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Wasm.encode.len(Cr.Cir.Cell, cells), p2, lim, i, Nil{}, 0})) ==
-    Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-  pre: PR.PRE(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len, Wa.Wasm.Memory{p2, lim, [], IN.B2(cells, i)}, Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), P)) ->
-  RS(o, PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, [], IN.B2(cells, i)}):
+    Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Wasm.encode.len(Cr.Cir.Cell, cells), p2, lim, i, Nil{}, 0})) == x : Wa.Wasm.Outcome},
+  pre: PR.PRE(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len, Wa.Wasm.Memory{p2, lim, gs, IN.B2(cells, i)}, Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), P)) ->
+  RSO(x, gs, PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, gs, IN.B2(cells, i)}):
   (pre1, pre2) = pre
   (+N1, eq1) = pre1
   (hEF0, hFP) = pre2
@@ -457,55 +538,54 @@ def rs.pre(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell
   +ad = U32.add(a, len)
   +fst = Cr.Cir.first(k, ad)
   +B2 = IN.B2(cells, i)
-  +mm = {Wa.Wasm.Memory{p2, lim, [], B2} : Wa.Wasm.Memory}
+  +mm = {Wa.Wasm.Memory{p2, lim, gs, B2} : Wa.Wasm.Memory}
   +rg = List.replicate(U32, regs, 0)
   +cl = Cr.Cir.load(cells, 1, Cr.Cir.Cells.none{})
   +hEF = N.le_rw_l(U32.to_nat(ad), Nat.add(U32.to_nat(a), L), PH.H.t20(U32.to_nat(fst)), eE, hEF0)
   +hI = IN.inv0(cells, i, len, p2, lim, fst, P, G, hP, W, hW, eK, hK, eLn, hEP, hEB, hEF, hFP, hlm, hpl)
   +X = Cr.Cir.code.stmt(prog, 0n, [])
-  +sp = T.sim.stmt(n, prog, rg, cl, fst, fst, k, p2, lim, i, [], 0, 0n, [], [T.RL()], {==}, regs, MX, hR, MD, P, G, a, len, fst, 0, ad, B2, hI,
+  +sp = T.sim.stmt(n, prog, rg, cl, fst, fst, k, p2, lim, i, [], 0, 0n, [], [T.RL()], {==}, regs, MX, hR, MD, P, G, a, len, fst, 0, ad, gs, B2, hI,
     W, hW, hP, hG, ok, hd)
-  rs.out(Cr.Cir.exec(n, prog, Q.St(rg, cl, fst, fst, k, p2, lim, i, [], 0)), o, X, a, len, fst, 0, ad, rg, fst, 0, p2, lim, B2, P, G,
-    PR.pr.fr(prog, regs, k, a, len), mm, N1, eq1, sp, e)
+  rs.out(Cr.Cir.exec(n, prog, Q.St(rg, cl, fst, fst, k, p2, lim, i, [], 0)), x, X, a, len, fst, 0, ad, rg, fst, 0, p2, lim, gs, B2, P, G,
+    PR.pr.fr(prog, regs, k, a, len), mm, N1, hx, eq1, sp, e)
 
 # run's run of prog, from the call's frame, with the input of len bytes at
-# a in p2 pages, when Cir's program gives the result o: run's start
-# (PR.pr.go), then the program's block (rs.pre)
+# a in p2 pages: run's start (PR.pr.go), then the program's block (rs.pre)
 def rs.run(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +p2: U32, +lim: U32,
-  +o: List<&2, Word(8n)>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +eK: {U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)) == List.length(&2, Cr.Cir.Cell, cells) : Nat}, +hK: N.Le(2n+List.length(&2, Cr.Cir.Cell, cells), P), +hX0: N.Le(U32.to_nat(U32.inc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), P),
   +eLn: {len == Cr.Wasm.encode.len(Word(8n), i) : U32},
   +eE: {U32.to_nat(U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)) == Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)) : Nat},
   +hEP: N.Le(Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)), PH.H.t20(P)), +hEB: N.Le(Nat.add(U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), List.length(&2, Word(8n), i)), Q.PB(p2)),
   +hlm: N.Le(U32.to_nat(lim), G), +hpl: N.Le(U32.to_nat(p2), U32.to_nat(lim)),
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
   e: {Cr.Cir.ended(Cr.Cir.exec(n, prog, Cr.Cir.State{List.replicate(U32, regs, 0), Cr.Cir.load(cells, 1, Cr.Cir.Cells.none{}),
-    Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Wasm.encode.len(Cr.Cir.Cell, cells), p2, lim, i, Nil{}, 0})) ==
-    Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  RS(o, PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, [], IN.B2(cells, i)}):
+    Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Cir.first(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len)), Cr.Wasm.encode.len(Cr.Cir.Cell, cells), p2, lim, i, Nil{}, 0})) == x : Wa.Wasm.Outcome}) ->
+  RSO(x, gs, PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, gs, IN.B2(cells, i)}):
   +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
   +a = Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))
   +L = List.length(&2, Word(8n), i)
   +ad = U32.add(a, len)
   +hE = N.le_rw_l(Nat.add(U32.to_nat(a), L), U32.to_nat(ad), PH.H.t20(P), Equal.sym(Nat, U32.to_nat(ad), Nat.add(U32.to_nat(a), L), eE), hEP)
-  rs.pre(n, prog, regs, cells, i, len, p2, lim, o, MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eLn, eE, hEP, hEB, hlm, hpl, ok, hR, hd, e,
-    PR.pr.go(prog, regs, k, a, len, Wa.Wasm.Memory{p2, lim, [], IN.B2(cells, i)}, P, hP, W, hW, hX0, hE))
+  rs.pre(n, prog, regs, cells, i, len, p2, lim, x, gs, MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eLn, eE, hEP, hEB, hlm, hpl, ok, hR, hd, hx, e,
+    PR.pr.go(prog, regs, k, a, len, Wa.Wasm.Memory{p2, lim, gs, IN.B2(cells, i)}, P, hP, W, hW, hX0, hE))
+
 
 # The host's run (H2)
 
-# the call of alloc gave a (c), in the fuel 41 + N3, of which run's run
-# takes N3 (eq3, ok3): the input fits (fin) at a, not -1 (ane)
+# the call of alloc gave a (c), and took the answers to g1, in the fuel 41 + N3, of
+# which run's run takes N3 (eq3, ok3): the input fits (fin) at a, not -1 (ane)
 def host.call(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +lim: U32,
-  +o: List<&2, Word(8n)>, +p2: U32, +N3: Nat, +mm: Wa.Wasm.Memory, +s0: U32,
-  eq3: {PH.H.steps(N3, Wa.Wasm.Step.next{PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, [], IN.B2(cells, i)}}) ==
+  +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +g1: List<&2, Bool>, +p2: U32, +N3: Nat, +mm: Wa.Wasm.Memory, +s0: U32,
+  eq3: {PH.H.steps(N3, Wa.Wasm.Step.next{PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, g1, IN.B2(cells, i)}}) ==
     Wa.Wasm.Step.done{[s0], mm} : Wa.Wasm.Step},
-  ok3: {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+  ok3: {Wa.Wasm.run.status(U32.is_eq(s0, 0), U32.is_eq(s0, 1), U32.is_eq(s0, 2), mm) == x : Wa.Wasm.Outcome},
   ane: {U32.is_eq(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), 4294967295) == False{} : Bool}, fin: {Wa.Wasm.fits(p2, Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len) == True{} : Bool},
-  c: S.EX(j => S.P2({Wa.Wasm.call(Nat.add(41n, N3), PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}) ==
-    Wa.Wasm.Call.done{[AF.af.a(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))], Wa.Wasm.Memory{p2, lim, [], IN.B0(cells)}, j} : Wa.Wasm.Call}, N.Le(j, 41n)))) ->
-  &f:Nat -> {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}),
-    Cr.Cir.module(prog, regs, cells)), f, len, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  c: S.EX(j => S.P2({Wa.Wasm.call(Nat.add(41n, N3), PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}) ==
+    Wa.Wasm.Call.done{[AF.af.a(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))], Wa.Wasm.Memory{p2, lim, g1, IN.B0(cells)}, j} : Wa.Wasm.Call}, N.Le(j, 41n)))) ->
+  {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(Nat.add(41n, N3), PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}),
+    Cr.Cir.module(prog, regs, cells)), Nat.add(41n, N3), len, i) == x : Wa.Wasm.Outcome}:
   (+j, c1) = c
   (ec, hj) = c1
   +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
@@ -515,101 +595,164 @@ def host.call(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i:
   +X = Cr.Cir.module(prog, regs, cells)
   +f = Nat.add(41n, N3)
   +F0 = Nat.sub(f, j)
-  +ran = ran.of(o, PR.pr.fr(prog, regs, k, a, len), Wa.Wasm.Memory{p2, lim, [], IN.B2(cells, i)}, X, F0, N3, mm, s0, eq3, ok3, sub.ge(41n, N3, j, hj))
-  (f, {(
-    %Equal.sym(Wa.Wasm.Call, Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p0, lim, [], B0}),
-        Wa.Wasm.Call.done{[AF.af.a(k)], Wa.Wasm.Memory{p2, lim, [], B0}, j}, ec) :
-      {Wa.Wasm.run.alloced(Wa.Wasm.invoked(_, X), f, len, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-    %Equal.sym(Bool, U32.is_eq(a, 4294967295), False{}, ane) :
-      {Wa.Wasm.run.alloced.if(_, F0, Wa.Wasm.Instance{X, Wa.Wasm.Memory{p2, lim, [], B0}}, a, len, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-    %Equal.sym(Bool, Wa.Wasm.fits(p2, a, len), True{}, fin) :
-      {Wa.Wasm.run.written(_, F0, Wa.Wasm.Instance{X, Wa.Wasm.Memory{p2, lim, [], Wa.Wasm.write.bytes(i, a, B0)}}, a, len) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-    ran) : {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p0, lim, [], B0}), X), f, len, i) ==
-      Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}})
+  +ran = ran.of(x, PR.pr.fr(prog, regs, k, a, len), Wa.Wasm.Memory{p2, lim, g1, IN.B2(cells, i)}, X, F0, N3, mm, s0, eq3, ok3, sub.ge(41n, N3, j, hj))
+  %Equal.sym(Wa.Wasm.Call, Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(k), [len], Wa.Wasm.Memory{p0, lim, gs, B0}),
+      Wa.Wasm.Call.done{[AF.af.a(k)], Wa.Wasm.Memory{p2, lim, g1, B0}, j}, ec) :
+    {Wa.Wasm.run.alloced(Wa.Wasm.invoked(_, X), f, len, i) == x : Wa.Wasm.Outcome}
+  %Equal.sym(Bool, U32.is_eq(a, 4294967295), False{}, ane) :
+    {Wa.Wasm.run.alloced.if(_, F0, Wa.Wasm.Instance{X, Wa.Wasm.Memory{p2, lim, g1, B0}}, a, len, i) == x : Wa.Wasm.Outcome}
+  %Equal.sym(Bool, Wa.Wasm.fits(p2, a, len), True{}, fin) :
+    {Wa.Wasm.run.written(_, F0, Wa.Wasm.Instance{X, Wa.Wasm.Memory{p2, lim, g1, Wa.Wasm.write.bytes(i, a, B0)}}, a, len) == x : Wa.Wasm.Outcome}
+  ran
 
-# alloc's run gave a in N2 <= 41 steps (h2), and run's run is rr: the fuel
-# is 41 + run's steps
+# the call of alloc gave -1 (c): out of memory
+def host.neg(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +M0: Wa.Wasm.Memory,
+  +M1: Wa.Wasm.Memory, +F: Nat,
+  c: S.EX(j => S.P2({Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], M0) ==
+    Wa.Wasm.Call.done{[4294967295], M1, j} : Wa.Wasm.Call}, N.Le(j, 41n)))) ->
+  {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], M0),
+    Cr.Cir.module(prog, regs, cells)), F, len, i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  (+j, c1) = c
+  (ec, hj) = c1
+  %Equal.sym(Wa.Wasm.Call, Wa.Wasm.call(F, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], M0),
+      Wa.Wasm.Call.done{[4294967295], M1, j}, ec) :
+    {Wa.Wasm.run.alloced(Wa.Wasm.invoked(_, Cr.Cir.module(prog, regs, cells)), F, len, i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
+  {==}
+
+# alloc gave -1 after an engine's refusal (h): out of memory, with the answer's index
+def host.refused(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +lim: U32,
+  +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>,
+  h: AF.AFR(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells))) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}),
+    Cr.Cir.module(prog, regs, cells)), f, len, i)):
+  (+N2, h1) = h
+  (+k0, h2) = h1
+  (hg, h3) = h2
+  (41n, Inr{(k0, (hg, host.neg(prog, regs, cells, i, len, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)},
+    Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, S.Drop(1n, gs), IN.B0(cells)}, 41n,
+    AF.af.done(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}, 4294967295,
+      Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, S.Drop(1n, gs), IN.B0(cells)}, 41n, N.le_refl(41n), N2, h3))))})
+
+# alloc gave -1 with no refusal (h), as Cir does (e): out of memory
+def host.none(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +lim: U32,
+  +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>,
+  h: S.EX(N2 => S.P2({PH.H.steps(N2, Wa.Wasm.Step.next{AF.af.fr0(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len), Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}}) ==
+    Wa.Wasm.Step.done{[4294967295], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}} : Wa.Wasm.Step}, N.Le(N2, 41n))),
+  e: {Wa.Wasm.Outcome.out_of_memory{} == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}),
+    Cr.Cir.module(prog, regs, cells)), f, len, i)):
+  (+N2, h1) = h
+  (41n, Inl{Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(41n, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}),
+    Cr.Cir.module(prog, regs, cells)), 41n, len, i), Wa.Wasm.Outcome.out_of_memory{}, x,
+    host.neg(prog, regs, cells, i, len, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)},
+      Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}, 41n,
+      AF.af.done(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}, 4294967295,
+        Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}, 41n, N.le_refl(41n), N2, h1)), e)})
+
+# alloc's run gave a in N2 <= 41 steps (h2), and took the answers to those after k0; run's run is rr:
+# the fuel is 41 + run's steps; a refusal retains its answer's index
 def host.ran(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32, +lim: U32,
-  +o: List<&2, Word(8n)>, +p2: U32, +N2: Nat,
-  h2: S.P2({PH.H.steps(N2, Wa.Wasm.Step.next{AF.af.fr0(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len), Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}}) ==
-    Wa.Wasm.Step.done{[AF.af.a(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))], Wa.Wasm.Memory{p2, lim, [], IN.B0(cells)}} : Wa.Wasm.Step}, N.Le(N2, 41n)),
+  +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +k0: Nat, +p2: U32, +N2: Nat,
+  h2: S.P2({PH.H.steps(N2, Wa.Wasm.Step.next{AF.af.fr0(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len), Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}}) ==
+    Wa.Wasm.Step.done{[AF.af.a(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))], Wa.Wasm.Memory{p2, lim, S.Drop(k0, gs), IN.B0(cells)}} : Wa.Wasm.Step}, N.Le(N2, 41n)),
   ane: {U32.is_eq(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), 4294967295) == False{} : Bool}, fin: {Wa.Wasm.fits(p2, Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len) == True{} : Bool},
-  rr: RS(o, PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, [], IN.B2(cells, i)})) ->
-  &f:Nat -> {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}),
-    Cr.Cir.module(prog, regs, cells)), f, len, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
-  (+N3, r1) = rr
-  (+mm, r2) = r1
-  (+s0, r3) = r2
-  (eq3, ok3) = r3
-  host.call(prog, regs, cells, i, len, lim, o, p2, N3, mm, s0, eq3, ok3, ane, fin,
-    AF.af.some(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, IN.B0(cells), Nat.add(41n, N3), N.le_add_r(41n, N3), p2, N2, h2))
+  rr: RSO(x, S.Drop(k0, gs), PR.pr.fr(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), Wa.Wasm.Memory{p2, lim, S.Drop(k0, gs), IN.B2(cells, i)})) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}),
+    Cr.Cir.module(prog, regs, cells)), f, len, i)):
+  match rr:
+    case Inl{r}:
+      (+N3, r1) = r
+      (+mm, r2) = r1
+      (+s0, r3) = r2
+      (eq3, ok3) = r3
+      (Nat.add(41n, N3), Inl{host.call(prog, regs, cells, i, len, lim, x, gs, S.Drop(k0, gs), p2, N3, mm, s0, eq3, ok3, ane, fin,
+        AF.af.done(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}, AF.af.a(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)),
+          Wa.Wasm.Memory{p2, lim, S.Drop(k0, gs), IN.B0(cells)}, Nat.add(41n, N3), N.le_add_r(41n, N3), N2, h2))})
+    case Inr{r}:
+      (+N3, r1) = r
+      (+mm, r2) = r1
+      (+k, r3) = r2
+      (hg, eq3) = r3
+      (Nat.add(41n, N3), Inr{(Nat.add(k0, k), (Equal.trans(Maybe<&2, Bool>, List.get(&2, Bool, gs, Nat.add(k0, k)), List.get(&2, Bool, S.Drop(k0, gs), k), Some{False{}},
+        S.get.add(k0, gs, k), hg),
+        host.call(prog, regs, cells, i, len, lim, Wa.Wasm.Outcome.out_of_memory{}, gs, S.Drop(k0, gs), p2, N3, mm, 1, eq3, {==}, ane, fin,
+          AF.af.done(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}, AF.af.a(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)),
+            Wa.Wasm.Memory{p2, lim, S.Drop(k0, gs), IN.B0(cells)}, Nat.add(41n, N3), N.le_add_r(41n, N3), N2, h2))))})
 
-# alloc's call, by what Cir.alloc.pages gives (r); then the input's write
+# alloc's call, by what Cir.alloc.pages gives (r), exactly or stopped by an engine's refusal (h); then the input's write
 # and run's call
 def host.alloced(r: Maybe<&2, U32>, +n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>,
-  +len: U32, +lim: U32, +o: List<&2, Word(8n)>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +len: U32, +lim: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +eK: {U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)) == List.length(&2, Cr.Cir.Cell, cells) : Nat}, +hK: N.Le(2n+List.length(&2, Cr.Cir.Cell, cells), P), +hX0: N.Le(U32.to_nat(U32.inc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), P),
   +eA: {U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))) == PH.H.t20(1n+List.length(&2, Cr.Cir.Cell, cells)) : Nat},
   +eLn: {len == Cr.Wasm.encode.len(Word(8n), i) : U32}, +eL: {U32.to_nat(len) == List.length(&2, Word(8n), i) : Nat}, +hlm: N.Le(U32.to_nat(lim), G),
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
-  h: AF.AFS(r, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, IN.B0(cells)),
-  e: {Cr.Cir.result.alloced(r, n, prog, regs, cells, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), lim, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}),
-    Cr.Cir.module(prog, regs, cells)), f, len, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
+  h: AF.AFS(r, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)),
+  e: {Cr.Cir.result.alloced(r, n, prog, regs, cells, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), lim, i) == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}),
+    Cr.Cir.module(prog, regs, cells)), f, len, i)):
   match r:
     case None{}:
-      Empty.absurd(&f:Nat -> {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}),
-    Cr.Cir.module(prog, regs, cells)), f, len, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}, res.is(Wa.Wasm.Outcome.out_of_memory{}, o, e))
+      match h:
+        case Inl{h1}:
+          host.none(prog, regs, cells, i, len, lim, x, gs, h1, e)
+        case Inr{h1}:
+          host.refused(prog, regs, cells, i, len, lim, x, gs, h1)
     case Some{+p2}:
-      (+N2, h1) = h
-      (h2, ff) = h1
-      (e1, f1) = ff
-      (+e2, f2) = f1
-      (e3, e4) = f2
-      +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
-      +a = Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))
-      +E = U32.add(a, len)
-      +K = List.length(&2, Cr.Cir.Cell, cells)
-      +L = List.length(&2, Word(8n), i)
-      +A = U32.to_nat(a)
-      # the input's end, a + len exactly, at most 2^32 - 16
-      +eE0 = nowrap(a, len, W, hW, e1)
-      +eE = Equal.trans(Nat, U32.to_nat(E), Nat.add(A, U32.to_nat(len)), Nat.add(A, L), eE0, Equal.cong(Nat, Nat, z => Nat.add(A, z), U32.to_nat(len), L, eL))
-      +hE = e20.of(E, P, hP, e2)
-      +hEP = N.le_rw_l(U32.to_nat(E), Nat.add(A, L), PH.H.t20(P), eE, hE)
-      # and within the p2 pages
-      +h1A = N.le_rw_r(1n, PH.H.t20(1n+K), A, Equal.sym(Nat, A, PH.H.t20(1n+K), eA), Unit{})
-      +h1E = N.le_rw_r(1n, Nat.add(A, U32.to_nat(len)), U32.to_nat(E), Equal.sym(Nat, U32.to_nat(E), Nat.add(A, U32.to_nat(len)), eE0),
-        N.le_trans(1n, A, Nat.add(A, U32.to_nat(len)), h1A, N.le_add_r(A, U32.to_nat(len))))
-      +hpp = N.le_rw_l(U32.to_nat(AF.af.need(k, len)), U32.to_nat(U32.inc(U32.shrn(U32.sub(E, 1), 16n))), U32.to_nat(p2),
-        Equal.cong(U32, Nat, z => U32.to_nat(z), AF.af.need(k, len), U32.inc(U32.shrn(U32.sub(E, 1), 16n)), F.inc.add1(U32.shrn(U32.sub(E, 1), 16n))),
-        Z.le.of(AF.af.need(k, len), p2, e3))
-      +hEB0 = N.le_rw_l(1n+U32.to_nat(U32.sub(E, 1)), U32.to_nat(E), Q.PB(p2), Z.dec.nat(E, h1E),
-        A.room.of(U32.sub(E, 1), p2, W, hW, F.w16(P, hP, W, hW), hpp))
-      +hEB = N.le_rw_l(U32.to_nat(E), Nat.add(A, L), Q.PB(p2), eE, hEB0)
-      +hpl = Z.le.of(p2, lim, e4)
-      # alloc gave a, not -1, and the input fits
-      +ane = ne.max(a, 4294967280, Z.le.to(a, 4294967280, N.le_trans(A, U32.to_nat(E), U32.to_nat(4294967280),
-        N.le_rw_r(A, Nat.add(A, U32.to_nat(len)), U32.to_nat(E), Equal.sym(Nat, U32.to_nat(E), Nat.add(A, U32.to_nat(len)), eE0), N.le_add_r(A, U32.to_nat(len))),
-        ngt.to(E, 4294967280, e2))), {==})
-      +fin = fits.gen(p2, a, len, W, hW, h1A, N.le_rw_l(U32.to_nat(E), Nat.add(A, U32.to_nat(len)), Q.PB(p2), eE0, hEB0), A.pb2.le(p2, lim, G, W, hG, hpl, hlm))
-      host.ran(prog, regs, cells, i, len, lim, o, p2, N2, h2, ane, fin,
-        rs.run(n, prog, regs, cells, i, len, p2, lim, o, MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eLn, eE, hEP, hEB, hlm, hpl, ok, hR, hd, e))
+      match h:
+        case Inr{h1}:
+          host.refused(prog, regs, cells, i, len, lim, x, gs, h1)
+        case Inl{h1}:
+          (+N2, h2) = h1
+          (+k0, h3) = h2
+          (h4, ff) = h3
+          (e1, f1) = ff
+          (+e2, f2) = f1
+          (e3, e4) = f2
+          +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
+          +a = Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))
+          +E = U32.add(a, len)
+          +K = List.length(&2, Cr.Cir.Cell, cells)
+          +L = List.length(&2, Word(8n), i)
+          +A = U32.to_nat(a)
+          # the input's end, a + len exactly, at most 2^32 - 16
+          +eE0 = nowrap(a, len, W, hW, e1)
+          +eE = Equal.trans(Nat, U32.to_nat(E), Nat.add(A, U32.to_nat(len)), Nat.add(A, L), eE0, Equal.cong(Nat, Nat, z => Nat.add(A, z), U32.to_nat(len), L, eL))
+          +hE = e20.of(E, P, hP, e2)
+          +hEP = N.le_rw_l(U32.to_nat(E), Nat.add(A, L), PH.H.t20(P), eE, hE)
+          # and within the p2 pages
+          +h1A = N.le_rw_r(1n, PH.H.t20(1n+K), A, Equal.sym(Nat, A, PH.H.t20(1n+K), eA), Unit{})
+          +h1E = N.le_rw_r(1n, Nat.add(A, U32.to_nat(len)), U32.to_nat(E), Equal.sym(Nat, U32.to_nat(E), Nat.add(A, U32.to_nat(len)), eE0),
+            N.le_trans(1n, A, Nat.add(A, U32.to_nat(len)), h1A, N.le_add_r(A, U32.to_nat(len))))
+          +hpp = N.le_rw_l(U32.to_nat(AF.af.need(k, len)), U32.to_nat(U32.inc(U32.shrn(U32.sub(E, 1), 16n))), U32.to_nat(p2),
+            Equal.cong(U32, Nat, z => U32.to_nat(z), AF.af.need(k, len), U32.inc(U32.shrn(U32.sub(E, 1), 16n)), F.inc.add1(U32.shrn(U32.sub(E, 1), 16n))),
+            Z.le.of(AF.af.need(k, len), p2, e3))
+          +hEB0 = N.le_rw_l(1n+U32.to_nat(U32.sub(E, 1)), U32.to_nat(E), Q.PB(p2), Z.dec.nat(E, h1E),
+            A.room.of(U32.sub(E, 1), p2, W, hW, F.w16(P, hP, W, hW), hpp))
+          +hEB = N.le_rw_l(U32.to_nat(E), Nat.add(A, L), Q.PB(p2), eE, hEB0)
+          +hpl = Z.le.of(p2, lim, e4)
+          # alloc gave a, not -1, and the input fits
+          +ane = ne.max(a, 4294967280, Z.le.to(a, 4294967280, N.le_trans(A, U32.to_nat(E), U32.to_nat(4294967280),
+            N.le_rw_r(A, Nat.add(A, U32.to_nat(len)), U32.to_nat(E), Equal.sym(Nat, U32.to_nat(E), Nat.add(A, U32.to_nat(len)), eE0), N.le_add_r(A, U32.to_nat(len))),
+            ngt.to(E, 4294967280, e2))), {==})
+          +fin = fits.gen(p2, a, len, W, hW, h1A, N.le_rw_l(U32.to_nat(E), Nat.add(A, U32.to_nat(len)), Q.PB(p2), eE0, hEB0), A.pb2.le(p2, lim, G, W, hG, hpl, hlm))
+          host.ran(prog, regs, cells, i, len, lim, x, gs, k0, p2, N2, h4, ane, fin,
+            rs.run(n, prog, regs, cells, i, len, p2, lim, x, S.Drop(k0, gs), MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eLn, eE, hEP, hEB, hlm, hpl, ok, hR, hd, hx, e))
 
 # the input of len bytes, as length32 counts them (lt)
 def host.len(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +len: U32,
-  +lim: U32, +o: List<&2, Word(8n)>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +lim: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +eK: {U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)) == List.length(&2, Cr.Cir.Cell, cells) : Nat}, +hK: N.Le(2n+List.length(&2, Cr.Cir.Cell, cells), P), +hX0: N.Le(U32.to_nat(U32.inc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), P),
   +eA: {U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))) == PH.H.t20(1n+List.length(&2, Cr.Cir.Cell, cells)) : Nat}, +hlm: N.Le(U32.to_nat(lim), G),
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
   +hp0: {U32.is_eq(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), 4294967295) == False{} : Bool}, +hpl0: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim) == True{} : Bool},
   e: {Cr.Cir.result.alloced(Cr.Cir.alloc.pages(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim), n, prog, regs, cells, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), U32.add(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), len), lim, i) ==
-    Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    x : Wa.Wasm.Outcome},
   lt: L32.T(i, 0, len)) ->
-  &f:Nat -> {Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}),
-    Cr.Cir.module(prog, regs, cells)), f, len, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.alloced(Wa.Wasm.invoked(Wa.Wasm.call(f, PH.H.TS(), 1n, Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)), [len], Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}),
+    Cr.Cir.module(prog, regs, cells)), f, len, i)):
   (el1, el2) = lt
   +L = List.length(&2, Word(8n), i)
   +eL = Equal.trans(Nat, U32.to_nat(len), Nat.add(L, U32.to_nat(0)), L, el2, N.add_zero(L))
@@ -617,39 +760,38 @@ def host.len(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Ce
     Equal.trans(U32, Z.incn(L, 0), U32.add(U32.from_nat(L), 0), Cr.Wasm.encode.len(Word(8n), i), Z.incn.add(L, 0),
       Equal.trans(U32, U32.add(U32.from_nat(L), 0), U32.from_nat(L), Cr.Wasm.encode.len(Word(8n), i), Y.U32.add_zero(U32.from_nat(L)),
         Equal.sym(U32, Cr.Wasm.encode.len(Word(8n), i), U32.from_nat(L), enc.from(Word(8n), i)))))
-  host.alloced(Cr.Cir.alloc.pages(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim), n, prog, regs, cells, i, len, lim, o, MX, MD, P, G, W, hW, hP, hG,
-    eK, hK, hX0, eA, eLn, eL, hlm, ok, hR, hd, AF.af.steps(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, IN.B0(cells), hp0, hpl0), e)
+  host.alloced(Cr.Cir.alloc.pages(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim), n, prog, regs, cells, i, len, lim, x, gs, MX, MD, P, G, W, hW, hP, hG,
+    eK, hK, hX0, eA, eLn, eL, hlm, ok, hR, hd, hx, AF.af.steps(Cr.Wasm.encode.len(Cr.Cir.Cell, cells), len, Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells), hp0, hpl0), e)
 
 # the input's length, by length32 (ln): none is out of memory, for both
 def host.sized(ln: Maybe<&2, U32>, +n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>,
-  +lim: U32, +o: List<&2, Word(8n)>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +lim: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +eK: {U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)) == List.length(&2, Cr.Cir.Cell, cells) : Nat}, +hK: N.Le(2n+List.length(&2, Cr.Cir.Cell, cells), P), +hX0: N.Le(U32.to_nat(U32.inc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), P),
   +eA: {U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))) == PH.H.t20(1n+List.length(&2, Cr.Cir.Cell, cells)) : Nat}, +hlm: N.Le(U32.to_nat(lim), G),
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
   +hp0: {U32.is_eq(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), 4294967295) == False{} : Bool}, +hpl0: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim) == True{} : Bool},
   eln: {Wa.Wasm.length32(i) == ln : Maybe<&2, U32>},
-  e: {Cr.Cir.result.sized(ln, n, prog, regs, cells, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run.sized(ln, f, Wa.Wasm.Instance{Cr.Cir.module(prog, regs, cells), Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}}, i) ==
-    Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  e: {Cr.Cir.result.sized(ln, n, prog, regs, cells, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, i) == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.sized(ln, f, Wa.Wasm.Instance{Cr.Cir.module(prog, regs, cells), Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}}, i)):
   match ln:
     case None{}:
-      Empty.absurd(&f:Nat -> {Wa.Wasm.run.sized(None{}, f, Wa.Wasm.Instance{Cr.Cir.module(prog, regs, cells), Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, [], IN.B0(cells)}}, i) ==
-        Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}, res.is(Wa.Wasm.Outcome.out_of_memory{}, o, e))
+      (0n, Inl{Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run.sized(None{}, 0n, Wa.Wasm.Instance{Cr.Cir.module(prog, regs, cells), Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), lim, gs, IN.B0(cells)}}, i),
+        Wa.Wasm.Outcome.out_of_memory{}, x, {==}, e)})
     case Some{+len}:
-      host.len(n, prog, regs, cells, i, len, lim, o, MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eA, hlm, ok, hR, hd, hp0, hpl0, e,
+      host.len(n, prog, regs, cells, i, len, lim, x, gs, MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eA, hlm, ok, hR, hd, hx, hp0, hpl0, e,
         L32.go(i, 0, len, W, hW, eln))
 
 # the instance of the memory of the module's minimum, with the data segment,
 # exports what the host uses (H1): the host's run is that of the input (q)
-def host.made(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+def host.made(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>,
   +P: Nat, +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +G: Nat, +hG: {N.D(16n, G) == W : Nat}, +eG: {U32.to_nat(65536) == G : Nat},
   +hK1: N.Le(1n+List.length(&2, Cr.Cir.Cell, cells), P), +eA: {U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))) == PH.H.t20(1n+List.length(&2, Cr.Cir.Cell, cells)) : Nat},
-  q: &f:Nat -> {Wa.Wasm.run.sized(Wa.Wasm.length32(i), f, Wa.Wasm.Instance{Cr.Cir.module(prog, regs, cells),
-    Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), [], IN.B0(cells)}}, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(True{}, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), [], Wa.Wasm.Bytes.zero{}}),
-    Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, Cr.Cir.module(prog, regs, cells)), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  q: &f:Nat -> HO(x, gs, Wa.Wasm.run.sized(Wa.Wasm.length32(i), f, Wa.Wasm.Instance{Cr.Cir.module(prog, regs, cells),
+    Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), gs, IN.B0(cells)}}, i))) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(True{}, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}),
+    Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, Cr.Cir.module(prog, regs, cells)), i)):
   (+f0, pr0) = q
   +p0 = Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)))
   +lim = Wa.Wasm.min(m, 65536)
@@ -657,38 +799,37 @@ def host.made(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i:
   +X = Cr.Cir.module(prog, regs, cells)
   (f0, {(
     %Equal.sym(Bool, Wa.Wasm.fits.len(p0, 20, Wa.Wasm.length32(Cr.Cir.bytes(cells))), True{}, seg.fits(cells, P, hP, W, hW, G, hG, eG, hK1, eA)) :
-      {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.made(Wa.Wasm.memory.init.if(_, p0, lim, [], Wa.Wasm.write.bytes(Cr.Cir.bytes(cells), 20, Wa.Wasm.Bytes.zero{})),
-        X), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-    %Equal.sym(Bool, Wa.Wasm.run.is_host(Wa.Wasm.Instance{X, Wa.Wasm.Memory{p0, lim, [], B0}}), True{}, is.host(prog, regs, cells, Wa.Wasm.Memory{p0, lim, [], B0})) :
-      {Wa.Wasm.run.instance(_, f0, Wa.Wasm.Instance{X, Wa.Wasm.Memory{p0, lim, [], B0}}, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-    pr0) : {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(True{}, Wa.Wasm.Memory{p0, lim, [], Wa.Wasm.Bytes.zero{}}),
-      Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, X), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}})
+      HO(x, gs, Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.made(Wa.Wasm.memory.init.if(_, p0, lim, gs, Wa.Wasm.write.bytes(Cr.Cir.bytes(cells), 20, Wa.Wasm.Bytes.zero{})),
+        X), i))
+    %Equal.sym(Bool, Wa.Wasm.run.is_host(Wa.Wasm.Instance{X, Wa.Wasm.Memory{p0, lim, gs, B0}}), True{}, is.host(prog, regs, cells, Wa.Wasm.Memory{p0, lim, gs, B0})) :
+      HO(x, gs, Wa.Wasm.run.instance(_, f0, Wa.Wasm.Instance{X, Wa.Wasm.Memory{p0, lim, gs, B0}}, i))
+    pr0) : HO(x, gs, Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(True{}, Wa.Wasm.Memory{p0, lim, gs, Wa.Wasm.Bytes.zero{}}),
+      Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, X), i))})
 
 # the memory of the module's minimum, when the engine allows that many pages
 # (b); then the data segment and the exports (H1)
 def host.mem(b: Bool, +n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32,
-  +o: List<&2, Word(8n)>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +MX: U32, +MD: U32, +P: Nat, +G: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
   +hP: {Nat.add(PH.H.W(4n), PH.H.t20(P)) == PH.H.W(32n) : Nat}, +hG: {N.D(16n, G) == W : Nat},
   +eK: {U32.to_nat(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)) == List.length(&2, Cr.Cir.Cell, cells) : Nat}, +hK: N.Le(2n+List.length(&2, Cr.Cir.Cell, cells), P), +hK1: N.Le(1n+List.length(&2, Cr.Cir.Cell, cells), P), +hX0: N.Le(U32.to_nat(U32.inc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), P),
   +eA: {U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))) == PH.H.t20(1n+List.length(&2, Cr.Cir.Cell, cells)) : Nat}, +eG: {U32.to_nat(65536) == G : Nat}, +hlm: N.Le(U32.to_nat(Wa.Wasm.min(m, 65536)), G),
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
   eb: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m) == b : Bool},
-  e: {Cr.Cir.result.memory(b, n, prog, regs, cells, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), [], Wa.Wasm.Bytes.zero{}}),
-    Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, Cr.Cir.module(prog, regs, cells)), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  e: {Cr.Cir.result.memory(b, n, prog, regs, cells, Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), i) == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}),
+    Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, Cr.Cir.module(prog, regs, cells)), i)):
   match b:
     case False{}:
-      Empty.absurd(&f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(False{}, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), [], Wa.Wasm.Bytes.zero{}}),
-        Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, Cr.Cir.module(prog, regs, cells)), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-        res.is(Wa.Wasm.Outcome.out_of_memory{}, o, e))
+      (0n, Inl{Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run.made(0n, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(False{}, Wa.Wasm.Memory{Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}),
+        Some{Wa.Wasm.Segment{20, Cr.Cir.bytes(cells)}}, Cr.Cir.module(prog, regs, cells)), i), Wa.Wasm.Outcome.out_of_memory{}, x, {==}, e)})
     case True{}:
       +a = Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))
       +p0 = Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)))
       +lim = Wa.Wasm.min(m, 65536)
       +hle = V.pages.le(U32.sub(a, 1))
-      host.made(prog, regs, cells, i, m, o, P, hP, W, hW, G, hG, eG, hK1, eA,
-        host.sized(Wa.Wasm.length32(i), n, prog, regs, cells, i, lim, o, MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eA, hlm,
-          ok, hR, hd, ne.max(p0, 65536, hle, {==}), le.min(p0, m, eb, hle), {==}, e))
+      host.made(prog, regs, cells, i, m, x, gs, P, hP, W, hW, G, hG, eG, hK1, eA,
+        host.sized(Wa.Wasm.length32(i), n, prog, regs, cells, i, lim, x, gs, MX, MD, P, G, W, hW, hP, hG, eK, hK, hX0, eA, hlm,
+          ok, hR, hd, hx, ne.max(p0, 65536, hle, {==}), le.min(p0, m, eb, hle), {==}, e))
 
 # 1 + K <= M2 < PU = P gives 2 + K <= P; M2 and PU stay variables, so that
 # no check compares two closed numbers by counting
@@ -697,13 +838,13 @@ def k.lt.p(+K: Nat, +M2: U32, +PU: U32, +P: Nat, h: N.Le(1n+K, U32.to_nat(M2)), 
   N.le_trans(2n+K, 1n+U32.to_nat(M2), P, le.ss(1n+K, U32.to_nat(M2), h),
     N.le_rw_r(1n+U32.to_nat(M2), U32.to_nat(PU), P, eP, Z.lt.of(M2, PU, hl)))
 
-# the valid module of prog, instantiated on an engine of m pages that grants
-# each grow: the host gives Cir's result
-def host.all(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+# the valid module of prog, instantiated on an engine of m pages with the answers gs to its grows: the host
+# gives Cir's outcome x (a result, or out of memory), or runs out of memory after an answer that refuses a grow
+def host.all(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>,
   +MX: U32, +MD: U32, small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
-  e: {Cr.Cir.result(n, prog, regs, cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.valid(True{}, Cr.Cir.module(prog, regs, cells), m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
+  e: {Cr.Cir.result(n, prog, regs, cells, i, m) == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run.made(f, Wa.Wasm.instantiate.valid(True{}, Cr.Cir.module(prog, regs, cells), m, gs), i)):
   +W = PH.H.W(32n)
   +P = PH.H.pat(7n)
   +G = N.D(16n, 1n)
@@ -723,18 +864,28 @@ def host.all(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Ce
   +eA = Equal.trans(Nat, U32.to_nat(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), PH.H.t20(U32.to_nat(U32.inc(k))), PH.H.t20(1n+K), F.at.nat(U32.inc(k), P, hP, hX0),
     Equal.cong(Nat, Nat, z => PH.H.t20(z), U32.to_nat(U32.inc(k)), 1n+K, ek1))
   +eG = {N.val_65536() : {U32.to_nat(65536) == G : Nat}}
-  host.mem(U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m), n, prog, regs, cells, i, m, o, MX, MD, P, G, W, hW, hP, gw(W, hW), eK, hK, hK1, hX0, eA, eG, lim.le(m, G, eG),
-    ok, hR, hd, {==}, e)
+  host.mem(U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m), n, prog, regs, cells, i, m, x, gs, MX, MD, P, G, W, hW, hP, gw(W, hW), eK, hK, hK1, hX0, eA, eG, lim.le(m, G, eG),
+    ok, hR, hd, hx, {==}, e)
+
+# an outcome equal to a host outcome is one, with the same refusal
+def ho.rw(+x: Wa.Wasm.Outcome, +gs: List<&2, Bool>, +y: Wa.Wasm.Outcome, +y2: Wa.Wasm.Outcome, e: {y2 == y : Wa.Wasm.Outcome}, q: HO(x, gs, y)) -> HO(x, gs, y2):
+  match q:
+    case Inl{p}:
+      Inl{Equal.trans(Wa.Wasm.Outcome, y2, y, x, e, p)}
+    case Inr{r}:
+      (+k, r1) = r
+      (hg, p) = r1
+      Inr{(k, (hg, Equal.trans(Wa.Wasm.Outcome, y2, y, Wa.Wasm.Outcome.out_of_memory{}, e, p)))}
 
 # the bytes of prog's module decode to the module (M.round.sized), which is
 # valid (V.valid.module): their run is the instance's (q)
-def run.of(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+def run.of(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>,
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hr: {Nat.is_le(6n+regs, U32.to_nat(50000)) == True{} : Bool},
   hs: N.Le(1n+List.length(&2, Word(8n), Cr.Wasm.encode.codes([Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)),
     Cr.Cir.run(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells))])), U32.to_nat(4294967295)),
-  q: &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.valid(True{}, Cr.Cir.module(prog, regs, cells), m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
+  q: &f:Nat -> HO(x, gs, Wa.Wasm.run.made(f, Wa.Wasm.instantiate.valid(True{}, Cr.Cir.module(prog, regs, cells), m, gs), i))) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)), i, Wa.Wasm.Engine{m, gs})):
   (+f0, pr) = q
   +X = Cr.Cir.module(prog, regs, cells)
   +w = Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells))
@@ -742,29 +893,28 @@ def run.of(+prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: Li
     M.lt_le(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864), small), N.toLe(6n+regs, U32.to_nat(50000), hr), hs)
   +rest = {(
     %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(w), Some{X}, rd) :
-      {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(_, m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-    %Equal.sym(Wa.Wasm.Made, Wa.Wasm.instantiate.decoded(Some{X}, m, []), Wa.Wasm.instantiate.valid(Wa.Wasm.valid.module(X), X, m, []), PH.H.inst.dec(X, m, [])) :
-      {Wa.Wasm.run.made(f0, _, i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
+      HO(x, gs, Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(_, m, gs), i))
+    %Equal.sym(Wa.Wasm.Made, Wa.Wasm.instantiate.decoded(Some{X}, m, gs), Wa.Wasm.instantiate.valid(Wa.Wasm.valid.module(X), X, m, gs), PH.H.inst.dec(X, m, gs)) :
+      HO(x, gs, Wa.Wasm.run.made(f0, _, i))
     %Equal.sym(Bool, Wa.Wasm.valid.module(X), True{}, V.valid.module(prog, regs, cells, ok, hr)) :
-      {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.valid(_, X, m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-    pr) : {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(w), m, []), i) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}}
-  (f0, Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run(f0, w, i, Wa.Wasm.Engine{m, []}),
-    Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(w), m, []), i), Wa.Wasm.Outcome.result{o},
-    PH.H.run.eq(f0, w, i, m, []), rest))
+      HO(x, gs, Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.valid(_, X, m, gs), i))
+    pr) : HO(x, gs, Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(w), m, gs), i))}
+  (f0, ho.rw(x, gs, Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(w), m, gs), i), Wa.Wasm.run(f0, w, i, Wa.Wasm.Engine{m, gs}),
+    PH.H.run.eq(f0, w, i, m, gs), rest))
 
-# the run of the bytes of prog's module, on an engine that grants each grow:
-# Cir's result
-def run.all(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+# the run of the bytes of prog's module, on an engine with the answers gs: Cir's outcome x (a result, or out of
+# memory), or out of memory after a refusal
+def run.all(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>,
   +MX: U32, +MD: U32, +small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
-  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)),
+  +ok: {V.ok.stmt(prog, regs) == True{} : Bool}, +hR: N.Le(8n+regs, U32.to_nat(MX)), +hd: N.Le(T.dep(prog), U32.to_nat(MD)), +hx: is.ro(x),
   hr: {Nat.is_le(6n+regs, U32.to_nat(50000)) == True{} : Bool},
   hs: N.Le(1n+List.length(&2, Word(8n), Cr.Wasm.encode.codes([Cr.Cir.alloc(Cr.Wasm.encode.len(Cr.Cir.Cell, cells)),
     Cr.Cir.run(prog, regs, Cr.Wasm.encode.len(Cr.Cir.Cell, cells))])), U32.to_nat(4294967295)),
-  e: {Cr.Cir.result(n, prog, regs, cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
-  run.of(prog, regs, cells, i, m, o, small, ok, hr, hs, host.all(n, prog, regs, cells, i, m, o, MX, MD, small, ok, hR, hd, e))
+  e: {Cr.Cir.result(n, prog, regs, cells, i, m) == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(prog, regs, cells)), i, Wa.Wasm.Engine{m, gs})):
+  run.of(prog, regs, cells, i, m, x, gs, small, ok, hr, hs, host.all(n, prog, regs, cells, i, m, x, gs, MX, MD, small, ok, hR, hd, hx, e))
 
-# The machine (mach_wasm.result.all)
+# The machine (mach_wasm.result, .oom, .result.all)
 
 # the machine's registers, as locals, have numbers below 50000
 def mach.hR() -> N.Le(8n+Mc.Mach.regs(), U32.to_nat(50000)):
@@ -774,10 +924,10 @@ def mach.hR() -> N.Le(8n+Mc.Mach.regs(), U32.to_nat(50000)):
 def mach.hd() -> N.Le(T.dep(Mc.Mach.code()), U32.to_nat(50000)):
   N.toLe(T.dep(Mc.Mach.code()), U32.to_nat(50000), {==})
 
-# the machine's module, run on an engine that grants each grow, gives Cir's
-# result
-def mach.all(+n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
-  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
-  e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(Mc.Mach.code(), Mc.Mach.regs(), cells)), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
-  run.all(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m, o, 50000, 50000, small, V.mach.ok(), mach.hR(), mach.hd(), {==}, CS.mach.size(cells), e)
+# the machine's module, run on an engine with the answers gs, gives Cir's outcome x (a result, or out of memory),
+# or runs out of memory after a refusal
+def mach.all(+n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +x: Wa.Wasm.Outcome, +gs: List<&2, Bool>,
+  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool}, +hx: is.ro(x),
+  e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> HO(x, gs, Wa.Wasm.run(f, Cr.Wasm.encode(Cr.Cir.module(Mc.Mach.code(), Mc.Mach.regs(), cells)), i, Wa.Wasm.Engine{m, gs})):
+  run.all(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m, x, gs, 50000, 50000, small, V.mach.ok(), mach.hR(), mach.hd(), hx, {==}, CS.mach.size(cells), e)
