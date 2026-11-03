@@ -1184,9 +1184,10 @@ def HS(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, 
 # the zombie is reused, is still accounted for while a pointer holds it. With no pending cell, the own
 # cells are at most the STATIC ones + the roots' nodes + the cells xs
 # (acc.count, U1): a new cell (Cir alloc) is taken only then (alloc.post).
-# No constant appears here: the cache's bound (6144 cells) is the run's
-# (memory_bound.bend, U16), as a closed big number would be expanded by
-# the checker in every match that has Acc in its context.
+# No constant appears here, as a closed big number would be expanded by the
+# checker in every match that has Acc in its context: the cache's bound
+# (Cache.max) holds after M.input (InvIn), and no round adds a STATIC cell
+# (MV.next).
 
 # how many of the n cells from c are STATIC
 def Stat(n: Nat, +m: Cr.Cir.Cells, +c: U32) -> Nat:
@@ -1514,7 +1515,10 @@ def Reg(st: Cr.Cir.State, +r: Nat, +v: U32) -> Data:
 # pend list or new), the counts and the flag DATA of term cells, and the cells
 # es that it is given to change; the cells of the machine's own kinds that a
 # caller holds outside HS (the walk's K.arg chains, the arguments of a call)
-# keep their values.
+# keep their values. On every path it ends with no more STATIC own cells
+# (Stat, which Need counts) than it began with: only M.input and the image
+# write the flag STATIC (M.copy's bits of the parts still to copy, 1024 among
+# them, leave each cell at M.finish).
 
 def Kept.if(b: Bool, X: Data) -> Data:
   match b:
@@ -1590,11 +1594,12 @@ def CopyQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   +m2 = St.cells(st2)
   +nx2 = St.next(st2)
   P2(Same(regs, fi, im, lim, inp, keep, st2),
+  P2(N.Le(Stat(Mem.cells(st2), St.cells(st2), St.first(st2)), Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)),
   Ex(U32, n => Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
     P2(Reg(st2, r, n), P2(Reg(st2, 3n, pend2), P2(Kept.cells(m, nx, fi, ps, Nil{}, m2, nx2, ps2),
     P2(HS(ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, bs, fs, sp, pend2, ps2),
     P2(Ag(ds, m2, im, fi, nx2, ks, img, ps2, os, Nil{}, ce, es),
-      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, List.append(&2, TmpE, Ag.cells(es, m2, ce), xs), sp, fs, ps2, zs2)))))))))))
+      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, m2, nx2, fi, im, Con{Rt{n, El.Term.subst(t, Arg.terms(es), 0n)}, os}, List.append(&2, TmpE, Ag.cells(es, m2, ce), xs), sp, fs, ps2, zs2))))))))))))
 # the conclusion of copy.post (moves.bend), for the phase that proves it
 def CopyPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +wt: Bool,
@@ -1660,10 +1665,11 @@ def DataQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   +os: List<&2, Rt>, +bs: List<&2, Rt>, +fs: List<&2, AF>, +sp: U32, +ps: List<&2, U32>, +v: Bk.Term,
   +xs: List<&2, TmpE>, +st2: Cr.Cir.State) -> Data:
   P2(Same(regs, fi, im, lim, inp, keep, st2),
+  P2(N.Le(Stat(Mem.cells(st2), St.cells(st2), St.first(st2)), Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)),
   P2(Reg(st2, 43n, Bool.to_u32(El.Term.is_data(v))),
   Ex(U32, pend2 => Ex(List<&2, U32>, ps2 =>
     P2(Reg(st2, 3n, pend2), P2(Kept.cells(m, nx, fi, ps, Nil{}, St.cells(st2), St.next(st2), ps2), DataH(El.Term.is_data(v), P2(HS(ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2),
-      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, xs, sp, fs, ps2, zs2))))))))))
+      Ex(List<&2, Rt>, zs2 => AccK(True{}, ds, ks, img, St.cells(st2), St.next(st2), fi, im, os, xs, sp, fs, ps2, zs2)))))))))))
 # the conclusion of data.post (moves.bend), for the phase that proves it
 def DataPost(+f: Nat, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
   +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat,
@@ -1737,6 +1743,7 @@ def WalkQ(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
   +m2 = St.cells(st2)
   +nx2 = St.next(st2)
   Same(regs, fi, im, lim, inp, keep, st2) &
+  N.Le(Stat(Mem.cells(st2), St.cells(st2), St.first(st2)), Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)) &
   &res: U32 -> &wt2: U32 -> &env: U32 -> &wn: U32 -> &args: U32 -> &pend2: U32 -> &ps2: List<&2, U32> ->
     Reg(st2, 26n, res) & Reg(st2, 19n, wt2) & Reg(st2, 20n, env) & Reg(st2, 25n, wn) & Reg(st2, 21n, args) &
     Reg(st2, 3n, pend2) & Kept.cells(m, nx, fi, ps, Tmp.cells(Ag.cells(xs, m, a)), m2, nx2, ps2) &
@@ -3241,11 +3248,21 @@ def setmode(+f: Nat, st: Cr.Cir.State, e: {List.length(&2, U32, St.regs(st)) == 
         Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, 1n, 0), m, nx, fi, im, pg, lim, inp, out, outn}} : Cr.Cir.Out}
       {==}
 
-# after M.input: ten registers or more, and once the mode is 0, the invariant
-# of Program.start(i), with the image's names and terms (cell_terms.bend)
+# the most STATIC cells of the input's byte cache: 256 x 24 (AGENTS.md 3.9.1.4)
+def Cache.max() -> Nat:
+  6144n
+
+# Cache.max, as the memory bound writes it (memory_bound.bend)
+def Cache.max.eq() -> {Cache.max() == N.D(11n, 3n) : Nat}:
+  {==}
+
+# after M.input: 63 registers, at most Cache.max() STATIC own cells, and once
+# the mode is 0, the invariant of Program.start(i), with the image's names and
+# terms (cell_terms.bend)
 def InvIn(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st: Cr.Cir.State) -> Data:
   P2({List.length(&2, U32, St.regs(st)) == 63n : Nat},
-    Ex(Nat, w => Inv(ds, T.tm.names(ds), T.tm.img(ds), Mode0(st), Pg.Program.start(i), w)))
+  P2(N.Le(Stat(Mem.cells(st), St.cells(st), St.first(st)), Cache.max()),
+    Ex(Nat, w => Inv(ds, T.tm.names(ds), T.tm.img(ds), Mode0(st), Pg.Program.start(i), w))))
 # the conclusion of input.post (move_kit.bend), for the phase that proves it:
 # InvIn, or out of memory below 27 cells a byte (3 of the list, 24 of a new
 # byte of the cache) and the focus

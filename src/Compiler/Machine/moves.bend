@@ -20,10 +20,10 @@
 # that gives it, or runs out of memory.
 #
 # Proven: the choice of the moves (round.post, round.done), the loop, the run
-# from Cir.result's start, the three lemmas. Open: the laws of move_kit.bend
-# and of definitions.bend (filled, as ?TODO for now, in the units' files that
-# this file imports), and mach.memory with what it needs (round.peak,
-# round.room).
+# from Cir.result's start, the three lemmas. Open: the laws of move_kit.bend,
+# definitions.bend and copy_substitution.bend (filled, some as ?TODO for now,
+# in the units' files that this file imports), and mach.memory with what it
+# needs (round.peak, round.room).
 
 import Base
 import ../../Book/impl.bend as Bk
@@ -39,6 +39,7 @@ import ./statement_runs.bend as X
 import ./move_kit.bend as K
 import ./cir_fits.bend as CF
 import ./heap_ops.bend as U2
+import ./copy_gives_subst.bend as U4
 import ./copy_bridge.bend as U5
 import ./data_check.bend as U6
 import ./walk.bend as U7
@@ -759,7 +760,8 @@ def run.loop(+n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st2: Cr.Ci
 
 def run.rest(+n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +st1: Cr.Cir.State, q1: D.InvIn(ds, i, st1)) ->
   D.Post(False{}, Cr.Cir.exec(n, D.B.rest(), st1), st => Unit, s2 => st2 => D.HE(ds, Pg.Program.start(i), s2, st2)):
-  (len, ex) = q1
+  (len, q0) = q1
+  (_, ex) = q0
   D.post.seq(n, False{}, Mc.M.set(Mc.R.mode(), Mc.M.c(0)), Cr.Cir.Stmt.seq{D.B.loop(), Cr.Cir.Stmt.nop{}}, st1,
     st2 => D.Ex(Nat, w => D.Inv(ds, T.tm.names(ds), T.tm.img(ds), st2, Pg.Program.start(i), w)), st => Unit,
     s2 => st2 => Empty, s2 => st2 => D.HE(ds, Pg.Program.start(i), s2, st2),
@@ -1030,7 +1032,8 @@ def run.done.r(k: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +o: List<&
   D.Ex(Nat, n => D.Good(o, Cr.Cir.exec(n, Mc.Mach.code(), st0))):
   match r1:
     case Cr.Cir.Out.next{+st1}:
-      (len, q) = p1
+      (len, q0) = p1
+      (_, q) = q0
       (w, inv) = q
       run.next(k, ds, i, o, f1, st0, st1, er1, len, w, inv, e)
     case Cr.Cir.Out.halt{s, st}:
