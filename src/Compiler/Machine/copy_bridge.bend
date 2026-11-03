@@ -3852,6 +3852,50 @@ def GY(+m: Cr.Cir.Cells, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32) -
 def GP(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32) -> List<&2, U32>:
   Gb.of(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, GL(m, os, xs, fs, sp), GY(m, xs, fs, sp))
 
+# the cover's condition at a cell
+def CovAt(+m: Cr.Cir.Cells, +c: U32, +rs: List<&2, D.Rt>, +xs: List<&2, U32>) -> Bool:
+  Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(rs, m, c), D.Mem(xs, c)))
+
+# every own cell is live, or one of the garbage cells
+def cov.live(k: Nat, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>,
+  +fs: List<&2, D.AF>, +sp: U32, +hfn: {U32.is_le(fi, nx) == True{} : Bool}, +c: U32,
+  +h1: N.Le(U32.to_nat(fi), U32.to_nat(c)), +hw: N.Le(Nat.add(U32.to_nat(c), k), U32.to_nat(nx))) ->
+  {D.Cov(k, m, c, GL(m, os, xs, fs, sp), List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp))) == True{} : Bool}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+(+q):
+      +h2 = w.lt(c, q, nx, hw)
+      +ei = D.u.inc(c, nx, h2)
+      +efn = D.add.sub(U32.to_nat(fi), U32.to_nat(nx), CK.U.le(fi, nx, hfn))
+      +h2f = N.le_rw_r(1n+U32.to_nat(c), U32.to_nat(nx), Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx), U32.to_nat(fi))),
+        Equal.sym(Nat, Nat.add(U32.to_nat(fi), Nat.sub(U32.to_nat(nx), U32.to_nat(fi))), U32.to_nat(nx), efn), h2)
+      +cv = bool.case(Lv(m, GL(m, os, xs, fs, sp), GY(m, xs, fs, sp), c), Lv(m, GL(m, os, xs, fs, sp), GY(m, xs, fs, sp), c),
+        {CovAt(m, c, GL(m, os, xs, fs, sp), List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp))) == True{} : Bool}, {==},
+        e => D.or.cases(Lv0(m, GL(m, os, xs, fs, sp), c), D.Mem(GY(m, xs, fs, sp), c),
+          {CovAt(m, c, GL(m, os, xs, fs, sp), List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp))) == True{} : Bool}, e,
+          e0 => D.or.cases(D.Fl(m, c, 1024), D.Nodes(GL(m, os, xs, fs, sp), m, c),
+            {CovAt(m, c, GL(m, os, xs, fs, sp), List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp))) == True{} : Bool}, e0,
+            est => D.or.l(D.Fl(m, c, 1024), Bool.or(D.Nodes(GL(m, os, xs, fs, sp), m, c), D.Mem(List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp)), c)), est),
+            end => D.or.r(D.Fl(m, c, 1024), Bool.or(D.Nodes(GL(m, os, xs, fs, sp), m, c), D.Mem(List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp)), c)),
+              D.or.l(D.Nodes(GL(m, os, xs, fs, sp), m, c), D.Mem(List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp)), c), end))),
+          ey => D.or.r(D.Fl(m, c, 1024), Bool.or(D.Nodes(GL(m, os, xs, fs, sp), m, c), D.Mem(List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp)), c)),
+            D.or.r(D.Nodes(GL(m, os, xs, fs, sp), m, c), D.Mem(List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp)), c),
+              mem.in.l(GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp), c, ey)))),
+        e => D.or.r(D.Fl(m, c, 1024), Bool.or(D.Nodes(GL(m, os, xs, fs, sp), m, c), D.Mem(List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp)), c)),
+          D.or.r(D.Nodes(GL(m, os, xs, fs, sp), m, c), D.Mem(List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp)), c),
+            mem.in.r(GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp), c,
+              Equal.trans(Bool, D.Mem(GP(m, nx, fi, os, xs, fs, sp), c), S.Has(GP(m, nx, fi, os, xs, fs, sp), c), True{},
+                mem.has(GP(m, nx, fi, os, xs, fs, sp), c),
+                gb.has(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, GL(m, os, xs, fs, sp), GY(m, xs, fs, sp), c, e, h1, h2f))))))
+      CK.Bo.and_i(CovAt(m, c, GL(m, os, xs, fs, sp), List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp))),
+        D.Cov(q, m, U32.inc(c), GL(m, os, xs, fs, sp), List.append(&2, U32, GY(m, xs, fs, sp), GP(m, nx, fi, os, xs, fs, sp))), cv,
+        cov.live(q, m, nx, fi, os, xs, fs, sp, hfn, U32.inc(c),
+          N.le_trans(U32.to_nat(fi), U32.to_nat(c), U32.to_nat(U32.inc(c)), h1,
+            N.le_rw_r(U32.to_nat(c), 1n+U32.to_nat(c), U32.to_nat(U32.inc(c)), Equal.sym(Nat, U32.to_nat(U32.inc(c)), 1n+U32.to_nat(c), ei),
+              N.le_succ(U32.to_nat(c), U32.to_nat(c), N.le_refl(U32.to_nat(c))))),
+          w.next(c, q, nx, hw)))
+
 # AccK's roots: the owned ones, the temporaries' terms, the frames' terms, the zombies
 def GRS(+m: Cr.Cir.Cells, +os: List<&2, D.Rt>, +xs: List<&2, D.TmpE>, +fs: List<&2, D.AF>, +sp: U32, +zs: List<&2, D.Rt>) -> List<&2, D.Rt>:
   List.append(&2, D.Rt, os, List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs)))
@@ -3870,6 +3914,31 @@ def GC(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, 
   D.P2({D.Cnt(n0, m, fi, n0, fi, ps, D.Rt.cells(os)) == True{} : Bool},
   D.P2({D.Clo(n0, m, fi, ps, D.Tmp.cells(xs), D.Rt.cells(D.Tmp.held(xs))) == True{} : Bool},
     {U32.is_le(fi, nx) == True{} : Bool}))))))))))
+
+# HS and AccK supply the facts that the copy's allocation invariant needs
+def gc.of(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +m: Cr.Cir.Cells,
+  +nx: U32, +fi: U32, +im: U32, +os: List<&2, D.Rt>, +bs: List<&2, D.Rt>, +xs: List<&2, D.TmpE>,
+  +fs: List<&2, D.AF>, +sp: U32, +pend: U32, +ps: List<&2, U32>, +zs: List<&2, D.Rt>,
+  hs: D.HS(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps),
+  hac: D.AccK(True{}, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs)) ->
+  GC(ds, ks, img, m, nx, fi, im, os, xs, fs, sp, ps, zs):
+  (ho, hs1) = hs
+  (_, hs2) = hs1
+  (_, hs3) = hs2
+  (hf, hs4) = hs3
+  (hh, hi) = hs4
+  (_, hh1) = hh
+  (hp, hh2) = hh1
+  (hc, hh3) = hh2
+  (_, hh4) = hh3
+  (_, hfn) = hh4
+  (ht, _) = hi
+  (hz, ha1) = hac
+  (hhl, ha2) = ha1
+  (hzc, ha3) = ha2
+  (_, ha4) = ha3
+  (hclo, htmp) = ha4
+  (ht, (ho, (hhl, (hf, (htmp, (hz, (hzc, (hp, (hc, (hclo, hfn))))))))))
 
 def gc.tbl(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32, -fi: U32, -im: U32,
   -os: List<&2, D.Rt>, -xs: List<&2, D.TmpE>, -fs: List<&2, D.AF>, -sp: U32, -ps: List<&2, U32>, -zs: List<&2, D.Rt>,
@@ -4500,10 +4569,6 @@ def gb.cls2(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List
           pend.term(ps, m, c, e, e2)))),
       e2 => CK.Bo.or_ir(D.Nodes(zs, m, c), Bool.and(D.Mem(ps, c), U32.is_le(32, D.Tg(m, c))), CK.Bo.and_i(D.Mem(ps, c), U32.is_le(32, D.Tg(m, c)), e, e2))))
 
-
-# the cover's condition at a cell
-def CovAt(+m: Cr.Cir.Cells, +c: U32, +rs: List<&2, D.Rt>, +xs: List<&2, U32>) -> Bool:
-  Bool.or(D.Fl(m, c, 1024), Bool.or(D.Nodes(rs, m, c), D.Mem(xs, c)))
 
 # a node of a zombie's term is a term cell
 def zom.ex(-ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, -im: U32, -fi: U32, -nx: U32, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>,
