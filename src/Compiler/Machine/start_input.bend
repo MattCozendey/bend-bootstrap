@@ -3327,6 +3327,288 @@ def Ps.ne(+m: Cr.Cir.Cells, +a: U32, +c: U32, +F: U32, +N: Nat, pa: {True{} == I
           Na.lt_f(U32.to_nat(c), 16n, N.le_trans(16n, 291n, U32.to_nat(c), Unit{}, N.le_trans(291n, U32.to_nat(F), U32.to_nat(c), h291, Own.ge(c, F, N, hc))))))),
       k1 => N.true_ne_false((%D.u32.eq(D.Fd(0n, m, c), 1866, k1) : {U32.is_ne(U32.and(_, 1024), 0) == False{} : Bool}; hfl))))
 
+# the pointers to c of the parts a and b of a new cell, when one of them is
+# the head h and the other a STATIC part: those of h
+def Rcl.ab(+m: Cr.Cir.Cells, +a: U32, +b: U32, +h: U32, +c: U32, +F: U32, +N: Nat,
+  hab: In.Or<In.P({a == h : U32}, {True{} == In.ps(m, b) : Bool}), In.P({b == h : U32}, {True{} == In.ps(m, a) : Bool})>,
+  +hc: {True{} == In.own(c, F, N) : Bool}, +h291: N.Le(291n, U32.to_nat(F)), +hfl: {D.Fl(m, c, 1024) == False{} : Bool}) ->
+  {D.RcL([a, b], c) == D.RcL([h], c) : Nat}:
+  match hab:
+    case In.Or.l{p}:
+      (ea, pb) = p
+      %Equal.sym(U32, a, h, ea) : {D.RcL([_, b], c) == D.RcL([h], c) : Nat}
+      %Equal.sym(Bool, U32.is_eq(b, c), False{}, Ps.ne(m, b, c, F, N, pb, hc, h291, hfl)) :
+        {Nat.add(D.Nat.of(U32.is_eq(h, c)), Nat.add(D.Nat.of(_), 0n)) == D.RcL([h], c) : Nat}
+      {==}
+    case In.Or.r{p}:
+      (eb, pa) = p
+      %Equal.sym(U32, b, h, eb) : {D.RcL([a, _], c) == D.RcL([h], c) : Nat}
+      %Equal.sym(Bool, U32.is_eq(a, c), False{}, Ps.ne(m, a, c, F, N, pa, hc, h291, hfl)) :
+        {Nat.add(D.Nat.of(_), Nat.add(D.Nat.of(U32.is_eq(h, c)), 0n)) == D.RcL([h], c) : Nat}
+      {==}
+
+# the pointers to c of the parts a and b, both STATIC: none
+def Rcl.st(+m: Cr.Cir.Cells, +a: U32, +b: U32, +c: U32, +F: U32, +N: Nat, pa: {True{} == In.ps(m, a) : Bool}, pb: {True{} == In.ps(m, b) : Bool},
+  +hc: {True{} == In.own(c, F, N) : Bool}, +h291: N.Le(291n, U32.to_nat(F)), +hfl: {D.Fl(m, c, 1024) == False{} : Bool}) ->
+  {D.RcL([a, b], c) == 0n : Nat}:
+  %Equal.sym(Bool, U32.is_eq(a, c), False{}, Ps.ne(m, a, c, F, N, pa, hc, h291, hfl)) :
+    {Nat.add(D.Nat.of(_), Nat.add(D.Nat.of(U32.is_eq(b, c)), 0n)) == 0n : Nat}
+  %Equal.sym(Bool, U32.is_eq(b, c), False{}, Ps.ne(m, b, c, F, N, pb, hc, h291, hfl)) :
+    {Nat.add(D.Nat.of(False{}), Nat.add(D.Nat.of(_), 0n)) == 0n : Nat}
+  {==}
+
+# the pointers to c of the new cell next, as a root: none, for c is one the run took before
+def Rcl.nx(+next: U32, +c: U32, +F: U32, +N: Nat, hc: {True{} == In.own(c, F, N) : Bool}, hi: {False{} == In.rd(next, F, N) : Bool}) ->
+  {D.RcL([next], c) == 0n : Nat}:
+  %Equal.sym(Bool, U32.is_eq(next, c), False{}, U.nef(next, c, e => In.ne(c, next, F, N, Own.rd(c, F, N, hc), hi, Equal.sym(U32, next, c, e)))) :
+    {Nat.add(D.Nat.of(_), 0n) == 0n : Nat}
+  {==}
+
+# Cnt's clause at a cell that the run took, once the new STATIC pair next of STATIC parts a and b is taken
+def Cc.st(+m: Cr.Cir.Cells, +next: U32, +a: U32, +b: U32, +F: U32, +N: Nat, +c: U32, +h: U32, +eN: {U32.to_nat(next) == N : Nat},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, +n280: {U32.is_eq(280, next) == False{} : Bool},
+  +n282: {U32.is_eq(282, next) == False{} : Bool}, +h291: N.Le(291n, U32.to_nat(F)),
+  +rk: {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool},
+  +e282s: {D.Fd(2n, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), 282) == 3 : U32},
+  +pa: {True{} == In.ps(m, a) : Bool}, +pb: {True{} == In.ps(m, b) : Bool}, +hc: {True{} == In.own(c, F, N) : Bool},
+  hcc: {True{} == In.cc(m, c, Nat.sub(N, U32.to_nat(F)), F, [h]) : Bool}) ->
+  {True{} == In.cc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), c, 1n+Nat.sub(N, U32.to_nat(F)), F, [h]) : Bool}:
+  Cc.step(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}, c, F, Nat.sub(N, U32.to_nat(F)), 1n+Nat.sub(N, U32.to_nat(F)), [h], [h],
+    e => In.ne(c, next, F, N, Own.rd(c, F, N, hc), hi, e),
+    +hfl => Equal.trans(Nat, D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), F, [], [h], c),
+      Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), D.RcL(D.Fs(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), [], next), c)), D.RcL([h], c)),
+      D.Ptr(Nat.sub(N, U32.to_nat(F)), m, F, [], [h], c),
+      Ptr.snoc(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}, F, N, c, [h], eN, hFN, hi, n280, n282, rk),
+      (%Equal.sym(List<&2, U32>, D.Fs(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), [], next), [a, b], Fs.new(m, next, 1866, a, b, 10, {==}, {==}, e282s)) :
+         {Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), D.RcL(_, c)), D.RcL([h], c)) == D.Ptr(Nat.sub(N, U32.to_nat(F)), m, F, [], [h], c) : Nat};
+       (%Equal.sym(Nat, D.RcL([a, b], c), 0n, Rcl.st(m, a, b, c, F, N, pa, pb, hc, h291, hfl)) :
+          {Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), _), D.RcL([h], c)) == D.Ptr(Nat.sub(N, U32.to_nat(F)), m, F, [], [h], c) : Nat};
+        Equal.cong(Nat, Nat, w => Nat.add(w, D.RcL([h], c)), Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), 0n), D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c),
+          N.add_zero(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c)))))), hcc)
+
+# Cnt's clause at a cell that the run took, once the new cell next (header hd, of tag tg), of parts a and b, one of them the head h, is the head
+def Cc.ls(+m: Cr.Cir.Cells, +next: U32, +hd: U32, +a: U32, +b: U32, +tg: U32, +F: U32, +N: Nat, +c: U32, +h: U32, +eN: {U32.to_nat(next) == N : Nat},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, +n280: {U32.is_eq(280, next) == False{} : Bool},
+  +n282: {U32.is_eq(282, next) == False{} : Bool}, +h291: N.Le(291n, U32.to_nat(F)),
+  +rk: {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool}, +etg: {D.TgW(hd) == tg : U32}, +hlt: {U32.is_lt(tg, 19) == True{} : Bool},
+  +emask: {D.Fd(2n, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), U32.add(272, tg)) == 3 : U32},
+  +hab: In.Or<In.P({a == h : U32}, {True{} == In.ps(m, b) : Bool}), In.P({b == h : U32}, {True{} == In.ps(m, a) : Bool})>,
+  +hc: {True{} == In.own(c, F, N) : Bool}, hcc: {True{} == In.cc(m, c, Nat.sub(N, U32.to_nat(F)), F, [h]) : Bool}) ->
+  {True{} == In.cc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), c, 1n+Nat.sub(N, U32.to_nat(F)), F, [next]) : Bool}:
+  Cc.step(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}, c, F, Nat.sub(N, U32.to_nat(F)), 1n+Nat.sub(N, U32.to_nat(F)), [h], [next],
+    e => In.ne(c, next, F, N, Own.rd(c, F, N, hc), hi, e),
+    +hfl => Equal.trans(Nat, D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), F, [], [next], c),
+      Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), D.RcL(D.Fs(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), [], next), c)), D.RcL([next], c)),
+      D.Ptr(Nat.sub(N, U32.to_nat(F)), m, F, [], [h], c),
+      Ptr.snoc(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}, F, N, c, [next], eN, hFN, hi, n280, n282, rk),
+      (%Equal.sym(List<&2, U32>, D.Fs(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), [], next), [a, b], Fs.new(m, next, hd, a, b, tg, etg, hlt, emask)) :
+         {Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), D.RcL(_, c)), D.RcL([next], c)) == D.Ptr(Nat.sub(N, U32.to_nat(F)), m, F, [], [h], c) : Nat};
+       (%Equal.sym(Nat, D.RcL([a, b], c), D.RcL([h], c), Rcl.ab(m, a, b, h, c, F, N, hab, hc, h291, hfl)) :
+          {Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), _), D.RcL([next], c)) == D.Ptr(Nat.sub(N, U32.to_nat(F)), m, F, [], [h], c) : Nat};
+        (%Equal.sym(Nat, D.RcL([next], c), 0n, Rcl.nx(next, c, F, N, hc, hi)) :
+           {Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), D.RcL([h], c)), _) == D.Ptr(Nat.sub(N, U32.to_nat(F)), m, F, [], [h], c) : Nat};
+         N.add_zero(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c), D.RcL([h], c))))))), hcc)
+
+# Cnt's clause at a cell that the run took, once the cache's entry of w8 gets v
+def Cc.cs(+m: Cr.Cir.Cells, +w8: Word(8n), +v: U32, +F: U32, +N: Nat, +c: U32, +h: U32, +hF: N.Le(272n, U32.to_nat(F)),
+  +rk: {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool}, +hc: {True{} == In.own(c, F, N) : Bool},
+  hcc: {True{} == In.cc(m, c, Nat.sub(N, U32.to_nat(F)), F, [h]) : Bool}) ->
+  {True{} == In.cc(In.cs(m, w8, v), c, Nat.sub(N, U32.to_nat(F)), F, [h]) : Bool}:
+  Cc.step(m, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v), c, F, Nat.sub(N, U32.to_nat(F)), Nat.sub(N, U32.to_nat(F)), [h], [h],
+    e => In.ne(c, In.J(w8), F, N, Own.rd(c, F, N, hc), In.rdJ(w8, F, N, hF), e),
+    hfl => Equal.cong(Nat, Nat, w => Nat.add(w, D.RcL([h], c)),
+      D.Pc(Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v)), [], F, c),
+      D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, c),
+      Pc.fr(Nat.sub(N, U32.to_nat(F)), m, In.J(w8), Cr.Cir.Cell.set(2n, Cr.Cir.Cells.get(m, In.J(w8)), v), F, N, F, c, In.rdJ(w8, F, N, hF),
+        U.nef(280, In.J(w8), e => In.ne.gt(In.J(w8), 280, N.le_trans(1n+U32.to_nat(In.J(w8)), 272n, 280n, In.Jhi(w8), Unit{}), e)),
+        U.nef(282, In.J(w8), e => In.ne.gt(In.J(w8), 282, N.le_trans(1n+U32.to_nat(In.J(w8)), 272n, 282n, In.Jhi(w8), Unit{}), e)), rk)), hcc)
+
+# Cov's clause at a cell, once a cell z that may not be read is set: the head's nodes stay
+def Vc.fr(+m: Cr.Cir.Cells, +z: U32, +y: Cr.Cir.Cell, +c: U32, +F: U32, +N: Nat, +h: U32, +th: Bk.Term, +f: Nat,
+  +hn: {True{} == In.nrd(f, th, m, h, F, N) : Bool}, +hz: {False{} == In.rd(z, F, N) : Bool}, ne: {c == z : U32} -> Empty,
+  hv: {True{} == In.vc(m, c, [D.Rt{h, th}]) : Bool}) -> {True{} == In.vc(Cr.Cir.Cells.set(m, z, y), c, [D.Rt{h, th}]) : Bool}:
+  %Cl.get_other(m, c, z, y, ne) : {True{} == Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0),
+    Bool.or(D.Nodes([D.Rt{h, th}], Cr.Cir.Cells.set(m, z, y), c), D.Mem([], c))) : Bool}
+  %In.p2({True{} == In.nrd(f, th, Cr.Cir.Cells.set(m, z, y), h, F, N) : Bool}, {D.Node(th, m, h, c) == D.Node(th, Cr.Cir.Cells.set(m, z, y), h, c) : Bool},
+    In.nfr(f, th, m, h, c, z, y, F, N, hn, hz)) :
+    {True{} == Bool.or(D.Fl(m, c, 1024), Bool.or(Bool.or(_, False{}), D.Mem([], c))) : Bool}
+  hv
+
+# the head's node c stays a node of the new head's term
+def Bo.vc3(f: Bool, X: Bool, A: Bool, B: Bool, +M: Bool, h: {True{} == Bool.or(f, Bool.or(Bool.or(X, False{}), M)) : Bool}) ->
+  {True{} == Bool.or(f, Bool.or(Bool.or(Bool.or(A, Bool.or(B, X)), False{}), M)) : Bool}:
+  match f:
+    case True{}:
+      {==}
+    case False{}:
+      match X:
+        case True{}:
+          match A:
+            case True{}:
+              {==}
+            case False{}:
+              match B:
+                case True{}:
+                  {==}
+                case False{}:
+                  {==}
+        case False{}:
+          Bo.or_r(Bool.or(Bool.or(A, Bool.or(B, False{})), False{}), M, h)
+
+def Bo.vc2(f: Bool, X: Bool, A: Bool, B: Bool, +M: Bool, h: {True{} == Bool.or(f, Bool.or(Bool.or(X, False{}), M)) : Bool}) ->
+  {True{} == Bool.or(f, Bool.or(Bool.or(Bool.or(A, Bool.or(X, B)), False{}), M)) : Bool}:
+  match f:
+    case True{}:
+      {==}
+    case False{}:
+      match X:
+        case True{}:
+          match A:
+            case True{}:
+              {==}
+            case False{}:
+              {==}
+        case False{}:
+          Bo.or_r(Bool.or(Bool.or(A, Bool.or(False{}, B)), False{}), M, h)
+
+# Cov's clause at a cell, once the new cell next, a Tup of the head h in its field 3, is the head
+def Vc.l3(+m: Cr.Cir.Cells, +next: U32, +hd: U32, +a: U32, +h: U32, +c: U32, +F: U32, +N: Nat, +q: Bk.Quan, +ta: Bk.Term, +th: Bk.Term, +f: Nat,
+  +hn: {True{} == In.nrd(f, th, m, h, F, N) : Bool}, +hi: {False{} == In.rd(next, F, N) : Bool}, ne: {c == next : U32} -> Empty,
+  hv: {True{} == In.vc(m, c, [D.Rt{h, th}]) : Bool}) ->
+  {True{} == In.vc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), c, [D.Rt{next, Bk.Term.Tup{q, ta, th}}]) : Bool}:
+  %Cl.get_other(m, c, next, Cr.Cir.Cell{hd, 1, a, h, 0}, ne) : {True{} == Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0),
+    Bool.or(D.Nodes([D.Rt{next, Bk.Term.Tup{q, ta, th}}], Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), c), D.Mem([], c))) : Bool}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), next), Cr.Cir.Cell{hd, 1, a, h, 0},
+    Cl.get_set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0})) :
+    {True{} == Bool.or(D.Fl(m, c, 1024), Bool.or(Bool.or(Bool.or(U32.is_eq(next, c),
+      Bool.or(D.Node(ta, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), Cr.Cir.Cell.get(2n, _), c),
+        D.Node(th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), Cr.Cir.Cell.get(3n, _), c))), False{}), D.Mem([], c))) : Bool}
+  %In.p2({True{} == In.nrd(f, th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), h, F, N) : Bool},
+    {D.Node(th, m, h, c) == D.Node(th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), h, c) : Bool},
+    In.nfr(f, th, m, h, c, next, Cr.Cir.Cell{hd, 1, a, h, 0}, F, N, hn, hi)) :
+    {True{} == Bool.or(D.Fl(m, c, 1024), Bool.or(Bool.or(Bool.or(U32.is_eq(next, c),
+      Bool.or(D.Node(ta, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), a, c), _)), False{}), D.Mem([], c))) : Bool}
+  Bo.vc3(D.Fl(m, c, 1024), D.Node(th, m, h, c), U32.is_eq(next, c), D.Node(ta, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), a, c), D.Mem([], c), hv)
+
+# and an App of the head h in its field 3 (the focus)
+def Vc.f3(+m: Cr.Cir.Cells, +next: U32, +hd: U32, +a: U32, +h: U32, +c: U32, +F: U32, +N: Nat, +q: Bk.Quan, +ta: Bk.Term, +th: Bk.Term, +f: Nat,
+  +hn: {True{} == In.nrd(f, th, m, h, F, N) : Bool}, +hi: {False{} == In.rd(next, F, N) : Bool}, ne: {c == next : U32} -> Empty,
+  hv: {True{} == In.vc(m, c, [D.Rt{h, th}]) : Bool}) ->
+  {True{} == In.vc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), c, [D.Rt{next, Bk.Term.App{q, ta, th}}]) : Bool}:
+  %Cl.get_other(m, c, next, Cr.Cir.Cell{hd, 1, a, h, 0}, ne) : {True{} == Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0),
+    Bool.or(D.Nodes([D.Rt{next, Bk.Term.App{q, ta, th}}], Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), c), D.Mem([], c))) : Bool}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), next), Cr.Cir.Cell{hd, 1, a, h, 0},
+    Cl.get_set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0})) :
+    {True{} == Bool.or(D.Fl(m, c, 1024), Bool.or(Bool.or(Bool.or(U32.is_eq(next, c),
+      Bool.or(D.Node(ta, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), Cr.Cir.Cell.get(2n, _), c),
+        D.Node(th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), Cr.Cir.Cell.get(3n, _), c))), False{}), D.Mem([], c))) : Bool}
+  %In.p2({True{} == In.nrd(f, th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), h, F, N) : Bool},
+    {D.Node(th, m, h, c) == D.Node(th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), h, c) : Bool},
+    In.nfr(f, th, m, h, c, next, Cr.Cir.Cell{hd, 1, a, h, 0}, F, N, hn, hi)) :
+    {True{} == Bool.or(D.Fl(m, c, 1024), Bool.or(Bool.or(Bool.or(U32.is_eq(next, c),
+      Bool.or(D.Node(ta, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), a, c), _)), False{}), D.Mem([], c))) : Bool}
+  Bo.vc3(D.Fl(m, c, 1024), D.Node(th, m, h, c), U32.is_eq(next, c), D.Node(ta, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, h, 0}), a, c), D.Mem([], c), hv)
+
+# and a Tup of the head h in its field 2
+def Vc.l2(+m: Cr.Cir.Cells, +next: U32, +hd: U32, +h: U32, +b: U32, +c: U32, +F: U32, +N: Nat, +q: Bk.Quan, +th: Bk.Term, +tb: Bk.Term, +f: Nat,
+  +hn: {True{} == In.nrd(f, th, m, h, F, N) : Bool}, +hi: {False{} == In.rd(next, F, N) : Bool}, ne: {c == next : U32} -> Empty,
+  hv: {True{} == In.vc(m, c, [D.Rt{h, th}]) : Bool}) ->
+  {True{} == In.vc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), c, [D.Rt{next, Bk.Term.Tup{q, th, tb}}]) : Bool}:
+  %Cl.get_other(m, c, next, Cr.Cir.Cell{hd, 1, h, b, 0}, ne) : {True{} == Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0),
+    Bool.or(D.Nodes([D.Rt{next, Bk.Term.Tup{q, th, tb}}], Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), c), D.Mem([], c))) : Bool}
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), next), Cr.Cir.Cell{hd, 1, h, b, 0},
+    Cl.get_set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0})) :
+    {True{} == Bool.or(D.Fl(m, c, 1024), Bool.or(Bool.or(Bool.or(U32.is_eq(next, c),
+      Bool.or(D.Node(th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), Cr.Cir.Cell.get(2n, _), c),
+        D.Node(tb, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), Cr.Cir.Cell.get(3n, _), c))), False{}), D.Mem([], c))) : Bool}
+  %In.p2({True{} == In.nrd(f, th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), h, F, N) : Bool},
+    {D.Node(th, m, h, c) == D.Node(th, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), h, c) : Bool},
+    In.nfr(f, th, m, h, c, next, Cr.Cir.Cell{hd, 1, h, b, 0}, F, N, hn, hi)) :
+    {True{} == Bool.or(D.Fl(m, c, 1024), Bool.or(Bool.or(Bool.or(U32.is_eq(next, c),
+      Bool.or(_, D.Node(tb, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), b, c))), False{}), D.Mem([], c))) : Bool}
+  Bo.vc2(D.Fl(m, c, 1024), D.Node(th, m, h, c), U32.is_eq(next, c), D.Node(tb, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, h, b, 0}), b, c), D.Mem([], c), hv)
+
+# Cnt's clause at the new STATIC pair next: it counts nothing
+def Cc.new.st(+m: Cr.Cir.Cells, +next: U32, +a: U32, +b: U32, +n: Nat, +F: U32, +rs: List<&2, U32>) ->
+  {True{} == In.cc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), next, n, F, rs) : Bool}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), next), Cr.Cir.Cell{1866, 1, a, b, 0},
+    Cl.get_set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0})) :
+    {True{} == Bool.or(Bool.not(U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19)), Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0),
+      Bool.or(D.Mem([], next), Nat.is_eq(U32.to_nat(Cr.Cir.Cell.get(1n, _)), D.Ptr(n, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), F, [], rs, next))))) : Bool}
+  {==}
+
+# the pointers to the new head next, of parts a and b that may be read: the one root
+def Ptr.new(+m: Cr.Cir.Cells, +next: U32, +hd: U32, +a: U32, +b: U32, +tg: U32, +F: U32, +N: Nat, +eN: {U32.to_nat(next) == N : Nat},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, +n280: {U32.is_eq(280, next) == False{} : Bool},
+  +n282: {U32.is_eq(282, next) == False{} : Bool}, +rk: {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool},
+  +e280: {D.Fd(2n, m, 280) == 3 : U32}, +e282: {D.Fd(2n, m, 282) == 3 : U32}, +etg: {D.TgW(hd) == tg : U32}, +hlt: {U32.is_lt(tg, 19) == True{} : Bool},
+  +emask: {D.Fd(2n, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), U32.add(272, tg)) == 3 : U32},
+  pa: {True{} == In.pt(a, F, N) : Bool}, pb: {True{} == In.pt(b, F, N) : Bool}) ->
+  {D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), F, [], [next], next) == 1n : Nat}:
+  Equal.trans(Nat, D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), F, [], [next], next),
+    Nat.add(Nat.add(D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, next), D.RcL(D.Fs(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), [], next), next)), D.RcL([next], next)),
+    1n,
+    Ptr.snoc(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}, F, N, next, [next], eN, hFN, hi, n280, n282, rk),
+    (%Equal.sym(Nat, D.Pc(Nat.sub(N, U32.to_nat(F)), m, [], F, next), 0n, Pc.zero(Nat.sub(N, U32.to_nat(F)), m, F, N, F, next, hi, e280, e282, rk)) :
+       {Nat.add(Nat.add(_, D.RcL(D.Fs(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), [], next), next)), D.RcL([next], next)) == 1n : Nat};
+     (%Equal.sym(List<&2, U32>, D.Fs(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), [], next), [a, b], Fs.new(m, next, hd, a, b, tg, etg, hlt, emask)) :
+        {Nat.add(Nat.add(0n, D.RcL(_, next)), D.RcL([next], next)) == 1n : Nat};
+      (%Equal.sym(Bool, U32.is_eq(a, next), False{}, U.nef(a, next, e => In.ne(a, next, F, N, Pt.rd(a, F, N, pa), hi, e))) :
+         {Nat.add(Nat.add(0n, Nat.add(D.Nat.of(_), Nat.add(D.Nat.of(U32.is_eq(b, next)), 0n))), Nat.add(D.Nat.of(U32.is_eq(next, next)), 0n)) == 1n : Nat};
+       (%Equal.sym(Bool, U32.is_eq(b, next), False{}, U.nef(b, next, e => In.ne(b, next, F, N, Pt.rd(b, F, N, pb), hi, e))) :
+          {Nat.add(Nat.add(0n, Nat.add(D.Nat.of(False{}), Nat.add(D.Nat.of(_), 0n))), Nat.add(D.Nat.of(U32.is_eq(next, next)), 0n)) == 1n : Nat};
+        (%Equal.sym(Bool, U32.is_eq(next, next), True{}, D.u32.refl(next)) :
+           {Nat.add(Nat.add(0n, Nat.add(D.Nat.of(False{}), Nat.add(D.Nat.of(False{}), 0n))), Nat.add(D.Nat.of(_), 0n)) == 1n : Nat};
+         {==}))))))
+
+# Cnt's clause at the new head next, a term cell (header hd) not STATIC: it counts its one root
+def Cc.new.ls(+m: Cr.Cir.Cells, +next: U32, +hd: U32, +a: U32, +b: U32, +tg: U32, +F: U32, +N: Nat, +eN: {U32.to_nat(next) == N : Nat},
+  +hFN: N.Le(U32.to_nat(F), N), +hi: {False{} == In.rd(next, F, N) : Bool}, +n280: {U32.is_eq(280, next) == False{} : Bool},
+  +n282: {U32.is_eq(282, next) == False{} : Bool}, +rk: {True{} == In.Rok(Nat.sub(N, U32.to_nat(F)), m, F, N, F) : Bool},
+  +e280: {D.Fd(2n, m, 280) == 3 : U32}, +e282: {D.Fd(2n, m, 282) == 3 : U32}, +etg: {D.TgW(hd) == tg : U32}, +hlt: {U32.is_lt(tg, 19) == True{} : Bool},
+  +emask: {D.Fd(2n, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), U32.add(272, tg)) == 3 : U32},
+  esl: {U32.is_ne(U32.and(hd, 1024), 0) == False{} : Bool}, elt: {U32.is_lt(U32.and(hd, 63), 19) == True{} : Bool},
+  pa: {True{} == In.pt(a, F, N) : Bool}, pb: {True{} == In.pt(b, F, N) : Bool}) ->
+  {True{} == In.cc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), next, 1n+Nat.sub(N, U32.to_nat(F)), F, [next]) : Bool}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), next), Cr.Cir.Cell{hd, 1, a, b, 0},
+    Cl.get_set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0})) :
+    {True{} == Bool.or(Bool.not(U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19)), Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0),
+      Bool.or(D.Mem([], next), Nat.is_eq(U32.to_nat(Cr.Cir.Cell.get(1n, _)),
+        D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), F, [], [next], next))))) : Bool}
+  %Equal.sym(Bool, U32.is_lt(U32.and(hd, 63), 19), True{}, elt) :
+    {True{} == Bool.or(Bool.not(_), Bool.or(U32.is_ne(U32.and(hd, 1024), 0),
+      Bool.or(D.Mem([], next), Nat.is_eq(U32.to_nat(1), D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), F, [], [next], next))))) : Bool}
+  %Equal.sym(Bool, U32.is_ne(U32.and(hd, 1024), 0), False{}, esl) :
+    {True{} == Bool.or(Bool.not(True{}), Bool.or(_,
+      Bool.or(D.Mem([], next), Nat.is_eq(U32.to_nat(1), D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), F, [], [next], next))))) : Bool}
+  %Equal.sym(Nat, D.Ptr(1n+Nat.sub(N, U32.to_nat(F)), Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{hd, 1, a, b, 0}), F, [], [next], next), 1n,
+    Ptr.new(m, next, hd, a, b, tg, F, N, eN, hFN, hi, n280, n282, rk, e280, e282, etg, hlt, emask, pa, pb)) :
+    {True{} == Bool.or(Bool.not(True{}), Bool.or(False{}, Bool.or(D.Mem([], next), Nat.is_eq(U32.to_nat(1), _)))) : Bool}
+  {==}
+
+# Cov's clause at a new cell: STATIC, or the root of its term (a Tup or an App)
+def Vc.new.st(+m: Cr.Cir.Cells, +next: U32, +a: U32, +b: U32, +rs: List<&2, D.Rt>) ->
+  {True{} == In.vc(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), next, rs) : Bool}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), next), Cr.Cir.Cell{1866, 1, a, b, 0},
+    Cl.get_set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0})) :
+    {True{} == Bool.or(U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), 1024), 0),
+      Bool.or(D.Nodes(rs, Cr.Cir.Cells.set(m, next, Cr.Cir.Cell{1866, 1, a, b, 0}), next), D.Mem([], next))) : Bool}
+  {==}
+
+def Vc.new.t(+ms: Cr.Cir.Cells, +next: U32, +q: Bk.Quan, +ta: Bk.Term, +tb: Bk.Term) ->
+  {True{} == In.vc(ms, next, [D.Rt{next, Bk.Term.Tup{q, ta, tb}}]) : Bool}:
+  Bo.or_r(D.Fl(ms, next, 1024), Bool.or(D.Nodes([D.Rt{next, Bk.Term.Tup{q, ta, tb}}], ms, next), D.Mem([], next)),
+    (%Equal.sym(Bool, U32.is_eq(next, next), True{}, D.u32.refl(next)) :
+       {True{} == Bool.or(Bool.or(Bool.or(_, Bool.or(D.Node(ta, ms, D.Fd(2n, ms, next), next), D.Node(tb, ms, D.Fd(3n, ms, next), next))), False{}), D.Mem([], next)) : Bool};
+     {==}))
+
+def Vc.new.a(+ms: Cr.Cir.Cells, +next: U32, +q: Bk.Quan, +ta: Bk.Term, +tb: Bk.Term) ->
+  {True{} == In.vc(ms, next, [D.Rt{next, Bk.Term.App{q, ta, tb}}]) : Bool}:
+  Bo.or_r(D.Fl(ms, next, 1024), Bool.or(D.Nodes([D.Rt{next, Bk.Term.App{q, ta, tb}}], ms, next), D.Mem([], next)),
+    (%Equal.sym(Bool, U32.is_eq(next, next), True{}, D.u32.refl(next)) :
+       {True{} == Bool.or(Bool.or(Bool.or(_, Bool.or(D.Node(ta, ms, D.Fd(2n, ms, next), next), D.Node(tb, ms, D.Fd(3n, ms, next), next))), False{}), D.Mem([], next)) : Bool};
+     {==}))
+
 # The facts of a state
 # --------------------
 
