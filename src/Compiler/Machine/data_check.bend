@@ -2487,6 +2487,113 @@ def pssub.al(ps2: List<&2, U32>, +qs: List<&2, U32>, +ps: List<&2, U32>, +m: Cr.
           e => wr.lt.b(U32.is_lt(q, nx0), q, m, m0, xs, fi, nx0, n0, {==}, hf, e, hn0, hk)),
         pssub.al(rest, qs, ps, m, m2, m0, xs, fi, nx2, nx0, n0, rs, PM.and.r(S, PM.PsSub(rest, ps, m), hs2), hr, hp, hn0, hk))
 
+# The values that the check reads
+# -------------------------------
+
+# register r, which holds v
+def ob.g(+r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  -v: U32, h: {List.get(&2, U32, regs, r) == Some{v} : Maybe<&2, U32>}) -> W.Ob(Mc.M.g(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)):
+  %Equal.sym(Maybe<&2, U32>, List.get(&2, U32, regs, r), Some{v}, h) : W.IsSome(_)
+  Unit{}
+
+def ev.g(+r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +v: U32, h: {List.get(&2, U32, regs, r) == Some{v} : Maybe<&2, U32>}) -> {W.Ev(Mc.M.g(r), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) == v : U32}:
+  %Equal.sym(Maybe<&2, U32>, List.get(&2, U32, regs, r), Some{v}, h) : {Maybe.default(&2, U32, _, 0) == v : U32}
+  {==}
+
+# field k of the cell i in register r
+def ob.f(+k: Nat, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +i: U32, +h: {List.get(&2, U32, regs, r) == Some{i} : Maybe<&2, U32>}, hc: {Cr.Cir.is_cell(i, im, fi, nx) == True{} : Bool}) ->
+  W.Ob(Mc.M.f(k, Mc.M.g(r)), X.X.st(regs, m, nx, fi, im, pg, lim, inp)):
+  +S = X.X.st(regs, m, nx, fi, im, pg, lim, inp)
+  (ob.g(r, regs, m, nx, fi, im, pg, lim, inp, i, h),
+    (%Equal.sym(U32, W.Ev(Mc.M.g(r), S), i, ev.g(r, regs, m, nx, fi, im, pg, lim, inp, i, h)) : W.CellOk(_, S);
+      Equal.sym(Bool, Cr.Cir.is_cell(i, im, fi, nx), True{}, hc)))
+
+def ev.f(+k: Nat, +r: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +pg: U32, +lim: U32, +inp: List<&2, Word(8n)>,
+  +i: U32, h: {List.get(&2, U32, regs, r) == Some{i} : Maybe<&2, U32>}) ->
+  {W.Ev(Mc.M.f(k, Mc.M.g(r)), X.X.st(regs, m, nx, fi, im, pg, lim, inp)) == PM.Fd(k, m, i) : U32}:
+  +S = X.X.st(regs, m, nx, fi, im, pg, lim, inp)
+  %Equal.sym(U32, W.Ev(Mc.M.g(r), S), i, ev.g(r, regs, m, nx, fi, im, pg, lim, inp, i, h)) : {W.Ev.field(k, _, S) == PM.Fd(k, m, i) : U32}
+  {==}
+
+# M.alloc's outcome, as alloc.post gives it
+# ---------------------------------------
+
+# what alloc.post says of the state X.X.st(regs2, m2, nx2, ..) after M.alloc(r)
+# from the cells m (next nx, pend list ps): its cell z, its pend list ps2
+def AlP(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +r: Nat, +keep: List<&2, Nat>, +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>,
+  +fs: List<&2, PM.AF>, +sp: U32, +ps: List<&2, U32>, +xs: List<&2, PM.TmpE>, +regs2: List<&2, U32>, +m2: Cr.Cir.Cells, +nx2: U32,
+  +z: U32, +pend2: U32, +ps2: List<&2, U32>, +ws: List<&2, PM.W1>, +zs2: List<&2, PM.Rt>) -> Data:
+  PM.P2(PM.Kept(regs, regs2, keep), PM.P2({List.length(&2, U32, regs2) == 63n : Nat},
+  PM.P2({List.get(&2, U32, regs2, r) == Some{z} : Maybe<&2, U32>}, PM.P2({List.get(&2, U32, regs2, 3n) == Some{pend2} : Maybe<&2, U32>},
+  PM.P2({Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cell.zero() : Cr.Cir.Cell},
+  PM.P2({PM.Own(fi, nx2, z) == True{} : Bool}, PM.P2({PM.Mem(ps2, z) == False{} : Bool},
+  PM.P2({Bool.or(PM.Mem(ps, z), U32.is_eq(z, nx)) == True{} : Bool},
+  PM.P2({Bool.or(Bool.and(PM.Mem(ps, z), U32.is_eq(nx2, nx)), Bool.and(PM.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx2, U32.inc(nx))))) == True{} : Bool},
+  PM.P2({m2 == Cr.Cir.Cells.set(PM.Put1(ws, m), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells}, PM.P2({PM.Took(ws, ps, m) == True{} : Bool},
+  PM.P2({PM.PsSub(ps2, ps, m) == True{} : Bool},
+  PM.P2({PM.Ptr(Nat.sub(U32.to_nat(nx2), U32.to_nat(fi)), m2, fi, ps2, PM.Rt.cells(os), z) == 0n : Nat},
+  PM.P2(PM.HSK(dk, ds, ks, img, m2, nx2, fi, im, os, bs, fs, sp, pend2, ps2),
+  PM.P2(PM.AccK(dk, ds, ks, img, m2, nx2, fi, im, os, Con{PM.TmpE{z, Nil{}}, xs}, sp, fs, ps2, zs2),
+    {U32.is_le(nx, nx2) == True{} : Bool})))))))))))))))
+
+# M.alloc's next does not go down
+def alfr.le(-m: Cr.Cir.Cells, -ps: List<&2, U32>, -nx: U32, -st2: Cr.Cir.State, af: PM.AlFr(m, ps, nx, st2)) ->
+  {U32.is_le(nx, PM.St.next(st2)) == True{} : Bool}:
+  match af:
+    case Tuple{a, _}:
+      a
+
+# alloc.post's state, as X.X.st of its registers, cells and next, with AlP
+def alq.st(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +regs: List<&2, U32>,
+  +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +im: U32, +lim: U32, +inp: List<&2, Word(8n)>, +r: Nat, +keep: List<&2, Nat>,
+  +os: List<&2, PM.Rt>, +bs: List<&2, PM.Rt>, +fs: List<&2, PM.AF>, +sp: U32, +ps: List<&2, U32>, +xs: List<&2, PM.TmpE>,
+  st2: Cr.Cir.State, -R: Cr.Cir.State -> Type,
+  h: AlQ(dk, ds, ks, img, regs, m, nx, fi, im, lim, inp, r, keep, os, bs, fs, sp, ps, xs, st2),
+  k: @regs2: List<&2, U32> -> @m2: Cr.Cir.Cells -> @nx2: U32 -> @pg2: U32 -> @z: U32 -> @pend2: U32 -> @ps2: List<&2, U32> ->
+    @ws: List<&2, PM.W1> -> @zs2: List<&2, PM.Rt> ->
+    AlP(dk, ds, ks, img, regs, m, nx, fi, im, r, keep, os, bs, fs, sp, ps, xs, regs2, m2, nx2, z, pend2, ps2, ws, zs2) ->
+    R(X.X.st(regs2, m2, nx2, fi, im, pg2, lim, inp))) -> R(st2):
+  match st2:
+    case Cr.Cir.State{+regs2, +m2, +nx2, +fi2, +im2, +pg2, +lim2, +inp2, +out2, +outn2}:
+      (q, af) = h
+      (sm, e1) = q
+      (efi, s1) = sm
+      (eim, s2) = s1
+      (elim, s3) = s2
+      (einp, s4) = s3
+      (eout, s5) = s4
+      (eoutn, s6) = s5
+      (hl2, hk2) = s6
+      (z, e2) = e1
+      (pend2, e3) = e2
+      (ps2, f1) = e3
+      (hr, f2) = f1
+      (hp, f3) = f2
+      (hz0, f4) = f3
+      (ho, f5) = f4
+      (hm, f6) = f5
+      (hzp, f7) = f6
+      (hnx, f8) = f7
+      (wx, f9) = f8
+      (ws, wf) = wx
+      (hcs, htk) = wf
+      (hps, f10) = f9
+      (hpt, f11) = f10
+      (hs2, ex) = f11
+      (zs2, hac2) = ex
+      +hle = alfr.le(m, ps, nx, Cr.Cir.State{regs2, m2, nx2, fi2, im2, pg2, lim2, inp2, out2, outn2}, af)
+      %Equal.sym(U32, fi2, fi, efi) : R(Cr.Cir.State{regs2, m2, nx2, _, im2, pg2, lim2, inp2, out2, outn2})
+      %Equal.sym(U32, im2, im, eim) : R(Cr.Cir.State{regs2, m2, nx2, fi, _, pg2, lim2, inp2, out2, outn2})
+      %Equal.sym(U32, lim2, lim, elim) : R(Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, _, inp2, out2, outn2})
+      %Equal.sym(List<&2, Word(8n)>, inp2, inp, einp) : R(Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, _, out2, outn2})
+      %Equal.sym(List<&2, Word(8n)>, out2, Nil{}, eout) : R(Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, _, outn2})
+      %Equal.sym(U32, outn2, 0, eoutn) : R(Cr.Cir.State{regs2, m2, nx2, fi, im, pg2, lim, inp, Nil{}, _})
+      k(regs2, m2, nx2, pg2, z, pend2, ps2, ws, zs2,
+        (hk2, (hl2, (hr, (hp, (hz0, (ho, (hm, (hzp, (hnx, (hcs, (htk, (hps, (hpt, (hs2, (hac2, hle))))))))))))))))
+
 # The premises data.post and data.done of move_kit.bend (U6; U0 left them as ?TODO)
 # -------------------------------------------------------------------------------
 
