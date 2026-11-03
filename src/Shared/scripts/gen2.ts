@@ -26,7 +26,7 @@
 //       with only the defs before it, and report hit rate by size, time and tactics.
 //   options:
 //       --budget MS    time budget per def (default 4000)
-//       --splits N     max case-split depth (default 3)
+//       --splits N     max case-split depth (default 6; 3 candidates at the top, 2 below depth 2, 1 below depth 4)
 //       --depth N      max leaf depth: nesting of apply/premise (default 3)
 //       --rw N         max rewrites in a chain (default 4)
 //       --beam N       rewrite candidates explored per goal (default 4)
@@ -126,7 +126,7 @@ const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return
 const flag = (k: string) => argv.includes("--" + k);
 const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
 const BUDGET = +opt("budget", "4000");
-const MAX_SPLIT = +opt("splits", "3");
+const MAX_SPLIT = +opt("splits", "6");
 const MAX_DEPTH = +opt("depth", "3");
 const MAX_RW = +opt("rw", "4");
 const BEAM = +opt("beam", "4");
@@ -135,6 +135,7 @@ const FUEL_NF = 100000;
 const FUEL_FINAL = 50000000;
 const NF_NODES = 3000;
 const MAX_CANDS = 48;
+const CAPS = [48, 12, 4, 2]; // matched apply candidates tried, by premise level below the leaf
 const MAX_SPLIT_CANDS = 3;
 const PARTIAL = flag("partial"), STREAM = flag("stream"), DEBUG = flag("debug");
 const META = 1 << 20;
@@ -574,7 +575,7 @@ type Goal = {
   ctx: B.Ctx; d: number; ty: HTerm; lhs: B.LHS; qt: B.Quant; env: B.Env;
   names: string[]; ckey: string;
   pend: number; pnames: string[]; pmany: boolean[];
-  split: boolean; path: string;
+  split: boolean; path: string; lvl: number;
   hc: Map<number, LTerm[]>;
 };
 type Job = { k: string; def: B.Def; order: number; file: B.File; short: string; tags: Map<string, number>; memo: Map<string, { pf: Pf | null; depth: number; rw: number }>; smemo: Map<string, Res>; closed: number; ih: boolean };
@@ -662,7 +663,7 @@ type Callee = { text: string; T: HTerm; n: number; kind: string };
 
 // apply a callee whose conclusion matches one of targets; premises proven at depth - 1
 type Applied = { args: string[]; doms: any[]; sol: (LTerm | null)[] };
-const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl: ((o: LTerm) => LTerm | null) | null, accept: (a: Applied) => boolean, cnt?: { n: number }): Applied | null => {
+const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl: ((o: LTerm) => LTerm | null) | null, accept: (a: Applied) => boolean, cnt?: { n: number; probe?: boolean; spec?: number }): Applied | null => {
   const toH = (s: (LTerm | null)[]) => s.map((x) => (x ? B.term_higher(x, g.env) : null));
   const o = openMeta(c.T, c.n);
   if (!o) return null;
@@ -685,12 +686,24 @@ const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: nu
     const pn = nfPattern(c, o.concl, g.d);
     if (pn && key(pn) !== key(pc)) push(pn, targets[targets.length - 1]);
   }
+  if (cnt && cnt.probe) { cnt.spec = sols.length ? specOf(pc) : -1; return null; }
   for (const s0 of sols) {
     if (cnt) cnt.n++;
     const r = complete(g, c, s0, toH, depth, rw, path);
     if (r && accept(r)) return r;
   }
   return null;
+};
+// specificity of a pattern: its nodes that are not metavariables
+const specOf = (t: LTerm): number => size(t) - metas(t);
+const metas = (t: LTerm): number => {
+  switch (t.$) {
+    case "Var": return t.i >= META ? 1 : 0;
+    case "App": return metas(t.f) + metas(t.x);
+    case "Ctr": case "ADT": return t.x.reduce((a, x) => a + metas(x), 0);
+    case "Eql": return metas(t.a) + metas(t.b);
+    default: return 0;
+  }
 };
 const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | null)[]) => (HTerm | null)[], depth: number, rw: number, path: Set<string>): Applied | null => {
   let sol = s0.slice();
@@ -729,7 +742,7 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
   for (let j = 0; j < c.n; j++) {
     if (sol[j]) { args.push(show(sol[j]!, g.names)); continue; }
     if (viaHyp[j]) { args.push(viaHyp[j]!); continue; }
-    const sg: Goal = { ...g, ty: o2.doms[j].A, qt: B.quant_dem(o2.doms[j].q, g.qt) };
+    const sg: Goal = { ...g, ty: o2.doms[j].A, qt: B.quant_dem(o2.doms[j].q, g.qt), lvl: g.lvl + 1 };
     const pf = leaf(sg, Math.max(0, depth - 1), rw, path);
     if (!pf) return null;
     args.push(inline(pf));
@@ -781,16 +794,17 @@ const leaf = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null 
   const gk = attempt(FUEL_NF, () => goalKey(g));
   if (gk === undefined) return null;
   if (path.has(gk)) return null;
-  const m = job.memo.get(gk);
-  if (m) {
-    if (m.pf) return m.pf;
-    if (m.depth >= depth && m.rw >= rw) return null;
-  }
+  const ok = job.memo.get(gk);
+  if (ok?.pf) return ok.pf;
+  // a failure is memoized with its budget (depth, rewrites) and its candidate cap (level)
+  const fk = gk + "#" + Math.min(g.lvl, CAPS.length - 1);
+  const m = job.memo.get(fk);
+  if (m && m.depth >= depth && m.rw >= rw) return null;
   const p2 = new Set(path);
   p2.add(gk);
   const r = leafGo(g, depth, rw, p2);
   if (r) job.memo.set(gk, { pf: r, depth, rw });
-  else if (!m || m.depth < depth || m.rw < rw) job.memo.set(gk, { pf: null, depth: Math.max(depth, m?.depth ?? 0), rw: Math.max(rw, m?.rw ?? 0) });
+  else job.memo.set(fk, { pf: null, depth: Math.max(depth, m?.depth ?? 0), rw: Math.max(rw, m?.rw ?? 0) });
   return r;
 };
 
@@ -875,16 +889,21 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
     for (let i = g.d - 1; i >= 0; i--) {
       if (!usable(g, i, g.qt)) continue;
       const a = ann(g, i)!;
-      let t = B.term_strip(a.T), k = 0;
-      while (t.$ === "All" && k < 12) { t = B.term_strip(t.B(B.Var("_", 1e7 + k))); k++; }
+      let t: HTerm = B.term_strip(a.T), k = 0;
+      if (t.$ !== "All") t = wnf(a.T) ?? t;
+      while (t.$ === "All" && k < 12) { const b: HTerm = t.B(B.Var("_", 1e7 + k)); t = B.term_strip(b); if (t.$ !== "All") t = wnf(b) ?? t; k++; }
       if (k > 0) callees.push({ text: g.names[i], T: a.T, n: k, kind: "hyp" });
     }
     if (job.ih && g.split) callees.push(ihCallee());
-    callees.push(...lemmaCands(g, targets));
+    // lemmas: those whose conclusion matches, most specific first (a general lemma such as
+    // weaken: Le(a, b) from Le(1+a, b) matches every goal of its head, and is tried last)
+    const lem = lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, depth, rw, path, null, () => false, pr); return { c, spec: pr.spec! }; });
+    callees.push(...lem.filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c));
+    const cap = CAPS[Math.min(g.lvl, CAPS.length - 1)];
     const tries = { n: 0 };
     for (const c of callees) {
       if (performance.now() > deadline) throw TIMEOUT;
-      if (tries.n >= MAX_CANDS) break;
+      if (tries.n >= cap) break;
       const a = applyCallee(g, c, targets, depth, rw, path, null, (a) => tryText(g, callText(c, a.args)), tries);
       if (a) { tag("apply:" + c.kind); return tm(callText(c, a.args)); }
     }
@@ -1067,7 +1086,8 @@ const splitCands = (n: Goal, lg: Goal): number[] => {
       g = intro(g, g.pnames[0], g.pmany[0]);
     }
   }
-  return out.slice(0, MAX_SPLIT_CANDS);
+  const depth = n.path.split("/").length - 1;
+  return out.slice(0, depth >= 4 ? 1 : depth >= 2 ? 2 : MAX_SPLIT_CANDS);
 };
 
 const solve = (n: Goal, S: number, D: number, partial: boolean): Res => {
@@ -1120,7 +1140,7 @@ const rootGoal = (k: string): Goal => {
   for (let j = 0; j < def.n; j++) { const s = B.term_strip(t) as any; pnames.push(s.k); t = s.B(B.Var(s.k, j)); }
   return {
     ctx: B.ctx_nil(), d: 0, ty: def.T, lhs: { t: B.Ref(k), n: def.n - def.x, def: k, qs, u: def.u }, qt: B.Lone(), env: null,
-    names: [], ckey: "", pend: def.n, pnames, pmany: pnames.map(() => false), split: false, path: "", hc: new Map(),
+    names: [], ckey: "", pend: def.n, pnames, pmany: pnames.map(() => false), split: false, path: "", lvl: 0, hc: new Map(),
   };
 };
 const newJob = (k: string): Job => {
@@ -1165,7 +1185,7 @@ const proveDef = (k: string, budget: number): Outcome => {
   }
   if (!full && PARTIAL) {
     deadline = performance.now() + Math.max(500, budget / 3);
-    try { best = solve(root, MAX_SPLIT, MAX_DEPTH, true); } catch (e) { if (e !== TIMEOUT) throw e; }
+    try { best = solve(root, Math.min(MAX_SPLIT, 3), Math.min(MAX_DEPTH, 2), true); } catch (e) { if (e !== TIMEOUT) throw e; }
   }
   deadline = Infinity;
   const ms = performance.now() - t0;
@@ -1221,7 +1241,7 @@ const proveHoles = (k: string, budget: number) => {
     const def = RAW[k] as B.Def;
     const g: Goal = {
       ctx: err.ctx, d, ty: err.exp, lhs: { t: B.Ref(k), n: 0, def: k, qs: [], u: true }, qt: B.Lone(), env, names, ckey,
-      pend: 0, pnames: [], pmany: [], split: true, path: "hole" + (h + 1), hc: new Map(),
+      pend: 0, pnames: [], pmany: [], split: true, path: "hole" + (h + 1), lvl: 0, hc: new Map(),
     };
     const t0 = performance.now();
     deadline = t0 + budget;
