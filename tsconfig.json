@@ -28,6 +28,6 @@
     "noPropertyAccessFromIndexSignature": false
   },
   // the bend submodule is not our code; the move-proof generator is exempt from the rules by the
-  // owner's decision (its header says why)
-  "exclude": ["bend", "node_modules", "src/Compiler/Machine/scripts/gen.ts"]
+  // owner's decision (its header says why), and so is the prover gen2.ts
+  "exclude": ["bend", "node_modules", "src/Compiler/Machine/scripts/gen.ts", "src/Shared/scripts/gen2.ts"]
 }
