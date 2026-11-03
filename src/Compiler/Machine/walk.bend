@@ -3087,6 +3087,137 @@ def ptr.lt0(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List
    (%Equal.sym(Nat, D.RcL(D.Rt.cells(os), z), 0n, rts.lt0(os, ds, m, im, fi, nx, ks, img, z, hz, hs.os(ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, h))) :
       {Nat.add(0n, _) == 0n : Nat}; {==}))
 
+# The chains under a store
+# ------------------------
+#
+# Ag reads the chain's cells, its terms' cells (Is), and os's nodes: a store
+# at a cell z that is none of them, with no pointer and not STATIC, keeps it
+# (is.fz, Nodes.fz).
+
+def fl.eq(+m2: Cr.Cir.Cells, +m: Cr.Cir.Cells, +a: U32, +f: U32, ec: {Cr.Cir.Cells.get(m2, a) == Cr.Cir.Cells.get(m, a) : Cr.Cir.Cell}) ->
+  {D.Fl(m2, a, f) == D.Fl(m, a, f) : Bool}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, a), Cr.Cir.Cells.get(m, a), ec) :
+    {U32.is_ne(U32.and(Cr.Cir.Cell.get(0n, _), f), 0) == D.Fl(m, a, f) : Bool}; {==})
+
+def fd.eq(+k: Nat, +m2: Cr.Cir.Cells, +m: Cr.Cir.Cells, +a: U32, ec: {Cr.Cir.Cells.get(m2, a) == Cr.Cir.Cells.get(m, a) : Cr.Cir.Cell}) ->
+  {D.Fd(k, m2, a) == D.Fd(k, m, a) : U32}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, a), Cr.Cir.Cells.get(m, a), ec) :
+    {Cr.Cir.Cell.get(k, _) == D.Fd(k, m, a) : U32}; {==})
+
+def tg.eq(+m2: Cr.Cir.Cells, +m: Cr.Cir.Cells, +a: U32, ec: {Cr.Cir.Cells.get(m2, a) == Cr.Cir.Cells.get(m, a) : Cr.Cir.Cell}) ->
+  {D.Tg(m2, a) == D.Tg(m, a) : U32}:
+  (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, a), Cr.Cir.Cells.get(m, a), ec) :
+    {U32.and(Cr.Cir.Cell.get(0n, _), 63) == D.Tg(m, a) : U32}; {==})
+
+# the chain's cells and its terms' cells
+def Ag.all(xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32) -> List<&2, U32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{_, +rest}:
+      Con{a, Con{D.Fd(2n, m, a), Ag.all(rest, m, D.Fd(1n, m, a))}}
+
+# Ag.vars after the store
+def ag.vars.fz(xs: List<&2, El.Arg>, +m: Cr.Cir.Cells, +a: U32, +z: U32, +x: Cr.Cir.Cell,
+  +hn: {D.NeAll(Ag.all(xs, m, a), z) == True{} : Bool}) ->
+  {D.Ag.vars(xs, Cr.Cir.Cells.set(m, z, x), a) == D.Ag.vars(xs, m, a) : List<&2, U32>}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      +m2 = Cr.Cir.Cells.set(m, z, x)
+      +ec = D.cl.go(m, a, z, x, D.neall.hd(a, z, Con{D.Fd(2n, m, a), Ag.all(rest, m, D.Fd(1n, m, a))}, hn))
+      +hr = D.neall.tl(D.Fd(2n, m, a), z, Ag.all(rest, m, D.Fd(1n, m, a)),
+        D.neall.tl(a, z, Con{D.Fd(2n, m, a), Ag.all(rest, m, D.Fd(1n, m, a))}, hn))
+      (%Equal.sym(Bool, D.Fl(m2, a, 4096), D.Fl(m, a, 4096), fl.eq(m2, m, a, 4096, ec)) :
+         {Bool.pick(List<&2, U32>, _, Con{D.Fd(2n, m2, a), D.Ag.vars(rest, m2, D.Fd(1n, m2, a))}, D.Ag.vars(rest, m2, D.Fd(1n, m2, a))) ==
+           D.Ag.vars(Con{y, rest}, m, a) : List<&2, U32>};
+       %Equal.sym(U32, D.Fd(2n, m2, a), D.Fd(2n, m, a), fd.eq(2n, m2, m, a, ec)) :
+         {Bool.pick(List<&2, U32>, D.Fl(m, a, 4096), Con{_, D.Ag.vars(rest, m2, D.Fd(1n, m2, a))}, D.Ag.vars(rest, m2, D.Fd(1n, m2, a))) ==
+           D.Ag.vars(Con{y, rest}, m, a) : List<&2, U32>};
+       %Equal.sym(U32, D.Fd(1n, m2, a), D.Fd(1n, m, a), fd.eq(1n, m2, m, a, ec)) :
+         {Bool.pick(List<&2, U32>, D.Fl(m, a, 4096), Con{D.Fd(2n, m, a), D.Ag.vars(rest, m2, _)}, D.Ag.vars(rest, m2, _)) ==
+           D.Ag.vars(Con{y, rest}, m, a) : List<&2, U32>};
+       %Equal.sym(List<&2, U32>, D.Ag.vars(rest, m2, D.Fd(1n, m, a)), D.Ag.vars(rest, m, D.Fd(1n, m, a)), ag.vars.fz(rest, m, D.Fd(1n, m, a), z, x, hr)) :
+         {Bool.pick(List<&2, U32>, D.Fl(m, a, 4096), Con{D.Fd(2n, m, a), _}, _) == D.Ag.vars(Con{y, rest}, m, a) : List<&2, U32>};
+       {==})
+
+# Ag after a store at z: none of the chain's cells or of its terms' cells,
+# not a root, with no pointer, not STATIC
+def ag.fz(xs: List<&2, El.Arg>, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +os: List<&2, D.Rt>, +vs: List<&2, U32>,
+  +a: U32, +z: U32, +xc: Cr.Cir.Cell, +tbl: D.Tbl(m, im, fi, nx),
+  +hz0: {D.Ptr(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, D.Rt.cells(os), z) == 0n : Nat},
+  +hzs: {D.Fl(m, z, 1024) == False{} : Bool}, +hro: {D.NeAll(D.Rt.cells(os), z) == True{} : Bool},
+  +ho: D.Rts(ds, m, im, fi, nx, ks, img, os), +hn: {D.NeAll(Ag.all(xs, m, a), z) == True{} : Bool},
+  h: D.Ag(ds, m, im, fi, nx, ks, img, ps, os, vs, a, xs)) ->
+  D.Ag(ds, Cr.Cir.Cells.set(m, z, xc), im, fi, nx, ks, img, ps, os, vs, a, xs):
+  match xs:
+    case Nil{}:
+      h
+    case Con{El.Arg{+q, +x}, +rest}:
+      (h0, g1) = h
+      (h1, g2) = g1
+      (h2, g3) = g2
+      (h3, g4) = g3
+      (h4, g5) = g4
+      (h5, g6) = g5
+      (h6, g7) = g6
+      (h7, g8) = g7
+      (h8, g9) = g8
+      (h9, g10) = g9
+      (h10, g11) = g10
+      (h11, h12) = g11
+      +m2 = Cr.Cir.Cells.set(m, z, xc)
+      +y = D.Fd(2n, m, a)
+      +f1 = D.Fd(1n, m, a)
+      +tl = {Con{y, Ag.all(rest, m, f1)} : List<&2, U32>}
+      +ec = D.cl.go(m, a, z, xc, D.neall.hd(a, z, tl, hn))
+      +hn1 = D.neall.tl(a, z, tl, hn)
+      +ey = D.cl.go(m, y, z, xc, D.neall.hd(y, z, Ag.all(rest, m, f1), hn1))
+      +hr = D.neall.tl(y, z, Ag.all(rest, m, f1), hn1)
+      +e2 = fd.eq(2n, m2, m, a, ec)
+      +e1 = fd.eq(1n, m2, m, a, ec)
+      +ef4 = fl.eq(m2, m, a, 4096, ec)
+      +efy = fl.eq(m2, m, y, 1024, ey)
+      +en = D.Nodes.fz(True{}, os, ds, m, im, fi, nx, ks, img, ps, D.Rt.cells(os), z, xc, y, tbl, hz0, hzs, hro, ho)
+      +ev = ag.vars.fz(rest, m, f1, z, xc, hr)
+      (h0, (h1, (h2,
+       ((%Equal.sym(Bool, D.Fl(m2, a, 1024), D.Fl(m, a, 1024), fl.eq(m2, m, a, 1024, ec)) : {_ == False{} : Bool}; h3),
+       (h4,
+       ((%Equal.sym(U32, D.Tg(m2, a), D.Tg(m, a), tg.eq(m2, m, a, ec)) : {_ == 41 : U32}; h5),
+       ((%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(m2, a), Cr.Cir.Cells.get(m, a), ec) : D.Qs(_, q); h6),
+       ((%Equal.sym(Bool, D.Fl(m2, a, 2048), D.Fl(m, a, 2048), fl.eq(m2, m, a, 2048, ec)) :
+          {Bool.or(Bool.not(_), El.Eval.vals(ds, x, False{})) == True{} : Bool}; h7),
+       ((%Equal.sym(Bool, D.Fl(m2, a, 4096), D.Fl(m, a, 4096), ef4) : {Bool.or(Bool.not(_), D.Term.is_var(x)) == True{} : Bool}; h8),
+       ((%Equal.sym(U32, D.Fd(2n, m2, a), y, e2) : D.Is(ds, m2, im, fi, nx, ks, img, _, x);
+         D.is.fz(True{}, x, ds, m, im, fi, nx, ks, img, ps, D.Rt.cells(os), z, xc, y, tbl, hz0, hzs,
+           D.neall.hd(y, z, Ag.all(rest, m, f1), hn1), h9)),
+       ((%Equal.sym(U32, D.Fd(2n, m2, a), y, e2) :
+           {Bool.or(D.Fl(m2, a, 4096), Bool.or(D.Fl(m2, _, 1024), Bool.or(D.Nodes(os, m2, _),
+             Bool.or(D.Mem(vs, _), D.Mem(D.Ag.vars(rest, m2, D.Fd(1n, m2, a)), _))))) == True{} : Bool};
+         %Equal.sym(U32, D.Fd(1n, m2, a), f1, e1) :
+           {Bool.or(D.Fl(m2, a, 4096), Bool.or(D.Fl(m2, y, 1024), Bool.or(D.Nodes(os, m2, y),
+             Bool.or(D.Mem(vs, y), D.Mem(D.Ag.vars(rest, m2, _), y))))) == True{} : Bool};
+         %Equal.sym(Bool, D.Fl(m2, a, 4096), D.Fl(m, a, 4096), ef4) :
+           {Bool.or(_, Bool.or(D.Fl(m2, y, 1024), Bool.or(D.Nodes(os, m2, y),
+             Bool.or(D.Mem(vs, y), D.Mem(D.Ag.vars(rest, m2, f1), y))))) == True{} : Bool};
+         %Equal.sym(Bool, D.Fl(m2, y, 1024), D.Fl(m, y, 1024), efy) :
+           {Bool.or(D.Fl(m, a, 4096), Bool.or(_, Bool.or(D.Nodes(os, m2, y),
+             Bool.or(D.Mem(vs, y), D.Mem(D.Ag.vars(rest, m2, f1), y))))) == True{} : Bool};
+         %Equal.sym(Bool, D.Nodes(os, m2, y), D.Nodes(os, m, y), en) :
+           {Bool.or(D.Fl(m, a, 4096), Bool.or(D.Fl(m, y, 1024), Bool.or(_,
+             Bool.or(D.Mem(vs, y), D.Mem(D.Ag.vars(rest, m2, f1), y))))) == True{} : Bool};
+         %Equal.sym(List<&2, U32>, D.Ag.vars(rest, m2, f1), D.Ag.vars(rest, m, f1), ev) :
+           {Bool.or(D.Fl(m, a, 4096), Bool.or(D.Fl(m, y, 1024), Bool.or(D.Nodes(os, m, y),
+             Bool.or(D.Mem(vs, y), D.Mem(_, y))))) == True{} : Bool};
+         h10),
+       ((%Equal.sym(U32, D.Fd(2n, m2, a), y, e2) : {Bool.or(D.Fl(m2, _, 1024), Bool.not(D.Mem(ps, _))) == True{} : Bool};
+         %Equal.sym(Bool, D.Fl(m2, y, 1024), D.Fl(m, y, 1024), efy) : {Bool.or(_, Bool.not(D.Mem(ps, y))) == True{} : Bool};
+         h11),
+        (%Equal.sym(U32, D.Fd(1n, m2, a), f1, e1) : D.Ag(ds, m2, im, fi, nx, ks, img, ps, os, vs, _, rest);
+         ag.fz(rest, ds, m, im, fi, nx, ks, img, ps, os, vs, f1, z, xc, tbl, hz0, hzs, hro, ho, hr, h12))))))))))))))
+
 # The walk
 # --------
 #
