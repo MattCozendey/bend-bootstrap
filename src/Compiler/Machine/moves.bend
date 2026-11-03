@@ -20,10 +20,10 @@
 # that gives it, or runs out of memory.
 #
 # Proven: the choice of the moves (round.post, round.done), the loop, the run
-# from Cir.result's start, the three lemmas. Open: the laws of move_kit.bend
-# and of definitions.bend (filled, as ?TODO for now, in the units' files that
-# this file imports), and mach.memory with what it needs (round.peak,
-# round.room).
+# from Cir.result's start, the three lemmas. Open: the laws of move_kit.bend,
+# definitions.bend and copy_substitution.bend (filled, some as ?TODO for now,
+# in the units' files that this file imports), and mach.memory with what it
+# needs (round.peak, round.room).
 
 import Base
 import ../../Book/impl.bend as Bk
@@ -39,6 +39,7 @@ import ./statement_runs.bend as X
 import ./move_kit.bend as K
 import ./cir_fits.bend as CF
 import ./heap_ops.bend as U2
+import ./copy_gives_subst.bend as U4
 import ./copy_bridge.bend as U5
 import ./data_check.bend as U6
 import ./walk.bend as U7
