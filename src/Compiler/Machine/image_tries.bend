@@ -298,3 +298,224 @@ def get.put.other(+k1: List<&2, Word(8n)>, +k2: List<&2, Word(8n)>, +t: Mc.Img.T
                     Equal.cong(List<&2, Word(8n)>, List<&2, Word(8n)>, q => Con{b2, q}, r1, r2, z)))),
                 Equal.cong(Word(8n), Maybe<&2, U32>, z => Mc.Img.trie.get(r2, Mc.Img.trie.at(8n, z, t)), b1, b2, eq)))),
         neq => put.at.other(8n, b1, b2, r1, r2, t, v, neq))
+
+# Reading back
+# ------------
+#
+# A pass over a list of names adds each name to a trie. To say what the trie
+# answers at a name, maybe.of reads a Maybe with a default: the value that
+# the pass would store, or the value that the trie already had.
+
+# a Maybe as a number: its value, or d
+def maybe.of(r: Maybe<&2, U32>, d: U32) -> U32:
+  match r:
+    case None{}:
+      d
+    case Some{v}:
+      v
+
+def maybe.of.none(d: U32) -> {maybe.of(None{}, d) == d : U32}:
+  {==}
+
+def maybe.of.some(v: U32, d: U32) -> {maybe.of(Some{v}, d) == v : U32}:
+  {==}
+
+# find.of is maybe.of with 0
+def find.of.maybe(r: Maybe<&2, U32>) -> {Mc.Img.trie.find.of(r) == maybe.of(r, 0) : U32}:
+  match r:
+    case None{}:
+      {==}
+    case Some{v}:
+      {==}
+
+# a Maybe, by its form; each side gets its equality
+def maybe.split(r: Maybe<&2, U32>, -G: Type,
+  none: {r == None{} : Maybe<&2, U32>} -> G,
+  some: @v: U32 -> {r == Some{v} : Maybe<&2, U32>} -> G) -> G:
+  match r:
+    case None{}:
+      none({==})
+    case Some{v}:
+      some(v, {==})
+
+# a name equal to another compares equal to it
+def name.is_eq.true(n: List<&2, Word(8n)>, k: List<&2, Word(8n)>, e: {n == k : List<&2, Word(8n)>}) ->
+  {Sd.Name.is_eq(n, k) == True{} : Bool}:
+  Equal.trans(Bool, Sd.Name.is_eq(n, k), Sd.Name.is_eq(k, k), True{},
+    Equal.cong(List<&2, Word(8n)>, Bool, z => Sd.Name.is_eq(z, k), n, k, e),
+    Nm.Name.eq.refl(k))
+
+# a name whose comparison is False differs
+def name.ne.of(n: List<&2, Word(8n)>, k: List<&2, Word(8n)>, +hb: {Sd.Name.is_eq(n, k) == False{} : Bool},
+  e: {n == k : List<&2, Word(8n)>}) -> Empty:
+  N.false_ne_true(Equal.trans(Bool, False{}, Sd.Name.is_eq(n, k), True{},
+    Equal.sym(Bool, Sd.Name.is_eq(n, k), False{}, hb), name.is_eq.true(n, k, e)))
+
+# the comparison of two names, by its two sides: each side gets its equality
+def name.split(n: List<&2, Word(8n)>, k: List<&2, Word(8n)>, b: Bool, +hb: {Sd.Name.is_eq(n, k) == b : Bool}, -G: Type,
+  same: {n == k : List<&2, Word(8n)>} -> {Sd.Name.is_eq(n, k) == True{} : Bool} -> G,
+  diff: ({n == k : List<&2, Word(8n)>} -> Empty) -> {Sd.Name.is_eq(n, k) == False{} : Bool} -> G) -> G:
+  match b:
+    case True{}:
+      same(Nm.Name.eq.true(n, k, hb), hb)
+    case False{}:
+      diff(z => name.ne.of(n, k, hb, z), hb)
+
+# The value that add leaves at a name
+# -----------------------------------
+#
+# add stores the value of a name unless the name has one. These four defs
+# say what a read at a name k gives after add at a name n, by the
+# comparison of n and k and by what the trie held at n.
+
+def add.read.same.none(n: List<&2, Word(8n)>, +at: U32, +t: Mc.Img.Trie, +k: List<&2, Word(8n)>, +d: U32,
+  +eq: {n == k : List<&2, Word(8n)>}, hb: {Sd.Name.is_eq(n, k) == True{} : Bool},
+  +hr: {Mc.Img.trie.get(n, t) == None{} : Maybe<&2, U32>}) ->
+  {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) ==
+   maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => d)) : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(n, k), True{}, hb) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(_, at, u => d)) : U32}
+  %Equal.sym(Maybe<&2, U32>, Mc.Img.trie.get(n, t), None{}, hr) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(_, t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(True{}, at, u => d)) : U32}
+  %Equal.sym(List<&2, Word(8n)>, n, k, eq) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(None{}, t, _, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(True{}, at, u => d)) : U32}
+  +h2 = Equal.trans(Maybe<&2, U32>, Mc.Img.trie.get(k, t), Mc.Img.trie.get(n, t), None{},
+    Equal.cong(List<&2, Word(8n)>, Maybe<&2, U32>, z => Mc.Img.trie.get(z, t), k, n, Equal.sym(List<&2, Word(8n)>, n, k, eq)),
+    hr)
+  Equal.trans(U32,
+    maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.put(k, t, at)), d),
+    at,
+    maybe.of(Mc.Img.trie.get(k, t), at),
+    Equal.trans(U32,
+      maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.put(k, t, at)), d),
+      maybe.of(Some{at}, d),
+      at,
+      Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, d), Mc.Img.trie.get(k, Mc.Img.trie.put(k, t, at)), Some{at}, get.put.same(k, t, at)),
+      maybe.of.some(at, d)),
+    Equal.sym(U32,
+      maybe.of(Mc.Img.trie.get(k, t), at),
+      at,
+      Equal.trans(U32,
+        maybe.of(Mc.Img.trie.get(k, t), at),
+        maybe.of(None{}, at),
+        at,
+        Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, at), Mc.Img.trie.get(k, t), None{}, h2),
+        maybe.of.none(at))))
+
+def add.read.same.some(n: List<&2, Word(8n)>, +at: U32, +t: Mc.Img.Trie, +k: List<&2, Word(8n)>, +d: U32,
+  eq: {n == k : List<&2, Word(8n)>}, hb: {Sd.Name.is_eq(n, k) == True{} : Bool}, +v: U32,
+  +hs: {Mc.Img.trie.get(n, t) == Some{v} : Maybe<&2, U32>}) ->
+  {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) ==
+   maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => d)) : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(n, k), True{}, hb) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(_, at, u => d)) : U32}
+  %Equal.sym(Maybe<&2, U32>, Mc.Img.trie.get(n, t), Some{v}, hs) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(_, t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(True{}, at, u => d)) : U32}
+  +h2 = Equal.trans(Maybe<&2, U32>, Mc.Img.trie.get(k, t), Mc.Img.trie.get(n, t), Some{v},
+    Equal.cong(List<&2, Word(8n)>, Maybe<&2, U32>, z => Mc.Img.trie.get(z, t), k, n, Equal.sym(List<&2, Word(8n)>, n, k, eq)),
+    hs)
+  Equal.trans(U32,
+    maybe.of(Mc.Img.trie.get(k, t), d),
+    v,
+    maybe.of(Mc.Img.trie.get(k, t), at),
+    Equal.trans(U32, maybe.of(Mc.Img.trie.get(k, t), d), maybe.of(Some{v}, d), v,
+      Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, d), Mc.Img.trie.get(k, t), Some{v}, h2),
+      maybe.of.some(v, d)),
+    Equal.sym(U32, maybe.of(Mc.Img.trie.get(k, t), at), v,
+      Equal.trans(U32, maybe.of(Mc.Img.trie.get(k, t), at), maybe.of(Some{v}, at), v,
+        Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, at), Mc.Img.trie.get(k, t), Some{v}, h2),
+        maybe.of.some(v, at))))
+
+def add.read.diff.none(n: List<&2, Word(8n)>, +at: U32, +t: Mc.Img.Trie, +k: List<&2, Word(8n)>, +d: U32,
+  ne: {n == k : List<&2, Word(8n)>} -> Empty, hb: {Sd.Name.is_eq(n, k) == False{} : Bool},
+  hr: {Mc.Img.trie.get(n, t) == None{} : Maybe<&2, U32>}) ->
+  {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) ==
+   maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => d)) : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(n, k), False{}, hb) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(_, at, u => d)) : U32}
+  %Equal.sym(Maybe<&2, U32>, Mc.Img.trie.get(n, t), None{}, hr) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(_, t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(False{}, at, u => d)) : U32}
+  Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, d),
+    Mc.Img.trie.get(k, Mc.Img.trie.put(n, t, at)), Mc.Img.trie.get(k, t),
+    get.put.other(n, k, t, at, ne))
+
+def add.read.diff.some(n: List<&2, Word(8n)>, +at: U32, +t: Mc.Img.Trie, +k: List<&2, Word(8n)>, +d: U32,
+  hb: {Sd.Name.is_eq(n, k) == False{} : Bool}, v: U32,
+  hs: {Mc.Img.trie.get(n, t) == Some{v} : Maybe<&2, U32>}) ->
+  {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) ==
+   maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => d)) : U32}:
+  %Equal.sym(Bool, Sd.Name.is_eq(n, k), False{}, hb) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(_, at, u => d)) : U32}
+  %Equal.sym(Maybe<&2, U32>, Mc.Img.trie.get(n, t), Some{v}, hs) :
+    {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(_, t, n, at)), d) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(False{}, at, u => d)) : U32}
+  {==}
+
+# find of refs gives what Img.ref gives, or the value that the trie held
+def refs.find(es: List<&2, Mc.Img.Def>, +t: Mc.Img.Trie, +k: List<&2, Word(8n)>) ->
+  {Mc.Img.trie.find(Mc.Img.refs(es, t), k) == maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref(es, k)) : U32}:
+  match es:
+    case Nil{}:
+      find.of.maybe(Mc.Img.trie.get(k, t))
+    case Con{Mc.Img.Def{+n, +at}, +rest}:
+      Equal.trans(U32,
+        Mc.Img.trie.find(Mc.Img.refs(Con{Mc.Img.Def{n, at}, rest}, t), k),
+        maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add(t, n, at)), Mc.Img.ref(rest, k)),
+        maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => Mc.Img.ref(rest, k))),
+        refs.find(rest, Mc.Img.trie.add(t, n, at), k),
+        name.split(n, k, Sd.Name.is_eq(n, k), {==},
+          {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), Mc.Img.ref(rest, k)) ==
+           maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => Mc.Img.ref(rest, k))) : U32},
+          +eq => +hb =>
+            maybe.split(Mc.Img.trie.get(n, t),
+              {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), Mc.Img.ref(rest, k)) ==
+               maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => Mc.Img.ref(rest, k))) : U32},
+              hr => add.read.same.none(n, at, t, k, Mc.Img.ref(rest, k), eq, hb, hr),
+              v => hs => add.read.same.some(n, at, t, k, Mc.Img.ref(rest, k), eq, hb, v, hs)),
+          ne => +hb =>
+            maybe.split(Mc.Img.trie.get(n, t),
+              {maybe.of(Mc.Img.trie.get(k, Mc.Img.trie.add.if(Mc.Img.trie.get(n, t), t, n, at)), Mc.Img.ref(rest, k)) ==
+               maybe.of(Mc.Img.trie.get(k, t), Mc.Img.ref.if(Sd.Name.is_eq(n, k), at, u => Mc.Img.ref(rest, k))) : U32},
+              hr => add.read.diff.none(n, at, t, k, Mc.Img.ref(rest, k), ne, hb, hr),
+              v => hs => add.read.diff.some(n, at, t, k, Mc.Img.ref(rest, k), hb, v, hs))))
+
+# the part of an empty trie is empty
+def at.none(n: Nat, +w: Word(n)) -> {Mc.Img.trie.at(n, w, Mc.Img.Trie.none{}) == Mc.Img.Trie.none{} : Mc.Img.Trie}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match w:
+        case WCon{+b, +r}:
+          at.none(p, r)
+
+# an empty trie holds no name
+def get.none(k: List<&2, Word(8n)>) -> {Mc.Img.trie.get(k, Mc.Img.Trie.none{}) == None{} : Maybe<&2, U32>}:
+  match k:
+    case Nil{}:
+      {==}
+    case Con{+b, +rest}:
+      Equal.trans(Maybe<&2, U32>,
+        Mc.Img.trie.get(rest, Mc.Img.trie.at(8n, b, Mc.Img.Trie.none{})),
+        Mc.Img.trie.get(rest, Mc.Img.Trie.none{}),
+        None{},
+        Equal.cong(Mc.Img.Trie, Maybe<&2, U32>, z => Mc.Img.trie.get(rest, z),
+          Mc.Img.trie.at(8n, b, Mc.Img.Trie.none{}), Mc.Img.Trie.none{}, at.none(8n, b)),
+        get.none(rest))
+
+# find of refs from an empty trie is Img.ref
+def find.refs(+es: List<&2, Mc.Img.Def>, +k: List<&2, Word(8n)>) ->
+  {Mc.Img.trie.find(Mc.Img.refs(es, Mc.Img.Trie.none{}), k) == Mc.Img.ref(es, k) : U32}:
+  Equal.trans(U32,
+    Mc.Img.trie.find(Mc.Img.refs(es, Mc.Img.Trie.none{}), k),
+    maybe.of(Mc.Img.trie.get(k, Mc.Img.Trie.none{}), Mc.Img.ref(es, k)),
+    Mc.Img.ref(es, k),
+    refs.find(es, Mc.Img.Trie.none{}, k),
+    Equal.trans(U32,
+      maybe.of(Mc.Img.trie.get(k, Mc.Img.Trie.none{}), Mc.Img.ref(es, k)),
+      maybe.of(None{}, Mc.Img.ref(es, k)),
+      Mc.Img.ref(es, k),
+      Equal.cong(Maybe<&2, U32>, U32, z => maybe.of(z, Mc.Img.ref(es, k)),
+        Mc.Img.trie.get(k, Mc.Img.Trie.none{}), None{}, get.none(k)),
+      maybe.of.none(Mc.Img.ref(es, k))))
