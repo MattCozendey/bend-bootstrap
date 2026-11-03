@@ -271,7 +271,7 @@ def pr.at(+prog: Cr.Cir.Stmt, +regs: Nat, +k: U32, +a: U32, +n: U32, +mm: Wa.Was
   +X0 = U32.to_nat(U32.inc(k))
   +E = U32.to_nat(U32.add(a, n))
   +hx = N.le_rw_l(X0, Nat.add(X0, 0n), P, Equal.sym(Nat, Nat.add(X0, 0n), X0, N.add_zero(X0)), hX0)
-  +hge = DV.ge.le(U32.cmp(Cr.Cir.at(U32.inc(k)), U32.add(a, n)), U32.to_nat(Cr.Cir.at(U32.inc(k))), E, N.U32.rel(Cr.Cir.at(U32.inc(k)), U32.add(a, n)), e)
+  +hge = Z.ge.le(U32.cmp(Cr.Cir.at(U32.inc(k)), U32.add(a, n)), U32.to_nat(Cr.Cir.at(U32.inc(k))), E, N.U32.rel(Cr.Cir.at(U32.inc(k)), U32.add(a, n)), e)
   +eA = Equal.trans(Nat, U32.to_nat(Cr.Cir.at(U32.inc(k))), PH.H.t20(X0), PH.H.t20(Nat.add(X0, 0n)), F.at.nat(U32.inc(k), P, hP, hX0),
     Equal.cong(Nat, Nat, z => PH.H.t20(z), X0, Nat.add(X0, 0n), Equal.sym(Nat, Nat.add(X0, 0n), X0, N.add_zero(X0))))
   +hf = N.le_rw_r(E, U32.to_nat(Cr.Cir.at(U32.inc(k))), PH.H.t20(Nat.add(X0, 0n)), eA, hge)

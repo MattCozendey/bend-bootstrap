@@ -101,16 +101,6 @@ def sub.nat(+x: U32, +y: U32, h: N.Le(U32.to_nat(y), U32.to_nat(x))) -> {U32.to_
 def DM(-p: Nat, x: Word(p) & U32, +B: Nat, +A0: Nat) -> Data:
   S.P2({Nat.add(Nat.mul(Word.to_nat(p, dq(p, x)), B), U32.to_nat(dr(p, x))) == A0 : Nat}, N.Le(1n+U32.to_nat(dr(p, x)), B))
 
-def ge.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_ge(c) == True{} : Bool}) -> N.Le(y, x):
-  match c:
-    case LT{}:
-      Empty.absurd(N.Le(y, x), N.false_ne_true(e))
-    case EQ{}:
-      %r : N.Le(_, x)
-      N.le_refl(x)
-    case GT{}:
-      N.weaken(y, x, r)
-
 def bn.le(a0: Bool, +x: Nat) -> N.Le(Nat.add(PH.H.bn(a0), x), 1n+x):
   match a0:
     case False{}:
@@ -210,7 +200,7 @@ def dm.fin(g: Bool, +q: Nat, +q0: Word(q), +sput: Word(32n), +b: U32, +a0: Bool,
       +Q0 = Word.to_nat(q, q0)
       +S0 = Word.to_nat(32n, sput)
       +base = dm.base(q, q0, S0, B, a0, HI, R0, eih, eS)
-      +hBS = ge.le(U32.cmp(U32{sput}, b), S0, B, N.U32.rel(U32{sput}, b), eg)
+      +hBS = Z.ge.le(U32.cmp(U32{sput}, b), S0, B, N.U32.rel(U32{sput}, b), eg)
       +esub = sub.nat(U32{sput}, b, hBS)
       +eq = Equal.trans(Nat, Nat.add(Nat.add(B, Nat.mul(Nat.double(Q0), B)), U32.to_nat(U32.sub(U32{sput}, b))),
         Nat.add(Nat.add(B, Nat.mul(Nat.double(Q0), B)), Nat.sub(S0, B)), Nat.add(PH.H.bn(a0), Nat.double(HI)),

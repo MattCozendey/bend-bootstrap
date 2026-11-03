@@ -525,9 +525,39 @@ def inside.le(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n
   +Sm = Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w))
   inside.of(p, x, o, w, W, hW, hw, h, le.split(Sm, W, N.le_trans(Sm, N.D(16n, U32.to_nat(p)), W, h, hb)))
 
-# the same, when the memory is below W
-def inside.ok(+p: U32, +x: U32, +o: U32, +w: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
-  +hw: N.Le(1n, U32.to_nat(w)),
-  +h: N.Le(Nat.add(Nat.add(U32.to_nat(x), U32.to_nat(o)), U32.to_nat(w)), N.D(16n, U32.to_nat(p))),
-  hb: N.Le(1n+N.D(16n, U32.to_nat(p)), W)) -> {Wa.Wasm.inside(p, x, o, w) == True{} : Bool}:
-  inside.le(p, x, o, w, W, hW, hw, h, N.weaken(N.D(16n, U32.to_nat(p)), W, hb))
+# a >= b: b <= a as numbers
+def ge.le(c: Cmp, +x: Nat, +y: Nat, r: N.Rel(c, x, y), e: {Cmp.is_ge(c) == True{} : Bool}) -> N.Le(y, x):
+  match c:
+    case LT{}:
+      Empty.absurd(N.Le(y, x), N.false_ne_true(e))
+    case EQ{}:
+      %r : N.Le(_, x)
+      N.le_refl(x)
+    case GT{}:
+      N.weaken(y, x, r)
+
+def ge.to(+a: U32, +b: U32, e: {U32.is_ge(a, b) == True{} : Bool}) -> N.Le(U32.to_nat(b), U32.to_nat(a)):
+  ge.le(U32.cmp(a, b), U32.to_nat(a), U32.to_nat(b), N.U32.rel(a, b), e)
+
+# the value V of a sum X + Y, with its carry o, when Y <= V and X < W = 2^32:
+# no carry, so V = X + Y
+def ge.go(o: Bool, +V: Nat, +X: Nat, +Y: Nat, +W: Nat, +hW: {W == PH.H.W(32n) : Nat},
+  e: {Nat.add(V, N.D(32n, PH.H.bn(o))) == Nat.add(X, Y) : Nat}, hY: N.Le(Y, V), hX: N.Le(1n+X, W)) -> {V == Nat.add(X, Y) : Nat}:
+  match o:
+    case False{}:
+      Equal.trans(Nat, V, Nat.add(V, N.D(32n, 0n)), Nat.add(X, Y), PH.H.noc.z(32n, V), e)
+    case True{}:
+      # V + W = X + Y, so Y + W <= V + W = Y + X: W <= X
+      +eW = Equal.trans(Nat, Nat.add(V, W), Nat.add(V, N.D(32n, PH.H.bn(True{}))), Nat.add(X, Y),
+        Equal.cong(Nat, Nat, z => Nat.add(V, z), W, N.D(32n, PH.H.bn(True{})), Equal.trans(Nat, W, PH.H.W(32n), N.D(32n, PH.H.bn(True{})), hW, w.d(32n))), e)
+      +h1 = N.le_rw_r(Nat.add(Y, W), Nat.add(V, W), Nat.add(Y, X), Equal.trans(Nat, Nat.add(V, W), Nat.add(X, Y), Nat.add(Y, X), eW, add.comm(X, Y)),
+        N.add_mono(Y, V, W, W, hY, N.le_refl(W)))
+      Empty.absurd({V == Nat.add(X, Y) : Nat}, N.not_succ_le(X, N.le_trans(1n+X, W, X, hX, le.cancel_l(Y, W, X, h1))))
+
+# a sum x + y that is at least y does not wrap: it is exact
+def ge.add_ex(+x: U32, +y: U32, +W: Nat, +hW: {W == PH.H.W(32n) : Nat}, e: {U32.is_ge(U32.add(x, y), y) == True{} : Bool}) ->
+  {U32.to_nat(U32.add(x, y)) == Nat.add(U32.to_nat(x), U32.to_nat(y)) : Nat}:
+  match x y:
+    case U32{+xw} U32{+yw}:
+      ge.go(PH.H.cout(32n, xw, yw, False{}), Word.to_nat(32n, Word.add(32n, xw, yw)), Word.to_nat(32n, xw), Word.to_nat(32n, yw), W, hW,
+        PH.H.adc(32n, xw, yw, False{}), ge.to(U32{Word.add(32n, xw, yw)}, U32{yw}, e), u32.w(U32{xw}, W, hW))
