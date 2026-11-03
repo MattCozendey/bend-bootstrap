@@ -19,7 +19,8 @@
 # and gives MV: for any fuel, the round is an admin move (Inv of t, a smaller
 # measure), a step (Inv of Eval's step of t), a halt as HR says, or out of
 # memory only when the limit has fewer bytes than Budget; the own cells after
-# it are within max(before, Need(ds, t)); and with some fuel it ends.
+# it are within max(before, Need(ds, t)), and its STATIC own cells (Stat) are
+# no more than before; and with some fuel it ends.
 
 import Base
 import ../../Book/impl.bend as Bk
@@ -33,6 +34,7 @@ import ../need_big.bend as N
 import ./definitions.bend as D
 import ./statement_runs.bend as X
 import ./eval_facts.bend as EV
+import ./accounting.bend as AC
 
 # The phases' premises (laws)
 # ---------------------------
@@ -311,10 +313,12 @@ def IV(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, 
     D.Ex(List<&2, D.Rt>, zs => D.AccK(True{}, ds, ks, img, m, nx, fi, im, [D.Rt{foc, focus}], Nil{}, sp, fs, ps, zs)))
 
 # the next state of a round from st, of the term t and the measure w: an admin
-# move or a step (Rnd), with the own cells within the round's peak
+# move or a step (Rnd), with the own cells within the round's peak, and no
+# more STATIC own cells than st has
 def MV.next(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +st: Cr.Cir.State, +t: Bk.Term,
   +w: Nat, s: Cr.Cir.State) -> Type:
-  D.Rnd(ds, ks, img, t, w, s) & N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t)))
+  D.Rnd(ds, ks, img, t, w, s) & N.Le(D.Mem.cells(s), Nat.max(D.Mem.cells(st), D.Need(ds, st, t))) &
+    N.Le(D.Stat(D.Mem.cells(s), D.St.cells(s), D.St.first(s)), D.Stat(D.Mem.cells(st), D.St.cells(st), D.St.first(st)))
 
 # a move from st: for any fuel, a round that goes on (MV.next) or halts as HR
 # says, out of memory only below Budget; and a fuel with which it ends
@@ -344,6 +348,93 @@ def mv.done(-ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List
   match h:
     case Tuple{_, d}:
       d
+
+# The STATIC own cells of a round
+# -------------------------------
+#
+# A move carries "Stat now <= Stat at the round's start" through its
+# statements: inc.post, dec.post and release.post keep Stat, and a store of a
+# cell with no flag STATIC (AC.stat.set), the flag DATA (AC.stat.flag) and
+# M.alloc's cell (stat.alloc) do not raise it.
+
+# the first cell is at most next (Heap's last part), which stat.alloc asks
+def heap.fin(-m: Cr.Cir.Cells, -nx: U32, -fi: U32, -im: U32, -rs: List<&2, U32>, -pend: U32, -ps: List<&2, U32>,
+  h: D.Heap(m, nx, fi, im, rs, pend, ps)) -> {U32.is_le(fi, nx) == True{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{_, e}}}}}:
+      e
+
+# so in HSK
+def hsk.fin(-dk: Bool, -ds: List<&2, Bk.Def>, -ks: List<&2, List<&2, Word(8n)>>, -img: List<&2, Bk.Term>, -m: Cr.Cir.Cells, -nx: U32,
+  -fi: U32, -im: U32, -os: List<&2, D.Rt>, -bs: List<&2, D.Rt>, -fs: List<&2, D.AF>, -sp: U32, -pend: U32, -ps: List<&2, U32>,
+  h: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps)) -> {U32.is_le(fi, nx) == True{} : Bool}:
+  match h:
+    case Tuple{_, Tuple{_, Tuple{_, Tuple{_, Tuple{hp, _}}}}}:
+      heap.fin(m, nx, fi, im, D.Rt.cells(os), pend, ps, hp)
+
+# a step that keeps Stat keeps a bound of it
+def stat.keep(+n: Nat, +m: Cr.Cir.Cells, +m1: Cr.Cir.Cells, +fi: U32, -S: Nat,
+  e: {D.Stat(n, m1, fi) == D.Stat(n, m, fi) : Nat}, h: N.Le(D.Stat(n, m, fi), S)) -> N.Le(D.Stat(n, m1, fi), S):
+  N.le_rw_l(D.Stat(n, m, fi), D.Stat(n, m1, fi), S, Equal.sym(Nat, D.Stat(n, m1, fi), D.Stat(n, m, fi), e), h)
+
+# the new cell nx of M.alloc (stat.alloc)
+def stat.new(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +z: U32, +nx1: U32, +ws: List<&2, D.W1>,
+  hfn: {U32.is_le(fi, nx) == True{} : Bool},
+  e: {Bool.and(D.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx)))) == True{} : Bool},
+  hown: {D.Own(fi, nx1, z) == True{} : Bool}) ->
+  N.Le(D.Stat(Nat.sub(U32.to_nat(nx1), U32.to_nat(fi)), Cr.Cir.Cells.set(D.Put1(ws, m), z, Cr.Cir.Cell.zero()), fi),
+    D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)):
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +P = D.Put1(ws, m)
+  +Z = Cr.Cir.Cell.zero()
+  +e2 = D.and.r(D.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx))), e)
+  +ez = D.u32.eq(z, nx, D.and.l(U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx)), e2))
+  +en = D.u32.eq(nx1, U32.inc(nx), D.and.r(U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx)), e2))
+  +hl = {(%ez : {U32.is_lt(_, nx1) == True{} : Bool}; D.and.r(U32.is_le(fi, z), U32.is_lt(z, nx1), hown)) :
+    {U32.is_lt(nx, nx1) == True{} : Bool}}
+  %Equal.sym(U32, z, nx, ez) : N.Le(D.Stat(Nat.sub(U32.to_nat(nx1), U32.to_nat(fi)), Cr.Cir.Cells.set(P, _, Z), fi), D.Stat(n, m, fi))
+  %Equal.sym(U32, nx1, U32.inc(nx), en) : N.Le(D.Stat(Nat.sub(U32.to_nat(_), U32.to_nat(fi)), Cr.Cir.Cells.set(P, nx, Z), fi), D.Stat(n, m, fi))
+  N.le_rw_l(D.Stat(n, m, fi), D.Stat(Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(fi)), Cr.Cir.Cells.set(P, nx, Z), fi), D.Stat(n, m, fi),
+    Equal.sym(Nat, D.Stat(Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(fi)), Cr.Cir.Cells.set(P, nx, Z), fi), D.Stat(n, m, fi),
+      Equal.trans(Nat, D.Stat(Nat.sub(U32.to_nat(U32.inc(nx)), U32.to_nat(fi)), Cr.Cir.Cells.set(P, nx, Z), fi), D.Stat(n, P, fi), D.Stat(n, m, fi),
+        AC.stat.fresh(P, nx, fi, nx1, hfn, hl), AC.stat.put1(n, ws, m, fi))),
+    N.le_refl(D.Stat(n, m, fi)))
+
+# M.alloc's cell z, as alloc.post gives it: the cells m1 are m with stores to
+# field 1 and z all zeros, z of the pend list (next stays) or the new cell nx
+# (next grows by one)
+def stat.alloc(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +z: U32, +nx1: U32, +m1: Cr.Cir.Cells,
+  hfn: {U32.is_le(fi, nx) == True{} : Bool},
+  hws: D.Ex(List<&2, D.W1>, ws => D.P2({m1 == Cr.Cir.Cells.set(D.Put1(ws, m), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells}, {D.Took(ws, ps, m) == True{} : Bool})),
+  hor: {Bool.or(Bool.and(D.Mem(ps, z), U32.is_eq(nx1, nx)), Bool.and(D.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx))))) == True{} : Bool},
+  hown: {D.Own(fi, nx1, z) == True{} : Bool}) ->
+  N.Le(D.Stat(Nat.sub(U32.to_nat(nx1), U32.to_nat(fi)), m1, fi), D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)):
+  match hws:
+    case Tuple{+ws, Tuple{em1, _}}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +P = D.Put1(ws, m)
+      +Z = Cr.Cir.Cell.zero()
+      +ep = AC.stat.put1(n, ws, m, fi)
+      %Equal.sym(Cr.Cir.Cells, m1, Cr.Cir.Cells.set(P, z, Z), em1) :
+        N.Le(D.Stat(Nat.sub(U32.to_nat(nx1), U32.to_nat(fi)), _, fi), D.Stat(n, m, fi))
+      D.or.cases(Bool.and(D.Mem(ps, z), U32.is_eq(nx1, nx)), Bool.and(D.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx)))),
+        N.Le(D.Stat(Nat.sub(U32.to_nat(nx1), U32.to_nat(fi)), Cr.Cir.Cells.set(P, z, Z), fi), D.Stat(n, m, fi)), hor,
+        e => (%Equal.sym(U32, nx1, nx, D.u32.eq(nx1, nx, D.and.r(D.Mem(ps, z), U32.is_eq(nx1, nx), e))) :
+            N.Le(D.Stat(Nat.sub(U32.to_nat(_), U32.to_nat(fi)), Cr.Cir.Cells.set(P, z, Z), fi), D.Stat(n, m, fi));
+          N.le_rw_r(D.Stat(n, Cr.Cir.Cells.set(P, z, Z), fi), D.Stat(n, P, fi), D.Stat(n, m, fi), ep, AC.stat.set(n, P, fi, z, Z, {==}))),
+        e => stat.new(m, nx, fi, ps, z, nx1, ws, hfn, e, hown))
+
+# M.alloc's cell z, then a store at z of a cell x with no flag STATIC (as
+# M.make and M.push do)
+def stat.make(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +z: U32, +nx1: U32, +m1: Cr.Cir.Cells, +x: Cr.Cir.Cell,
+  hx: {D.FlW(Cr.Cir.Cell.get(0n, x), 1024) == False{} : Bool}, hfn: {U32.is_le(fi, nx) == True{} : Bool},
+  hws: D.Ex(List<&2, D.W1>, ws => D.P2({m1 == Cr.Cir.Cells.set(D.Put1(ws, m), z, Cr.Cir.Cell.zero()) : Cr.Cir.Cells}, {D.Took(ws, ps, m) == True{} : Bool})),
+  hor: {Bool.or(Bool.and(D.Mem(ps, z), U32.is_eq(nx1, nx)), Bool.and(D.Pend.none(ps), Bool.and(U32.is_eq(z, nx), U32.is_eq(nx1, U32.inc(nx))))) == True{} : Bool},
+  hown: {D.Own(fi, nx1, z) == True{} : Bool}) ->
+  N.Le(D.Stat(Nat.sub(U32.to_nat(nx1), U32.to_nat(fi)), Cr.Cir.Cells.set(m1, z, x), fi), D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi)):
+  +n1 = Nat.sub(U32.to_nat(nx1), U32.to_nat(fi))
+  N.le_trans(D.Stat(n1, Cr.Cir.Cells.set(m1, z, x), fi), D.Stat(n1, m1, fi), D.Stat(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi),
+    AC.stat.set(n1, m1, fi, z, x, hx), stat.alloc(m, nx, fi, ps, z, nx1, m1, hfn, hws, hor, hown))
 
 
 # a frame of App q □ x: app_arg or app_val
