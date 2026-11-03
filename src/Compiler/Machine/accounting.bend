@@ -3463,6 +3463,539 @@ def tmp.below(xs: List<&2, D.TmpE>, +m: Cr.Cir.Cells, +fi: U32, +nx: U32, +ps: L
       %Equal.sym(Bool, U32.is_eq(c, nx), False{}, ne) : {Bool.or(_, D.Mem(D.Tmp.cells(rest), nx)) == False{} : Bool}
       tmp.below(rest, m, fi, nx, ps, R, tok.rest(c, h, rest, m, fi, nx, ps, R, t))
 
+# The nodes of a held term
+# ------------------------
+#
+# A pointer of a node (by the table's mask) is a node of the same term
+# (node.fs). So the nodes of a term whose root is STATIC or a node of a term
+# of R are STATIC or nodes of R (node.cl): a part of a STATIC cell is STATIC
+# (Clo for the machine's own cells, Sp for the image's). No temporary is one
+# (tmp.ok.root).
+
+# the pointers of p, when p is r
+def fs.mv(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +r: U32, +p: U32, +c: U32, e: {U32.is_eq(r, p) == True{} : Bool},
+  hy: {D.Mem(D.Fs(m, ps, p), c) == True{} : Bool}) -> {D.Mem(D.Fs(m, ps, r), c) == True{} : Bool}:
+  %Equal.sym(U32, r, p, D.u32.eq(r, p, e)) : {D.Mem(D.Fs(m, ps, _), c) == True{} : Bool}
+  hy
+
+# the pointers of a term cell are its parts by its tag's mask
+def fs.at(+m: Cr.Cir.Cells, +ps: List<&2, U32>, +r: U32, +tg: U32, +mask: U32, +c: U32, etag: {D.TgW(D.Fd(0n, m, r)) == tg : U32},
+  hlt: {U32.is_lt(tg, 19) == True{} : Bool}, emask: {D.Fd(2n, m, U32.add(272, tg)) == mask : U32},
+  hy: {D.Mem(D.Fs(m, ps, r), c) == True{} : Bool}) -> {D.Mem(D.Fs.term(mask, D.Fd(2n, m, r), D.Fd(3n, m, r), D.Fd(4n, m, r)), c) == True{} : Bool}:
+  %D.fs.term(m, ps, r, tg, mask, etag, hlt, emask) : {D.Mem(_, c) == True{} : Bool}
+  hy
+
+# a root of one of the parts is a node of that part
+def mem1.node(+a: Bk.Term, +m: Cr.Cir.Cells, +fa: U32, +c: U32, hy: {D.Mem(Con{fa, Nil{}}, c) == True{} : Bool}) ->
+  {D.Node(a, m, fa, c) == True{} : Bool}:
+  D.or.cases(U32.is_eq(fa, c), False{}, {D.Node(a, m, fa, c) == True{} : Bool}, hy, e => node.root(a, m, fa, c, e),
+    e => D.bool.ft({D.Node(a, m, fa, c) == True{} : Bool}, e))
+
+def mem2.node(+a: Bk.Term, +b: Bk.Term, +m: Cr.Cir.Cells, +fa: U32, +fb: U32, +c: U32, hy: {D.Mem(Con{fa, Con{fb, Nil{}}}, c) == True{} : Bool}) ->
+  {Bool.or(D.Node(a, m, fa, c), D.Node(b, m, fb, c)) == True{} : Bool}:
+  D.or.cases(U32.is_eq(fa, c), D.Mem(Con{fb, Nil{}}, c), {Bool.or(D.Node(a, m, fa, c), D.Node(b, m, fb, c)) == True{} : Bool}, hy,
+    e => D.or.l(D.Node(a, m, fa, c), D.Node(b, m, fb, c), node.root(a, m, fa, c, e)),
+    e => D.or.r(D.Node(a, m, fa, c), D.Node(b, m, fb, c), mem1.node(b, m, fb, c, e)))
+
+def mem3.node(+a: Bk.Term, +b: Bk.Term, +d: Bk.Term, +m: Cr.Cir.Cells, +fa: U32, +fb: U32, +fd: U32, +c: U32,
+  hy: {D.Mem(Con{fa, Con{fb, Con{fd, Nil{}}}}, c) == True{} : Bool}) ->
+  {Bool.or(D.Node(a, m, fa, c), Bool.or(D.Node(b, m, fb, c), D.Node(d, m, fd, c))) == True{} : Bool}:
+  D.or.cases(U32.is_eq(fa, c), D.Mem(Con{fb, Con{fd, Nil{}}}, c),
+    {Bool.or(D.Node(a, m, fa, c), Bool.or(D.Node(b, m, fb, c), D.Node(d, m, fd, c))) == True{} : Bool}, hy,
+    e => D.or.l(D.Node(a, m, fa, c), Bool.or(D.Node(b, m, fb, c), D.Node(d, m, fd, c)), node.root(a, m, fa, c, e)),
+    e => D.or.r(D.Node(a, m, fa, c), Bool.or(D.Node(b, m, fb, c), D.Node(d, m, fd, c)), mem2.node(b, d, m, fb, fd, c, e)))
+
+# a pointer c of a node p of t at r (by the table's mask) is a node of t
+def node.fs(t: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +r: U32, +p: U32, +c: U32,
+  h: D.IsK(dk, ds, m, im, fi, nx, ks, img, r, t), hn: {D.Node(t, m, r, p) == True{} : Bool},
+  +hy: {D.Mem(D.Fs(m, ps, p), c) == True{} : Bool}) -> {D.Node(t, m, r, c) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+i}:
+      match h:
+        case Tuple{+nd, _}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Var{i}, 0, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Var{i}, tbl)
+          D.bool.ft({D.Node(Bk.Term.Var{i}, m, r, c) == True{} : Bool}, fs.at(m, ps, r, 0, 0, c, et, {==}, em, fs.mv(m, ps, r, p, c, hn, hy)))
+    case Bk.Term.Ref{+k}:
+      match h:
+        case Tuple{+nd, _}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ref{k}, 1, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Ref{k}, tbl)
+          D.bool.ft({D.Node(Bk.Term.Ref{k}, m, r, c) == True{} : Bool}, fs.at(m, ps, r, 1, 0, c, et, {==}, em, fs.mv(m, ps, r, p, c, hn, hy)))
+    case Bk.Term.Ann{+y, +z}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{_, h2}, Tuple{_, h3}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ann{y, z}, 2, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Ann{y, z}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(y, m, D.Fd(2n, m, r), p), D.Node(z, m, D.Fd(3n, m, r), p)), {D.Node(Bk.Term.Ann{y, z}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)),
+              mem2.node(y, z, m, D.Fd(2n, m, r), D.Fd(3n, m, r), c, fs.at(m, ps, r, 2, 3, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)),
+              D.or.cases(D.Node(y, m, D.Fd(2n, m, r), p), D.Node(z, m, D.Fd(3n, m, r), p), {Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), node.fs(y, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.r(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), node.fs(z, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0b, hy)))))
+    case Bk.Term.Let{+q, +v, +f}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{_, h2}, Tuple{_, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Let{q, v, f}, 3, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Let{q, v, f}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(v, m, D.Fd(2n, m, r), p), D.Node(f, m, D.Fd(3n, m, r), p)), {D.Node(Bk.Term.Let{q, v, f}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c)),
+              mem2.node(v, f, m, D.Fd(2n, m, r), D.Fd(3n, m, r), c, fs.at(m, ps, r, 3, 3, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c)),
+              D.or.cases(D.Node(v, m, D.Fd(2n, m, r), p), D.Node(f, m, D.Fd(3n, m, r), p), {Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c), node.fs(v, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.r(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c), node.fs(f, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0b, hy)))))
+    case Bk.Term.Typ{+y}:
+      match h:
+        case Tuple{+nd, Tuple{_, h2}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Typ{y}, 4, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Typ{y}, tbl)
+          D.or.cases(U32.is_eq(r, p), D.Node(y, m, D.Fd(2n, m, r), p), {D.Node(Bk.Term.Typ{y}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), D.Node(y, m, D.Fd(2n, m, r), c),
+              mem1.node(y, m, D.Fd(2n, m, r), c, fs.at(m, ps, r, 4, 1, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), D.Node(y, m, D.Fd(2n, m, r), c),
+              node.fs(y, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e, hy)))
+    case Bk.Term.Min{+a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{_, h2}, Tuple{_, h3}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Min{a, b}, 5, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p)), {D.Node(Bk.Term.Min{a, b}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              mem2.node(a, b, m, D.Fd(2n, m, r), D.Fd(3n, m, r), c, fs.at(m, ps, r, 5, 3, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              D.or.cases(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p), {Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(a, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.r(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(b, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0b, hy)))))
+    case Bk.Term.All{+q, +a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{_, h2}, Tuple{_, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.All{q, a, b}, 6, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p)), {D.Node(Bk.Term.All{q, a, b}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              mem2.node(a, b, m, D.Fd(2n, m, r), D.Fd(3n, m, r), c, fs.at(m, ps, r, 6, 3, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              D.or.cases(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p), {Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(a, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.r(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(b, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0b, hy)))))
+    case Bk.Term.Lam{+q, +f}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{_, h2}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Lam{q, f}, 7, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Lam{q, f}, tbl)
+          D.or.cases(U32.is_eq(r, p), D.Node(f, m, D.Fd(2n, m, r), p), {D.Node(Bk.Term.Lam{q, f}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), D.Node(f, m, D.Fd(2n, m, r), c),
+              mem1.node(f, m, D.Fd(2n, m, r), c, fs.at(m, ps, r, 7, 1, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), D.Node(f, m, D.Fd(2n, m, r), c),
+              node.fs(f, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e, hy)))
+    case Bk.Term.App{+q, +f, +y}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{_, h2}, Tuple{_, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.App{q, f, y}, 8, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.App{q, f, y}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(f, m, D.Fd(2n, m, r), p), D.Node(y, m, D.Fd(3n, m, r), p)), {D.Node(Bk.Term.App{q, f, y}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c)),
+              mem2.node(f, y, m, D.Fd(2n, m, r), D.Fd(3n, m, r), c, fs.at(m, ps, r, 8, 3, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c)),
+              D.or.cases(D.Node(f, m, D.Fd(2n, m, r), p), D.Node(y, m, D.Fd(3n, m, r), p), {Bool.or(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c), node.fs(f, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.r(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c), node.fs(y, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0b, hy)))))
+    case Bk.Term.Sig{+q, +a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{_, h2}, Tuple{_, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Sig{q, a, b}, 9, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p)), {D.Node(Bk.Term.Sig{q, a, b}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              mem2.node(a, b, m, D.Fd(2n, m, r), D.Fd(3n, m, r), c, fs.at(m, ps, r, 9, 3, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              D.or.cases(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p), {Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(a, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.r(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(b, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0b, hy)))))
+    case Bk.Term.Tup{+q, +a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{_, h2}, Tuple{_, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Tup{q, a, b}, 10, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p)), {D.Node(Bk.Term.Tup{q, a, b}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              mem2.node(a, b, m, D.Fd(2n, m, r), D.Fd(3n, m, r), c, fs.at(m, ps, r, 10, 3, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)),
+              D.or.cases(D.Node(a, m, D.Fd(2n, m, r), p), D.Node(b, m, D.Fd(3n, m, r), p), {Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(a, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.r(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), node.fs(b, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0b, hy)))))
+    case Bk.Term.Prj{+hh}:
+      match h:
+        case Tuple{+nd, Tuple{_, h2}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Prj{hh}, 11, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Prj{hh}, tbl)
+          D.or.cases(U32.is_eq(r, p), D.Node(hh, m, D.Fd(2n, m, r), p), {D.Node(Bk.Term.Prj{hh}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), D.Node(hh, m, D.Fd(2n, m, r), c),
+              mem1.node(hh, m, D.Fd(2n, m, r), c, fs.at(m, ps, r, 11, 1, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), D.Node(hh, m, D.Fd(2n, m, r), c),
+              node.fs(hh, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e, hy)))
+    case Bk.Term.Enu{+e}:
+      match h:
+        case Tuple{+nd, _}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Enu{e}, 12, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Enu{e}, tbl)
+          D.bool.ft({D.Node(Bk.Term.Enu{e}, m, r, c) == True{} : Bool}, fs.at(m, ps, r, 12, 0, c, et, {==}, em, fs.mv(m, ps, r, p, c, hn, hy)))
+    case Bk.Term.Lab{+k}:
+      match h:
+        case Tuple{+nd, _}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Lab{k}, 13, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Lab{k}, tbl)
+          D.bool.ft({D.Node(Bk.Term.Lab{k}, m, r, c) == True{} : Bool}, fs.at(m, ps, r, 13, 0, c, et, {==}, em, fs.mv(m, ps, r, p, c, hn, hy)))
+    case Bk.Term.Mat{+k, +hh, +n}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{_, h3}, Tuple{_, h4}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Mat{k, hh, n}, 14, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, hh, n}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(hh, m, D.Fd(3n, m, r), p), D.Node(n, m, D.Fd(4n, m, r), p)), {D.Node(Bk.Term.Mat{k, hh, n}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(hh, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c)),
+              mem2.node(hh, n, m, D.Fd(3n, m, r), D.Fd(4n, m, r), c, fs.at(m, ps, r, 14, 6, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(hh, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c)),
+              D.or.cases(D.Node(hh, m, D.Fd(3n, m, r), p), D.Node(n, m, D.Fd(4n, m, r), p), {Bool.or(D.Node(hh, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c)) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(hh, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c), node.fs(hh, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e0a, hy)),
+              e0b => D.or.r(D.Node(hh, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c), node.fs(n, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(4n, m, r), p, c, h4, e0b, hy)))))
+    case Bk.Term.Efq{}:
+      +nd = h
+      +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Efq{}, 15, nd)
+      +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Efq{}, tbl)
+      D.bool.ft({D.Node(Bk.Term.Efq{}, m, r, c) == True{} : Bool}, fs.at(m, ps, r, 15, 0, c, et, {==}, em, fs.mv(m, ps, r, p, c, hn, hy)))
+    case Bk.Term.Eql{+a, +b, +y}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{_, h2}, Tuple{Tuple{_, h3}, Tuple{_, h4}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, y}, 16, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, y}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(a, m, D.Fd(2n, m, r), p), Bool.or(D.Node(b, m, D.Fd(3n, m, r), p), D.Node(y, m, D.Fd(4n, m, r), p))), {D.Node(Bk.Term.Eql{a, b, y}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c))),
+              mem3.node(a, b, y, m, D.Fd(2n, m, r), D.Fd(3n, m, r), D.Fd(4n, m, r), c, fs.at(m, ps, r, 16, 7, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c))),
+              D.or.cases(D.Node(a, m, D.Fd(2n, m, r), p), Bool.or(D.Node(b, m, D.Fd(3n, m, r), p), D.Node(y, m, D.Fd(4n, m, r), p)), {Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c))) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)), node.fs(a, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.cases(D.Node(b, m, D.Fd(3n, m, r), p), D.Node(y, m, D.Fd(4n, m, r), p), {Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c))) == True{} : Bool}, e0b,
+              e1a => D.or.r(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)), D.or.l(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c), node.fs(b, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e1a, hy))),
+              e1b => D.or.r(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)), D.or.r(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c), node.fs(y, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(4n, m, r), p, c, h4, e1b, hy)))))))
+    case Bk.Term.Rfl{}:
+      +nd = h
+      +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rfl{}, 17, nd)
+      +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Rfl{}, tbl)
+      D.bool.ft({D.Node(Bk.Term.Rfl{}, m, r, c) == True{} : Bool}, fs.at(m, ps, r, 17, 0, c, et, {==}, em, fs.mv(m, ps, r, p, c, hn, hy)))
+    case Bk.Term.Rwt{+ee, +pp, +ff}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{_, h2}, Tuple{Tuple{_, h3}, Tuple{_, h4}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{ee, pp, ff}, 18, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Rwt{ee, pp, ff}, tbl)
+          D.or.cases(U32.is_eq(r, p), Bool.or(D.Node(ee, m, D.Fd(2n, m, r), p), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), p), D.Node(ff, m, D.Fd(4n, m, r), p))), {D.Node(Bk.Term.Rwt{ee, pp, ff}, m, r, c) == True{} : Bool}, hn,
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c))),
+              mem3.node(ee, pp, ff, m, D.Fd(2n, m, r), D.Fd(3n, m, r), D.Fd(4n, m, r), c, fs.at(m, ps, r, 18, 7, c, et, {==}, em, fs.mv(m, ps, r, p, c, e, hy)))),
+            e => D.or.r(U32.is_eq(r, c), Bool.or(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c))),
+              D.or.cases(D.Node(ee, m, D.Fd(2n, m, r), p), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), p), D.Node(ff, m, D.Fd(4n, m, r), p)), {Bool.or(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c))) == True{} : Bool}, e,
+              e0a => D.or.l(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c)), node.fs(ee, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(2n, m, r), p, c, h2, e0a, hy)),
+              e0b => D.or.cases(D.Node(pp, m, D.Fd(3n, m, r), p), D.Node(ff, m, D.Fd(4n, m, r), p), {Bool.or(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c))) == True{} : Bool}, e0b,
+              e1a => D.or.r(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c)), D.or.l(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c), node.fs(pp, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(3n, m, r), p, c, h3, e1a, hy))),
+              e1b => D.or.r(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c)), D.or.r(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c), node.fs(ff, dk, ds, m, im, fi, nx, ks, img, ps, tbl, D.Fd(4n, m, r), p, c, h4, e1b, hy)))))))
+
+# a pointer of a node of a term of R is a node of a term of R
+def nodes.fs(R: List<&2, D.Rt>, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +tbl: D.Tbl(m, im, fi, nx), +p: U32, +c: U32,
+  hR: D.RtsK(dk, ds, m, im, fi, nx, ks, img, R), hn: {D.Nodes(R, m, p) == True{} : Bool},
+  +hy: {D.Mem(D.Fs(m, ps, p), c) == True{} : Bool}) -> {D.Nodes(R, m, c) == True{} : Bool}:
+  match R:
+    case Nil{}:
+      D.bool.ft({D.Nodes(Nil{}, m, c) == True{} : Bool}, hn)
+    case Con{D.Rt{+r, +u}, +rest}:
+      match hR:
+        case Tuple{hu, hrest}:
+          D.or.cases(D.Node(u, m, r, p), D.Nodes(rest, m, p), {D.Nodes(Con{D.Rt{r, u}, rest}, m, c) == True{} : Bool}, hn,
+            e => D.or.l(D.Node(u, m, r, c), D.Nodes(rest, m, c), node.fs(u, dk, ds, m, im, fi, nx, ks, img, ps, tbl, r, p, c, hu, e, hy)),
+            e => D.or.r(D.Node(u, m, r, c), D.Nodes(rest, m, c), nodes.fs(rest, dk, ds, m, im, fi, nx, ks, img, ps, tbl, p, c, hrest, e, hy)))
+
+# Clo at the cell p, at or after o and before n cells from o
+def clo.at.b(b: Bool, +k: Nat, +m: Cr.Cir.Cells, +o: U32, +p: U32, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>,
+  eb: {U32.is_eq(o, p) == b : Bool}, h1: N.Le(U32.to_nat(o), U32.to_nat(p)), h2: N.Le(1n+U32.to_nat(p), Nat.add(U32.to_nat(o), 1n+k)),
+  h: {D.Clo(1n+k, m, o, ps, cs, hc) == True{} : Bool},
+  ih: N.Le(U32.to_nat(U32.inc(o)), U32.to_nat(p)) -> N.Le(1n+U32.to_nat(p), Nat.add(U32.to_nat(U32.inc(o)), k)) ->
+    {D.Clo(k, m, U32.inc(o), ps, cs, hc) == True{} : Bool} -> {D.Clo.at(m, p, ps, cs, hc) == True{} : Bool}) ->
+  {D.Clo.at(m, p, ps, cs, hc) == True{} : Bool}:
+  match b:
+    case True{}:
+      %D.u32.eq(o, p, eb) : {D.Clo.at(m, _, ps, cs, hc) == True{} : Bool}
+      D.and.l(D.Clo.at(m, o, ps, cs, hc), D.Clo(k, m, U32.inc(o), ps, cs, hc), h)
+    case False{}:
+      +lt = D.lt.ne(U32.cmp(o, p), U32.to_nat(o), U32.to_nat(p), N.U32.rel(o, p), eb, h1)
+      +ei = D.u.inc(o, p, lt)
+      +h1b = N.le_rw_l(1n+U32.to_nat(o), U32.to_nat(U32.inc(o)), U32.to_nat(p), Equal.sym(Nat, U32.to_nat(U32.inc(o)), 1n+U32.to_nat(o), ei), lt)
+      +h2b = N.le_rw_r(1n+U32.to_nat(p), Nat.add(U32.to_nat(o), 1n+k), Nat.add(U32.to_nat(U32.inc(o)), k),
+        Equal.trans(Nat, Nat.add(U32.to_nat(o), 1n+k), 1n+Nat.add(U32.to_nat(o), k), Nat.add(U32.to_nat(U32.inc(o)), k),
+          N.add_succ_r(U32.to_nat(o), k),
+          Equal.sym(Nat, Nat.add(U32.to_nat(U32.inc(o)), k), 1n+Nat.add(U32.to_nat(o), k),
+            Equal.cong(Nat, Nat, x => Nat.add(x, k), U32.to_nat(U32.inc(o)), 1n+U32.to_nat(o), ei))), h2)
+      ih(h1b, h2b, D.and.r(D.Clo.at(m, o, ps, cs, hc), D.Clo(k, m, U32.inc(o), ps, cs, hc), h))
+
+def clo.at.n(n: Nat, +m: Cr.Cir.Cells, +o: U32, +p: U32, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>,
+  h1: N.Le(U32.to_nat(o), U32.to_nat(p)), h2: N.Le(1n+U32.to_nat(p), Nat.add(U32.to_nat(o), n)),
+  h: {D.Clo(n, m, o, ps, cs, hc) == True{} : Bool}) -> {D.Clo.at(m, p, ps, cs, hc) == True{} : Bool}:
+  match n:
+    case 0n:
+      Empty.absurd({D.Clo.at(m, p, ps, cs, hc) == True{} : Bool},
+        N.not_succ_le(U32.to_nat(p), N.le_trans(1n+U32.to_nat(p), U32.to_nat(o), U32.to_nat(p),
+          N.le_rw_r(1n+U32.to_nat(p), Nat.add(U32.to_nat(o), 0n), U32.to_nat(o), N.add_zero(U32.to_nat(o)), h2), h1)))
+    case 1n+(+k):
+      clo.at.b(U32.is_eq(o, p), k, m, o, p, ps, cs, hc, {==}, h1, h2, h, x => y => z => clo.at.n(k, m, U32.inc(o), p, ps, cs, hc, x, y, z))
+
+# Clo at a cell of the machine's own
+def clo.own(+m: Cr.Cir.Cells, +nx: U32, +fi: U32, +p: U32, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>,
+  own: {D.Own(fi, nx, p) == True{} : Bool}, h: {D.Clo(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, cs, hc) == True{} : Bool}) ->
+  {D.Clo.at(m, p, ps, cs, hc) == True{} : Bool}:
+  +o2 = own
+  +h1 = D.u.le(fi, p, D.and.l(U32.is_le(fi, p), U32.is_lt(p, nx), o2))
+  +hl = D.u.lt(p, nx, D.and.r(U32.is_le(fi, p), U32.is_lt(p, nx), o2))
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +es = D.add.sub(U32.to_nat(fi), U32.to_nat(nx), N.le_trans(U32.to_nat(fi), U32.to_nat(p), U32.to_nat(nx), h1, N.weaken(U32.to_nat(p), U32.to_nat(nx), hl)))
+  clo.at.n(n, m, fi, p, ps, cs, hc, h1,
+    N.le_rw_r(1n+U32.to_nat(p), U32.to_nat(nx), Nat.add(U32.to_nat(fi), n), Equal.sym(Nat, Nat.add(U32.to_nat(fi), n), U32.to_nat(nx), es), hl), h)
+
+# a cell of a list of STATIC cells is STATIC
+def all.static.mem(L: List<&2, U32>, +m: Cr.Cir.Cells, +y: U32, +h: {D.All.static(L, m) == True{} : Bool},
+  hm: {D.Mem(L, y) == True{} : Bool}) -> {D.Fl(m, y, 1024) == True{} : Bool}:
+  match L:
+    case Nil{}:
+      D.bool.ft({D.Fl(m, y, 1024) == True{} : Bool}, hm)
+    case Con{+x, +rest}:
+      D.or.cases(U32.is_eq(x, y), D.Mem(rest, y), {D.Fl(m, y, 1024) == True{} : Bool}, hm,
+        e => {(%D.u32.eq(x, y, e) : {D.Fl(m, _, 1024) == True{} : Bool}; D.and.l(D.Fl(m, x, 1024), D.All.static(rest, m), h)) :
+          {D.Fl(m, y, 1024) == True{} : Bool}},
+        e => all.static.mem(rest, m, y, D.and.r(D.Fl(m, x, 1024), D.All.static(rest, m), h), e))
+
+# a pointer y of a STATIC cell r is STATIC: by Clo when r is the machine's
+# own (o), by Sp when it is not
+def st.part(o: Bool, +m: Cr.Cir.Cells, +nx: U32, +fi: U32, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>, +r: U32, +y: U32,
+  eo: {D.Own(fi, nx, r) == o : Bool}, sp: {Bool.or(o, D.FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, y)), 1024)) == True{} : Bool},
+  e: {D.Fl(m, r, 1024) == True{} : Bool}, hmf: {D.Mem(D.Fs(m, ps, r), y) == True{} : Bool},
+  hcl: {D.Clo(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, cs, hc) == True{} : Bool}) -> {D.Fl(m, y, 1024) == True{} : Bool}:
+  match o:
+    case True{}:
+      +at = clo.own(m, nx, fi, r, ps, cs, hc, eo, hcl)
+      +s1 = D.and.l(Bool.or(Bool.not(D.Fl(m, r, 1024)), D.All.static(D.Fs(m, ps, r), m)),
+        Bool.or(Bool.not(D.Mem(cs, r)), D.All.held(D.Fs(m, ps, r), m, cs, hc)), at)
+      all.static.mem(D.Fs(m, ps, r), m, y,
+        {(%e : {Bool.or(Bool.not(_), D.All.static(D.Fs(m, ps, r), m)) == True{} : Bool}; s1) : {D.All.static(D.Fs(m, ps, r), m) == True{} : Bool}}, hmf)
+    case False{}:
+      sp
+
+# a part y (by the mask) of a cell r that is STATIC or a node of a term of R
+# is STATIC or a node of a term of R
+def part.cl(o: Bool, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>, +R: List<&2, D.Rt>, +tbl: D.Tbl(m, im, fi, nx),
+  +hR: D.RtsK(dk, ds, m, im, fi, nx, ks, img, R), +hcl: {D.Clo(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, cs, hc) == True{} : Bool},
+  +r: U32, +y: U32, +tg: U32, +mask: U32, eo: {D.Own(fi, nx, r) == o : Bool},
+  sp: {Bool.or(o, D.FlW(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(m, y)), 1024)) == True{} : Bool},
+  etag: {D.TgW(D.Fd(0n, m, r)) == tg : U32}, hlt: {U32.is_lt(tg, 19) == True{} : Bool},
+  emask: {D.Fd(2n, m, U32.add(272, tg)) == mask : U32},
+  hm: {D.Mem(D.Fs.term(mask, D.Fd(2n, m, r), D.Fd(3n, m, r), D.Fd(4n, m, r)), y) == True{} : Bool},
+  hr: {Bool.or(D.Fl(m, r, 1024), D.Nodes(R, m, r)) == True{} : Bool}) -> {Bool.or(D.Fl(m, y, 1024), D.Nodes(R, m, y)) == True{} : Bool}:
+  +hmf = D.hm.at(m, ps, r, tg, mask, y, etag, hlt, emask, hm)
+  D.or.cases(D.Fl(m, r, 1024), D.Nodes(R, m, r), {Bool.or(D.Fl(m, y, 1024), D.Nodes(R, m, y)) == True{} : Bool}, hr,
+    e => D.or.l(D.Fl(m, y, 1024), D.Nodes(R, m, y), st.part(o, m, nx, fi, ps, cs, hc, r, y, eo, sp, e, hmf, hcl)),
+    e => D.or.r(D.Fl(m, y, 1024), D.Nodes(R, m, y), nodes.fs(R, dk, ds, m, im, fi, nx, ks, img, ps, tbl, r, y, hR, e, hmf)))
+
+# STATIC or a node of a term of R: the same cell
+def cl.eq(+m: Cr.Cir.Cells, +R: List<&2, D.Rt>, +r: U32, +c: U32, e: {U32.is_eq(r, c) == True{} : Bool},
+  hr: {Bool.or(D.Fl(m, r, 1024), D.Nodes(R, m, r)) == True{} : Bool}) -> {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}:
+  %D.u32.eq(r, c, e) : {Bool.or(D.Fl(m, _, 1024), D.Nodes(R, m, _)) == True{} : Bool}
+  hr
+
+# each node c of t at r is STATIC or a node of a term of R, when r is: a part
+# of a STATIC cell is STATIC (Clo for the machine's own, Sp for the image's),
+# and a part of a node of R is one (node.fs)
+def node.cl(t: Bk.Term, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32, +ks: List<&2, List<&2, Word(8n)>>,
+  +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>, +R: List<&2, D.Rt>, +tbl: D.Tbl(m, im, fi, nx),
+  +hR: D.RtsK(dk, ds, m, im, fi, nx, ks, img, R), +hcl: {D.Clo(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, cs, hc) == True{} : Bool},
+  +r: U32, +c: U32, h: D.IsK(dk, ds, m, im, fi, nx, ks, img, r, t),
+  +hr: {Bool.or(D.Fl(m, r, 1024), D.Nodes(R, m, r)) == True{} : Bool}, hn: {D.Node(t, m, r, c) == True{} : Bool}) ->
+  {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}:
+  match t:
+    case Bk.Term.Var{+i}:
+      cl.eq(m, R, r, c, hn, hr)
+    case Bk.Term.Ref{+k}:
+      cl.eq(m, R, r, c, hn, hr)
+    case Bk.Term.Ann{+y, +z}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Ann{y, z}, 2, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Ann{y, z}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(y, m, D.Fd(2n, m, r), c), D.Node(z, m, D.Fd(3n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(y, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 2, 3, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(z, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 2, 3, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Nil{}}, D.mem.hd(D.Fd(3n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.Let{+q, +v, +f}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Let{q, v, f}, 3, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Let{q, v, f}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(v, m, D.Fd(2n, m, r), c), D.Node(f, m, D.Fd(3n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(v, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 3, 3, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(f, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 3, 3, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Nil{}}, D.mem.hd(D.Fd(3n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.Typ{+y}:
+      match h:
+        case Tuple{+nd, Tuple{+sp2, h2}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Typ{y}, 4, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Typ{y}, tbl)
+          D.or.cases(U32.is_eq(r, c), D.Node(y, m, D.Fd(2n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => node.cl(y, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 4, 1, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Nil{}), hr), e))
+    case Bk.Term.Min{+a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Min{a, b}, 5, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Min{a, b}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(a, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 5, 3, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(b, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 5, 3, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Nil{}}, D.mem.hd(D.Fd(3n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.All{+q, +a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.All{q, a, b}, 6, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.All{q, a, b}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(a, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 6, 3, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(b, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 6, 3, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Nil{}}, D.mem.hd(D.Fd(3n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.Lam{+q, +f}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{+sp2, h2}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Lam{q, f}, 7, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Lam{q, f}, tbl)
+          D.or.cases(U32.is_eq(r, c), D.Node(f, m, D.Fd(2n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => node.cl(f, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 7, 1, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Nil{}), hr), e))
+    case Bk.Term.App{+q, +f, +y}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.App{q, f, y}, 8, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.App{q, f, y}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(f, m, D.Fd(2n, m, r), c), D.Node(y, m, D.Fd(3n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(f, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 8, 3, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(y, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 8, 3, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Nil{}}, D.mem.hd(D.Fd(3n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.Sig{+q, +a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Sig{q, a, b}, 9, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Sig{q, a, b}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(a, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 9, 3, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(b, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 9, 3, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Nil{}}, D.mem.hd(D.Fd(3n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.Tup{+q, +a, +b}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp2, h2}, Tuple{+sp3, h3}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Tup{q, a, b}, 10, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Tup{q, a, b}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(a, m, D.Fd(2n, m, r), c), D.Node(b, m, D.Fd(3n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(a, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 10, 3, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(b, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 10, 3, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Nil{}}, D.mem.hd(D.Fd(3n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.Prj{+hh}:
+      match h:
+        case Tuple{+nd, Tuple{+sp2, h2}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Prj{hh}, 11, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Prj{hh}, tbl)
+          D.or.cases(U32.is_eq(r, c), D.Node(hh, m, D.Fd(2n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => node.cl(hh, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 11, 1, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Nil{}), hr), e))
+    case Bk.Term.Enu{+e}:
+      cl.eq(m, R, r, c, hn, hr)
+    case Bk.Term.Lab{+k}:
+      cl.eq(m, R, r, c, hn, hr)
+    case Bk.Term.Mat{+k, +hh, +n}:
+      match h:
+        case Tuple{+nd, Tuple{_, Tuple{Tuple{+sp3, h3}, Tuple{+sp4, h4}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Mat{k, hh, n}, 14, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Mat{k, hh, n}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(hh, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(hh, m, D.Fd(3n, m, r), c), D.Node(n, m, D.Fd(4n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(hh, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 14, 6, {==}, sp3, et, {==}, em, D.mem.hd(D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}}), hr), e0a),
+              e0b => node.cl(n, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(4n, m, r), c, h4, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(4n, m, r), 14, 6, {==}, sp4, et, {==}, em, D.mem.tl(D.Fd(3n, m, r), D.Fd(4n, m, r), Con{D.Fd(4n, m, r), Nil{}}, D.mem.hd(D.Fd(4n, m, r), Nil{})), hr), e0b)))
+    case Bk.Term.Efq{}:
+      cl.eq(m, R, r, c, hn, hr)
+    case Bk.Term.Eql{+a, +b, +y}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{Tuple{+sp3, h3}, Tuple{+sp4, h4}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Eql{a, b, y}, 16, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Eql{a, b, y}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c))), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(a, m, D.Fd(2n, m, r), c), Bool.or(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(a, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 16, 7, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}}}), hr), e0a),
+              e0b => D.or.cases(D.Node(b, m, D.Fd(3n, m, r), c), D.Node(y, m, D.Fd(4n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e0b,
+              e1a => node.cl(b, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 16, 7, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}}}, D.mem.hd(D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}})), hr), e1a),
+              e1b => node.cl(y, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(4n, m, r), c, h4, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(4n, m, r), 16, 7, {==}, sp4, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(4n, m, r), Con{D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}}}, D.mem.tl(D.Fd(3n, m, r), D.Fd(4n, m, r), Con{D.Fd(4n, m, r), Nil{}}, D.mem.hd(D.Fd(4n, m, r), Nil{}))), hr), e1b))))
+    case Bk.Term.Rfl{}:
+      cl.eq(m, R, r, c, hn, hr)
+    case Bk.Term.Rwt{+ee, +pp, +ff}:
+      match h:
+        case Tuple{+nd, Tuple{Tuple{+sp2, h2}, Tuple{Tuple{+sp3, h3}, Tuple{+sp4, h4}}}}:
+          +et = D.nd.tgk(dk, ds, im, fi, nx, r, Cr.Cir.Cells.get(m, r), Bk.Term.Rwt{ee, pp, ff}, 18, nd)
+          +em = D.tbl.mask(m, im, fi, nx, Bk.Term.Rwt{ee, pp, ff}, tbl)
+          D.or.cases(U32.is_eq(r, c), Bool.or(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c))), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, hn, e => cl.eq(m, R, r, c, e, hr),
+            e => D.or.cases(D.Node(ee, m, D.Fd(2n, m, r), c), Bool.or(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c)), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e,
+              e0a => node.cl(ee, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(2n, m, r), c, h2, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(2n, m, r), 18, 7, {==}, sp2, et, {==}, em, D.mem.hd(D.Fd(2n, m, r), Con{D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}}}), hr), e0a),
+              e0b => D.or.cases(D.Node(pp, m, D.Fd(3n, m, r), c), D.Node(ff, m, D.Fd(4n, m, r), c), {Bool.or(D.Fl(m, c, 1024), D.Nodes(R, m, c)) == True{} : Bool}, e0b,
+              e1a => node.cl(pp, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(3n, m, r), c, h3, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(3n, m, r), 18, 7, {==}, sp3, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(3n, m, r), Con{D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}}}, D.mem.hd(D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}})), hr), e1a),
+              e1b => node.cl(ff, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, D.Fd(4n, m, r), c, h4, part.cl(D.Own(fi, nx, r), dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, R, tbl, hR, hcl, r, D.Fd(4n, m, r), 18, 7, {==}, sp4, et, {==}, em, D.mem.tl(D.Fd(2n, m, r), D.Fd(4n, m, r), Con{D.Fd(3n, m, r), Con{D.Fd(4n, m, r), Nil{}}}, D.mem.tl(D.Fd(3n, m, r), D.Fd(4n, m, r), Con{D.Fd(4n, m, r), Nil{}}, D.mem.hd(D.Fd(4n, m, r), Nil{}))), hr), e1b))))
+
+def or.ff(-a: Bool, -b: Bool, ha: {a == False{} : Bool}, hb: {b == False{} : Bool}) -> {Bool.or(a, b) == False{} : Bool}:
+  %Equal.sym(Bool, a, False{}, ha) : {Bool.or(_, b) == False{} : Bool}
+  hb
+
+# no node of A ++ B: no node of A
+def nodes.l(A: List<&2, D.Rt>, +B: List<&2, D.Rt>, +m: Cr.Cir.Cells, +y: U32, h: {D.Nodes(List.append(&2, D.Rt, A, B), m, y) == False{} : Bool}) ->
+  {D.Nodes(A, m, y) == False{} : Bool}:
+  +A2 = A
+  D.or.f.l(D.Nodes(A2, m, y), D.Nodes(B, m, y), Equal.trans(Bool, Bool.or(D.Nodes(A2, m, y), D.Nodes(B, m, y)), D.Nodes(List.append(&2, D.Rt, A2, B), m, y), False{},
+    Equal.sym(Bool, D.Nodes(List.append(&2, D.Rt, A2, B), m, y), Bool.or(D.Nodes(A2, m, y), D.Nodes(B, m, y)), nodes.app(A2, B, m, y)), h))
+
+# a cell that is neither STATIC nor a node of R is no node of u at c, when
+# each node of u at c is one of them (cl)
+def not.node(b: Bool, +m: Cr.Cir.Cells, +u: Bk.Term, +c: U32, +y: U32, +R: List<&2, D.Rt>, eb: {D.Node(u, m, c, y) == b : Bool},
+  fy: {D.Fl(m, y, 1024) == False{} : Bool}, ny: {D.Nodes(R, m, y) == False{} : Bool},
+  cl: {D.Node(u, m, c, y) == True{} : Bool} -> {Bool.or(D.Fl(m, y, 1024), D.Nodes(R, m, y)) == True{} : Bool}) ->
+  {D.Node(u, m, c, y) == False{} : Bool}:
+  match b:
+    case True{}:
+      D.bool.ft({D.Node(u, m, c, y) == False{} : Bool}, Equal.trans(Bool, False{}, Bool.or(D.Fl(m, y, 1024), D.Nodes(R, m, y)), True{},
+        Equal.sym(Bool, Bool.or(D.Fl(m, y, 1024), D.Nodes(R, m, y)), False{}, or.ff(D.Fl(m, y, 1024), D.Nodes(R, m, y), fy, ny)), cl(eb)))
+    case False{}:
+      eb
+
+# a held term u (its root c STATIC or a node of a term of os) joins the
+# counted terms os ++ W: no temporary is a node of u (node.cl), so Tmp.ok
+# stays
+def tmp.ok.root(xs: List<&2, D.TmpE>, +dk: Bool, +ds: List<&2, Bk.Def>, +m: Cr.Cir.Cells, +im: U32, +fi: U32, +nx: U32,
+  +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>, +ps: List<&2, U32>, +cs: List<&2, U32>, +hc: List<&2, U32>,
+  +os: List<&2, D.Rt>, +W: List<&2, D.Rt>, +tbl: D.Tbl(m, im, fi, nx), +hro: D.RtsK(dk, ds, m, im, fi, nx, ks, img, os),
+  +hcl: {D.Clo(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, fi, ps, cs, hc) == True{} : Bool}, +c: U32, +u: Bk.Term,
+  +hcu: D.IsK(dk, ds, m, im, fi, nx, ks, img, c, u), +hhc: {Bool.or(D.Fl(m, c, 1024), D.Nodes(os, m, c)) == True{} : Bool},
+  +t: {D.Tmp.ok(xs, m, fi, nx, ps, List.append(&2, D.Rt, os, W)) == True{} : Bool}) ->
+  {D.Tmp.ok(xs, m, fi, nx, ps, Con{D.Rt{c, u}, List.append(&2, D.Rt, os, W)}) == True{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{D.TmpE{+y, +h}, +rest}:
+      +R = List.append(&2, D.Rt, os, W)
+      +R1 = {Con{D.Rt{c, u}, R} : List<&2, D.Rt>}
+      +fl = tok.fl(y, h, rest, m, fi, nx, ps, R, t)
+      +nd = tok.nd(y, h, rest, m, fi, nx, ps, R, t)
+      +nu = not.node(D.Node(u, m, c, y), m, u, c, y, os, {==}, fl, nodes.l(os, W, m, y, nd),
+        e => node.cl(u, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, os, tbl, hro, hcl, c, y, hcu, hhc, e))
+      tok.mk(y, h, rest, m, fi, nx, ps, R1, tok.own(y, h, rest, m, fi, nx, ps, R, t), fl, tok.ps(y, h, rest, m, fi, nx, ps, R, t),
+        tok.dist(y, h, rest, m, fi, nx, ps, R, t), or.ff(D.Node(u, m, c, y), D.Nodes(R, m, y), nu, nd), tok.fs(y, h, rest, m, fi, nx, ps, R, t),
+        tmp.ok.root(rest, dk, ds, m, im, fi, nx, ks, img, ps, cs, hc, os, W, tbl, hro, hcl, c, u, hcu, hhc, tok.rest(y, h, rest, m, fi, nx, ps, R, t)))
+
 # The Acc step of each heap operation (for heap_ops.bend)
 # -------------------------------------------------------
 #
@@ -3479,7 +4012,16 @@ def acc.root(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>
   hs: D.HSK(dk, ds, ks, img, m, nx, fi, im, os, Con{D.Rt{c, u}, bs}, fs, sp, pend, ps),
   hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs)) ->
   D.AccK(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs):
-  ?TODO
+  match hs hac:
+    case Tuple{+hro, Tuple{Tuple{+hcu, _}, Tuple{Tuple{+hhc, _}, Tuple{_, Tuple{_, Tuple{+tb, _}}}}}} Tuple{hz, Tuple{hh, Tuple{he, Tuple{hc, Tuple{+hcl, htok}}}}}:
+      +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+      +cs = D.Tmp.cells(xs)
+      +hcc = D.Rt.cells(D.Tmp.held(xs))
+      +W = List.append(&2, D.Rt, D.Tmp.held(xs), List.append(&2, D.Rt, D.Fr.rts(fs, m, sp), zs))
+      +RS = List.append(&2, D.Rt, os, W)
+      +XS = List.append(&2, U32, D.Fr.cells(fs, m, sp), List.append(&2, U32, cs, ps))
+      (hz, (hh, (he, (cov.root(n, m, fi, D.Rt{c, u}, RS, XS, hc), (hcl,
+        tmp.ok.root(xs, dk, ds, m, im, fi, nx, ks, img, ps, cs, hcc, os, W, tb, hro, hcl, c, u, hcu, hhc, htok))))))
 
 # stores to field 1 of cells that are no frames (no frame is one of them) keep Acc
 def acc.f1(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&2, Bk.Term>,
@@ -3529,7 +4071,11 @@ def acc.inc(+dk: Bool, +ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>,
   hac: D.AccK(dk, ds, ks, img, m, nx, fi, im, os, xs, sp, fs, ps, zs),
   ht: {U32.is_lt(D.Tg(m, c), 19) == True{} : Bool}) ->
   D.AccK(dk, ds, ks, img, X.X.put(m, 1n, c, v), nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs):
-  ?TODO
+  match hs:
+    case Tuple{a1, Tuple{a2, Tuple{a3, Tuple{+hf, a5}}}}:
+      acc.f1(dk, ds, ks, img, m, nx, fi, im, Con{D.Rt{c, u}, os}, xs, sp, fs, ps, zs, [D.W1{c, v}],
+        acc.root(dk, ds, ks, img, m, nx, fi, im, os, bs, fs, sp, pend, ps, c, u, xs, zs, (a1, (a2, (a3, (hf, a5)))), hac),
+        outs.one(D.Fr.cells(fs, m, sp), c, fr.out.lo(dk, ds, m, im, fi, nx, ks, img, ps, fs, sp, c, hf, lt.below32(D.Tg(m, c), ht))))
 
 # M.dec of the root c of u, a term cell, to the count 0: field 1 gets d, then
 # pend; c goes to the pend list, and its root to the zombies
