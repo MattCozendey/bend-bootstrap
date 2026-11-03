@@ -3901,6 +3901,47 @@ def put5(+m: Cr.Cir.Cells, +i: U32, +v0: U32, +v1: U32, +v2: U32, +v3: U32, +v4:
   Equal.cong(Cr.Cir.Cell, Cr.Cir.Cells, x => Cr.Cir.Cells.set(m, i, x), Cr.Cir.Cell{v0, v1, v2, v3, v4}, Cr.Cir.Cell.set(4n, c4, v4),
     Equal.sym(Cr.Cir.Cell, Cr.Cir.Cell.set(4n, c4, v4), Cr.Cir.Cell{v0, v1, v2, v3, v4}, cell5(Cr.Cir.Cells.get(m, i), v0, v1, v2, v3, v4)))
 
+# The end of a copy
+# -----------------
+
+# M.copy.end(r, rt): register r gets field 2 of the root (in register rt);
+# the root's header becomes K.root, its field 1 the pend list (register 3,
+# the value pv), and the pend list starts at the root
+def end.run(+f: Nat, +r: Nat, +rt: Nat, +regs: List<&2, U32>, +m: Cr.Cir.Cells, +nx: U32, +F: U32, +K: U32, +pg: U32, +L: U32,
+  +I: List<&2, Word(8n)>, +root: U32, +pv: U32, +hl: {List.length(&2, U32, regs) == 63n : Nat}, hr: {Nat.is_lt(r, 63n) == True{} : Bool},
+  hrt: {List.get(&2, U32, regs, rt) == Some{root} : Maybe<&2, U32>},
+  +hrt1: {List.get(&2, U32, List.set(&2, U32, regs, r, D.Fd(2n, m, root)), rt) == Some{root} : Maybe<&2, U32>},
+  hp1: {List.get(&2, U32, List.set(&2, U32, regs, r, D.Fd(2n, m, root)), 3n) == Some{pv} : Maybe<&2, U32>},
+  +hc: {Cr.Cir.is_cell(root, K, F, nx) == True{} : Bool}) ->
+  {Cr.Cir.exec(f, Mc.M.copy.end(r, rt), D.S(regs, m, nx, F, K, pg, L, I)) ==
+    Cr.Cir.Out.next{D.S(List.set(&2, U32, List.set(&2, U32, regs, r, D.Fd(2n, m, root)), 3n, root),
+      Sr.X.put(Sr.X.put(m, 0n, root, Mc.K.root()), 1n, root, pv), nx, F, K, pg, L, I)} : Cr.Cir.Out}:
+  +v2 = D.Fd(2n, m, root)
+  +r1 = List.set(&2, U32, regs, r, v2)
+  +r2 = List.set(&2, U32, r1, 3n, root)
+  +m1 = Sr.X.put(m, 0n, root, Mc.K.root())
+  +m2 = Sr.X.put(m1, 1n, root, pv)
+  +s0 = Sr.X.st(regs, m, nx, F, K, pg, L, I)
+  +s1 = Sr.X.st(r1, m, nx, F, K, pg, L, I)
+  +s2 = Sr.X.st(r1, m1, nx, F, K, pg, L, I)
+  +s3 = Sr.X.st(r1, m2, nx, F, K, pg, L, I)
+  +s4 = Sr.X.st(r2, m2, nx, F, K, pg, L, I)
+  +ce = Mc.M.copy.end(r, rt)
+  +b1 = Sr.sel.b(ce)
+  +b2 = Sr.sel.b(b1)
+  +rel = Sr.sel.a(b2)
+  +b4 = Sr.sel.b(rel)
+  +rhs = {Cr.Cir.Out.next{s4} : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(ce), b1, s0, s1, Sr.run.set(f, r, Mc.M.f(2n, Mc.M.g(rt)), s0, v2,
+    Sr.ev.fld(2n, Mc.M.g(rt), s0, root, hrt, hc), hl, hr)) : {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(b1), b2, s1, s2, Sr.run.store(f, 0n, Mc.M.g(rt), Mc.M.c(Mc.K.root()), s1, root, Mc.K.root(), hrt1, {==}, hc)) :
+    {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq_nop(f, rel, s2) : {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(rel), b4, s2, s3, Sr.run.store(f, 1n, Mc.M.g(rt), Mc.M.g(3n), s2, root, pv, hrt1, hp1, hc)) : {_ == rhs : Cr.Cir.Out}
+  %Sr.rw.seq(f, Sr.sel.a(b4), Sr.sel.b(b4), s3, s4, Sr.run.set(f, 3n, Mc.M.g(rt), s3, root, hrt1, Sr.L.len(regs, r, v2, 63n, hl), {==})) :
+    {_ == rhs : Cr.Cir.Out}
+  Sr.run.nop(f, s4)
+
 # no garbage cell of P points to the cells ns
 def Pz(ns: List<&2, U32>, +P: List<&2, U32>, +m: Cr.Cir.Cells) -> Bool:
   match ns:
