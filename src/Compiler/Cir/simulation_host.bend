@@ -445,11 +445,11 @@ def ho.oom(+gs: List<&2, Bool>, +y: Wa.Wasm.Outcome, q: HO(Wa.Wasm.Outcome.out_o
 
 # run's run, by how Cir's program ends (oc): a result only at a halt, whose
 # status the host reads as Cir.ended says (HaltOK); an engine refusal ends at 1
-def rs.out(oc: Cr.Cir.Out, +x: Wa.Wasm.Outcome, +X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32,
+def rs.out(oc: Cr.Cir.Out, +fu: Nat, +x: Wa.Wasm.Outcome, +X: List<&2, Wa.Wasm.Instr>, +a: U32, +n: U32, +t: U32, +nd: U32, +ad: U32,
   +rg: List<&2, U32>, +nx: U32, +on: U32, +pg: U32, +lm: U32, +gs: List<&2, Bool>, +m: Wa.Wasm.Bytes, +P: Nat, +G: Nat,
   +fr: Wa.Wasm.Frame, +mem: Wa.Wasm.Memory, +N1: Nat, +hx: is.ro(x),
   pre: {PH.H.steps(N1, Wa.Wasm.Step.next{fr, mem}) == T.Cf(X, [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m) : Wa.Wasm.Step},
-  sp: T.GPost(oc, X, [T.RL()], [], [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m, P, G),
+  sp: T.GPost(oc, fu, X, [T.RL()], [], [T.RL()], a, n, t, nd, ad, rg, nx, on, pg, lm, gs, m, P, G),
   e: {Cr.Cir.ended(oc) == x : Wa.Wasm.Outcome}) -> RSO(x, gs, fr, mem):
   match oc:
     case Cr.Cir.Out.next{_}:
@@ -546,7 +546,7 @@ def rs.pre(+n: Nat, +prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell
   +X = Cr.Cir.code.stmt(prog, 0n, [])
   +sp = T.sim.stmt(n, prog, rg, cl, fst, fst, k, p2, lim, i, [], 0, 0n, [], [T.RL()], {==}, regs, MX, hR, MD, P, G, a, len, fst, 0, ad, gs, B2, hI,
     W, hW, hP, hG, ok, hd)
-  rs.out(Cr.Cir.exec(n, prog, Q.St(rg, cl, fst, fst, k, p2, lim, i, [], 0)), x, X, a, len, fst, 0, ad, rg, fst, 0, p2, lim, gs, B2, P, G,
+  rs.out(Cr.Cir.exec(n, prog, Q.St(rg, cl, fst, fst, k, p2, lim, i, [], 0)), n, x, X, a, len, fst, 0, ad, rg, fst, 0, p2, lim, gs, B2, P, G,
     PR.pr.fr(prog, regs, k, a, len), mm, N1, hx, eq1, sp, e)
 
 # run's run of prog, from the call's frame, with the input of len bytes at
