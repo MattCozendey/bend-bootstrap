@@ -2207,3 +2207,58 @@ def sub.nhas(Q: List<&2, U32>, +P: List<&2, U32>, +x: U32, hs: {D.Sub(Q, P) == T
       {==}
     case Con{+y, +rest}:
       sub.nhas.b(U32.is_eq(y, x), y, rest, P, x, {==}, hs, hp, h2 => sub.nhas(rest, P, x, h2, hp))
+
+# a or b false gives each false
+def or.fl(a: Bool, -b: Bool, h: {Bool.or(a, b) == False{} : Bool}) -> {a == False{} : Bool}:
+  match a:
+    case True{}:
+      h
+    case False{}:
+      {==}
+
+def or.fr(a: Bool, b: Bool, h: {Bool.or(a, b) == False{} : Bool}) -> {b == False{} : Bool}:
+  match a:
+    case True{}:
+      Bo.ft({b == False{} : Bool}, h)
+    case False{}:
+      h
+
+# x is in neither xs nor ys, so not in both
+def has.app.f(xs: List<&2, U32>, +ys: List<&2, U32>, +x: U32, h1: {D.Has(xs, x) == False{} : Bool}, +h2: {D.Has(ys, x) == False{} : Bool}) ->
+  {D.Has(List.append(&2, U32, xs, ys), x) == False{} : Bool}:
+  match xs:
+    case Nil{}:
+      h2
+    case Con{+y, +rest}:
+      +h3 = h1
+      %Equal.sym(Bool, U32.is_eq(y, x), False{}, or.fl(U32.is_eq(y, x), D.Has(rest, x), h3)) :
+        {Bool.or(_, D.Has(List.append(&2, U32, rest, ys), x)) == False{} : Bool}
+      has.app.f(rest, ys, x, or.fr(U32.is_eq(y, x), D.Has(rest, x), h3), h2)
+
+# a chain of the cells cs keeps across a store of field 1 of another cell
+def chain.st1(cs: List<&2, U32>, +M: Cr.Cir.Cells, +x: U32, +v: U32, +p: U32, h: {D.Chain(cs, M, p) == True{} : Bool},
+  hn: {D.Has(cs, x) == False{} : Bool}) -> {D.Chain(cs, St1(M, x, v), p) == True{} : Bool}:
+  match cs:
+    case Nil{}:
+      h
+    case Con{+c, +rest}:
+      +h2 = h
+      +hn2 = hn
+      +ne = or.fl(U32.is_eq(c, x), D.Has(rest, x), hn2)
+      +A = Bool.and(Bool.not(U32.is_zero(c)), D.Chain(rest, M, D.Fd(1n, M, c)))
+      +ha = Bo.and_r(U32.is_eq(p, c), A, h2)
+      %Equal.sym(U32, D.Fd(1n, St1(M, x, v), c), D.Fd(1n, M, c), f1.st1.ne(M, x, v, c, ne)) :
+        {Bool.and(U32.is_eq(p, c), Bool.and(Bool.not(U32.is_zero(c)), D.Chain(rest, St1(M, x, v), _))) == True{} : Bool}
+      Bo.and_i(U32.is_eq(p, c), Bool.and(Bool.not(U32.is_zero(c)), D.Chain(rest, St1(M, x, v), D.Fd(1n, M, c))),
+        Bo.and_l(U32.is_eq(p, c), A, h2),
+        Bo.and_i(Bool.not(U32.is_zero(c)), D.Chain(rest, St1(M, x, v), D.Fd(1n, M, c)), Bo.and_l(Bool.not(U32.is_zero(c)), D.Chain(rest, M, D.Fd(1n, M, c)), ha),
+          chain.st1(rest, M, x, v, D.Fd(1n, M, c), Bo.and_r(Bool.not(U32.is_zero(c)), D.Chain(rest, M, D.Fd(1n, M, c)), ha),
+            or.fr(U32.is_eq(c, x), D.Has(rest, x), hn2))))
+
+# c3 + d = c0 with d < c0 gives c3 >= 1
+def ar.pos(c3: Nat, +d: Nat, +c0: Nat, e: {Nat.add(c3, d) == c0 : Nat}, h: N.Le(1n+d, c0)) -> N.Le(1n, c3):
+  match c3:
+    case 0n:
+      Empty.absurd(N.Le(1n, 0n), N.not_succ_le(d, (%Equal.sym(Nat, d, c0, e) : N.Le(1n+d, _); h)))
+    case 1n+p:
+      N.le_zero(p)
