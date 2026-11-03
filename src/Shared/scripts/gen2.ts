@@ -652,8 +652,8 @@ const usable = (g: Goal, i: number, qt: B.Quant) => {
 type Callee = { text: string; T: HTerm; n: number; kind: string };
 
 // apply a callee whose conclusion matches one of targets; premises proven at depth - 1
-const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl?: (o: LTerm) => LTerm | null): { args: string[]; doms: any[]; sol: (LTerm | null)[] } | null => {
-  let sol: (LTerm | null)[] = new Array(c.n).fill(null);
+type Applied = { args: string[]; doms: any[]; sol: (LTerm | null)[] };
+const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: number, path: Set<string>, concl: ((o: LTerm) => LTerm | null) | null, accept: (a: Applied) => boolean): Applied | null => {
   const toH = (s: (LTerm | null)[]) => s.map((x) => (x ? B.term_higher(x, g.env) : null));
   const o = openMeta(c.T, c.n);
   if (!o) return null;
@@ -661,29 +661,52 @@ const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: nu
   if (!pc0) return null;
   const pc = concl ? concl(pc0) : pc0;
   if (!pc) return null;
-  let ok = false;
-  for (const t of targets) {
-    const s2 = sol.slice();
-    if (match(pc, t, s2, g.d)) { sol = s2; ok = true; break; }
+  // the distinct solutions of the conclusion against the goal: raw pattern against each target, then
+  // the normal form of the conclusion (metavariables stay stuck) against the normal form of the goal
+  const sols: (LTerm | null)[][] = [];
+  const seen = new Set<string>();
+  const push = (p: LTerm, t: LTerm) => {
+    const s2: (LTerm | null)[] = new Array(c.n).fill(null);
+    if (!match(p, t, s2, g.d)) return;
+    const k = s2.map((x) => (x ? key(x) : "_")).join(";");
+    if (!seen.has(k)) { seen.add(k); sols.push(s2); }
+  };
+  for (const t of targets) push(pc, t);
+  if (!concl && targets.length > 0) {
+    const pn = nfPattern(c, o.concl, g.d);
+    if (pn && key(pn) !== key(pc)) push(pn, targets[targets.length - 1]);
   }
-  if (!ok) return null;
+  for (const s0 of sols) {
+    const r = complete(g, c, s0, toH, depth, rw, path);
+    if (r && accept(r)) return r;
+  }
+  return null;
+};
+const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | null)[]) => (HTerm | null)[], depth: number, rw: number, path: Set<string>): Applied | null => {
+  let sol = s0.slice();
   let o2 = openMeta(c.T, c.n, toH(sol));
   if (!o2) return null;
   const prem: boolean[] = o2.doms.map((dm, j) => !sol[j] && isProp(dm.A));
   const viaHyp: (string | null)[] = new Array(c.n).fill(null);
-  // parameters not fixed by the conclusion: from premises that match hypotheses
+  // parameters not fixed by the conclusion: from premises that match hypotheses (raw, then normal forms)
   for (let iter = 0; iter < 3 && sol.some((s, j) => !s && !prem[j]); iter++) {
     let progress = false;
     for (let j = 0; j < c.n; j++) {
       if (!prem[j] || viaHyp[j]) continue;
-      const A = attempt(FUEL_NF, () => lower(o2!.doms[j].A, g.d));
-      if (!A || !hasMeta(A)) continue;
+      const Araw = attempt(FUEL_NF, () => lower(o2!.doms[j].A, g.d));
+      if (!Araw || !hasMeta(Araw)) continue;
+      const An = attempt(FUEL_NF, () => nf(o2!.doms[j].A, g.d));
+      const pats = An && key(An) !== key(Araw) ? [Araw, An] : [Araw];
       const qt = B.quant_dem(o2.doms[j].q, g.qt);
       for (let i = g.d - 1; i >= 0 && !viaHyp[j]; i--) {
         if (!usable(g, i, qt)) continue;
-        for (const ht of hypTargets(g, i)) {
-          const s2 = sol.slice();
-          if (match(A, ht, s2, g.d)) { sol = s2; viaHyp[j] = g.names[i]; progress = true; break; }
+        const hts = hypTargets(g, i);
+        for (let pi = 0; pi < pats.length && !viaHyp[j]; pi++) {
+          const ht = pi === 0 ? hts : [hts[hts.length - 1]];
+          for (const t of ht) {
+            const s2 = sol.slice();
+            if (match(pats[pi], t, s2, g.d)) { sol = s2; viaHyp[j] = g.names[i]; progress = true; break; }
+          }
         }
       }
     }
@@ -702,6 +725,13 @@ const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: nu
     args.push(inline(pf));
   }
   return { args, doms: o2.doms, sol };
+};
+const nfPat = new WeakMap<object, Map<number, LTerm | null>>();
+const nfPattern = (c: Callee, concl: HTerm, d: number): LTerm | null => {
+  let m = nfPat.get(c.T);
+  if (!m) { m = new Map(); nfPat.set(c.T, m); }
+  if (!m.has(d)) m.set(d, attempt(FUEL_NF, () => nf(concl, d)) ?? null);
+  return m.get(d)!;
 };
 const callText = (c: Callee, args: string[]) => (c.n === 0 ? c.text : c.text + "(" + args.join(", ") + ")");
 
@@ -823,10 +853,8 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
     for (const L of wild) {
       if (L.order >= job.order || L.k === job.k) continue;
       const c: Callee = { text: B.name_show(job.file, L.k), T: (RAW[L.k] as B.Def).T, n: L.n, kind: "lemma" };
-      const a = applyCallee(g, c, [raw], 1, 0, path);
-      if (!a) continue;
-      const s = callText(c, a.args);
-      if (tryText(g, s)) { tag("exfalso"); return tm(s); }
+      const a = applyCallee(g, c, [raw], 1, 0, path, null, (a) => tryText(g, callText(c, a.args)));
+      if (a) { tag("exfalso"); return tm(callText(c, a.args)); }
     }
   }
   if (depth === 0 && rw === 0) return null;
@@ -846,10 +874,8 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
     callees.push(...lemmaCands(g, targets));
     for (const c of callees) {
       if (performance.now() > deadline) throw TIMEOUT;
-      const a = applyCallee(g, c, targets, depth, rw, path);
-      if (!a) continue;
-      const s = callText(c, a.args);
-      if (tryText(g, s)) { tag("apply:" + c.kind); return tm(s); }
+      const a = applyCallee(g, c, targets, depth, rw, path, null, (a) => tryText(g, callText(c, a.args)));
+      if (a) { tag("apply:" + c.kind); return tm(callText(c, a.args)); }
     }
   }
   // 5. rewrite
@@ -902,7 +928,7 @@ const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nu
     for (const { c, side, kind } of entries) {
       if (performance.now() > deadline) throw TIMEOUT;
       const gg: Goal = { ...g, d: g.d + 1 - 1 };
-      const a = applyCallee(gg, c, [s], depth, 0, path, (o) => (o.$ === "Eql" ? (side === 0 ? o.a : o.b) : null));
+      const a = applyCallee(gg, c, [s], depth, 0, path, (o) => (o.$ === "Eql" ? (side === 0 ? o.a : o.b) : null), () => true);
       if (!a) continue;
       const o2 = openMeta(c.T, c.n, a.sol.map((x) => (x ? B.term_higher(x, g.env) : null)));
       if (!o2) continue;
