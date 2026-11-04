@@ -1,7 +1,7 @@
 # compiler: layer B7, round.sim from the move laws
 # ================================================
 #
-# round.sim, proven: Mach.round tests the mode (Inv's mode register), then a
+# round.sim, proven: Mach.round tests the mode (MInv's mode register), then a
 # move law per case of AM.move: by the focus' VALUE flag and term in mode 0,
 # by the top frame and, at a redex, the function in mode 1. Each case's law
 # states its outcome as AM.move computes it there. inv.vb is open (?TODO).
@@ -70,7 +70,7 @@ def rd.c1(+st: Cr.Cir.State, +e: {Lg.Reg(st, Mc.R.mode()) == Some{1} : Maybe<&2,
 # ------
 
 # M.ev past the VALUE flag (False), by the focus' term
-def rd.ev.t(t: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +fs: List<&2, A.AF>, +iv: {R.Inv(x, st, A.AS{False{}, t, fs}) == True{} : Bool},
+def rd.ev.t(t: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +fs: List<&2, A.AF>, +iv: {R.MInv(x, st, A.AS{False{}, t, fs}) == True{} : Bool},
   +hv: {Mv.Vb(st) == False{} : Bool}) ->
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, t, fs}), Mv.Next(x, A.AM.move(Hp.Cx.ds(x), False{}, A.AS{False{}, t, fs})), Mv.Halt(A.AM.move(Hp.Cx.ds(x), False{}, A.AS{False{}, t, fs}))):
   match t:
@@ -126,7 +126,7 @@ def rd.ev.t(t: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +fs: List<&2, A.AF>, +iv: 
       Mv.mv.ev.rwt(x, st, e0, p0, f0, fs, iv, hv)
 
 # M.ev, by the focus' VALUE flag b
-def rd.ev(b: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +t: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.Inv(x, st, A.AS{False{}, t, fs}) == True{} : Bool},
+def rd.ev(b: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +t: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.MInv(x, st, A.AS{False{}, t, fs}) == True{} : Bool},
   +eb: {Mv.Vb(st) == b : Bool}) ->
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, t, fs}), Mv.Next(x, A.AM.move(Hp.Cx.ds(x), b, A.AS{False{}, t, fs})), Mv.Halt(A.AM.move(Hp.Cx.ds(x), b, A.AS{False{}, t, fs}))):
   match b:
@@ -139,7 +139,7 @@ def rd.ev(b: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +t: Bk.Term, +fs: List<&2, A.AF
 # ------
 
 # App q □ a, not swapped: the redex, by the value v
-def rd.redex(v: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +kind: A.FK, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool},
+def rd.redex(v: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +kind: A.FK, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool},
   +hk: {Mv.Kind.is_app(kind) == True{} : Bool}, +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}) ->
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}), Mv.Next(x, A.AM.redex(Hp.Cx.ds(x), q, v, a, fs)), Mv.Halt(A.AM.redex(Hp.Cx.ds(x), q, v, a, fs))):
   match v:
@@ -183,7 +183,7 @@ def rd.redex(v: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +kind: A.FK, +q: Bk.Quan,
       Mv.mv.ret.app.call(x, st, Bk.Term.Rwt{e0, p0, f0}, kind, q, k, a, b, fs, iv, hk, hs, {==})
 
 # App q □ a: swap when q is live and a not KNOWN (sw); else the redex
-def rd.app(sw: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +kind: A.FK, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool},
+def rd.app(sw: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +kind: A.FK, +q: Bk.Quan, +k: Bool, +a: Bk.Term, +b: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool},
   +hk: {Mv.Kind.is_app(kind) == True{} : Bool}, +hs: {El.Quan.live(q) && Bool.not(k) == sw : Bool}) ->
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}), Mv.Next(x, A.AM.arg(Hp.Cx.ds(x), sw, q, v, a, fs)), Mv.Halt(A.AM.arg(Hp.Cx.ds(x), sw, q, v, a, fs))):
   match sw:
@@ -193,7 +193,7 @@ def rd.app(sw: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +kind: A.FK, +q:
       rd.redex(v, x, st, kind, q, k, a, b, fs, iv, hk, hs)
 
 # App q g □: the redex, by the function g
-def rd.fun(g: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +q: Bk.Quan, +k: Bool, +b: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}) == True{} : Bool}) ->
+def rd.fun(g: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +q: Bk.Quan, +k: Bool, +b: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}) == True{} : Bool}) ->
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}), Mv.Next(x, A.AM.redex(Hp.Cx.ds(x), q, g, v, fs)), Mv.Halt(A.AM.redex(Hp.Cx.ds(x), q, g, v, fs))):
   match g:
     case Bk.Term.Var{+i}:
@@ -236,7 +236,7 @@ def rd.fun(g: Bk.Term, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +q: Bk.Quan, +
       Mv.mv.ret.fun.call(x, st, v, q, k, Bk.Term.Rwt{e0, p0, f0}, b, fs, iv, {==})
 
 # M.ret (past the mode's test), by the top frame
-def rd.ret(fs: List<&2, A.AF>, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +iv: {R.Inv(x, st, A.AS{True{}, v, fs}) == True{} : Bool}) ->
+def rd.ret(fs: List<&2, A.AF>, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +iv: {R.MInv(x, st, A.AS{True{}, v, fs}) == True{} : Bool}) ->
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, fs}), Mv.Next(x, A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{True{}, v, fs})), Mv.Halt(A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{True{}, v, fs}))):
   match fs:
     case Nil{}:
@@ -266,16 +266,16 @@ def rd.ret(fs: List<&2, A.AF>, +x: Hp.Cx, +st: Cr.Cir.State, +v: Bk.Term, +iv: {
 # ---------
 
 # the round, by the mode r
-def rd.go(r: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +t: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.Inv(x, st, A.AS{r, t, fs}) == True{} : Bool}) ->
+def rd.go(r: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +t: Bk.Term, +fs: List<&2, A.AF>, +iv: {R.MInv(x, st, A.AS{r, t, fs}) == True{} : Bool}) ->
   Lg.Tot(Mc.Mach.round(), st, Me.Budget(x, st, A.AS{r, t, fs}), Mv.Next(x, A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{r, t, fs})), Mv.Halt(A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{r, t, fs}))):
   match r:
     case False{}:
-      +em = rd.mb(Lg.Reg(st, Mc.R.mode()), 0, K.bool.and_l(R.Inv.mode(st, False{}), Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, t}], fs, []), iv))
+      +em = rd.mb(Lg.Reg(st, Mc.R.mode()), 0, K.bool.and_l(R.MInv.mode(st, False{}), Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, t}], fs, []), iv))
       Lg.tot.if(Mc.M.eq(Mc.M.g(Mc.R.mode()), Mc.M.c(0)), Mc.M.ev(), Mc.M.ret(), st, Me.Budget(x, st, A.AS{False{}, t, fs}),
         Mv.Next(x, A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{False{}, t, fs})), Mv.Halt(A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{False{}, t, fs})), 1, rd.c0(st, em),
         rd.ev(Mv.Vb(st), x, st, t, fs, iv, {==}))
     case True{}:
-      +em = rd.mb(Lg.Reg(st, Mc.R.mode()), 1, K.bool.and_l(R.Inv.mode(st, True{}), Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, t}], fs, []), iv))
+      +em = rd.mb(Lg.Reg(st, Mc.R.mode()), 1, K.bool.and_l(R.MInv.mode(st, True{}), Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, t}], fs, []), iv))
       Lg.tot.if(Mc.M.eq(Mc.M.g(Mc.R.mode()), Mc.M.c(0)), Mc.M.ev(), Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, t, fs}),
         Mv.Next(x, A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{True{}, t, fs})), Mv.Halt(A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), A.AS{True{}, t, fs})), 0, rd.c1(st, em),
         rd.ret(fs, x, st, t, iv))

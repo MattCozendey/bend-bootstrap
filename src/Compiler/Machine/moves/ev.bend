@@ -2,7 +2,7 @@
 # =========================================================================
 #
 # One def per law mv.ev.* of moves/spec.bend but mv.ev.ref (moves/call.bend):
-# a run of M.ev from a state that Inv finds, by tot.of_wp and the routine laws
+# a run of M.ev from a state that MInv finds, by tot.of_wp and the routine laws
 # (inc, dec, push, one, copy, release_arg), the rewrite kit and the heap's
 # frame laws. A body that is ?TODO is open.
 

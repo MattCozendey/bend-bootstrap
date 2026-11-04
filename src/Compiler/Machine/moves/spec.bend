@@ -3,8 +3,8 @@
 #
 # One round of the main loop (Mach.round: M.ev in mode 0, M.ret in mode 1)
 # moves as the abstract machine says (am/spec.bend's AM.move): from a state
-# that Inv finds for the abstract state s (routines/spec.bend), it goes on to
-# a state that Inv finds for the move's next state, or it halts as the move
+# that MInv finds for the abstract state s (routines/spec.bend), it goes on to
+# a state that MInv finds for the move's next state, or it halts as the move
 # halts, with the move's bytes as its output; it runs out of memory only below
 # its Budget (memory/spec.bend). round.sim says so for every move; it follows
 # from one law per move (mv.*), each stated on its abstract state's parts and
@@ -36,11 +36,11 @@ def Vb(+st: Cr.Cir.State) -> Bool:
 def Next.is(+x: Hp.Cx, o: A.AO, +st2: Cr.Cir.State) -> Bool:
   match o:
     case A.AO.next{s}:
-      R.Inv(x, st2, s)
+      R.MInv(x, st2, s)
     case A.AO.halt{_, _}:
       False{}
 
-# a round goes on to a state that Inv finds for the move's next state
+# a round goes on to a state that MInv finds for the move's next state
 def Next(+x: Hp.Cx, o: A.AO) -> Cr.Cir.State -> Type:
   st2 => {Next.is(x, o, st2) == True{} : Bool}
 
@@ -108,7 +108,7 @@ law round.sim:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
   for +s: A.AS
-  for +iv: {R.Inv(x, st, s) == True{} : Bool}
+  for +iv: {R.MInv(x, st, s) == True{} : Bool}
   Lg.Tot(Mc.Mach.round(), st, Me.Budget(x, st, s), Next(x, A.AM.move(Hp.Cx.ds(x), Vb(st), s)),
     Halt(A.AM.move(Hp.Cx.ds(x), Vb(st), s)))
 
@@ -117,7 +117,7 @@ law inv.vb:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
   for +s: A.AS
-  for +iv: {R.Inv(x, st, s) == True{} : Bool}
+  for +iv: {R.MInv(x, st, s) == True{} : Bool}
   {Bool.not(Vb(st)) || El.Eval.vals(Hp.Cx.ds(x), A.AS.focus(s), False{}) == True{} : Bool}
 
 # Laws: mode 0 (M.ev)
@@ -130,7 +130,7 @@ law mv.ev.val:
   for +st: Cr.Cir.State
   for +t: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, t, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, t, fs}) == True{} : Bool}
   for +hv: {Vb(st) || A.AM.former(t) == True{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, t, fs}), Next(x, A.AO.next{A.AS{True{}, t, fs}}),
     Halt(A.AO.next{A.AS{True{}, t, fs}}))
@@ -141,7 +141,7 @@ law mv.ev.var:
   for +st: Cr.Cir.State
   for +i: Nat
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Var{i}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Var{i}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Var{i}, fs}), Next(x, A.AO.halt{2, []}), Halt(A.AO.halt{2, []}))
 
@@ -154,7 +154,7 @@ law mv.ev.app:
   for +f: Bk.Term
   for +a: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.App{q, f, a}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.App{q, f, a}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.App{q, f, a}, fs}),
     Next(x, A.AO.next{A.AS{False{}, f, Con{A.AF{A.FK.arg{}, q, False{}, a, a}, fs}}}),
@@ -168,7 +168,7 @@ law mv.ev.ref:
   for +st: Cr.Cir.State
   for +k: List<&2, Word(8n)>
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Ref{k}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Ref{k}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Ref{k}, fs}),
     Next(x, A.AM.body(Hp.Cx.ds(x), El.Book.get(Hp.Cx.ds(x), k), [], A.AS{True{}, Bk.Term.Ref{k}, fs}, fs)),
@@ -181,7 +181,7 @@ law mv.ev.ann:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Ann{a, b}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Ann{a, b}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Ann{a, b}, fs}), Next(x, A.AO.next{A.AS{False{}, a, fs}}),
     Halt(A.AO.next{A.AS{False{}, a, fs}}))
@@ -195,7 +195,7 @@ law mv.ev.let:
   for +v: Bk.Term
   for +f: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Let{q, v, f}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Let{q, v, f}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   for +hq: {El.Quan.live(q) == True{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Let{q, v, f}, fs}),
@@ -211,7 +211,7 @@ law mv.ev.unlet:
   for +v: Bk.Term
   for +f: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Let{q, v, f}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Let{q, v, f}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   for +hq: {El.Quan.live(q) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Let{q, v, f}, fs}),
@@ -227,7 +227,7 @@ law mv.ev.tup:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Tup{q, a, b}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Tup{q, a, b}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   for +hq: {El.Quan.live(q) == True{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Tup{q, a, b}, fs}),
@@ -243,7 +243,7 @@ law mv.ev.tup0:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Tup{q, a, b}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Tup{q, a, b}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   for +hq: {El.Quan.live(q) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Tup{q, a, b}, fs}),
@@ -259,7 +259,7 @@ law mv.ev.rwt:
   for +P: Bk.Term
   for +f: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Rwt{e, P, f}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Rwt{e, P, f}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Rwt{e, P, f}, fs}),
     Next(x, A.AO.next{A.AS{False{}, e, Con{A.AF{A.FK.rwt{}, Bk.Quan.Q0{}, False{}, P, f}, fs}}}),
@@ -272,7 +272,7 @@ law mv.ev.min:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Min{a, b}, fs}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{False{}, Bk.Term.Min{a, b}, fs}) == True{} : Bool}
   for +hv: {Vb(st) == False{} : Bool}
   Lg.Tot(Mc.M.ev(), st, Me.Budget(x, st, A.AS{False{}, Bk.Term.Min{a, b}, fs}),
     Next(x, A.AO.next{A.AS{False{}, a, Con{A.AF{A.FK.minb{}, Bk.Quan.Q0{}, False{}, b, b}, fs}}}),
@@ -286,7 +286,7 @@ law mv.out:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
   for +v: Bk.Term
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, []}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, []}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, []}), Next(x, A.AM.out(Pg.Program.unbytes(v))),
     Halt(A.AM.out(Pg.Program.unbytes(v))))
 
@@ -302,7 +302,7 @@ law mv.ret.swap:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
   for +hk: {Kind.is_app(kind) == True{} : Bool}
   for +hs: {El.Quan.live(q) && Bool.not(k) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}),
@@ -322,7 +322,7 @@ law mv.ret.app.lam:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, Bk.Term.Lam{p, f}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, Bk.Term.Lam{p, f}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
   for +hk: {Kind.is_app(kind) == True{} : Bool}
   for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, Bk.Term.Lam{p, f}, Con{A.AF{kind, q, k, a, b}, fs}}),
@@ -341,7 +341,7 @@ law mv.ret.app.prj:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, Bk.Term.Prj{h}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, Bk.Term.Prj{h}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
   for +hk: {Kind.is_app(kind) == True{} : Bool}
   for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, Bk.Term.Prj{h}, Con{A.AF{kind, q, k, a, b}, fs}}),
@@ -361,7 +361,7 @@ law mv.ret.app.mat:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, Bk.Term.Mat{j, h, m}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, Bk.Term.Mat{j, h, m}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
   for +hk: {Kind.is_app(kind) == True{} : Bool}
   for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, Bk.Term.Mat{j, h, m}, Con{A.AF{kind, q, k, a, b}, fs}}),
@@ -380,7 +380,7 @@ law mv.ret.app.call:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
   for +hk: {Kind.is_app(kind) == True{} : Bool}
   for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
   for +hc: {Head.calls(v) == True{} : Bool}
@@ -399,7 +399,7 @@ law mv.ret.fun.lam:
   for +f: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Lam{p, f}, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Lam{p, f}, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Lam{p, f}, b}, fs}}),
     Next(x, A.AM.need(El.Quan.binds(p, q, v), A.AS{False{}, A.AM.copy(f, [A.Ag{Bk.Quan.Q0{}, False{}, v}]), fs})),
     Halt(A.AM.need(El.Quan.binds(p, q, v), A.AS{False{}, A.AM.copy(f, [A.Ag{Bk.Quan.Q0{}, False{}, v}]), fs})))
@@ -414,7 +414,7 @@ law mv.ret.fun.prj:
   for +h: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Prj{h}, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Prj{h}, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Prj{h}, b}, fs}}),
     Next(x, A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Prj{h}, v, fs)), Halt(A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Prj{h}, v, fs)))
 
@@ -430,7 +430,7 @@ law mv.ret.fun.mat:
   for +m: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Mat{j, h, m}, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Mat{j, h, m}, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, Bk.Term.Mat{j, h, m}, b}, fs}}),
     Next(x, A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Mat{j, h, m}, v, fs)),
     Halt(A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Mat{j, h, m}, v, fs)))
@@ -446,7 +446,7 @@ law mv.ret.fun.call:
   for +g: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}) == True{} : Bool}
   for +hc: {Head.calls(g) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}),
     Next(x, A.AM.redex(Hp.Cx.ds(x), q, g, v, fs)), Halt(A.AM.redex(Hp.Cx.ds(x), q, g, v, fs)))
@@ -462,7 +462,7 @@ law mv.ret.let:
   for +f: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.let{}, q, k, f, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.let{}, q, k, f, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.let{}, q, k, f, b}, fs}}),
     Next(x, A.AM.need(El.Quan.fits(q, v), A.AS{False{}, A.AM.copy(f, [A.Ag{Bk.Quan.Q0{}, False{}, v}]), fs})),
     Halt(A.AM.need(El.Quan.fits(q, v), A.AS{False{}, A.AM.copy(f, [A.Ag{Bk.Quan.Q0{}, False{}, v}]), fs})))
@@ -478,7 +478,7 @@ law mv.ret.tupb:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.tupb{}, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.tupb{}, q, k, a, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.tupb{}, q, k, a, b}, fs}}),
     Next(x, A.AO.next{A.AS{False{}, a, Con{A.AF{A.FK.tupa{}, q, False{}, v, v}, fs}}}),
     Halt(A.AO.next{A.AS{False{}, a, Con{A.AF{A.FK.tupa{}, q, False{}, v, v}, fs}}}))
@@ -493,7 +493,7 @@ law mv.ret.tupa:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.tupa{}, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.tupa{}, q, k, a, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.tupa{}, q, k, a, b}, fs}}),
     Next(x, A.AO.next{A.AS{True{}, Bk.Term.Tup{q, a, v}, fs}}), Halt(A.AO.next{A.AS{True{}, Bk.Term.Tup{q, a, v}, fs}}))
 
@@ -508,7 +508,7 @@ law mv.ret.rwt:
   for +P: Bk.Term
   for +f: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.rwt{}, q, k, P, f}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.rwt{}, q, k, P, f}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.rwt{}, q, k, P, f}, fs}}),
     Next(x, A.AM.need(A.AM.is_rfl(v), A.AS{False{}, f, fs})), Halt(A.AM.need(A.AM.is_rfl(v), A.AS{False{}, f, fs})))
 
@@ -523,7 +523,7 @@ law mv.ret.minb:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.minb{}, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.minb{}, q, k, a, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.minb{}, q, k, a, b}, fs}}),
     Next(x, A.AO.next{A.AS{False{}, a, Con{A.AF{A.FK.mina{}, Bk.Quan.Q0{}, False{}, v, v}, fs}}}),
     Halt(A.AO.next{A.AS{False{}, a, Con{A.AF{A.FK.mina{}, Bk.Quan.Q0{}, False{}, v, v}, fs}}}))
@@ -539,7 +539,7 @@ law mv.ret.mina:
   for +a: Bk.Term
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
-  for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.mina{}, q, k, a, b}, fs}}) == True{} : Bool}
+  for +iv: {R.MInv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.mina{}, q, k, a, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.mina{}, q, k, a, b}, fs}}),
     Next(x, A.AM.meet(El.Eval.meet(a, v), fs)), Halt(A.AM.meet(El.Eval.meet(a, v), fs)))
 

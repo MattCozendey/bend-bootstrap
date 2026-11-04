@@ -58,10 +58,10 @@ def R.h.node(x, st, L, rs, fs, chs, r, v, ps, t, hs, hr, hn, hc):
 def R.h.arg(x, st, L, rs, fs, chs, r, ag, c, ln, as, hs, hr, hn):
   ?TODO
 
-def R.alloc.reg(st, r, q, hr):
+def R.alloc.regs(st, r, q, hr):
   ?TODO
 
-def R.make.reg(st, r, v, q, hr):
+def R.make.regs(st, r, v, q, hr):
   ?TODO
 
 def R.alloc.cell(x, st, L, r, hs, hr):

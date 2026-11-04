@@ -3,7 +3,7 @@
 #
 # Test c (bend2 kinds): computed checks, by {==}, that the move and memory
 # statements hold on real runs of Mach.code from St0, round by round: each
-# state holds its abstract state (Inv) and what am.ok asks of it (AS.ok, with
+# state holds its abstract state (MInv) and what am.ok asks of it (AS.ok, with
 # the focus' VALUE flag: inv.vb); each round's outcome is what round.sim says
 # of AM.move's outcome (Next.is, Halt.is; out of memory only below Budget);
 # the move is right (am.ok); a round that goes on keeps next - first within
@@ -30,7 +30,7 @@ import ./routines/spec.bend as R
 import ./memory/spec.bend as Me
 import ./moves/spec.bend as Mv
 
-# a run's check: each round held (full: with Inv of each state; else the
+# a run's check: each round held (full: with MInv of each state; else the
 # rest, for big heaps, where H's count is slow), the rounds done, the halt
 # (status, bytes in order), or out of memory below the budget
 type SR4 is Data:
@@ -49,7 +49,7 @@ def smk4.isnext(o: A.AO) -> Bool:
     case A.AO.halt{_, _}:
       False{}
 
-# Next.is (Inv of the next state) when full; else only that the move goes on
+# Next.is (MInv of the next state) when full; else only that the move goes on
 def smk4.nx(full: Bool, +x: Hp.Cx, +mv: A.AO, +st2: Cr.Cir.State) -> Bool:
   match full:
     case True{}:
@@ -72,7 +72,7 @@ def smk4.out(+full: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS, +mv: A.AO, o: 
 def smk4.inv(full: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS) -> Bool:
   match full:
     case True{}:
-      R.Inv(x, st, s)
+      R.MInv(x, st, s)
     case False{}:
       True{}
 
@@ -226,7 +226,7 @@ def smk4.grow() -> List<&2, Bk.Def>:
      Bk.Term.App{Bk.Quan.Q1{}, Bk.Term.Ref{smk4.nm(102)}, smk4.V(0n)}}), False{}},
    Bk.Def{smk4.nm(102), Bk.Term.Efq{}, smk4.lam(smk4.T(250n)), False{}}]
 
-# 400 rounds hold (round.sim's outcome, round.mem, am.ok, AS.ok; Inv is
+# 400 rounds hold (round.sim's outcome, round.mem, am.ok, AS.ok; MInv is
 # skipped: H's count is slow on a big heap); the run evaluates the copied
 # pairs one by one, so it does not reach the memory's end within them
 def smk4.run.edge() -> {smk4.res(smk4.run(400n, False{}, smk4.grow(), [], 1)) == SR4Out{True{}, None{}, False{}} : SR4Out}:

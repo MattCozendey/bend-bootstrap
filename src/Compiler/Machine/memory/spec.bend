@@ -144,7 +144,7 @@ law round.mem:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
   for +s: A.AS
-  for +iv: {R.Inv(x, st, s) == True{} : Bool}
+  for +iv: {R.MInv(x, st, s) == True{} : Bool}
   for +f: Nat
   for +st2: Cr.Cir.State
   for +e: {Cr.Cir.exec(f, Mc.Mach.round(), st) == Cr.Cir.Out.next{st2} : Cr.Cir.Out}
@@ -194,7 +194,7 @@ law need.peak:
   for +hst: {Nat.is_le(Stat(st), C) == True{} : Bool}
   {Nat.is_le(Need(ds, st, s), Peak(ds, C, Pg.Program.largest(p, i, n))) == True{} : Bool}
 
-# LAW: the Budget of such a round, from a state that Inv finds (in the
+# LAW: the Budget of such a round, from a state that MInv finds (in the
 # context of Cir.result's start) with at most Peak own cells and at most
 # C <= 6144 STATIC ones, is at most F
 law budget.need:
@@ -218,7 +218,7 @@ law budget.need:
   for +he: {Pg.Program.result(ds, El.Eval.steps(n, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}
   for +hj: {Nat.is_le(j, n) == True{} : Bool}
   for +ht: {C.Tm.is(C.CSteps(j, ds, Some{Pg.Program.start(i)}), A.AS.term(s)) == True{} : Bool}
-  for +iv: {R.Inv(I.Cx.of(ds, k, first), st, s) == True{} : Bool}
+  for +iv: {R.MInv(I.Cx.of(ds, k, first), st, s) == True{} : Bool}
   for +hC: {Nat.is_le(C, 6144n) == True{} : Bool}
   for +hst: {Nat.is_le(Stat(st), C) == True{} : Bool}
   for +hm: {Nat.is_le(Mem.cells(st), Peak(ds, C, Pg.Program.largest(p, i, n))) == True{} : Bool}

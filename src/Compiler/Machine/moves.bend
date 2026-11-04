@@ -4,7 +4,7 @@
 # mach.safe, mach.sound, mach.complete and mach.memory of runs_as_eval.bend,
 # with exactly their types (mach.*.proof, at the end), proven from the laws of
 # the layers below: input.spec (routines/spec.bend) starts the run in a state
-# that Inv finds for the start term; round.sim (moves/spec.bend) moves each
+# that MInv finds for the start term; round.sim (moves/spec.bend) moves each
 # round as AM.move does; am.ok (am/spec.bend) says that each move is an admin
 # move (the same term, a smaller measure AS.w), a canonical step (CStep), or a
 # halt as the term asks; canon.steps and canon.result (canon/spec.bend) turn
@@ -17,7 +17,7 @@
 # runs out of memory; asm.mem does so with no out of memory, from the memory
 # F: it carries the run's position (j steps done), the limit, the cache's
 # cells (at most C) and next - first (at most Peak). Each round's facts are
-# Asm.J: Inv and AS.ok0 (what am.ok asks, with inv.vb).
+# Asm.J: MInv and AS.ok0 (what am.ok asks, with inv.vb).
 #
 # Only laws are used (proven or not): no ?TODO is in this file.
 
@@ -273,9 +273,9 @@ def asm.vals(b: Bool, +ds: List<&2, Bk.Def>, +t: Bk.Term, -o: List<&2, Word(8n)>
 def Asm.loop() -> Cr.Cir.Stmt:
   Mc.M.while(Mc.M.c(1), Mc.Mach.round())
 
-# what a round needs of its state: Inv and what am.ok asks but the focus' flag
+# what a round needs of its state: MInv and what am.ok asks but the focus' flag
 def Asm.J(+x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS) -> Bool:
-  R.Inv(x, st, s) && A.AS.ok0(Hp.Cx.ds(x), s)
+  R.MInv(x, st, s) && A.AS.ok0(Hp.Cx.ds(x), s)
 
 # a pair of facts, as Data (Base's & is a Type)
 def Asm.P2(-A: Data, -B: Data) -> Data:
@@ -456,7 +456,7 @@ def asm.rnd.next(+x: Hp.Cx, +s: A.AS, o: A.AO, +u: Cr.Cir.State, +ok: {A.AO.ok(H
     case A.AO.next{+s2}:
       +ds = Hp.Cx.ds(x)
       +rel = Bool.or(A.AO.adm(s, s2), C.Tm.is(C.CStep(ds, A.AS.term(s)), A.AS.term(s2)))
-      +j2 = K.bool.and_i(R.Inv(x, u, s2), A.AS.ok0(ds, s2), h, K.bool.and_l(A.AS.ok0(ds, s2), rel, ok))
+      +j2 = K.bool.and_i(R.MInv(x, u, s2), A.AS.ok0(ds, s2), h, K.bool.and_l(A.AS.ok0(ds, s2), rel, ok))
       +hr = K.bool.and_r(A.AS.ok0(ds, s2), rel, ok)
       asm.rnd.pick(x, s, s2, u, j2, asm.or(A.AO.adm(s, s2), C.Tm.is(C.CStep(ds, A.AS.term(s)), A.AS.term(s2)), hr))
     case A.AO.halt{_, _}:
@@ -483,8 +483,8 @@ def asm.rnd(+x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS, +j: {Asm.J(x, st, s) == True
     k => st2 => Asm.HR(Hp.Cx.ds(x), A.AS.term(s), k, st2)):
   +ds = Hp.Cx.ds(x)
   +o = A.AM.move(ds, Mv.Vb(st), s)
-  +iv = K.bool.and_l(R.Inv(x, st, s), A.AS.ok0(ds, s), j)
-  +ok0 = K.bool.and_r(R.Inv(x, st, s), A.AS.ok0(ds, s), j)
+  +iv = K.bool.and_l(R.MInv(x, st, s), A.AS.ok0(ds, s), j)
+  +ok0 = K.bool.and_r(R.MInv(x, st, s), A.AS.ok0(ds, s), j)
   +ok = A.am.ok(ds, Mv.Vb(st), s, K.bool.and_i(A.AS.ok0(ds, s), Bool.or(Bool.not(Mv.Vb(st)), El.Eval.vals(ds, A.AS.focus(s), False{})), ok0,
     Mv.inv.vb(x, st, s, iv)))
   Lg.tot.wk(Mc.Mach.round(), st, Me.Budget(x, st, s), Me.Budget(x, st, s), Mv.Next(x, o), u => Asm.Rnd(x, A.AS.term(s), A.AS.w(s), u),
@@ -790,7 +790,7 @@ def asm.mem.oom(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word
   +hf: {Asm.Mf(p, ds, i, m, k, len, pg, lim, first, n, c) == True{} : Bool},
   +hjk: {Nat.add(jj, kk) == n : Nat},
   +hs: {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jj, st, s) == True{} : Bool},
-  +iv: {R.Inv(Asm.x0(ds, k, first), st, s) == True{} : Bool},
+  +iv: {R.MInv(Asm.x0(ds, k, first), st, s) == True{} : Bool},
   +z: {Nat.is_lt(Lg.Lim(st), Me.Budget(Asm.x0(ds, k, first), st, s)) == True{} : Bool}) -> Empty:
   +S = Pg.Program.largest(p, i, n)
   +L0 = Lg.Lim(Asm.St0(ds, first, k, pg, lim, i))
@@ -823,7 +823,7 @@ def asm.mem.next(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Wor
   +he: {Pg.Program.result(ds, El.Eval.steps(n, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
   +hjk: {Nat.add(jj, kk) == n : Nat},
   +hs: {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jj, st, s) == True{} : Bool},
-  +iv: {R.Inv(Asm.x0(ds, k, first), st, s) == True{} : Bool},
+  +iv: {R.MInv(Asm.x0(ds, k, first), st, s) == True{} : Bool},
   +er: {Cr.Cir.exec(f0, Mc.Mach.round(), st) == Cr.Cir.Out.next{u} : Cr.Cir.Out},
   +ht2: {C.Tm.is(C.CSteps(jn, ds, Some{Pg.Program.start(i)}), A.AS.term(s2)) == True{} : Bool}) ->
   {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jn, u, s2) == True{} : Bool}:
@@ -902,7 +902,7 @@ def asm.mem(kk: Nat, b: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: 
         case 1n+(+c2):
           +x = Asm.x0(ds, k, first)
           +B = Me.Budget(x, st, s)
-          +iv = K.bool.and_l(R.Inv(x, st, s), A.AS.ok0(ds, s), j)
+          +iv = K.bool.and_l(R.MInv(x, st, s), A.AS.ok0(ds, s), j)
           +ht = asm.ms.ht(p, ds, i, k, pg, lim, first, n, c, jj, st, s, hs)
           +f0 = asm.tot.f(Mc.Mach.round(), st, B, u => Asm.Rnd(x, A.AS.term(s), A.AS.w(s), u),
             q => st2 => Asm.HR(ds, A.AS.term(s), q, st2), asm.rnd(x, st, s, j))
@@ -926,7 +926,7 @@ def asm.mem(kk: Nat, b: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: 
         case 1n+(+c2):
           +x = Asm.x0(ds, k, first)
           +B = Me.Budget(x, st, s)
-          +iv = K.bool.and_l(R.Inv(x, st, s), A.AS.ok0(ds, s), j)
+          +iv = K.bool.and_l(R.MInv(x, st, s), A.AS.ok0(ds, s), j)
           +ht = asm.ms.ht(p, ds, i, k, pg, lim, first, n, c, jj, st, s, hs)
           +f0 = asm.tot.f(Mc.Mach.round(), st, B, u => Asm.Rnd(x, A.AS.term(s), A.AS.w(s), u),
             q2 => st2 => Asm.HR(ds, A.AS.term(s), q2, st2), asm.rnd(x, st, s, j))
@@ -1162,21 +1162,21 @@ def Asm.tail() -> Cr.Cir.Stmt:
 def Asm.s0(+i: List<&2, Word(8n)>) -> A.AS:
   A.AS{False{}, Pg.Program.start(i), []}
 
-# M.input's post: Inv of the start term once the mode is 0
+# M.input's post: MInv of the start term once the mode is 0
 def Asm.In(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +first: U32, +st: Cr.Cir.State) -> Bool:
-  R.Inv(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i))
+  R.MInv(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i))
 
-# J at the loop's start: Inv, and the start term is canonical
+# J at the loop's start: MInv, and the start term is canonical
 def asm.j0(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +first: U32, +st: Cr.Cir.State,
   +iv: {Asm.In(ds, i, k, first, st) == True{} : Bool}) -> {Asm.J(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i)) == True{} : Bool}:
-  K.bool.and_i(R.Inv(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i)), A.AS.ok0(ds, Asm.s0(i)), iv, C.canon.start(i))
+  K.bool.and_i(R.MInv(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i)), A.AS.ok0(ds, Asm.s0(i)), iv, C.canon.start(i))
 
 # the mode is a register of the state after M.input
 def asm.hr0(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +first: U32, +st: Cr.Cir.State,
   +iv: {Asm.In(ds, i, k, first, st) == True{} : Bool}) -> {Nat.is_lt(Mc.R.mode(), Lg.St.nregs(st)) == True{} : Bool}:
   +x = Asm.x0(ds, k, first)
   +st1 = R.Mode0(st)
-  +em = MvP.rd.mb(Lg.Reg(st1, Mc.R.mode()), 0, K.bool.and_l(R.Inv.mode(st1, False{}),
+  +em = MvP.rd.mb(Lg.Reg(st1, Mc.R.mode()), 0, K.bool.and_l(R.MInv.mode(st1, False{}),
     Hp.H(x, st1, Hp.V.Live(st1), [Hp.Rt{Lg.St.reg(st1, Mc.R.focus()), 0n, Pg.Program.start(i)}], [], []), iv))
   (%Lg.nregs.set(st, Mc.R.mode(), 0) : {Nat.is_lt(Mc.R.mode(), _) == True{} : Bool}; Lg.reg.lt(st1, Mc.R.mode(), 0, em))
 

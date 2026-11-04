@@ -6,7 +6,7 @@
 # book gives the bodies, and ImgOK holds there (img.start, img.ref,
 # img.table replace them); and, round by round on whole runs of Mach.code
 # from St0, that the machine's state holds the abstract machine's state:
-# Inv of AM.move's next state after each Mach.round(), and AM.move's halt at
+# MInv of AM.move's next state after each Mach.round(), and AM.move's halt at
 # the end (round.sim, input.spec and out.spec replace them). It is outside
 # main's closure; the redesign's P5 deletes it.
 
@@ -104,7 +104,7 @@ def smk2.tbl.lam() -> {I.ImgOK.tbl(smk2.m(smk2.ds()), 7) == True{} : Bool}:
 # Whole runs: the machine against the abstract machine
 # ----------------------------------------------------
 
-# a run's check: each round's state held the abstract state (Inv), each round
+# a run's check: each round's state held the abstract state (MInv), each round
 # went as AM.move goes; the rounds done, and the halt (status, bytes in order)
 type SR2 is Data:
   SR2{ok: Bool, n: Nat, end: Maybe<&2, A.AO>}
@@ -131,7 +131,7 @@ def smk2.round(n: Nat, +x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS, +k: Nat) -> SR2:
     case 0n:
       SR2{True{}, k, None{}}
     case 1n+j:
-      smk2.step(R.Inv(x, st, s), Cr.Cir.exec(4000n, Mc.Mach.round(), st), A.AM.move(Hp.Cx.ds(x), smk2.vb(st), s), k,
+      smk2.step(R.MInv(x, st, s), Cr.Cir.exec(4000n, Mc.Mach.round(), st), A.AM.move(Hp.Cx.ds(x), smk2.vb(st), s), k,
         st2 => s2 => smk2.round(j, x, st2, s2, 1n+k))
 
 def smk2.or(r: Maybe<&2, U32>) -> U32:
