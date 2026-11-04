@@ -106,7 +106,7 @@ def Evs(es: List<&2, Cr.Cir.Expr>, +x: Hp.Cx, +st: Cr.Cir.State, +L: List<&2, U3
 
 # the cell that M.alloc takes: the free list's head, or a new one (next)
 def Alloc.cell(+st: Cr.Cir.State) -> U32:
-  Bool.pick(U32, U32.is_zero(Hp.V.reg(st, Mc.R.free())), Lg.St.next(st), Hp.V.reg(st, Mc.R.free()))
+  Bool.pick(U32, U32.is_zero(Lg.St.reg(st, Mc.R.free())), Lg.St.next(st), Lg.St.reg(st, Mc.R.free()))
 
 def Alloc.or(r: Maybe<&2, U32>, +p: U32) -> U32:
   match r:
@@ -131,13 +131,13 @@ def Alloc.st.of(zero: Bool, +st: Cr.Cir.State, +r: Nat) -> Cr.Cir.State:
     case True{}:
       Lg.St.alloc(st, r, Alloc.pages(st))
     case False{}:
-      +f = Hp.V.reg(st, Mc.R.free())
+      +f = Lg.St.reg(st, Mc.R.free())
       Alloc.put(Lg.St.set(Lg.St.set(st, r, f), Mc.R.free(), Hp.Fd(1n, Lg.St.cells(st), f)), f, Cr.Cir.Cell.zero())
 
 # the state after M.alloc(r): r holds Alloc.cell, all zeros; the free list
 # moves on, or next does
 def Alloc.st(+st: Cr.Cir.State, +r: Nat) -> Cr.Cir.State:
-  Alloc.st.of(U32.is_zero(Hp.V.reg(st, Mc.R.free())), st, r)
+  Alloc.st.of(U32.is_zero(Lg.St.reg(st, Mc.R.free())), st, r)
 
 # the state after M.make(r, ..): M.alloc's, with the cell v there
 def Make.st(+st: Cr.Cir.State, +r: Nat, v: Cr.Cir.Cell) -> Cr.Cir.State:
@@ -145,7 +145,7 @@ def Make.st(+st: Cr.Cir.State, +r: Nat, v: Cr.Cir.Cell) -> Cr.Cir.State:
 
 # the state after M.release of the cell c: FREE, at the head of the free list
 def Release.st(+st: Cr.Cir.State, +c: U32) -> Cr.Cir.State:
-  Lg.St.set(Lg.St.store(Lg.St.store(st, 0n, c, Mc.K.free()), 1n, c, Hp.V.reg(st, Mc.R.free())), Mc.R.free(), c)
+  Lg.St.set(Lg.St.store(Lg.St.store(st, 0n, c, Mc.K.free()), 1n, c, Lg.St.reg(st, Mc.R.free())), Mc.R.free(), c)
 
 # the cell j steps down a chain (by field 1) from c
 def Nth(j: Nat, +m: Cr.Cir.Cells, +c: U32) -> U32:
@@ -287,9 +287,9 @@ def Walk.res(+x: Hp.Cx, +st2: Cr.Cir.State, +e2: List<&2, A.Ag>, +ys2: List<&2, 
   match w:
     case A.AW.leaf{u, e, ys}:
       I.Mb.is(Lg.Reg(st2, Mc.R.wres()), 1) && Ags.is_eq(e2, e) && Ags.is_eq(ys2, ys) &&
-        Hp.V.img(x, Lg.St.cells(st2), Hp.V.reg(st2, Mc.R.wt())) && Hp.V.is(Hp.V.at(x, st2, Hp.V.reg(st2, Mc.R.wt()), 0n), u)
+        Hp.V.img(x, Lg.St.cells(st2), Lg.St.reg(st2, Mc.R.wt())) && Hp.V.is(Hp.V.at(x, st2, Lg.St.reg(st2, Mc.R.wt()), 0n), u)
     case A.AW.waits{}:
-      I.Mb.is(Lg.Reg(st2, Mc.R.wres()), 2) && U32.is_zero(Hp.V.reg(st2, Mc.R.wargs()))
+      I.Mb.is(Lg.Reg(st2, Mc.R.wres()), 2) && U32.is_zero(Lg.St.reg(st2, Mc.R.wargs()))
     case A.AW.none{}:
       I.Mb.is(Lg.Reg(st2, Mc.R.wres()), 3)
 
@@ -299,7 +299,7 @@ def Walk.res(+x: Hp.Cx, +st2: Cr.Cir.State, +e2: List<&2, A.Ag>, +ys2: List<&2, 
 def Walk.post(+x: Hp.Cx, +st: Cr.Cir.State, +st2: Cr.Cir.State, +L: List<&2, U32>, +L2: List<&2, U32>,
   +rs: List<&2, Hp.Rt>, +fs: List<&2, A.AF>, +chs: List<&2, Hp.Ch>, +tt: Bk.Term, +e2: List<&2, A.Ag>,
   +ys2: List<&2, A.Ag>, w: A.AW) -> Bool:
-  Hp.H(x, st2, L2, rs, fs, Con{Hp.Ch{Hp.V.reg(st2, Mc.R.wenv()), e2}, Con{Hp.Ch{Hp.V.reg(st2, Mc.R.wargs()), ys2}, chs}}) &&
+  Hp.H(x, st2, L2, rs, fs, Con{Hp.Ch{Lg.St.reg(st2, Mc.R.wenv()), e2}, Con{Hp.Ch{Lg.St.reg(st2, Mc.R.wargs()), ys2}, chs}}) &&
     Same(st, st2, Mc.M.walk.scr()) &&
     Nat.is_le(List.length(&2, U32, L2), Nat.add(List.length(&2, U32, L), Nat.mul(2n, Pg.Term.size(tt)))) &&
     I.Mb.is(Lg.Reg(st2, Mc.R.wn()), U32.from_nat(List.length(&2, A.Ag, e2))) && Walk.res(x, st2, e2, ys2, w)
@@ -345,7 +345,7 @@ def Inv.mode(+st: Cr.Cir.State, ret: Bool) -> Bool:
 def Inv(+x: Hp.Cx, +st: Cr.Cir.State, s: A.AS) -> Bool:
   match s:
     case A.AS{ret, t, fs}:
-      Inv.mode(st, ret) && Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Hp.V.reg(st, Mc.R.focus()), 0n, t}], fs, [])
+      Inv.mode(st, ret) && Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, t}], fs, [])
 
 # Laws
 # ----
@@ -483,7 +483,7 @@ law pop.spec:
   for +hs: {Hp.H(x, st, L, rs, Con{fr, fs}, chs) == True{} : Bool}
   Lg.Tot(Mc.M.pop(), st, 0n,
     st2 => &L2:List<&2, U32> -> {Hp.H(x, st2, L2,
-      Push.rts(fr, Hp.Fd(2n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp())), Hp.Fd(3n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp())), rs),
+      Push.rts(fr, Hp.Fd(2n, Lg.St.cells(st), Lg.St.reg(st, Mc.R.sp())), Hp.Fd(3n, Lg.St.cells(st), Lg.St.reg(st, Mc.R.sp())), rs),
       fs, chs) && Kept(st, st2, L2, Mc.M.pop.scr()) && Shrunk(L2, L) == True{} : Bool},
     Lg.No)
 
@@ -501,12 +501,12 @@ law swap.spec:
   for +fr2: A.AF
   for +v: Bk.Term
   for +h: Cr.Cir.Expr
-  for +hs: {Hp.H(x, st, L, Con{Hp.Rt{Hp.V.reg(st, Mc.R.focus()), 0n, v}, rs}, Con{fr, fs}, chs) == True{} : Bool}
-  for +hh: {I.Mb.is(Lg.Reg(st, Mc.R.h()), Hp.V.reg(st, Mc.R.sp())) && Swap.ok(fr, fr2, v) == True{} : Bool}
+  for +hs: {Hp.H(x, st, L, Con{Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, v}, rs}, Con{fr, fs}, chs) == True{} : Bool}
+  for +hh: {I.Mb.is(Lg.Reg(st, Mc.R.h()), Lg.St.reg(st, Mc.R.sp())) && Swap.ok(fr, fr2, v) == True{} : Bool}
   for +he: {Ev(h, x, st, L, Mc.M.swap.scr()) == Some{Fr.header(fr2)} : Maybe<&2, U32>}
   Lg.Tot(Mc.M.swap(h), st, 0n,
-    st2 => {Hp.H(x, st2, L, Con{Hp.Rt{Hp.Fd(2n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp())), 0n, Fr.a(fr)}, rs}, Con{fr2, fs}, chs) &&
-      I.Mb.is(Lg.Reg(st2, Mc.R.focus()), Hp.Fd(2n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp()))) && I.Mb.is(Lg.Reg(st2, Mc.R.mode()), 0) &&
+    st2 => {Hp.H(x, st2, L, Con{Hp.Rt{Hp.Fd(2n, Lg.St.cells(st), Lg.St.reg(st, Mc.R.sp())), 0n, Fr.a(fr)}, rs}, Con{fr2, fs}, chs) &&
+      I.Mb.is(Lg.Reg(st2, Mc.R.focus()), Hp.Fd(2n, Lg.St.cells(st), Lg.St.reg(st, Mc.R.sp()))) && I.Mb.is(Lg.Reg(st2, Mc.R.mode()), 0) &&
       Same(st, st2, Mc.M.swap.scr()) == True{} : Bool},
     Lg.No)
 
