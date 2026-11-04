@@ -384,6 +384,8 @@ process.on("unhandledRejection", fatal);
 class Stop { constructor(readonly why: string) {} }
 const OOF = new Stop("fuel"), TIMEOUT = new Stop("time"), LIN = new Stop("linearity");
 let fuel = Infinity, deadline = Infinity, ticks = 0, internal = 0;
+// the main search stops when no subgoal closed for stallWindow ms (0: off): no progress, answer early
+let lastWin = 0, stallWindow = 0;
 
 const attempt = <T>(n: number, f: () => T): T | undefined => {
   const old = fuel;
@@ -585,7 +587,7 @@ const RAW: Record<string, B.TLD> = book.tlds;
 book.tlds = new Proxy(RAW, {
   get(t, k, r) {
     if (--fuel < 0) throw OOF;
-    if ((++ticks & 4095) === 0 && performance.now() > deadline) throw TIMEOUT;
+    if ((++ticks & 4095) === 0) { const now = performance.now(); if (now > deadline || (stallWindow > 0 && now > lastWin + stallWindow)) throw TIMEOUT; }
     return Reflect.get(t, k, r);
   },
 });
@@ -627,11 +629,14 @@ const pathOf = (k: string) => {
   return nsOf(k) === "" ? entry : path.resolve(TOP, nsOf(k) + ".bend");
 };
 const srcCache = new Map<string, Src | null>();
+const fileExists = new Map<string, boolean>(); // cleared with srcCache
 const defSrc = (k: string): Src | null => {
   if (srcCache.has(k)) return srcCache.get(k)!;
   let res: Src | null = null;
   const file = pathOf(k);
-  if (fs.existsSync(file)) {
+  let ex = fileExists.get(file);
+  if (ex === undefined) { ex = fs.existsSync(file); fileExists.set(file, ex); }
+  if (ex) {
     const lines = linesOf(file);
     const li = defLine(file, shortOf(k));
     if (li >= 0) {
@@ -1757,7 +1762,7 @@ const leaf = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null 
   p2.add(gk);
   const r = leafGo(g, depth, rw, p2, gk);
   if (r && SERVE) lruSet(proofCache, gk, r, 50000);
-  if (r) job.memo.set(gk, { pf: r, depth, rw });
+  if (r) { job.memo.set(gk, { pf: r, depth, rw }); lastWin = performance.now(); }
   else job.memo.set(fk, { pf: null, depth: Math.max(depth, m?.depth ?? 0), rw: Math.max(rw, m?.rw ?? 0) });
   return r;
 };
@@ -2646,8 +2651,13 @@ const proveDef = (k: string, budget: number): Outcome => {
   const root = rootGoal(k);
   let best: Res | null = null;
   let full: Pf | null = null;
-  let why = "";
+  let why = "", stalled = false;
+  lastWin = t0;
+  stallWindow = Math.max(300, budget / 2);
   try {
+    // a cost level that meets no goal the earlier levels did not meet (the memos do not grow) means the
+    // search space is exhausted: deeper levels repeat it, so the search stops early (no progress possible)
+    let seen = -1;
     outer: for (let cost = 1; cost <= MAX_SPLIT + MAX_DEPTH; cost++) {
       for (let S = Math.min(MAX_SPLIT, cost - 1); S >= 0; S--) {
         const D = Math.min(MAX_DEPTH, cost - S);
@@ -2655,12 +2665,19 @@ const proveDef = (k: string, budget: number): Outcome => {
         const r = solve(root, S, D, false);
         if (r.holes === 0) { full = r.pf; break outer; }
       }
+      const size = job.memo.size + job.smemo.size + job.gi.size;
+      if (cost >= 3 && size === seen) { why = "the search space is exhausted (no new goal at cost " + cost + ")"; break; }
+      seen = size;
+      // a quarter of the budget gone and not one subgoal closed anywhere: no progress, answer now
+      if (performance.now() - t0 > budget / 4 && ![...job.memo.values()].some((m) => m.pf)) { why = "no subgoal closed in " + Math.round(performance.now() - t0) + " ms: stopped early"; stalled = true; break; }
     }
   } catch (e) {
     if (e !== TIMEOUT) throw e;
-    why = "time";
+    why = performance.now() - lastWin > stallWindow && performance.now() < deadline ? "no subgoal closed for " + Math.round(stallWindow) + " ms: stopped early" : "time";
+    if (why !== "time") stalled = true;
   }
-  if (!full && (PARTIAL || DECOMP)) {
+  stallWindow = 0;
+  if (!full && !stalled && (PARTIAL || DECOMP)) {
     deadline = performance.now() + Math.max(500, budget / 3);
     try { best = solve(root, Math.min(MAX_SPLIT, 3), Math.min(MAX_DEPTH, 2), true); } catch (e) { if (e !== TIMEOUT) throw e; }
     if (best && best.holes > 0 && DECOMP) {
@@ -2762,15 +2779,59 @@ const holeGoal = (k: string, err: any, path: string): Goal | null => {
 // The stepper's text is used only if bend2 checks it at the goal (its ?TODO leaves allowed); each leaf
 // is then tried by the leaf tactics (a small budget), and the ones left are reported with their goal
 // and the stepper's hint. Never throws.
+// a routine law Tot(code_L, st_L, b_L, Q_L, H_L) instantiated at a call (code, st) of the goal g: its
+// parameters fixed by matching code and st (raw, then the code's normal form), the others' types
+// (premises: facts to find, or leaves), and b_L, Q_L, H_L
+const wpInst = (g: Goal) => (law: string, code: LTerm, st: LTerm, b: LTerm, facts: { T: LTerm; pf: string }[], d: number) => attempt(FUEL_NF, () => {
+  const t = RAW[law];
+  if (t?.$ !== "Def") return null;
+  const o = openMeta(t.T, t.n);
+  if (!o) return null;
+  const [, xs] = unapply(lower(o.concl, d));
+  if (xs.length !== 5) return null;
+  let sol: (LTerm | null)[] = new Array(t.n).fill(null);
+  if (!match(xs[0]!, code, sol, d) || !match(xs[1]!, st, sol, d)) {
+    sol = new Array(t.n).fill(null);
+    const cn = nf(B.term_higher(code, g.env), d);
+    if (!match(xs[0]!, cn, sol, d) || !match(xs[1]!, st, sol, d)) return null;
+  }
+  // the law's budget as the goal's, when it matches (else tot.wk's premise b_L <= b stays)
+  const sb = sol.slice();
+  if (match(xs[2]!, b, sb, d)) sol = sb;
+  // a premise that a fact of the context (or a conjunct of one) fits: its parameters, and its proof
+  const pfs: (string | null)[] = new Array(t.n).fill(null);
+  for (let pass = 0; pass < 2; pass++) {
+    const oi = openMeta(t.T, t.n, toHs(g, sol));
+    if (!oi) return null;
+    oi.doms.forEach((dm, j) => {
+      if (sol[j] || pfs[j] || !isProp(dm.A)) return;
+      const P = attempt(FUEL_NF, () => lower(dm.A, d));
+      if (!P) return;
+      for (const f of facts) {
+        const s2 = sol.slice();
+        if (match(P, f.T, s2, d)) { for (let i = 0; i < sol.length; i++) sol[i] = s2[i] ?? null; pfs[j] = f.pf; return; }
+      }
+    });
+  }
+  const o2 = openMeta(t.T, t.n, toHs(g, sol));
+  if (!o2) return null;
+  const [, ys] = unapply(lower(o2.concl, d));
+  return {
+    sol, pfs,
+    doms: o2.doms.map((dm, j) => ({ k: dm.k, A: sol[j] ? null : attempt(FUEL_NF, () => lower(dm.A, d)) ?? null, fact: !sol[j] && isProp(dm.A) })),
+    concl: ys,
+  };
+}) ?? null;
 // verify: bend2's def check of k with the text in place (the error, or null); allowDst: a whole body
 const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = false): { text: string; open: number; report: string } | null => {
   if (!WP) return null;
   const t0 = performance.now();
   // one stepping (dst: the proof matches the start state first), checked, its leaves tried
   const attemptWp = (dst: boolean, until: number): { text: string; open: number; report: string; why?: string; steps?: number } | null => {
-    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2 }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
+    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2, inst: wpInst(g) }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
     if ("why" in r) return r.why === "not a Tot goal" ? null : { text: "", open: -1, report: "", why: r.why };
     const chk = verify;
+    if (process.env.GEN2_WPDUMP) fs.writeFileSync(process.env.GEN2_WPDUMP + (dst ? ".dst" : ""), r.text);
     const e0 = chk(r.text);
     if (e0) return { text: "", open: -1, report: "", why: "the stepped proof does not check, so it is not used: " + (typeof e0 === "string" ? e0 : errText(e0).split("\n").slice(0, 8).join(" | ")).slice(0, 700) };
     let text = r.text;
@@ -3354,6 +3415,12 @@ const proveOne = (k: string, ds: Src): { failed: boolean; body?: string } => {
     return { failed: true };
   }
   const r = proveHoles(k, BUDGET);
+  // the gate of every "done" claim: the whole body, as printed, through bend2's def check once more
+  if (r.done > 0 && r.helpers.length === 0 && attempt(FUEL_FINAL, () => { checkDef(k, r.body); return true; }) !== true) {
+    console.error("[gen2] " + shortOf(k) + ": the filled body fails bend2's def check: not printed (a gen2 bug; the holes stay open)");
+    console.log(ds.body);
+    return { failed: true };
+  }
   if (r.helpers.length > 0) console.log("# HELPERS: each open hole as a new lemma (statement = the hole's goal in its context); ask for each by name\n" + r.helpers.join("\n") + "\n# the body of " + shortOf(k) + ":");
   console.log(r.body);
   console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled" + (r.helpers.length ? ", " + r.helpers.length + " helper(s)" : ""));
@@ -3400,7 +3467,7 @@ const reloadEntry = (text?: string): string | null => {
   };
   // from here on the text is the source of the entry's defs (texts: also what --write edits)
   entrySrc = text; srcFromReq = reqText !== undefined;
-  texts.set(entry, text); fileLines.delete(entry); defLines.delete(entry); srcCache.clear();
+  texts.set(entry, text); fileLines.delete(entry); defLines.delete(entry); srcCache.clear(); fileExists.clear();
   const nb = parseEntry(fresh(), lines.join("\n"), entryAl, fresh);
   if (flag("validate-book")) B.book_valid(nb, N0);
   for (const k of Object.keys(RAW)) delete RAW[k];
@@ -3420,7 +3487,7 @@ const reloadEntry = (text?: string): string | null => {
     const file = sourceFiles.get(k);
     if (file) for (const imp of autoImports) file.al[imp.alias] = imp.ns;
   }
-  srcCache.clear(); strictMemo.clear(); matchedMemo.clear(); tinfo.clear();
+  srcCache.clear(); fileExists.clear(); strictMemo.clear(); matchedMemo.clear(); tinfo.clear();
   buildIndex();
   // the statements that are new or changed (not law fills: their statement is the law's) must check
   const bad: string[] = [];
