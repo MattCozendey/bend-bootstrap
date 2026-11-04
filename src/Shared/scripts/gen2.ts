@@ -154,6 +154,9 @@
 //   subgoals) with ?TODO holes, then for each hole its case path, goal and context (raw and normal
 //   form). A hole inside an applied lemma has the path <case path>#<callee>.<parameter index>.
 // * streaming (--stream): each closed subgoal (its case path and first line) on stderr.
+// * statements: the book is not validated, so each def asked for has its statement checked first
+//   (stmtError: "# STATEMENT ERROR", no search), and serve's reload checks every entry def whose
+//   header changed ("[gen2] STATEMENT ERROR in <def>" on stderr).
 // * on a miss (prove/ask/batch, not bench), for the first open goal: "# why": the lemmas whose
 //   conclusion matches it (at most 4) and what blocks each (a premise open, a premise that fits a
 //   hypothesis after a split, a parameter to give); "# similar proven defs": up to 3 proven defs of
@@ -447,6 +450,21 @@ const isOpen = (k: string) => {
     openBySource.set(source, names);
   }
   return names.has(shortOf(k));
+};
+
+// the error of k's statement (bend2's term_check of its type, as book_valid does), or null if it checks;
+// the book is loaded without validation, so a new helper's ill-typed statement would only show as a miss
+const stmtError = (k: string): string | null => {
+  const t = RAW[k];
+  if (t?.$ !== "Def") return null;
+  const old = fuel;
+  fuel = FUEL_FINAL;
+  try {
+    B.term_check(book, { t: B.Ref(k), n: 0, def: k, qs: [], u: t.u }, t.T, B.None(), B.Typ(B.Qua(B.Lone())), B.ctx_nil(), 0);
+    return null;
+  } catch (e: any) {
+    return e === OOF ? null : (e?.$ === "Err" ? B.err_show(e) : String(e)).slice(0, 1500);
+  } finally { fuel = old; }
 };
 
 // checks <def> with the body text <body> (a def body, indented); throws bend2's Err on failure
@@ -2256,6 +2274,8 @@ const runProve = () => {
     const ds = defSrc(k);
     if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }
     if (ks.length > 1) console.log("# " + shortOf(k));
+    const se = nsOf(k) === "" ? stmtError(k) : null;
+    if (se) { console.log("# STATEMENT ERROR: the type of " + shortOf(k) + " does not check (no search; fix the statement):\n" + se); failed++; continue; }
     if (!SERVE) { failed += proveOne(k, ds).failed ? 1 : 0; continue; }
     const ak = k + "|" + optsKey + "|" + Bun.hash(linesOf(ds.file).slice(0, ds.bodyLine + ds.body.split("\n").length).join("\n"));
     const hit = flag("fresh") ? undefined : lruGet(answers, ak);
@@ -2316,6 +2336,8 @@ const reloadEntry = (): string | null => {
   const lines = fs.readFileSync(entry, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) { const l = lines[i].trim(); if (l === "" || l.startsWith("#")) continue; if (!/^import(\s|$)/.test(l)) break; lines[i] = ""; }
   const own = new Set(book.order.slice(N0));
+  const oldHdr = new Map<string, string | undefined>();
+  for (const k of own) oldHdr.set(k, defSrc(k)?.header);
   const nb = B.book_nil();
   for (const k of Object.keys(RAW)) if (!own.has(k) && !k.includes("~")) nb.tlds[k] = RAW[k];
   // an imported law that the entry fills (def D.alloc.post(..)) was filled in place and its key is in
@@ -2348,7 +2370,14 @@ const reloadEntry = (): string | null => {
   texts.delete(entry); fileLines.delete(entry); defLines.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear(); tinfo.clear();
   buildIndex();
   entryMtime = mt;
-  return "[gen2] reloaded " + path.basename(entry) + " in " + Math.round(performance.now() - t0) + " ms";
+  // the statements that are new or changed (not law fills: their statement is the law's) must check
+  const bad: string[] = [];
+  for (const k of new Set(book.order.slice(N0))) {
+    if (nsOf(k) !== "" || RAW[k]?.$ !== "Def" || oldHdr.get(k) === defSrc(k)?.header) continue;
+    const e = stmtError(k);
+    if (e) bad.push("[gen2] STATEMENT ERROR in " + shortOf(k) + " (its type does not check; fix it before asking):\n" + e);
+  }
+  return "[gen2] reloaded " + path.basename(entry) + " in " + Math.round(performance.now() - t0) + " ms" + (bad.length ? "\n" + bad.join("\n") : "");
 };
 const serve = () => {
   const port = +opt("port", "7311");
