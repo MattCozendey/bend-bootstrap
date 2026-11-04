@@ -41,6 +41,8 @@ export type WpApi = {
   // a routine law instantiated at a call (gen2's openMeta and match): its parameters fixed by the call's
   // code and state, the types of the others, and the law's b, Q, H
   inst?: (law: string, code: LTerm, st: LTerm, b: LTerm, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
+  // a law instantiated by its premises alone (each parameter fixed by a fact that a premise fits)
+  instPrem?: (law: string, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
   // an equation law instantiated at the term its left side matches
   instEq?: (law: string, lhs: LTerm, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
 };
@@ -146,21 +148,36 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const isBool = (t: LTerm | undefined): t is Extract<LTerm, { $: "Ctr" }> => !!t && t.$ === "Ctr" && (t.k === "True" || t.k === "False") && t.x.length === 0;
 
   // the goal: Tot(code, st, b, Q, H), or WP(code, b, K, H, st)
-  const goal = api.lower(g.ty, g.d);
-  const [gh, gargs] = unapply(goal);
-  // destructuring: the start state, a parameter, prints as ws0 (a let of the constructor's fields)
-  const stArg = isRef(gh, "tot") ? gargs[1] : isRef(gh, "wp") ? gargs[4] : undefined;
+  const goal0 = api.lower(g.ty, g.d);
+  const [gh0, gargs0] = unapply(goal0);
+  // destructuring: the start state, a parameter, is matched (`match st`): its fields are binders after the
+  // context, and the goal and the context's facts are read with st as the constructor of them (as the
+  // checker reads them in the case), so that accessors, updaters and facts compute alike; it prints as ws0
+  const stArg = isRef(gh0, "tot") ? gargs0[1] : isRef(gh0, "wp") ? gargs0[4] : undefined;
   let stName = "", patText = "";
+  let subst = (t: LTerm): LTerm => t;
   if (dst) {
     if (!stArg || stArg.$ !== "Var" || stArg.i < 0 || stArg.i >= g.d) return { why: "the start state is not a parameter (no match st)" };
     stName = names[stArg.i]!;
     names[stArg.i] = "_matched";
-    dstKey = api.key(stArg);
+    const taken = new Set(names);
+    const fs = ["wrg", "wcl", "wnx", "wfi", "wim", "wpg", "wlm", "win", "wou", "won"].map((b) => { let n = b; for (let i = 2; taken.has(n); i++) n = b + "_" + i; taken.add(n); return n; });
+    const kc = K.cirOut ?? fail("no Cir.Out in the book");
+    const C = B.Ctr((kc.includes(":") ? kc.slice(0, kc.indexOf(":") + 1) : "") + "Cir.State", fs.map((f, i) => B.Var(f, g.d + i))) as LTerm;
+    for (const f of fs) names[D++] = f;
+    env = null;
+    patText = ctor("Cir.State") + "{" + fs.join(", ") + "}";
+    const sk = api.key(stArg);
+    subst = (t) => replaceKey(t, sk, C, api.key);
+    dstKey = api.key(C);
     stateReps.push({ key: dstKey, ref: B.Ref("ws0") as LTerm });
   }
+  // read again past the fields: the goal's own binders must not take their levels
+  const goal = dst ? subst(api.lower(g.ty, D)) : goal0;
+  const [gh, gargs] = unapply(goal);
   let code0: LTerm, st0: LTerm, bS: string, HS: string, KS: string, QS = "", wrap: (p: string) => string;
   if (isRef(gh, "tot") && gargs.length === 5) {
-    code0 = gargs[0]!; st0 = gargs[1]!; bS = sh(gargs[2]!); HS = sh(gargs[4]!); KS = "h => " + sh(gargs[3]!); QS = sh(gargs[3]!);
+    code0 = gargs[0]!; st0 = gargs[1]!; bS = sh(gargs[2]!); HS = sh(gargs[4]!); QS = sh(gargs[3]!); KS = "";
     wrap = (p) => nm("totOfWp") + "(" + sh(code0) + ", " + sh(st0) + ", " + bS + ", " + KS + ", " + HS + ", " + p + ")";
   } else if (isRef(gh, "wp") && gargs.length === 5) {
     code0 = gargs[0]!; bS = sh(gargs[1]!); KS = sh(gargs[2]!); HS = sh(gargs[3]!); st0 = gargs[4]!;
@@ -172,6 +189,9 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   // the context's facts: registers and cells of a state, the register count, Bool facts
   const used = new Set(names);
   const fresh = (base: string) => { let s = base; for (let i = 2; used.has(s); i++) s = base + "_" + i; used.add(s); return s; };
+  // the binders of the printed continuations: names that no parameter has (a parameter h or t would be captured)
+  const BH = fresh("h"), BT = fresh("t"), BK = fresh("k"), BX = fresh("x");
+  if (QS) KS = BH + " => " + QS;
   const regHyp = new Map<string, { c: LTerm; pf: string }>(); // key(state) + "|" + r
   const ctxFact = new Map<string, string>(); // key(type) -> a hypothesis of that type
   const ctxFactT: { T: LTerm; pf: string }[] = [];
@@ -213,29 +233,44 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     }
     if (shortOf(h.k) === "Nat.is_lt" && xs.length === 2) {
       const [nh, na] = unapply(xs[1]!);
-      if (isRef(nh, "nregs") && na.length === 1 && api.key(na[0]!) === api.key(stArg ?? xs[0]!)) ltFact.set(rgOf(xs[0]!).key, pf);
+      if (isRef(nh, "nregs") && na.length === 1 && api.key(na[0]!) === api.key(st0)) ltFact.set(rgOf(xs[0]!).key, pf);
     }
+  };
+  // a fact T with its proof pf: by its kind (a register, the count, a cell, a Bool invariant), and as itself
+  const addFact = (T: LTerm, pf: string) => {
+    ctxFact.set(api.key(T), pf);
+    ctxFactT.push({ T, pf });
+    if (T.$ !== "Eql") return;
+    const [lh, la] = unapply(T.a);
+    if (isRef(lh, "reg") && la.length === 2 && T.b.$ === "Ctr" && T.b.k === "Some" && T.b.x.length === 1) {
+      regHyp.set(api.key(la[0]!) + "|" + rgOf(la[1]!).key, { c: T.b.x[0]!, pf });
+      return;
+    }
+    if (isRef(lh, "nregs") && la.length === 1) { nregHyp.set(api.key(la[0]!), { n: T.b, pf }); return; }
+    if (isRef(lh, "isCell") && la.length === 2 && T.b.$ === "Ctr" && T.b.k === "True") {
+      const c = nfL(la[1]!);
+      if (c) cellHyp.set(api.key(la[0]!) + "|" + api.key(c), pf);
+      return;
+    }
+    if (isBool(T.b)) harvest(T.a, T.b.k === "True", pf, 0);
   };
   for (let i = 0; i < g.d; i++) {
     const a = B.pmap_get(g.ctx, i);
     if (!a || names[i] === "_" || names[i] === "" || /^w[sfnc]\d/.test(names[i]!)) continue;
-    const T = api.attempt(FUEL, () => api.lower(a.T, i));
-    if (!T) continue;
-    ctxFact.set(api.key(T), names[i]!);
-    ctxFactT.push({ T, pf: names[i]! });
-    if (T.$ !== "Eql") continue;
-    const [lh, la] = unapply(T.a);
-    if (isRef(lh, "reg") && la.length === 2 && T.b.$ === "Ctr" && T.b.k === "Some" && T.b.x.length === 1) {
-      regHyp.set(api.key(la[0]!) + "|" + rgOf(la[1]!).key, { c: T.b.x[0]!, pf: names[i]! });
-      continue;
+    const T0 = api.attempt(FUEL, () => api.lower(a.T, dst ? D : i));
+    if (T0) addFact(subst(T0), names[i]!);
+  }
+  // the helpers of the def being proven, <def>.<name>: their conclusions are facts, each parameter fixed by a
+  // premise that a fact of the context fits (at most 32 helpers)
+  if (g.self && api.instPrem) {
+    const pre = shortOf(g.self) + ".";
+    const hs = [...byShort].filter(([s2, k]) => s2.startsWith(pre) && k !== g.self).slice(0, 32);
+    const facts = ctxFactT.slice();
+    for (const [, k] of hs) {
+      const ins = api.instPrem(k, facts, D);
+      if (!ins || !ins.sol.every((v, i) => v || ins.pfs[i])) continue;
+      addFact(ins.T, sh(B.Ref(k) as LTerm) + "(" + ins.sol.map((v, i) => (v ? sh(v) : ins.pfs[i]!)).join(", ") + ")");
     }
-    if (isRef(lh, "nregs") && la.length === 1) { nregHyp.set(api.key(la[0]!), { n: T.b, pf: names[i]! }); continue; }
-    if (isRef(lh, "isCell") && la.length === 2 && T.b.$ === "Ctr" && T.b.k === "True") {
-      const c = nfL(la[1]!);
-      if (c) cellHyp.set(api.key(la[0]!) + "|" + api.key(c), names[i]!);
-      continue;
-    }
-    if (isBool(T.b)) harvest(T.a, T.b.k === "True", names[i]!, 0);
   }
 
   // the facts a law's premise may take: the context's, and the Bool facts (with their conjuncts)
@@ -299,8 +334,6 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   stepRefs.push("@" + (K.stSet ?? "St.set"), "@" + (K.stStore ?? "St.store"), "@" + (K.stAlloc ?? "St.alloc"), "@" + (K.stEmit ?? "St.emit"));
   if (dst) {
     used.add(stName); used.add("ws0");
-    const fs = ["wrg", "wcl", "wnx", "wfi", "wim", "wpg", "wlm", "win", "wou", "won"].map(fresh);
-    patText = ctor("Cir.State") + "{" + fs.join(", ") + "}";
     lets.push("+ws0 : " + nm("cirState") + " = " + patText);
   }
   const regFacts = new Map<string, { c: LTerm; pf: string }>();
@@ -430,12 +463,42 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   // an expression's value at the state j, and the proof of {Cr.Cir.eval(e, st_j) == Some{v}}: its
   // rewrites (a register read by its fact; with dst, a field read's cell condition by its is_cell
   // fact) one by one, the first outermost, then the computation
+  // the context's equations {a == u} over a value type (not Bool), by the key of a computed
+  let valFactsM: Map<string, { rhs: LTerm; pf: string; A: LTerm }> | null = null;
+  const valFacts = () => {
+    if (valFactsM) return valFactsM;
+    valFactsM = new Map();
+    for (const f of ctxFactT) {
+      if (f.T.$ !== "Eql" || (f.T.b.$ === "Ctr" && f.T.b.k === "Some") || isBool(f.T.b)) continue;
+      const n = nfL(f.T.a);
+      if (n && n.$ !== "Lit" && !valFactsM.has(api.key(n))) valFactsM.set(api.key(n), { rhs: f.T.b, pf: f.pf, A: f.T.T });
+    }
+    return valFactsM;
+  };
+  // how a fact gets in: a helper def (the def being proven has no room for a let before a match)
+  const helperHint = g.self ? "; give it as a helper def " + shortOf(g.self) + ".<name>, its parameters those of " + shortOf(g.self)
+    + " that its premises fix, its conclusion the fact over st (or an equation naming a part, e.g. a tag {U32.and(..) == Mc.T.ann()}): --wp uses it" : "";
   const evalAt = (e: LTerm, j: number): { v: LTerm; he: string } => {
     const S = sts[j]!.text;
     // orig: the part as the unfolded eval holds it; sub: its value; eq: {sub == orig}
     const rws: { orig: string; sub: string; eq: string }[] = [];
     type Tm = { tmpl: (cur: number) => string; val: LTerm; last: number };
+    // a part's value that an equation of the context names ({v == u}, v as computed): u, by one more rewrite
     const go = (x: LTerm): Tm => {
+      const r = go0(x);
+      const fs = valFacts();
+      if (fs.size === 0) return r;
+      const n = nfL(r.val);
+      if (!n || n.$ !== "Ctr" || n.k !== "Some" || n.x.length !== 1) return r;
+      const f = fs.get(api.key(n.x[0]!));
+      if (!f) return r;
+      const orig = sh(n.x[0]!), sub = sh(f.rhs);
+      rws.push({ orig, sub, eq: nm("equalSym") + "(" + sh(f.A) + ", " + orig + ", " + sub + ", " + f.pf + ")" });
+      const vi = rws.length - 1, last = r.last;
+      const at = (cur: number) => (vi < cur ? sub : vi === cur ? "_" : orig);
+      return { tmpl: (cur) => (last < cur ? "Some{" + at(cur) + "}" : r.tmpl(cur)), val: B.Ctr<[LTerm]>("Some", [f.rhs]), last: vi };
+    };
+    const go0 = (x: LTerm): Tm => {
       const w = wnfL(x) ?? fail("an expression does not evaluate: " + sh(x).slice(0, 120));
       if (w.$ !== "Ctr") fail("an expression with no constructor form: " + sh(x).slice(0, 120));
       const c = w as Extract<LTerm, { $: "Ctr" }>;
@@ -457,7 +520,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
         }
         case "Cir.Expr.eqz": { const a = go(c.x[0]!); return { tmpl: (cur) => nm("evalEqz") + "(" + a.tmpl(cur) + ")", val: B.App(ref("evalEqz"), a.val), last: rws.length - 1 }; }
         case "Cir.Expr.field": {
-          if (!dst) fail("a field read: --wp reads fields only when the proof can match the start state (a whole body whose state is a parameter)");
+          if (!dst) fail("a field read: --wp reads fields only when the proof can match the start state (a state that is a parameter)");
           const kf = natOf(c.x[0]!);
           if (kf === null) fail("a field read with a field that is not a number");
           const a = go(c.x[1]!);
@@ -465,7 +528,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
           if (!iv || iv.$ !== "Ctr" || iv.k !== "Some") fail("a field read whose cell has no value");
           const I = (iv as Extract<LTerm, { $: "Ctr" }>).x[0]!;
           const ik = nfL(I);
-          const hi = cellHyp.get(sts[0]!.key + "|" + (ik ? api.key(ik) : "")) ?? fail("a field read of the cell " + sh(I) + ": no fact {" + nm("isCell") + "(st, " + sh(I) + ") == True{}}");
+          const hi = cellHyp.get(sts[0]!.key + "|" + (ik ? api.key(ik) : "")) ?? fail("a field read of the cell " + sh(I) + ": no fact {" + nm("isCell") + "(st, " + sh(I) + ") == True{}}" + helperHint);
           const orig = nm("isCell") + "(" + S + ", " + sh(I) + ")";
           rws.push({ orig, sub: "True{}", eq: nm("equalSym") + "(Bool, " + orig + ", True{}, " + hi + ")" });
           const ci = rws.length - 1, lastA = a.last;
@@ -569,7 +632,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     const now = (r: Rg) => { try { return r.text + " = " + sh(regOf(j, r).c); } catch { return r.text + " (no fact)"; } };
     const lines = [
       "a loop at " + S + ", no routine law: prove its WP (its Tot) with Lg.tot.while; replace this ?TODO by",
-      "  " + nm("wpOfTot") + "(" + sText + ", " + S + ", " + bS + ", " + kText(k) + ", " + HS + ", " + nm("totWhile") + "(" + sh(c) + ", " + sh(body) + ", " + bS + ", I, " + (k === null && QS ? QS : "x => " + kApp(k, "x")) + ", " + HS + ", r, n0, " + S + ", i))",
+      "  " + nm("wpOfTot") + "(" + sText + ", " + S + ", " + bS + ", " + kText(k) + ", " + HS + ", " + nm("totWhile") + "(" + sh(c) + ", " + sh(body) + ", " + bS + ", I, " + (k === null && QS ? QS : BX + " => " + kApp(k, BX)) + ", " + HS + ", r, n0, " + S + ", i))",
       "  I : Nat -> Cr.Cir.State -> Type, the invariant at the measure n, e.g. n => x => {" + nm("nregs") + "(x) == Mc.Mach.regs() : Nat} & "
         + (writes.map((w) => "{" + nm("reg") + "(x, " + w.text + ") == Some{..} : Maybe<&2, U32>}").join(" & ") || "..") + " & <the facts the rest needs>",
       "  r : @n: Nat -> @x: Cr.Cir.State -> I(n, x) -> Lg.Loop(" + sh(c) + ", <body>, x, " + bS + ", n, I, Q, " + HS + ")  (a round: the condition's value; at 0 the post; else the body's WP to I at a smaller n)",
@@ -598,7 +661,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   // (list: code is the suffix i of a flattened sequence, whose statements are not read again)
   type Seq = { items: LTerm[]; texts: string[]; suf: string[]; tail: LTerm };
   type Cont = { code: string; term: LTerm; next: Cont; list?: { seq: Seq; i: number } } | null;
-  const kText = (k: Cont): string => (k === null ? KS : "h => t => " + nm("wp") + "(" + k.code + ", " + bS + ", " + kText(k.next) + ", h, t)");
+  const kText = (k: Cont): string => (k === null ? KS : BH + " => " + BT + " => " + nm("wp") + "(" + k.code + ", " + bS + ", " + kText(k.next) + ", " + BH + ", " + BT + ")");
   const leaves: WpLeaf[] = [];
   const leaf = (hint: string): string => { leaves.push({ hole: leaves.length + 1, hint }); return "?TODO"; };
   let steps = 0, splits = 0;
@@ -708,7 +771,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
         let ev: { v: LTerm; he: string };
         try { ev = evalAt(c, j); } catch (x) { if (x instanceof Fail) return leaf("an if at " + S + ": its condition: " + x.why); throw x; }
         const yT = codeLet(sh(y)), nT = codeLet(sh(n));
-        const Y = "k => h => " + nm("wp") + "(" + yT + ", " + bS + ", k, h, " + S + ")", N = "k => h => " + nm("wp") + "(" + nT + ", " + bS + ", k, h, " + S + ")";
+        const Y = BK + " => " + BH + " => " + nm("wp") + "(" + yT + ", " + bS + ", " + BK + ", " + BH + ", " + S + ")", N = BK + " => " + BH + " => " + nm("wp") + "(" + nT + ", " + bS + ", " + BK + ", " + BH + ", " + S + ")";
         const pickOf = (z: string) => nm("wpPick") + "(" + z + ", " + Y + ", " + N + ", " + Kt + ", " + HS + ")";
         const head = "(%" + nm("equalSym") + "(" + MB + ", " + nm("cirEval") + "(" + sh(c) + ", " + S + "), Some{" + sh(ev.v) + "}, " + ev.he + ") : " + nm("wpIf") + "(_, " + Y + ", " + N + ", " + Kt + ", " + HS + "); ";
         // z = U32.is_zero(v): False is the yes branch
@@ -769,7 +832,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
             return head + nm("boolCase") + "(" + sh(p) + ", " + pickOf(sh(z)) + ", " + arm(true, zt) + ", " + arm(false, zf) + "))";
           }
         }
-        return head + leaf("an if at " + S + " that no fact decides: U32.is_zero(" + sh(ev.v) + "); give a Bool fact on a part of it" + (K.boolCase ? "" : ", or add the kit lemma bool.case (see gen2-wp-notes.md) so --wp splits it")) + ")";
+        return head + leaf("an if at " + S + " that no fact decides: U32.is_zero(" + sh(ev.v) + "); give a Bool fact on a part of it" + helperHint + (K.boolCase ? "" : ", or add the kit lemma bool.case (see gen2-wp-notes.md) so --wp splits it")) + ")";
       }
       case "Cir.Stmt.while":
         {
