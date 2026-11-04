@@ -378,7 +378,79 @@ def Lg.cells.get_set(m, i, x, j):
   ?TODO
 
 def Lg.cell.get_set(k, x, v, j, hk, hj):
-  ?TODO
+  match k x j:
+    case 0n Cr.Cir.Cell{x0, x1, x2, x3, x4} 0n:
+      {==}
+    case 0n Cr.Cir.Cell{x0, x1, x2, x3, x4} 1n:
+      {==}
+    case 0n Cr.Cir.Cell{x0, x1, x2, x3, x4} 2n:
+      {==}
+    case 0n Cr.Cir.Cell{x0, x1, x2, x3, x4} 3n:
+      {==}
+    case 0n Cr.Cir.Cell{x0, x1, x2, x3, x4} 4n:
+      {==}
+    case 0n Cr.Cir.Cell{x0, x1, x2, x3, x4} 5n+jp:
+      {==}
+    case 1n Cr.Cir.Cell{x0, x1, x2, x3, x4} 0n:
+      {==}
+    case 1n Cr.Cir.Cell{x0, x1, x2, x3, x4} 1n:
+      {==}
+    case 1n Cr.Cir.Cell{x0, x1, x2, x3, x4} 2n:
+      {==}
+    case 1n Cr.Cir.Cell{x0, x1, x2, x3, x4} 3n:
+      {==}
+    case 1n Cr.Cir.Cell{x0, x1, x2, x3, x4} 4n:
+      {==}
+    case 1n Cr.Cir.Cell{x0, x1, x2, x3, x4} 5n+jp:
+      {==}
+    case 2n Cr.Cir.Cell{x0, x1, x2, x3, x4} 0n:
+      {==}
+    case 2n Cr.Cir.Cell{x0, x1, x2, x3, x4} 1n:
+      {==}
+    case 2n Cr.Cir.Cell{x0, x1, x2, x3, x4} 2n:
+      {==}
+    case 2n Cr.Cir.Cell{x0, x1, x2, x3, x4} 3n:
+      {==}
+    case 2n Cr.Cir.Cell{x0, x1, x2, x3, x4} 4n:
+      {==}
+    case 2n Cr.Cir.Cell{x0, x1, x2, x3, x4} 5n+jp:
+      {==}
+    case 3n Cr.Cir.Cell{x0, x1, x2, x3, x4} 0n:
+      {==}
+    case 3n Cr.Cir.Cell{x0, x1, x2, x3, x4} 1n:
+      {==}
+    case 3n Cr.Cir.Cell{x0, x1, x2, x3, x4} 2n:
+      {==}
+    case 3n Cr.Cir.Cell{x0, x1, x2, x3, x4} 3n:
+      {==}
+    case 3n Cr.Cir.Cell{x0, x1, x2, x3, x4} 4n:
+      {==}
+    case 3n Cr.Cir.Cell{x0, x1, x2, x3, x4} 5n+jp:
+      {==}
+    case 4n Cr.Cir.Cell{x0, x1, x2, x3, x4} 0n:
+      {==}
+    case 4n Cr.Cir.Cell{x0, x1, x2, x3, x4} 1n:
+      {==}
+    case 4n Cr.Cir.Cell{x0, x1, x2, x3, x4} 2n:
+      {==}
+    case 4n Cr.Cir.Cell{x0, x1, x2, x3, x4} 3n:
+      {==}
+    case 4n Cr.Cir.Cell{x0, x1, x2, x3, x4} 4n:
+      {==}
+    case 4n Cr.Cir.Cell{x0, x1, x2, x3, x4} 5n+jp:
+      K.bool.tf2({Cr.Cir.Cell.get(5n+jp, Cr.Cir.Cell.set(4n, Cr.Cir.Cell{x0, x1, x2, x3, x4}, v)) == Bool.pick(U32, Nat.is_eq(4n, 5n+jp), v, Cr.Cir.Cell.get(5n+jp, Cr.Cir.Cell{x0, x1, x2, x3, x4})) : U32}, Nat.is_le(5n+jp, 4n), hj, {==})
+    case 5n+kp Cr.Cir.Cell{x0, x1, x2, x3, x4} 0n:
+      {==}
+    case 5n+kp Cr.Cir.Cell{x0, x1, x2, x3, x4} 1n:
+      {==}
+    case 5n+kp Cr.Cir.Cell{x0, x1, x2, x3, x4} 2n:
+      {==}
+    case 5n+kp Cr.Cir.Cell{x0, x1, x2, x3, x4} 3n:
+      {==}
+    case 5n+kp Cr.Cir.Cell{x0, x1, x2, x3, x4} 4n:
+      K.bool.ff({Cr.Cir.Cell.get(4n, Cr.Cir.Cell.set(5n+kp, Cr.Cir.Cell{x0, x1, x2, x3, x4}, v)) == Bool.pick(U32, Nat.is_eq(5n+kp, 4n), v, Cr.Cir.Cell.get(4n, Cr.Cir.Cell{x0, x1, x2, x3, x4})) : U32}, hk)
+    case 5n+kp Cr.Cir.Cell{x0, x1, x2, x3, x4} 5n+jp:
+      K.bool.tf2({Cr.Cir.Cell.get(5n+jp, Cr.Cir.Cell.set(5n+kp, Cr.Cir.Cell{x0, x1, x2, x3, x4}, v)) == Bool.pick(U32, Nat.is_eq(5n+kp, 5n+jp), v, Cr.Cir.Cell.get(5n+jp, Cr.Cir.Cell{x0, x1, x2, x3, x4})) : U32}, Nat.is_le(5n+jp, 4n), hj, {==})
 
 def Lg.next.set(st, r, v):
   match st:
