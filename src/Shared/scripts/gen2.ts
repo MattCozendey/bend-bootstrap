@@ -291,11 +291,23 @@ if (MODE === "ask") {
 // ---- load ----
 const entry = fs.realpathSync(path.resolve(FILE ?? ""));
 const TOP = path.dirname(entry) + "/";
+const entryText = fs.readFileSync(entry, "utf8");
+const entryNames = new Set([...entryText.matchAll(/^def\s+([A-Za-z_][\w.]*)\(/gm)].flatMap((m) => [m[1], m[1].replace(/^[^.]+\./, "")]));
+const autoImports: { file: string; alias: string; ns: string; proofs: Set<string> }[] = [];
+if (entryText.includes("?TODO")) {
+  for (const name of fs.readdirSync(TOP).filter((n) => n.endsWith(".bend") && path.join(TOP, n) !== entry)) {
+    const proofs = new Set([...fs.readFileSync(path.join(TOP, name), "utf8").matchAll(/^def\s+([A-Za-z_][\w.]*)\.proof\(/gm)]
+      .map((m) => m[1]).filter((n) => entryNames.has(n)));
+    if (proofs.size > 0) autoImports.push({ file: path.join(TOP, name), alias: "Gen2" + path.basename(name, ".bend").replace(/(^|_)([a-z])/g, (_, __, c) => c.toUpperCase()), ns: path.basename(name, ".bend"), proofs });
+  }
+}
 const book = B.book_nil();
-const N0 = await B.book_load(book, entry, "", new Map()); // the entry's first entry in book order
+const seen = new Map<string, string | null>();
+for (const imp of autoImports) await B.book_load(book, imp.file, imp.ns, seen, undefined, TOP);
+const N0 = await B.book_load(book, entry, "", seen, undefined, TOP); // the entry's first entry in book order
 const tLoad = performance.now();
 try {
-  B.book_valid(book, 0);
+  B.book_valid(book, autoImports.length ? N0 : 0);
 } catch (e: any) {
   console.error(e?.$ === "Err" ? B.err_show(e) : e);
   process.exit(1);
@@ -316,22 +328,42 @@ book.order.forEach((k, i) => ORDER.set(k, i));
 type Src = { file: string; header: string; body: string; bodyLine: number };
 const texts = new Map<string, string>();
 const fileText = (f: string) => { let t = texts.get(f); if (t === undefined) { t = fs.readFileSync(f, "utf8"); texts.set(f, t); } return t; };
+const fileLines = new Map<string, string[]>();
+const defLines = new Map<string, Map<string, number>>();
+const linesOf = (file: string) => {
+  let lines = fileLines.get(file);
+  if (!lines) { lines = fileText(file).split("\n"); fileLines.set(file, lines); }
+  return lines;
+};
+const defLine = (file: string, name: string) => {
+  let defs = defLines.get(file);
+  if (!defs) {
+    defs = new Map();
+    linesOf(file).forEach((line, i) => {
+      const m = /^(?:@unsafe\s+)?def\s+([A-Za-z0-9_.]+)\??\(/.exec(line);
+      if (!m) return;
+      if (!defs!.has(m[1])) defs!.set(m[1], i);
+      const suffix = m[1].slice(m[1].indexOf(".") + 1);
+      if (!defs!.has(suffix)) defs!.set(suffix, i);
+    });
+    defLines.set(file, defs);
+  }
+  return defs.get(name) ?? -1;
+};
 const nsOf = (k: string) => (k.includes(":") ? k.slice(0, k.indexOf(":")) : "");
 const shortOf = (k: string) => (k.includes(":") ? k.slice(k.indexOf(":") + 1) : k);
 const pathOf = (k: string) => {
   if ((ORDER.get(k) ?? -1) >= N0) return entry;
   return nsOf(k) === "" ? entry : path.resolve(TOP, nsOf(k) + ".bend");
 };
-const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const srcCache = new Map<string, Src | null>();
 const defSrc = (k: string): Src | null => {
   if (srcCache.has(k)) return srcCache.get(k)!;
   let res: Src | null = null;
   const file = pathOf(k);
   if (fs.existsSync(file)) {
-    const lines = fileText(file).split("\n");
-    const re = new RegExp("^(@unsafe\\s+)?def\\s+(?:[A-Za-z0-9_]+\\.)?" + esc(shortOf(k)) + "\\??\\(");
-    const li = lines.findIndex((l) => re.test(l));
+    const lines = linesOf(file);
+    const li = defLine(file, shortOf(k));
     if (li >= 0) {
       let depth = 0, he = li;
       for (; he < lines.length; he++) {
@@ -363,6 +395,30 @@ for (const k of book.order) {
     if (f) sourceFiles.set(k, f);
   }
 }
+for (const k of book.order.slice(N0)) {
+  const file = sourceFiles.get(k);
+  if (file) for (const imp of autoImports) file.al[imp.alias] = imp.ns;
+}
+const openBySource = new Map<string, Set<string>>();
+const isOpen = (k: string) => {
+  const source = sourceFiles.get(k)?.str;
+  if (!source) return false;
+  let names = openBySource.get(source);
+  if (!names) {
+    names = new Set();
+    let current = "";
+    for (const line of source.split("\n")) {
+      const def = /^(?:@unsafe\s+)?def\s+([A-Za-z0-9_.]+)\??\(/.exec(line);
+      if (def) current = def[1];
+      else if (current && line.includes("?TODO") && !line.trimStart().startsWith("#")) {
+        names.add(current);
+        names.add(current.slice(current.indexOf(".") + 1));
+      }
+    }
+    openBySource.set(source, names);
+  }
+  return names.has(shortOf(k));
+};
 
 // checks <def> with the body text <body> (a def body, indented); throws bend2's Err on failure
 const checkDef = (k: string, body: string) => {
@@ -663,7 +719,7 @@ const tIndex0 = performance.now();
 applyIndex.clear(); rwIndex.clear(); wild.length = 0; preds.clear();
 for (const k of Object.keys(RAW)) {
   const t = RAW[k];
-  if (t.$ !== "Def" || (t.v === null && t.b !== true) || t.x > 0 || t.i) continue;
+  if (t.$ !== "Def" || (t.v === null && t.b !== true) || t.x > 0 || t.i || isOpen(k)) continue;
   const L: Lemma = { k, order: ORDER.get(k) ?? -1, n: t.n };
   const o = attempt(20000, () => openMeta(t.T, t.n));
   if (!o) continue;
@@ -696,7 +752,7 @@ for (const k of Object.keys(RAW)) {
 // predicates on one datatype (P: T -> Type), to discriminate two constructors (`%e : P(_); Unit{}`)
 for (const k of Object.keys(RAW)) {
   const t = RAW[k];
-  if (t.$ !== "Def" || t.v === null || t.n !== 1 || t.x > 0) continue;
+  if (t.$ !== "Def" || t.v === null || t.n !== 1 || t.x > 0 || isOpen(k)) continue;
   const s0 = B.term_strip(t.T);
   if (s0.$ !== "All") continue;
   const r = attempt(20000, () => wnf(s0.B(B.Var("_", 0))));
@@ -1146,6 +1202,14 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
     if (!usable(g, i, g.qt)) continue;
     const a = ann(g, i)!;
     if (attempt(FUEL_CHECK, () => B.term_compare("LE", book, a.T, g.ty, g.d)) && tryText(g, g.names[i])) { tag("hyp"); return tm(g.names[i]); }
+  }
+  if (g.path === "" && g.d === job.def.n) {
+    for (const imp of autoImports) {
+      if (!imp.proofs.has(job.short)) continue;
+      if (isOpen(imp.ns + ":" + job.short + ".proof")) continue;
+      const call = imp.alias + "." + job.short + ".proof(" + g.names.join(", ") + ")";
+      if (tryText(g, call)) { tag("reuse"); return tm(call); }
+    }
   }
   // 2. intro
   if (w.$ === "All") {
@@ -1846,6 +1910,12 @@ const batch = () => {
     const lines = fileText(file).split("\n");
     edits.sort((a, b) => b[0].bodyLine - a[0].bodyLine);
     for (const [ds, b] of edits) lines.splice(ds.bodyLine, ds.body.split("\n").length, ...b.split("\n"));
+    if (file === entry) for (const imp of autoImports) {
+      if (!edits.some(([, body]) => body.includes(imp.alias + "."))) continue;
+      const relative = path.relative(TOP, imp.file);
+      const line = "import ./" + relative + " as " + imp.alias;
+      if (!lines.includes(line)) lines.splice(lines.findLastIndex((l) => l.startsWith("import ")) + 1, 0, line);
+    }
     const tmp = path.join(dir, "new-" + path.basename(file));
     fs.writeFileSync(tmp, lines.join("\n"));
     const rel = path.relative(root, file);
@@ -1888,7 +1958,11 @@ const runProve = () => {
       RAW[k] = { ...def, v: null };
       let o: Outcome;
       try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
-      if (o.ok) { console.log(o.text); console.error("[gen2] " + shortOf(k) + ": proven in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]"); }
+      if (o.ok) {
+        console.log(o.text);
+        for (const imp of autoImports) if (o.text?.includes(imp.alias + ".")) console.error("[gen2] add import ./" + path.relative(TOP, imp.file) + " as " + imp.alias);
+        console.error("[gen2] " + shortOf(k) + ": proven in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]");
+      }
       else {
         failed++;
         console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
@@ -1931,6 +2005,7 @@ const reloadEntry = (): string | null => {
   book.ctrs = nb.ctrs; book.order = nb.order; book.tmps = nb.tmps; book.hols = nb.hols;
   ORDER.clear(); book.order.forEach((k, i) => ORDER.set(k, i));
   sourceFiles.clear();
+  openBySource.clear();
   for (const k of book.order) {
     const t = RAW[k];
     if (t?.$ === "Def") {
@@ -1938,7 +2013,11 @@ const reloadEntry = (): string | null => {
       if (f) sourceFiles.set(k, f);
     }
   }
-  texts.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear();
+  for (const k of book.order.slice(N0)) {
+    const file = sourceFiles.get(k);
+    if (file) for (const imp of autoImports) file.al[imp.alias] = imp.ns;
+  }
+  texts.delete(entry); fileLines.delete(entry); defLines.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear();
   buildIndex();
   entryMtime = mt;
   return "[gen2] reloaded " + path.basename(entry) + " in " + Math.round(performance.now() - t0) + " ms";
