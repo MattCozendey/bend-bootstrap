@@ -321,7 +321,7 @@ const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
 const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return i >= 0 ? argv[i + 1] : d; };
 const flag = (k: string) => argv.includes("--" + k);
 let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0, ONLY_HOLE = 0;
-let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false, HELPERS = false, WRITE = false;
+let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false, HELPERS = false, WRITE = false, WP = false;
 const readOpts = () => {
   BUDGET = +opt("budget", MODE === "serve" ? "1000" : "4000");
   MAX_SPLIT = +opt("splits", "6");
@@ -332,7 +332,7 @@ const readOpts = () => {
   DECOMP = !flag("no-decomp");
   HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
   PARTIAL = flag("partial"); STREAM = flag("stream"); DEBUG = flag("debug");
-  WRITE = flag("write"); HELPERS = WRITE || flag("helpers"); ONLY_HOLE = +opt("hole", "0");
+  WRITE = flag("write"); HELPERS = WRITE || flag("helpers"); ONLY_HOLE = +opt("hole", "0"); WP = flag("wp");
 };
 readOpts();
 const FUEL_NF = 100000;
@@ -446,6 +446,7 @@ if (MODE === "ask") {
   process.exit(r.code);
 }
 const B = await import("../../../bend/bend2/bend.ts");
+const { wpProve } = await import("./gen2_wp.ts");
 
 // ---- load ----
 const entry = fs.realpathSync(path.resolve(FILE ?? ""));
@@ -1216,7 +1217,7 @@ const isPrem = (A: HTerm, d: number): boolean => {
 // a predicate type: a function (any arity) whose result is a kind (State -> Type)
 const isPredType = (A: HTerm, n = 0): boolean => {
   const w = wnf(A);
-  if (!w) return false;
+  if (!w) return null;
   if (w.$ === "Typ") return n > 0;
   return w.$ === "All" && n < 12 && isPredType(w.B(B.Var("_", 1e7 + n)), n + 1);
 };
@@ -2721,6 +2722,75 @@ const holeGoal = (k: string, err: any, path: string): Goal | null => {
     pend: 0, pnames: [], pmany: [], split: true, path, lvl: 0, hc: new Map(),
   };
 };
+// ---- --wp: the Cir stepper (gen2_wp.ts) on a Tot goal ----
+// The stepper's text is used only if bend2 checks it at the goal (its ?TODO leaves allowed); each leaf
+// is then tried by the leaf tactics (a small budget), and the ones left are reported with their goal
+// and the stepper's hint. Never throws.
+const wpCheck = (g: Goal, text: string): any => {
+  const old = fuel;
+  fuel = FUEL_FINAL;
+  try {
+    const c = B.term_check(book, g.lhs, parseFrag(text, g), g.qt, g.ty, g.ctx, g.d);
+    if (g.qt.$ !== "None") for (const [i, a] of B.pmap_to_array(g.ctx)) if (a.q.$ === "Lone" && B.pmap_get(c.us, i)?.$ === "Many") return "the hypothesis " + a.k + " is used more than once: the statement should mark it + (or erased)";
+    return null;
+  } catch (e) { return e; } finally { fuel = old; }
+};
+const wpGoal = (g: Goal, budget: number): { text: string; open: number; report: string } | null => {
+  if (!WP) return null;
+  try {
+    const t0 = performance.now();
+    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + budget / 2 }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names });
+    if ("why" in r) { if (r.why !== "not a Tot goal") console.error("[gen2] --wp: " + r.why); return null; }
+    const e0 = wpCheck(g, r.text);
+    if (e0) { console.error("[gen2] --wp: the stepped proof does not check, so it is not used: " + (typeof e0 === "string" ? e0 : errText(e0).split("\n").slice(0, 8).join(" | ")).slice(0, 700)); return null; }
+    // the leaves, in text order: close what the leaf tactics close
+    let text = r.text;
+    const report: string[] = [];
+    let open = 0;
+    for (let i = 0, pos = 0; i < r.leaves.length; i++) {
+      const at = text.indexOf("?TODO", pos);
+      if (at < 0) break;
+      const marked = text.slice(0, at) + "?gen2hole" + text.slice(at + 5);
+      const err = wpCheck(g, marked);
+      const lg = typeof err === "object" ? holeGoal(job.k, err, "leaf" + (i + 1)) : null;
+      let pf: Pf | null = null;
+      if (lg) {
+        deadline = Math.min(performance.now() + Math.max(100, budget / 8), t0 + budget);
+        try { for (let dd = 0; dd <= 2 && !pf; dd++) pf = leaf(lg, dd, dd === 0 ? 1 : MAX_RW, new Set()); } catch (x) { if (x !== TIMEOUT) throw x; }
+        deadline = Infinity;
+      }
+      const fill = pf ? attempt(FUEL_NF, () => inline(pf!)) : undefined;
+      if (fill !== undefined && wpCheck(g, text.slice(0, at) + "(" + fill + ")" + text.slice(at + 5)) === null) {
+        text = text.slice(0, at) + "(" + fill + ")" + text.slice(at + 5);
+        pos = at + fill.length + 2;
+        continue;
+      }
+      open++;
+      const goal = lg ? attempt(FUEL_NF, () => show(lower(lg.ty, lg.d), lg.names)) ?? "?" : "?";
+      report.push("# leaf " + open + " (the " + open + (open === 1 ? "st" : open === 2 ? "nd" : open === 3 ? "rd" : "th") + " ?TODO): " + r.leaves[i]!.hint + "\n#   goal: " + clipTo(goal, 400));
+      pos = at + 5;
+    }
+    const ms = Math.round(performance.now() - t0);
+    return { text, open, report: "# --wp: " + r.steps + " statements stepped, " + open + " leaf(s) open, " + ms + " ms" + (report.length ? "\n" + report.join("\n") : "") };
+  } catch (e: any) {
+    deadline = Infinity;
+    if (e === TIMEOUT) return null;
+    console.error("[gen2] --wp: internal: " + String(e?.message ?? e).slice(0, 200));
+    return null;
+  }
+};
+// a whole body (?TODO) whose goal is a Tot: the stepped proof, printed as the body
+const wpWhole = (k: string): number | null => {
+  job = newJob(k);
+  const g = introAll(rootGoal(k));
+  const w = g ? wpGoal(g, BUDGET) : null;
+  if (!w) return null;
+  console.log(w.text.split("\n").map((l) => "  " + l).join("\n"));
+  console.log(w.report);
+  console.error("[gen2] " + shortOf(k) + ": --wp " + (w.open ? "partial, " + w.open + " leaf(s) open" : "proven"));
+  return w.open;
+};
+
 // prove the ?TODO holes of k's body, one by one (leaf tactics)
 type HoleRes = { hole: number; ok: boolean; ms: number; text: string; partial?: string };
 const proveHoles = (k: string, budget: number, log = true): { body: string; n: number; done: number; res: HoleRes[]; helpers: string[] } => {
@@ -2746,6 +2816,19 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
       if (log) console.error("[gen2] hole " + (h + 1) + ": " + why);
       res.push({ hole: h + 1, ok: false, ms: 0, text: why });
       continue;
+    }
+    // --wp on a Tot hole alone on its line (its lets need a statement position)
+    const ln = body.slice(body.lastIndexOf("\n", idx) + 1, idx);
+    if (WP && /^\s*$/.test(ln) && /^[ \t]*(\n|$)/.test(body.slice(idx + 5))) {
+      const w = wpGoal(g, budget);
+      if (w) {
+        body = body.slice(0, idx) + w.text.split("\n").join("\n" + ln) + body.slice(idx + 5);
+        if (log) console.error("[gen2] hole " + (h + 1) + ": " + w.report);
+        res.push({ hole: h + 1, ok: w.open === 0, ms: 0, text: w.report });
+        gone += 1 - w.open;
+        if (w.open === 0) done++;
+        continue;
+      }
     }
     const t0 = performance.now();
     deadline = t0 + budget;
@@ -2814,7 +2897,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
 const isPropType = (h: HTerm, n = 0): boolean => {
   if (n > 6) return false;
   const w = wnf(h);
-  if (!w) return false;
+  if (!w) return null;
   switch (w.$) {
     case "Eql": return true;
     case "ADT": { const t = RAW[w.k]; return t?.$ === "ADT" && (t.c.length === 0 || (t.c.length === 1 && t.c[0].n === 0)); }
@@ -3143,7 +3226,7 @@ class Exit { constructor(readonly code: number) {} }
 const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
-  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write", "--check", "--lemmas", "--full-errors"].includes(xs[i - 1])));
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write", "--check", "--lemmas", "--full-errors", "--wp"].includes(xs[i - 1])));
   if (flag("check")) { runCheck(names); return; }
   if (argv.includes("--find")) {
     job = newJob(book.order.slice(N0).find((k) => RAW[k]?.$ === "Def" && sourceFiles.has(k)) ?? book.order[book.order.length - 1]!);
@@ -3202,6 +3285,7 @@ const runProve = () => {
 // proven body (no hole left), checked again before a cached answer is reused
 const answers = new Map<string, { lines: [boolean, string][]; failed: boolean; body?: string }>();
 const proveOne = (k: string, ds: Src): { failed: boolean; body?: string } => {
+  if (WP && ds.body.trim() === "?TODO") { const o = wpWhole(k); if (o !== null) return { failed: o > 0 }; }
   if (ds.body.trim() === "?TODO" || flag("whole")) {
     const def = RAW[k] as B.Def;
     RAW[k] = { ...def, v: null };
