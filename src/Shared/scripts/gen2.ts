@@ -110,6 +110,13 @@
 //   (bestStep: the most specific callee whose open premises are fewest and smallest, none restating
 //   the goal) and its premises recurse, at most 2 levels, all holes within 2 x --budget. If every
 //   hole closes, the proof is full (tag "decomp").
+// * Guided split (whole bodies; tag "guided"): when nothing closed, the best lemmas whose conclusion
+//   matches the goal are checked premise by premise (issuesOf); a premise that fits a hypothesis once
+//   one root parameter is a given constructor (a clash: al.fresh's D.HSK(.., Nil) against hs's
+//   D.HSK(.., ps)) gives `match ps:`, and that arm is decomposed on half the budget (the others: leaf).
+// * Premises: a callee's parameter that a hypothesis or a proof must give is a fact (isProp: also a
+//   one-constructor type of facts, D.P2(..)) or a type that still names other parameters (isPrem:
+//   D.HSK(?dk, ..), @st2 -> AlQ(..) -> Q(st2)). A parameter may be filled by a predicate (st2 => ..).
 //
 // TACTICS (in this order)
 // -----------------------
@@ -147,6 +154,10 @@
 //   subgoals) with ?TODO holes, then for each hole its case path, goal and context (raw and normal
 //   form). A hole inside an applied lemma has the path <case path>#<callee>.<parameter index>.
 // * streaming (--stream): each closed subgoal (its case path and first line) on stderr.
+// * on a miss (prove/ask/batch, not bench), for the first open goal: "# why": the lemmas whose
+//   conclusion matches it (at most 4) and what blocks each (a premise open, a premise that fits a
+//   hypothesis after a split, a parameter to give); "# similar proven defs": up to 3 proven defs of
+//   the entry file whose statements share the most names with it, with their first lines (templates).
 //
 // BENCHMARK
 // ---------
@@ -524,13 +535,17 @@ const hasMeta = (t: LTerm): boolean => {
     default: return false;
   }
 };
-const closedBelow = (t: LTerm, d: number): boolean => {
+// every variable of t is below d or bound inside t (a binder's own level i: a predicate st2 => ..
+// may fill a parameter Q)
+const closedBelow = (t: LTerm, d: number, bound: number[] = []): boolean => {
   switch (t.$) {
-    case "Var": return t.i < d;
-    case "App": return closedBelow(t.f, d) && closedBelow(t.x, d);
-    case "Ctr": case "ADT": return t.x.every((x) => closedBelow(x, d));
-    case "Eql": return closedBelow(t.a, d) && closedBelow(t.b, d) && closedBelow(t.T, d);
-    case "All": case "Lam": return false;
+    case "Var": return t.i < d || bound.includes(t.i);
+    case "App": return closedBelow(t.f, d, bound) && closedBelow(t.x, d, bound);
+    case "Ctr": case "ADT": return t.x.every((x) => closedBelow(x, d, bound));
+    case "Eql": return closedBelow(t.a, d, bound) && closedBelow(t.b, d, bound) && closedBelow(t.T, d, bound);
+    case "All": return closedBelow(t.A, d, bound) && closedBelow(t.B as LTerm, d, [...bound, t.i]);
+    case "Lam": return closedBelow(t.f as LTerm, d, [...bound, t.i]);
+    case "Let": case "Mat": case "Use": return false;
     default: return true;
   }
 };
@@ -555,7 +570,11 @@ const subterms = (t: LTerm, out: Map<string, LTerm>) => {
 const litStep = (t: LTerm): LTerm | null => (t.$ === "Lit" && (t.k === "Nat" || t.k === "U32") ? canonShallow(B.lit_step(t)) : null);
 const canonShallow = (t: LTerm): LTerm => t;
 
+// when set (diagnosis only), a constructor of the pattern against a context variable of the target is
+// recorded here instead of failing: the match holds once that variable is split to that constructor
+let clashes: [number, string][] | null = null;
 const match = (p: LTerm, t: LTerm, sol: (LTerm | null)[], d: number): boolean => {
+  if (clashes && p.$ === "Ctr" && t.$ === "Var" && t.i < META) { clashes.push([t.i, p.k]); return true; }
   if (p.$ === "Var" && p.i >= META) {
     const s = sol[p.i - META];
     if (s) return key(s) === key(t);
@@ -711,13 +730,33 @@ const isProp = (h: HTerm, n = 0): boolean => {
   if (!w) return true;
   switch (w.$) {
     case "Eql": return true;
-    case "ADT": { const t = RAW[w.k]; return t?.$ === "ADT" && (t.c.length === 0 || (t.c.length === 1 && t.c[0].n === 0)); }
+    case "ADT": {
+      const t = RAW[w.k];
+      if (t?.$ !== "ADT") return false;
+      if (t.c.length === 0 || (t.c.length === 1 && t.c[0].n === 0)) return true;
+      // a pair of facts (P2(A, B), D.HSK(..) = P2(RtsK(..), P2(..))) is a fact: one constructor whose
+      // type arguments are all facts
+      // (Sigma<&2, &2, A, _ => B>: quantities skipped, a lambda judged by its body)
+      return t.c.length === 1 && w.x.length > 0 && n < 20 && w.x.every((a: HTerm) => {
+        const wa = wnf(a);
+        if (!wa || wa.$ === "Qua" || wa.$ === "Qnt") return true;
+        return wa.$ === "Lam" ? isProp((wa.f as B.HBody)(B.Var("_", 1e7 + n)), n + 1) : isProp(wa, n + 1);
+      });
+    }
     case "Typ": case "Qnt": case "Qua": return false;
     case "All": return n < 20 ? isProp(w.B(B.Var("_", 1e7 + n)), n + 1) : true;
     case "Var": return false;
     case "Ref": return false;
     default: return true;
   }
+};
+// a parameter that a hypothesis or a proof must give: a fact, or a type that still names other
+// parameters of the callee (D.HSK(?dk, .., ?ps), @st2 -> AlQ(..) -> Q(st2)), not a type or a kind
+const isPrem = (A: HTerm, d: number): boolean => {
+  if (isProp(A)) return true;
+  if (attempt(FUEL_NF, () => hasMeta(lower(A, d))) !== true) return false;
+  const w = wnf(A);
+  return !!w && w.$ !== "Typ" && w.$ !== "Qnt" && w.$ !== "Qua";
 };
 const openMeta = (T: HTerm, n: number, sol: (HTerm | null)[] = []): { doms: { q: B.Quant; k: string; A: HTerm }[]; concl: HTerm } | null => {
   let t = T;
@@ -995,7 +1034,7 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
   let sol = s0.slice();
   let o2 = openMeta(c.T, c.n, toH(sol));
   if (!o2) return null;
-  const prem: boolean[] = o2.doms.map((dm, j) => !sol[j] && isProp(dm.A));
+  const prem: boolean[] = o2.doms.map((dm, j) => !sol[j] && isPrem(dm.A, g.d));
   const viaHyp: (string | null)[] = new Array(c.n).fill(null);
   // parameters not fixed by the conclusion: from premises that match hypotheses (raw, then normal forms)
   for (let iter = 0; iter < 3 && sol.some((s, j) => !s && !prem[j]); iter++) {
@@ -1672,6 +1711,173 @@ const fillHoles = (p: Pf, f: (g: Goal) => Res, acc: { holes: number; closed: num
   }
 };
 
+// ---- guidance for a miss: why, a split that a lemma asks for, templates ----
+// The lemmas whose conclusion matches a goal (most specific first), each with what blocks it: a premise
+// that no hypothesis gives (a clash: it would, once a variable is split to a constructor), or a
+// parameter that neither the goal nor a hypothesis fixes. A large goal that the search cannot close
+// often needs one such lemma, after one split (D.alloc.post: al.fresh, once ps is Nil{}).
+type Issue = { name: string; kind: "clash" | "open" | "unfixed"; text: string; clash?: [number, string][] };
+const toHs = (g: Goal, s: (LTerm | null)[]) => s.map((x) => (x ? B.term_higher(x, g.env) : null));
+const targetsOf = (g: Goal): LTerm[] => {
+  const raw = lower(g.ty, g.d);
+  const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
+  return n && key(n) !== key(raw) ? [raw, n] : [raw];
+};
+const rankedLemmas = (g: Goal, targets: LTerm[]): Callee[] =>
+  lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, 1, 0, new Set(), null, () => false, pr); return { c, spec: pr.spec! }; })
+    .filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c);
+const conclSols = (g: Goal, c: Callee, targets: LTerm[]): (LTerm | null)[][] => {
+  const o = openMeta(c.T, c.n);
+  const pc = o && attempt(FUEL_NF, () => lower(o.concl, g.d));
+  if (!o || !pc) return [];
+  const out: (LTerm | null)[][] = [];
+  const seen = new Set<string>();
+  const push = (p: LTerm, t: LTerm) => {
+    const s: (LTerm | null)[] = new Array(c.n).fill(null);
+    if (!match(p, t, s, g.d)) return;
+    const k = s.map((x) => (x ? key(x) : "_")).join(";");
+    if (!seen.has(k)) { seen.add(k); out.push(s); }
+  };
+  for (const t of targets) push(pc, t);
+  const pn = nfPattern(c, o.concl, g.d);
+  if (pn && key(pn) !== key(pc)) push(pn, targets[targets.length - 1]);
+  return out;
+};
+const issuesOf = (g: Goal, c: Callee, sol0: (LTerm | null)[]): Issue[] => {
+  const sol = sol0.slice();
+  const out: Issue[] = [];
+  const o = openMeta(c.T, c.n, toHs(g, sol));
+  if (!o) return out;
+  for (let j = 0; j < c.n; j++) {
+    const dm = o.doms[j];
+    if (sol[j] || !isPrem(dm.A, g.d)) continue;
+    const A = attempt(FUEL_NF, () => lower(dm.A, g.d));
+    if (!A) continue;
+    let ok = false, near: { cl: [number, string][]; h: string } | null = null;
+    for (let i = g.d - 1; i >= 0 && !ok; i--) {
+      if (!usable(g, i, B.quant_dem(dm.q, g.qt))) continue;
+      for (const t of hypTargets(g, i)) {
+        const s2 = sol.slice();
+        if (match(A, t, s2, g.d)) { for (let m = 0; m < sol.length; m++) sol[m] = s2[m]; ok = true; break; }
+        const cl: [number, string][] = [];
+        clashes = cl;
+        try { if (match(A, t, sol.slice(), g.d) && cl.length > 0 && (!near || cl.length < near.cl.length)) near = { cl, h: g.names[i] }; } finally { clashes = null; }
+      }
+    }
+    if (ok) continue;
+    if (near) out.push({ name: dm.k, kind: "clash", text: near.h, clash: near.cl });
+    else out.push({ name: dm.k, kind: "open", text: (attempt(FUEL_NF, () => show(A, g.names)) ?? "?").replace(/\?(\d+)\^\d+/g, (_, m) => "?" + (o.doms[+m]?.k ?? m)) });
+  }
+  const o2 = openMeta(c.T, c.n, toHs(g, sol));
+  for (let j = 0; o2 && j < c.n; j++) if (!sol[j] && !isPrem(o2.doms[j].A, g.d)) out.push({ name: o2.doms[j].k, kind: "unfixed", text: "" });
+  return out;
+};
+const clip = (s: string, n = 160) => (s.length > n ? s.slice(0, n) + " ..." : s);
+const issueText = (g: Goal, is: Issue): string =>
+  is.kind === "clash" ? "premise " + is.name + ": hypothesis " + is.text + " fits once " + is.clash!.map(([i, k]) => g.names[i] + " is " + B.name_show(job.file, k)).join(", ") + " (split)"
+  : is.kind === "open" ? "premise " + is.name + " open: " + clip(is.text)
+  : "parameter " + is.name + " fixed by neither the goal nor a hypothesis (give it)";
+const diagnose = (g: Goal, until: number): string => {
+  const lines: string[] = [];
+  const d0 = deadline;
+  deadline = until;
+  try {
+    const targets = targetsOf(g);
+    for (const c of [...hypCallees(g), ...rankedLemmas(g, targets)].slice(0, 16)) {
+      if (lines.length >= 4) break;
+      const sols = conclSols(g, c, targets);
+      if (sols.length === 0) continue;
+      const is = issuesOf(g, c, sols[0]);
+      lines.push("#   " + c.text + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed (more --budget may close it)" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")));
+    }
+  } catch (e) { if (e !== TIMEOUT) throw e; } finally { deadline = d0; }
+  return lines.length ? "# why: lemmas whose conclusion matches the goal, and what blocks each\n" + lines.join("\n") : "# why: no lemma's conclusion matches the goal (as stated or in normal form): it needs a new lemma or a split";
+};
+// whole-body mode: the first clash of the best lemmas names a root parameter and a constructor;
+// split there, and decompose the arm that the lemma wants with a full budget (the others: leaf only)
+const guidedSplit = (root: Goal, until: number, budget: number): Res | null => {
+  const lg = introAll(root);
+  if (!lg) return null;
+  let pick: [number, string] | null = null;
+  deadline = until;
+  try {
+    const targets = targetsOf(lg);
+    for (const c of rankedLemmas(lg, targets).slice(0, 12)) {
+      for (const s of conclSols(lg, c, targets)) {
+        for (const is of issuesOf(lg, c, s)) {
+          const cl = is.clash;
+          if (is.kind === "clash" && cl!.length === 1 && cl![0][0] < root.pend) { pick = cl![0]; break; }
+        }
+        if (pick) break;
+      }
+      if (pick) break;
+    }
+  } catch (e) { if (e !== TIMEOUT) throw e; }
+  if (!pick) return null;
+  const arms = split(root, pick[0]);
+  if (!arms) return null;
+  const want = root.path + "/" + shortOf(pick[1]);
+  const hb = HOLE_BUDGET;
+  const out: { pat: string; k: Pf }[] = [];
+  let holes = 0, closed = 0;
+  try {
+    for (const a of arms) {
+      const al = introAll(a.node);
+      let r: Res = { pf: { t: "hole", g: al ?? a.node }, holes: 1, closed: 0 };
+      if (al) {
+        HOLE_BUDGET = a.node.path === want ? Math.max(hb, budget / 2) : Math.min(hb, 300);
+        r = decompose(al, a.node.path === want ? 0 : MAX_DECOMP, until);
+      }
+      out.push({ pat: a.pat, k: r.pf });
+      holes += r.holes; closed += r.closed;
+    }
+  } finally { HOLE_BUDGET = hb; }
+  tag("guided");
+  return { pf: { t: "mt", x: root.pnames[pick[0]], arms: out }, holes, closed };
+};
+// proven defs of the entry file whose statements share the most names with the goal's (and its
+// conclusion's head): their bodies are templates (D.inc.post is one call to inc.top: D.alloc.post
+// likely wants an al.top built the same way)
+const tinfo = new Map<string, { refs: Set<string>; head: string } | null>();
+const typeInfo = (k: string) => {
+  if (!tinfo.has(k)) {
+    const t = RAW[k] as B.Def;
+    const refs = new Set<string>();
+    const o = attempt(FUEL_NF, () => openMeta(t.T, t.n));
+    const ok = attempt(FUEL_NF, () => { refsOf(lower(t.T, 0), refs); return true; });
+    tinfo.set(k, ok && o ? { refs, head: attempt(FUEL_NF, () => headKey(lower(o.concl, t.n))) ?? "*" } : null);
+  }
+  return tinfo.get(k)!;
+};
+const templates = (k: string, refs: Set<string>, head: string): string => {
+  const sc: [number, string][] = [];
+  for (const d of new Set(book.order.slice(N0))) {
+    const t = RAW[d];
+    if (d === k || d.includes("~") || t?.$ !== "Def" || t.v === null || isOpen(d) || !defSrc(d)) continue;
+    const ti = typeInfo(d);
+    if (!ti || ti.refs.size === 0) continue;
+    let inter = 0;
+    for (const r of ti.refs) if (refs.has(r)) inter++;
+    sc.push([inter / (refs.size + ti.refs.size - inter) + (ti.head === head && head !== "*" ? 0.3 : 0), d]);
+  }
+  sc.sort((a, b) => b[0] - a[0]);
+  const top = sc.filter(([s]) => s >= 0.25).slice(0, 3);
+  if (top.length === 0) return "";
+  return "# similar proven defs (templates):\n" + top.map(([, d]) => {
+    const body = defSrc(d)!.body.split("\n").filter((l) => l.trim() !== "");
+    return "#   " + B.name_show(job.file, d) + ":\n" + body.slice(0, 6).map((l) => "#   " + clip(l, 200)).join("\n") + (body.length > 6 ? "\n#     ... (" + body.length + " lines)" : "");
+  }).join("\n");
+};
+const hintsFor = (k: string, g: Goal, whole: boolean): string => {
+  const until = performance.now() + Math.max(300, BUDGET / 2);
+  const ti = whole ? typeInfo(k) : null;
+  const refs = ti?.refs ?? new Set<string>();
+  if (!ti) attempt(FUEL_NF, () => { refsOf(lower(g.ty, g.d), refs); return true; });
+  const head = ti?.head ?? attempt(FUEL_NF, () => headKey(lower(g.ty, g.d))) ?? "*";
+  const legend = /<>|\[\]/.test(showGoal(g)) ? "# (printing: [] is Nil{}, a <> b is Con{a, b})\n" : "";
+  return legend + diagnose(g, until) + "\n" + templates(k, refs, head);
+};
+
 // ---- jobs ----
 const rootGoal = (k: string): Goal => {
   const def = RAW[k] as B.Def;
@@ -1689,7 +1895,7 @@ const newJob = (k: string): Job => {
   return { k, def, order: ORDER.get(k) ?? book.order.length, file: sourceFiles.get(k)!, short: shortOf(k), tags: new Map(), memo: new Map(), smemo: new Map(), gi: new Map(), closed: 0, ih: true };
 };
 
-type Outcome = { ok: boolean; text: string | null; partial: string | null; partialBody?: string; holes: number; closed: number; ms: number; tags: string[]; why?: string };
+type Outcome = { ok: boolean; text: string | null; partial: string | null; partialBody?: string; hints?: string; holes: number; closed: number; ms: number; tags: string[]; why?: string };
 
 const showGoal = (g: Goal): string => {
   const clip = (s: string) => s.length > 2000 ? s.slice(0, 2000) + " ... [truncated]" : s;
@@ -1735,6 +1941,12 @@ const proveDef = (k: string, budget: number): Outcome => {
       best = { pf, holes: acc.holes, closed: acc.closed };
       if (acc.holes === 0) { full = pf; tag("decomp"); }
     }
+    // nothing closed: a split that the best lemmas ask for (their premise fits a hypothesis once a
+    // parameter is a given constructor), with that arm decomposed on a full budget
+    if (!full && DECOMP && (!best || best.closed === 0)) {
+      const gs = guidedSplit(root, performance.now() + budget, budget);
+      if (gs && gs.closed > 0) { best = gs; if (gs.holes === 0) full = gs.pf; }
+    }
   }
   deadline = Infinity;
   const ms = performance.now() - t0;
@@ -1759,7 +1971,10 @@ const proveDef = (k: string, budget: number): Outcome => {
     const hs = holesOf(best.pf);
     partial = out.join("\n") + "\n" + hs.map((g, i) => "# hole " + (i + 1) + " at " + (g.path || "/") + "\n" + showGoal(g)).join("\n");
   }
-  return { ok: false, text: null, partial, partialBody, holes: best?.holes ?? 1, closed: best?.closed ?? 0, ms, tags, why };
+  // for the agent: why the first open goal stays open, and proven defs to copy the shape of
+  const g0 = (best && holesOf(best.pf)[0]) || introAll(root);
+  const hints = MODE !== "bench" && g0 ? hintsFor(k, g0, true) : undefined;
+  return { ok: false, text: null, partial, partialBody, hints, holes: best?.holes ?? 1, closed: best?.closed ?? 0, ms, tags, why };
 };
 
 // prove the ?TODO holes of k's body, one by one (leaf tactics)
@@ -1820,7 +2035,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
           partial = "# PARTIAL (" + r.holes + " holes, " + r.closed + " subgoals closed): not a finished proof\n" + out.join("\n") + "\n" + holesOf(r.pf).map((hg, i) => "# subgoal " + (i + 1) + " at " + hg.path + "\n" + showGoal(hg)).join("\n");
         }
       }
-      const text = "not found (" + ms + " ms)\n" + showGoal(g);
+      const text = "not found (" + ms + " ms)\n" + showGoal(g) + "\n" + hintsFor(k, g, false);
       if (log) console.error("[gen2] hole " + (h + 1) + ": " + text + (partial ? "\n" + partial : ""));
       res.push({ hole: h + 1, ok: false, ms: +ms, text, partial: partial || undefined });
       continue;
@@ -2070,6 +2285,7 @@ const proveOne = (k: string, ds: Src): { failed: boolean; body?: string } => {
     }
     console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
     console.log(o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "# NO PROOF");
+    if (o.hints) console.log(o.hints);
     return { failed: true };
   }
   const r = proveHoles(k, BUDGET);
@@ -2121,7 +2337,7 @@ const reloadEntry = (): string | null => {
     const file = sourceFiles.get(k);
     if (file) for (const imp of autoImports) file.al[imp.alias] = imp.ns;
   }
-  texts.delete(entry); fileLines.delete(entry); defLines.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear();
+  texts.delete(entry); fileLines.delete(entry); defLines.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear(); tinfo.clear();
   buildIndex();
   entryMtime = mt;
   return "[gen2] reloaded " + path.basename(entry) + " in " + Math.round(performance.now() - t0) + " ms";
