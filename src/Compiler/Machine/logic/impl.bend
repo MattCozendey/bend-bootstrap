@@ -309,6 +309,16 @@ def Lg.reg.set(st, r, v, q, hr):
     case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
       K.list.get_set(U32, regs, r, v, q, hr)
 
+def Lg.reg.some(st, q, hq):
+  match st:
+    case Cr.Cir.State{+regs, cells, next, first, image, pages, limit, input, out, outn}:
+      K.list.get_lt(U32, regs, q, 0, hq)
+
+def Lg.reg.lt(st, q, c, hq):
+  match st:
+    case Cr.Cir.State{+regs, cells, next, first, image, pages, limit, input, out, outn}:
+      K.list.lt_get(U32, regs, q, c, hq)
+
 def Lg.reg.store(st, k, c, v, q):
   match st:
     case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:

@@ -39,6 +39,10 @@ import ../../Cir/impl.bend as Cr
 def Reg(st: Cr.Cir.State, +r: Nat) -> Maybe<&2, U32>:
   Cr.Cir.eval.get(r, st)
 
+# the value of register r; 0 when there is no register r
+def St.reg(st: Cr.Cir.State, +r: Nat) -> U32:
+  Maybe.default(&2, U32, Reg(st, r), 0)
+
 def St.regs(st: Cr.Cir.State) -> List<&2, U32>:
   match st:
     case Cr.Cir.State{regs, _, _, _, _, _, _, _, _, _}:
@@ -558,6 +562,21 @@ law reg.set:
   for +q: Nat
   for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   {Reg(St.set(st, r, v), q) == Bool.pick(Maybe<&2, U32>, Nat.is_eq(r, q), Some{v}, Reg(st, q)) : Maybe<&2, U32>}
+
+# LAW: a register below the count has a value: St.reg
+law reg.some:
+  for +st: Cr.Cir.State
+  for +q: Nat
+  for +hq: {Nat.is_lt(q, St.nregs(st)) == True{} : Bool}
+  {Reg(st, q) == Some{St.reg(st, q)} : Maybe<&2, U32>}
+
+# LAW: a register with a value is below the count
+law reg.lt:
+  for +st: Cr.Cir.State
+  for +q: Nat
+  for +c: U32
+  for +hq: {Reg(st, q) == Some{c} : Maybe<&2, U32>}
+  {Nat.is_lt(q, St.nregs(st)) == True{} : Bool}
 
 # LAW: a register after a store, an alloc (its register gets the old next) and
 # an emit
