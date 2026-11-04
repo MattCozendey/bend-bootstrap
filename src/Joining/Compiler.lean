@@ -12,8 +12,10 @@ import Joining.NeedRun
 -- (Book.check B = .ok ()) and that holds main.bend's defs (Trusted B):
 -- the Bend version of WASM, run on w on any engine (Wasm.Engine), gives only
 -- what bk gives (no wrong result), and when bk gives something, it gives it
--- or runs out of memory (no other failure), and with the memory of 3.9.1.4,
--- on an engine that grants each grow, it gives it (enough memory).
+-- or runs out of memory, in one fuel for all of the engine's answers (no
+-- other failure), and with the memory of 3.9.1.4, on an engine that grants
+-- each grow, it gives it (enough memory); and w is never outside the subset
+-- (in subset).
 
 open Quan Term
 
@@ -125,13 +127,23 @@ theorem Trusted.wasm_steps (hB : Trusted B) (rc : Runs B c (bytes w))
   exact Runs.of_steps (s.app_x vf rfl).app_f.app_f hr
 
 -- no other failure: when the book gives a result, the Bend version of WASM, run
--- on the module that our compiler writes, gives it, or runs out of memory
+-- on the module that our compiler writes on an engine of m pages, gives it, or
+-- runs out of memory, in one fuel f for all of the engine's answers gs
 theorem no_other_failure (hc : Book.check B = .ok ()) (hB : Trusted B)
     (hw : interp B fuel (write bk) = some (w, k)) (hg : Gives bk i o n) :
-    ∃ f, Runs B (wasmRun f w i m gs) (resultOf o) ∨ Runs B (wasmRun f w i m gs) outOfMemory := by
-  obtain ⟨f, r | r⟩ := law_no_other_failure (m := m) (gs := gs) hc hB (hB.gives.2 hg)
-  · exact ⟨f, .inl (hB.wasm_steps (hB.compiles hw) r)⟩
-  · exact ⟨f, .inr (hB.wasm_steps (hB.compiles hw) r)⟩
+    ∃ f, ∀ gs, Runs B (wasmRun f w i m gs) (resultOf o) ∨ Runs B (wasmRun f w i m gs) outOfMemory := by
+  obtain ⟨f, h⟩ := law_no_other_failure (m := m) hc hB (hB.gives.2 hg)
+  refine ⟨f, fun gs => ?_⟩
+  rcases h gs with r | r
+  · exact .inl (hB.wasm_steps (hB.compiles hw) r)
+  · exact .inr (hB.wasm_steps (hB.compiles hw) r)
+
+-- in subset: the Bend version of WASM, run on the module that our compiler
+-- writes, is never unsupported
+theorem in_subset (hc : Book.check B = .ok ()) (hB : Trusted B)
+    (hw : interp B fuel (write bk) = some (w, k)) :
+    ¬ Runs B (wasmRun f w i m gs) unsupported :=
+  fun hr => law_in_subset hc hB (hB.wasm (hB.compiles hw) hr)
 
 -- in main.bend's book, renamed back to our code's names (Impl.lean), the versions that
 -- Program.need and Program.memory need hold
