@@ -2232,21 +2232,42 @@ const issueText = (g: Goal, is: Issue): string =>
   : is.kind === "part" ? "premise " + is.name + ": a part of a hypothesis fits (x below): " + is.text
   : is.kind === "open" ? "premise " + is.name + " open: " + clip(is.text)
   : "parameter " + is.name + " fixed by neither the goal nor a hypothesis (give it)";
+// the candidates whose conclusion matches the goal, each with what blocks it (at most max)
+const matchLines = (g: Goal, targets: LTerm[], cands: Callee[], max: number): string[] => {
+  const out: string[] = [];
+  for (const c of cands) {
+    if (out.length >= max) break;
+    const sols = conclSols(g, c, targets);
+    if (sols.length === 0) continue;
+    const is = issuesOf(g, c, sols[0]);
+    out.push(c.text + (c.kind === "hyp" ? " (hypothesis)" : "") + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed (more --budget may close it)" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")));
+  }
+  return out;
+};
+// usable lemmas indexed under the goal's head that do not match it (a different argument shape), with
+// their conclusions (at most max; names in skip are left out)
+const nearMisses = (g: Goal, targets: LTerm[], skip: Set<string>, max: number): string[] => {
+  const out: string[] = [];
+  for (const t of targets) {
+    for (const L of applyIndex.get(headKey(t)) ?? []) {
+      const nm = B.name_show(job.file, L.k);
+      if (out.length >= max || skip.has(nm) || L.order >= job.order || L.k === job.k) continue;
+      skip.add(nm);
+      out.push(nm + " : " + conclOf(L.k));
+    }
+  }
+  return out;
+};
 const diagnose = (g: Goal, until: number): string => {
-  const lines: string[] = [];
+  const lines: string[] = [], near: string[] = [];
   const d0 = deadline;
   deadline = until;
   try {
     const targets = targetsOf(g);
-    for (const c of [...hypCallees(g), ...rankedLemmas(g, targets)].slice(0, 16)) {
-      if (lines.length >= 4) break;
-      const sols = conclSols(g, c, targets);
-      if (sols.length === 0) continue;
-      const is = issuesOf(g, c, sols[0]);
-      lines.push("#   " + c.text + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed (more --budget may close it)" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")));
-    }
+    lines.push(...matchLines(g, targets, [...hypCallees(g), ...rankedLemmas(g, targets)].slice(0, 16), 4).map((l) => "#   " + l));
+    if (lines.length === 0) near.push(...nearMisses(g, targets, new Set(), 3).map((l) => "#   " + l));
   } catch (e) { if (e !== TIMEOUT) throw e; } finally { deadline = d0; }
-  return lines.length ? "# why: lemmas whose conclusion matches the goal, and what blocks each\n" + lines.join("\n") : "# why: no lemma's conclusion matches the goal (as stated or in normal form): it needs a new lemma or a split";
+  return lines.length ? "# why: lemmas whose conclusion matches the goal, and what blocks each\n" + lines.join("\n") : "# why: no lemma's conclusion matches the goal (as stated or in normal form): it needs a new lemma or a split" + (near.length ? "; lemmas with its head that do not match (compare the arguments):\n" + near.join("\n") : "");
 };
 // whole-body mode: the first clash of the best lemmas names a root parameter and a constructor;
 // split there, and decompose the arm that the lemma wants with a full budget (the others: leaf only)
@@ -2966,24 +2987,8 @@ const runLemmas = (k: string) => {
       const near: string[] = [];
       try {
         const targets = targetsOf(g);
-        const cands = [...hypCallees(g), ...rankedLemmas(g, targets)];
-        for (const c of cands) {
-          if (lines.length >= 12) break;
-          const sols = conclSols(g, c, targets);
-          if (sols.length === 0) continue;
-          const is = issuesOf(g, c, sols[0]);
-          lines.push("  " + c.text + (c.kind === "hyp" ? " (hypothesis)" : "") + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")));
-        }
-        // the lemmas with the goal's head that do not match it: a different argument shape
-        const shown = new Set(lines.map((l) => l.trim().split(/[ :]/)[0]));
-        for (const t of targets) {
-          for (const L of applyIndex.get(headKey(t)) ?? []) {
-            const nm = B.name_show(job.file, L.k);
-            if (near.length >= 8 || shown.has(nm) || L.order >= job.order || L.k === job.k) continue;
-            shown.add(nm);
-            near.push("  " + nm + " : " + conclOf(L.k));
-          }
-        }
+        lines.push(...matchLines(g, targets, [...hypCallees(g), ...rankedLemmas(g, targets)], 12).map((l) => "  " + l));
+        near.push(...nearMisses(g, targets, new Set(lines.map((l) => l.trim().split(/[ :]/)[0]!)), 8).map((l) => "  " + l));
       } catch (e) { if (e !== TIMEOUT) throw e; } finally { deadline = d0; }
       // equations that rewrite a call that the goal (as stated, or its normal form) contains
       const rws: string[] = [];
