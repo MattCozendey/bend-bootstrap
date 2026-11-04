@@ -264,9 +264,9 @@ In order. Each step says what to write and what to prove.
 - **3.8.6** The joining theorem (3.6.6).
 - **3.8.7** Self-hosting: the interpreter runs the compiler on the compiler's own pruned Book, and
   the binary that it writes becomes our compiler. One run reads the `.bendtt` text of `bend -o`
-  once, and checks, prunes, writes and interprets that same Book. By 3.6.6, the laws and 3.6.8, that binary gives
-  what our compiler's Book gives by `Eval`. From then on, it compiles any program, itself
-  included, without the interpreter(we keep the interpreter tho for posterity).
+  once, and checks, prunes, writes and interprets that same Book. By 3.6.6, the laws and 3.6.8,
+  that binary gives what our compiler's Book gives by `Eval`. From then on, it compiles any
+  program, itself included, without the interpreter(we keep the interpreter tho for posterity).
 - **3.8.8** For each target, the extra steps that its entry lists.
 
 ### 3.9 Targets
@@ -291,9 +291,8 @@ The entries:
     3.0 reads 64 bits. A function may have any number of i32 results. Where the spec lets the
     engine choose (the most memory that it gives, and which memory grows it refuses), the engine's
     choices are an input of our version, and the laws hold for every choice, also for answers to
-    grows that never end. The version is WASM
-    3.0, at the commit `6057acdb` of the official spec (github.com/WebAssembly/spec), which the
-    tests pin.
+    grows that never end. The version is WASM 3.0, at the commit `6057acdb` of the official spec
+    (github.com/WebAssembly/spec), which the tests pin.
   - **3.9.1.3** Trusted, and not proven, on the modules of the subset (3.9.1.2):
     - **3.9.1.3.1** A WASM engine follows the WASM spec.
     - **3.9.1.3.2** Our Bend version gives what the spec gives, for each engine choice (3.9.1.2).
