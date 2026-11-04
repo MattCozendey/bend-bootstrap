@@ -337,9 +337,10 @@ The entries:
   only: it is a file that anyone can change, so it is not trusted (3.7). The run of 3.8.7 must run
   fresh (`FRESH=1`), and so must any run whose answer we use as proof.
 - **3.10.3** TODO, after the bootstrap: word cells. A word cell holds a whole word of at most 32
-  bits, where the compiled code now uses 3 cells for each bit. With them, the compiled compiler
-  compiling itself needs about 0.7 GB, where it now needs about 4.6 GB, so 3.4.1.4 can hold on WASM.
-  The proofs of the machine must then cover word cells.
+  bits, where the compiled code now uses 3 cells for each bit. Words are about 90% of the live
+  cells of the self-compile, which now needs about 0.7 GiB (measured, `census.ts`), so 3.4.1.4
+  already holds on WASM; word cells only make it smaller and faster. The proofs of the machine
+  must then cover word cells.
 - **3.10.4** TODO, after the bootstrap: native U32 operations in the compiled code. A call of a Base
   U32 operation, in a book that holds it exactly as Base writes it, runs as WASM instructions, not
   bit by bit. It only makes the compiled code faster.
