@@ -40,8 +40,11 @@ export type WpApi = {
   deadline: number;
   // a routine law instantiated at a call (gen2's openMeta and match): its parameters fixed by the call's
   // code and state, the types of the others, and the law's b, Q, H
-  inst?: (law: string, code: LTerm, st: LTerm, b: LTerm, facts: { T: LTerm; pf: string }[], d: number) => { sol: (LTerm | null)[]; pfs: (string | null)[]; doms: { k: string; A: LTerm | null; fact: boolean }[]; concl: LTerm[] } | null;
+  inst?: (law: string, code: LTerm, st: LTerm, b: LTerm, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
+  // an equation law instantiated at the term its left side matches
+  instEq?: (law: string, lhs: LTerm, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
 };
+export type WpInst = { sol: (LTerm | null)[]; pfs: (string | null)[]; doms: { k: string; A: LTerm | null; fact: boolean }[]; concl: LTerm[]; T: LTerm };
 export type WpLeaf = { hole: number; hint: string };
 export type WpOut = { text: string; leaves: WpLeaf[]; steps: number } | { why: string };
 
@@ -235,6 +238,48 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     if (isBool(T.b)) harvest(T.a, T.b.k === "True", names[i]!, 0);
   }
 
+  // the facts a law's premise may take: the context's, and the Bool facts (with their conjuncts)
+  const lawFacts = (): { T: LTerm; pf: string }[] => [...ctxFactT, ...boolHyp.map((h) => ({ T: B.Eql(h.lhs, B.Ctr<[LTerm]>(h.val ? "True" : "False", []), B.Ref(byShort.get("Bool") ?? "Bool") as LTerm), pf: h.name }))];
+  // a premise's proof: a fact of the context, a Bool fact, or {==} when it computes
+  const premPf = (A: LTerm): string | undefined => {
+    const pf = ctxFact.get(api.key(A));
+    if (pf || A.$ !== "Eql") return pf;
+    const n = nfL(A.a);
+    if (isBool(A.b) && n) { const want = A.b.k === "True"; const h = boolHyp.find((x) => x.nk === api.key(n) && x.val === want); if (h) return h.name; }
+    const nb = nfL(A.b);
+    return n && nb && api.key(n) === api.key(nb) ? "{==}" : undefined;
+  };
+  // an equation law about a state that a function F builds (the start I.St0(..), or Alloc.st(..)): <f>.<what>,
+  // f F's name in lower case (St0: st0.nregs; Alloc.st: alloc.reg); its premises from the facts or computed
+  const eqLaws = new Map<string, string[]>();
+  const eqLaw = (stt: LTerm, what: string, lhs: LTerm): { rhs: LTerm; pf: string } | null => {
+    const [h] = unapply(stt);
+    if (!api.instEq || h.$ !== "Ref") return null;
+    const segs = shortOf(h.k).split(".");
+    const base = (segs.length > 1 && segs[segs.length - 1] === "st" ? segs[segs.length - 2]! : segs[segs.length - 1]!).toLowerCase() + "." + what;
+    let laws = eqLaws.get(base);
+    if (!laws) {
+      laws = [...byShort].filter(([s2, k]) => (s2 === base || s2.endsWith("." + base)) && !(g.self && (k === g.self || shortOf(k) === shortOf(g.self)))).map(([, k]) => k);
+      eqLaws.set(base, laws);
+    }
+    for (const k of laws) {
+      const ins = api.instEq(k, lhs, lawFacts(), D);
+      if (!ins || ins.T.$ !== "Eql") continue;
+      const args: string[] = [];
+      for (let i = 0; i < ins.sol.length && args.length === i; i++) {
+        const v = ins.sol[i], dm = ins.doms[i]!;
+        const a = v ? sh(v) : ins.pfs[i] ?? (dm.fact && dm.A ? premPf(dm.A) : undefined);
+        if (a !== undefined) args.push(a);
+      }
+      if (args.length === ins.sol.length) return { rhs: ins.T.b, pf: sh(B.Ref(k) as LTerm) + "(" + args.join(", ") + ")" };
+    }
+    return null;
+  };
+  if (!nregHyp.has(api.key(st0)) && K.nregs) {
+    const f = eqLaw(st0, "nregs", B.App(ref("nregs"), st0));
+    if (f) nregHyp.set(api.key(st0), { n: f.rhs, pf: f.pf });
+  }
+
   // the states: 0 is the goal's; k is the state k-1 after a set (r, v) or a store (kf, c, v)
   type Op = "set" | "store" | "alloc" | "emit";
   type St = { text: string; key: string; lt: LTerm; prev: number; op: Op | null; r: Rg | null; c: LTerm | null; v: LTerm | null; p: string; scope: number };
@@ -297,13 +342,22 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   // fact on the start (r < count, or r has a value: reg.lt) carried by the counts' relation
   const ltOf = (j: number, r: Rg): string => {
     const f = nregOf(j);
+    const via = (h: string) => "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + f.n + ", " + f.pf + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; " + h + ")";
+    // a symbolic r, a known count N: a Bool fact r < N
+    const n0 = nregHyp.get(sts[0]!.key);
+    if (n0 && r.lit === null) {
+      const z = nfL(B.App(B.App(B.Ref(byShort.get("Nat.is_lt") ?? "Nat.is_lt") as LTerm, r.term), n0.n));
+      const h = z && boolHyp.find((x) => x.val && x.nk === api.key(z));
+      if (h) return via(h.name);
+    }
     if (!nregHyp.has(sts[0]!.key) || r.lit === null) {
       const h0 = regHyp.get(sts[0]!.key + "|" + r.key);
       const base = ltFact.get(r.key) ?? (h0 && K.regLt ? nm("regLt") + "(" + sts[0]!.text + ", " + r.text + ", " + sh(h0.c) + ", " + h0.pf + ")" : undefined)
-        ?? fail("no fact {" + nm("nregs") + "(" + sts[0]!.text + ") == ..} nor {Nat.is_lt(" + r.text + ", " + nm("nregs") + "(" + sts[0]!.text + ")) == True{}} in the context");
+        ?? fail(n0 ? "no fact {Nat.is_lt(" + r.text + ", " + sh(n0.n) + ") == True{}} in the context (the register " + r.text + " is written)"
+          : "no fact {" + nm("nregs") + "(" + sts[0]!.text + ") == ..} nor {Nat.is_lt(" + r.text + ", " + nm("nregs") + "(" + sts[0]!.text + ")) == True{}} in the context");
       return j === 0 ? base : "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + nm("nregs") + "(" + sts[0]!.text + "), " + relOf(j) + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; " + base + ")";
     }
-    return "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + f.n + ", " + f.pf + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; {==})";
+    return via("{==}");
   };
   const sameReg = (r: Rg, q: Rg): boolean | string | null => {
     if (r.lit !== null && q.lit !== null) return r.lit === q.lit;
@@ -328,7 +382,9 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     let out: { c: LTerm; pf: string };
     if (s.prev < 0) {
       const h = regHyp.get(s.key + "|" + q.key);
+      const e = h ? null : eqLaw(s.lt, "reg", B.App(B.App(ref("reg"), s.lt), q.term));
       if (h) out = h;
+      else if (e && e.rhs.$ === "Ctr" && e.rhs.k === "Some" && e.rhs.x.length === 1) out = { c: e.rhs.x[0]!, pf: e.pf };
       else if (K.regSome && K.stReg) out = { c: B.App(B.App(ref("stReg"), s.lt), q.term), pf: nm("regSome") + "(" + s.text + ", " + q.text + ", " + ltOf(0, q) + ")" };
       else out = fail("no fact {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Some{..}} in the context (register " + q.text + " is read)");
     }
@@ -344,6 +400,11 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
       // the register an alloc writes gets the old next
       const written = s.op === "alloc" ? B.App(ref("stNext"), p.lt) : s.v!;
       // told apart by a fact: the pick's condition rewritten to False
+      // the same register, symbolic: the pick's condition Nat.is_eq(r, r) rewritten to True (nat.is_eq_refl)
+      if ((s.op === "set" || s.op === "alloc") && here && q.lit === null && !isBool(nfL(B.App(B.App(B.Ref(byShort.get("Nat.is_eq") ?? "Nat.is_eq") as LTerm, s.r!.term), q.term)))) {
+        const rf = byShort.get("nat.is_eq_refl") ?? fail("the register " + q.text + " is written, then read: no law nat.is_eq_refl in the book");
+        law = "(%" + sh(B.Ref(rf) as LTerm) + "(" + q.text + ") : {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Bool.pick(" + MB + ", _, Some{" + sh(written) + "}, " + nm("reg") + "(" + p.text + ", " + q.text + ")) : " + MB + "}; " + law + ")";
+      }
       if ((s.op === "set" || s.op === "alloc") && !here && typeof same === "string") law = "(%" + same + " : {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Bool.pick(" + MB + ", _, Some{" + sh(written) + "}, " + nm("reg") + "(" + p.text + ", " + q.text + ")) : " + MB + "}; " + law + ")";
       const c = here ? written : regOf(s.prev, q).c;
       const pf = here ? law : nm("equalTrans") + "(" + MB + ", " + nm("reg") + "(" + s.text + ", " + q.text + "), " + nm("reg") + "(" + p.text + ", " + q.text + "), Some{" + sh(c) + "}, " + law + ", " + regOf(s.prev, q).pf + ")";
@@ -416,7 +477,19 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
             last: ci,
           };
         }
-        default: return fail("a " + shortOf(c.k).replace(/^Cir\.Expr\./, "") + " read (byte or size): not stepped by --wp");
+        case "Cir.Expr.size": case "Cir.Expr.byte": {
+          // the input's size, or its byte i: computed from the state's input (a constructor form: the start
+          // is one, or the proof matches it)
+          const kind = shortOf(c.k).replace(/^Cir\.Expr\./, "");
+          const rf = (n: string): LTerm => B.Ref(byShort.get(n) ?? fail("no " + n + " in the book")) as LTerm;
+          const a = kind === "byte" ? go(c.x[0]!) : null;
+          const lt = sts[j]!.lt;
+          const v = nfL(a ? B.App(B.App(rf("Cir.eval.byte"), a.val), B.App(rf("Cir.eval.input"), lt)) : B.App(rf("Cir.eval.size"), lt));
+          if (!v || v.$ !== "Ctr" || v.k !== "Some" || v.x.length !== 1) return fail("a " + kind + " read at " + S + ": the state's input has no constructor form (a whole body whose state is a parameter matches it)");
+          const t = "Some{" + sh(v.x[0]!) + "}";
+          return { tmpl: a ? (cur) => sh(rf("Cir.eval.byte")) + "(" + a.tmpl(cur) + ", " + sh(rf("Cir.eval.input")) + "(" + S + "))" : () => t, val: v, last: rws.length - 1 };
+        }
+        default: return fail("a " + shortOf(c.k).replace(/^Cir\.Expr\./, "") + " read: not stepped by --wp");
       }
     };
     const t = go(e);
@@ -553,9 +626,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   // H_L implies H (identity, or Empty for Lg.No); its budget b_L <= b by computation (or a leaf)
   const callLaw = (law: string, sText: string, term: LTerm, j: number, k: Cont): string | null => {
     const S = sts[j]!.text;
-    // the facts a premise may take: the context's, and the Bool facts (with their conjuncts)
-    const facts: { T: LTerm; pf: string }[] = [...ctxFactT, ...boolHyp.map((h) => ({ T: B.Eql(h.lhs, B.Ctr<[LTerm]>(h.val ? "True" : "False", []), B.Ref(byShort.get("Bool") ?? "Bool") as LTerm), pf: h.name }))];
-    const ins = api.inst?.(law, term, sts[j]!.lt, gargsB, facts, D);
+    const ins = api.inst?.(law, term, sts[j]!.lt, gargsB, lawFacts(), D);
     if (!ins || ins.concl.length !== 5) return null;
     const [bL, QL, HL] = [ins.concl[2]!, ins.concl[3]!, ins.concl[4]!];
     const lawName = sh(B.Ref(law) as LTerm);
@@ -566,15 +637,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
       if (ins.pfs[i]) { args.push(ins.pfs[i]!); continue; }
       const dm = ins.doms[i]!;
       if (!dm.fact || !dm.A) return null;
-      let pf = ctxFact.get(api.key(dm.A));
-      if (!pf && dm.A.$ === "Eql" && isBool(dm.A.b)) {
-        const n = nfL(dm.A.a);
-        const want = (dm.A.b as any).k === "True";
-        if (n) pf = boolHyp.find((h) => h.nk === api.key(n) && h.val === want)?.name;
-      }
-      // a premise that computes (a closed Bool): {==}
-      if (!pf && dm.A.$ === "Eql") { const na = nfL(dm.A.a), nb = nfL(dm.A.b); if (na && nb && api.key(na) === api.key(nb)) pf = "{==}"; }
-      args.push(pf ?? leaf("the premise " + dm.k + " of " + lawName + " at " + S + ": " + sh(dm.A).slice(0, 300)));
+      args.push(premPf(dm.A) ?? leaf("the premise " + dm.k + " of " + lawName + " at " + S + ": " + sh(dm.A).slice(0, 300)));
     }
     const lawApp = lawName + "(" + args.join(", ") + ")";
     const bLS = sh(bL);
