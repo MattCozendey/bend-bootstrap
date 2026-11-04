@@ -126,6 +126,14 @@ def bool.not_f(a: Bool, +h: {a == False{} : Bool}) -> {Bool.not(a) == True{} : B
     case False{}:
       {==}
 
+# a split on a Bool b: G from each of b == True and b == False
+def bool.case(+b: Bool, -G: Type, t: @+h: {b == True{} : Bool} -> G, f: @+h: {b == False{} : Bool} -> G) -> G:
+  match b:
+    case True{}:
+      t({==})
+    case False{}:
+      f({==})
+
 # Nat
 # ---
 
@@ -241,3 +249,34 @@ def list.get_set(-A: Data, +xs: List<&2, A>, +n: Nat, +x: A, +j: Nat,
           {==}
         case 1n+p:
           list.get_set(A, t, m, x, p, h)
+
+def maybe.T(-A: Data, m: Maybe<&2, A>) -> Type:
+  match m:
+    case None{}:
+      Unit
+    case Some{_}:
+      Empty
+
+# an index below the length finds an item: Some of it (d: what Maybe.default gives for none)
+def list.get_lt(-A: Data, +xs: List<&2, A>, +n: Nat, +d: A, +h: {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}) ->
+  {List.get(&2, A, xs, n) == Some{Maybe.default(&2, A, List.get(&2, A, xs, n), d)} : Maybe<&2, A>}:
+  match xs n:
+    case Nil{} 0n:
+      bool.ff({List.get(&2, A, Nil{}, 0n) == Some{Maybe.default(&2, A, List.get(&2, A, Nil{}, 0n), d)} : Maybe<&2, A>}, h)
+    case Nil{} 1n+m:
+      bool.ff({List.get(&2, A, Nil{}, 1n+m) == Some{Maybe.default(&2, A, List.get(&2, A, Nil{}, 1n+m), d)} : Maybe<&2, A>}, h)
+    case Con{y, t} 0n:
+      {==}
+    case Con{y, t} 1n+m:
+      list.get_lt(A, t, m, d, h)
+
+# an index that finds an item is below the length
+def list.lt_get(-A: Data, +xs: List<&2, A>, +n: Nat, +c: A, +e: {List.get(&2, A, xs, n) == Some{c} : Maybe<&2, A>}) ->
+  {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}:
+  match xs n:
+    case Nil{} _:
+      Empty.absurd({Nat.is_lt(n, 0n) == True{} : Bool}, (%e : maybe.T(A, _); Unit{}))
+    case Con{y, t} 0n:
+      {==}
+    case Con{y, t} 1n+m:
+      list.lt_get(A, t, m, c, e)
