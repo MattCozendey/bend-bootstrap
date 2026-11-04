@@ -18,7 +18,8 @@
 // ?TODO, each with its goal and context printed) are suggestions for the agent that owns the proof:
 // never commit a partial as a finished proof.
 //
-// RUN (bun; in WSL through ~/lead/heavy.sh, as every bend2 load):
+// RUN (bun; in WSL; prove/batch/bench through ~/lead/heavy.sh, as every bend2 load; serve through
+// ~/lead/g2serve.sh, outside heavy.sh's slots; ask anywhere, Windows included):
 //   bun src/Shared/scripts/gen2.ts prove <file.bend> <def> [<def> ...] [--only RE] [options]
 //       prove each <def> of <file.bend> (defs of the file itself; with --only RE also every def of the
 //       file whose body is exactly ?TODO and whose name matches RE), the book loaded once for all:
@@ -26,18 +27,33 @@
 //       the body (leaf tactics, then decomposition). Prints the proof text (ready to paste) on stdout,
 //       under a `# <def>` line when there are several; a miss prints its partial; exit 2 if any miss.
 //   bun src/Shared/scripts/gen2.ts serve <file.bend> [--port 7311]
-//   bun src/Shared/scripts/gen2.ts ask [--port 7311] <def> [<def> ...] [prove options]
+//   bun src/Shared/scripts/gen2.ts ask [--file F | --port 7311] <def> [<def> ...] [prove options]
 //       serve keeps the book loaded (a local HTTP server on 127.0.0.1) and answers `ask`, which takes
 //       the arguments of prove after the file and prints what prove prints (same exit code). Before
-//       each ask, the entry file is re-read if it changed: only its own defs are re-parsed (the
-//       imports stay loaded; a change in an imported file needs a restart). Built to answer fast:
-//       --budget defaults to 1000 (not 4000), and two caches live across asks (DESIGN). Measured
-//       (after 3f68666, need_big.bend): a hit 30-90 ms, a miss 1.7 s (13 s at budget 4000), the same ask
-//       again 1-50 ms; moves_copy.bend (5730 entries) loads in 3.7 s (400 MB). Start it in the
-//       background (through heavy.sh, which holds one of the 3 slots while it runs: stop it when
-//       done), e.g.
-//         ~/lead/heavy.sh bun Shared/scripts/gen2.ts serve Compiler/Machine/moves_copy.bend &
-//         bun Shared/scripts/gen2.ts ask kc.at fs.arg.at --partial
+//       each ask, the entry is parsed again if its text changed (the ask's text with --file, else the
+//       file on disk): only its own defs are re-parsed (the imports stay loaded). Built to answer
+//       fast: --budget defaults to 1000 (not 4000), and two caches live across asks (DESIGN).
+//       Measured (after 3f68666, need_big.bend): a hit 30-90 ms, a miss 1.7 s (13 s at budget 4000),
+//       the same ask again 1-50 ms; moves_copy.bend (5730 entries) loads in 3.7 s (400 MB).
+//
+// SHARED SERVERS (the P3 prover swarm; reports/redesign/g2pool-notes.md has the measurements)
+// ---------------
+// One server per entry file (a lane's proof file), shared by every agent that works on that file,
+// each in its own worktree. The orchestrator starts servers with ~/lead/g2serve.sh (a systemd user
+// unit each: memory cap, nice, no heavy.sh slot; a registry that `ask --file` reads), from a clean
+// worktree of feature/redesign whose imports they load:
+//     ~/lead/g2serve.sh start <worktree> Compiler/Machine/heap/view.bend [--replicas 2]
+// An agent asks with its own copy of the file, from its worktree (WSL or Windows):
+//     bun src/Shared/scripts/gen2.ts ask --file src/Compiler/Machine/heap/view.bend <def> --partial
+// * --file F: the text of F goes with the ask, the server answers on that text (its defs re-parsed
+//   on top of the server's imports, 0.1-0.5 s when the previous ask came from another worktree),
+//   and the port is the registered server of F's path under src/ (one of its replicas, always the
+//   same one for a worktree). Asks are served one at a time, in arrival order; the answer says how
+//   long it waited. No agent sees another's text: the book is re-parsed per text, the answer cache
+//   is keyed by the text up to the def, and a cached proof is checked again before reuse.
+// * an import that the text adds is loaded into the server's book; an import file that differs
+//   between the agent's worktree and the server's is named in a NOTE (answers use the server's).
+// * --write: the server returns the new text; ask writes F only if F did not change meanwhile.
 //   bun src/Shared/scripts/gen2.ts batch <file.bend> [--out DIR] [--only RE] [options]
 //       every def of the book (the file and all it imports, not Base) with a ?TODO in its body: a body
 //       that is exactly ?TODO is proven whole, other holes one by one. Writes DIR/report.txt (per hole:
@@ -237,9 +253,9 @@
 // NEXT (the ordered plan, for whoever continues; keep it current)
 // ----
 // 1. Book load between calls: DONE (serve/ask, commit ff24e5e; caches and budget 1000 in serve after
-//    3f68666). A restart now costs ~4 s (no validation), so reloading an imported file is low value.
-//    Open: a slot policy for heavy.sh (a server holds one of the 3 slots while it runs); parallel
-//    workers for asks of several defs (each worker loads the book again: ~400 MB for moves_copy).
+//    3f68666). Servers outside heavy.sh's slots, shared by many agents (per-ask text), replicas:
+//    DONE (w/g2pool). Open: keep a few parsed texts (one per recent worktree) instead of re-parsing
+//    on every switch; a statement check cache across switches.
 // 2. The implementer's 3 misses, in bb-wt/impl src/Compiler/Machine/moves_copy.bend at commit
 //    c28021c; the hand proofs there are the references (regression set: add them to a bench-like run
 //    with `ask kc.at fs.arg.at kept.at.own --whole --partial`):
@@ -411,7 +427,9 @@ if (MODE === "ask") {
         .map((n) => { try { return JSON.parse(fs.readFileSync(path.join(POOL, n), "utf8")); } catch { return null; } })
         .filter((r) => r && r.file === rel);
       if (regs.length === 0) { console.error("gen2 ask: no gen2 server for " + rel + " in " + POOL + " (the orchestrator starts one: ~/lead/g2serve.sh start <worktree> " + rel + ")"); process.exit(1); }
-      port = regs[0].port;
+      // replicas of one file (g2serve.sh --replicas): each worktree always asks the same one, so its
+      // text stays loaded there (no reload) and the replicas serve in parallel
+      port = regs[[...shared.root].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % regs.length].port;
     }
   }
   port ||= 7311;
@@ -3373,6 +3391,8 @@ const handle = async (body: Ask, tq: number, ahead: number) => {
   err.push("[gen2] served in " + Math.round(performance.now() - t0) + " ms (" + (ticks - ticks0) + " def lookups" + (t0 - tq > 50 ? "; waited " + Math.round(t0 - tq) + " ms behind " + ahead + " ask(s)" : "") + ")");
   const write = pendingWrite;
   reqText = undefined; pendingWrite = undefined;
+  // one line per ask in the server's log (g2serve.sh log PORT)
+  console.error("[ask] " + new Date().toISOString().slice(11, 19) + " " + (body.root ?? "(own file)") + " " + body.args.join(" ").slice(0, 120) + " -> " + code + ", " + Math.round(performance.now() - t0) + " ms" + (t0 - tq > 50 ? ", waited " + Math.round(t0 - tq) + " ms" : "") + (err.find((l) => l.startsWith("[gen2] reloaded"))?.replace(/^\[gen2\] reloaded \S+ in/, ", reload") ?? ""));
   return { stdout: out.length ? out.join("\n") + "\n" : "", stderr: err.join("\n") + "\n", code, ...(write !== undefined ? { write } : {}) };
 };
 const serve = () => {
