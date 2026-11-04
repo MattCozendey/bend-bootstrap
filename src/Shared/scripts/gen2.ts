@@ -1656,7 +1656,10 @@ const bestStep = (g: Goal, anc: Set<string> = new Set()): Pf | null => {
   if (job.ih && g.split) callees.push(ihCallee());
   const lem = lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, 1, 0, new Set(), null, () => false, pr); return { c, spec: pr.spec! }; });
   callees.push(...lem.filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c));
-  let best: { pf: Pf; holes: number; size: number } | null = null;
+  // a hole with the goal's own predicate (other arguments) is a weakening, often false (K.Ok.wk at
+  // budget 1n for Sh.body.ok): prefer steps with fewer such holes, then fewer holes, then smaller
+  const gh = headKey(raw);
+  let best: { pf: Pf; holes: number; size: number; same: number } | null = null;
   const tries = { n: 0 };
   for (const c of callees) {
     if (tries.n >= 24) break;
@@ -1667,8 +1670,9 @@ const bestStep = (g: Goal, anc: Set<string> = new Set()): Pf | null => {
       const s = callText(c, a.args.map((x) => (x === HOLE ? "?TODO" : x)));
       if (!tryText(g, s)) return false;
       const sz = hs.reduce((acc, h) => acc + (attempt(FUEL_NF, () => size(lower(h.ty, h.d))) ?? 99), 0);
-      if (!best || hs.length < best.holes || (hs.length === best.holes && sz < best.size)) {
-        best = { pf: { t: "app", s: callText(c, a.args), subs: hs.map((h) => ({ t: "hole", g: h }) as Pf) }, holes: hs.length, size: sz };
+      const same = hs.filter((h) => attempt(FUEL_NF, () => headKey(lower(h.ty, h.d))) === gh).length;
+      if (!best || same < best.same || (same === best.same && (hs.length < best.holes || (hs.length === best.holes && sz < best.size)))) {
+        best = { pf: { t: "app", s: callText(c, a.args), subs: hs.map((h) => ({ t: "hole", g: h }) as Pf) }, holes: hs.length, size: sz, same };
       }
       return false;
     }, tries, true);
@@ -1969,7 +1973,10 @@ const proveDef = (k: string, budget: number): Outcome => {
     render(best.pf, "  ", out);
     if (best.closed > 0) partialBody = out.join("\n");
     const hs = holesOf(best.pf);
-    partial = out.join("\n") + "\n" + hs.map((g, i) => "# hole " + (i + 1) + " at " + (g.path || "/") + "\n" + showGoal(g)).join("\n");
+    const lgh = attempt(FUEL_NF, () => { const l = introAll(root); return l ? headKey(lower(l.ty, l.d)) : null; });
+    const caution = (g: Goal) => (g.path.includes("#") && lgh && attempt(FUEL_NF, () => headKey(lower(g.ty, g.d))) === lgh
+      ? "  CAUTION: the goal's own predicate with other arguments (a weakening step): check that it is true before working on it\n" : "");
+    partial = out.join("\n") + "\n" + hs.map((g, i) => "# hole " + (i + 1) + " at " + (g.path || "/") + "\n" + caution(g) + showGoal(g)).join("\n");
   }
   // for the agent: why the first open goal stays open, and proven defs to copy the shape of
   const g0 = (best && holesOf(best.pf)[0]) || introAll(root);
