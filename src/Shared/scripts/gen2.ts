@@ -2295,22 +2295,33 @@ const issueText = (g: Goal, is: Issue): string =>
   : "parameter " + is.name + " fixed by neither the goal nor a hypothesis (give it)";
 // the candidates whose conclusion matches the goal, each with what blocks it (at most max)
 const matchLines = (g: Goal, targets: LTerm[], cands: Callee[], max: number): string[] => {
-  const out: string[] = [];
+  // noise left out (S1's tally): a lemma whose equation is over another type than the goal's (the
+  // matcher tolerates a type mismatch), and one with a type parameter that nothing fixes (Equal.cong's
+  // A); the rest ranked by their number of issues
+  const gT = targets[0]?.$ === "Eql" ? targets[0].T : null;
+  const rows: { n: number; s: string }[] = [];
   for (const c of cands) {
-    if (out.length >= max) break;
+    if (rows.length >= max * 3) break;
     const sols = conclSols(g, c, targets);
     if (sols.length === 0) continue;
-    const is = issuesOf(g, c, sols[0]);
-    out.push(c.text + (c.kind === "hyp" ? " (hypothesis)" : "") + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed (more --budget may close it)" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")));
+    const o = attempt(FUEL_NF, () => openMeta(c.T, c.n, toHs(g, sols[0]!)));
+    const cT = o ? attempt(FUEL_NF, () => lower(o.concl, g.d)) : undefined;
+    if (gT && cT?.$ === "Eql" && !hasMeta(cT.T) && key(cT.T) !== key(gT) && attempt(FUEL_NF, () => B.term_compare("EQ", book, B.term_higher(cT.T, g.env), B.term_higher(gT, g.env), g.d)) !== true) continue;
+    const is = issuesOf(g, c, sols[0]!);
+    if (o && is.some((x) => x.kind === "unfixed" && wnf(o.doms.find((dm) => dm.k === x.name)?.A ?? B.Ref("?"))?.$ === "Typ")) continue;
+    rows.push({ n: is.length, s: c.text + (c.kind === "hyp" ? " (hypothesis)" : "") + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed (more --budget may close it)" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")) });
   }
-  return out;
+  return rows.sort((a, b) => a.n - b.n).slice(0, max).map((r) => r.s);
 };
 // usable lemmas indexed under the goal's head that do not match it (a different argument shape), with
 // their conclusions (at most max; names in skip are left out)
 const nearMisses = (g: Goal, targets: LTerm[], skip: Set<string>, max: number): string[] => {
   const out: string[] = [];
   for (const t of targets) {
-    for (const L of applyIndex.get(headKey(t)) ?? []) {
+    // only a head that names a def or a constructor: a function goal (P) or a variable head is noise
+    const hk = headKey(t);
+    if (!/^(E\|)?(R|C|A):/.test(hk)) continue;
+    for (const L of applyIndex.get(hk) ?? []) {
       const nm = B.name_show(job.file, L.k);
       if (out.length >= max || skip.has(nm) || L.order >= job.order || L.k === job.k) continue;
       skip.add(nm);
@@ -2679,6 +2690,27 @@ const proveDef = (k: string, budget: number): Outcome => {
   }
   let partial: string | null = null;
   let partialBody: string | undefined;
+  if (best && best.holes > 0) {
+    const hs = holesOf(best.pf);
+    // a hole that asks P -> P & B (B new facts from nothing: tot.wk's post left as Q(x) -> Q(x) & frame)
+    // makes the skeleton a dead end: it is not shown as a partial (S1's tally: misleading)
+    const deadEnd = (g: Goal): boolean => attempt(FUEL_NF, () => {
+      let t = lower(g.ty, g.d);
+      const doms = new Set<string>();
+      for (let i = 0; i < 16 && t.$ === "All"; i++) { doms.add(key(t.A)); t = t.B as LTerm; }
+      // the codomain as written: Pair(A, B) (Bend's A & B), or a Sigma
+      const [h, xs] = unapply(t);
+      let a: LTerm | undefined, b: LTerm | undefined;
+      if (h.$ === "Ref" && shortOf(h.k) === "Pair" && xs.length >= 2) { a = xs[xs.length - 2]; b = xs[xs.length - 1]; }
+      else if (t.$ === "ADT" && shortOf(t.k) === "Sigma" && t.x.length >= 4) { a = t.x[2]; const f = t.x[3]!; b = f.$ === "Lam" ? (f.f as LTerm) : f; }
+      if (doms.size === 0 || !a || !b) return false;
+      return (doms.has(key(a)) && !doms.has(key(b))) || (doms.has(key(b)) && !doms.has(key(a)));
+    }) === true;
+    if (hs.some(deadEnd)) {
+      why = (why ? why + "; " : "") + "the best skeleton asks P -> P & (new facts) in a hole: a dead end, not shown";
+      best = null;
+    }
+  }
   if (best && best.holes > 0) {
     const out: string[] = [];
     render(best.pf, "  ", out);

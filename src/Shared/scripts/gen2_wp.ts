@@ -44,6 +44,7 @@ export type WpOut = { text: string; leaves: WpLeaf[]; steps: number } | { why: s
 
 // ---- constants ----
 const MAX_STEPS = 400;
+const MAX_SPLITS = 4; // nested Bool splits of undecided ifs (each doubles the rest of the code)
 const FUEL = 100000;
 // logical name -> the short names (key less its namespace) it may have; the first found wins
 const NAMES: Record<string, string[]> = {
@@ -54,6 +55,7 @@ const NAMES: Record<string, string[]> = {
   evalOp: ["Cir.eval.op"], evalEqz: ["Cir.eval.eqz"], cirEval: ["Cir.eval"], evalField: ["Cir.eval.field"],
   fieldIf: ["Cir.eval.field.if"], stCells: ["St.cells"], cellGet: ["Cir.Cell.get"], cellsGet: ["Cir.Cells.get"],
   equalSym: ["Equal.sym"], equalTrans: ["Equal.trans"],
+  boolCase: ["bool.case"],
   cirState: ["Cir.State"], cirOut: ["Cir.Out"], cirStmt: ["Cir.Stmt"], isZero: ["U32.is_zero"],
 };
 
@@ -328,7 +330,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const kText = (k: Cont): string => (k === null ? KS : "h => t => " + nm("wp") + "(" + k.code + ", " + bS + ", " + kText(k.next) + ", h, t)");
   const leaves: WpLeaf[] = [];
   const leaf = (hint: string): string => { leaves.push({ hole: leaves.length + 1, hint }); return "?TODO"; };
-  let steps = 0;
+  let steps = 0, splits = 0;
   const over = () => steps >= MAX_STEPS || performance.now() > api.deadline;
   const overLeaf = (j: number) => leaf((steps >= MAX_STEPS ? "the step limit (" + MAX_STEPS + ")" : "the time budget") + ": the rest of the code from " + sts[j]!.text);
   const codeLet = (t: string): string => {
@@ -429,7 +431,40 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
             }
           }
         }
-        return head + leaf("an if at " + S + " that no fact decides: U32.is_zero(" + sh(ev.v) + "); split it: a Bool parameter z with {<part> == z} in a helper (each arm then steps), or give a Bool fact") + ")";
+        // a split on the smallest Bool part of z that decides it both ways (by the kit's bool.case:
+        // each branch gets the fact {part == True/False}, which later ifs may use too)
+        if (z && K.boolCase && splits < MAX_SPLITS) {
+          const parts = new Map<string, LTerm>();
+          const walk = (t: LTerm) => { parts.set(api.key(t), t); if (t.$ === "App") { walk(t.f); walk(t.x); } else if (t.$ === "Ctr") t.x.forEach(walk); };
+          walk(z);
+          // a part that is a call of a def whose result is a Bool
+          const isBoolCall = (t: LTerm): boolean => {
+            const [h] = unapply(t);
+            const d = h.$ === "Ref" ? api.RAW[h.k] : undefined;
+            if (d?.$ !== "Def") return false;
+            let T = api.attempt(FUEL, () => api.lower(d.T, 0));
+            for (let i = 0; T && i < d.n; i++) T = T.$ === "All" ? (T.B as LTerm) : undefined;
+            return !!T && (T.$ === "Ref" || T.$ === "ADT") && shortOf(T.k) === "Bool";
+          };
+          const cands = [...parts.values()].filter((t) => t.$ === "App" && isBoolCall(t)).sort((a, b) => sh(a).length - sh(b).length);
+          for (const p of cands.slice(0, 24)) {
+            const pk = api.key(p);
+            const zt = nfL(replaceKey(z, pk, B.Ctr<[LTerm]>("True", []), api.key)), zf = nfL(replaceKey(z, pk, B.Ctr<[LTerm]>("False", []), api.key));
+            if (!isBool(zt) || !isBool(zf)) continue;
+            const P = pickOf(sh(replaceKey(z, pk, B.Ref("_") as LTerm, api.key)));
+            const arm = (val: boolean, zv: Extract<LTerm, { $: "Ctr" }>) => {
+              const hn = fresh(val ? "wt" : "wu");
+              boolHyp.push({ lhs: p, nk: pk, val, name: hn });
+              splits++;
+              const pf = branch(zv.k === "True");
+              splits--;
+              boolHyp.pop();
+              return hn + " => (%" + nm("equalSym") + "(Bool, " + sh(p) + ", " + (val ? "True{}" : "False{}") + ", " + hn + ") : " + P + "; " + pf + ")";
+            };
+            return head + nm("boolCase") + "(" + sh(p) + ", " + pickOf(sh(z)) + ", " + arm(true, zt) + ", " + arm(false, zf) + "))";
+          }
+        }
+        return head + leaf("an if at " + S + " that no fact decides: U32.is_zero(" + sh(ev.v) + "); give a Bool fact on a part of it" + (K.boolCase ? "" : ", or add the kit lemma bool.case (see gen2-wp-notes.md) so --wp splits it")) + ")";
       }
       case "Cir.Stmt.while":
         return leaf("a loop at " + S + ": its WP is its Tot: apply Lg.tot.while with an invariant I(n, st) and a measure n (obligations: the condition has a value; at 0 the post; else the body's WP to I at a smaller measure), or a routine law (Lg.wp.of_tot)");
