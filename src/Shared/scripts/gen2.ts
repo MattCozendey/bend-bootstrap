@@ -23,6 +23,17 @@
 //       a body that is exactly ?TODO is proven whole (case splits allowed); otherwise each ?TODO in
 //       the body (leaf tactics, then decomposition). Prints the proof text (ready to paste) on stdout,
 //       under a `# <def>` line when there are several; a miss prints its partial; exit 2 if any miss.
+//   bun src/Shared/scripts/gen2.ts serve <file.bend> [--port 7311]
+//   bun src/Shared/scripts/gen2.ts ask [--port 7311] <def> [<def> ...] [prove options]
+//       serve keeps the book loaded (a local HTTP server on 127.0.0.1) and answers `ask`, which takes
+//       the arguments of prove after the file and prints what prove prints (same exit code). Before
+//       each ask, the entry file is re-read if it changed: only its own defs are re-parsed and
+//       re-checked (the imports stay loaded; a change in an imported file needs a restart). Measured
+//       on moves_copy.bend (5730 entries): load + check 20 s once, then an ask of two leaves 0.27 s;
+//       a reload after an edit of need_big.bend 0.4 s. Start it in the background (through heavy.sh,
+//       which holds one of the 3 slots while it runs: stop it when done), e.g.
+//         ~/lead/heavy.sh bun Shared/scripts/gen2.ts serve Compiler/Machine/moves_copy.bend &
+//         bun Shared/scripts/gen2.ts ask kc.at fs.arg.at --budget 8000 --partial
 //   bun src/Shared/scripts/gen2.ts batch <file.bend> [--out DIR] [--only RE] [options]
 //       every def of the book (the file and all it imports, not Base) with a ?TODO in its body: a body
 //       that is exactly ?TODO is proven whole, other holes one by one. Writes DIR/report.txt (per hole:
@@ -165,25 +176,30 @@ type LTerm = B.LTerm;
 
 // ---- options ----
 const argv = process.argv.slice(2);
+const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
 const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return i >= 0 ? argv[i + 1] : d; };
 const flag = (k: string) => argv.includes("--" + k);
-const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
-const BUDGET = +opt("budget", "4000");
-const MAX_SPLIT = +opt("splits", "6");
-const MAX_DEPTH = +opt("depth", "3");
-const MAX_RW = +opt("rw", "4");
-const BEAM = +opt("beam", "4");
-const FUEL_CHECK = +opt("fuel", "300000");
+let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0;
+let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false;
+const readOpts = () => {
+  BUDGET = +opt("budget", "4000");
+  MAX_SPLIT = +opt("splits", "6");
+  MAX_DEPTH = +opt("depth", "3");
+  MAX_RW = +opt("rw", "4");
+  BEAM = +opt("beam", "4");
+  FUEL_CHECK = +opt("fuel", "300000");
+  DECOMP = !flag("no-decomp");
+  HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
+  PARTIAL = flag("partial"); STREAM = flag("stream"); DEBUG = flag("debug");
+};
+readOpts();
 const FUEL_NF = 100000;
 const FUEL_FINAL = 50000000;
 const NF_NODES = 3000;
 const MAX_CANDS = 48;
 const CAPS = [48, 12, 4, 2]; // matched apply candidates tried, by premise level below the leaf
 const MAX_SPLIT_CANDS = 3;
-const DECOMP = !flag("no-decomp");
-const HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
 const MAX_DECOMP = 2;
-const PARTIAL = flag("partial"), STREAM = flag("stream"), DEBUG = flag("debug");
 const META = 1 << 20;
 
 // ---- fuel and time ----
@@ -208,11 +224,23 @@ const attempt = <T>(n: number, f: () => T): T | undefined => {
   }
 };
 
+// ---- ask: a client of `serve` (loads nothing) ----
+if (MODE === "ask") {
+  const port = +opt("port", "7311");
+  const args = argv.slice(1);
+  const res = await fetch("http://127.0.0.1:" + port + "/prove", { method: "POST", body: JSON.stringify({ args }) }).catch((e) => null);
+  if (!res) { console.error("gen2 ask: no server on port " + port + " (start one: gen2.ts serve <file.bend>)"); process.exit(1); }
+  const r: any = await res.json();
+  if (r.stderr) process.stderr.write(r.stderr);
+  if (r.stdout) process.stdout.write(r.stdout);
+  process.exit(r.code);
+}
+
 // ---- load ----
 const entry = fs.realpathSync(path.resolve(FILE ?? ""));
 const TOP = path.dirname(entry) + "/";
 const book = B.book_nil();
-await B.book_load(book, entry, "", new Map());
+const N0 = await B.book_load(book, entry, "", new Map()); // the entry's first entry in book order
 const tLoad = performance.now();
 try {
   B.book_valid(book, 0);
@@ -565,7 +593,11 @@ const openMeta = (T: HTerm, n: number, sol: (HTerm | null)[] = []): { doms: { q:
   }
   return { doms, concl: t };
 };
+const preds = new Map<string, Lemma[]>();
+let tIndex = 0;
+const buildIndex = () => {
 const tIndex0 = performance.now();
+applyIndex.clear(); rwIndex.clear(); wild.length = 0; preds.clear();
 for (const k of Object.keys(RAW)) {
   const t = RAW[k];
   if (t.$ !== "Def" || (t.v === null && t.b !== true) || t.x > 0 || t.i) continue;
@@ -599,7 +631,6 @@ for (const k of Object.keys(RAW)) {
   }
 }
 // predicates on one datatype (P: T -> Type), to discriminate two constructors (`%e : P(_); Unit{}`)
-const preds = new Map<string, Lemma[]>();
 for (const k of Object.keys(RAW)) {
   const t = RAW[k];
   if (t.$ !== "Def" || t.v === null || t.n !== 1 || t.x > 0) continue;
@@ -616,7 +647,9 @@ for (const v of preds.values()) v.sort((a, b) => b.order - a.order);
 for (const m of [applyIndex]) for (const v of m.values()) v.sort((a, b) => b.order - a.order);
 for (const v of rwIndex.values()) v.sort((a, b) => b.L.order - a.L.order);
 wild.sort((a, b) => b.order - a.order);
-const tIndex = performance.now() - tIndex0;
+tIndex = performance.now() - tIndex0;
+};
+buildIndex();
 
 // ---- proofs ----
 type Pf =
@@ -1760,12 +1793,9 @@ const batch = () => {
   console.log(head + "\nreport: " + path.join(dir, "report.txt") + "\npatch:  " + path.join(dir, "gen2.patch") + " (apply from the repository root: git apply)");
 };
 
-// ---- main ----
-if (MODE === "bench") {
-  bench();
-} else if (MODE === "batch") {
-  batch();
-} else if (MODE === "prove") {
+// ---- prove ----
+class Exit { constructor(readonly code: number) {} }
+const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
   const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp"].includes(xs[i - 1])));
@@ -1773,14 +1803,14 @@ if (MODE === "bench") {
   const ks: string[] = [];
   for (const nm of names) {
     const k = Object.keys(RAW).find((x) => own(x) && shortOf(x) === nm);
-    if (!k) { console.error("gen2: no def " + nm + " in " + FILE); process.exit(1); }
+    if (!k) { console.error("gen2: no def " + nm + " in " + FILE); { throw new Exit(1); }; }
     ks.push(k);
   }
   if (argv.includes("--only")) {
     const re = new RegExp(opt("only", ".*"));
     for (const k of book.order) if (own(k) && re.test(shortOf(k)) && !ks.includes(k) && defSrc(k)?.body.trim() === "?TODO") ks.push(k);
   }
-  if (ks.length === 0) { console.error("gen2: no def to prove"); process.exit(1); }
+  if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
   let failed = 0;
   for (const k of ks) {
     const ds = defSrc(k);
@@ -1804,7 +1834,80 @@ if (MODE === "bench") {
       console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled");
     }
   }
-  if (failed) process.exit(2);
+  if (failed) throw new Exit(2);
+};
+
+// ---- serve: the book stays loaded between prove calls ----
+// gen2.ts serve <file.bend> [--port 7311]; then `gen2.ts ask [--port N] <def> ... [options]` (the
+// arguments of prove after the file). Before each call the entry file is re-read if it changed: its
+// defs are re-parsed and re-checked on top of the imports, which stay loaded and checked; a change
+// in an imported file needs a restart.
+const entryAl = (() => { for (const k of book.order.slice(N0)) { const t = RAW[k]; if (t?.$ === "Def") { const f = spanFile(t.T); if (f) return f.al; } } return {} as Record<string, string>; })();
+let entryMtime = fs.statSync(entry).mtimeMs;
+const reloadEntry = (): string | null => {
+  const mt = fs.statSync(entry).mtimeMs;
+  if (mt === entryMtime) return null;
+  const t0 = performance.now();
+  const lines = fs.readFileSync(entry, "utf8").split("\n");
+  for (let i = 0; i < lines.length; i++) { const l = lines[i].trim(); if (l === "" || l.startsWith("#")) continue; if (!/^import(\s|$)/.test(l)) break; lines[i] = ""; }
+  const own = new Set(book.order.slice(N0));
+  const nb = B.book_nil();
+  for (const k of Object.keys(RAW)) if (!own.has(k) && !k.includes("~")) nb.tlds[k] = RAW[k];
+  const ownCtrs = new Set<string>();
+  for (const k of own) { const t = RAW[k]; if (t?.$ === "ADT") for (const c of t.c) ownCtrs.add(c.k); }
+  for (const c of Object.keys(book.ctrs)) if (!ownCtrs.has(c)) nb.ctrs[c] = book.ctrs[c];
+  nb.order = book.order.slice(0, N0);
+  B.parse_book(nb, path.dirname(entry) + "/", lines.join("\n"), "", entryAl);
+  B.book_valid(nb, N0);
+  for (const k of Object.keys(RAW)) delete RAW[k];
+  Object.assign(RAW, nb.tlds);
+  book.ctrs = nb.ctrs; book.order = nb.order; book.tmps = nb.tmps; book.hols = nb.hols;
+  ORDER.clear(); book.order.forEach((k, i) => ORDER.set(k, i));
+  texts.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear();
+  buildIndex();
+  entryMtime = mt;
+  return "[gen2] reloaded " + path.basename(entry) + " in " + Math.round(performance.now() - t0) + " ms";
+};
+const serve = () => {
+  const port = +opt("port", "7311");
+  Bun.serve({
+    port, hostname: "127.0.0.1",
+    async fetch(req) {
+      const { args } = (await req.json()) as { args: string[] };
+      const out: string[] = [], err: string[] = [];
+      const ol = console.log, oe = console.error;
+      console.log = (...a: any[]) => { out.push(a.join(" ")); };
+      console.error = (...a: any[]) => { err.push(a.join(" ")); };
+      let code = 0;
+      const t0 = performance.now();
+      try {
+        const r = reloadEntry();
+        if (r) err.push(r);
+        argv.length = 0; argv.push("prove", FILE, ...args); readOpts();
+        runProve();
+      } catch (e: any) {
+        if (e instanceof Exit) code = e.code;
+        else { code = 1; err.push("[gen2] " + (e?.$ === "Err" ? B.err_show(e) : String(e?.stack ?? e))); entryMtime = 0; }
+      } finally {
+        console.log = ol; console.error = oe;
+        deadline = Infinity;
+      }
+      err.push("[gen2] served in " + Math.round(performance.now() - t0) + " ms");
+      return Response.json({ stdout: out.length ? out.join("\n") + "\n" : "", stderr: err.join("\n") + "\n", code });
+    },
+  });
+  console.error("[gen2] serving " + FILE + " on 127.0.0.1:" + port + " (book: " + book.order.length + " entries, load " + Math.round(tLoad) + " ms, valid " + Math.round(tValid - tLoad) + " ms); ask with: gen2.ts ask [--port " + port + "] <def> ... [options]");
+};
+
+// ---- main ----
+if (MODE === "bench") {
+  bench();
+} else if (MODE === "batch") {
+  batch();
+} else if (MODE === "prove") {
+  try { runProve(); } catch (e) { if (e instanceof Exit) process.exit(e.code); throw e; }
+} else if (MODE === "serve") {
+  serve();
 } else {
   console.error("usage: bun gen2.ts prove <file.bend> <def> | batch <file.bend> | bench <file.bend> [options] (see the header)");
   process.exit(1);
