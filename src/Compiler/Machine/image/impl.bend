@@ -16,6 +16,12 @@ import ../impl.bend as Mc
 import ../header/spec.bend as Hs
 import ../heap/spec.bend as Hp
 import ./spec.bend as I
+import ../logic/impl.bend as LgP
+import ../header/impl.bend as HsP
+import ../canon/impl.bend as CP
+import ../am/impl.bend as AP
+import ../heap/view.bend as HpV
+import ../heap/count.bend as HpC
 
 def I.img.start(p, ds, i, m, k, len, pg, lim, first, rd, small, s):
   ?TODO

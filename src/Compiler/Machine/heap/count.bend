@@ -17,6 +17,11 @@ import ../header/spec.bend as Hs
 import ../canon/spec.bend as C
 import ../am/spec.bend as A
 import ./spec.bend as Hp
+import ../logic/impl.bend as LgP
+import ../header/impl.bend as HsP
+import ../canon/impl.bend as CP
+import ../am/impl.bend as AP
+import ./view.bend as HpV
 
 def Hp.h.set(x, st, L, rs, fs, chs, r, v, h, hr):
   ?TODO

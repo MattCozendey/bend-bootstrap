@@ -982,7 +982,7 @@ law view.kid:
 
 # LAW: a store to a cell outside cs keeps Agree
 law agree.store:
-  for cs: List<&2, U32>
+  for +cs: List<&2, U32>
   for +m: Cr.Cir.Cells
   for +o: U32
   for +k: Nat
@@ -992,7 +992,7 @@ law agree.store:
 
 # LAW: so does a store to field 1 of any cell
 law agree.store1:
-  for cs: List<&2, U32>
+  for +cs: List<&2, U32>
   for +m: Cr.Cir.Cells
   for +o: U32
   for +v: U32
@@ -1000,7 +1000,7 @@ law agree.store1:
 
 # LAW: and a new cell outside cs
 law agree.put:
-  for cs: List<&2, U32>
+  for +cs: List<&2, U32>
   for +m: Cr.Cir.Cells
   for +o: U32
   for +v: Cr.Cir.Cell
@@ -1009,13 +1009,13 @@ law agree.put:
 
 # LAW: a heap agrees with itself
 law agree.refl:
-  for cs: List<&2, U32>
+  for +cs: List<&2, U32>
   for +m: Cr.Cir.Cells
   {Agree(cs, m, m) == True{} : Bool}
 
 # LAW: agreement chains
 law agree.trans:
-  for cs: List<&2, U32>
+  for +cs: List<&2, U32>
   for +m: Cr.Cir.Cells
   for +m2: Cr.Cir.Cells
   for +m3: Cr.Cir.Cells

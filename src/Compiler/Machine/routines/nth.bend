@@ -18,6 +18,13 @@ import ../am/spec.bend as A
 import ../heap/spec.bend as Hp
 import ../image/spec.bend as I
 import ./spec.bend as R
+import ../logic/impl.bend as LgP
+import ../header/impl.bend as HsP
+import ../canon/impl.bend as CP
+import ../am/impl.bend as AP
+import ../heap/view.bend as HpV
+import ../heap/count.bend as HpC
+import ../image/impl.bend as IP
 
 def R.nth.spec(x, st, ce, as, j, hc, he, hj, hl):
   ?TODO

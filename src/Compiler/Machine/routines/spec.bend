@@ -370,10 +370,10 @@ law make.spec:
   for +st: Cr.Cir.State
   for +L: List<&2, U32>
   for +r: Nat
-  for h: Cr.Cir.Expr
-  for a: Cr.Cir.Expr
-  for b: Cr.Cir.Expr
-  for c: Cr.Cir.Expr
+  for +h: Cr.Cir.Expr
+  for +a: Cr.Cir.Expr
+  for +b: Cr.Cir.Expr
+  for +c: Cr.Cir.Expr
   for +hv: U32
   for +av: U32
   for +bv: U32
@@ -458,9 +458,9 @@ law push.spec:
   for +fs: List<&2, A.AF>
   for +chs: List<&2, Hp.Ch>
   for +fr: A.AF
-  for h: Cr.Cir.Expr
-  for a: Cr.Cir.Expr
-  for b: Cr.Cir.Expr
+  for +h: Cr.Cir.Expr
+  for +a: Cr.Cir.Expr
+  for +b: Cr.Cir.Expr
   for +ca: U32
   for +cb: U32
   for +hs: {Hp.H(x, st, L, Push.rts(fr, ca, cb, rs), fs, chs) == True{} : Bool}
@@ -500,7 +500,7 @@ law swap.spec:
   for +fr: A.AF
   for +fr2: A.AF
   for +v: Bk.Term
-  for h: Cr.Cir.Expr
+  for +h: Cr.Cir.Expr
   for +hs: {Hp.H(x, st, L, Con{Hp.Rt{Hp.V.reg(st, Mc.R.focus()), 0n, v}, rs}, Con{fr, fs}, chs) == True{} : Bool}
   for +hh: {I.Mb.is(Lg.Reg(st, Mc.R.h()), Hp.V.reg(st, Mc.R.sp())) && Swap.ok(fr, fr2, v) == True{} : Bool}
   for +he: {Ev(h, x, st, L, Mc.M.swap.scr()) == Some{Fr.header(fr2)} : Maybe<&2, U32>}
