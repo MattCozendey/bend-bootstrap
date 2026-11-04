@@ -2094,6 +2094,10 @@ const reloadEntry = (): string | null => {
   const own = new Set(book.order.slice(N0));
   const nb = B.book_nil();
   for (const k of Object.keys(RAW)) if (!own.has(k) && !k.includes("~")) nb.tlds[k] = RAW[k];
+  // an imported law that the entry fills (def D.alloc.post(..)) was filled in place and its key is in
+  // the entry's order too: give the parser the law again, unfilled, or the fill is a duplicate name
+  const imported = new Set(book.order.slice(0, N0));
+  for (const k of own) { const t = RAW[k]; if ((imported.has(k) || nsOf(k) !== "") && t?.$ === "Def") nb.tlds[k] = { ...t, v: null }; }
   const ownCtrs = new Set<string>();
   for (const k of own) { const t = RAW[k]; if (t?.$ === "ADT") for (const c of t.c) ownCtrs.add(c.k); }
   for (const c of Object.keys(book.ctrs)) if (!ownCtrs.has(c)) nb.ctrs[c] = book.ctrs[c];
