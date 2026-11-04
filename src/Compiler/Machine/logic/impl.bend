@@ -63,6 +63,14 @@ def lg.lt_le(a: Nat, +b: Nat, +c: Nat, +h1: {Nat.is_lt(a, b) == True{} : Bool}, 
     case 1n+p 1n+q 1n+r:
       lg.lt_le(p, q, r, h1, h2)
 
+# b <= b
+def lg.le_refl(+b: Nat) -> {Nat.is_le(b, b) == True{} : Bool}:
+  match b:
+    case 0n:
+      {==}
+    case 1n+p:
+      lg.le_refl(p)
+
 # a weaker post for an outcome
 def lg.ok.wk(o: Cr.Cir.Out, +lim: Nat, +b: Nat, +b2: Nat, -Q: Cr.Cir.State -> Type, -Q2: Cr.Cir.State -> Type,
   -H: U32 -> Cr.Cir.State -> Type, -H2: U32 -> Cr.Cir.State -> Type, +hb: {Nat.is_le(b, b2) == True{} : Bool},
@@ -634,14 +642,271 @@ def Lg.tot.any(s, st, b, Q, H, t, g):
 def Lg.tot.while(c, body, b, I, Q, H, r, n, st, i):
   ?TODO
 
+# a primitive's WP.ok is its Ok
+def lg.wpok(o: Cr.Cir.Out, +lim: Nat, +b: Nat, -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, w: Lg.WP.ok(o, lim, b, K, H)) -> Lg.Ok(o, lim, b, x => K(H, x), H):
+  match o:
+    case Cr.Cir.Out.next{x}:
+      w
+    case Cr.Cir.Out.halt{k, x}:
+      w
+    case Cr.Cir.Out.out_of_memory{}:
+      w
+    case Cr.Cir.Out.trap{}:
+      w
+    case Cr.Cir.Out.not_done{}:
+      w
+
+# tot.of_wp for an if, by z = U32.is_zero of its condition's value x
+def lg.ofwp.pick(z: Bool, +x: U32, +hz: {U32.is_zero(x) == z : Bool}, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt,
+  +st: Cr.Cir.State, +b: Nat, -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +ev: {Cr.Cir.eval(c, st) == Some{x} : Maybe<&2, U32>},
+  w: Lg.WP.pick(z, k => h => Lg.WP(t, b, q => y => k(q, y), j => y => h(j, y), st),
+    k => h => Lg.WP(e, b, q => y => k(q, y), j => y => h(j, y), st), K, H),
+  iht: Lg.WP(t, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(t, st, b, y => K(H, y), H),
+  ihe: Lg.WP(e, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(e, st, b, y => K(H, y), H)) ->
+  Lg.Tot(Cr.Cir.Stmt.if{c, t, e}, st, b, y => K(H, y), H):
+  match z:
+    case False{}:
+      Lg.tot.if(c, t, e, st, b, y => K(H, y), H, x, ev,
+        (%Equal.sym(Bool, U32.is_zero(x), False{}, hz) : Lg.Tot(Bool.pick(Cr.Cir.Stmt, _, e, t), st, b, y => K(H, y), H); iht(w)))
+    case True{}:
+      Lg.tot.if(c, t, e, st, b, y => K(H, y), H, x, ev,
+        (%Equal.sym(Bool, U32.is_zero(x), True{}, hz) : Lg.Tot(Bool.pick(Cr.Cir.Stmt, _, e, t), st, b, y => K(H, y), H); ihe(w)))
+
+# tot.of_wp for an if, by its condition's value v
+def lg.ofwp.if(v: Maybe<&2, U32>, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat,
+  -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +ev: {Cr.Cir.eval(c, st) == v : Maybe<&2, U32>},
+  w: Lg.WP.if(v, k => h => Lg.WP(t, b, q => y => k(q, y), j => y => h(j, y), st),
+    k => h => Lg.WP(e, b, q => y => k(q, y), j => y => h(j, y), st), K, H),
+  iht: Lg.WP(t, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(t, st, b, y => K(H, y), H),
+  ihe: Lg.WP(e, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(e, st, b, y => K(H, y), H)) ->
+  Lg.Tot(Cr.Cir.Stmt.if{c, t, e}, st, b, y => K(H, y), H):
+  match v:
+    case Some{+x}:
+      lg.ofwp.pick(U32.is_zero(x), x, {==}, c, t, e, st, b, K, H, ev, w, iht, ihe)
+    case None{}:
+      match w:
+
 def Lg.tot.of_wp(s, st, b, K, H, w):
-  ?TODO
+  match s:
+    case Cr.Cir.Stmt.nop{}:
+      (0n, w)
+    case Cr.Cir.Stmt.set{r, e}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.set{r, e}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.store{k, c, v}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.store{k, c, v}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.alloc{r}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.alloc{r}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.emit{v}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.seq{+a, +c}:
+      Lg.tot.seq(a, c, st, b, y => K(H, y), H,
+        Lg.tot.wk(a, st, b, b, x => Lg.WP(c, b, k => y => K(k, y), j => y => H(j, y), x), x => Lg.Tot(c, x, b, y => K(H, y), H),
+          j => y => H(j, y), H, lg.le_refl(b),
+          x => wx => Lg.tot.of_wp(c, x, b, k => y => K(k, y), j => y => H(j, y), wx), k => x => hx => hx,
+          Lg.tot.of_wp(a, st, b, h => x => Lg.WP(c, b, k => y => K(k, y), j => y => h(j, y), x), j => y => H(j, y), w)))
+    case Cr.Cir.Stmt.if{+c, +t, +e}:
+      lg.ofwp.if(Cr.Cir.eval(c, st), c, t, e, st, b, K, H, {==}, w,
+        wt => Lg.tot.of_wp(t, st, b, q => y => K(q, y), j => y => H(j, y), wt),
+        we => Lg.tot.of_wp(e, st, b, q => y => K(q, y), j => y => H(j, y), we))
+    case Cr.Cir.Stmt.while{c, body}:
+      w
+    case Cr.Cir.Stmt.halt{k}:
+      (0n, w)
+
+# s has no seq, if or while
+def lg.is_prim(s: Cr.Cir.Stmt) -> Bool:
+  match s:
+    case Cr.Cir.Stmt.seq{_, _}:
+      False{}
+    case Cr.Cir.Stmt.if{_, _, _}:
+      False{}
+    case Cr.Cir.Stmt.while{_, _}:
+      False{}
+    case _:
+      True{}
+
+# a primitive runs the same with any fuel
+def lg.prim.ok(+f: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, +lim: Nat, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +np: {lg.is_prim(s) == True{} : Bool}, ok: Lg.Ok(Cr.Cir.exec(f, s, st), lim, b, Q, H)) ->
+  Lg.Ok(Cr.Cir.exec(0n, s, st), lim, b, Q, H):
+  match f:
+    case 0n:
+      ok
+    case 1n+p:
+      match s:
+        case Cr.Cir.Stmt.nop{}:
+          ok
+        case Cr.Cir.Stmt.set{r, e}:
+          ok
+        case Cr.Cir.Stmt.store{k, c, v}:
+          ok
+        case Cr.Cir.Stmt.alloc{r}:
+          ok
+        case Cr.Cir.Stmt.emit{v}:
+          ok
+        case Cr.Cir.Stmt.seq{a, c}:
+          K.bool.ff(Lg.Ok(Cr.Cir.exec(0n, Cr.Cir.Stmt.seq{a, c}, st), lim, b, Q, H), np)
+        case Cr.Cir.Stmt.if{c, t, e}:
+          K.bool.ff(Lg.Ok(Cr.Cir.exec(0n, Cr.Cir.Stmt.if{c, t, e}, st), lim, b, Q, H), np)
+        case Cr.Cir.Stmt.while{c, body}:
+          K.bool.ff(Lg.Ok(Cr.Cir.exec(0n, Cr.Cir.Stmt.while{c, body}, st), lim, b, Q, H), np)
+        case Cr.Cir.Stmt.halt{k}:
+          ok
+
+# a primitive's Ok is its WP.ok
+def lg.okwp(o: Cr.Cir.Out, +lim: Nat, +b: Nat, -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, w: Lg.Ok(o, lim, b, x => K(H, x), H)) -> Lg.WP.ok(o, lim, b, K, H):
+  match o:
+    case Cr.Cir.Out.next{x}:
+      w
+    case Cr.Cir.Out.halt{k, x}:
+      w
+    case Cr.Cir.Out.out_of_memory{}:
+      w
+    case Cr.Cir.Out.trap{}:
+      w
+    case Cr.Cir.Out.not_done{}:
+      w
+
+# the WP.ok of a primitive from its Tot
+def lg.prim.wp(+s: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +np: {lg.is_prim(s) == True{} : Bool}, t: Lg.Tot(s, st, b, x => K(H, x), H)) ->
+  Lg.WP.ok(Cr.Cir.exec(0n, s, st), Lg.Lim(st), b, K, H):
+  match t:
+    case Tuple{+f, ok}:
+      lg.okwp(Cr.Cir.exec(0n, s, st), Lg.Lim(st), b, K, H, lg.prim.ok(f, s, st, Lg.Lim(st), b, x => K(H, x), H, np, ok))
+
+# a sequence's first part, by its outcome o with the fuel f
+def lg.split.go(o: Cr.Cir.Out, +f: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +eq: {Cr.Cir.exec(f, a, st) == o : Cr.Cir.Out},
+  ok: Lg.Ok(Cr.Cir.exec.then(o, t => Cr.Cir.exec(f, c, t)), Lg.Lim(st), b, Q, H)) ->
+  Lg.Ok(o, Lg.Lim(st), b, x => Lg.Tot(c, x, b, Q, H), H):
+  match o:
+    case Cr.Cir.Out.next{+x}:
+      (f, (%Equal.sym(Nat, Lg.Lim(x), Lg.Lim(st), lg.lim.eq(x, st, Lg.frame.fixed(f, a, st, x, eq))) :
+        Lg.Ok(Cr.Cir.exec(f, c, x), _, b, Q, H); ok))
+    case Cr.Cir.Out.halt{k, x}:
+      ok
+    case Cr.Cir.Out.out_of_memory{}:
+      ok
+    case Cr.Cir.Out.trap{}:
+      ok
+    case Cr.Cir.Out.not_done{}:
+      ok
+
+# the Tot of a sequence gives its first part's, to a state from which the
+# second runs
+def lg.seq.split(+a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, t: Lg.Tot(Cr.Cir.Stmt.seq{a, c}, st, b, Q, H)) ->
+  Lg.Tot(a, st, b, x => Lg.Tot(c, x, b, Q, H), H):
+  match t:
+    case Tuple{+f, ok}:
+      (f, lg.split.go(Cr.Cir.exec(f, a, st), f, a, c, st, b, Q, H, {==},
+        (%lg.exec.seq(f, a, c, st) : Lg.Ok(_, Lg.Lim(st), b, Q, H); ok)))
+
+# an if's run by z = U32.is_zero of its condition's value: its branch's run
+def lg.if.of.back(z: Bool, +f: Nat, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, ok: Lg.Ok(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(f, t, st), u => Cr.Cir.exec(f, e, st)), Lg.Lim(st), b, Q, H)) ->
+  Lg.Ok(Cr.Cir.exec(f, Bool.pick(Cr.Cir.Stmt, z, e, t), st), Lg.Lim(st), b, Q, H):
+  match z:
+    case False{}:
+      ok
+    case True{}:
+      ok
+
+# the run of an if whose condition has the value x is its branch's
+def lg.if.back(+f: Nat, -c: Cr.Cir.Expr, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +x: U32, +ev: {Cr.Cir.eval(c, st) == Some{x} : Maybe<&2, U32>},
+  ok: Lg.Ok(Cr.Cir.exec(f, Cr.Cir.Stmt.if{c, t, e}, st), Lg.Lim(st), b, Q, H)) ->
+  Lg.Ok(Cr.Cir.exec(f, Bool.pick(Cr.Cir.Stmt, U32.is_zero(x), e, t), st), Lg.Lim(st), b, Q, H):
+  match f:
+    case 0n:
+      lg.if.of.back(U32.is_zero(x), 0n, t, e, st, b, Q, H,
+        (%ev : Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st)), Lg.Lim(st), b, Q, H); ok))
+    case 1n+p:
+      lg.if.of.back(U32.is_zero(x), 1n+p, t, e, st, b, Q, H,
+        (%ev : Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+p, t, st), u => Cr.Cir.exec(1n+p, e, st)), Lg.Lim(st), b, Q, H); ok))
+
+# an if whose condition has no value traps: no Tot holds of it
+def lg.if.none(-c: Cr.Cir.Expr, -t: Cr.Cir.Stmt, -e: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +ev: {Cr.Cir.eval(c, st) == None{} : Maybe<&2, U32>},
+  tt: Lg.Tot(Cr.Cir.Stmt.if{c, t, e}, st, b, Q, H)) -> Empty:
+  match tt:
+    case Tuple{+f, ok}:
+      match f:
+        case 0n:
+          (%ev : Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(0n, t, st), u => Cr.Cir.exec(0n, e, st)), Lg.Lim(st), b, Q, H); ok)
+        case 1n+p:
+          (%ev : Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+p, t, st), u => Cr.Cir.exec(1n+p, e, st)), Lg.Lim(st), b, Q, H); ok)
+
+# the Tot of an if whose condition has the value x gives its branch's
+def lg.if.split(+c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +x: U32, +ev: {Cr.Cir.eval(c, st) == Some{x} : Maybe<&2, U32>},
+  tt: Lg.Tot(Cr.Cir.Stmt.if{c, t, e}, st, b, Q, H)) -> Lg.Tot(Bool.pick(Cr.Cir.Stmt, U32.is_zero(x), e, t), st, b, Q, H):
+  match tt:
+    case Tuple{+f, ok}:
+      (f, lg.if.back(f, c, t, e, st, b, Q, H, x, ev, ok))
+
+# tot.of_wp's converse for an if, by z = U32.is_zero of its condition's value
+def lg.oftot.pick(z: Bool, +x: U32, +hz: {U32.is_zero(x) == z : Bool}, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt,
+  +st: Cr.Cir.State, +b: Nat, -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  tp: Lg.Tot(Bool.pick(Cr.Cir.Stmt, U32.is_zero(x), e, t), st, b, y => K(H, y), H),
+  iht: Lg.Tot(t, st, b, y => K(H, y), H) -> Lg.WP(t, b, q => y => K(q, y), j => y => H(j, y), st),
+  ihe: Lg.Tot(e, st, b, y => K(H, y), H) -> Lg.WP(e, b, q => y => K(q, y), j => y => H(j, y), st)) ->
+  Lg.WP.pick(z, k => h => Lg.WP(t, b, q => y => k(q, y), j => y => h(j, y), st),
+    k => h => Lg.WP(e, b, q => y => k(q, y), j => y => h(j, y), st), K, H):
+  match z:
+    case False{}:
+      iht((%hz : Lg.Tot(Bool.pick(Cr.Cir.Stmt, _, e, t), st, b, y => K(H, y), H); tp))
+    case True{}:
+      ihe((%hz : Lg.Tot(Bool.pick(Cr.Cir.Stmt, _, e, t), st, b, y => K(H, y), H); tp))
+
+# tot.of_wp's converse for an if, by its condition's value v
+def lg.oftot.if(v: Maybe<&2, U32>, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat,
+  -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +ev: {Cr.Cir.eval(c, st) == v : Maybe<&2, U32>}, tt: Lg.Tot(Cr.Cir.Stmt.if{c, t, e}, st, b, y => K(H, y), H),
+  iht: Lg.Tot(t, st, b, y => K(H, y), H) -> Lg.WP(t, b, q => y => K(q, y), j => y => H(j, y), st),
+  ihe: Lg.Tot(e, st, b, y => K(H, y), H) -> Lg.WP(e, b, q => y => K(q, y), j => y => H(j, y), st)) ->
+  Lg.WP.if(v, k => h => Lg.WP(t, b, q => y => k(q, y), j => y => h(j, y), st),
+    k => h => Lg.WP(e, b, q => y => k(q, y), j => y => h(j, y), st), K, H):
+  match v:
+    case Some{+x}:
+      lg.oftot.pick(U32.is_zero(x), x, {==}, c, t, e, st, b, K, H, lg.if.split(c, t, e, st, b, y => K(H, y), H, x, ev, tt), iht, ihe)
+    case None{}:
+      lg.if.none(c, t, e, st, b, y => K(H, y), H, ev, tt)
 
 def Lg.wp.of_tot(s, st, b, K, H, t):
-  ?TODO
+  match s:
+    case Cr.Cir.Stmt.nop{}:
+      lg.prim.wp(Cr.Cir.Stmt.nop{}, st, b, K, H, {==}, t)
+    case Cr.Cir.Stmt.set{+r, +e}:
+      lg.prim.wp(Cr.Cir.Stmt.set{r, e}, st, b, K, H, {==}, t)
+    case Cr.Cir.Stmt.store{+k, +c, +v}:
+      lg.prim.wp(Cr.Cir.Stmt.store{k, c, v}, st, b, K, H, {==}, t)
+    case Cr.Cir.Stmt.alloc{+r}:
+      lg.prim.wp(Cr.Cir.Stmt.alloc{r}, st, b, K, H, {==}, t)
+    case Cr.Cir.Stmt.emit{+v}:
+      lg.prim.wp(Cr.Cir.Stmt.emit{v}, st, b, K, H, {==}, t)
+    case Cr.Cir.Stmt.seq{+a, +c}:
+      Lg.wp.of_tot(a, st, b, h => x => Lg.WP(c, b, k => y => K(k, y), j => y => h(j, y), x), j => y => H(j, y),
+        Lg.tot.wk(a, st, b, b, x => Lg.Tot(c, x, b, y => K(H, y), H), x => Lg.WP(c, b, k => y => K(k, y), j => y => H(j, y), x),
+          H, j => y => H(j, y), lg.le_refl(b),
+          x => tc => Lg.wp.of_tot(c, x, b, k => y => K(k, y), j => y => H(j, y), tc), k => x => hx => hx,
+          lg.seq.split(a, c, st, b, y => K(H, y), H, t)))
+    case Cr.Cir.Stmt.if{+c, +t2, +e}:
+      lg.oftot.if(Cr.Cir.eval(c, st), c, t2, e, st, b, K, H, {==}, t,
+        tt => Lg.wp.of_tot(t2, st, b, q => y => K(q, y), j => y => H(j, y), tt),
+        te => Lg.wp.of_tot(e, st, b, q => y => K(q, y), j => y => H(j, y), te))
+    case Cr.Cir.Stmt.while{c, body}:
+      t
+    case Cr.Cir.Stmt.halt{+k}:
+      lg.prim.wp(Cr.Cir.Stmt.halt{k}, st, b, K, H, {==}, t)
 
 def Lg.wp.wk(s, st, b, b2, K, K2, H, H2, hb, hk, hh, w):
-  ?TODO
+  Lg.wp.of_tot(s, st, b2, K2, H2, Lg.tot.wk(s, st, b, b2, x => K(H, x), x => K2(H2, x), H, H2, hb, hk, hh, Lg.tot.of_wp(s, st, b, K, H, w)))
 
 def Lg.tot.frame(s, st, b, Q, H, t):
   ?TODO
