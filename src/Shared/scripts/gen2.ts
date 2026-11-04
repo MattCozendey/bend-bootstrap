@@ -97,6 +97,11 @@
 //                      ?TODO alone on its line): step the code by S1's logic (gen2_wp.ts: wp.set, wp.store,
 //                      WP's ifs, register and cell facts, Bool splits); prints the proof (checked by the def
 //                      check) with each leaf left a numbered ?TODO, its goal and a one-line hint. Off by default.
+//       --ind          a whole body the search did not prove: induction schemes (gen2_ind.ts: bounded Nat
+//                      enumeration, U32 words lifted to any width, word / Nat / functional induction) whose
+//                      arms the leaf tactics close, with proven helper lemmas (generalized stuck calls, the
+//                      arm's own goal); helpers print above the body. Also a clash through a predicate with
+//                      type parameters (maybe.T(A, _)) and splits on Bool parameters only hypotheses name.
 //       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
 //                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
 //                      over its whole context (true iff the hole is), and the hole a call of it; at most
@@ -326,6 +331,7 @@ const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return
 const flag = (k: string) => argv.includes("--" + k);
 let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0, ONLY_HOLE = 0;
 let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false, HELPERS = false, WRITE = false, WP = false;
+let IND = false; // --ind (gen2_ind.ts)
 const readOpts = () => {
   BUDGET = +opt("budget", MODE === "serve" ? "1000" : "4000");
   MAX_SPLIT = +opt("splits", "6");
@@ -337,6 +343,7 @@ const readOpts = () => {
   HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
   PARTIAL = flag("partial"); STREAM = flag("stream"); DEBUG = flag("debug");
   WRITE = flag("write"); HELPERS = WRITE || flag("helpers"); ONLY_HOLE = +opt("hole", "0"); WP = flag("wp");
+  IND = flag("ind");
 };
 readOpts();
 const FUEL_NF = 100000;
@@ -453,6 +460,7 @@ if (MODE === "ask") {
 }
 const B = await import("../../../bend/bend2/bend.ts");
 const { wpProve } = await import("./gen2_wp.ts");
+const Ind = await import("./gen2_ind.ts");
 
 // ---- load ----
 const entry = fs.realpathSync(path.resolve(FILE ?? ""));
@@ -674,7 +682,9 @@ for (const k of book.order.slice(N0)) {
   if (file) for (const imp of autoImports) file.al[imp.alias] = imp.ns;
 }
 const openBySource = new Map<string, Set<string>>();
+const tempOpen = new Set<string>(); // --ind: temp defs being proven (gen2_ind.ts)
 const isOpen = (k: string) => {
+  if (IND && tempOpen.has(k)) return true;
   const source = sourceFiles.get(k)?.str;
   if (!source) return false;
   let names = openBySource.get(source);
@@ -1850,6 +1860,7 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>, gk: strin
       if (a) { tag("exfalso"); return tm(callText(c, a.args)); }
     }
   }
+  if (IND) { const r = Ind.indLeaf(indApi(), g); if (r) { tag("ind"); return tm(r); } }
   if (depth === 0 && rw === 0) return null;
   let gi = job.gi.get(gk);
   if (!gi) { gi = {}; job.gi.set(gk, gi); }
@@ -2068,6 +2079,7 @@ const splitCands = (n: Goal, lg: Goal): number[] => {
     blockers(h[h.length - 1], blk);
   }
   blk.forEach(add);
+  if (IND) Ind.indSplits(indApi(), n, out);
   const depth = n.path.split("/").length - 1;
   return out.slice(0, depth >= 4 ? 1 : depth >= 2 ? 2 : MAX_SPLIT_CANDS);
 };
@@ -2918,6 +2930,99 @@ const wpWhole = (k: string): number | null => {
   return w.open;
 };
 
+// ---- --ind: induction schemes and helper lemmas (gen2_ind.ts) ----
+// gen2_ind.ts sees gen2 through this object only. Temporary defs (helper lemmas while gen2 proves
+// them) live in the book until dropTemps; a temp def enters the lemma index only with a proof body.
+const temps: string[] = [];
+let tempN = 0;
+// a later temp gets a lower order (it is printed above, and is a lemma for the temps being proven)
+const addTemp = (k: string, head: string, body: string, lemma: boolean, order?: number): string | null => {
+  const file = sourceFiles.get(k), ds = defSrc(k);
+  if (!file || !ds) return null;
+  const n0 = book.order.length;
+  try { B.parse_book(book, TOP, head + "\n" + body + "\n", file.ns, file.al); } catch { book.order.length = n0; return null; }
+  const hk = book.order[n0];
+  if (!hk || RAW[hk]?.$ !== "Def") { for (const x of book.order.slice(n0)) delete RAW[x]; book.order.length = n0; return null; }
+  temps.push(hk);
+  ORDER.set(hk, order ?? (ORDER.get(k) ?? n0) - 0.5 - (++tempN) * 1e-6);
+  if (!lemma) tempOpen.add(hk);
+  sourceFiles.set(hk, file);
+  srcCache.set(hk, { file: ds.file, header: head, body, bodyLine: 0 });
+  if (lemma) buildIndex();
+  return hk;
+};
+const dropTemp = (hk: string) => {
+  const i = temps.indexOf(hk);
+  if (i < 0) return;
+  temps.splice(i, 1);
+  delete RAW[hk];
+  const j = book.order.indexOf(hk);
+  if (j >= 0) book.order.splice(j, 1);
+  ORDER.delete(hk); sourceFiles.delete(hk); srcCache.delete(hk); strictMemo.delete(hk); matchedMemo.delete(hk); tempOpen.delete(hk);
+};
+const dropTemps = () => { const had = temps.length > 0; for (const hk of temps.slice()) dropTemp(hk); if (had) buildIndex(); };
+// the whole-body search without its partial pass and decomposition: the proof text, or null
+const proveQuick = (k: string, budget: number): string | null => {
+  const d0 = DECOMP, p0 = PARTIAL, j0 = job, dl = deadline;
+  DECOMP = false; PARTIAL = false;
+  try { const o = proveDef(k, budget); return o.ok ? o.text : null; }
+  catch (e) { if (e === TIMEOUT) return null; throw e; }
+  finally { DECOMP = d0; PARTIAL = p0; job = j0; deadline = dl; }
+};
+// the leaf tactics (with the induction hypothesis of job k) on g within budget ms: a proof term, or null
+const leafText = (k: string, g: Goal, budget: number): string | null => {
+  const j0 = job, dl = deadline;
+  job = newJob(k); job.ih = true;
+  deadline = Math.min(dl, performance.now() + budget);
+  try {
+    let pf: Pf | null = null;
+    for (let dd = 0; dd <= MAX_DEPTH && !pf; dd++) pf = leaf(g, dd, dd === 0 ? 1 : MAX_RW, new Set());
+    return pf ? attempt(FUEL_NF, () => inline(pf!)) ?? null : null;
+  } catch (e) { if (e === TIMEOUT) return null; throw e; }
+  finally { job = j0; deadline = dl; }
+};
+// the def check of k with body (the error, or null)
+const checkBody = (k: string, body: string): any => {
+  const old = fuel;
+  fuel = FUEL_FINAL;
+  try { checkDef(k, body); return null; } catch (e) { return e ?? "error"; } finally { fuel = old; }
+};
+let indApiObj: any = null;
+const indApi = (): any => indApiObj ??= {
+  B, book, RAW, ORDER, show, lower, nf, wnf, key, attempt, unapply, blockers, strictOf, matchedOf, contradictory, hypTargets, usable, ann,
+  tryText, holeGoal, rootGoal, introAll, intro, errText, defSrc, shortOf, fresh, reserved, helperName, isData,
+  addTemp, dropTemp, dropTemps, proveQuick, leafText, checkBody, clipTo, stmtOk: (k: string) => stmtError(k) === null,
+  FUEL_NF, FUEL_FINAL, TIMEOUT, META, matchT: match, openMeta, parseFrag,
+  job: () => job, setJob: (j: Job) => { job = j; }, newJob, now: () => performance.now(),
+  deadline: () => deadline, setDeadline: (t: number) => { deadline = t; },
+  debug: () => DEBUG, budget: () => BUDGET,
+};
+// a whole body that the search did not prove: the induction schemes of gen2_ind.ts; prints and returns
+// the outcome when they prove it (a partial only if it closes more than o's), else null (o is printed)
+const indWhole = (k: string, ds: Src, o: Outcome): { failed: boolean; body?: string } | null => {
+  let r: ReturnType<typeof Ind.indProve> = null;
+  const j0 = job;
+  try { r = Ind.indProve(indApi(), k, BUDGET); }
+  catch (e: any) { console.error("[gen2] --ind: internal: " + String(e?.message ?? e).slice(0, 200)); r = null; }
+  finally { dropTemps(); job = j0; deadline = Infinity; }
+  if (!r) return null;
+  if (r.open === 0) {
+    if (r.helpers.length) console.log("# HELPERS (new, from gen2 --ind; each proven, and checked with the body below): paste them above `def " + shortOf(k) + "(`\n" + r.helpers.join("\n") + "\n# the body of " + shortOf(k) + ":");
+    console.log(r.text);
+    console.log(r.report);
+    console.error("[gen2] " + shortOf(k) + ": proven by --ind in " + Math.round(r.ms) + " ms");
+    if (WRITE) console.error(writeBack(k, ds, r.text, r.helpers));
+    return { failed: false, body: r.text };
+  }
+  if (!PARTIAL || r.closed <= o.closed) return null;
+  console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms + r.ms) + " ms; --ind: a checked skeleton, " + r.open + " open)");
+  console.log("# PARTIAL (--ind: " + r.open + " holes, " + r.closed + " subgoals closed; the skeleton checks): not a finished proof");
+  if (r.helpers.length) console.log("# HELPERS it uses (new, proven):\n" + r.helpers.join("\n") + "\n# the body of " + shortOf(k) + ":");
+  console.log(r.text);
+  console.log(r.report);
+  return { failed: true };
+};
+
 // prove the ?TODO holes of k's body, one by one (leaf tactics)
 type HoleRes = { hole: number; ok: boolean; ms: number; text: string; partial?: string };
 const proveHoles = (k: string, budget: number, log = true): { body: string; n: number; done: number; res: HoleRes[]; helpers: string[] } => {
@@ -3070,6 +3175,15 @@ const bench = () => {
     RAW[k] = { ...def, v: null };
     let o: Outcome;
     try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
+    // --ind: a miss gets the induction schemes too (its time added)
+    if (IND && !o.ok) {
+      RAW[k] = { ...def, v: null };
+      const j0 = job;
+      let r: ReturnType<typeof Ind.indProve> = null;
+      try { r = Ind.indProve(indApi(), k, BUDGET); } catch (e: any) { if (e !== TIMEOUT) internal++; } finally { RAW[k] = def; dropTemps(); job = j0; deadline = Infinity; } // def back before the index is rebuilt
+      if (r && r.open === 0) o = { ...o, ok: true, text: r.text, ms: o.ms + r.ms, tags: [...o.tags, "ind"] };
+      else if (r) o = { ...o, ms: o.ms + r.ms };
+    }
     const cls = lines <= 3 ? "S(1-3)" : lines <= 10 ? "M(4-10)" : "L(11+)";
     rows.push({ k, lines, cls, ok: o.ok, ms: Math.round(o.ms), tags: o.tags, holes: o.holes, closed: o.closed, why: o.why, proof: o.text, orig: ds.body });
     console.error((o.ok ? "OK  " : "--  ") + String(Math.round(o.ms)).padStart(6) + " ms  " + cls.padEnd(8) + " " + k + (o.ok ? "  [" + o.tags.join(" ") + "]" : o.why ? "  (" + o.why + ")" : ""));
@@ -3353,7 +3467,7 @@ class Exit { constructor(readonly code: number) {} }
 const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
-  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write", "--check", "--lemmas", "--full-errors", "--wp"].includes(xs[i - 1])));
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write", "--check", "--lemmas", "--full-errors", "--wp", "--ind"].includes(xs[i - 1])));
   if (flag("check")) { runCheck(names); return; }
   if (argv.includes("--find")) {
     job = newJob(book.order.slice(N0).find((k) => RAW[k]?.$ === "Def" && sourceFiles.has(k)) ?? book.order[book.order.length - 1]!);
@@ -3381,7 +3495,7 @@ const runProve = () => {
   if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
   if (flag("lemmas")) { for (const k of ks) { if (ks.length > 1) console.log("# " + shortOf(k)); runLemmas(k); } return; }
   let failed = 0;
-  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS, ONLY_HOLE].join(",");
+  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS, ONLY_HOLE, IND].join(",");
   for (const k of ks) {
     const ds = defSrc(k);
     if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }
@@ -3425,6 +3539,7 @@ const proveOne = (k: string, ds: Src): { failed: boolean; body?: string } => {
       if (WRITE) console.error(writeBack(k, ds, o.text!, []));
       return { failed: false, body: o.text! };
     }
+    if (IND) { const r = indWhole(k, ds, o); if (r) return r; }
     console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
     console.log(o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "# NO PROOF");
     if (o.hints) console.log(o.hints);
