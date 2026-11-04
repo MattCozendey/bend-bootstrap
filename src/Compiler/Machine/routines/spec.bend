@@ -13,7 +13,7 @@
 # states to H: a new term node over owned roots (h.node), and a new argument
 # cell on a chain (h.arg).
 #
-# Inv says that a state holds an abstract state: its mode; H with the focus
+# MInv says that a state holds an abstract state: its mode; H with the focus
 # as the one owned root, at the depth 0, the frames from sp, and no chain.
 
 import Base
@@ -339,17 +339,17 @@ def Mode0(+st: Cr.Cir.State) -> Cr.Cir.State:
 # The state invariant
 # -------------------
 
-def Inv.mode(+st: Cr.Cir.State, ret: Bool) -> Bool:
+def MInv.mode(+st: Cr.Cir.State, ret: Bool) -> Bool:
   I.Mb.is(Lg.Reg(st, Mc.R.mode()), Bool.pick(U32, ret, 1, 0))
 
 # the state st holds the abstract state s: the mode register; H, with the
 # live cells of st, the focus as the one owned root at the depth 0 (its term
 # s.focus), the frames from sp holding s.fs, no chain; so the image is intact
 # and there is no output yet
-def Inv(+x: Hp.Cx, +st: Cr.Cir.State, s: A.AS) -> Bool:
+def MInv(+x: Hp.Cx, +st: Cr.Cir.State, s: A.AS) -> Bool:
   match s:
     case A.AS{ret, t, fs}:
-      Inv.mode(st, ret) && Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, t}], fs, [])
+      MInv.mode(st, ret) && Hp.H(x, st, Hp.V.Live(st), [Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, t}], fs, [])
 
 # Laws
 # ----
@@ -645,11 +645,11 @@ law out.spec:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
   for +v: Bk.Term
-  for +iv: {Inv(x, st, A.AS{True{}, v, []}) == True{} : Bool}
+  for +iv: {MInv(x, st, A.AS{True{}, v, []}) == True{} : Bool}
   Lg.Tot(Mc.M.out(), st, Out.budget(st, v), st2 => Empty, k => st2 => {Out.end(v, k, st2) == True{} : Bool})
 
 # LAW: M.input(), from Cir.result's start of a book that Book.read reads: the
-# focus holds the start term, as Inv asks once the mode is 0; out of memory
+# focus holds the start term, as MInv asks once the mode is 0; out of memory
 # only below the cells up to first + 1 + 27 |i|
 law input.spec:
   for +p: List<&2, Word(8n)>
@@ -665,7 +665,7 @@ law input.spec:
   for +small: {Mc.Img.small(p, 0) == True{} : Bool}
   for +s: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool}
   Lg.Tot(Mc.M.input(), I.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i), Input.budget(first, i),
-    st => {Inv(I.Cx.of(ds, k, first), Mode0(st), A.AS{False{}, Pg.Program.start(i), []}) == True{} : Bool},
+    st => {MInv(I.Cx.of(ds, k, first), Mode0(st), A.AS{False{}, Pg.Program.start(i), []}) == True{} : Bool},
     Lg.No)
 
 # LAW: a new term node over owned roots: M.make(r, ..) of a cell v whose
@@ -714,7 +714,7 @@ law h.arg:
 
 # LAW: the registers after M.alloc(r): r holds the new cell, free the next of
 # the free list (0 when it was empty), every other register is kept
-law alloc.reg:
+law alloc.regs:
   for +st: Cr.Cir.State
   for +r: Nat
   for +q: Nat
@@ -724,7 +724,7 @@ law alloc.reg:
     Bool.pick(Maybe<&2, U32>, Nat.is_eq(Mc.R.free(), q), Some{Alloc.free(st)}, Lg.Reg(st, q))) : Maybe<&2, U32>}
 
 # LAW: and after M.make(r, ..): the same
-law make.reg:
+law make.regs:
   for +st: Cr.Cir.State
   for +r: Nat
   for +v: Cr.Cir.Cell
