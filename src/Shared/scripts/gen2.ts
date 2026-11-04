@@ -64,6 +64,13 @@
 //       --json FILE    bench: write per-def results as JSON
 //       --debug        print internal errors and failed final checks
 //       --fresh        ask: search again, not the cached answer (the proof cache stays in use)
+//       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
+//                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
+//                      over its whole context (true iff the hole is), and the hole a call of it; at most
+//                      6 per def; printed under "# HELPERS" (ask for each helper by name afterwards)
+//       --write        apply the result to the file: a proof, or (with --helpers implied) the new body
+//                      and the helpers above the def; skipped if the def's body changed since gen2 read
+//                      it; statements are never touched (serve's reload then checks the new headers)
 //   example (WSL):
 //       cd /mnt/c/Users/mathe/source/repos/bb-wt/gen2/src
 //       ~/lead/heavy.sh bun Shared/scripts/gen2.ts bench Compiler/need_big.bend --budget 3000
@@ -260,7 +267,7 @@ const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
 const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return i >= 0 ? argv[i + 1] : d; };
 const flag = (k: string) => argv.includes("--" + k);
 let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0;
-let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false;
+let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false, HELPERS = false, WRITE = false;
 const readOpts = () => {
   BUDGET = +opt("budget", MODE === "serve" ? "1000" : "4000");
   MAX_SPLIT = +opt("splits", "6");
@@ -271,6 +278,7 @@ const readOpts = () => {
   DECOMP = !flag("no-decomp");
   HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
   PARTIAL = flag("partial"); STREAM = flag("stream"); DEBUG = flag("debug");
+  WRITE = flag("write"); HELPERS = WRITE || flag("helpers");
 };
 readOpts();
 const FUEL_NF = 100000;
@@ -1901,6 +1909,59 @@ const hintsFor = (k: string, g: Goal, whole: boolean): string => {
   return legend + diagnose(g, until) + "\n" + templates(k, refs, head);
 };
 
+// ---- helpers: each open hole as its own lemma (--helpers, --write) ----
+// The helper's statement is exactly the hole's goal over the hole's whole context (same names, order
+// and quantities), so it holds iff the hole does; the hole becomes a call of it. Each helper is then a
+// job of its own (own budget, own cache) that the agent or gen2 attacks by name. Written helpers are
+// checked by serve's reload (STATEMENT ERROR) like any changed statement.
+const helperDef = (g: Goal): { params: string; goal: string; args: string } | null => {
+  const names = g.names.slice(0, g.d);
+  if (new Set(names).size !== names.length || names.some((x) => x === "_" || x === "")) return null;
+  const ps: string[] = [];
+  for (let i = 0; i < g.d; i++) {
+    const a = ann(g, i);
+    const T = a && attempt(FUEL_NF, () => show(lower(a.T, i), names.slice(0, i)));
+    if (!a || T === undefined) return null;
+    ps.push("  " + B.quant_show(a.q) + names[i] + ": " + T);
+  }
+  const goal = attempt(FUEL_NF, () => show(lower(g.ty, g.d), names));
+  return goal === undefined ? null : { params: ps.join(",\n"), goal, args: names.join(", ") };
+};
+const helperName = (k: string, used: Set<string>): string => {
+  const base = shortOf(k);
+  const txt = fileText(defSrc(k)!.file);
+  const taken = new Set(Object.keys(RAW).map(shortOf));
+  for (let i = 1; ; i++) {
+    const nm = base + ".h" + i;
+    if (!used.has(nm) && !taken.has(nm) && !txt.includes("def " + nm + "(")) { used.add(nm); return nm; }
+  }
+};
+// the holes of p (at most 6) as calls of new helpers; the rest stay ?TODO
+const helperize = (k: string, p: Pf, used: Set<string>): { pf: Pf; defs: string[] } => {
+  const defs: string[] = [];
+  const pf = fillHoles(p, (g) => {
+    const h = defs.length < 6 ? helperDef(g) : null;
+    if (!h) return { pf: { t: "hole", g }, holes: 1, closed: 0 };
+    const nm = helperName(k, used);
+    defs.push("# gen2: an open subgoal of " + shortOf(k) + " (at " + (g.path || "/") + "), as its own lemma\ndef " + nm + "(\n" + h.params + ") ->\n  " + h.goal + ":\n  ?TODO\n");
+    return { pf: tm(nm + "(" + h.args + ")"), holes: 0, closed: 0 };
+  }, { holes: 0, closed: 0 });
+  return { pf, defs };
+};
+// put body as k's body and defs above k's def (and its comment) in k's file; the file must still hold
+// the body gen2 read
+const writeBack = (k: string, ds: Src, body: string, defs: string[]): string => {
+  const lines = fs.readFileSync(ds.file, "utf8").split("\n");
+  const n = ds.body.split("\n").length;
+  if (lines.slice(ds.bodyLine, ds.bodyLine + n).join("\n") !== ds.body) return "[gen2] --write skipped: " + path.basename(ds.file) + " changed since gen2 read it (ask again)";
+  lines.splice(ds.bodyLine, n, ...body.split("\n"));
+  let at = defLine(ds.file, shortOf(k));
+  while (at > 0 && lines[at - 1].startsWith("#")) at--;
+  if (defs.length > 0) lines.splice(at, 0, ...defs.join("\n").split("\n"));
+  fs.writeFileSync(ds.file, lines.join("\n"));
+  return "[gen2] wrote " + path.basename(ds.file) + ": the body of " + shortOf(k) + (defs.length ? " and " + defs.length + " helper(s) above it" : "");
+};
+
 // ---- jobs ----
 const rootGoal = (k: string): Goal => {
   const def = RAW[k] as B.Def;
@@ -1918,7 +1979,7 @@ const newJob = (k: string): Job => {
   return { k, def, order: ORDER.get(k) ?? book.order.length, file: sourceFiles.get(k)!, short: shortOf(k), tags: new Map(), memo: new Map(), smemo: new Map(), gi: new Map(), closed: 0, ih: true };
 };
 
-type Outcome = { ok: boolean; text: string | null; partial: string | null; partialBody?: string; hints?: string; holes: number; closed: number; ms: number; tags: string[]; why?: string };
+type Outcome = { ok: boolean; text: string | null; partial: string | null; partialBody?: string; hints?: string; helpers?: { body: string; defs: string[] }; holes: number; closed: number; ms: number; tags: string[]; why?: string };
 
 const showGoal = (g: Goal): string => {
   const clip = (s: string) => s.length > 2000 ? s.slice(0, 2000) + " ... [truncated]" : s;
@@ -2000,21 +2061,30 @@ const proveDef = (k: string, budget: number): Outcome => {
   // for the agent: why the first open goal stays open, and proven defs to copy the shape of
   const g0 = (best && holesOf(best.pf)[0]) || introAll(root);
   const hints = MODE !== "bench" && g0 ? hintsFor(k, g0, true) : undefined;
-  return { ok: false, text: null, partial, partialBody, hints, holes: best?.holes ?? 1, closed: best?.closed ?? 0, ms, tags, why };
+  // --helpers: a skeleton (at least one step closed) with each hole a call of a new helper lemma (a
+  // helper for the whole goal would only restate the def)
+  let helpers: { body: string; defs: string[] } | undefined;
+  if (HELPERS && best && best.holes > 0 && best.closed > 0) {
+    const h = helperize(k, best.pf, new Set());
+    const out: string[] = [];
+    if (h.defs.length > 0 && attempt(FUEL_NF, () => { render(h.pf, "  ", out); return true; })) helpers = { body: out.join("\n"), defs: h.defs };
+  }
+  return { ok: false, text: null, partial, partialBody, hints, helpers, holes: best?.holes ?? 1, closed: best?.closed ?? 0, ms, tags, why };
 };
 
 // prove the ?TODO holes of k's body, one by one (leaf tactics)
 type HoleRes = { hole: number; ok: boolean; ms: number; text: string; partial?: string };
-const proveHoles = (k: string, budget: number, log = true): { body: string; n: number; done: number; res: HoleRes[] } => {
+const proveHoles = (k: string, budget: number, log = true): { body: string; n: number; done: number; res: HoleRes[]; helpers: string[] } => {
   const res: HoleRes[] = [];
   const ds = defSrc(k)!;
   let body = ds.body;
   const n = (body.match(/\?TODO/g) ?? []).length;
-  let done = 0;
+  let done = 0, gone = 0; // gone: holes no longer ?TODO in body (filled, or a helper's call)
+  const helpers: string[] = [], used = new Set<string>();
   for (let h = 0; h < n; h++) {
     // find the next ?TODO not yet filled: mark it, read its goal from bend2's error
     let idx = -1;
-    for (let c = 0, from = 0; c <= h - done; c++) { idx = body.indexOf("?TODO", from); from = idx + 1; }
+    for (let c = 0, from = 0; c <= h - gone; c++) { idx = body.indexOf("?TODO", from); from = idx + 1; }
     const marked = body.slice(0, idx) + "?gen2hole" + body.slice(idx + 5);
     job = newJob(k);
     job.ih = true;
@@ -2052,8 +2122,9 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
     const ms = (performance.now() - t0).toFixed(0);
     if (!pf) {
       let partial = "";
+      let dr: Res | null = null;
       if (DECOMP) {
-        const r = decompose(g, 0, performance.now() + budget);
+        const r = dr = decompose(g, 0, performance.now() + budget);
         deadline = Infinity;
         if (r.closed > 0) {
           const out: string[] = [];
@@ -2064,6 +2135,21 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
       const text = "not found (" + ms + " ms)\n" + showGoal(g) + "\n" + hintsFor(k, g, false);
       if (log) console.error("[gen2] hole " + (h + 1) + ": " + text + (partial ? "\n" + partial : ""));
       res.push({ hole: h + 1, ok: false, ms: +ms, text, partial: partial || undefined });
+      // --helpers: the hole (its decomposition if it closed a step) with each open goal a helper's call
+      if (HELPERS) {
+        const hz = helperize(k, dr && dr.closed > 0 ? dr.pf : { t: "hole", g }, used);
+        if (hz.defs.length > 0) {
+          const line = body.slice(body.lastIndexOf("\n", idx) + 1, idx);
+          const ind = /^\s*$/.test(line) ? line : line.replace(/\S.*$/, "").replace(/$/, "  ");
+          const out: string[] = [];
+          if (attempt(FUEL_NF, () => { render(hz.pf, ind, out); return true; })) {
+            body = body.slice(0, idx) + out.join("\n").slice(ind.length) + body.slice(idx + 5);
+            helpers.push(...hz.defs);
+            gone++;
+            if (log) console.error("[gen2] hole " + (h + 1) + ": now " + hz.defs.length + " helper call(s)");
+          }
+        }
+      }
       continue;
     }
     const line = body.slice(body.lastIndexOf("\n", idx) + 1, idx);
@@ -2079,11 +2165,11 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
       continue;
     }
     body = nb;
-    done++;
+    done++; gone++;
     if (log) console.error("[gen2] hole " + (h + 1) + ": filled (" + ms + " ms)");
     res.push({ hole: h + 1, ok: true, ms: +ms, text });
   }
-  return { body, n, done, res };
+  return { body, n, done, res, helpers };
 };
 
 // ---- bench ----
@@ -2249,7 +2335,7 @@ class Exit { constructor(readonly code: number) {} }
 const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
-  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh"].includes(xs[i - 1])));
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write"].includes(xs[i - 1])));
   const entryDefs = new Set(book.order.slice(N0));
   const own = (x: string) => entryDefs.has(x) && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
   const ks: string[] = [];
@@ -2269,7 +2355,7 @@ const runProve = () => {
   }
   if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
   let failed = 0;
-  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole")].join(",");
+  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS].join(",");
   for (const k of ks) {
     const ds = defSrc(k);
     if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }
@@ -2278,7 +2364,7 @@ const runProve = () => {
     if (se) { console.log("# STATEMENT ERROR: the type of " + shortOf(k) + " does not check (no search; fix the statement):\n" + se); failed++; continue; }
     if (!SERVE) { failed += proveOne(k, ds).failed ? 1 : 0; continue; }
     const ak = k + "|" + optsKey + "|" + Bun.hash(linesOf(ds.file).slice(0, ds.bodyLine + ds.body.split("\n").length).join("\n"));
-    const hit = flag("fresh") ? undefined : lruGet(answers, ak);
+    const hit = flag("fresh") || WRITE ? undefined : lruGet(answers, ak);
     if (hit && (hit.body === undefined || attempt(FUEL_FINAL, () => { checkDef(k, hit.body!); return true; }))) {
       for (const [err, s] of hit.lines) (err ? console.error : console.log)(s);
       console.error("[gen2] " + shortOf(k) + ": cached answer (--fresh to search again)");
@@ -2309,16 +2395,23 @@ const proveOne = (k: string, ds: Src): { failed: boolean; body?: string } => {
       console.log(o.text);
       for (const imp of autoImports) if (o.text?.includes(imp.alias + ".")) console.error("[gen2] add import ./" + path.relative(TOP, imp.file) + " as " + imp.alias);
       console.error("[gen2] " + shortOf(k) + ": proven in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]");
+      if (WRITE) console.error(writeBack(k, ds, o.text!, []));
       return { failed: false, body: o.text! };
     }
     console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
     console.log(o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "# NO PROOF");
     if (o.hints) console.log(o.hints);
+    if (o.helpers) {
+      console.log("# HELPERS: the skeleton with each hole a new lemma (statement = the hole's goal in its context); ask for each by name\n" + o.helpers.defs.join("\n") + "\n# the body of " + shortOf(k) + ":\n" + o.helpers.body);
+      if (WRITE) console.error(writeBack(k, ds, o.helpers.body, o.helpers.defs));
+    }
     return { failed: true };
   }
   const r = proveHoles(k, BUDGET);
+  if (r.helpers.length > 0) console.log("# HELPERS: each open hole as a new lemma (statement = the hole's goal in its context); ask for each by name\n" + r.helpers.join("\n") + "\n# the body of " + shortOf(k) + ":");
   console.log(r.body);
-  console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled");
+  console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled" + (r.helpers.length ? ", " + r.helpers.length + " helper(s)" : ""));
+  if (WRITE && r.body !== ds.body) console.error(writeBack(k, ds, r.body, r.helpers));
   return r.done < r.n ? { failed: true } : { failed: false, body: r.body };
 };
 
