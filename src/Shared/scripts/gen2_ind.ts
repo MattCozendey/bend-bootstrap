@@ -37,10 +37,10 @@ type HTerm = B.HTerm;
 type LTerm = B.LTerm;
 
 // ---- types ----
-export type IndOut = { text: string; helpers: string[]; open: number; closed: number; report: string; ms: number } | null;
+export type IndOut = { text: string; helpers: string[]; defs: { head: string; body: string }[]; open: number; closed: number; report: string; ms: number } | null;
 type Api = any;
 type Goal = any;
-type Run = { A: Api; k: string; until: number; helpers: { order: number; text: string }[]; notes: string[]; used: Set<string>; nHelpers: number; failed: Set<string>; proven: Map<string, string> };
+type Run = { A: Api; k: string; until: number; helpers: { order: number; text: string; head: string; body: string }[]; notes: string[]; used: Set<string>; nHelpers: number; failed: Set<string>; proven: Map<string, string>; cut: number };
 type Fill = { body: string; open: number; closed: number; goals: string[] };
 type Scheme = { name: string; body: string };
 
@@ -125,6 +125,7 @@ const fillArms = (R: Run, k: string, body: string, depth: number, passes = [0, 1
     goals = [];
     let pos = 0;
     for (let i = 0; i < left; i++) {
+      if (A.busy && A.busy() && R.until > R.cut) R.until = R.cut; // others wait (shared server): the budget only
       const at = text.indexOf("?TODO", pos);
       if (at < 0) break;
       const err = A.checkBody(k, text.slice(0, at) + "?gen2hole" + text.slice(at + 5));
@@ -176,13 +177,13 @@ const proveHelper = (R: Run, head: string, depth: number): string | null => {
       const r = schemesProve(R, hk, depth + 1);
       if (r && r.open === 0) body = r.body;
     }
-  } finally { A.dropTemp(hk); R.until = until0; }
+  } finally { A.dropTemp(hk); R.until = Math.min(until0, A.busy && A.busy() ? R.cut : Infinity); }
   if (!body) { R.failed.add(stmt); return null; }
   const hk2 = A.addTemp(R.k, head, body, true, order);
   if (!hk2 || A.checkBody(hk2, body) !== null) { if (hk2) A.dropTemp(hk2); return null; }
   R.nHelpers++;
   R.proven.set(stmt, name);
-  R.helpers.push({ order, text: "# gen2 --ind: a helper lemma (proven)\n" + head + "\n" + body + "\n" });
+  R.helpers.push({ order, text: "# gen2 --ind: a helper lemma (proven)\n" + head + "\n" + body + "\n", head, body });
   return name;
 };
 const newName = (R: Run): string => R.A.helperName(R.k, R.used, "i");
@@ -711,17 +712,19 @@ const schemesProve = (R: Run, k: string, depth: number): Fill | null => {
 };
 
 // ---- entry points ----
-export const indProve = (A: Api, k: string, budget: number): IndOut => {
+// floor: the least time the schemes get (IND_FLOOR_MS; the caller lowers it when others wait)
+export const indProve = (A: Api, k: string, budget: number, floor = IND_FLOOR_MS): IndOut => {
   const t0 = A.now();
-  const R: Run = { A, k, until: t0 + Math.max(budget, IND_FLOOR_MS), helpers: [], notes: [], used: new Set(), nHelpers: 0, failed: new Set(), proven: new Map() };
+  const R: Run = { A, k, until: t0 + Math.max(budget, floor), helpers: [], notes: [], used: new Set(), nHelpers: 0, failed: new Set(), proven: new Map(), cut: t0 + budget };
   A.setJob(A.newJob(k));
   const r = schemesProve(R, k, 0);
   const ms = A.now() - t0;
   if (!r) return null;
-  const helpers = R.helpers.sort((a, b) => a.order - b.order).map((h) => h.text);
+  const sorted = R.helpers.sort((a, b) => a.order - b.order);
+  const helpers = sorted.map((h) => h.text), defs = sorted.map((h) => ({ head: h.head, body: h.body }));
   const report = "# --ind: " + (r.open === 0 ? "proven" : r.open + " arm(s) open") + " (" + (R.notes.join("; ") || "skeleton") + (helpers.length ? ", " + helpers.length + " helper(s)" : "") + "), " + Math.round(ms) + " ms" +
     r.goals.map((g, i) => "\n# arm " + (i + 1) + " (the " + (i + 1) + ". ?TODO): goal " + A.clipTo(g, 400)).join("");
-  return { text: r.body, helpers, open: r.open, closed: r.closed, report, ms };
+  return { text: r.body, helpers, defs, open: r.open, closed: r.closed, report, ms };
 };
 
 // a goal closed by a constructor clash in a hypothesis, through a predicate with type parameters
