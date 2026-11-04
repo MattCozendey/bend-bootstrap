@@ -54,6 +54,7 @@
 //       --fuel N       def lookups allowed per single check (default 300000)
 //       --validate-book  validate the target file before searching (may fail on existing open claims)
 //       --partial      on failure, print the best partial proof (holes with goals)
+//       --partial-patch  batch: include partial whole-body skeletons in gen2.patch (still open)
 //       --no-decomp    do not decompose open subgoals (see DESIGN)
 //       --hole-budget MS  budget of each open subgoal in the decomposition (default budget/4, >= 300)
 //       --stream       print startup timings and each closed subgoal to stderr
@@ -1635,7 +1636,7 @@ const newJob = (k: string): Job => {
   return { k, def, order: ORDER.get(k) ?? book.order.length, file: sourceFiles.get(k)!, short: shortOf(k), tags: new Map(), memo: new Map(), smemo: new Map(), closed: 0, ih: true };
 };
 
-type Outcome = { ok: boolean; text: string | null; partial: string | null; holes: number; closed: number; ms: number; tags: string[]; why?: string };
+type Outcome = { ok: boolean; text: string | null; partial: string | null; partialBody?: string; holes: number; closed: number; ms: number; tags: string[]; why?: string };
 
 const showGoal = (g: Goal): string => {
   const clip = (s: string) => s.length > 2000 ? s.slice(0, 2000) + " ... [truncated]" : s;
@@ -1697,13 +1698,15 @@ const proveDef = (k: string, budget: number): Outcome => {
     why = "final check";
   }
   let partial: string | null = null;
+  let partialBody: string | undefined;
   if (best && best.holes > 0) {
     const out: string[] = [];
     render(best.pf, "  ", out);
+    if (best.closed > 0) partialBody = out.join("\n");
     const hs = holesOf(best.pf);
     partial = out.join("\n") + "\n" + hs.map((g, i) => "# hole " + (i + 1) + " at " + (g.path || "/") + "\n" + showGoal(g)).join("\n");
   }
-  return { ok: false, text: null, partial, holes: best?.holes ?? 1, closed: best?.closed ?? 0, ms, tags, why };
+  return { ok: false, text: null, partial, partialBody, holes: best?.holes ?? 1, closed: best?.closed ?? 0, ms, tags, why };
 };
 
 // prove the ?TODO holes of k's body, one by one (leaf tactics)
@@ -1869,7 +1872,8 @@ const bench = () => {
 // ---- batch ----
 // every def of the book (not Base) with a ?TODO in its body: a whole ?TODO body is proven whole (splits),
 // other holes one by one; writes DIR/report.txt (per hole: proof, or partial with its open subgoals)
-// and DIR/gen2.patch (a unified diff, from the repository root, of the holes it proved)
+// and DIR/gen2.patch (a unified diff, from the repository root, of proved bodies and,
+// with --partial-patch, partial whole-body skeletons that still contain ?TODO)
 const batch = () => {
   const only = new RegExp(opt("only", ".*"));
   const dir = path.resolve(opt("out", "gen2-out"));
@@ -1894,7 +1898,16 @@ const batch = () => {
       let o: Outcome;
       try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
       if (o.ok) { proven++; newBody.set(k, o.text!); report.push("== " + shortOf(k) + " (" + where + "): PROVEN whole body in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]\n" + o.text); }
-      else { if (o.partial) partials++; report.push("== " + shortOf(k) + " (" + where + "): OPEN (" + Math.round(o.ms) + " ms)\n" + (o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "(no partial)")); }
+      else {
+        if (o.partial) partials++;
+        if (flag("partial-patch") && o.partialBody) {
+          let err: any = null;
+          try { checkDef(k, o.partialBody); } catch (e) { err = e; }
+          if (!err || (err.$ === "Err" && typeof err.exp !== "string")) newBody.set(k, o.partialBody);
+          else report.push("== " + shortOf(k) + ": partial skeleton failed the expected open-hole check: " + (err?.$ === "Err" ? B.err_show(err).slice(0, 500) : String(err)));
+        }
+        report.push("== " + shortOf(k) + " (" + where + "): OPEN (" + Math.round(o.ms) + " ms)\n" + (o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "(no partial)"));
+      }
       console.error("[gen2] " + (o.ok ? "PROVEN " : "open   ") + shortOf(k) + " (" + Math.round(o.ms) + " ms)");
       continue;
     }
@@ -1934,7 +1947,7 @@ const batch = () => {
   fs.writeFileSync(path.join(dir, "gen2.patch"), patch);
   const head = "gen2 batch " + FILE + ": " + proven + "/" + holes + " holes proven, " + partials + " partials, " + todo.length + " defs, " + ((performance.now() - t0) / 1000).toFixed(1) + " s (budget " + BUDGET + " ms per hole)";
   fs.writeFileSync(path.join(dir, "report.txt"), head + "\n\n" + report.join("\n\n") + "\n");
-  console.log(head + "\nreport: " + path.join(dir, "report.txt") + "\npatch:  " + path.join(dir, "gen2.patch") + " (apply from the repository root: git apply)");
+  console.log(head + "\nreport: " + path.join(dir, "report.txt") + "\npatch:  " + path.join(dir, "gen2.patch") + (flag("partial-patch") ? " (may contain open ?TODO goals)" : "") + " (apply from the repository root: git apply)");
 };
 
 // ---- prove ----
