@@ -351,7 +351,8 @@ def Inv(+x: Hp.Cx, +st: Cr.Cir.State, s: A.AS) -> Bool:
 # ----
 
 # LAW: M.alloc(r): r gets the free list's head or a new cell, all zeros
-# (Alloc.st); out of memory only below the cells up to first + |L| + 1
+# (Alloc.st), and next stays at most 214748364; out of memory only below the
+# cells up to first + |L| + 1
 law alloc.spec:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
@@ -360,11 +361,12 @@ law alloc.spec:
   for +hs: {Hp.Room(x, st, L) == True{} : Bool}
   for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) == True{} : Bool}
   Lg.Tot(Mc.M.alloc(r), st, I.Cells.bytes(Hp.Cx.fi(x), 1n+List.length(&2, U32, L)),
-    st2 => {st2 == Alloc.st(st, r) : Cr.Cir.State}, Lg.No)
+    st2 => {st2 == Alloc.st(st, r) : Cr.Cir.State} & {U32.is_le(Lg.St.next(st2), 214748364) == True{} : Bool}, Lg.No)
 
 # LAW: M.make(r, h, a, b, c), with the values hv, av, bv, cv of its
 # expressions (Ev: they read neither r nor free, and only live or image
-# cells): r gets M.alloc's cell, which holds them, and one pointer
+# cells): r gets M.alloc's cell, which holds them, and one pointer; next stays
+# at most 214748364
 law make.spec:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
@@ -382,7 +384,7 @@ law make.spec:
   for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) == True{} : Bool}
   for +he: {Evs([h, a, b, c], x, st, L, [r, Mc.R.free()]) == Some{[hv, av, bv, cv]} : Maybe<&2, List<&2, U32>>}
   Lg.Tot(Mc.M.make(r, h, a, b, c), st, I.Cells.bytes(Hp.Cx.fi(x), 1n+List.length(&2, U32, L)),
-    st2 => {st2 == Make.st(st, r, Cr.Cir.Cell{hv, 1, av, bv, cv}) : Cr.Cir.State}, Lg.No)
+    st2 => {st2 == Make.st(st, r, Cr.Cir.Cell{hv, 1, av, bv, cv}) : Cr.Cir.State} & {U32.is_le(Lg.St.next(st2), 214748364) == True{} : Bool}, Lg.No)
 
 # LAW: M.release(r), of an own cell c: c is FREE, at the head of the free
 # list (Release.st)
@@ -410,7 +412,8 @@ law nth.spec:
   Lg.Tot(Mc.M.nth(), st, 0n, st2 => {st2 == Nth.st(st, Nth(j, Lg.St.cells(st), ce)) : Cr.Cir.State}, Lg.No)
 
 # LAW: M.inc(r), of a cell c that reads as t at d (no real variable free
-# there), live or of the image: c gains a pointer, and is one more root
+# there, V.rc), live or of the image: c gains a pointer, and is one more root
+# (at most 64 roots: no count wraps, h.count)
 law inc.spec:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
@@ -424,7 +427,8 @@ law inc.spec:
   for +t: Bk.Term
   for +hs: {Hp.H(x, st, L, rs, fs, chs) == True{} : Bool}
   for +hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
-  for +hn: {Hp.V.Held(x, st, L, c, d, t) && Nat.is_le(U32.to_nat(Hp.Fv(Lg.St.cells(st), c)), d) == True{} : Bool}
+  for +hn: {Hp.V.Held(x, st, L, c, d, t) && Hp.V.rc(U32.to_nat(Lg.St.next(st)), Lg.St.cells(st), c, d) == True{} : Bool}
+  for +hb: {Nat.is_le(List.length(&2, Hp.Rt, rs), 64n) == True{} : Bool}
   Lg.Tot(Mc.M.inc(r), st, 0n, st2 => {Hp.H(x, st2, L, Con{Hp.Rt{c, d, t}, rs}, fs, chs) && Kept(st, st2, L, []) == True{} : Bool},
     Lg.No)
 
@@ -578,7 +582,7 @@ law release_all.spec:
 # their number; the source is STATIC, or at least as deep as the locals are
 # many (else a poison of it would become a local). n gets a new owned root of
 # the canonical form of t with es put in (AM.copy); the cells of L keep their
-# fields 0, 2, 3, 4; out of memory only below Copy.budget
+# fields 0, 2, 3, 4; out of memory only below Copy.budget (at most 64 roots)
 law copy.spec:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
@@ -596,6 +600,7 @@ law copy.spec:
     (Nat.is_le(List.length(&2, A.Ag, es), Copy.depth(wt)) || Hp.Fl(Lg.St.cells(st), c, Mc.F.static())) == True{} : Bool}
   for +he: {I.Mb.is(Lg.Reg(st, Mc.R.cenv()), ce) && I.Mb.is(Lg.Reg(st, Mc.R.clen()), U32.from_nat(List.length(&2, A.Ag, es))) ==
     True{} : Bool}
+  for +hb: {Nat.is_le(List.length(&2, Hp.Rt, rs), 64n) == True{} : Bool}
   Lg.Tot(Mc.M.copy(Mc.R.n(), Copy.src(wt)), st, Copy.budget(x, L, t, es),
     st2 => &n:U32 -> &L2:List<&2, U32> -> {I.Mb.is(Lg.Reg(st2, Mc.R.n()), n) &&
       Hp.H(x, st2, L2, Con{Hp.Rt{n, 0n, A.AM.copy(t, es)}, rs}, fs, Con{Hp.Ch{ce, es}, chs}) &&
@@ -606,7 +611,7 @@ law copy.spec:
 # LAW: M.walk(): the case tree at wt (a STATIC cell of the image, of the term
 # tt), on the chain of arguments at wargs (xs), walks as AM.walk walks it:
 # Walk.post; the arguments' cells move to wenv, are split or released; out of
-# memory only below Walk.budget
+# memory only below Walk.budget (at most 64 roots)
 law walk.spec:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
@@ -621,6 +626,7 @@ law walk.spec:
   for +hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{ca, xs}, chs}) == True{} : Bool}
   for +hw: {I.Mb.is(Lg.Reg(st, Mc.R.wt()), tc) && I.Mb.is(Lg.Reg(st, Mc.R.wargs()), ca) && Hp.V.img(x, Lg.St.cells(st), tc) &&
     Hp.V.is(Hp.V.at(x, st, tc, 0n), tt) == True{} : Bool}
+  for +hb: {Nat.is_le(List.length(&2, Hp.Rt, rs), 64n) == True{} : Bool}
   Lg.Tot(Mc.M.walk(), st, Walk.budget(x, L, tt),
     st2 => &L2:List<&2, U32> -> &e2:List<&2, A.Ag> -> &ys2:List<&2, A.Ag> ->
       {Walk.post(x, st, st2, L, L2, rs, fs, chs, tt, e2, ys2, A.AM.walk(Hp.Cx.ds(x), tt, [], xs)) == True{} : Bool},
@@ -674,6 +680,7 @@ law h.node:
   for +hs: {Hp.H(x, st, L, List.append(&2, Hp.Rt, ps, rs), fs, chs) == True{} : Bool}
   for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) ==
     True{} : Bool}
+  for +hn: {U32.is_le(Lg.St.next(Make.st(st, r, v)), 214748364) == True{} : Bool}
   for +hc: {U32.is_eq(Cr.Cir.Cell.get(1n, v), 1) && Hp.V.counted(Cr.Cir.Cells.set(Lg.St.cells(st), Alloc.cell(st), v), Alloc.cell(st)) &&
     Node.ok(x, Make.st(st, r, v), Alloc.cell(st), ps, t) == True{} : Bool}
   {Hp.H(x, Make.st(st, r, v), Con{Alloc.cell(st), L}, Con{Hp.Rt{Alloc.cell(st), 0n, t}, rs}, fs, chs) == True{} : Bool}
@@ -696,5 +703,6 @@ law h.arg:
   for +hs: {Hp.H(x, st, L, Con{Hp.Rt{c, 0n, Arg.t(ag)}, rs}, fs, Con{Hp.Ch{ln, as}, chs}) == True{} : Bool}
   for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) ==
     True{} : Bool}
+  for +hn: {U32.is_le(Lg.St.next(Make.st(st, r, Cr.Cir.Cell{Arg.header(ag), 1, c, 0, 0})), 214748364) == True{} : Bool}
   {Hp.H(x, Lg.St.store(Make.st(st, r, Cr.Cir.Cell{Arg.header(ag), 1, c, 0, 0}), 1n, Alloc.cell(st), ln),
     Con{Alloc.cell(st), L}, rs, fs, Con{Hp.Ch{Alloc.cell(st), Con{ag, as}}, chs}) == True{} : Bool}

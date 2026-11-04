@@ -31,5 +31,5 @@ import ../heap/view.bend as HpV
 import ../heap/count.bend as HpC
 import ../image/impl.bend as IP
 
-def R.copy.spec(x, st, L, rs, fs, chs, wt, c, t, ce, es, hs, hc, he):
+def R.copy.spec(x, st, L, rs, fs, chs, wt, c, t, ce, es, hs, hc, he, hb):
   ?TODO
