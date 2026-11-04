@@ -906,7 +906,7 @@ def Lg.wp.of_tot(s, st, b, K, H, t):
       lg.prim.wp(Cr.Cir.Stmt.halt{k}, st, b, K, H, {==}, t)
 
 def Lg.wp.wk(s, st, b, b2, K, K2, H, H2, hb, hk, hh, w):
-  ?TODO
+  Lg.wp.of_tot(s, st, b2, K2, H2, Lg.tot.wk(s, st, b, b2, x => K(H, x), x => K2(H2, x), H, H2, hb, hk, hh, Lg.tot.of_wp(s, st, b, K, H, w)))
 
 def Lg.tot.frame(s, st, b, Q, H, t):
   ?TODO
