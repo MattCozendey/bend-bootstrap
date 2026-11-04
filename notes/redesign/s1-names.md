@@ -1,5 +1,14 @@
 # S1 names: shared kit (B0), logic (B1), header (B2)
 
+**Additions at 8b21a13 (w/s1 merged with feature/redesign 015dba0; all proven, kernel 0 fail):**
+- `K.bool.case(+b, -G, t: @+h: {b == True{} : Bool} -> G, f: @+h: {b == False{} : Bool} -> G) -> G`:
+  a split on a Bool (the --wp stepper's if split; text as gen2-wp-notes.md proposed).
+- `Lg.St.reg(st, r) -> U32`: the value of register r (`Maybe.default(Reg(st, r), 0)`; 0 for none).
+- law `Lg.reg.some` (+st, +q, +hq: `{Nat.is_lt(q, St.nregs(st)) == True{}}`) ⊢
+  `{Lg.Reg(st, q) == Some{Lg.St.reg(st, q)}}`: every register below the count can be read.
+- law `Lg.reg.lt` (+st, +q, +c, +hq: `{Lg.Reg(st, q) == Some{c}}`) ⊢ `{Nat.is_lt(q, St.nregs(st)) == True{}}`.
+- kit `K.maybe.T`, `K.list.get_lt`, `K.list.lt_get` (List.get below the length is Some; Some means below).
+
 **Changes since the first publication (949139d), as of 4f3ddcc** (no def or law was renamed):
 - **Import `logic/impl.bend` (and `header/impl.bend`) in any book whose proofs use S1's laws**:
   bend2 rejects a use of a law that has no fill in the book ("an unfilled law is a dead claim").
@@ -105,6 +114,7 @@ def bool.or_l(a: Bool, -b: Bool, +h: {a == True{} : Bool}) -> {Bool.or(a, b) == 
 def bool.or_r(a: Bool, -b: Bool, +h: {b == True{} : Bool}) -> {Bool.or(a, b) == True{} : Bool}
 def bool.not_t(a: Bool, +h: {Bool.not(a) == True{} : Bool}) -> {a == False{} : Bool}
 def bool.not_f(a: Bool, +h: {a == False{} : Bool}) -> {Bool.not(a) == True{} : Bool}
+def bool.case(+b: Bool, -G: Type, t: @+h: {b == True{} : Bool} -> G, f: @+h: {b == False{} : Bool} -> G) -> G
 def nat.is_eq_ok(+a: Nat, +b: Nat, +e: {Nat.is_eq(a, b) == True{} : Bool}) -> {a == b : Nat}
 def nat.is_eq_refl(a: Nat) -> {Nat.is_eq(a, a) == True{} : Bool}
 def nat.is_eq_sym(a: Nat, b: Nat) -> {Nat.is_eq(a, b) == Nat.is_eq(b, a) : Bool}
@@ -121,12 +131,18 @@ def list.length_set(-A: Data, xs: List<&2, A>, n: Nat, x: A) ->
 def list.get_set(-A: Data, +xs: List<&2, A>, +n: Nat, +x: A, +j: Nat,
   +h: {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}) ->
   {List.get(&2, A, List.set(&2, A, xs, n, x), j) == Bool.pick(Maybe<&2, A>, Nat.is_eq(n, j), Some{x}, List.get(&2, A, xs, j)) : Maybe<&2, A>}
+def maybe.T(-A: Data, m: Maybe<&2, A>) -> Type
+def list.get_lt(-A: Data, +xs: List<&2, A>, +n: Nat, +d: A, +h: {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}) ->
+  {List.get(&2, A, xs, n) == Some{Maybe.default(&2, A, List.get(&2, A, xs, n), d)} : Maybe<&2, A>}
+def list.lt_get(-A: Data, +xs: List<&2, A>, +n: Nat, +c: A, +e: {List.get(&2, A, xs, n) == Some{c} : Maybe<&2, A>}) ->
+  {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}
 ```
 
 ### s1/src/Compiler/Machine/logic/spec.bend
 
 ```
 def Reg(st: Cr.Cir.State, +r: Nat) -> Maybe<&2, U32>
+def St.reg(st: Cr.Cir.State, +r: Nat) -> U32
 def St.regs(st: Cr.Cir.State) -> List<&2, U32>
 def St.nregs(st: Cr.Cir.State) -> Nat
 def St.cells(st: Cr.Cir.State) -> Cr.Cir.Cells
@@ -353,6 +369,17 @@ law reg.set:
   for +q: Nat
   for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   {Reg(St.set(st, r, v), q) == Bool.pick(Maybe<&2, U32>, Nat.is_eq(r, q), Some{v}, Reg(st, q)) : Maybe<&2, U32>}
+law reg.some:
+  for +st: Cr.Cir.State
+  for +q: Nat
+  for +hq: {Nat.is_lt(q, St.nregs(st)) == True{} : Bool}
+  {Reg(st, q) == Some{St.reg(st, q)} : Maybe<&2, U32>}
+law reg.lt:
+  for +st: Cr.Cir.State
+  for +q: Nat
+  for +c: U32
+  for +hq: {Reg(st, q) == Some{c} : Maybe<&2, U32>}
+  {Nat.is_lt(q, St.nregs(st)) == True{} : Bool}
 law reg.store:
   for +st: Cr.Cir.State
   for +k: Nat

@@ -94,3 +94,30 @@ g2pool's gen2 (w/g2pool, served in one WSL session; loads in 0.15–0.2 s):
   only the post leaf, in 0.1 s: useful. On a set that reads a field it stopped at once ("reads
   fields only when the proof can match the start state"). It first failed with "an unfilled law is
   a dead claim" because the scratch file imported only logic/spec (see Gotchas).
+
+## Follow-up (8b21a13): kit for the --wp stepper
+
+`K.bool.case` (as gen2-wp-notes.md proposed) and `Lg.reg.some` in S1's form: the value is the
+accessor `Lg.St.reg(st, q)` (logic cannot name S2's `Hp.V.reg`, which is the same value), plus its
+converse `Lg.reg.lt` (a Reg fact gives the count fact, e.g. for nth.spec's t1/t2). The register count
+is reachable from every routine law (see s1-handoff.md, "Register count"); nothing is missing.
+
+## gen2 tally, round 2 (lead's rule: gen2 first; gen2 + --wp of feature/redesign 015dba0)
+
+Asked in one WSL session (serve, ask, stop), `--partial` (`--wp` on the logic file), budget 8 s
+(logic) / 4 s (header).
+- **Retro-test** (the bodies blanked in a scratch copy): `list.get_lt` **proven** (37 ms),
+  `Lg.reg.some` **proven** (15 ms), `Lg.reg.lt` **proven** (7 ms, given `list.lt_get`);
+  `list.lt_get`: partial, only the Nil case (None = Some refutation) open (0.2 s): useful;
+  `bool.case`: nothing (goal `G`, 14 ms). So 3 of 5 would have needed no hand work.
+- **Open logic holes (11)**: 0 proven. `wp.alloc`, `wp.emit`, `tot.while` (--wp, 0.04–1 s): a leaf
+  whose hint is "apply Lg.wp.alloc / Lg.wp.emit / Lg.tot.while", i.e. the law being proven
+  (circular: misleading; the stepper should not offer a def's own law there either).
+  `tot.frame`, `tot.frame_out`: "dead end, not shown" (correct now). `cell.get_set`,
+  `cells.get_set`, `frame.fixed`, `frame.regs`, `tot.any`, `exec.alloc`: plain partial `?TODO`,
+  0.9–10 s (exec.alloc spends the whole budget).
+- **Header holes (18)**: 0 proven; mask laws 15 ms–1 s, `hd.*_of` and `mask.sub_bit` time out at
+  4 s. They need Word-level lemmas (induction on the width) that the book does not have.
+- Verdict: gen2 now closes "apply a kit lemma under `match st`" and plain list inductions on the
+  first try; it does not yet find a structural induction that needs a new helper (frame laws, trie
+  lemma) or 32-bit reasoning.

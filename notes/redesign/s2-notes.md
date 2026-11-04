@@ -88,3 +88,63 @@ and the kernel's Eval (Eval/impl.bend). Each deviation is decided on merit.
   Negative controls: a state run against the wrong abstract state fails; a wrong view fails.
 - Not covered by the runs: a Rwt whose proof is not Rfl, Mat misses by redex with frames, a Q2 bind
   of non-Data (halt 2), Prj on a non-pair, the alloc of a new cell at the edge of memory.
+
+## Register count in the routine laws (review for gen2 --wp, after gen2-wp-notes.md)
+
+No premise added: none is clearly missing.
+- Every law with an `Hp.H` or `Hp.Room` premise (alloc, make, inc, dec, push, pop, swap, one,
+  release_arg, release_all, copy, walk; out via Inv) reaches the count by `bool.and_l/and_r`:
+  H = Room && ..; Room = Part && Fix; Fix's 7th conjunct is `Nat.is_eq(Lg.St.nregs(st), Mc.Mach.regs())`
+  (to an equation by `K.nat.is_eq_ok`). With S1's `reg.some`, every register read follows.
+- input.spec starts from `I.St0(Mc.Mach.regs(), ..)`: its registers are `List.replicate(U32, 53n, 0)`,
+  so the count and every read compute.
+- release.spec gives `Nat.is_lt(Mc.R.free(), Lg.St.nregs(st))` (its only set) and the read of r as
+  `Lg.Reg(st, r) == Some{c}`; the read of free follows by `reg.some` from the same premise.
+- nth.spec gives no count: its two registers come as `Lg.Reg(st, t2) == Some{ce}` and
+  `Lg.Reg(st, t1) == Some{..}`, from which `t1, t2 < St.nregs(st)` follow (a List.get that gives Some
+  has its index below the length). The prover needs that one list fact (or a kit law
+  `reg.lt`: `Reg(st, q) == Some{v}` ⊢ `Nat.is_lt(q, St.nregs(st))`); its callers (copy, walk) have H,
+  so a count premise could be added at no cost if P3 prefers it.
+
+## Registers read by Lg.St.reg (0e4b5e8)
+
+`Hp.V.reg(st, r)` (`V.or0(Lg.Reg(st, r))`: the value, 0 when none) and `V.or0` are deleted; every
+use (heap/spec 3, routines/spec 13, s2_smoke 1) reads `Lg.St.reg(st, r)` (`Maybe.default(Reg(st, r), 0)`,
+S1, feature/redesign 85af8f7): the same value, so each statement means what it meant. So S1's
+`Lg.reg.some` (q < St.nregs ⇒ Reg(st, q) == Some{St.reg(st, q)}) applies to H, Frs, Part, Alloc.*,
+Walk.*, Inv as written; no bridging lemma (and so nothing for gen2 to prove).
+
+## Review fixes (review-s123.md), statement by statement (d542ce0, 2b666bc, 4bf709a)
+
+Each one checked again against Machine/impl.bend; all smoke runs pass after them (below).
+
+- **F1** `V.rc(g, m, c, d)` (heap/spec): the real variables of the read are bound at d (a real
+  Var's index below the binders above it; a poison needs none; by `V.mask`, the fields that
+  `V.cells` reads; g = 0 gives False). It does not read fv, which saturates at 524287 (a shared
+  bound Var of index >= 524286 gives a root fv_max: the old `fv <= d` at roots was false).
+  - `V.held.at` (so `Rts`, `V.frame`, `V.frame.b`, `Chs.go`, `Node.ok`, `Inv`) asks
+    `V.rc(next, cells, c, d)` in place of `fv <= d`.
+  - `inc.spec`'s premise `hn`: `V.Held && V.rc(next, cells, c, d)` in place of `fv <= d`.
+  - `view.deeper`, `view.canon`: premise `hr: V.rc(g, m, c, d)` in place of `hs` (fv < 524287) and
+    `hf` (fv <= d); `view.closed`: `hr: V.rc(g, m, c, k)` in place of `hm`, `hf`.
+  - New laws: `view.rc_fv` (fv < 524287, fv <= d, a read at any depth ⊢ V.rc at d: the copy's
+    sharing test), `view.rc_frame` (Agree on V.cells keeps V.rc), `view.rc_more`, `view.rc_up`
+    (d <= d2).
+- **F2** `alloc.spec`, `make.spec` posts: `{st2 == ..} & {U32.is_le(St.next(st2), 214748364) == True}`.
+  `h.node`, `h.arg`: new premise `hn: U32.is_le(St.next(Make.st(st, r, v)), 214748364)` (h.arg: of its
+  arg cell).
+- **F3** `inc.spec`, `copy.spec`, `walk.spec`: new premise `hb: |rs| <= 64`. New law `h.count` (H,
+  |rs| <= 64, c live and counted ⊢ `U32.is_lt(Fd(1, m, c), 2147483648)`).
+- **G1** `Cov` (so H) asks also `V.stat(L, m) <= 6144` (live cells flagged STATIC: the input's
+  cache, 256 × 24). Only M.input makes STATIC cells (copy.push drops the flag).
+- **G2** `h.rts_swap`, `h.chs_swap`: two neighbouring roots (chains) swap after any prefix `pre`
+  (`List.append(pre, a :: b :: rs)`), so any reorder by steps.
+- **G4** `h.static_root`: H, `V.img(x, m, c)`, `V.held.at(x, st, c, d, t)` ⊢ H with `Rt{c, d, t}` first.
+- (G3, M.call's frame loop, is S4's.)
+- For gen2 --wp (no meaning change): `Rts`, `Frs.go`, `Chs.go` state `Cir.is_cell(c, St.image,
+  St.first, St.next)` (implied by own/STATIC-image and Fix); laws `alloc.reg`, `make.reg` (the
+  registers of Alloc.st/Make.st: r the new cell, free `Alloc.free(st)`, others kept; premise r and
+  free below nregs, r ≠ free), `st0.nregs`, `st0.reg` (St0's n registers, each 0; **proven**).
+- Smoke after the fixes: s2_smoke all pass (bend2); the reviewer's rv_smoke (9 runs: Rwt not Rfl,
+  Mat miss in a redex, Q2 binds, Prj on no pair / in a walk / dead, Mat dead, a partial call) all
+  pass, its negative control fails.

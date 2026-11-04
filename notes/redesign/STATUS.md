@@ -1,6 +1,6 @@
 # Redesign status (handoff file)
 
-Updated: 2026-11-04 08:30 (America/Sao_Paulo). Keep this file current: whoever coordinates updates it after every merge, phase change or agent start/stop, and commits it (this folder is a git repo: `git -C <this folder> commit -am "status: ..."`).
+Updated: 2026-11-04 09:40 (America/Sao_Paulo). Keep this file current: whoever coordinates updates it after every merge, phase change or agent start/stop, and commits it (this folder is a git repo: `git -C <this folder> commit -am "status: ..."`).
 
 ## Goal
 
@@ -23,7 +23,7 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 
 | Branch | Worktree | State |
 |---|---|---|
-| feature/redesign | bb-wt/redesign | integration branch, PUSHED to origin (github MattCozendey/bend-bootstrap), tracking origin/feature/redesign; push after every merge (`git push origin feature/redesign`). Has: gen2 upgrade (d57bb26), law fixes (6693442), P0 census.ts (d94bad2), P1 machine code (4908672) + old proof tree deleted (ec0f1a0), S3 merged (9daf8f5), AGENTS 3.10.3 fix (ef4c444), gen2 shared servers merged (1e0c483), S2 merged (967db15: heap/image/routines/Inv, 40 laws open; Mach.code vs AM.move whole-run smoke passes), S1 merged (7122c61: kit + 39/50 logic laws proven; 11 logic + 18 header laws open). All gates G1–G5 pass on P1; main closure: 35 files, 5 holes (4 runs_as_eval + mach_wasm.uniform) |
+| feature/redesign | bb-wt/redesign | integration branch, PUSHED to origin (github MattCozendey/bend-bootstrap), tracking origin/feature/redesign; push after every merge (`git push origin feature/redesign`), and refresh the docs snapshot in the branch at `notes/redesign/` (copy *.md and tools/ from this folder, commit) before pushing. Has: gen2 upgrade (d57bb26), law fixes (6693442), P0 census.ts (d94bad2), P1 machine code (4908672) + old proof tree deleted (ec0f1a0), S3 merged (9daf8f5), AGENTS 3.10.3 fix (ef4c444), gen2 shared servers merged (1e0c483), S2 review fixes merged (bec2fe8), gen2 round 2 merged (9aaf458), gen2 --wp merged (015dba0, flag-only), S2 follow-up merged (5c86a0d: Wasm imports), S2 merged (967db15: heap/image/routines/Inv, 40 laws open; Mach.code vs AM.move whole-run smoke passes), S1 merged (7122c61: kit + 39/50 logic laws proven; 11 logic + 18 header laws open). All gates G1–G5 pass on P1; main closure: 35 files, 5 holes (4 runs_as_eval + mach_wasm.uniform) |
 | w/gen2-up | bb-wt/gen2-up | DONE, merged. gen2: bounded errors, 1 GB stack, match-fix helper, --find, --lemmas, --hole, fast reload |
 | w/laws | bb-wt/laws | DONE, merged. in_subset law (F1), uniform no_other_failure (F2, one new layer-A hole `mach_wasm.uniform`), trusted_binary + 3.8.7 script (F3), AGENTS.md 3.3.8/3.6.1.4/3.7.1/3.9.1.3.4 |
 | w/s3 | bb-wt/s3 | DONE, MERGED (9daf8f5). canon: 14 laws (5 proven), am: 2 laws; smoke all pass; G1 pass. See s3-handoff.md |
@@ -34,12 +34,14 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 
 | Agent | Task | Where |
 |---|---|---|
-| Skeleton S4 (Opus) | moves laws (B7), memory (B8), assembly moves.bend PROVEN, runs_as_eval bodies; new holes.md ledger; G3 at end (phase boundary); extra smoke for uncovered cases | bb-wt/s4 on w/s4 |
-| Reviewer (Opus, read-only) | statement review of S1–S3 (+S2): truth, strength, vacuity, gen2-shape; writes review-s123.md | — |
-| gen2-wp (Opus, the original gen2 agent) | WP-stepping tactic behind `--wp`; tracks s1-names.md | bb-wt/gen2-wp on w/gen2-wp |
+| Skeleton S4 (Opus) | moves.bend assembly COMPLETE (mach.safe/sound/complete/memory proven from the laws; runs_as_eval bodies filled; G3 call.frames); in final gates (G3 milestones running 09:32); then holes.md | bb-wt/s4 on w/s4 |
+| gen2-wp (Opus) | round 3: wp.alloc/emit, early stop, tot.while obligations + invariant skeleton, S2 facts; next merge | w/gen2-wp |
+| gen2-ind (Opus) | smarter induction behind `--ind` (functional induction, generalize before inducting, helper-lemma proposals, word induction on width, early give-up); module gen2_ind.ts | bb-wt/gen2-ind on w/gen2-ind |
 | Coordinator (Claude Code session) | reviews reports, merges, starts phases, keeps this file | — |
 
 ## Next steps (in order)
+
+0. NOW (09:40): S4 final gates -> merge w/s4 -> publish holes.md per file -> plan P3 lanes from it -> start the swarm small (measure holes/hour with gen2 --wp --ind), then scale. Merge w/gen2-wp and w/gen2-ind when their rounds finish (flag-only; bench + crash replay must hold).
 
 1. DONE: P0, P1, S3 merged.
 2. (S3 notes for S2/S4 below.) Notes for S2/S4 from S3: plan's canon.subst_below was false for n < |es| (fixed with premise |es| <= n; call-leaf copies use canon.subst_closed), so copy.spec with wt is right only for a poison-free (STATIC) source; a halt 2 carries out = [] so S4's Halt(o) compares output only for status 0; AM.move vs Mach.round() smoke check still to do (needs P1 code) — S2 or S4 runs it.
@@ -61,6 +63,8 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 
 ## Rules for every agent
 
+- GEN2 FIRST (lead's rule): every agent that proves anything tries gen2 first (`ask --file <file> <def>`, `--wp` for Tot/WP goals, `--lemmas`, `--partial`, `--find`), and only then proves by hand; keep a tally (asked/closed/advanced/misleading) in its notes for gen2's development. P3 prover briefs must include this.
+
 - Commit work in progress on your own branch often (at least after each coherent piece), so nothing is lost if you stop (an org spend limit stopped all agents once).
 - Keep your handoff/notes file in this folder current.
 - Gates: plan §5.0 (G1 gate.sh per file, G2 main.bend loads with the ledger's TODO count, G3 milestones, G4 run.ts + computed layer-A checks for machine changes, G5 hygiene). Gate scripts: WSL ~/lead/ (gate.sh, heavy.sh with 3 shared slots, milestones.sh).
@@ -68,6 +72,10 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 - gen2 (src/Shared/scripts/gen2.ts): `serve` once via heavy.sh, then `ask --check`, `ask <def> --lemmas`, `--hole N`, `ask x --find RE`. The gate is the only judge.
 
 ## Decisions log
+
+- 2026-11-04: statement review S1–S3 (review-s123.md): 3 false statements (F1 critical fv saturation, F2 memory edge, F3 count wrap) + 4 gaps (G1–G4); all local fixes; routed to S2 (F1–F3, G1, G2, G4) and S4 (G3). Canon, am.ok, am.walk_eval verified true; 9 extra machine-vs-AM runs pass.
+
+- 2026-11-04: --wp measured: 0/18 S2 routine holes closed; stops at register reads with no fact (needs kit reg.some), unnamed Wasm ops (import), calls to routines with own laws (next gen2 step), loops (reviewer writes invariants). Merged flag-only.
 
 - 2026-11-04: gen2 trial by S1: base gen2 0/17 holes (misleading partial, noisy hints); WIP --wp stepper useful (stepped 2 sets in 0.1 s) but stops at field reads -> fed back to gen2-wp.
 
