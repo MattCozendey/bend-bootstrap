@@ -310,6 +310,7 @@ const canon = (t: LTerm): LTerm => {
     case "Lam": return B.Lam<LTerm>(t.k, t.i, canon(t.f as LTerm), undefined, t.q);
     case "Ann": return canon(t.x);
     case "Var": return t.v !== undefined && t.i >= 0 ? B.Var(t.k, t.i) : t;
+    case "Ref": { const a = RAW[t.k]; return a?.$ === "ADT" && a.n === 0 ? B.ADT(t.k, [], undefined, []) : t; } // U32 is <U32> once whnf'd
     default: return t;
   }
 };
@@ -488,6 +489,33 @@ const strictOf = (k: string): number | null => {
   strictMemo.set(k, r);
   return r;
 };
+// the parameters that a def's case tree matches (at any depth)
+const matchedMemo = new Map<string, Set<number>>();
+const matchedOf = (k: string): Set<number> => {
+  let r = matchedMemo.get(k);
+  if (r) return r;
+  r = new Set();
+  const t0 = RAW[k];
+  if (t0?.$ === "Def" && t0.v !== null) {
+    let budget = 400;
+    const walk = (t: HTerm, q: number[]) => {
+      if (--budget < 0) return;
+      t = B.term_strip(t);
+      if (t.$ === "Lam") { walk(t.f(B.Var("_", 1e7)), q.slice(1)); return; }
+      if (t.$ === "Mat") {
+        const b = q[0];
+        if (b !== undefined && b >= 0) r!.add(b);
+        const ctr = RAW[t.k] === undefined ? (book.ctrs as any)[t.k] : null;
+        const nf = ctr ? ctr.n : 0;
+        walk(t.h, [...new Array(nf).fill(-1), ...q.slice(1)]);
+        walk(t.m, q);
+      }
+    };
+    walk(t0.v, Array.from({ length: t0.n }, (_, i) => i));
+  }
+  matchedMemo.set(k, r);
+  return r;
+};
 // subterms that block evaluation: the strict argument of a stuck call, when a variable or a stuck call
 const blockers = (t: LTerm, out: LTerm[]) => {
   switch (t.$) {
@@ -497,8 +525,8 @@ const blockers = (t: LTerm, out: LTerm[]) => {
         const j = strictOf(h.k);
         const blk = (a: LTerm) => a.$ === "Var" || (a.$ === "App" && unapply(a)[0].$ === "Ref");
         if (j !== null && j < xs.length && blk(xs[j])) out.push(xs[j]);
-        // the strict argument is a constructor (a nested match reads another one), or no strict argument known
-        else for (const a of xs) if (blk(a)) out.push(a);
+        // the strict argument is a constructor (a nested match reads another one): the other matched ones
+        else { const ms = matchedOf(h.k); xs.forEach((a, i) => { if (ms.has(i) && blk(a)) out.push(a); }); }
       }
       xs.forEach((x) => blockers(x, out));
       break;
@@ -747,7 +775,7 @@ const applyCallee = (g: Goal, c: Callee, targets: LTerm[], depth: number, rw: nu
   if (cnt && cnt.probe) { cnt.spec = sols.length ? specOf(pc) : -1; return null; }
   for (const s0 of sols) {
     if (cnt) cnt.n++;
-    const r = complete(g, c, s0, toH, depth, rw, path, holesOk);
+    const r = complete(g, c, s0, toH, depth, rw, path, holesOk, concl !== null);
     if (r && accept(r)) return r;
   }
   return null;
@@ -763,7 +791,7 @@ const metas = (t: LTerm): number => {
     default: return 0;
   }
 };
-const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | null)[]) => (HTerm | null)[], depth: number, rw: number, path: Set<string>, holesOk = false): Applied | null => {
+const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | null)[]) => (HTerm | null)[], depth: number, rw: number, path: Set<string>, holesOk = false, refl = false): Applied | null => {
   let sol = s0.slice();
   let o2 = openMeta(c.T, c.n, toH(sol));
   if (!o2) return null;
@@ -794,6 +822,22 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
     if (!progress) break;
     o2 = openMeta(c.T, c.n, toH(sol));
     if (!o2) return null;
+  }
+  // (rewrites only) still open: a premise {a == x} or {x == a} whose x is an open parameter fixes x := a (the premise
+  // then holds by {==}: L.len(t, p, v, List.length(t), {==}))
+  if (refl && sol.some((s, j) => !s && !prem[j])) {
+    for (let j = 0; j < c.n; j++) {
+      if (!prem[j] || viaHyp[j]) continue;
+      const A = attempt(FUEL_NF, () => lower(o2!.doms[j].A, g.d));
+      if (!A || A.$ !== "Eql") continue;
+      const isOpen = (t: LTerm) => t.$ === "Var" && t.i >= META && !sol[t.i - META] && !prem[t.i - META];
+      const [x, a] = isOpen(A.b) && !hasMeta(A.a) ? [A.b, A.a] : isOpen(A.a) && !hasMeta(A.b) ? [A.a, A.b] : [null, null];
+      if (!x || !a || !closedBelow(a, g.d)) continue;
+      sol[(x as any).i - META] = a;
+      const o3 = openMeta(c.T, c.n, toH(sol));
+      if (!o3) return null;
+      o2 = o3;
+    }
   }
   if (sol.some((s, j) => !s && !prem[j])) {
     // still open: unify a premise with an indexed lemma's conclusion (le_trans's middle term from
@@ -1054,7 +1098,7 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
       }
     }
   }
-  if (contra.length > 0) {
+  if (contra.length > 0 && depth > 0) {
     for (const L of wild) {
       if (L.order >= job.order || L.k === job.k) continue;
       const c: Callee = { text: B.name_show(job.file, L.k), T: (RAW[L.k] as B.Def).T, n: L.n, kind: "lemma" };
@@ -1090,16 +1134,25 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
   return null;
 };
 
-type RwCand = { from: LTerm; to: LTerm; e: string; kind: string; score: number };
+type RwCand = { base: LTerm; from: LTerm; to: LTerm; e: string; kind: string; score: number };
 const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null => {
-  const N = attempt(FUEL_NF * 2, () => nf(g.ty, g.d + 1));
-  if (!N || size(N, 600) > 600) return null;
+  const N0 = attempt(FUEL_NF * 2, () => nf(g.ty, g.d + 1));
+  const R = attempt(FUEL_NF, () => lower(g.ty, g.d + 1));
+  const bases: LTerm[] = [];
+  if (N0 && size(N0, 600) <= 600) bases.push(N0);
+  if (R && size(R, 600) <= 600 && (!N0 || key(R) !== key(N0))) bases.push(R);
+  if (bases.length === 0) return null;
+  const N = bases[0];
+  const cands: RwCand[] = [];
+  for (const base of bases) rwCands(g, base, base === R && bases.length > 1, depth, path, cands);
+  return rwRun(g, cands, depth, rw, path);
+};
+const rwCands = (g: Goal, N: LTerm, isRaw: boolean, depth: number, path: Set<string>, cands: RwCand[]) => {
   const subs = new Map<string, LTerm>();
   subterms(N, subs);
   const blk: LTerm[] = [];
   blockers(N, blk);
   const blkKeys = new Set(blk.map(key));
-  const cands: RwCand[] = [];
   const okFrom = (t: LTerm) => t.$ === "Var" || t.$ === "App" || (t.$ === "Ctr" && t.x.length > 0);
   // hypotheses
   for (let i = g.d - 1; i >= 0; i--) {
@@ -1109,9 +1162,8 @@ const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nu
       if (E.$ !== "Eql") continue;
       const ka = key(E.a), kb = key(E.b);
       if (ka === kb) continue;
-      if (subs.has(kb) && okFrom(E.b)) cands.push({ from: E.b, to: E.a, e: g.names[i], kind: "rw:hyp", score: blkKeys.has(kb) ? 0 : 1 });
-      if (subs.has(ka) && okFrom(E.a)) cands.push({ from: E.a, to: E.b, e: "Equal.sym(" + show(E.T, g.names) + ", " + show(E.a, g.names) + ", " + show(E.b, g.names) + ", " + g.names[i] + ")", kind: "rw:hyp", score: blkKeys.has(ka) ? 0 : 1 });
-      break;
+      if (subs.has(kb) && okFrom(E.b)) cands.push({ base: N, from: E.b, to: E.a, e: g.names[i], kind: "rw:hyp", score: (blkKeys.has(kb) ? 0 : 1) + (isRaw ? 0.2 : 0) });
+      if (subs.has(ka) && okFrom(E.a)) cands.push({ base: N, from: E.a, to: E.b, e: "Equal.sym(" + show(E.T, g.names) + ", " + show(E.a, g.names) + ", " + show(E.b, g.names) + ", " + g.names[i] + ")", kind: "rw:hyp", score: (blkKeys.has(ka) ? 0 : 1) + (isRaw ? 0.2 : 0) });
     }
   }
   // the induction hypothesis and lemmas, on the stuck calls of nf(goal)
@@ -1133,6 +1185,7 @@ const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nu
       if (performance.now() > deadline) throw TIMEOUT;
       const gg: Goal = { ...g, d: g.d + 1 - 1 };
       const a = applyCallee(gg, c, [s], depth, 0, path, (o) => (o.$ === "Eql" ? (side === 0 ? o.a : o.b) : null), () => true);
+      if (process.env.GEN2_TRACE && kind === "rw:ih") console.error("[trace] ih on " + show(s, [...g.names, "_"]).slice(0, 100) + " -> " + (a ? a.args.join(", ") : "no"));
       if (!a) continue;
       const o2 = openMeta(c.T, c.n, a.sol.map((x) => (x ? B.term_higher(x, g.env) : null)));
       if (!o2) continue;
@@ -1142,9 +1195,11 @@ const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nu
       const to = side === 0 ? E.b : E.a;
       if (key(to) === sk) continue;
       const e = side === 0 ? "Equal.sym(" + show(E.T, g.names) + ", " + show(E.a, g.names) + ", " + show(E.b, g.names) + ", " + call + ")" : call;
-      cands.push({ from: s, to, e, kind, score: (blkKeys.has(sk) ? 0 : 1) + (kind === "rw:ih" ? 0 : 0.5) });
+      cands.push({ base: N, from: s, to, e, kind, score: (blkKeys.has(sk) ? 0 : 1) + (kind === "rw:ih" ? 0 : 0.5) + (isRaw ? 0.2 : 0) });
     }
   }
+};
+const rwRun = (g: Goal, cands: RwCand[], depth: number, rw: number, path: Set<string>): Pf | null => {
   cands.sort((a, b) => a.score - b.score);
   const motiveNames = [...g.names, "_"];
   const later: { c: RwCand; P: string; sub: Goal; gk: string }[] = [];
@@ -1152,13 +1207,14 @@ const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nu
   for (const c of cands) {
     if (performance.now() > deadline) throw TIMEOUT;
     const fk = key(c.from);
-    const Pt = replace(N, fk, B.Var("_", g.d));
-    const Gp = replace(N, fk, c.to);
+    const Pt = replace(c.base, fk, B.Var("_", g.d));
+    const Gp = replace(c.base, fk, c.to);
     const gpk = key(Gp);
     if (seen.has(gpk)) continue;
     seen.add(gpk);
     if (!closedBelow(Gp, g.d) && Gp.$ !== "Eql") { /* binders: keep */ }
     const P = show(Pt, motiveNames);
+    if (process.env.GEN2_TRACE) console.error("[trace] rw " + c.kind + " " + c.e.slice(0, 120) + " : " + P.slice(0, 160));
     if (!tryText(g, "%" + c.e + " : " + P + "; ?TODO")) continue;
     const sub: Goal = { ...g, ty: B.term_higher(Gp, g.env) };
     if (tryText(sub, "{==}")) { tag(c.kind); tag("rfl"); return { t: "rw", e: c.e, P, k: tm("{==}") }; }
@@ -1316,11 +1372,22 @@ const solveGo = (n: Goal, S: number, D: number, partial: boolean): Res => {
 // the best one-step skeleton for a leaf goal that the search does not close: an applied callee (most
 // specific first) whose solved premises are filled and whose open premises are holes; fewest holes
 // first, then the smallest holes; no hole may restate the goal
-const bestStep = (g: Goal): Pf | null => {
+// the keys of a goal: as stated, and with the sides of an equation swapped
+const goalKeys = (g: Goal): string[] => {
+  const pre = g.ckey + "|-" + g.qt.$[0];
+  const out: string[] = [];
+  for (const t of [lower(g.ty, g.d), nf(g.ty, g.d)]) {
+    out.push(pre + key(t));
+    if (t.$ === "Eql") out.push(pre + key(B.Eql(t.b, t.a, t.T)), pre + "=" + key(t.a) + "|" + key(t.b), pre + "=" + key(t.b) + "|" + key(t.a));
+  }
+  return out;
+};
+const bestStep = (g: Goal, anc: Set<string> = new Set()): Pf | null => {
   const raw = lower(g.ty, g.d);
   const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
   const targets = n && key(n) !== key(raw) ? [raw, n] : [raw];
   const gk = goalKey(g);
+  const own = new Set(attempt(FUEL_NF, () => goalKeys(g)) ?? []);
   const callees: Callee[] = hypCallees(g);
   if (job.ih && g.split) callees.push(ihCallee());
   const lem = lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, 1, 0, new Set(), null, () => false, pr); return { c, spec: pr.spec! }; });
@@ -1332,7 +1399,7 @@ const bestStep = (g: Goal): Pf | null => {
     applyCallee(g, c, targets, MAX_DEPTH - 1, MAX_RW, new Set([gk]), null, (a) => {
       const hs = a.holes ?? [];
       if (hs.length === 0 || hs.length >= c.n) return false;
-      if (hs.some((h) => attempt(FUEL_NF, () => goalKey(h)) === gk)) return false;
+      if (hs.some((h) => (attempt(FUEL_NF, () => goalKeys(h)) ?? [gk]).some((k) => k === gk || anc.has(k) || own.has(k)))) return false;
       const s = callText(c, a.args.map((x) => (x === HOLE ? "?TODO" : x)));
       if (!tryText(g, s)) return false;
       const sz = hs.reduce((acc, h) => acc + (attempt(FUEL_NF, () => size(lower(h.ty, h.d))) ?? 99), 0);
@@ -1346,7 +1413,7 @@ const bestStep = (g: Goal): Pf | null => {
 };
 
 // attack a leaf goal with its own budget; when it stays open, decompose it one step and recurse
-const decompose = (g: Goal, level: number, until: number): Res => {
+const decompose = (g: Goal, level: number, until: number, anc: Set<string> = new Set()): Res => {
   const hole: Res = { pf: { t: "hole", g }, holes: 1, closed: 0 };
   if (performance.now() > until) return hole;
   deadline = Math.min(until, performance.now() + HOLE_BUDGET);
@@ -1359,12 +1426,13 @@ const decompose = (g: Goal, level: number, until: number): Res => {
   if (level >= MAX_DECOMP) return hole;
   deadline = Math.min(until, performance.now() + HOLE_BUDGET);
   let step: Pf | null = null;
-  try { step = bestStep({ ...g, lvl: 0 }); } catch (e) { if (e !== TIMEOUT) throw e; }
+  const anc2 = new Set([...anc, ...(attempt(FUEL_NF, () => goalKeys(g)) ?? [])]);
+  try { step = bestStep({ ...g, lvl: 0 }, anc2); } catch (e) { if (e !== TIMEOUT) throw e; }
   if (!step || step.t !== "app") return hole;
   const subs: Pf[] = [];
   let holes = 0, closed = 1;
   for (const s of step.subs) {
-    const r = decompose((s as any).g, level + 1, until);
+    const r = decompose((s as any).g, level + 1, until, anc2);
     subs.push(r.pf); holes += r.holes; closed += r.closed;
   }
   return { pf: { t: "app", s: step.s, subs }, holes, closed };
@@ -1551,9 +1619,42 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
 };
 
 // ---- bench ----
+// a proposition: an equation, Empty or Unit, a function to a proposition, or a stuck call of a def
+// whose every case gives a proposition (Le(a, b) = T(..): Unit or Empty); a datatype with fields
+// (Word(n), Nat, a state) is data, and its def is a function, not a lemma
+const isPropType = (h: HTerm, n = 0): boolean => {
+  if (n > 6) return false;
+  const w = wnf(h);
+  if (!w) return false;
+  switch (w.$) {
+    case "Eql": return true;
+    case "ADT": { const t = RAW[w.k]; return t?.$ === "ADT" && (t.c.length === 0 || (t.c.length === 1 && t.c[0].n === 0)); }
+    case "All": return isPropType(w.B(B.Var("_", 1e7 + n)), n + 1);
+    case "App": {
+      const [hd] = B.term_unapply(w);
+      const f = B.term_strip(hd);
+      if (f.$ !== "Ref") return false;
+      const t = RAW[f.k];
+      if (t?.$ !== "Def" || t.v === null) return false;
+      const leaves: HTerm[] = [];
+      let budget = 64;
+      const walk = (x: HTerm) => {
+        if (--budget < 0) return;
+        x = B.term_strip(x);
+        if (x.$ === "Lam") { walk(x.f(B.Var("_", 1e7 + 50 + budget))); return; }
+        if (x.$ === "Mat") { walk(x.h); walk(x.m); return; }
+        if (x.$ === "Efq") return;
+        leaves.push(x);
+      };
+      walk(t.v);
+      return budget >= 0 && leaves.length > 0 && leaves.every((l) => isPropType(l, n + 1));
+    }
+    default: return false;
+  }
+};
 const isLemma = (def: B.Def): boolean => {
   const o = attempt(20000, () => openMeta(def.T, def.n));
-  return !!o && attempt(20000, () => isProp(o.concl)) === true && (wnf(o.concl)?.$ !== "ADT" || true);
+  return !!o && attempt(20000, () => isPropType(o.concl)) === true;
 };
 const bench = () => {
   const only = new RegExp(opt("only", ".*"));
