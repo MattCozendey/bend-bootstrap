@@ -70,7 +70,8 @@
 //                      process and no heavy.sh slot. Not the gate (the kernel stays the judge).
 //       --full-errors  check/prove: print every context entry of an error whole (see OUTPUT: errors)
 //       --find RE      no search: every def of the book whose name matches RE (as the entry writes it),
-//                      its statement in the entry's names, whether it has a body, and file:line (40 at most)
+//                      its statement in the entry's names, whether it has a body, and file:line (40 at most);
+//                      then the defs that match in .bend files the entry does not import (an import needed)
 //       --lemmas       no search: for each named def's goal (a body that is ?TODO) or each ?TODO in its
 //                      body: the lemmas and hypotheses whose conclusion matches it, with what blocks each;
 //                      the lemmas with the same head that do not match (their conclusions); the equations
@@ -186,7 +187,8 @@
 //   the checker holds them, then where they differ: the smallest subterms that differ after weak normal
 //   forms, with their path (`left of == > List.get(..4)`: the 4th argument of List.get on the left side);
 //   then the context with its types as stated, a type over 400 chars cut unless it names a variable of
-//   a difference. Line numbers are the file's.
+//   a difference; in --check, a context entry that an earlier error printed is not printed again. Line
+//   numbers are the file's.
 // * a match bend2 cannot elaborate (a computed scrutinee, or a binder matched after a local statement:
 //   a parse error of the whole file): gen2 loads the file with that block as ?TODO (so every other def
 //   still works), and each answer prints the error with a fix: a helper def (its statement is the goal
@@ -629,7 +631,7 @@ const isOpen = (k: string) => {
 
 // the error of k's statement (bend2's term_check of its type, as book_valid does), or null if it checks;
 // the book is loaded without validation, so a new helper's ill-typed statement would only show as a miss
-const stmtError = (k: string): string | null => {
+const stmtError = (k: string, shown?: Set<string>): string | null => {
   const t = RAW[k];
   if (t?.$ !== "Def") return null;
   const old = fuel;
@@ -638,7 +640,7 @@ const stmtError = (k: string): string | null => {
     B.term_check(book, { t: B.Ref(k), n: 0, def: k, qs: [], u: t.u }, t.T, B.None(), B.Typ(B.Qua(B.Lone())), B.ctx_nil(), 0);
     return null;
   } catch (e: any) {
-    return e === OOF ? null : errText(e);
+    return e === OOF ? null : errText(e, flag("full-errors"), shown);
   } finally { fuel = old; }
 };
 
@@ -933,7 +935,7 @@ const errLocation = (err: B.Err): string => {
   return "\nLocation:" + def + other + "\n" + lns.slice(beg - 1, end).map((l, j) => String(base + beg + j).padStart(num) + (beg + j === at ? ">| " + clipTo(l, 300) + "\n" + car : " | " + clipTo(l, 300))).join("\n");
 };
 // bend2's Err as text, bounded (see above); full: no elision of context entries (still bounded)
-const errText = (e: any, full = flag("full-errors")): string => {
+const errText = (e: any, full = flag("full-errors"), shown?: Set<string>): string => {
   if (e?.$ !== "Err") return e === OOF ? "out of fuel (" + FUEL_FINAL + " def lookups): not decided" : String(e?.stack ?? e?.message ?? e).slice(0, 1500);
   const err = e as B.Err;
   const file = err.spn?.file;
@@ -981,7 +983,10 @@ const errText = (e: any, full = flag("full-errors")): string => {
     }
     const label = (ks: string[]) => (ks.length > 4 ? ks[0] + ", " + ks[1] + ", …, " + ks[ks.length - 1] + " (" + ks.length + ")" : ks.join(", "));
     const wid = Math.max(0, ...rows.map(([ks]) => Math.min(24, label(ks).length)));
-    for (const [ks, T] of rows) out.push("- " + label(ks).padEnd(wid) + " : " + T);
+    // shown: context lines printed by an earlier error of the same --check (printed once)
+    let same = 0;
+    for (const [ks, T] of rows) { const id = label(ks) + " : " + T; if (shown?.has(id)) same++; else { shown?.add(id); out.push("- " + label(ks).padEnd(wid) + " : " + T); } }
+    if (same) out.push("- (and " + same + " entries as in an error above)");
     return out.join("\n") + errLocation(err) + (err.nte ? "\n" + err.nte : "");
   } catch (x: any) {
     return "Error: " + (typeof err.exp === "string" ? err.exp : "(gen2 could not print it: " + String(x?.message ?? x).slice(0, 100) + ")") + errLocation(err);
@@ -2953,6 +2958,24 @@ const runFind = (src: string) => {
   hits.sort((a, b) => rank(a) - rank(b) || (ORDER.get(b) ?? 0) - (ORDER.get(a) ?? 0));
   console.log("# --find " + src + ": " + hits.length + " defs" + (hits.length > MAX_FOUND ? " (the first " + MAX_FOUND + "; narrow the expression)" : ""));
   for (const k of hits.slice(0, MAX_FOUND)) console.log(B.name_show(job.file, k) + "  [" + statusOf(k) + "; " + whereOf(k) + "]\n  : " + statementOf(k, 1500));
+  if (hits.length === 0) console.log("# (names match as the entry writes them, with an import's alias: U13.fs.zero; or as keys: moves_match:fs.zero)");
+  // defs that match in .bend files the entry does not load (the entry's folder and its parent's): usable
+  // only after an import, which the file's owner decides
+  const loaded = new Set([...seen.keys()]);
+  const out: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const f = path.join(dir, ent.name);
+      if (ent.isDirectory() && depth > 0) walk(f, depth - 1);
+      if (!ent.isFile() || !ent.name.endsWith(".bend") || loaded.has(fs.realpathSync(f))) continue;
+      fileText(f).split("\n").forEach((l, i) => {
+        const m = DEF_LINE.exec(l);
+        if (m && out.length < 12 && re.test(m[1])) out.push("  " + m[1] + "  [" + path.relative(TOP, f) + ":" + (i + 1) + "]");
+      });
+    }
+  };
+  try { walk(path.resolve(TOP, ".."), 1); } catch (e) { /* an unreadable folder: no hint */ }
+  if (out.length) console.log("# also in files the entry does not import (not usable without an import):\n" + out.join("\n"));
 };
 // the goals of k: its whole goal (parameters introduced) if its body is ?TODO, else each ?TODO's
 const goalsOf = (k: string): { label: string; g: Goal }[] => {
@@ -3028,6 +3051,7 @@ const runCheck = (names: string[]) => {
   const own = [...new Set(book.order.slice(N0))].filter((k) => RAW[k]?.$ === "Def" && !k.includes("~"));
   const pick = names.length ? own.filter((k) => names.some((nm) => k === nm || shortOf(k) === nm || shortOf(k).endsWith("." + nm) || ("D." + shortOf(k)) === nm)) : own;
   let n = 0, bad = 0, todo = 0;
+  const shownCtx = new Set<string>();
   const t0 = performance.now();
   const pk = parseErr && defOfLine(parseErr.blk.S);
   for (const k of pick) {
@@ -3040,11 +3064,11 @@ const runCheck = (names: string[]) => {
     else {
       try {
         job = newJob(k);
-        err = nsOf(k) === "" ? stmtError(k) : null;
+        err = nsOf(k) === "" ? stmtError(k, shownCtx) : null;
         if (!err) {
           const old = fuel;
           fuel = FUEL_FINAL;
-          try { checkDef(k, ds.body); } catch (e: any) { err = errText(e); } finally { fuel = old; }
+          try { checkDef(k, ds.body); } catch (e: any) { err = errText(e, flag("full-errors"), shownCtx); } finally { fuel = old; }
         } else err = "statement: " + err;
       } catch (e: any) {
         // gen2's own failure on this def (not bend2's verdict): an error, and the check goes on
