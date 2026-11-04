@@ -7,7 +7,9 @@
 // trust that must only help and be fast (as src/Compiler/Machine/scripts/gen.ts). Excluded in
 // tsconfig.json for the same reason.
 //
-// STATUS: v2: prove, batch and bench modes; decomposition of large goals (see BENCHMARK and NEXT).
+// STATUS: v3 (stopped by the owner's order; see NEXT): prove (several defs per run), serve/ask (the
+// book stays loaded), batch and bench modes; decomposition of large goals; forward unification;
+// rewrites on the raw goal and with hypotheses' normal forms. 178/256 (70%) of the benchmark.
 //
 // PURPOSE
 // -------
@@ -107,14 +109,22 @@
 //   1. closers: `{==}`, the unit constructor (Unit{}), a hypothesis whose type converts.
 //   2. intro: a function goal gets `x => ...`.
 //   3. absurd: a hypothesis whose normal form is Empty gives Empty.absurd(GOAL, h) (the goal as stated,
-//      kernel rule R3); a hypothesis that equates two different constructors uses an ex-falso lemma
-//      (conclusion: its own type parameter), its premise proven at depth 1.
-//   4. apply: hypotheses (functions), the induction hypothesis, indexed lemmas (nearest first);
-//      premises proven recursively at depth - 1.
-//   5. rewrite: `%e : P; rest` with an equation from a hypothesis (both directions, Equal.sym), the
-//      induction hypothesis or an indexed lemma whose side matches a subterm of nf(goal); P is
-//      nf(goal) with that subterm replaced by `_` (kernel rule R2: rewrite, do not convert). Rewrites
-//      of blocking subterms first; a rewrite that closes by {==} wins at once; else the best --beam
+//      kernel rule R3); for Empty goals, a hypothesis that equates two different constructors is
+//      discriminated by a predicate def on their type (`%h : P(_); Unit{}`); with depth, an ex-falso
+//      lemma (conclusion: its own type parameter) whose premise a closer proves.
+//   4. apply: hypotheses (functions, also through aliases), the induction hypothesis, then the indexed
+//      lemmas whose conclusion matches (raw against raw goal and normal form, normal form of the
+//      conclusion against the normal form of the goal; every distinct solution is tried), most
+//      specific pattern first, at most CAPS[level] completions per goal (48, 12, 4, 2 by premise
+//      level). A parameter that the conclusion leaves open is fixed by matching a premise against a
+//      hypothesis (raw or normal form), else (top level only, depth >= 2) by unifying a premise with
+//      an indexed lemma's conclusion (forward: le_trans's middle term). Premises at depth - 1.
+//   5. rewrite: `%e : P; rest` with an equation from a hypothesis (raw or normal form, both
+//      directions, Equal.sym), the induction hypothesis or an indexed lemma whose side matches a
+//      subterm of the goal: of nf(goal), and of the goal as stated (a lemma stated on raw forms); P is
+//      that base with the subterm replaced by `_` (kernel rule R2: rewrite, do not convert). In a
+//      rewrite, a premise {a == x} with x an open parameter fixes x := a (then {==}). Rewrites of
+//      blocking subterms first; a rewrite that closes by {==} wins at once; else the best --beam
 //      continue with one less rewrite.
 //
 // OUTPUT
@@ -128,38 +138,80 @@
 // BENCHMARK
 // ---------
 // Rerun (WSL, from src/):  ~/lead/heavy.sh bun Shared/scripts/gen2.ts bench <file> --budget 3000 --partial
-// Each proven lemma of <file> (book order) has its body forgotten in memory (no file is touched) and is
-// re-proven with only the defs before it; size class = non-empty lines of its original body
-// (S 1-3, M 4-10, L 11+). Measured at commit 19b2da7 (before decomposition), budget 3000 ms:
+// Each proven lemma of <file> (book order; a def whose conclusion is a proposition) has its body
+// forgotten in memory (no file is touched) and is re-proven with only the defs before it; size class =
+// non-empty lines of its original body (S 1-3, M 4-10, L 11+). Measured at commit 95e13d5, budget 3000 ms:
 //   file                   tried  full       S       M       L      partial (closed/total)  median
-//   need_big.bend           122   82 (67%)  27/37   38/51   17/34   25 (113/153)             7 ms
-//   heap_facts.bend          79   57 (72%)  13/14   33/43   11/22   11 (18/40)               7 ms
-//   statement_runs.bend      67   26 (39%)  14/18   10/28    2/21   13 (28/69)             439 ms
-//   total                   268  165 (62%); every hit takes < 1 s (median 2-3 ms); misses run to the
-//   budget. Tactics in hits: apply:lemma, split, rfl, hyp, unit, apply:ih, rw:lemma, rw:ih, rw:hyp,
-//   absurd, discriminate, exfalso. (History and raw results: bb-wt/reports/gen2.md, if present.)
+//   need_big.bend          119  81 (68%)   28/36   36/49   17/34   29 (123/161)               8 ms
+//   heap_facts.bend         70  57 (81%)   14/14   33/40   10/16   11 (19/32)                 6 ms
+//   statement_runs.bend     67  40 (60%)   18/18   19/28   3/21    10 (17/44)                31 ms
+//   total                  256  178 (70%); every hit takes < 3 s (median a few ms); a miss runs to the budget,
+//   then the partial pass and the decomposition (up to 3 x budget). The kernel (gate) accepts gen2's
+//   need_big proofs pasted in place of the originals (bend2 ALL PROOFS CHECK, kdiag3 0 fail).
+//   (History and raw results: bb-wt/reports/gen2.md and bb-wt/scratch/gen2/, if present.)
 //
 // LIMITS
-// -----------
+// ------
 // * No helper-lemma synthesis (a match on a computed value or an introduced binder needs its own def).
 // * Splits only in whole-body mode; ?TODO holes inside a body get leaf tactics only.
 // * No lets (`+x = ...`) in output, no congruence tactic beyond rewriting, no templates (~ binders).
 // * Matching is syntactic (after the bounded normal form): a lemma stated in a shape that only
 //   converts to the goal by deeper computation is missed.
+// * Hypotheses are never rewritten (forward reasoning): a fact that needs one hypothesis rewritten
+//   by another before a lemma applies (k.cell_of) is missed.
+// * Whole simulation proofs (moves.bend's holes) are out of reach: their structure is not found by
+//   a bounded search; gen.ts writes those, and gen2 proves the leaves they state.
+// * Printed names: a term of a file that the target file does not import under an alias prints as
+//   its path name (in goals only; a candidate that needs one fails to parse and is skipped).
 //
-// NEXT (the ordered plan; keep it current)
+// NEXT (the ordered plan, for whoever continues; keep it current)
 // ----
-// 1. Measure the decomposition (L hit rate, subgoals closed) and tune bestStep's choice.
-// 2. Fail fast on misses that run to the budget (statement_runs: rewrite chains over machine states):
-//    find the explosive candidates and prune them (specificity order and caps by level are in; next:
-//    a premise that is not simpler than its goal costs two levels; memo of rewrite candidates).
-// 3. Forward unification for transitivity chains: a premise with an open parameter (le_trans's middle
-//    term) unified with a lemma's conclusion (two-sided first-order unification, ground result only).
-// 4. Closed rewrites: zero-parameter lemmas (literal facts such as lit_M) in the rewrite index.
-// 5. Helper-lemma synthesis: a match on a computed value or an introduced binder needs its own def;
-//    emit the helper (its statement from the subgoal) and prove it as a separate job.
-// 6. Splits inside ?TODO holes of a partial body (the hole's pending binders), not only whole bodies.
-// 7. Lets (`+x = v`) to share a repeated subterm in the output (kernel call-by-name cost).
+// 1. Book load between calls: DONE (serve/ask, commit ff24e5e): moves_copy.bend (5730 entries) loads
+//    and checks in about 20-30 s once, then each ask takes well under 1 s; an edit of the entry file
+//    costs a re-check of that file only. Next: an option to reload an imported file too (today a
+//    restart), and a slot policy for heavy.sh (a server holds one of the 3 slots while it runs).
+// 2. The implementer's 3 misses, in bb-wt/impl src/Compiler/Machine/moves_copy.bend at commit
+//    c28021c; the hand proofs there are the references (regression set: add them to a bench-like run
+//    with `ask kc.at fs.arg.at kept.at.own --whole --partial`):
+//    a. kc.at: destructure the hypothesis hkc : D.Kept.cells(..) (a Tuple of facts) with
+//       `match hkc: case Tuple{_, Tuple{kg, _}}`, then apply kept.at.own with xs = List.append(ps, Nil)
+//       (bound by matching kg's type) and its premise hm rewritten by mem.app.nil. Today the split
+//       candidates open a record only when no blocker exists. Drafted, NOT tested, not committed:
+//       open pending binders of one-constructor types with fields first (at most 2), except U32, F32,
+//       Chr, Word.Con, Word.Nil (they are records too, and splitting them to bits is useless), in
+//       splitCands before the blockers. Measure the three bench files after it (it may cost splits).
+//    b. fs.arg.at: ps is general; the proof is one rewrite with e (Equal.sym) of every occurrence of
+//       Cr.Cir.Cells.get(M, z) in the normal form of D.Fs(M, ps, z), then {==}. gen2 split on ps
+//       instead (D.Mem(ps, z) blocks) and missed the rewrite: check why the leaf rewrite of the
+//       unsplit goal fails (motive size cap 600 nodes in rewrite? the normal form keeps D.Fd(..)
+//       calls?); with GEN2_TRACE=1 each rewrite candidate and motive is printed.
+//    c. kept.at.own: needs U6.kg.at with premises from U13.own.lo, U13.own.end and D.u.lt (through
+//       N.le_rw_r, a transitivity-like step with an explicit middle term), then a 2-step rewrite of the
+//       D.Kept.if(Bool.or(..)) condition by hm and ht. The lead's diagnosis: induction on the fuel of
+//       the recursive hypothesis hk : D.Kept.go(Nat.sub(..), ..) with the fuel generalized, through a
+//       helper lemma: synthesize a helper def whose statement is the subgoal with the computed fuel
+//       replaced by a fresh variable (and the hypotheses that mention it), prove it whole (split on the
+//       fuel, IH), and apply it. That is item 5 below; until then this lemma is out of reach.
+// 3. Functions counted as lemmas: FIXED (95e13d5): the bench took `ones` (a function returning
+//    Word(n)) for a lemma and pasted another body; isPropType now accepts only propositions. Verified:
+//    gen2's 81 need_big proofs pasted in place pass bend2 and the kernel (kdiag3: 0 fail).
+// 4. Derived hypotheses (forward reasoning): rewrite a hypothesis by another equation, the term
+//    `(%E : P; h)` used as a closer or to bind a lemma's premise (k.cell_of in statement_runs). Drafted
+//    in bb-wt/scratch/gen2/p14.py (not applied, not tested). Should move statement_runs M (19/28).
+// 5. Helper-lemma synthesis: a match on a computed value, an introduced binder, or a generalized
+//    fuel needs its own def; emit the helper (its statement from the subgoal), prove it as a separate
+//    job in the same book (parse it into a shadow book: Object.create(book.tlds), as def_check does
+//    for templates), and output both. Should move need_big L (17/34) and kept.at.own.
+// 6. Fail fast on misses: a miss costs budget + partial pass + decomposition (up to 3 x budget;
+//    statement_runs L lemmas take 4-7 s each). A premise not simpler than its goal should cost two
+//    levels; memo rewrite candidates per goal; a cheaper decomposition pass.
+// 7. Readable motives: stop the normal form at a wrapper def when its unfolding stays stuck
+//    (Cr.Cir.is_cell(i, im, fi, nx) instead of its Bool.or body; Cmp.is_lt(U32.cmp(..)) instead of
+//    U32.is_lt(..)). Cosmetic, but the hand proofs read better.
+// 8. Closed rewrites: zero-parameter lemmas (literal facts such as lit_M) in the rewrite index
+//    (need_big val_M, val_65536, sq_65536: S misses).
+// 9. Splits inside ?TODO holes of a partial body (the hole's pending binders), not only whole bodies.
+// 10. Read bb-wt/reports/impl.md (the implementer's list of leaves gen2 missed) and close those kinds.
 //
 // EXTEND
 // ------
