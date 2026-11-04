@@ -17,7 +17,7 @@ import ../../Eval/impl.bend as El
 import ../../Program/impl.bend as Pg
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
-import ./s1stub/logic.bend as Lg
+import ./logic/spec.bend as Lg
 import ./canon/spec.bend as C
 import ./am/spec.bend as A
 import ./heap/spec.bend as Hp

@@ -31,9 +31,9 @@ import ../../../Eval/impl.bend as El
 import ../../../Program/impl.bend as Pg
 import ../../Cir/impl.bend as Cr
 import ../impl.bend as Mc
-import ../s1stub/kit.bend as K
-import ../s1stub/logic.bend as Lg
-import ../s1stub/header.bend as Tb
+import ../shared.bend as K
+import ../logic/spec.bend as Lg
+import ../header/spec.bend as Hs
 import ../canon/spec.bend as C
 import ../am/spec.bend as A
 
@@ -125,7 +125,7 @@ def V.img(x: Cx, +m: Cr.Cir.Cells, +c: U32) -> Bool:
 # (Tbl.mask), less the fields still to copy while it is BUILD
 def V.mask(+m: Cr.Cir.Cells, +c: U32) -> U32:
   Bool.pick(U32, Fl(m, c, Mc.F.build()),
-    U32.and(Tb.Tbl.mask(Tg(m, c)), U32.not(U32.shrn(U32.and(Fd(0n, m, c), 57344), 13n))), Tb.Tbl.mask(Tg(m, c)))
+    U32.and(Hs.Tbl.mask(Tg(m, c)), U32.not(U32.shrn(U32.and(Fd(0n, m, c), 57344), 13n))), Hs.Tbl.mask(Tg(m, c)))
 
 def V.opt(+b: U32, v: U32, +rest: List<&2, U32>) -> List<&2, U32>:
   Bool.pick(List<&2, U32>, U32.is_zero(b), rest, Con{v, rest})
@@ -266,8 +266,8 @@ def V.fv.var(+i: U32) -> U32:
 
 # a part's contribution to fv: its fv less the binders above it (fv_max stays)
 def V.fv.kid(+m: Cr.Cir.Cells, +c: U32, +k: Nat, +bit: U32) -> U32:
-  Bool.pick(U32, U32.is_zero(U32.and(Tb.Tbl.mask(Tg(m, c)), bit)), 0,
-    Mc.Img.down(Fv(m, Fd(k, m, c)), U32.from_nat(Tb.Tbl.bind(Tg(m, c), k))))
+  Bool.pick(U32, U32.is_zero(U32.and(Hs.Tbl.mask(Tg(m, c)), bit)), 0,
+    Mc.Img.down(Fv(m, Fd(k, m, c)), U32.from_nat(Hs.Tbl.bind(Tg(m, c), k))))
 
 # fv as the parts of the cell c give it (M.finish, Img.go)
 def V.fv.kids(+m: Cr.Cir.Cells, +c: U32) -> U32:
@@ -869,7 +869,7 @@ law view.frame:
   for +m2: Cr.Cir.Cells
   for +c: U32
   for +d: Nat
-  for a: {Agree(V.cells(g, m, c), m, m2) == True{} : Bool}
+  for +a: {Agree(V.cells(g, m, c), m, m2) == True{} : Bool}
   {V.tm(g, x, m2, c, d) == V.tm(g, x, m, c, d) : Maybe<&2, Bk.Term>}
 
 # LAW: more levels read the same term
@@ -881,7 +881,7 @@ law view.more:
   for +c: U32
   for +d: Nat
   for +t: Bk.Term
-  for e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {V.tm(Nat.add(g, h), x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
 
 # LAW: deeper, a cell whose real variables are below d (fv at most d, and not
@@ -895,9 +895,9 @@ law view.deeper:
   for +d: Nat
   for +k: Nat
   for +t: Bk.Term
-  for hs: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
-  for hf: {Nat.is_le(U32.to_nat(Fv(m, c)), d) == True{} : Bool}
-  for e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +hs: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
+  for +hf: {Nat.is_le(U32.to_nat(Fv(m, c)), d) == True{} : Bool}
+  for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {V.tm(g, x, m, c, Nat.add(d, k)) == Some{El.Term.shift(t, k, d)} : Maybe<&2, Bk.Term>}
 
 # LAW: a STATIC cell holds no poison: it reads as the same term at any depth
@@ -909,8 +909,8 @@ law view.static:
   for +d: Nat
   for +e: Nat
   for +t: Bk.Term
-  for hs: {Fl(m, c, Mc.F.static()) == True{} : Bool}
-  for r: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +hs: {Fl(m, c, Mc.F.static()) == True{} : Bool}
+  for +r: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {V.tm(g, x, m, c, e) == Some{t} : Maybe<&2, Bk.Term>}
 
 # LAW: a cell whose real variables are below d reads canonical at d (its free
@@ -922,9 +922,9 @@ law view.canon:
   for +c: U32
   for +d: Nat
   for +t: Bk.Term
-  for hs: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
-  for hf: {Nat.is_le(U32.to_nat(Fv(m, c)), d) == True{} : Bool}
-  for e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +hs: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
+  for +hf: {Nat.is_le(U32.to_nat(Fv(m, c)), d) == True{} : Bool}
+  for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {C.Canon.is_at(t, d) == True{} : Bool}
 
 # LAW: a STATIC cell whose real variables are below k reads closed at k (a
@@ -937,10 +937,10 @@ law view.closed:
   for +d: Nat
   for +k: Nat
   for +t: Bk.Term
-  for hs: {Fl(m, c, Mc.F.static()) == True{} : Bool}
-  for hm: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
-  for hf: {Nat.is_le(U32.to_nat(Fv(m, c)), k) == True{} : Bool}
-  for e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +hs: {Fl(m, c, Mc.F.static()) == True{} : Bool}
+  for +hm: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
+  for +hf: {Nat.is_le(U32.to_nat(Fv(m, c)), k) == True{} : Bool}
+  for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {C.Term.closed(t, k) == True{} : Bool}
 
 # LAW: a read checks each node (V.chk: BUILD, DATA, VALUE, quantity, field 2,
@@ -952,7 +952,7 @@ law view.chk:
   for +c: U32
   for +d: Nat
   for +t: Bk.Term
-  for e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {V.chk(x, m, c, d, t) == True{} : Bool}
 
 # LAW: a read's tag is its term's former
@@ -963,7 +963,7 @@ law view.tag:
   for +c: U32
   for +d: Nat
   for +t: Bk.Term
-  for e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {Tg(m, c) == V.tag(t) : U32}
 
 # LAW: a read's part in field k (a field of its tag's mask) reads, one level
@@ -976,9 +976,9 @@ law view.kid:
   for +d: Nat
   for +k: Nat
   for +t: Bk.Term
-  for e: {V.tm(1n+g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
-  for hk: {U32.is_zero(U32.and(Tb.Tbl.mask(Tg(m, c)), V.bit(k))) == False{} : Bool}
-  {V.tm(g, x, m, Fd(k, m, c), Nat.add(d, Tb.Tbl.bind(Tg(m, c), k))) == V.kid(t, k) : Maybe<&2, Bk.Term>}
+  for +e: {V.tm(1n+g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
+  for +hk: {U32.is_zero(U32.and(Hs.Tbl.mask(Tg(m, c)), V.bit(k))) == False{} : Bool}
+  {V.tm(g, x, m, Fd(k, m, c), Nat.add(d, Hs.Tbl.bind(Tg(m, c), k))) == V.kid(t, k) : Maybe<&2, Bk.Term>}
 
 # LAW: a store to a cell outside cs keeps Agree
 law agree.store:
@@ -987,7 +987,7 @@ law agree.store:
   for +o: U32
   for +k: Nat
   for +v: U32
-  for n: {K.Mem(cs, o) == False{} : Bool}
+  for +n: {K.Mem(cs, o) == False{} : Bool}
   {Agree(cs, m, Cr.Cir.Cells.set(m, o, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(m, o), v))) == True{} : Bool}
 
 # LAW: so does a store to field 1 of any cell
@@ -1004,7 +1004,7 @@ law agree.put:
   for +m: Cr.Cir.Cells
   for +o: U32
   for +v: Cr.Cir.Cell
-  for n: {K.Mem(cs, o) == False{} : Bool}
+  for +n: {K.Mem(cs, o) == False{} : Bool}
   {Agree(cs, m, Cr.Cir.Cells.set(m, o, v)) == True{} : Bool}
 
 # LAW: a heap agrees with itself
@@ -1019,8 +1019,8 @@ law agree.trans:
   for +m: Cr.Cir.Cells
   for +m2: Cr.Cir.Cells
   for +m3: Cr.Cir.Cells
-  for a: {Agree(cs, m, m2) == True{} : Bool}
-  for b: {Agree(cs, m2, m3) == True{} : Bool}
+  for +a: {Agree(cs, m, m2) == True{} : Bool}
+  for +b: {Agree(cs, m2, m3) == True{} : Bool}
   {Agree(cs, m, m3) == True{} : Bool}
 
 # LAW: H does not see a register but free and sp
@@ -1033,8 +1033,8 @@ law h.set:
   for +chs: List<&2, Ch>
   for +r: Nat
   for +v: U32
-  for h: {H(x, st, L, rs, fs, chs) == True{} : Bool}
-  for hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) == True{} : Bool}
+  for +h: {H(x, st, L, rs, fs, chs) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) == True{} : Bool}
   {H(x, Lg.St.set(st, r, v), L, rs, fs, chs) == True{} : Bool}
 
 # LAW: the live cells of H are the state's (V.Live), up to their order
@@ -1045,5 +1045,5 @@ law h.live:
   for +rs: List<&2, Rt>
   for +fs: List<&2, A.AF>
   for +chs: List<&2, Ch>
-  for h: {H(x, st, L, rs, fs, chs) == True{} : Bool}
+  for +h: {H(x, st, L, rs, fs, chs) == True{} : Bool}
   {H(x, st, V.Live(st), rs, fs, chs) == True{} : Bool}

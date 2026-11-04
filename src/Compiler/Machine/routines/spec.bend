@@ -23,8 +23,8 @@ import ../../../Eval/impl.bend as El
 import ../../../Program/impl.bend as Pg
 import ../../Cir/impl.bend as Cr
 import ../impl.bend as Mc
-import ../s1stub/kit.bend as K
-import ../s1stub/logic.bend as Lg
+import ../shared.bend as K
+import ../logic/spec.bend as Lg
 import ../canon/spec.bend as C
 import ../am/spec.bend as A
 import ../heap/spec.bend as Hp
@@ -148,12 +148,12 @@ def Release.st(+st: Cr.Cir.State, +c: U32) -> Cr.Cir.State:
   Lg.St.set(Lg.St.store(Lg.St.store(st, 0n, c, Mc.K.free()), 1n, c, Hp.V.reg(st, Mc.R.free())), Mc.R.free(), c)
 
 # the cell j steps down a chain (by field 1) from c
-def Nth(+m: Cr.Cir.Cells, +c: U32, j: Nat) -> U32:
+def Nth(j: Nat, +m: Cr.Cir.Cells, +c: U32) -> U32:
   match j:
     case 0n:
       c
     case 1n+i:
-      Nth(m, Hp.Fd(1n, m, c), i)
+      Nth(i, m, Hp.Fd(1n, m, c))
 
 # the state after M.nth, which ends at the cell c
 def Nth.st(+st: Cr.Cir.State, +c: U32) -> Cr.Cir.State:
@@ -357,8 +357,8 @@ law alloc.spec:
   for +st: Cr.Cir.State
   for +L: List<&2, U32>
   for +r: Nat
-  for hs: {Hp.Room(x, st, L) == True{} : Bool}
-  for hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) == True{} : Bool}
+  for +hs: {Hp.Room(x, st, L) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) == True{} : Bool}
   Lg.Tot(Mc.M.alloc(r), st, I.Cells.bytes(Hp.Cx.fi(x), 1n+List.length(&2, U32, L)),
     st2 => {st2 == Alloc.st(st, r) : Cr.Cir.State}, Lg.No)
 
@@ -378,9 +378,9 @@ law make.spec:
   for +av: U32
   for +bv: U32
   for +cv: U32
-  for hs: {Hp.Room(x, st, L) == True{} : Bool}
-  for hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) == True{} : Bool}
-  for he: {Evs([h, a, b, c], x, st, L, [r, Mc.R.free()]) == Some{[hv, av, bv, cv]} : Maybe<&2, List<&2, U32>>}
+  for +hs: {Hp.Room(x, st, L) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) == True{} : Bool}
+  for +he: {Evs([h, a, b, c], x, st, L, [r, Mc.R.free()]) == Some{[hv, av, bv, cv]} : Maybe<&2, List<&2, U32>>}
   Lg.Tot(Mc.M.make(r, h, a, b, c), st, I.Cells.bytes(Hp.Cx.fi(x), 1n+List.length(&2, U32, L)),
     st2 => {st2 == Make.st(st, r, Cr.Cir.Cell{hv, 1, av, bv, cv}) : Cr.Cir.State}, Lg.No)
 
@@ -390,8 +390,8 @@ law release.spec:
   for +st: Cr.Cir.State
   for +r: Nat
   for +c: U32
-  for hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
-  for hc: {Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) &&
+  for +hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
+  for +hc: {Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) &&
     Nat.is_lt(Mc.R.free(), Lg.St.nregs(st)) == True{} : Bool}
   Lg.Tot(Mc.M.release(r), st, 0n, st2 => {st2 == Release.st(st, c) : Cr.Cir.State}, Lg.No)
 
@@ -403,11 +403,11 @@ law nth.spec:
   for +ce: U32
   for +as: List<&2, A.Ag>
   for +j: Nat
-  for hc: {Hp.Chs([Hp.Ch{ce, as}], x, st) == True{} : Bool}
-  for he: {Lg.Reg(st, Mc.R.t2()) == Some{ce} : Maybe<&2, U32>}
-  for hj: {Lg.Reg(st, Mc.R.t1()) == Some{U32.from_nat(j)} : Maybe<&2, U32>}
-  for hl: {Nat.is_lt(j, List.length(&2, A.Ag, as)) == True{} : Bool}
-  Lg.Tot(Mc.M.nth(), st, 0n, st2 => {st2 == Nth.st(st, Nth(Lg.St.cells(st), ce, j)) : Cr.Cir.State}, Lg.No)
+  for +hc: {Hp.Chs([Hp.Ch{ce, as}], x, st) == True{} : Bool}
+  for +he: {Lg.Reg(st, Mc.R.t2()) == Some{ce} : Maybe<&2, U32>}
+  for +hj: {Lg.Reg(st, Mc.R.t1()) == Some{U32.from_nat(j)} : Maybe<&2, U32>}
+  for +hl: {Nat.is_lt(j, List.length(&2, A.Ag, as)) == True{} : Bool}
+  Lg.Tot(Mc.M.nth(), st, 0n, st2 => {st2 == Nth.st(st, Nth(j, Lg.St.cells(st), ce)) : Cr.Cir.State}, Lg.No)
 
 # LAW: M.inc(r), of a cell c that reads as t at d (no real variable free
 # there), live or of the image: c gains a pointer, and is one more root
@@ -422,9 +422,9 @@ law inc.spec:
   for +c: U32
   for +d: Nat
   for +t: Bk.Term
-  for hs: {Hp.H(x, st, L, rs, fs, chs) == True{} : Bool}
-  for hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
-  for hn: {Hp.V.Held(x, st, L, c, d, t) && Nat.is_le(U32.to_nat(Hp.Fv(Lg.St.cells(st), c)), d) == True{} : Bool}
+  for +hs: {Hp.H(x, st, L, rs, fs, chs) == True{} : Bool}
+  for +hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
+  for +hn: {Hp.V.Held(x, st, L, c, d, t) && Nat.is_le(U32.to_nat(Hp.Fv(Lg.St.cells(st), c)), d) == True{} : Bool}
   Lg.Tot(Mc.M.inc(r), st, 0n, st2 => {Hp.H(x, st2, L, Con{Hp.Rt{c, d, t}, rs}, fs, chs) && Kept(st, st2, L, []) == True{} : Bool},
     Lg.No)
 
@@ -441,9 +441,9 @@ law dec.spec:
   for +c: U32
   for +d: Nat
   for +t: Bk.Term
-  for hs: {Hp.H(x, st, L, Con{Hp.Rt{c, d, t}, rs}, fs, chs) == True{} : Bool}
-  for hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
-  for hw: {K.Has(Mc.M.dec.scr(), r) == False{} : Bool}
+  for +hs: {Hp.H(x, st, L, Con{Hp.Rt{c, d, t}, rs}, fs, chs) == True{} : Bool}
+  for +hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
+  for +hw: {K.Has(Mc.M.dec.scr(), r) == False{} : Bool}
   Lg.Tot(Mc.M.dec(r), st, 0n,
     st2 => &L2:List<&2, U32> -> {Hp.H(x, st2, L2, rs, fs, chs) && Kept(st, st2, L2, Mc.M.dec.scr()) && Shrunk(L2, L) == True{} : Bool},
     Lg.No)
@@ -463,8 +463,8 @@ law push.spec:
   for b: Cr.Cir.Expr
   for +ca: U32
   for +cb: U32
-  for hs: {Hp.H(x, st, L, Push.rts(fr, ca, cb, rs), fs, chs) == True{} : Bool}
-  for he: {Evs([h, a, b], x, st, L, [Mc.R.fr(), Mc.R.free()]) == Some{[Fr.header(fr), ca, cb]} : Maybe<&2, List<&2, U32>>}
+  for +hs: {Hp.H(x, st, L, Push.rts(fr, ca, cb, rs), fs, chs) == True{} : Bool}
+  for +he: {Evs([h, a, b], x, st, L, [Mc.R.fr(), Mc.R.free()]) == Some{[Fr.header(fr), ca, cb]} : Maybe<&2, List<&2, U32>>}
   Lg.Tot(Mc.M.push(h, a, b), st, I.Cells.bytes(Hp.Cx.fi(x), 1n+List.length(&2, U32, L)),
     st2 => &L2:List<&2, U32> -> {Hp.H(x, st2, L2, rs, Con{fr, fs}, chs) && Kept(st, st2, L, Mc.M.push.scr()) &&
       Nat.is_le(List.length(&2, U32, L2), 1n+List.length(&2, U32, L)) == True{} : Bool},
@@ -480,7 +480,7 @@ law pop.spec:
   for +fr: A.AF
   for +fs: List<&2, A.AF>
   for +chs: List<&2, Hp.Ch>
-  for hs: {Hp.H(x, st, L, rs, Con{fr, fs}, chs) == True{} : Bool}
+  for +hs: {Hp.H(x, st, L, rs, Con{fr, fs}, chs) == True{} : Bool}
   Lg.Tot(Mc.M.pop(), st, 0n,
     st2 => &L2:List<&2, U32> -> {Hp.H(x, st2, L2,
       Push.rts(fr, Hp.Fd(2n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp())), Hp.Fd(3n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp())), rs),
@@ -501,9 +501,9 @@ law swap.spec:
   for +fr2: A.AF
   for +v: Bk.Term
   for h: Cr.Cir.Expr
-  for hs: {Hp.H(x, st, L, Con{Hp.Rt{Hp.V.reg(st, Mc.R.focus()), 0n, v}, rs}, Con{fr, fs}, chs) == True{} : Bool}
-  for hh: {I.Mb.is(Lg.Reg(st, Mc.R.h()), Hp.V.reg(st, Mc.R.sp())) && Swap.ok(fr, fr2, v) == True{} : Bool}
-  for he: {Ev(h, x, st, L, Mc.M.swap.scr()) == Some{Fr.header(fr2)} : Maybe<&2, U32>}
+  for +hs: {Hp.H(x, st, L, Con{Hp.Rt{Hp.V.reg(st, Mc.R.focus()), 0n, v}, rs}, Con{fr, fs}, chs) == True{} : Bool}
+  for +hh: {I.Mb.is(Lg.Reg(st, Mc.R.h()), Hp.V.reg(st, Mc.R.sp())) && Swap.ok(fr, fr2, v) == True{} : Bool}
+  for +he: {Ev(h, x, st, L, Mc.M.swap.scr()) == Some{Fr.header(fr2)} : Maybe<&2, U32>}
   Lg.Tot(Mc.M.swap(h), st, 0n,
     st2 => {Hp.H(x, st2, L, Con{Hp.Rt{Hp.Fd(2n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp())), 0n, Fr.a(fr)}, rs}, Con{fr2, fs}, chs) &&
       I.Mb.is(Lg.Reg(st2, Mc.R.focus()), Hp.Fd(2n, Lg.St.cells(st), Hp.V.reg(st, Mc.R.sp()))) && I.Mb.is(Lg.Reg(st2, Mc.R.mode()), 0) &&
@@ -522,9 +522,9 @@ law one.spec:
   for +r: Nat
   for +c: U32
   for +t: Bk.Term
-  for hs: {Hp.H(x, st, L, Con{Hp.Rt{c, 0n, t}, rs}, fs, chs) == True{} : Bool}
-  for hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
-  for hw: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(K.Has(Mc.M.one.scr(), r)) == True{} : Bool}
+  for +hs: {Hp.H(x, st, L, Con{Hp.Rt{c, 0n, t}, rs}, fs, chs) == True{} : Bool}
+  for +hr: {Lg.Reg(st, r) == Some{c} : Maybe<&2, U32>}
+  for +hw: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(K.Has(Mc.M.one.scr(), r)) == True{} : Bool}
   Lg.Tot(Mc.M.one(r), st, I.Cells.bytes(Hp.Cx.fi(x), 1n+List.length(&2, U32, L)),
     st2 => &n:U32 -> &L2:List<&2, U32> -> {I.Mb.is(Lg.Reg(st2, Mc.R.wa()), n) && I.Mb.is(Lg.Reg(st2, Mc.R.cenv()), n) &&
       I.Mb.is(Lg.Reg(st2, Mc.R.clen()), 1) && Hp.H(x, st2, L2, rs, fs, Con{Hp.Ch{n, [A.Ag{Bk.Quan.Q0{}, False{}, t}]}, chs}) &&
@@ -544,9 +544,9 @@ law release_arg.spec:
   for +c: U32
   for +ag: A.Ag
   for +as: List<&2, A.Ag>
-  for hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{c, Con{ag, as}}, chs}) == True{} : Bool}
-  for hr: {Lg.Reg(st, a) == Some{c} : Maybe<&2, U32>}
-  for hw: {Nat.is_lt(a, Mc.Mach.regs()) && Bool.not(K.Has(Mc.M.release.arg.scr(), a)) == True{} : Bool}
+  for +hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{c, Con{ag, as}}, chs}) == True{} : Bool}
+  for +hr: {Lg.Reg(st, a) == Some{c} : Maybe<&2, U32>}
+  for +hw: {Nat.is_lt(a, Mc.Mach.regs()) && Bool.not(K.Has(Mc.M.release.arg.scr(), a)) == True{} : Bool}
   Lg.Tot(Mc.M.release.arg(a), st, 0n,
     st2 => &L2:List<&2, U32> -> {Hp.H(x, st2, L2, rs, fs, Con{Hp.Ch{Hp.Fd(1n, Lg.St.cells(st), c), as}, chs}) &&
       Kept(st, st2, L2, Mc.M.release.arg.scr()) && Shrunk(L2, L) == True{} : Bool},
@@ -564,9 +564,9 @@ law release_all.spec:
   for +l: Nat
   for +c: U32
   for +as: List<&2, A.Ag>
-  for hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{c, as}, chs}) == True{} : Bool}
-  for hr: {Lg.Reg(st, l) == Some{c} : Maybe<&2, U32>}
-  for hw: {Nat.is_lt(l, Mc.Mach.regs()) && Bool.not(K.Has(Mc.M.release.all.scr(), l)) == True{} : Bool}
+  for +hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{c, as}, chs}) == True{} : Bool}
+  for +hr: {Lg.Reg(st, l) == Some{c} : Maybe<&2, U32>}
+  for +hw: {Nat.is_lt(l, Mc.Mach.regs()) && Bool.not(K.Has(Mc.M.release.all.scr(), l)) == True{} : Bool}
   Lg.Tot(Mc.M.release.all(l), st, 0n,
     st2 => &L2:List<&2, U32> -> {Hp.H(x, st2, L2, rs, fs, chs) && I.Mb.is(Lg.Reg(st2, l), 0) &&
       Kept(st, st2, L2, Con{l, Mc.M.release.all.scr()}) && Shrunk(L2, L) == True{} : Bool},
@@ -591,10 +591,10 @@ law copy.spec:
   for +t: Bk.Term
   for +ce: U32
   for +es: List<&2, A.Ag>
-  for hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{ce, es}, chs}) == True{} : Bool}
-  for hc: {I.Mb.is(Lg.Reg(st, Copy.src(wt)), c) && Hp.V.Held(x, st, L, c, Copy.depth(wt), t) &&
+  for +hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{ce, es}, chs}) == True{} : Bool}
+  for +hc: {I.Mb.is(Lg.Reg(st, Copy.src(wt)), c) && Hp.V.Held(x, st, L, c, Copy.depth(wt), t) &&
     (Nat.is_le(List.length(&2, A.Ag, es), Copy.depth(wt)) || Hp.Fl(Lg.St.cells(st), c, Mc.F.static())) == True{} : Bool}
-  for he: {I.Mb.is(Lg.Reg(st, Mc.R.cenv()), ce) && I.Mb.is(Lg.Reg(st, Mc.R.clen()), U32.from_nat(List.length(&2, A.Ag, es))) ==
+  for +he: {I.Mb.is(Lg.Reg(st, Mc.R.cenv()), ce) && I.Mb.is(Lg.Reg(st, Mc.R.clen()), U32.from_nat(List.length(&2, A.Ag, es))) ==
     True{} : Bool}
   Lg.Tot(Mc.M.copy(Mc.R.n(), Copy.src(wt)), st, Copy.budget(x, L, t, es),
     st2 => &n:U32 -> &L2:List<&2, U32> -> {I.Mb.is(Lg.Reg(st2, Mc.R.n()), n) &&
@@ -618,8 +618,8 @@ law walk.spec:
   for +tt: Bk.Term
   for +ca: U32
   for +xs: List<&2, A.Ag>
-  for hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{ca, xs}, chs}) == True{} : Bool}
-  for hw: {I.Mb.is(Lg.Reg(st, Mc.R.wt()), tc) && I.Mb.is(Lg.Reg(st, Mc.R.wargs()), ca) && Hp.V.img(x, Lg.St.cells(st), tc) &&
+  for +hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{ca, xs}, chs}) == True{} : Bool}
+  for +hw: {I.Mb.is(Lg.Reg(st, Mc.R.wt()), tc) && I.Mb.is(Lg.Reg(st, Mc.R.wargs()), ca) && Hp.V.img(x, Lg.St.cells(st), tc) &&
     Hp.V.is(Hp.V.at(x, st, tc, 0n), tt) == True{} : Bool}
   Lg.Tot(Mc.M.walk(), st, Walk.budget(x, L, tt),
     st2 => &L2:List<&2, U32> -> &e2:List<&2, A.Ag> -> &ys2:List<&2, A.Ag> ->
@@ -634,7 +634,7 @@ law out.spec:
   for +x: Hp.Cx
   for +st: Cr.Cir.State
   for +v: Bk.Term
-  for iv: {Inv(x, st, A.AS{True{}, v, []}) == True{} : Bool}
+  for +iv: {Inv(x, st, A.AS{True{}, v, []}) == True{} : Bool}
   Lg.Tot(Mc.M.out(), st, Out.budget(st, v), st2 => Empty, k => st2 => {Out.end(v, k, st2) == True{} : Bool})
 
 # LAW: M.input(), from Cir.result's start of a book that Book.read reads: the
@@ -650,9 +650,9 @@ law input.spec:
   for +pg: U32
   for +lim: U32
   for +first: U32
-  for rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}
-  for small: {Mc.Img.small(p, 0) == True{} : Bool}
-  for s: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool}
+  for +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}
+  for +small: {Mc.Img.small(p, 0) == True{} : Bool}
+  for +s: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool}
   Lg.Tot(Mc.M.input(), I.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i), Input.budget(first, i),
     st => {Inv(I.Cx.of(ds, k, first), Mode0(st), A.AS{False{}, Pg.Program.start(i), []}) == True{} : Bool},
     Lg.No)
@@ -671,10 +671,10 @@ law h.node:
   for +v: Cr.Cir.Cell
   for +ps: List<&2, Hp.Rt>
   for +t: Bk.Term
-  for hs: {Hp.H(x, st, L, List.append(&2, Hp.Rt, ps, rs), fs, chs) == True{} : Bool}
-  for hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) ==
+  for +hs: {Hp.H(x, st, L, List.append(&2, Hp.Rt, ps, rs), fs, chs) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) ==
     True{} : Bool}
-  for hc: {U32.is_eq(Cr.Cir.Cell.get(1n, v), 1) && Hp.V.counted(Cr.Cir.Cells.set(Lg.St.cells(st), Alloc.cell(st), v), Alloc.cell(st)) &&
+  for +hc: {U32.is_eq(Cr.Cir.Cell.get(1n, v), 1) && Hp.V.counted(Cr.Cir.Cells.set(Lg.St.cells(st), Alloc.cell(st), v), Alloc.cell(st)) &&
     Node.ok(x, Make.st(st, r, v), Alloc.cell(st), ps, t) == True{} : Bool}
   {Hp.H(x, Make.st(st, r, v), Con{Alloc.cell(st), L}, Con{Hp.Rt{Alloc.cell(st), 0n, t}, rs}, fs, chs) == True{} : Bool}
 
@@ -693,8 +693,8 @@ law h.arg:
   for +c: U32
   for +ln: U32
   for +as: List<&2, A.Ag>
-  for hs: {Hp.H(x, st, L, Con{Hp.Rt{c, 0n, Arg.t(ag)}, rs}, fs, Con{Hp.Ch{ln, as}, chs}) == True{} : Bool}
-  for hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) ==
+  for +hs: {Hp.H(x, st, L, Con{Hp.Rt{c, 0n, Arg.t(ag)}, rs}, fs, Con{Hp.Ch{ln, as}, chs}) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) && Bool.not(Nat.is_eq(r, Mc.R.sp())) ==
     True{} : Bool}
   {Hp.H(x, Lg.St.store(Make.st(st, r, Cr.Cir.Cell{Arg.header(ag), 1, c, 0, 0}), 1n, Alloc.cell(st), ln),
     Con{Alloc.cell(st), L}, rs, fs, Con{Hp.Ch{Alloc.cell(st), Con{ag, as}}, chs}) == True{} : Bool}

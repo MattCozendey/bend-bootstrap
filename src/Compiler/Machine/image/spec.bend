@@ -18,7 +18,7 @@ import ../../../Program/impl.bend as Pg
 import ../../../Wasm/impl.bend as Wa
 import ../../Cir/impl.bend as Cr
 import ../impl.bend as Mc
-import ../s1stub/header.bend as Tb
+import ../header/spec.bend as Hs
 import ../heap/spec.bend as Hp
 
 # The context
@@ -142,10 +142,10 @@ def ImgOK.out(+x: Hp.Cx, +o: U32, +k: Nat) -> Bool:
 # for a former
 def ImgOK.tbl(+m: Cr.Cir.Cells, +t: U32) -> Bool:
   +c = U32.add(Mc.I.table(), t)
-  U32.is_eq(Hp.Fd(2n, m, c), Tb.Tbl.mask(t)) && Nat.is_eq(U32.to_nat(U32.and(Hp.Fd(3n, m, c), 3)), Tb.Tbl.bind(t, 2n)) &&
-    Nat.is_eq(U32.to_nat(U32.and(U32.shrn(Hp.Fd(3n, m, c), 2n), 3)), Tb.Tbl.bind(t, 3n)) &&
-    Nat.is_eq(U32.to_nat(U32.and(U32.shrn(Hp.Fd(3n, m, c), 4n), 3)), Tb.Tbl.bind(t, 4n)) &&
-    Hp.V.beq(U32.is_ne(Hp.Fd(4n, m, c), 0), Tb.Tbl.former(t))
+  U32.is_eq(Hp.Fd(2n, m, c), Hs.Tbl.mask(t)) && Nat.is_eq(U32.to_nat(U32.and(Hp.Fd(3n, m, c), 3)), Hs.Tbl.bind(t, 2n)) &&
+    Nat.is_eq(U32.to_nat(U32.and(U32.shrn(Hp.Fd(3n, m, c), 2n), 3)), Hs.Tbl.bind(t, 3n)) &&
+    Nat.is_eq(U32.to_nat(U32.and(U32.shrn(Hp.Fd(3n, m, c), 4n), 3)), Hs.Tbl.bind(t, 4n)) &&
+    Hp.V.beq(U32.is_ne(Hp.Fd(4n, m, c), 0), Hs.Tbl.former(t))
 
 def ImgOK.ref.of(r: Maybe<Bk.Def>, +x: Hp.Cx, +m: Cr.Cir.Cells, +c: U32) -> Bool:
   match r:
@@ -174,9 +174,9 @@ law img.start:
   for +pg: U32
   for +lim: U32
   for +first: U32
-  for rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}
-  for small: {Mc.Img.small(p, 0) == True{} : Bool}
-  for s: {Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool}
+  for +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}
+  for +small: {Mc.Img.small(p, 0) == True{} : Bool}
+  for +s: {Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool}
   {Hp.ImgOK(Cx.of(ds, k, first), Cr.Cir.load(Mc.Img.cells(ds), 1, Cr.Cir.Cells.none{})) == True{} : Bool}
 
 # LAW: the image stays intact when what it reads agrees
@@ -184,8 +184,8 @@ law img.frame:
   for +x: Hp.Cx
   for +m: Cr.Cir.Cells
   for +m2: Cr.Cir.Cells
-  for h: {Hp.ImgOK(x, m) == True{} : Bool}
-  for a: {ImgOK.agree(x, m, m2) == True{} : Bool}
+  for +h: {Hp.ImgOK(x, m) == True{} : Bool}
+  for +a: {ImgOK.agree(x, m, m2) == True{} : Bool}
   {Hp.ImgOK(x, m2) == True{} : Bool}
 
 # LAW: a store outside what the image reads keeps the agreement
@@ -195,7 +195,7 @@ law img.store:
   for +o: U32
   for +k: Nat
   for +v: U32
-  for n: {ImgOK.out(x, o, k) == True{} : Bool}
+  for +n: {ImgOK.out(x, o, k) == True{} : Bool}
   {ImgOK.agree(x, m, Cr.Cir.Cells.set(m, o, Cr.Cir.Cell.set(k, Cr.Cir.Cells.get(m, o), v))) == True{} : Bool}
 
 # LAW: so does a new cell past the image
@@ -204,7 +204,7 @@ law img.put:
   for +m: Cr.Cir.Cells
   for +o: U32
   for +v: Cr.Cir.Cell
-  for n: {U32.is_lt(Hp.Cx.im(x), o) == True{} : Bool}
+  for +n: {U32.is_lt(Hp.Cx.im(x), o) == True{} : Bool}
   {ImgOK.agree(x, m, Cr.Cir.Cells.set(m, o, v)) == True{} : Bool}
 
 # LAW: the image's table gives the table by tag
@@ -212,8 +212,8 @@ law img.table:
   for +x: Hp.Cx
   for +m: Cr.Cir.Cells
   for +t: U32
-  for h: {Hp.ImgOK(x, m) == True{} : Bool}
-  for ht: {U32.is_lt(t, 19) == True{} : Bool}
+  for +h: {Hp.ImgOK(x, m) == True{} : Bool}
+  for +ht: {U32.is_lt(t, 19) == True{} : Bool}
   {ImgOK.tbl(m, t) == True{} : Bool}
 
 # LAW: a Ref's cell holds its def's body
@@ -221,5 +221,5 @@ law img.ref:
   for +x: Hp.Cx
   for +m: Cr.Cir.Cells
   for +k: List<&2, Word(8n)>
-  for h: {Hp.ImgOK(x, m) == True{} : Bool}
+  for +h: {Hp.ImgOK(x, m) == True{} : Bool}
   {ImgOK.ref(x, m, k) == True{} : Bool}
