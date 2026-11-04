@@ -53,7 +53,9 @@ const FUEL = 100000;
 const NAMES: Record<string, string[]> = {
   tot: ["Tot"], wp: ["WP"], wpIf: ["WP.if"], wpPick: ["WP.pick"], reg: ["Reg"],
   nregs: ["St.nregs"], isCell: ["St.is_cell"], stSet: ["St.set"], stStore: ["St.store"],
-  totOfWp: ["tot.of_wp"], wpSet: ["wp.set"], regSome: ["reg.some"], regLt: ["reg.lt"], stReg: ["St.reg"], natIsEqOk: ["nat.is_eq_ok"], wpOfTot: ["wp.of_tot"], totWk: ["tot.wk"], leRefl: ["lg.le_refl", "nat.le_refl"], wpStore: ["wp.store"],
+  totOfWp: ["tot.of_wp"], wpSet: ["wp.set"], wpAlloc: ["wp.alloc"], wpEmit: ["wp.emit"], stAlloc: ["St.alloc"], stEmit: ["St.emit"], stNext: ["St.next"], stOutn: ["St.outn"],
+  regAlloc: ["reg.alloc"], regEmit: ["reg.emit"], nregsAlloc: ["nregs.alloc"], nregsEmit: ["nregs.emit"],
+  outnSet: ["outn.set"], outnStore: ["outn.store"], outnAlloc: ["outn.alloc"], outnEmit: ["outn.emit"], regSome: ["reg.some"], regLt: ["reg.lt"], stReg: ["St.reg"], natIsEqOk: ["nat.is_eq_ok"], wpOfTot: ["wp.of_tot"], totWhile: ["tot.while"], totWk: ["tot.wk"], leRefl: ["lg.le_refl", "nat.le_refl"], wpStore: ["wp.store"],
   regSet: ["reg.set"], regStore: ["reg.store"], nregsSet: ["nregs.set"], nregsStore: ["nregs.store"],
   evalOp: ["Cir.eval.op"], evalEqz: ["Cir.eval.eqz"], cirEval: ["Cir.eval"], evalField: ["Cir.eval.field"],
   fieldIf: ["Cir.eval.field.if"], stCells: ["St.cells"], cellGet: ["Cir.Cell.get"], cellsGet: ["Cir.Cells.get"],
@@ -105,7 +107,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const sh = (t: LTerm) => {
     if (stateReps.length > 0) {
       const k = api.key(t);
-      if (dstKey !== "" || k.includes(stepRefs[0]!) || k.includes(stepRefs[1]!)) for (let i = stateReps.length - 1; i >= 0; i--) t = replaceKey(t, stateReps[i]!.key, stateReps[i]!.ref, api.key);
+      if (dstKey !== "" || stepRefs.some((r) => k.includes(r))) for (let i = stateReps.length - 1; i >= 0; i--) t = replaceKey(t, stateReps[i]!.key, stateReps[i]!.ref, api.key);
     }
     return api.show(t, names);
   };
@@ -121,12 +123,14 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const unapply = (t: LTerm) => B.term_unapply(t);
   const isRef = (t: LTerm, n: string) => t.$ === "Ref" && K[n] !== undefined && t.k === K[n];
   let env: B.Env | null = null;
+  // the context's depth: g.d, plus the page binders of the allocs and emits being stepped; scope: their number
+  let D = g.d, scope = 0;
   const envOf = (): B.Env => {
-    if (env === null) { let e: B.Env = null; for (let i = 0; i < g.d; i++) e = B.list_set(e, i, B.Var(names[i] ?? "_", i)); env = e; }
+    if (env === null) { let e: B.Env = null; for (let i = 0; i < D; i++) e = B.list_set(e, i, B.Var(names[i] ?? "_", i)); env = e; }
     return env;
   };
-  const wnfL = (t: LTerm): LTerm | undefined => { const w = api.wnf(B.term_higher(t, envOf())); return w ? api.lower(w, g.d) : undefined; };
-  const nfL = (t: LTerm): LTerm | undefined => api.attempt(FUEL, () => api.nf(B.term_higher(t, envOf()), g.d));
+  const wnfL = (t: LTerm): LTerm | undefined => { const w = api.wnf(B.term_higher(t, envOf())); return w ? api.lower(w, D) : undefined; };
+  const nfL = (t: LTerm): LTerm | undefined => api.attempt(FUEL, () => api.nf(B.term_higher(t, envOf()), D));
   const natOf = (t: LTerm): number | null => { const n = nfL(t); return n && n.$ === "Lit" && n.k === "Nat" ? (n.v as number) : null; };
   // a register: a number, or a term (a parameter r with facts about it)
   type Rg = { key: string; text: string; lit: number | null; term: LTerm };
@@ -232,10 +236,22 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   }
 
   // the states: 0 is the goal's; k is the state k-1 after a set (r, v) or a store (kf, c, v)
-  type St = { text: string; key: string; lt: LTerm; prev: number; op: "set" | "store" | null; r: Rg | null; c: LTerm | null; v: LTerm | null };
-  const sts: St[] = [{ text: sh(st0), key: api.key(st0), lt: st0, prev: -1, op: null, r: null, c: null, v: null }];
+  type Op = "set" | "store" | "alloc" | "emit";
+  type St = { text: string; key: string; lt: LTerm; prev: number; op: Op | null; r: Rg | null; c: LTerm | null; v: LTerm | null; p: string; scope: number };
+  const sts: St[] = [{ text: sh(st0), key: api.key(st0), lt: st0, prev: -1, op: null, r: null, c: null, v: null, p: "", scope: 0 }];
+  const OPS: Record<Op, { up: string; nregs: string; outn: string }> = {
+    set: { up: "stSet", nregs: "nregsSet", outn: "outnSet" }, store: { up: "stStore", nregs: "nregsStore", outn: "outnStore" },
+    alloc: { up: "stAlloc", nregs: "nregsAlloc", outn: "outnAlloc" }, emit: { up: "stEmit", nregs: "nregsEmit", outn: "outnEmit" },
+  };
+  // a let at the top (a state, a fact) when nothing in it is bound by a page binder; else the term itself
+  const bind = (sc: number, base: string, type: string, value: string): string => {
+    if (sc > 0) return "(" + value + ")";
+    const name = fresh(base);
+    lets.push("+" + name + " : " + type + " = " + value);
+    return name;
+  };
   const lets: string[] = [];
-  stepRefs.push("@" + (K.stSet ?? "St.set"), "@" + (K.stStore ?? "St.store"));
+  stepRefs.push("@" + (K.stSet ?? "St.set"), "@" + (K.stStore ?? "St.store"), "@" + (K.stAlloc ?? "St.alloc"), "@" + (K.stEmit ?? "St.emit"));
   if (dst) {
     used.add(stName); used.add("ws0");
     const fs = ["wrg", "wcl", "wnx", "wfi", "wim", "wpg", "wlm", "win", "wou", "won"].map(fresh);
@@ -245,7 +261,8 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const regFacts = new Map<string, { c: LTerm; pf: string }>();
   const nregFacts = new Map<number, { n: string; pf: string }>();
   const MB = "Maybe<&2, U32>";
-  const stepArgs = (s: St, p: St) => p.text + ", " + (s.op === "set" ? s.r!.text + ", " + sh(s.v!) : s.r!.text + ", " + sh(s.c!) + ", " + sh(s.v!));
+  const stepArgs = (s: St, p: St) => p.text + ", " + (s.op === "set" ? s.r!.text + ", " + sh(s.v!) : s.op === "store" ? s.r!.text + ", " + sh(s.c!) + ", " + sh(s.v!)
+    : s.op === "alloc" ? s.r!.text + ", " + s.p : sh(s.v!) + ", " + s.p);
   // {St.nregs(st_j) == N}
   const nregOf = (j: number): { n: string; pf: string } => {
     const memo = nregFacts.get(j);
@@ -258,8 +275,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
       out = h ? { n: sh(h.n), pf: h.pf } : { n: nm("nregs") + "(" + s.text + ")", pf: "{==}" };
     } else {
       const p = sts[s.prev]!, pn = nregOf(s.prev);
-      const name = fresh("wn" + j);
-      lets.push("+" + name + " : {" + nm("nregs") + "(" + s.text + ") == " + pn.n + " : Nat} = " + nm("equalTrans") + "(Nat, " + nm("nregs") + "(" + s.text + "), " + nm("nregs") + "(" + p.text + "), " + pn.n + ", " + nm(s.op === "set" ? "nregsSet" : "nregsStore") + "(" + stepArgs(s, p) + "), " + pn.pf + ")");
+      const name = bind(s.scope, "wn" + j, "{" + nm("nregs") + "(" + s.text + ") == " + pn.n + " : Nat}", nm("equalTrans") + "(Nat, " + nm("nregs") + "(" + s.text + "), " + nm("nregs") + "(" + p.text + "), " + pn.n + ", " + nm(OPS[s.op!].nregs) + "(" + stepArgs(s, p) + "), " + pn.pf + ")");
       out = { n: pn.n, pf: name };
     }
     nregFacts.set(j, out);
@@ -273,8 +289,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     const s = sts[j]!;
     if (s.prev < 0) return "{==}";
     const p = sts[s.prev]!, s0 = nm("nregs") + "(" + sts[0]!.text + ")";
-    const name = fresh("wm" + j);
-    lets.push("+" + name + " : {" + nm("nregs") + "(" + s.text + ") == " + s0 + " : Nat} = " + nm("equalTrans") + "(Nat, " + nm("nregs") + "(" + s.text + "), " + nm("nregs") + "(" + p.text + "), " + s0 + ", " + nm(s.op === "set" ? "nregsSet" : "nregsStore") + "(" + stepArgs(s, p) + "), " + relOf(s.prev) + ")");
+    const name = bind(s.scope, "wm" + j, "{" + nm("nregs") + "(" + s.text + ") == " + s0 + " : Nat}", nm("equalTrans") + "(Nat, " + nm("nregs") + "(" + s.text + "), " + nm("nregs") + "(" + p.text + "), " + s0 + ", " + nm(OPS[s.op!].nregs) + "(" + stepArgs(s, p) + "), " + relOf(s.prev) + ")");
     relFacts.set(j, name);
     return name;
   };
@@ -319,30 +334,35 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     }
     else {
       const p = sts[s.prev]!;
-      const same = s.op === "set" ? sameReg(s.r!, q) : false;
+      const same = s.op === "set" || s.op === "alloc" ? sameReg(s.r!, q) : false;
       if (same === null) fail("the registers " + s.r!.text + " and " + q.text + ": no fact tells them apart ({Nat.is_eq(" + s.r!.text + ", " + q.text + ") == False{}})");
       const here = same === true;
       let law = s.op === "set" ? nm("regSet") + "(" + p.text + ", " + s.r!.text + ", " + sh(s.v!) + ", " + q.text + ", " + ltOf(s.prev, s.r!) + ")"
-        : nm("regStore") + "(" + p.text + ", " + s.r!.text + ", " + sh(s.c!) + ", " + sh(s.v!) + ", " + q.text + ")";
+        : s.op === "store" ? nm("regStore") + "(" + p.text + ", " + s.r!.text + ", " + sh(s.c!) + ", " + sh(s.v!) + ", " + q.text + ")"
+        : s.op === "alloc" ? nm("regAlloc") + "(" + p.text + ", " + s.r!.text + ", " + s.p + ", " + q.text + ", " + ltOf(s.prev, s.r!) + ")"
+        : nm("regEmit") + "(" + p.text + ", " + sh(s.v!) + ", " + s.p + ", " + q.text + ")";
+      // the register an alloc writes gets the old next
+      const written = s.op === "alloc" ? B.App(ref("stNext"), p.lt) : s.v!;
       // told apart by a fact: the pick's condition rewritten to False
-      if (s.op === "set" && !here && typeof same === "string") law = "(%" + same + " : {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Bool.pick(" + MB + ", _, Some{" + sh(s.v!) + "}, " + nm("reg") + "(" + p.text + ", " + q.text + ")) : " + MB + "}; " + law + ")";
-      const c = here ? s.v! : regOf(s.prev, q).c;
+      if ((s.op === "set" || s.op === "alloc") && !here && typeof same === "string") law = "(%" + same + " : {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Bool.pick(" + MB + ", _, Some{" + sh(written) + "}, " + nm("reg") + "(" + p.text + ", " + q.text + ")) : " + MB + "}; " + law + ")";
+      const c = here ? written : regOf(s.prev, q).c;
       const pf = here ? law : nm("equalTrans") + "(" + MB + ", " + nm("reg") + "(" + s.text + ", " + q.text + "), " + nm("reg") + "(" + p.text + ", " + q.text + "), Some{" + sh(c) + "}, " + law + ", " + regOf(s.prev, q).pf + ")";
-      const name = fresh("wf" + j + "_" + (q.lit ?? "r"));
-      lets.push("+" + name + " : {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Some{" + sh(c) + "} : " + MB + "} = " + pf);
+      const name = bind(s.scope, "wf" + j + "_" + (q.lit ?? "r"), "{" + nm("reg") + "(" + s.text + ", " + q.text + ") == Some{" + sh(c) + "} : " + MB + "}", pf);
       out = { c, pf: name };
     }
     regFacts.set(mk, out);
     return out;
   };
-  const push = (j: number, op: "set" | "store", r: Rg, c: LTerm | null, v: LTerm): number => {
-    const name = fresh("ws" + sts.length);
+  const push = (j: number, op: Op, r: Rg | null, c: LTerm | null, v: LTerm | null, pv: LTerm | null = null, pn = ""): number => {
     const p = sts[j]!;
-    const lt = op === "set" ? B.App(B.App(B.App(ref("stSet"), p.lt), r.term), v) : B.App(B.App(B.App(B.App(ref("stStore"), p.lt), r.term), c!), v);
-    const s: St = { text: name, key: "let:" + name, lt, prev: j, op, r, c, v };
-    lets.push("+" + name + " : " + nm("cirState") + " = " + nm(op === "set" ? "stSet" : "stStore") + "(" + stepArgs(s, p) + ")");
+    const sc = Math.max(p.scope, pv ? scope : 0);
+    const lt = op === "set" ? B.App(B.App(B.App(ref("stSet"), p.lt), r!.term), v!) : op === "store" ? B.App(B.App(B.App(B.App(ref("stStore"), p.lt), r!.term), c!), v!)
+      : op === "alloc" ? B.App(B.App(B.App(ref("stAlloc"), p.lt), r!.term), pv!) : B.App(B.App(B.App(ref("stEmit"), p.lt), v!), pv!);
+    const s: St = { text: "", key: "", lt, prev: j, op, r, c, v, p: pn, scope: sc };
+    s.text = bind(sc, "ws" + sts.length, nm("cirState"), nm(OPS[op].up) + "(" + stepArgs(s, p) + ")");
+    s.key = "let:" + s.text;
     sts.push(s);
-    stateReps.push({ key: api.key(lt), ref: B.Ref(name) as LTerm });
+    if (sc === 0) stateReps.push({ key: api.key(lt), ref: B.Ref(s.text) as LTerm });
     return sts.length - 1;
   };
 
@@ -410,6 +430,81 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
 
   // a law that is the def being proven (or the law it fills) is never suggested: that would be circular
   const isSelf = (short: string) => !!g.self && (shortOf(g.self) === short || shortOf(g.self).endsWith("." + short));
+  // the rest of a proof under the page binder of an alloc or an emit: the binder extends the context
+  // (its name prints; terms over it are not let-bound), then is dropped
+  const underPages = (j: number, mk: (pn: string, pv: LTerm) => number, body: (pn: string, j2: number) => string): string => {
+    const pn = fresh("wp" + j);
+    names[D] = pn;
+    const pv = B.Var(pn, D) as LTerm;
+    D++; scope++; env = null;
+    try { return body(pn, mk(pn, pv)); } finally { D--; scope--; env = null; names.length = D; }
+  };
+  // a fact of the context whose type prints as T (by its key, or as it prints)
+  const factFor = (T: string): string | undefined => {
+    for (const f of ctxFactT) if (sh(f.T) === T) return f.pf;
+    for (const h of boolHyp) if ("{" + sh(h.lhs) + " == " + (h.val ? "True{}" : "False{}") + " : Bool}" === T) return h.name;
+    return undefined;
+  };
+  // {St.outn(st_j) == 0}: from a fact on the start, carried by outn.set / outn.store / outn.alloc (an emit adds 1)
+  const outnZero = (j: number): string | undefined => {
+    if (!K.stOutn) return undefined;
+    const s0 = sts[0]!;
+    let base: string | undefined;
+    for (const f of ctxFactT) {
+      if (f.T.$ !== "Eql") continue;
+      const [h, xs] = unapply(f.T.a);
+      if (h.$ === "Ref" && h.k === K.stOutn && xs.length === 1 && api.key(xs[0]!) === s0.key) { const z = nfL(f.T.b); if (z && z.$ === "Lit" && z.v === 0) base = f.pf; }
+    }
+    if (!base) return undefined;
+    // the chain back to the start: each step keeps outn (no emit in between)
+    let pf = base, cur = 0;
+    const chain: number[] = [];
+    for (let i = j; i > 0; i = sts[i]!.prev) chain.push(i);
+    for (const i of chain.reverse()) {
+      const st2 = sts[i]!, p = sts[st2.prev]!;
+      if (st2.op === "emit" || !K[OPS[st2.op!].outn]) return undefined;
+      pf = nm("equalTrans") + "(U32, " + nm("stOutn") + "(" + st2.text + "), " + nm("stOutn") + "(" + p.text + "), 0, " + nm(OPS[st2.op!].outn) + "(" + stepArgs(st2, p) + "), " + pf + ")";
+      cur = i;
+    }
+    void cur;
+    return pf;
+  };
+  // the registers a loop reads and writes (its code walked, at most 400 nodes)
+  const regsOfLoop = (c: LTerm, body: LTerm): { reads: Rg[]; writes: Rg[] } => {
+    const reads = new Map<string, Rg>(), writes = new Map<string, Rg>();
+    let n = 0;
+    const go = (t: LTerm) => {
+      if (++n > 400) return;
+      const w = wnfL(t);
+      if (!w || w.$ !== "Ctr") return;
+      const x = w.x;
+      switch (shortOf(w.k)) {
+        case "Cir.Expr.get": { const r = rgOf(x[0]!); reads.set(r.key, r); return; }
+        case "Cir.Stmt.set": case "Cir.Stmt.alloc": { const r = rgOf(x[0]!); writes.set(r.key, r); if (x[1]) go(x[1]); return; }
+        case "Cir.Expr.const": case "Cir.Stmt.halt": case "Cir.Stmt.nop": case "Cir.Expr.size": return;
+        case "Cir.Expr.field": case "Cir.Stmt.store": x.slice(1).forEach(go); return;
+        default: x.forEach(go);
+      }
+    };
+    go(c); go(body);
+    return { reads: [...reads.values()], writes: [...writes.values()] };
+  };
+  // a loop with no law: tot.while's exact obligations, and an invariant skeleton over its registers
+  const loopHint = (sText: string, c: LTerm, body: LTerm, j: number, k: Cont): string => {
+    const S = sts[j]!.text;
+    const { reads, writes } = regsOfLoop(c, body);
+    const now = (r: Rg) => { try { return r.text + " = " + sh(regOf(j, r).c); } catch { return r.text + " (no fact)"; } };
+    const lines = [
+      "a loop at " + S + ", no routine law: prove its WP (its Tot) with Lg.tot.while; replace this ?TODO by",
+      "  " + nm("wpOfTot") + "(" + sText + ", " + S + ", " + bS + ", " + kText(k) + ", " + HS + ", " + nm("totWhile") + "(" + sh(c) + ", " + sh(body) + ", " + bS + ", I, " + (k === null && QS ? QS : "x => " + kApp(k, "x")) + ", " + HS + ", r, n0, " + S + ", i))",
+      "  I : Nat -> Cr.Cir.State -> Type, the invariant at the measure n, e.g. n => x => {" + nm("nregs") + "(x) == Mc.Mach.regs() : Nat} & "
+        + (writes.map((w) => "{" + nm("reg") + "(x, " + w.text + ") == Some{..} : Maybe<&2, U32>}").join(" & ") || "..") + " & <the facts the rest needs>",
+      "  r : @n: Nat -> @x: Cr.Cir.State -> I(n, x) -> Lg.Loop(" + sh(c) + ", <body>, x, " + bS + ", n, I, Q, " + HS + ")  (a round: the condition's value; at 0 the post; else the body's WP to I at a smaller n)",
+      "  i : I(n0, " + S + ");  n0: a measure, e.g. the number of rounds left (U32.to_nat of the register the condition tests)",
+      "  the loop reads " + (reads.map(now).join(", ") || "no register") + "; writes " + (writes.map((w) => w.text).join(", ") || "no register"),
+    ];
+    return lines.join("\n#     ");
+  };
   // the code: a statement's constructor, with its parts as written
   const stmtOf = (s: LTerm): { k: string; x: LTerm[] } => {
     const w = wnfL(s) ?? fail("a statement does not evaluate: " + sh(s).slice(0, 120));
@@ -460,7 +555,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     const S = sts[j]!.text;
     // the facts a premise may take: the context's, and the Bool facts (with their conjuncts)
     const facts: { T: LTerm; pf: string }[] = [...ctxFactT, ...boolHyp.map((h) => ({ T: B.Eql(h.lhs, B.Ctr<[LTerm]>(h.val ? "True" : "False", []), B.Ref(byShort.get("Bool") ?? "Bool") as LTerm), pf: h.name }))];
-    const ins = api.inst?.(law, term, sts[j]!.lt, gargsB, facts, g.d);
+    const ins = api.inst?.(law, term, sts[j]!.lt, gargsB, facts, D);
     if (!ins || ins.concl.length !== 5) return null;
     const [bL, QL, HL] = [ins.concl[2]!, ins.concl[3]!, ins.concl[4]!];
     const lawName = sh(B.Ref(law) as LTerm);
@@ -614,13 +709,34 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
         return head + leaf("an if at " + S + " that no fact decides: U32.is_zero(" + sh(ev.v) + "); give a Bool fact on a part of it" + (K.boolCase ? "" : ", or add the kit lemma bool.case (see gen2-wp-notes.md) so --wp splits it")) + ")";
       }
       case "Cir.Stmt.while":
-        return leaf("a loop at " + S + (isSelf("tot.while") ? "" : ": its WP is its Tot: apply Lg.tot.while with an invariant I(n, st) and a measure n (obligations: the condition has a value; at 0 the post; else the body's WP to I at a smaller measure), or a routine law (Lg.wp.of_tot)"));
+        {
+          let h = "a loop at " + S;
+          if (!isSelf("tot.while")) try { h = loopHint(sText, st.x[0]!, st.x[1]!, j, k); } catch (x) { if (!(x instanceof Fail)) throw x; }
+          return leaf(h);
+        }
       case "Cir.Stmt.halt":
         return leaf("a halt at " + S + ": " + HS + "(its status, " + S + ")" + (/\bNo\b/.test(HS) ? " is Empty: a fact must rule this path out" : ""));
-      case "Cir.Stmt.alloc":
-        return leaf("an alloc at " + S + (isSelf("wp.alloc") ? "" : ": apply Lg.wp.alloc (it asks St.outn == 0 and the budget 20 (next + 1) <= b)"));
-      case "Cir.Stmt.emit":
-        return leaf("an emit at " + S + (isSelf("wp.emit") ? "" : ": apply Lg.wp.emit (it asks the budget 20 next + outn + 1 <= b)"));
+      case "Cir.Stmt.alloc": {
+        if (!K.wpAlloc || isSelf("wp.alloc") || !K.stAlloc || !K.regAlloc || !K.nregsAlloc) return leaf("an alloc at " + S + (isSelf("wp.alloc") ? "" : ": apply Lg.wp.alloc (it asks St.outn == 0 and the budget 20 (next + 1) <= b)"));
+        const r = rgOf(st.x[0]!);
+        let hr: string;
+        try { hr = ltOf(j, r); } catch (x) { if (x instanceof Fail) return leaf("alloc " + r.text + " at " + S + ": " + x.why); throw x; }
+        const ho = outnZero(j) ?? leaf("alloc " + r.text + " at " + S + ": the output has not begun: {" + nm("stOutn") + "(" + S + ") == 0 : U32}");
+        const need = "Nat.mul(20n, Nat.add(U32.to_nat(" + nm("stNext") + "(" + S + ")), 1n))";
+        const hb = factFor("{Nat.is_le(" + need + ", " + bS + ") == True{} : Bool}") ?? leaf("alloc " + r.text + " at " + S + ": the budget: {Nat.is_le(" + need + ", " + bS + ") == True{}}");
+        return underPages(j, (pn, pv) => push(j, "alloc", r, null, null, pv, pn), (pn, j2) =>
+          nm("wpAlloc") + "(" + r.text + ", " + S + ", " + bS + ", " + Kt + ", " + HS + ", " + hr + ", " + ho + ", " + hb + ", " + pn + " => " + post(k, j2) + ")");
+      }
+      case "Cir.Stmt.emit": {
+        if (!K.wpEmit || isSelf("wp.emit") || !K.stEmit || !K.regEmit || !K.nregsEmit) return leaf("an emit at " + S + (isSelf("wp.emit") ? "" : ": apply Lg.wp.emit (it asks the budget 20 next + outn + 1 <= b)"));
+        const e = st.x[0]!;
+        let ev: { v: LTerm; he: string };
+        try { ev = evalAt(e, j); } catch (x) { if (x instanceof Fail) return leaf("emit at " + S + ": " + x.why); throw x; }
+        const need = "Nat.add(Nat.mul(20n, U32.to_nat(" + nm("stNext") + "(" + S + "))), Nat.add(U32.to_nat(" + nm("stOutn") + "(" + S + ")), 1n))";
+        const hb = factFor("{Nat.is_le(" + need + ", " + bS + ") == True{} : Bool}") ?? leaf("emit at " + S + ": the budget: {Nat.is_le(" + need + ", " + bS + ") == True{}}");
+        return underPages(j, (pn, pv) => push(j, "emit", null, null, ev.v, pv, pn), (pn, j2) =>
+          nm("wpEmit") + "(" + sh(e) + ", " + S + ", " + bS + ", " + Kt + ", " + HS + ", " + sh(ev.v) + ", " + ev.he + ", " + hb + ", " + pn + " => " + post(k, j2) + ")");
+      }
       default:
         return leaf("the statement " + st.k + " at " + S + ": not stepped by --wp");
     }

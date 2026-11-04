@@ -1762,7 +1762,10 @@ const leaf = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null 
   p2.add(gk);
   const r = leafGo(g, depth, rw, p2, gk);
   if (r && SERVE) lruSet(proofCache, gk, r, 50000);
-  if (r) { job.memo.set(gk, { pf: r, depth, rw }); lastWin = performance.now(); }
+  // progress: a goal of the original level closed (a premise or a rewrite side goal closing is not)
+  // progress: a goal of the original level closed, or a premise closed by a lemma or a rewrite (not by a
+  // closer: those keep coming in a search that goes nowhere, exec.alloc)
+  if (r) { job.memo.set(gk, { pf: r, depth, rw }); if (g.lvl === 0 || r.t !== "tm") lastWin = performance.now(); }
   else job.memo.set(fk, { pf: null, depth: Math.max(depth, m?.depth ?? 0), rw: Math.max(rw, m?.rw ?? 0) });
   return r;
 };
