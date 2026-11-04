@@ -75,6 +75,7 @@
 //                      body: the lemmas and hypotheses whose conclusion matches it, with what blocks each;
 //                      the lemmas with the same head that do not match (their conclusions); the equations
 //                      that rewrite a call in the goal. Usable lemmas only (before the def, not open).
+//       --hole N       a body with several ?TODO: work on (or --lemmas for) the N-th only; the others stay
 //       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
 //                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
 //                      over its whole context (true iff the hole is), and the hole a call of it; at most
@@ -299,7 +300,7 @@ const argv = process.argv.slice(2);
 const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
 const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return i >= 0 ? argv[i + 1] : d; };
 const flag = (k: string) => argv.includes("--" + k);
-let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0;
+let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0, ONLY_HOLE = 0;
 let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false, HELPERS = false, WRITE = false;
 const readOpts = () => {
   BUDGET = +opt("budget", MODE === "serve" ? "1000" : "4000");
@@ -311,7 +312,7 @@ const readOpts = () => {
   DECOMP = !flag("no-decomp");
   HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
   PARTIAL = flag("partial"); STREAM = flag("stream"); DEBUG = flag("debug");
-  WRITE = flag("write"); HELPERS = WRITE || flag("helpers");
+  WRITE = flag("write"); HELPERS = WRITE || flag("helpers"); ONLY_HOLE = +opt("hole", "0");
 };
 readOpts();
 const FUEL_NF = 100000;
@@ -2648,6 +2649,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
   let done = 0, gone = 0; // gone: holes no longer ?TODO in body (filled, or a helper's call)
   const helpers: string[] = [], used = new Set<string>();
   for (let h = 0; h < n; h++) {
+    if (ONLY_HOLE > 0 && h + 1 !== ONLY_HOLE) continue; // --hole N: that hole only (the others stay ?TODO)
     // find the next ?TODO not yet filled: mark it, read its goal from bend2's error
     let idx = -1;
     for (let c = 0, from = 0; c <= h - gone; c++) { idx = body.indexOf("?TODO", from); from = idx + 1; }
@@ -2720,7 +2722,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
     if (log) console.error("[gen2] hole " + (h + 1) + ": filled (" + ms + " ms)");
     res.push({ hole: h + 1, ok: true, ms: +ms, text });
   }
-  return { body, n, done, res, helpers };
+  return { body, n: ONLY_HOLE > 0 ? Math.min(1, n) : n, done, res, helpers };
 };
 
 // ---- bench ----
@@ -2940,6 +2942,7 @@ const goalsOf = (k: string): { label: string; g: Goal }[] => {
   for (let h = 0, from = 0; h < n; h++) {
     const idx = ds.body.indexOf("?TODO", from);
     from = idx + 1;
+    if (ONLY_HOLE > 0 && h + 1 !== ONLY_HOLE) continue;
     job = newJob(k);
     let err: any = null;
     try { checkDef(k, ds.body.slice(0, idx) + "?gen2hole" + ds.body.slice(idx + 5)); } catch (e) { err = e; }
@@ -3083,7 +3086,7 @@ const runProve = () => {
   if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
   if (flag("lemmas")) { for (const k of ks) { if (ks.length > 1) console.log("# " + shortOf(k)); runLemmas(k); } return; }
   let failed = 0;
-  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS].join(",");
+  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS, ONLY_HOLE].join(",");
   for (const k of ks) {
     const ds = defSrc(k);
     if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }
