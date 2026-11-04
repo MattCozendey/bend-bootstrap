@@ -121,6 +121,13 @@
 //   matches the goal are checked premise by premise (issuesOf); a premise that fits a hypothesis once
 //   one root parameter is a given constructor (a clash: al.fresh's D.HSK(.., Nil) against hs's
 //   D.HSK(.., ps)) gives `match ps:`, and that arm is decomposed on half the budget (the others: leaf).
+// * Program stepping (goalTargets): lemmas are matched against the goal as stated, its normal form, and
+//   the goal "stepped": each closed call in its spine (Sh.body) unfolded one step to its head
+//   constructor (Cr.Cir.Stmt.seq{..}), so that statement lemmas (K.Ok.seq, X.set, X.if1) apply; also a
+//   rewrite base. In a skeleton (bestStep), a predicate parameter that nothing fixes (K.Ok.seq's
+//   invariant after the first statement) stays a hole for the agent (printed ?p<j>); a number never
+//   does. bestStep tries premises with closers only (decompose then searches each hole) and keeps
+//   its best step past the deadline. A hole that is its goal with one argument changed is "weak".
 // * Premises: a callee's parameter that a hypothesis or a proof must give is a fact (isProp: also a
 //   one-constructor type of facts, D.P2(..)) or a type that still names other parameters (isPrem:
 //   D.HSK(?dk, ..), @st2 -> AlQ(..) -> Q(st2)). A parameter may be filled by a predicate (st2 => ..).
@@ -166,7 +173,8 @@
 //   header changed ("[gen2] STATEMENT ERROR in <def>" on stderr).
 // * on a miss (prove/ask/batch, not bench), for the first open goal: "# why": the lemmas whose
 //   conclusion matches it (at most 4) and what blocks each (a premise open, a premise that fits a
-//   hypothesis after a split, a parameter to give); "# similar proven defs": up to 3 proven defs of
+//   hypothesis after a split, a premise that fits a part of a tuple hypothesis with the destructuring
+//   that names it, a parameter to give); "# similar proven defs": up to 3 proven defs of
 //   the entry file whose statements share the most names with it, with their first lines (templates).
 //
 // BENCHMARK
@@ -666,6 +674,54 @@ const nfArg = (x: HTerm, d: number, b: { n: number }): LTerm => {
   return nfGo(x, d, b);
 };
 const nf = (h: HTerm, d: number): LTerm => canon(nfGo(h, d, { n: NF_NODES }));
+// program stepping: a closed call (no variable: Sh.body, Wk.body(Sh.part)) in the goal's spine (depth
+// 1-3, through equation sides) unfolded ONE step to its head constructor (Cr.Cir.Stmt.seq{a, b}),
+// so that the statement lemmas (Ok.seq, X.set, X.if1, ..) match it; the goal converts to the result,
+// which nf misses (it evaluates exec(1n+f, ..) far too deep). At most 8 unfoldings of <= 2000 nodes.
+const hasVar = (t: LTerm): boolean => {
+  switch (t.$) {
+    case "Var": return true;
+    case "App": return hasVar(t.f) || hasVar(t.x);
+    case "Ctr": case "ADT": return t.x.some(hasVar);
+    case "Eql": return hasVar(t.a) || hasVar(t.b) || hasVar(t.T);
+    case "Lam": case "All": case "Let": case "Mat": case "Use": return true;
+    default: return false;
+  }
+};
+const unfoldProg = (t: LTerm, env: B.Env, d: number, depth: number, b: { n: number }): LTerm => {
+  if (depth > 3 || b.n <= 0) return t;
+  if (t.$ === "Eql") {
+    const a = unfoldProg(t.a, env, d, depth, b), c = unfoldProg(t.b, env, d, depth, b);
+    return a === t.a && c === t.b ? t : B.Eql(a, c, t.T);
+  }
+  if (t.$ !== "App" && t.$ !== "Ref") return t;
+  const [h, args] = unapply(t);
+  if (h.$ !== "Ref") return t;
+  if (depth > 0 && !hasVar(t)) {
+    const w = wnf(B.term_higher(t, env));
+    if (w && w.$ === "Ctr") {
+      const l = attempt(FUEL_NF, () => lower(w, d));
+      if (l && size(l, 2001) <= 2000) { b.n--; return l; }
+    }
+    return t;
+  }
+  let ch = false;
+  const na = args.map((a) => { const x = unfoldProg(a, env, d, depth + 1, b); if (x !== a) ch = true; return x; });
+  return ch ? na.reduce((f: LTerm, x) => B.App(f, x), h) : t;
+};
+const stepped = (raw: LTerm, env: B.Env, d: number): LTerm | null => {
+  const v = attempt(FUEL_NF * 4, () => unfoldProg(raw, env, d, 0, { n: 8 }));
+  return v && v !== raw ? v : null;
+};
+// the targets that lemmas are matched against: the goal as stated, stepped, and its normal form (last)
+const goalTargets = (g: Goal, raw: LTerm): LTerm[] => {
+  const out = [raw];
+  const v = stepped(raw, g.env, g.d);
+  if (v && key(v) !== key(raw)) out.push(v);
+  const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
+  if (n && !out.some((x) => key(x) === key(n))) out.push(n);
+  return out;
+};
 
 const headKey = (t: LTerm): string => {
   switch (t.$) {
@@ -784,6 +840,13 @@ const isPrem = (A: HTerm, d: number): boolean => {
   const w = wnf(A);
   return !!w && w.$ !== "Typ" && w.$ !== "Qnt" && w.$ !== "Qua";
 };
+// a predicate type: a function (any arity) whose result is a kind (State -> Type)
+const isPredType = (A: HTerm, n = 0): boolean => {
+  const w = wnf(A);
+  if (!w) return false;
+  if (w.$ === "Typ") return n > 0;
+  return w.$ === "All" && n < 12 && isPredType(w.B(B.Var("_", 1e7 + n)), n + 1);
+};
 const openMeta = (T: HTerm, n: number, sol: (HTerm | null)[] = []): { doms: { q: B.Quant; k: string; A: HTerm }[]; concl: HTerm } | null => {
   let t = T;
   const doms: { q: B.Quant; k: string; A: HTerm }[] = [];
@@ -899,6 +962,7 @@ type Goal = {
   pend: number; pnames: string[]; pmany: boolean[];
   split: boolean; path: string; lvl: number;
   hc: Map<number, LTerm[]>;
+  weak?: boolean; // a skeleton hole equal to its goal but in one argument (a monotonicity step)
 };
 // what a goal gives the leaf tactics whatever its budget (iterative deepening asks again): per job, by goal key
 type GoalInfo = { targets?: LTerm[]; hyp?: Callee[]; lem?: Callee[] };
@@ -1108,7 +1172,11 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
     // still open: unify a premise with an indexed lemma's conclusion (le_trans's middle term from
     // the lemma that proves its first premise); at most 3 alternatives, each one completed
     // only at the top of a leaf (premise level 0) with depth for the premises: it is costly
-    if (depth < 2 || g.lvl > 0) return null;
+    // a skeleton (holesOk: bestStep) leaves such a parameter as a hole for the agent (K.Ok.seq's
+    // intermediate predicate: the invariant after the first statement is the agent's choice)
+    // only a predicate may stay open: a number (a budget, K.Ok.wk's) is a guess, not a choice
+    const predOnly = () => o2!.doms.every((dm, j) => sol[j] || prem[j] || isPredType(dm.A));
+    if (depth < 2 || g.lvl > 0) return holesOk && predOnly() ? finish(g, c, sol, viaHyp, o2, depth, rw, path, holesOk) : null;
     for (const alt of forwardBinds(g, c, sol, prem, viaHyp, o2).slice(0, 2)) {
       const s2 = sol.slice();
       for (const [j, t] of alt) s2[j] = t;
@@ -1118,7 +1186,7 @@ const complete = (g: Goal, c: Callee, s0: (LTerm | null)[], toH: (s: (LTerm | nu
       const r = finish(g, c, s2, viaHyp, o3, depth, rw, path, holesOk);
       if (r) { tag("forward"); return r; }
     }
-    return null;
+    return holesOk && predOnly() ? finish(g, c, sol, viaHyp, o2, depth, rw, path, holesOk) : null;
   }
   return finish(g, c, sol, viaHyp, o2, depth, rw, path, holesOk);
 };
@@ -1390,10 +1458,7 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>, gk: strin
   if (depth === 0 && rw === 0) return null;
   let gi = job.gi.get(gk);
   if (!gi) { gi = {}; job.gi.set(gk, gi); }
-  const targets = (gi.targets ??= (() => {
-    const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
-    return n && key(n) !== key(raw) ? [raw, n] : [raw];
-  })());
+  const targets = (gi.targets ??= goalTargets(g, raw));
   // 4. apply
   if (depth > 0) {
     const callees: Callee[] = [...(gi.hyp ??= hypCallees(g))];
@@ -1428,6 +1493,8 @@ const rewrite = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nu
   const bases: LTerm[] = [];
   if (N0 && size(N0, 600) <= 600) bases.push(N0);
   if (R && size(R, 600) <= 600 && (!N0 || key(R) !== key(N0))) bases.push(R);
+  const V = R && stepped(R, g.env, g.d + 1);
+  if (V && size(V, 2400) <= 2400) bases.push(V);
   if (bases.length === 0) return null;
   const N = bases[0];
   const cands: RwCand[] = [];
@@ -1674,36 +1741,47 @@ const goalKeys = (g: Goal): string[] => {
 };
 const bestStep = (g: Goal, anc: Set<string> = new Set()): Pf | null => {
   const raw = lower(g.ty, g.d);
-  const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
-  const targets = n && key(n) !== key(raw) ? [raw, n] : [raw];
+  const targets = goalTargets(g, raw);
   const gk = goalKey(g);
   const own = new Set(attempt(FUEL_NF, () => goalKeys(g)) ?? []);
   const callees: Callee[] = hypCallees(g);
   if (job.ih && g.split) callees.push(ihCallee());
   const lem = lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, 1, 0, new Set(), null, () => false, pr); return { c, spec: pr.spec! }; });
   callees.push(...lem.filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c));
-  // a hole with the goal's own predicate (other arguments) comes from a monotonicity lemma and can be a
-  // stronger claim than the goal, often false (K.Ok.wk at
-  // budget 1n for Sh.body.ok): prefer steps with fewer such holes, then fewer holes, then smaller
-  const gh = headKey(raw);
+  // a weak hole (see below) can be a stronger claim than the goal, often false (K.Ok.wk at budget 1n
+  // for Sh.body.ok): prefer steps with fewer weak holes, then fewer holes, then smaller ones
   let best: { pf: Pf; holes: number; size: number; same: number } | null = null;
   const tries = { n: 0 };
-  for (const c of callees) {
+  // past the deadline, the best step found so far stands (a TIMEOUT used to discard it)
+  try { for (const c of callees) {
     if (tries.n >= 24) break;
-    applyCallee(g, c, targets, MAX_DEPTH - 1, MAX_RW, new Set([gk]), null, (a) => {
+    // premises get closers only (depth 1, no rewrite): decompose searches each hole of the chosen step on
+    // its own budget, so a deep search here only spent the budget before the right callee was tried
+    applyCallee(g, c, targets, 1, 0, new Set([gk]), null, (a) => {
       const hs = a.holes ?? [];
+      if (process.env.GEN2_TRACE) console.error("[trace] bestStep " + c.text + ": " + hs.length + " holes of " + c.n);
       if (hs.length === 0 || hs.length >= c.n) return false;
-      if (hs.some((h) => (attempt(FUEL_NF, () => goalKeys(h)) ?? [gk]).some((k) => k === gk || anc.has(k) || own.has(k)))) return false;
+      if (hs.some((h) => (attempt(FUEL_NF, () => goalKeys(h)) ?? [gk]).some((k) => k === gk || anc.has(k) || own.has(k)))) { if (process.env.GEN2_TRACE) console.error("[trace]   restates the goal"); return false; }
       const s = callText(c, a.args.map((x) => (x === HOLE ? "?TODO" : x)));
-      if (!tryText(g, s)) return false;
+      if (!tryText(g, s)) {
+        if (process.env.GEN2_TRACE) { try { B.term_check(book, g.lhs, parseFrag(s, g), g.qt, g.ty, g.ctx, g.d); } catch (e: any) { console.error("[trace] bestStep " + c.text + " rejected: " + (e?.$ === "Err" ? B.err_show(e) : String(e)).slice(0, 600)); } }
+        return false;
+      }
       const sz = hs.reduce((acc, h) => acc + (attempt(FUEL_NF, () => size(lower(h.ty, h.d))) ?? 99), 0);
-      const same = hs.filter((h) => attempt(FUEL_NF, () => headKey(lower(h.ty, h.d))) === gh).length;
+      // weak: the hole is the goal but in exactly one argument of the same head (K.Ok.wk's budget,
+      // le_trans's middle term): it can be stronger than the goal; Ok.seq's first statement differs in
+      // the program and the predicate, so it is not weak
+      for (const h of hs) h.weak = attempt(FUEL_NF, () => {
+        const [fa, xa] = unapply(lower(h.ty, h.d)), [fb, xb] = unapply(raw);
+        return fa.$ === "Ref" && fb.$ === "Ref" && fa.k === fb.k && xa.length === xb.length && xa.filter((x, i) => key(x) !== key(xb[i])).length === 1;
+      }) === true;
+      const same = hs.filter((h) => h.weak).length;
       if (!best || same < best.same || (same === best.same && (hs.length < best.holes || (hs.length === best.holes && sz < best.size)))) {
         best = { pf: { t: "app", s: callText(c, a.args), subs: hs.map((h) => ({ t: "hole", g: h }) as Pf) }, holes: hs.length, size: sz, same };
       }
       return false;
     }, tries, true);
-  }
+  } } catch (e) { if (e !== TIMEOUT || !best) throw e; }
   return best ? (best as any).pf : null;
 };
 
@@ -1747,13 +1825,29 @@ const fillHoles = (p: Pf, f: (g: Goal) => Res, acc: { holes: number; closed: num
 // that no hypothesis gives (a clash: it would, once a variable is split to a constructor), or a
 // parameter that neither the goal nor a hypothesis fixes. A large goal that the search cannot close
 // often needs one such lemma, after one split (D.alloc.post: al.fresh, once ps is Nil{}).
-type Issue = { name: string; kind: "clash" | "open" | "unfixed"; text: string; clash?: [number, string][] };
-const toHs = (g: Goal, s: (LTerm | null)[]) => s.map((x) => (x ? B.term_higher(x, g.env) : null));
-const targetsOf = (g: Goal): LTerm[] => {
-  const raw = lower(g.ty, g.d);
-  const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
-  return n && key(n) !== key(raw) ? [raw, n] : [raw];
+type Issue = { name: string; kind: "clash" | "open" | "unfixed" | "part"; text: string; clash?: [number, string][] };
+// the parts of a hypothesis that is a nested pair of facts (D.HSK(..) = P2(RtsK(..), P2(..))): each
+// with its path (1 = first, 2 = second) and type, at most 8 levels and 24 parts
+const tupleParts = (g: Goal, i: number): { path: string; T: LTerm }[] => {
+  const out: { path: string; T: LTerm }[] = [];
+  const go = (h: HTerm, p: string) => {
+    if (out.length >= 24) return;
+    const w = p.length < 8 ? wnf(h) : undefined;
+    const t = w?.$ === "ADT" ? RAW[w.k] : undefined;
+    if (w?.$ === "ADT" && t?.$ === "ADT" && t.c.length === 1 && w.x.length === 4) {
+      const second = wnf(w.x[3]);
+      if (second?.$ === "Lam") { go(w.x[2], p + "1"); go((second.f as B.HBody)(B.Var("_", 1e7)), p + "2"); return; }
+    }
+    if (p.length > 0) { const T = attempt(FUEL_NF, () => lower(h, g.d)); if (T) out.push({ path: p, T }); }
+  };
+  const a = ann(g, i);
+  if (a) attempt(FUEL_NF * 2, () => { go(a.T, ""); return true; });
+  return out.length >= 2 ? out : [];
 };
+// the destructuring that names the part at path (2 then 1: (_, (x, _)) = h)
+const partPat = (p: string): string => (p === "" ? "x" : p[0] === "1" ? "(" + partPat(p.slice(1)) + ", _)" : "(_, " + partPat(p.slice(1)) + ")");
+const toHs = (g: Goal, s: (LTerm | null)[]) => s.map((x) => (x ? B.term_higher(x, g.env) : null));
+const targetsOf = (g: Goal): LTerm[] => goalTargets(g, lower(g.ty, g.d));
 const rankedLemmas = (g: Goal, targets: LTerm[]): Callee[] =>
   lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, 1, 0, new Set(), null, () => false, pr); return { c, spec: pr.spec! }; })
     .filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c);
@@ -1796,7 +1890,14 @@ const issuesOf = (g: Goal, c: Callee, sol0: (LTerm | null)[]): Issue[] => {
       }
     }
     if (ok) continue;
-    if (near) out.push({ name: dm.k, kind: "clash", text: near.h, clash: near.cl });
+    if (near) { out.push({ name: dm.k, kind: "clash", text: near.h, clash: near.cl }); continue; }
+    // a part of a tuple hypothesis that fits: the agent destructures that hypothesis once
+    let part: string | null = null;
+    for (let i = g.d - 1; i >= 0 && !part; i--) {
+      if (!usable(g, i, B.quant_dem(dm.q, g.qt))) continue;
+      for (const pt of tupleParts(g, i)) if (match(A, pt.T, sol.slice(), g.d)) { part = partPat(pt.path) + " = " + g.names[i]; break; }
+    }
+    if (part) { out.push({ name: dm.k, kind: "part", text: part }); continue; }
     else out.push({ name: dm.k, kind: "open", text: (attempt(FUEL_NF, () => show(A, g.names)) ?? "?").replace(/\?(\d+)\^\d+/g, (_, m) => "?" + (o.doms[+m]?.k ?? m)) });
   }
   const o2 = openMeta(c.T, c.n, toHs(g, sol));
@@ -1806,6 +1907,7 @@ const issuesOf = (g: Goal, c: Callee, sol0: (LTerm | null)[]): Issue[] => {
 const clip = (s: string, n = 160) => (s.length > n ? s.slice(0, n) + " ..." : s);
 const issueText = (g: Goal, is: Issue): string =>
   is.kind === "clash" ? "premise " + is.name + ": hypothesis " + is.text + " fits once " + is.clash!.map(([i, k]) => g.names[i] + " is " + B.name_show(job.file, k)).join(", ") + " (split)"
+  : is.kind === "part" ? "premise " + is.name + ": a part of a hypothesis fits (x below): " + is.text
   : is.kind === "open" ? "premise " + is.name + " open: " + clip(is.text)
   : "parameter " + is.name + " fixed by neither the goal nor a hypothesis (give it)";
 const diagnose = (g: Goal, until: number): string => {
@@ -1917,6 +2019,9 @@ const hintsFor = (k: string, g: Goal, whole: boolean): string => {
 const helperDef = (g: Goal): { params: string; goal: string; args: string } | null => {
   const names = g.names.slice(0, g.d);
   if (new Set(names).size !== names.length || names.some((x) => x === "_" || x === "")) return null;
+  // a goal that still names an open parameter of its step (K.Ok.seq's predicate, a ?TODO) is not a
+  // statement yet: the agent fills the parameter first
+  if (attempt(FUEL_NF, () => hasMeta(lower(g.ty, g.d))) !== false) return null;
   const ps: string[] = [];
   for (let i = 0; i < g.d; i++) {
     const a = ann(g, i);
@@ -1988,8 +2093,11 @@ const showGoal = (g: Goal): string => {
     const a = ann(g, i)!;
     lines.push("    " + B.quant_show(a.q) + g.names[i] + " : " + clip(show(lower(a.T, i), g.names.slice(0, i))));
   }
-  const raw = clip(show(lower(g.ty, g.d), g.names));
-  return "  goal : " + raw + "\n  context:\n" + lines.join("\n");
+  // ?p<j>: the step's open parameter j (a predicate the agent chooses: the hole at path #<callee>.<j>)
+  const raw = clip(show(lower(g.ty, g.d), g.names)).replace(/\?(\d+)\^\d+/g, "?p$1");
+  const pred = attempt(FUEL_NF, () => isPredType(g.ty)) === true && /#[^#]*\.\d+$/.test(g.path)
+    ? "  (a predicate to choose: write it here; the other holes of this step name it ?p" + g.path.slice(g.path.lastIndexOf(".") + 1) + ")\n" : "";
+  return pred + "  goal : " + raw + "\n  context:\n" + lines.join("\n").replace(/\?(\d+)\^\d+/g, "?p$1");
 };
 
 // prove the whole body of k (its body forgotten)
@@ -2053,9 +2161,8 @@ const proveDef = (k: string, budget: number): Outcome => {
     render(best.pf, "  ", out);
     if (best.closed > 0) partialBody = out.join("\n");
     const hs = holesOf(best.pf);
-    const lgh = attempt(FUEL_NF, () => { const l = introAll(root); return l ? headKey(lower(l.ty, l.d)) : null; });
-    const caution = (g: Goal) => (g.path.includes("#") && lgh && attempt(FUEL_NF, () => headKey(lower(g.ty, g.d))) === lgh
-      ? "  CAUTION: possible dead end: this hole is the goal's own predicate with other arguments (a monotonicity step such as K.Ok.wk), so it can be a STRONGER claim than the goal, and false; check that it is true before working on it (the theorem's statement is unchanged)\n" : "");
+    const caution = (g: Goal) => (g.weak
+      ? "  CAUTION: possible dead end: this hole is its goal with one argument changed (a monotonicity step such as K.Ok.wk), so it can be a STRONGER claim than the goal, and false; check that it is true before working on it (the theorem's statement is unchanged)\n" : "");
     partial = out.join("\n") + "\n" + hs.map((g, i) => "# hole " + (i + 1) + " at " + (g.path || "/") + "\n" + caution(g) + showGoal(g)).join("\n");
   }
   // for the agent: why the first open goal stays open, and proven defs to copy the shape of
