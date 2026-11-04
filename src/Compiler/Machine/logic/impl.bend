@@ -374,8 +374,178 @@ def Lg.cells.emit(st, v, p):
     case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
       {==}
 
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i12(+x: Cr.Cir.Cell, +g: Cmp, +g1: Cr.Cir.Cell) ->
+  {Bool.pick(Cr.Cir.Cell, Cmp.is_eq(g), x, g1) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(True{}, True{}, g)), x, g1) : Cr.Cir.Cell}:
+  match g:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i11(+p: Nat, +iwt: Word(p), +x: Cr.Cir.Cell, +jwt: Word(p), +g: Cr.Cir.Cell, +g1: Cmp, +hg: {g1 == Word.cmp(p, iwt, jwt) : Cmp}) ->
+  {g == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, True{}, g1)), x, g) : Cr.Cir.Cell}:
+  match g1:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i10(+x: Cr.Cir.Cell, +g: Cmp, +g1: Cr.Cir.Cell) ->
+  {Bool.pick(Cr.Cir.Cell, Cmp.is_eq(g), x, g1) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, g)), x, g1) : Cr.Cir.Cell}:
+  %K.cmp.fin_ff(g) :
+    {Bool.pick(Cr.Cir.Cell, _, x, g1) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, g)), x, g1) : Cr.Cir.Cell}
+  {==}
+
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i5(+p: Nat, +x: Cr.Cir.Cell, +jwt: Word(p), +g: Cmp) ->
+  {Bool.pick(Cr.Cir.Cell, Cmp.is_eq(g), x, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{})) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(True{}, True{}, g)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}:
+  match p:
+    case 0n:
+      match jwt g:
+        case WNil{} LT{}:
+          {==}
+        case WNil{} EQ{}:
+          {==}
+        case WNil{} GT{}:
+          {==}
+    case 1n+p1:
+      match jwt g:
+        case WCon{False{}, jwtt} LT{}:
+          {==}
+        case WCon{False{}, jwtt} EQ{}:
+          {==}
+        case WCon{False{}, jwtt} GT{}:
+          {==}
+        case WCon{True{}, jwtt} LT{}:
+          {==}
+        case WCon{True{}, jwtt} EQ{}:
+          {==}
+        case WCon{True{}, jwtt} GT{}:
+          {==}
+
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i4(+p: Nat, +iwt: Word(p), +x: Cr.Cir.Cell, +jwt: Word(p), +g: Cmp, +hg: {g == Word.cmp(p, iwt, jwt) : Cmp}) ->
+  {Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{}) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(True{}, False{}, g)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}:
+  match p:
+    case 0n:
+      match iwt jwt:
+        case WNil{} WNil{}:
+          (%Equal.sym(Cmp, g, Word.cmp(0n, WNil{}, WNil{}), hg) : {Cr.Cir.Cell{0, 0, 0, 0, 0} == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(True{}, False{}, _)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+    case 1n+p1:
+      match iwt jwt:
+        case WCon{False{}, iwtt} WCon{False{}, jwtt}:
+          (%Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, False{}, g)), False{}, K.cmp.fin_tf(g)) : {Cr.Cir.Cell{0, 0, 0, 0, 0} == Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+        case WCon{False{}, iwtt} WCon{True{}, jwtt}:
+          (%Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, False{}, g)), False{}, K.cmp.fin_tf(g)) : {Cr.Cir.Cell{0, 0, 0, 0, 0} == Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+        case WCon{True{}, iwtt} WCon{False{}, jwtt}:
+          (%Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, False{}, g)), False{}, K.cmp.fin_tf(g)) : {Cr.Cir.Cell{0, 0, 0, 0, 0} == Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+        case WCon{True{}, iwtt} WCon{True{}, jwtt}:
+          (%Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, False{}, g)), False{}, K.cmp.fin_tf(g)) : {Cr.Cir.Cell{0, 0, 0, 0, 0} == Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i3(+p: Nat, +iwt: Word(p), +x: Cr.Cir.Cell, +jwt: Word(p), +g: Cmp, +hg: {g == Word.cmp(p, iwt, jwt) : Cmp}) ->
+  {Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{}) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, True{}, g)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}:
+  match p:
+    case 0n:
+      match iwt jwt g:
+        case WNil{} WNil{} LT{}:
+          {==}
+        case WNil{} WNil{} EQ{}:
+          {==}
+        case WNil{} WNil{} GT{}:
+          {==}
+    case 1n+p1:
+      match iwt jwt g:
+        case WCon{False{}, iwtt} WCon{False{}, jwtt} LT{}:
+          {==}
+        case WCon{False{}, iwtt} WCon{False{}, jwtt} EQ{}:
+          {==}
+        case WCon{False{}, iwtt} WCon{False{}, jwtt} GT{}:
+          {==}
+        case WCon{False{}, iwtt} WCon{True{}, jwtt} LT{}:
+          {==}
+        case WCon{False{}, iwtt} WCon{True{}, jwtt} EQ{}:
+          {==}
+        case WCon{False{}, iwtt} WCon{True{}, jwtt} GT{}:
+          {==}
+        case WCon{True{}, iwtt} WCon{False{}, jwtt} LT{}:
+          {==}
+        case WCon{True{}, iwtt} WCon{False{}, jwtt} EQ{}:
+          {==}
+        case WCon{True{}, iwtt} WCon{False{}, jwtt} GT{}:
+          {==}
+        case WCon{True{}, iwtt} WCon{True{}, jwtt} LT{}:
+          {==}
+        case WCon{True{}, iwtt} WCon{True{}, jwtt} EQ{}:
+          {==}
+        case WCon{True{}, iwtt} WCon{True{}, jwtt} GT{}:
+          {==}
+
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i2(+p: Nat, +x: Cr.Cir.Cell, +jwt: Word(p), +g: Cmp) ->
+  {Bool.pick(Cr.Cir.Cell, Cmp.is_eq(g), x, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{})) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, g)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}:
+  match p:
+    case 0n:
+      match jwt:
+        case WNil{}:
+          (%K.cmp.fin_ff(g) : {Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cell{0, 0, 0, 0, 0}) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, g)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+    case 1n+p1:
+      match jwt:
+        case WCon{False{}, jwtt}:
+          (%K.cmp.fin_ff(g) : {Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cell{0, 0, 0, 0, 0}) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, g)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+        case WCon{True{}, jwtt}:
+          (%K.cmp.fin_ff(g) : {Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cell{0, 0, 0, 0, 0}) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, g)), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; {==})
+
+# gen2 --ind: a helper lemma (proven)
+def cells.get_set.i1(+n: Nat, +m: Cr.Cir.Cells, +iw: Word(n), +x: Cr.Cir.Cell, +jw: Word(n)) ->
+  {Cr.Cir.Cells.get.at(n, jw, Cr.Cir.Cells.set.at(n, iw, m, x)) == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp(n, iw, jw)), x, Cr.Cir.Cells.get.at(n, jw, m)) : Cr.Cir.Cell}:
+  match n:
+    case 0n:
+      match m iw jw:
+        case Cr.Cir.Cells.none{} WNil{} WNil{}:
+          {==}
+        case Cr.Cir.Cells.one{m02} WNil{} WNil{}:
+          {==}
+        case Cr.Cir.Cells.node{m03, m11} WNil{} WNil{}:
+          {==}
+    case 1n+p:
+      match m iw jw:
+        case Cr.Cir.Cells.none{} WCon{False{}, iwt} WCon{False{}, jwt}:
+          (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.set.at(p, iwt, Cr.Cir.Cells.none{}, x)), Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp(p, iwt, jwt)), x, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{})), cells.get_set.i1(p, Cr.Cir.Cells.none{}, iwt, x, jwt)) : {_ == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, iwt, jwt))), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; cells.get_set.i2(p, x, jwt, Word.cmp(p, iwt, jwt)))
+        case Cr.Cir.Cells.none{} WCon{False{}, iwt} WCon{True{}, jwt}:
+          cells.get_set.i3(p, iwt, x, jwt, Word.cmp(p, iwt, jwt), {==})
+        case Cr.Cir.Cells.none{} WCon{True{}, iwt} WCon{False{}, jwt}:
+          cells.get_set.i4(p, iwt, x, jwt, Word.cmp(p, iwt, jwt), {==})
+        case Cr.Cir.Cells.none{} WCon{True{}, iwt} WCon{True{}, jwt}:
+          (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.set.at(p, iwt, Cr.Cir.Cells.none{}, x)), Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp(p, iwt, jwt)), x, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{})), cells.get_set.i1(p, Cr.Cir.Cells.none{}, iwt, x, jwt)) : {_ == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(True{}, True{}, Word.cmp(p, iwt, jwt))), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; cells.get_set.i5(p, x, jwt, Word.cmp(p, iwt, jwt)))
+        case Cr.Cir.Cells.one{m0} WCon{False{}, iwt} WCon{False{}, jwt}:
+          (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.set.at(p, iwt, Cr.Cir.Cells.none{}, x)), Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp(p, iwt, jwt)), x, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{})), cells.get_set.i1(p, Cr.Cir.Cells.none{}, iwt, x, jwt)) : {_ == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, iwt, jwt))), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; cells.get_set.i2(p, x, jwt, Word.cmp(p, iwt, jwt)))
+        case Cr.Cir.Cells.one{m0} WCon{False{}, iwt} WCon{True{}, jwt}:
+          cells.get_set.i3(p, iwt, x, jwt, Word.cmp(p, iwt, jwt), {==})
+        case Cr.Cir.Cells.one{m0} WCon{True{}, iwt} WCon{False{}, jwt}:
+          cells.get_set.i4(p, iwt, x, jwt, Word.cmp(p, iwt, jwt), {==})
+        case Cr.Cir.Cells.one{m0} WCon{True{}, iwt} WCon{True{}, jwt}:
+          (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.set.at(p, iwt, Cr.Cir.Cells.none{}, x)), Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp(p, iwt, jwt)), x, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.none{})), cells.get_set.i1(p, Cr.Cir.Cells.none{}, iwt, x, jwt)) : {_ == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(True{}, True{}, Word.cmp(p, iwt, jwt))), x, Cr.Cir.Cell{0, 0, 0, 0, 0}) : Cr.Cir.Cell}; cells.get_set.i5(p, x, jwt, Word.cmp(p, iwt, jwt)))
+        case Cr.Cir.Cells.node{m01, m1} WCon{False{}, iwt} WCon{False{}, jwt}:
+          (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.set.at(p, iwt, m01, x)), Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp(p, iwt, jwt)), x, Cr.Cir.Cells.get.at(p, jwt, m01)), cells.get_set.i1(p, m01, iwt, x, jwt)) : {_ == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, iwt, jwt))), x, Cr.Cir.Cells.get.at(p, jwt, m01)) : Cr.Cir.Cell}; cells.get_set.i10(x, Word.cmp(p, iwt, jwt), Cr.Cir.Cells.get.at(p, jwt, m01)))
+        case Cr.Cir.Cells.node{m01, m1} WCon{False{}, iwt} WCon{True{}, jwt}:
+          cells.get_set.i11(p, iwt, x, jwt, Cr.Cir.Cells.get.at(p, jwt, m1), Word.cmp(p, iwt, jwt), {==})
+        case Cr.Cir.Cells.node{m01, m1} WCon{True{}, iwt} WCon{False{}, jwt}:
+          (%Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, False{}, Word.cmp(p, iwt, jwt))), False{}, K.cmp.fin_tf(Word.cmp(p, iwt, jwt))) : {Cr.Cir.Cells.get.at(p, jwt, m01) == Bool.pick(Cr.Cir.Cell, _, x, Cr.Cir.Cells.get.at(p, jwt, m01)) : Cr.Cir.Cell}; {==})
+        case Cr.Cir.Cells.node{m01, m1} WCon{True{}, iwt} WCon{True{}, jwt}:
+          (%Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get.at(p, jwt, Cr.Cir.Cells.set.at(p, iwt, m1, x)), Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp(p, iwt, jwt)), x, Cr.Cir.Cells.get.at(p, jwt, m1)), cells.get_set.i1(p, m1, iwt, x, jwt)) : {_ == Bool.pick(Cr.Cir.Cell, Cmp.is_eq(Word.cmp.fin(True{}, True{}, Word.cmp(p, iwt, jwt))), x, Cr.Cir.Cells.get.at(p, jwt, m1)) : Cr.Cir.Cell}; cells.get_set.i12(x, Word.cmp(p, iwt, jwt), Cr.Cir.Cells.get.at(p, jwt, m1)))
+
 def Lg.cells.get_set(m, i, x, j):
-  ?TODO
+  match i j:
+    case U32{iw} U32{jw}:
+      cells.get_set.i1(32n, m, iw, x, jw)
 
 def Lg.cell.get_set(k, x, v, j, hk, hj):
   match k x j:
