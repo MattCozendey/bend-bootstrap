@@ -7,7 +7,9 @@
 // trust that must only help and be fast (as src/Compiler/Machine/scripts/gen.ts). Excluded in
 // tsconfig.json for the same reason.
 //
-// STATUS: v2: prove, batch and bench modes; decomposition of large goals (see BENCHMARK and NEXT).
+// STATUS: v3 (stopped by the owner's order; see NEXT): prove (several defs per run), serve/ask (the
+// book stays loaded), batch and bench modes; decomposition of large goals; forward unification;
+// rewrites on the raw goal and with hypotheses' normal forms. 178/256 (70%) of the benchmark.
 //
 // PURPOSE
 // -------
@@ -23,6 +25,17 @@
 //       a body that is exactly ?TODO is proven whole (case splits allowed); otherwise each ?TODO in
 //       the body (leaf tactics, then decomposition). Prints the proof text (ready to paste) on stdout,
 //       under a `# <def>` line when there are several; a miss prints its partial; exit 2 if any miss.
+//   bun src/Shared/scripts/gen2.ts serve <file.bend> [--port 7311]
+//   bun src/Shared/scripts/gen2.ts ask [--port 7311] <def> [<def> ...] [prove options]
+//       serve keeps the book loaded (a local HTTP server on 127.0.0.1) and answers `ask`, which takes
+//       the arguments of prove after the file and prints what prove prints (same exit code). Before
+//       each ask, the entry file is re-read if it changed: only its own defs are re-parsed and
+//       re-checked (the imports stay loaded; a change in an imported file needs a restart). Measured
+//       on moves_copy.bend (5730 entries): load + check 20 s once, then an ask of two leaves 0.27 s;
+//       a reload after an edit of need_big.bend 0.4 s. Start it in the background (through heavy.sh,
+//       which holds one of the 3 slots while it runs: stop it when done), e.g.
+//         ~/lead/heavy.sh bun Shared/scripts/gen2.ts serve Compiler/Machine/moves_copy.bend &
+//         bun Shared/scripts/gen2.ts ask kc.at fs.arg.at --budget 8000 --partial
 //   bun src/Shared/scripts/gen2.ts batch <file.bend> [--out DIR] [--only RE] [options]
 //       every def of the book (the file and all it imports, not Base) with a ?TODO in its body: a body
 //       that is exactly ?TODO is proven whole, other holes one by one. Writes DIR/report.txt (per hole:
@@ -96,14 +109,22 @@
 //   1. closers: `{==}`, the unit constructor (Unit{}), a hypothesis whose type converts.
 //   2. intro: a function goal gets `x => ...`.
 //   3. absurd: a hypothesis whose normal form is Empty gives Empty.absurd(GOAL, h) (the goal as stated,
-//      kernel rule R3); a hypothesis that equates two different constructors uses an ex-falso lemma
-//      (conclusion: its own type parameter), its premise proven at depth 1.
-//   4. apply: hypotheses (functions), the induction hypothesis, indexed lemmas (nearest first);
-//      premises proven recursively at depth - 1.
-//   5. rewrite: `%e : P; rest` with an equation from a hypothesis (both directions, Equal.sym), the
-//      induction hypothesis or an indexed lemma whose side matches a subterm of nf(goal); P is
-//      nf(goal) with that subterm replaced by `_` (kernel rule R2: rewrite, do not convert). Rewrites
-//      of blocking subterms first; a rewrite that closes by {==} wins at once; else the best --beam
+//      kernel rule R3); for Empty goals, a hypothesis that equates two different constructors is
+//      discriminated by a predicate def on their type (`%h : P(_); Unit{}`); with depth, an ex-falso
+//      lemma (conclusion: its own type parameter) whose premise a closer proves.
+//   4. apply: hypotheses (functions, also through aliases), the induction hypothesis, then the indexed
+//      lemmas whose conclusion matches (raw against raw goal and normal form, normal form of the
+//      conclusion against the normal form of the goal; every distinct solution is tried), most
+//      specific pattern first, at most CAPS[level] completions per goal (48, 12, 4, 2 by premise
+//      level). A parameter that the conclusion leaves open is fixed by matching a premise against a
+//      hypothesis (raw or normal form), else (top level only, depth >= 2) by unifying a premise with
+//      an indexed lemma's conclusion (forward: le_trans's middle term). Premises at depth - 1.
+//   5. rewrite: `%e : P; rest` with an equation from a hypothesis (raw or normal form, both
+//      directions, Equal.sym), the induction hypothesis or an indexed lemma whose side matches a
+//      subterm of the goal: of nf(goal), and of the goal as stated (a lemma stated on raw forms); P is
+//      that base with the subterm replaced by `_` (kernel rule R2: rewrite, do not convert). In a
+//      rewrite, a premise {a == x} with x an open parameter fixes x := a (then {==}). Rewrites of
+//      blocking subterms first; a rewrite that closes by {==} wins at once; else the best --beam
 //      continue with one less rewrite.
 //
 // OUTPUT
@@ -117,38 +138,80 @@
 // BENCHMARK
 // ---------
 // Rerun (WSL, from src/):  ~/lead/heavy.sh bun Shared/scripts/gen2.ts bench <file> --budget 3000 --partial
-// Each proven lemma of <file> (book order) has its body forgotten in memory (no file is touched) and is
-// re-proven with only the defs before it; size class = non-empty lines of its original body
-// (S 1-3, M 4-10, L 11+). Measured at commit 19b2da7 (before decomposition), budget 3000 ms:
+// Each proven lemma of <file> (book order; a def whose conclusion is a proposition) has its body
+// forgotten in memory (no file is touched) and is re-proven with only the defs before it; size class =
+// non-empty lines of its original body (S 1-3, M 4-10, L 11+). Measured at commit 95e13d5, budget 3000 ms:
 //   file                   tried  full       S       M       L      partial (closed/total)  median
-//   need_big.bend           122   82 (67%)  27/37   38/51   17/34   25 (113/153)             7 ms
-//   heap_facts.bend          79   57 (72%)  13/14   33/43   11/22   11 (18/40)               7 ms
-//   statement_runs.bend      67   26 (39%)  14/18   10/28    2/21   13 (28/69)             439 ms
-//   total                   268  165 (62%); every hit takes < 1 s (median 2-3 ms); misses run to the
-//   budget. Tactics in hits: apply:lemma, split, rfl, hyp, unit, apply:ih, rw:lemma, rw:ih, rw:hyp,
-//   absurd, discriminate, exfalso. (History and raw results: bb-wt/reports/gen2.md, if present.)
+//   need_big.bend          119  81 (68%)   28/36   36/49   17/34   29 (123/161)               8 ms
+//   heap_facts.bend         70  57 (81%)   14/14   33/40   10/16   11 (19/32)                 6 ms
+//   statement_runs.bend     67  40 (60%)   18/18   19/28   3/21    10 (17/44)                31 ms
+//   total                  256  178 (70%); every hit takes < 3 s (median a few ms); a miss runs to the budget,
+//   then the partial pass and the decomposition (up to 3 x budget). The kernel (gate) accepts gen2's
+//   need_big proofs pasted in place of the originals (bend2 ALL PROOFS CHECK, kdiag3 0 fail).
+//   (History and raw results: bb-wt/reports/gen2.md and bb-wt/scratch/gen2/, if present.)
 //
 // LIMITS
-// -----------
+// ------
 // * No helper-lemma synthesis (a match on a computed value or an introduced binder needs its own def).
 // * Splits only in whole-body mode; ?TODO holes inside a body get leaf tactics only.
 // * No lets (`+x = ...`) in output, no congruence tactic beyond rewriting, no templates (~ binders).
 // * Matching is syntactic (after the bounded normal form): a lemma stated in a shape that only
 //   converts to the goal by deeper computation is missed.
+// * Hypotheses are never rewritten (forward reasoning): a fact that needs one hypothesis rewritten
+//   by another before a lemma applies (k.cell_of) is missed.
+// * Whole simulation proofs (moves.bend's holes) are out of reach: their structure is not found by
+//   a bounded search; gen.ts writes those, and gen2 proves the leaves they state.
+// * Printed names: a term of a file that the target file does not import under an alias prints as
+//   its path name (in goals only; a candidate that needs one fails to parse and is skipped).
 //
-// NEXT (the ordered plan; keep it current)
+// NEXT (the ordered plan, for whoever continues; keep it current)
 // ----
-// 1. Measure the decomposition (L hit rate, subgoals closed) and tune bestStep's choice.
-// 2. Fail fast on misses that run to the budget (statement_runs: rewrite chains over machine states):
-//    find the explosive candidates and prune them (specificity order and caps by level are in; next:
-//    a premise that is not simpler than its goal costs two levels; memo of rewrite candidates).
-// 3. Forward unification for transitivity chains: a premise with an open parameter (le_trans's middle
-//    term) unified with a lemma's conclusion (two-sided first-order unification, ground result only).
-// 4. Closed rewrites: zero-parameter lemmas (literal facts such as lit_M) in the rewrite index.
-// 5. Helper-lemma synthesis: a match on a computed value or an introduced binder needs its own def;
-//    emit the helper (its statement from the subgoal) and prove it as a separate job.
-// 6. Splits inside ?TODO holes of a partial body (the hole's pending binders), not only whole bodies.
-// 7. Lets (`+x = v`) to share a repeated subterm in the output (kernel call-by-name cost).
+// 1. Book load between calls: DONE (serve/ask, commit ff24e5e): moves_copy.bend (5730 entries) loads
+//    and checks in about 20-30 s once, then each ask takes well under 1 s; an edit of the entry file
+//    costs a re-check of that file only. Next: an option to reload an imported file too (today a
+//    restart), and a slot policy for heavy.sh (a server holds one of the 3 slots while it runs).
+// 2. The implementer's 3 misses, in bb-wt/impl src/Compiler/Machine/moves_copy.bend at commit
+//    c28021c; the hand proofs there are the references (regression set: add them to a bench-like run
+//    with `ask kc.at fs.arg.at kept.at.own --whole --partial`):
+//    a. kc.at: destructure the hypothesis hkc : D.Kept.cells(..) (a Tuple of facts) with
+//       `match hkc: case Tuple{_, Tuple{kg, _}}`, then apply kept.at.own with xs = List.append(ps, Nil)
+//       (bound by matching kg's type) and its premise hm rewritten by mem.app.nil. Today the split
+//       candidates open a record only when no blocker exists. Drafted, NOT tested, not committed:
+//       open pending binders of one-constructor types with fields first (at most 2), except U32, F32,
+//       Chr, Word.Con, Word.Nil (they are records too, and splitting them to bits is useless), in
+//       splitCands before the blockers. Measure the three bench files after it (it may cost splits).
+//    b. fs.arg.at: ps is general; the proof is one rewrite with e (Equal.sym) of every occurrence of
+//       Cr.Cir.Cells.get(M, z) in the normal form of D.Fs(M, ps, z), then {==}. gen2 split on ps
+//       instead (D.Mem(ps, z) blocks) and missed the rewrite: check why the leaf rewrite of the
+//       unsplit goal fails (motive size cap 600 nodes in rewrite? the normal form keeps D.Fd(..)
+//       calls?); with GEN2_TRACE=1 each rewrite candidate and motive is printed.
+//    c. kept.at.own: needs U6.kg.at with premises from U13.own.lo, U13.own.end and D.u.lt (through
+//       N.le_rw_r, a transitivity-like step with an explicit middle term), then a 2-step rewrite of the
+//       D.Kept.if(Bool.or(..)) condition by hm and ht. The lead's diagnosis: induction on the fuel of
+//       the recursive hypothesis hk : D.Kept.go(Nat.sub(..), ..) with the fuel generalized, through a
+//       helper lemma: synthesize a helper def whose statement is the subgoal with the computed fuel
+//       replaced by a fresh variable (and the hypotheses that mention it), prove it whole (split on the
+//       fuel, IH), and apply it. That is item 5 below; until then this lemma is out of reach.
+// 3. Functions counted as lemmas: FIXED (95e13d5): the bench took `ones` (a function returning
+//    Word(n)) for a lemma and pasted another body; isPropType now accepts only propositions. Verified:
+//    gen2's 81 need_big proofs pasted in place pass bend2 and the kernel (kdiag3: 0 fail).
+// 4. Derived hypotheses (forward reasoning): rewrite a hypothesis by another equation, the term
+//    `(%E : P; h)` used as a closer or to bind a lemma's premise (k.cell_of in statement_runs). Drafted
+//    in bb-wt/scratch/gen2/p14.py (not applied, not tested). Should move statement_runs M (19/28).
+// 5. Helper-lemma synthesis: a match on a computed value, an introduced binder, or a generalized
+//    fuel needs its own def; emit the helper (its statement from the subgoal), prove it as a separate
+//    job in the same book (parse it into a shadow book: Object.create(book.tlds), as def_check does
+//    for templates), and output both. Should move need_big L (17/34) and kept.at.own.
+// 6. Fail fast on misses: a miss costs budget + partial pass + decomposition (up to 3 x budget;
+//    statement_runs L lemmas take 4-7 s each). A premise not simpler than its goal should cost two
+//    levels; memo rewrite candidates per goal; a cheaper decomposition pass.
+// 7. Readable motives: stop the normal form at a wrapper def when its unfolding stays stuck
+//    (Cr.Cir.is_cell(i, im, fi, nx) instead of its Bool.or body; Cmp.is_lt(U32.cmp(..)) instead of
+//    U32.is_lt(..)). Cosmetic, but the hand proofs read better.
+// 8. Closed rewrites: zero-parameter lemmas (literal facts such as lit_M) in the rewrite index
+//    (need_big val_M, val_65536, sq_65536: S misses).
+// 9. Splits inside ?TODO holes of a partial body (the hole's pending binders), not only whole bodies.
+// 10. Read bb-wt/reports/impl.md (the implementer's list of leaves gen2 missed) and close those kinds.
 //
 // EXTEND
 // ------
@@ -165,25 +228,30 @@ type LTerm = B.LTerm;
 
 // ---- options ----
 const argv = process.argv.slice(2);
+const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
 const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return i >= 0 ? argv[i + 1] : d; };
 const flag = (k: string) => argv.includes("--" + k);
-const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
-const BUDGET = +opt("budget", "4000");
-const MAX_SPLIT = +opt("splits", "6");
-const MAX_DEPTH = +opt("depth", "3");
-const MAX_RW = +opt("rw", "4");
-const BEAM = +opt("beam", "4");
-const FUEL_CHECK = +opt("fuel", "300000");
+let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0;
+let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false;
+const readOpts = () => {
+  BUDGET = +opt("budget", "4000");
+  MAX_SPLIT = +opt("splits", "6");
+  MAX_DEPTH = +opt("depth", "3");
+  MAX_RW = +opt("rw", "4");
+  BEAM = +opt("beam", "4");
+  FUEL_CHECK = +opt("fuel", "300000");
+  DECOMP = !flag("no-decomp");
+  HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
+  PARTIAL = flag("partial"); STREAM = flag("stream"); DEBUG = flag("debug");
+};
+readOpts();
 const FUEL_NF = 100000;
 const FUEL_FINAL = 50000000;
 const NF_NODES = 3000;
 const MAX_CANDS = 48;
 const CAPS = [48, 12, 4, 2]; // matched apply candidates tried, by premise level below the leaf
 const MAX_SPLIT_CANDS = 3;
-const DECOMP = !flag("no-decomp");
-const HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
 const MAX_DECOMP = 2;
-const PARTIAL = flag("partial"), STREAM = flag("stream"), DEBUG = flag("debug");
 const META = 1 << 20;
 
 // ---- fuel and time ----
@@ -208,11 +276,23 @@ const attempt = <T>(n: number, f: () => T): T | undefined => {
   }
 };
 
+// ---- ask: a client of `serve` (loads nothing) ----
+if (MODE === "ask") {
+  const port = +opt("port", "7311");
+  const args = argv.slice(1);
+  const res = await fetch("http://127.0.0.1:" + port + "/prove", { method: "POST", body: JSON.stringify({ args }) }).catch((e) => null);
+  if (!res) { console.error("gen2 ask: no server on port " + port + " (start one: gen2.ts serve <file.bend>)"); process.exit(1); }
+  const r: any = await res.json();
+  if (r.stderr) process.stderr.write(r.stderr);
+  if (r.stdout) process.stdout.write(r.stdout);
+  process.exit(r.code);
+}
+
 // ---- load ----
 const entry = fs.realpathSync(path.resolve(FILE ?? ""));
 const TOP = path.dirname(entry) + "/";
 const book = B.book_nil();
-await B.book_load(book, entry, "", new Map());
+const N0 = await B.book_load(book, entry, "", new Map()); // the entry's first entry in book order
 const tLoad = performance.now();
 try {
   B.book_valid(book, 0);
@@ -565,7 +645,11 @@ const openMeta = (T: HTerm, n: number, sol: (HTerm | null)[] = []): { doms: { q:
   }
   return { doms, concl: t };
 };
+const preds = new Map<string, Lemma[]>();
+let tIndex = 0;
+const buildIndex = () => {
 const tIndex0 = performance.now();
+applyIndex.clear(); rwIndex.clear(); wild.length = 0; preds.clear();
 for (const k of Object.keys(RAW)) {
   const t = RAW[k];
   if (t.$ !== "Def" || (t.v === null && t.b !== true) || t.x > 0 || t.i) continue;
@@ -599,7 +683,6 @@ for (const k of Object.keys(RAW)) {
   }
 }
 // predicates on one datatype (P: T -> Type), to discriminate two constructors (`%e : P(_); Unit{}`)
-const preds = new Map<string, Lemma[]>();
 for (const k of Object.keys(RAW)) {
   const t = RAW[k];
   if (t.$ !== "Def" || t.v === null || t.n !== 1 || t.x > 0) continue;
@@ -616,7 +699,9 @@ for (const v of preds.values()) v.sort((a, b) => b.order - a.order);
 for (const m of [applyIndex]) for (const v of m.values()) v.sort((a, b) => b.order - a.order);
 for (const v of rwIndex.values()) v.sort((a, b) => b.L.order - a.L.order);
 wild.sort((a, b) => b.order - a.order);
-const tIndex = performance.now() - tIndex0;
+tIndex = performance.now() - tIndex0;
+};
+buildIndex();
 
 // ---- proofs ----
 type Pf =
@@ -1760,12 +1845,9 @@ const batch = () => {
   console.log(head + "\nreport: " + path.join(dir, "report.txt") + "\npatch:  " + path.join(dir, "gen2.patch") + " (apply from the repository root: git apply)");
 };
 
-// ---- main ----
-if (MODE === "bench") {
-  bench();
-} else if (MODE === "batch") {
-  batch();
-} else if (MODE === "prove") {
+// ---- prove ----
+class Exit { constructor(readonly code: number) {} }
+const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
   const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp"].includes(xs[i - 1])));
@@ -1773,14 +1855,14 @@ if (MODE === "bench") {
   const ks: string[] = [];
   for (const nm of names) {
     const k = Object.keys(RAW).find((x) => own(x) && shortOf(x) === nm);
-    if (!k) { console.error("gen2: no def " + nm + " in " + FILE); process.exit(1); }
+    if (!k) { console.error("gen2: no def " + nm + " in " + FILE); { throw new Exit(1); }; }
     ks.push(k);
   }
   if (argv.includes("--only")) {
     const re = new RegExp(opt("only", ".*"));
     for (const k of book.order) if (own(k) && re.test(shortOf(k)) && !ks.includes(k) && defSrc(k)?.body.trim() === "?TODO") ks.push(k);
   }
-  if (ks.length === 0) { console.error("gen2: no def to prove"); process.exit(1); }
+  if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
   let failed = 0;
   for (const k of ks) {
     const ds = defSrc(k);
@@ -1804,7 +1886,80 @@ if (MODE === "bench") {
       console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled");
     }
   }
-  if (failed) process.exit(2);
+  if (failed) throw new Exit(2);
+};
+
+// ---- serve: the book stays loaded between prove calls ----
+// gen2.ts serve <file.bend> [--port 7311]; then `gen2.ts ask [--port N] <def> ... [options]` (the
+// arguments of prove after the file). Before each call the entry file is re-read if it changed: its
+// defs are re-parsed and re-checked on top of the imports, which stay loaded and checked; a change
+// in an imported file needs a restart.
+const entryAl = (() => { for (const k of book.order.slice(N0)) { const t = RAW[k]; if (t?.$ === "Def") { const f = spanFile(t.T); if (f) return f.al; } } return {} as Record<string, string>; })();
+let entryMtime = fs.statSync(entry).mtimeMs;
+const reloadEntry = (): string | null => {
+  const mt = fs.statSync(entry).mtimeMs;
+  if (mt === entryMtime) return null;
+  const t0 = performance.now();
+  const lines = fs.readFileSync(entry, "utf8").split("\n");
+  for (let i = 0; i < lines.length; i++) { const l = lines[i].trim(); if (l === "" || l.startsWith("#")) continue; if (!/^import(\s|$)/.test(l)) break; lines[i] = ""; }
+  const own = new Set(book.order.slice(N0));
+  const nb = B.book_nil();
+  for (const k of Object.keys(RAW)) if (!own.has(k) && !k.includes("~")) nb.tlds[k] = RAW[k];
+  const ownCtrs = new Set<string>();
+  for (const k of own) { const t = RAW[k]; if (t?.$ === "ADT") for (const c of t.c) ownCtrs.add(c.k); }
+  for (const c of Object.keys(book.ctrs)) if (!ownCtrs.has(c)) nb.ctrs[c] = book.ctrs[c];
+  nb.order = book.order.slice(0, N0);
+  B.parse_book(nb, path.dirname(entry) + "/", lines.join("\n"), "", entryAl);
+  B.book_valid(nb, N0);
+  for (const k of Object.keys(RAW)) delete RAW[k];
+  Object.assign(RAW, nb.tlds);
+  book.ctrs = nb.ctrs; book.order = nb.order; book.tmps = nb.tmps; book.hols = nb.hols;
+  ORDER.clear(); book.order.forEach((k, i) => ORDER.set(k, i));
+  texts.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear();
+  buildIndex();
+  entryMtime = mt;
+  return "[gen2] reloaded " + path.basename(entry) + " in " + Math.round(performance.now() - t0) + " ms";
+};
+const serve = () => {
+  const port = +opt("port", "7311");
+  Bun.serve({
+    port, hostname: "127.0.0.1",
+    async fetch(req) {
+      const { args } = (await req.json()) as { args: string[] };
+      const out: string[] = [], err: string[] = [];
+      const ol = console.log, oe = console.error;
+      console.log = (...a: any[]) => { out.push(a.join(" ")); };
+      console.error = (...a: any[]) => { err.push(a.join(" ")); };
+      let code = 0;
+      const t0 = performance.now();
+      try {
+        const r = reloadEntry();
+        if (r) err.push(r);
+        argv.length = 0; argv.push("prove", FILE, ...args); readOpts();
+        runProve();
+      } catch (e: any) {
+        if (e instanceof Exit) code = e.code;
+        else { code = 1; err.push("[gen2] " + (e?.$ === "Err" ? B.err_show(e) : String(e?.stack ?? e))); entryMtime = 0; }
+      } finally {
+        console.log = ol; console.error = oe;
+        deadline = Infinity;
+      }
+      err.push("[gen2] served in " + Math.round(performance.now() - t0) + " ms");
+      return Response.json({ stdout: out.length ? out.join("\n") + "\n" : "", stderr: err.join("\n") + "\n", code });
+    },
+  });
+  console.error("[gen2] serving " + FILE + " on 127.0.0.1:" + port + " (book: " + book.order.length + " entries, load " + Math.round(tLoad) + " ms, valid " + Math.round(tValid - tLoad) + " ms); ask with: gen2.ts ask [--port " + port + "] <def> ... [options]");
+};
+
+// ---- main ----
+if (MODE === "bench") {
+  bench();
+} else if (MODE === "batch") {
+  batch();
+} else if (MODE === "prove") {
+  try { runProve(); } catch (e) { if (e instanceof Exit) process.exit(e.code); throw e; }
+} else if (MODE === "serve") {
+  serve();
 } else {
   console.error("usage: bun gen2.ts prove <file.bend> <def> | batch <file.bend> | bench <file.bend> [options] (see the header)");
   process.exit(1);
