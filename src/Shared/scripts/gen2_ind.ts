@@ -50,10 +50,11 @@ const MAX_DEPTH = 3;
 const MAX_HELPERS = 16;
 const ENUM_MAX = 8;
 const ARM_MS = 300;
+const IND_FLOOR_MS = 2500; // the schemes get at least this (a def with helpers needs 0.5-2 s)
 const MAX_HELPER_ARMS = 16; // arms left after the leaf pass that may each get a helper
 const NL = String.fromCharCode(10);
 // which skeleton gets the helpers: the most specific split first (the functions' own recursion)
-const SCHEME_RANK = ["enum", "u32+width", "word+split", "fun", "word", "u32", "nat"];
+const SCHEME_RANK = ["enum", "u32+width", "word+split", "fun", "word", "nat", "u32"];
 const ONLY = process.env.GEN2_IND_ONLY ? new RegExp(process.env.GEN2_IND_ONLY) : null; // debug: schemes by name
 
 // ---- small helpers ----
@@ -113,7 +114,8 @@ const fillArms = (R: Run, k: string, body: string, depth: number, passes = [0, 1
   const e0 = A.checkBody(k, body);
   if (e0) { if (A.debug()) console.error("[gen2] --ind: skeleton of " + A.shortOf(k) + " does not check: " + A.errText(e0).split(NL).slice(0, 6).join(" | ")); return null; }
   const n = (body.match(/\?TODO/g) ?? []).length;
-  if (n === 0 || n > MAX_ARMS) return null;
+  if (n === 0) return { body, open: 0, closed: 0, goals: [] };
+  if (n > MAX_ARMS) return null;
   let text = body, closed = 0;
   // pass 0: the leaf tactics on every arm; pass 1: a helper for each arm left (when few are left)
   let goals: string[] = [];
@@ -189,6 +191,15 @@ const ctxParams = (A: Api, g: Goal, goalT: LTerm, rename: (s: string) => string,
   const need = new Set<number>();
   freeVars(goalT, need);
   for (let i = g.d - 1; i >= 0; i--) if (need.has(i)) { const a = A.ann(g, i); freeVars(A.lower(a.T, i), need); }
+  // the facts (equations) of the context over those parameters stay premises (the statement is no stronger)
+  for (let i = 0; i < g.d; i++) {
+    if (need.has(i) || skip.has(i)) continue;
+    const T = A.attempt(A.FUEL_NF, () => A.lower(A.ann(g, i).T, i));
+    if (!T || T.$ !== "Eql") continue;
+    const fv = new Set<number>();
+    freeVars(T, fv);
+    if ([...fv].every((v) => need.has(v))) need.add(i);
+  }
   const names = g.names.slice(0, g.d);
   if (new Set(names).size !== names.length) return null;
   const params: string[] = [], args: string[] = [];
@@ -213,10 +224,17 @@ const armHelper = (R: Run, k: string, g: Goal, depth: number, fits: (f: string |
   if (R.nHelpers > 0) { const lf = A.leafText(k, g, left()); if (fits(lf)) return lf; }
   const cands: { t: LTerm; rw?: IhRw }[] = [];
   if (N && N.$ === "Eql") {
-    for (const dir of [0, 1]) { const rw = A.attempt(A.FUEL_NF * 2, () => ihRewrite(A, k, g, N, dir)); if (rw) cands.push({ t: rw.t, rw }); }
+    for (const [dir, useNf] of [[0, false], [1, false], [0, true], [1, true]] as [number, boolean][]) {
+      const rw = A.attempt(A.FUEL_NF * 2, () => ihRewrite(A, k, g, N, dir, useNf));
+      if (!rw) continue;
+      // the rewritten goal is closed by computation
+      const t = rw.t as any;
+      if (t.$ === "Eql" && A.key(t.a) === A.key(t.b)) { const txt = "(%" + rw.e + " : " + rw.P + "; {==})"; if (A.tryText(g, txt) && fits(txt)) return txt; if (A.debug()) console.error("[gen2] --ind: the closed rewrite does not check: " + txt.slice(0, 400)); }
+      cands.push({ t: rw.t, rw });
+    }
     cands.push({ t: N });
     const seen = new Set<string>();
-    for (const [c, enums] of cands.flatMap((c) => [[c, true], [c, false]] as [{ t: LTerm; rw?: IhRw }, boolean][])) {
+    for (const [c, enums] of cands.flatMap((c) => (c.rw ? [[c, false], [c, true]] : [[c, true], [c, false]]) as [{ t: LTerm; rw?: IhRw }, boolean][])) {
       if (A.now() > R.until) return null;
       const gen = A.attempt(A.FUEL_NF * 2, () => generalize(A, g, c.t, enums));
       if (A.debug()) console.error("[gen2] --ind: arm " + g.path + (c.rw ? " (IH rewritten)" : "") + (enums ? " enums" : "") + ": " + (gen ? gen.goal.slice(0, 200) : "no generalization"));
@@ -236,7 +254,8 @@ const armHelper = (R: Run, k: string, g: Goal, depth: number, fits: (f: string |
   // the arm's goal over its context (true iff the arm is), when no instance of the induction
   // hypothesis occurs in it (another induction may prove it)
   const cp = ctxParams(A, g, raw, (s) => s);
-  const goalText = A.attempt(A.FUEL_NF, () => A.show(raw, g.names));
+  // as stated, or its normal form when shorter (the bits that a shift drops are gone)
+  const goalText = A.attempt(A.FUEL_NF, () => { const a = A.show(raw, g.names), b = N ? A.show(N, g.names) : a; return b.length < a.length ? b : a; });
   if (cp && goalText !== undefined && cp.params.length > 0 && depth + 1 < MAX_DEPTH && cands.length <= 1) {
     const nm = proveHelper(R, "def " + newName(R) + "(" + cp.params.join(", ") + ") ->" + NL + "  " + goalText + ":", depth);
     if (nm) {
@@ -249,19 +268,24 @@ const armHelper = (R: Run, k: string, g: Goal, depth: number, fits: (f: string |
 // N (an equation) with each instance of one side of k's conclusion (the induction hypothesis) replaced
 // by the other side (dir 0: left to right); null if none occurs
 type IhRw = { t: LTerm; P: string; e: string };
-const ihRewrite = (A: Api, k: string, g: Goal, N: any, dir: number): IhRw | null => {
+const ihRewrite = (A: Api, k: string, g: Goal, N: any, dir: number, useNf = false): IhRw | null => {
   const def = A.RAW[k];
   const o = A.openMeta(def.T, def.n);
   if (!o) return null;
   const c = A.lower(o.concl, 0);
   if (c.$ !== "Eql") return null;
-  const [from, to] = dir === 0 ? [c.a, c.b] : [c.b, c.a];
+  // the sides as stated, or their normal forms (St.nregs(St0(n, ..)) is List.length(List.replicate(..)))
+  const cn = useNf ? A.nf(o.concl, 0) : c;
+  if (A.debug() && useNf) console.error("[gen2] --ind: IH normal form " + A.show(cn, []).slice(0, 200));
+  if (cn.$ !== "Eql" || (useNf && A.key(cn) === A.key(c))) return null;
+  const [from, to] = dir === 0 ? [cn.a, cn.b] : [cn.b, cn.a];
   if (from.$ === "Var") return null;
   // the arm's own instance of k's parameters (its columns), from the goal as stated; an instance of the
   // hypothesis must descend: live parameters equal, left to right, until one is a strict subterm
   const raw = A.lower(g.ty, g.d);
   const cols: (LTerm | null)[] = new Array(def.n).fill(null);
-  if (!A.matchT(c, raw, cols, g.d)) return null;
+  if (!A.matchT(c, raw, cols, g.d)) { if (A.debug()) console.error("[gen2] --ind: no columns for " + A.show(raw, g.names).slice(0, 200)); return null; }
+  if (A.debug()) console.error("[gen2] --ind: columns " + cols.map((x) => (x ? A.show(x, g.names) + "/" + x.$ : "-")).join(", ").slice(0, 300));
   const live = o.doms.map((d: any) => d.q.$ !== "None");
   const sub = (a: LTerm, b: LTerm): boolean => strictSub(A, A.key(a), b);
   const descends = (sol: (LTerm | null)[]): boolean => {
@@ -288,7 +312,22 @@ const ihRewrite = (A: Api, k: string, g: Goal, N: any, dir: number): IhRw | null
   const go = (t: LTerm, hole: boolean): LTerm => {
     if (hit && A.key(t) === hit.key) return hole ? (B.Ref("_") as LTerm) : hit.to;
     const sol: (LTerm | null)[] = new Array(def.n).fill(null);
-    if (!hit && t.$ !== "Var" && A.matchT(from, t, sol, g.d) && descends(sol) && sol.every((x) => x)) {
+    // a parameter that the side does not name stays the arm's own
+    // a premise (a hypothesis of k) is the context's hypothesis of the same normal form
+    const full = () => {
+      for (let j = 0; j < sol.length; j++) {
+        if (sol[j]) continue;
+        const pA = A.attempt(A.FUEL_NF, () => { const T = inst(A.lower(o.doms[j].A, 0), sol); return hasMetaOrHole(T) ? null : A.key(A.nf(B.term_higher(T, g.env), g.d)); });
+        if (pA) for (let i = g.d - 1; i >= 0 && !sol[j]; i--) {
+          const a = A.ann(g, i);
+          if (!a || g.names[i] === "_") continue;
+          if (A.attempt(A.FUEL_NF, () => A.key(A.nf(a.T, g.d))) === pA) sol[j] = B.Var(g.names[i], i) as LTerm;
+        }
+        sol[j] ??= cols[j];
+      }
+      return true;
+    };
+    if (!hit && t.$ !== "Var" && A.matchT(from, t, sol, g.d) && full() && descends(sol) && sol.every((x) => x)) {
       const r = inst(to, sol);
       if (!A.attempt(A.FUEL_NF, () => hasMetaOrHole(r))) { hit = { key: A.key(t), to: r, sol }; return hole ? (B.Ref("_") as LTerm) : r; }
     }
@@ -302,7 +341,7 @@ const ihRewrite = (A: Api, k: string, g: Goal, N: any, dir: number): IhRw | null
   if (!hit) return null;
   const P = { ...N, a: go(N.a, true), b: go(N.b, true) } as LTerm;
   const h = hit as { key: string; to: LTerm; sol: (LTerm | null)[] };
-  const call = A.shortOf(k) + "(" + h.sol.map((x) => A.show(x!, g.names)).join(", ") + ")";
+  const call = B.name_show(A.job().file, k) + "(" + h.sol.map((x) => A.show(x!, g.names)).join(", ") + ")";
   const L = inst(c.a, h.sol), Rr = inst(c.b, h.sol);
   // (%e : P; t) has type P[b] for t : P[a] (e : {a == b}): P[b] is the goal, P[a] the rewritten goal
   const e = dir === 0 ? "Equal.sym(" + A.show(inst(c.T, h.sol), g.names) + ", " + A.show(L, g.names) + ", " + A.show(Rr, g.names) + ", " + call + ")" : call;
@@ -372,7 +411,7 @@ const generalize = (A: Api, g: Goal, N: any, enums = false): { params: string[];
   const common0 = [...seen.values()].filter((e) => e.n === 3).map((e) => e.t);
   const common = common0.filter((a) => !common0.some((b) => inside(a, b))).slice(0, 4);
   const eqs0 = enums ? [...seen.values()].filter((e) => e.n !== 3 && isEnum(e.t)).map((e) => e.t) : [];
-  const eqs = eqs0.filter((a) => !eqs0.some((b) => inside(b, a)) && !common.some((b) => inside(a, b))).slice(0, 2);
+  const eqs = eqs0.filter((a) => !eqs0.some((b) => inside(b, a)) && !common.some((b) => inside(a, b) || inside(b, a))).slice(0, 2);
   if (enums && eqs.length === 0) return null;
   const gens = [...common, ...eqs];
   if (gens.length === 0) return null;
@@ -481,7 +520,19 @@ const enumScheme = (R: Run, k: string, tl: Tele): [string, string][] | null => {
 };
 const u32Scheme = (R: Run, k: string, tl: Tele): [string, string][] | null => {
   const { A } = R;
-  const us = tl.ps.filter((p) => p.ty === "U32" && p.q !== "-");
+  // the U32 parameters that a stuck call reads, or that a U32 operation takes
+  const mp = new Set(matchedParams(A, tl));
+  const N0 = A.attempt(A.FUEL_NF * 2, () => A.nf(tl.g.ty, tl.g.d));
+  const walk = (t: LTerm) => {
+    if (t.$ === "App") {
+      const [h, xs] = A.unapply(t);
+      if (h.$ === "Ref" && /^U32\./.test(A.shortOf(h.k))) xs.forEach((x: LTerm) => { if (x.$ === "Var") mp.add(x.i); });
+      xs.forEach(walk);
+    } else if (t.$ === "Ctr" || t.$ === "ADT") (t as any).x.forEach(walk);
+    else if (t.$ === "Eql") { walk(t.a); walk(t.b); }
+  };
+  if (N0) walk(N0);
+  const us = tl.ps.filter((p) => p.ty === "U32" && p.q !== "-" && mp.has(p.i));
   if (us.length === 0 || us.length > 4) return null;
   const used = new Set(tl.ps.map((p) => p.name));
   const ws = us.map((p) => A.fresh(p.name + "w", used));
@@ -499,11 +550,16 @@ const u32Scheme = (R: Run, k: string, tl: Tele): [string, string][] | null => {
 // a goal over words of width 32 (after U32{w} splits): the helper over width n, proven, and its call
 const liftWidth = (R: Run, g: Goal, N: any): string | null => {
   const { A } = R;
-  const isU32 = (t: any) => t.$ === "Ctr" && A.shortOf(t.k) === "U32" && t.x.length === 1;
+  // a U32 side: U32{w} (its word w), or the literal 0 (Word.zero); a constant word of zeros is
+  // Word.zero at any width
+  const isU32 = (t: any) => (t.$ === "Ctr" && A.shortOf(t.k) === "U32" && t.x.length === 1) || (t.$ === "Lit" && t.k === "U32" && t.v === 0);
   const u32 = A.show(N.T, g.names) === "U32" && isU32(N.a) && isU32(N.b);
-  const L = u32 ? N.a.x[0] : N.a, Rr = u32 ? N.b.x[0] : N.b;
+  const zeros = (n: number): string => (n === 0 ? "WNil{}" : "WCon{False{}, " + zeros(n - 1) + "}");
+  const z32 = zeros(32);
+  const side = (t: any) => (u32 ? (t.$ === "Lit" ? "Word.zero(32n)" : A.show(t.x[0], g.names)) : A.show(t, g.names)).split(z32).join("Word.zero(32n)");
+  const L = u32 ? (N.a.$ === "Lit" ? N.b.x[0] : N.a.x[0]) : N.a, Rr = u32 ? (N.b.$ === "Lit" ? N.a.x[0] : N.b.x[0]) : N.b;
   const T = u32 ? "Word(32n)" : A.show(N.T, g.names);
-  const ls = A.show(L, g.names), rs = A.show(Rr, g.names);
+  const ls = side(N.a), rs = side(N.b);
   if (!/\b32n\b/.test(ls + rs)) return null;
   const used = new Set<string>(g.names);
   const nv = A.fresh("n", used);
@@ -540,8 +596,10 @@ const wordScheme = (R: Run, k: string, tl: Tele): [string, string][] | null => {
     }
     const all = product(cases);
     if (all.length > MAX_ARMS) continue;
-    const zc = others.map((i) => casesOf(A, tl, i, new Set(used)));
-    const zero = others.length && zc.every((c) => c) ? matchText(others.map((i) => tl.ps[i].name), product(zc as string[][]), () => "?TODO") : "?TODO";
+    // at width 0 every word is WNil{}
+    const zu = new Set(used);
+    const zc = idx.map((i) => (words.some((w) => w.i === i) ? ["WNil{}"] : casesOf(A, tl, i, zu)));
+    const zero = zc.every((c) => c) ? matchText(idx.map((i) => tl.ps[i].name), product(zc as string[][]), () => "?TODO") : "?TODO";
     const succ = matchText(idx.map((i) => tl.ps[i].name), all, () => "?TODO");
     out.push([extra ? "word+split" : "word", "match " + nm + ":" + NL + "  case 0n:" + NL + indent(zero, "    ") + NL + "  case 1n+" + pv + ":" + NL + indent(succ, "    ")]);
   }
@@ -564,30 +622,41 @@ const natScheme = (R: Run, k: string, tl: Tele): [string, string][] | null => {
 const funScheme = (R: Run, k: string, tl: Tele): [string, string][] | null => {
   const { A } = R;
   const raw = A.lower(tl.g.ty, tl.g.d);
+  const N = A.attempt(A.FUEL_NF * 2, () => A.nf(tl.g.ty, tl.g.d));
   const out: [string, string][] = [];
   const seen = new Set<string>();
+  // the parameters that a call reads (its matched arguments), also through a recursive call in a
+  // matched position (List.get(List.replicate(U32, n, 0), q) reads n and q)
+  const reads = (t: LTerm, idx: number[], rec: { r: boolean }, n = 0) => {
+    if (n > 6) return;
+    if (t.$ === "Var") { if (t.i < tl.ps.length && tl.ps[t.i].q !== "-" && !idx.includes(t.i)) idx.push(t.i); return; }
+    if (t.$ !== "App") return;
+    const [h, xs] = A.unapply(t);
+    if (h.$ !== "Ref") return;
+    if (isRecursive(A, h.k)) rec.r = true;
+    const ms: Set<number> = A.matchedOf(h.k);
+    xs.forEach((x: LTerm, j: number) => { if (ms.has(j)) reads(x, idx, rec, n + 1); });
+  };
   const walk = (t: LTerm) => {
     if (t.$ === "App") {
       const [h, xs] = A.unapply(t);
-      if (h.$ === "Ref" && !seen.has(h.k)) {
-        seen.add(h.k);
-        const ms: Set<number> = A.matchedOf(h.k);
-        const idx: number[] = [];
-        xs.forEach((x: LTerm, j: number) => { if (ms.has(j) && x.$ === "Var" && x.i < tl.ps.length && tl.ps[x.i].q !== "-" && !idx.includes(x.i)) idx.push(x.i); });
-        if (idx.length >= 1 && idx.length <= 3 && isRecursive(A, h.k)) {
-          idx.sort((a, b) => a - b);
-          const used = new Set(tl.ps.map((p) => p.name));
-          const cs = idx.map((i) => casesOf(A, tl, i, used));
-          if (cs.every((c) => c) && product(cs as string[][]).length <= MAX_ARMS && idx.length > 1)
-            out.push(["fun:" + A.shortOf(h.k), matchText(idx.map((i) => tl.ps[i].name), product(cs as string[][]), () => "?TODO")]);
-        }
+      const idx: number[] = [], rec = { r: false };
+      reads(t, idx, rec);
+      const kk = idx.slice().sort().join(",");
+      if (h.$ === "Ref" && rec.r && idx.length >= 2 && idx.length <= 3 && !seen.has(kk)) {
+        seen.add(kk);
+        idx.sort((a, b) => a - b);
+        const used = new Set(tl.ps.map((p) => p.name));
+        const cs = idx.map((i) => casesOf(A, tl, i, used));
+        if (cs.every((c) => c) && product(cs as string[][]).length <= MAX_ARMS)
+          out.push(["fun:" + A.shortOf(h.k), matchText(idx.map((i) => tl.ps[i].name), product(cs as string[][]), () => "?TODO")]);
       }
       xs.forEach(walk);
     } else if (t.$ === "Ctr" || t.$ === "ADT") (t as any).x.forEach(walk);
     else if (t.$ === "Eql") { walk(t.a); walk(t.b); }
-    else if (t.$ === "All") walk(t.A);
   };
   walk(raw);
+  if (N) walk(N);
   return out.slice(0, 2);
 };
 const recMemo = new Map<string, boolean>();
@@ -596,14 +665,15 @@ const isRecursive = (A: Api, k: string): boolean => {
   const t = A.RAW[k];
   let r = false;
   if (t?.$ === "Def" && t.v) {
-    const st: any[] = [t.v];
-    let n = 0;
-    try {
-      // the body's text mentions k (a self-call); a cheap check on the source when present
-      const src = A.defSrc(k);
-      r = src ? new RegExp("\\b" + A.shortOf(k).replace(/\./g, "\\.") + "\\(").test(src.body) : false;
-    } catch { r = false; }
-    void st; void n;
+    // the body (lowered) names k: a self-call
+    const body = A.attempt(A.FUEL_NF, () => A.lower(t.v, 0));
+    const st: any[] = body ? [body] : [];
+    for (let n = 0; st.length && n < 20000 && !r; n++) {
+      const x = st.pop();
+      if (!x || typeof x !== "object") continue;
+      if (x.$ === "Ref" && x.k === k) { r = true; break; }
+      for (const f in x) if (f !== "s" && x[f] && typeof x[f] === "object") st.push(x[f]);
+    }
   }
   recMemo.set(k, r);
   return r;
@@ -629,6 +699,7 @@ const schemesProve = (R: Run, k: string, depth: number): Fill | null => {
   let best: Fill | null = tried[0] ?? null;
   if (depth < MAX_DEPTH) for (const t of tried.slice(0, 2)) {
     if (A.now() > R.until || t.open > MAX_HELPER_ARMS) break;
+    if (t.closed === 0) continue; // no arm closed: the split made no progress
     const r = fillArms(R, k, t.body, depth, [1]);
     if (A.debug()) console.error("[gen2] --ind: " + A.shortOf(k) + " scheme " + (t as any).name + " with helpers: " + (r ? r.open + " open" : "-"));
     if (!r) continue;
@@ -642,7 +713,7 @@ const schemesProve = (R: Run, k: string, depth: number): Fill | null => {
 // ---- entry points ----
 export const indProve = (A: Api, k: string, budget: number): IndOut => {
   const t0 = A.now();
-  const R: Run = { A, k, until: t0 + Math.max(budget, 1000), helpers: [], notes: [], used: new Set(), nHelpers: 0, failed: new Set(), proven: new Map() };
+  const R: Run = { A, k, until: t0 + Math.max(budget, IND_FLOOR_MS), helpers: [], notes: [], used: new Set(), nHelpers: 0, failed: new Set(), proven: new Map() };
   A.setJob(A.newJob(k));
   const r = schemesProve(R, k, 0);
   const ms = A.now() - t0;

@@ -97,6 +97,11 @@
 //                      ?TODO alone on its line): step the code by S1's logic (gen2_wp.ts: wp.set, wp.store,
 //                      WP's ifs, register and cell facts, Bool splits); prints the proof (checked by the def
 //                      check) with each leaf left a numbered ?TODO, its goal and a one-line hint. Off by default.
+//       --ind          a whole body the search did not prove: induction schemes (gen2_ind.ts: bounded Nat
+//                      enumeration, U32 words lifted to any width, word / Nat / functional induction) whose
+//                      arms the leaf tactics close, with proven helper lemmas (generalized stuck calls, the
+//                      arm's own goal); helpers print above the body. Also a clash through a predicate with
+//                      type parameters (maybe.T(A, _)) and splits on Bool parameters only hypotheses name.
 //       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
 //                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
 //                      over its whole context (true iff the hole is), and the hole a call of it; at most
@@ -3150,6 +3155,15 @@ const bench = () => {
     RAW[k] = { ...def, v: null };
     let o: Outcome;
     try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
+    // --ind: a miss gets the induction schemes too (its time added)
+    if (IND && !o.ok) {
+      RAW[k] = { ...def, v: null };
+      const j0 = job;
+      let r: ReturnType<typeof Ind.indProve> = null;
+      try { r = Ind.indProve(indApi(), k, BUDGET); } catch (e: any) { if (e !== TIMEOUT) internal++; } finally { dropTemps(); job = j0; deadline = Infinity; RAW[k] = def; }
+      if (r && r.open === 0) o = { ...o, ok: true, text: r.text, ms: o.ms + r.ms, tags: [...o.tags, "ind"] };
+      else if (r) o = { ...o, ms: o.ms + r.ms };
+    }
     const cls = lines <= 3 ? "S(1-3)" : lines <= 10 ? "M(4-10)" : "L(11+)";
     rows.push({ k, lines, cls, ok: o.ok, ms: Math.round(o.ms), tags: o.tags, holes: o.holes, closed: o.closed, why: o.why, proof: o.text, orig: ds.body });
     console.error((o.ok ? "OK  " : "--  ") + String(Math.round(o.ms)).padStart(6) + " ms  " + cls.padEnd(8) + " " + k + (o.ok ? "  [" + o.tags.join(" ") + "]" : o.why ? "  (" + o.why + ")" : ""));
