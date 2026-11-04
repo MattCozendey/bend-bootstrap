@@ -8,8 +8,9 @@
 #     the Bend version of WASM as Cir.exec says (Cir.result), for any image of
 #     fewer than 2^26 cells, when Cir.exec never traps, on an engine that
 #     grants each grow within its pages; on any other engine, it gives the
-#     same or runs out of memory; and a module whose program halts at once
-#     gives no result.
+#     same or runs out of memory, in one fuel for all of the engine's answers;
+#     it is in the subset; and a module whose program halts at once gives no
+#     result, and is in the subset.
 #   B (machine): from the image of a book, Mach.code never traps, and it
 #     gives what Eval gives, or runs out of memory; with the memory of
 #     AGENTS.md 3.9.1.4, it gives it.
@@ -151,80 +152,80 @@ def run.machine(+f: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +eng: Wa
     compile.machine(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), ds)) : {Wa.Wasm.run(f, _, i, eng) == x : Wa.Wasm.Outcome}
   ef
 
-# no_other_failure, for a book that the compiler reads: by B, the machine gives
-# the result or runs out of memory, and so, by A, does its module
-def nof.result(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine, +o: List<&2, Word(8n)>,
-  s: &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds)), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+# no_other_failure, for a book that the compiler reads: the module's outcome
+# is the machine's
+def nof.or(+f: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine, +o: List<&2, Word(8n)>,
+  c: Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds)), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
     {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds)), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome})) ->
-  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+  Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
     {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
-  (+f, c) = s
   match c:
     case Inl{a}:
-      (f, Inl{run.machine(f, ds, i, eng, Wa.Wasm.Outcome.result{o}, a)})
+      Inl{run.machine(f, ds, i, eng, Wa.Wasm.Outcome.result{o}, a)}
     case Inr{b}:
-      (f, Inr{run.machine(f, ds, i, eng, Wa.Wasm.Outcome.out_of_memory{}, b)})
+      Inr{run.machine(f, ds, i, eng, Wa.Wasm.Outcome.out_of_memory{}, b)}
 
-def nof.oom(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine, -o: List<&2, Word(8n)>,
-  s: &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds)), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-    {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
+def nof.result(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  s: &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds)), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds)), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome})) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
+  (+f, q) = s
+  (f, gs => nof.or(f, ds, i, Wa.Wasm.Engine{m, gs}, o, q(gs)))
+
+def nof.oom(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, -o: List<&2, Word(8n)>,
+  s: &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds)), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   (+f, ef) = s
-  (f, Inr{run.machine(f, ds, i, eng, Wa.Wasm.Outcome.out_of_memory{}, ef)})
+  (f, gs => Inr{run.machine(f, ds, i, Wa.Wasm.Engine{m, gs}, Wa.Wasm.Outcome.out_of_memory{}, ef(gs))})
 
-def nof.machine(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, +o: List<&2, Word(8n)>,
+# by B, the machine gives the result or runs out of memory, and so, by A, does
+# its module, in one fuel for all of the engine's answers
+def nof.machine(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
   +er: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   +es: {Mc.Img.small(p, 0) == True{} : Bool},
   s: &n:Nat -> Or({Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds), i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
     {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds), i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome})) ->
-  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+  &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
     {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, Some{ds}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   (+n, c) = s
   match c:
     case Inl{a}:
-      nof.result(ds, i, Wa.Wasm.Engine{m, gs}, o, A.mach_wasm.result(n, Mc.Img.cells(ds), i, m, gs, o, img.small(p, ds, er, es), a))
+      nof.result(ds, i, m, o, A.mach_wasm.result(n, Mc.Img.cells(ds), i, m, o, img.small(p, ds, er, es), a))
     case Inr{b}:
-      nof.oom(ds, i, Wa.Wasm.Engine{m, gs}, o, A.mach_wasm.oom(n, Mc.Img.cells(ds), i, m, gs, img.small(p, ds, er, es), b))
+      nof.oom(ds, i, m, o, A.mach_wasm.oom(n, Mc.Img.cells(ds), i, m, img.small(p, ds, er, es), b))
 
 # a module that halts with 1 runs out of memory
-def nof.halt(+i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine, -o: List<&2, Word(8n)>,
-  s: &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.halt(1), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-    {Wa.Wasm.run(f, C.Compiler.halt(1), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
+def nof.halt(+i: List<&2, Word(8n)>, +m: U32, -o: List<&2, Word(8n)>,
+  s: &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   (+f, ef) = s
-  (f, Inr{ef})
+  (f, gs => Inr{ef(gs)})
 
-def nof.of(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, small: Bool,
+def nof.of(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, Word(8n)>, +m: U32, small: Bool,
   r: Maybe<List<&2, Bk.Def>>) ->
   {Mc.Img.small(p, 0) == small : Bool} -> {Bk.Book.read(p) == r : Maybe<List<&2, Bk.Def>>} ->
   {Pg.Program.gives.of(r, i, n) == Some{o} : Maybe<&2, List<&2, Word(8n)>>} ->
-  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), small, r), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+  &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), small, r), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
     {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), small, r), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   match small r:
     case False{} _:
       es => er => e => (%Equal.sym(List<&2, Word(8n)>, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), False{}, r), C.Compiler.halt(1), compile.big(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), r)) :
-        &f:Nat -> Or({Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-          {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome});
-        nof.halt(i, Wa.Wasm.Engine{m, gs}, o, A.halt.oom(i, Wa.Wasm.Engine{m, gs})))
+        &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome});
+        nof.halt(i, m, o, A.halt.oom(i, m)))
     case True{} None{}:
       es => er => e => Empty.absurd(
-        &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, None{}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-          {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, None{}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}),
+        &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, None{}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+    {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), True{}, None{}), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}),
         gives.none(o, e))
     case True{} Some{+ds}:
-      +es => +er => e => nof.machine(p, ds, i, m, gs, o, er, es, B.mach.complete(p, ds, i, m, n, o, er, es, e))
+      +es => +er => e => nof.machine(p, ds, i, m, o, er, es, B.mach.complete(p, ds, i, m, n, o, er, es, e))
 
-# no_other_failure, by the parts of the engine
-def nof.eng(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, Word(8n)>, eng: Wa.Wasm.Engine) ->
-  {Pg.Program.gives(p, i, n) == Some{o} : Maybe<&2, List<&2, Word(8n)>>} ->
-  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.compile(p), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
-    {Wa.Wasm.run(f, C.Compiler.compile(p), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
-  match eng:
-    case Wa.Wasm.Engine{+m, +gs}:
-      e => nof.of(p, i, n, o, m, gs, Mc.Img.small(p, 0), Bk.Book.read(p))({==}, {==}, e)
-
-def S.no_other_failure(p, i, n, o, eng, e):
-  nof.eng(p, i, n, o, eng)(e)
+def S.no_other_failure(p, i, n, o, m, e):
+  nof.of(p, i, n, o, m, Mc.Img.small(p, 0), Bk.Book.read(p))({==}, {==}, e)
 
 # enough_memory: a book of 2^26 bytes or more that Book.read reads asks more
 # memory than a module can have; for one that the compiler reads, B then A
@@ -267,3 +268,30 @@ def em.of(+p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +n: Nat, +o: List<&2, 
 
 def S.enough_memory(p, i, n, o, m, e, big):
   em.of(p, i, n, o, m, Mc.Img.small(p, 0), Bk.Book.read(p))({==}, {==}, e, big)
+
+# in_subset, by the cases of Compiler.compile: a module that halts at once is
+# in the subset, and so, by A, is the machine's, since by B it never traps
+def is.of(+f: Nat, +p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, small: Bool,
+  r: Maybe<List<&2, Bk.Def>>) ->
+  {Mc.Img.small(p, 0) == small : Bool} -> {Bk.Book.read(p) == r : Maybe<List<&2, Bk.Def>>} ->
+  {Wa.Wasm.run(f, C.Compiler.compile.of(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), small, r), i, Wa.Wasm.Engine{m, gs}) != Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}:
+  match small r:
+    case False{} _:
+      es => er => e => A.halt.in_subset(f, 1, i, Wa.Wasm.Engine{m, gs}, {==},
+        (%compile.big(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), r) : {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}; e))
+    case True{} None{}:
+      es => er => e => A.halt.in_subset(f, 2, i, Wa.Wasm.Engine{m, gs}, {==},
+        (%compile.unread(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs())) : {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}; e))
+    case True{} Some{+ds}:
+      +es => +er => e => A.mach_wasm.in_subset(f, Mc.Img.cells(ds), i, m, gs, img.small(p, ds, er, es), x => B.mach.safe(p, ds, i, m, x, er, es),
+        (%compile.machine(C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs()), ds) : {Wa.Wasm.run(f, _, i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}; e))
+
+# in_subset, by the parts of the engine
+def is.eng(+f: Nat, +p: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, eng: Wa.Wasm.Engine) ->
+  {Wa.Wasm.run(f, C.Compiler.compile(p), i, eng) != Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}:
+  match eng:
+    case Wa.Wasm.Engine{+m, +gs}:
+      e => is.of(f, p, i, m, gs, Mc.Img.small(p, 0), Bk.Book.read(p))({==}, {==}, e)
+
+def S.in_subset(f, p, i, eng):
+  is.eng(f, p, i, eng)

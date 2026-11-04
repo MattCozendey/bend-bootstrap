@@ -2030,7 +2030,10 @@ def Wasm.run.made(f: Nat, made: Wasm.Made, i: List<&2, Word(8n)>) -> Wasm.Outcom
 
 # what an engine decides that the spec leaves open: the most pages that it
 # gives a memory, and its answers to grows within that limit, in order
-# (False refuses one; past the list, it grants each)
+# (False refuses one; past the list, it grants each). A run of f steps takes
+# at most f answers (a step grows at most once), so a list gives each
+# sequence of answers, also one that never ends, its part that the run uses:
+# a claim that holds for all lists at one f holds for every engine
 type Wasm.Engine is Data:
   Wasm.Engine{pages: U32, grows: List<&2, Bool>}
 

@@ -5,8 +5,9 @@
 #     the Bend version of WASM as Cir.exec says (Cir.result), for any image of
 #     fewer than 2^26 cells, when Cir.exec never traps, on an engine that
 #     grants each grow within its pages; on any other engine, it gives the
-#     same or runs out of memory; and a module whose program halts at once
-#     gives no result.
+#     same or runs out of memory, in one fuel for all of the engine's answers;
+#     it is in the subset; and a module whose program halts at once gives no
+#     result, and is in the subset.
 
 import Base
 import ../../Wasm/impl.bend as Wa
@@ -137,24 +138,125 @@ def mach_wasm.sound(
 ) -> &n:Nat -> {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
   (Nat.add(41n, f), sound.of(Cr.Cir.result(Nat.add(41n, f), Mc.Mach.code(), Mc.Mach.regs(), cells, i, m), f, cells, i, m, gs, o, small, safe, e, {==}))
 
-# the machine's module, on an engine with the answers gs, gives what Cir gives
-# or runs out of memory (q): without the refusal's index
-def mach_wasm.result.of(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, +o: List<&2, Word(8n)>,
-  q: &f:Nat -> H.HO(Wa.Wasm.Outcome.result{o}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}))) ->
-  &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+# an outcome that is not unsupported (ux) is not equal to unsupported
+def nu.use(-x: Wa.Wasm.Outcome, ux: H.is.cir(x), e: {x == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}) -> Empty:
+  %e : H.is.cir(_)
+  ux
+
+# a run that is x at the fuel f2 (eq), where x is done and not unsupported,
+# is not unsupported at the fuel f (e): each holds at the fuel f + f2
+def su.at(+x: Wa.Wasm.Outcome, +f: Nat, +f2: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine,
+  nx: {MF.done(x) == True{} : Bool}, ux: H.is.cir(x),
+  eq: {Wa.Wasm.run(f2, w, i, eng) == x : Wa.Wasm.Outcome},
+  e: {Wa.Wasm.run(f, w, i, eng) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}) -> Empty:
+  +u1 = MF.run.more(f, f2, w, i, eng, Wa.Wasm.Outcome.unsupported{}, {==}, e)
+  +cm = Equal.cong(Nat, Wa.Wasm.Outcome, z => Wa.Wasm.run(z, w, i, eng), Nat.add(f2, f), Nat.add(f, f2), Z.add.comm(f2, f))
+  +u2 = Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run(Nat.add(f2, f), w, i, eng), Wa.Wasm.run(Nat.add(f, f2), w, i, eng), Wa.Wasm.Outcome.unsupported{}, cm, u1)
+  nu.use(x, ux, Equal.trans(Wa.Wasm.Outcome, x, Wa.Wasm.run(Nat.add(f2, f), w, i, eng), Wa.Wasm.Outcome.unsupported{},
+    Equal.sym(Wa.Wasm.Outcome, Wa.Wasm.run(Nat.add(f2, f), w, i, eng), x, MF.run.more(f2, f, w, i, eng, x, nx, eq)), u2))
+
+# at some fuel (q), the run is x, done and not unsupported, or out of memory:
+# so it is not unsupported at the fuel f (e)
+def su.ho(+x: Wa.Wasm.Outcome, +f: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine, +gs: List<&2, Bool>,
+  nx: {MF.done(x) == True{} : Bool}, ux: H.is.cir(x),
+  q: &f2:Nat -> H.HO(x, gs, Wa.Wasm.run(f2, w, i, eng)),
+  e: {Wa.Wasm.run(f, w, i, eng) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}) -> Empty:
+  (+f2, p) = q
+  match p:
+    case Inl{eq}:
+      su.at(x, f, f2, w, i, eng, nx, ux, eq, e)
+    case Inr{r}:
+      (+k, r1) = r
+      (hg, eo) = r1
+      su.at(Wa.Wasm.Outcome.out_of_memory{}, f, f2, w, i, eng, {==}, Unit{}, eo, e)
+
+# a run y that is unsupported (u) is not out of fuel, nor out of memory (q)
+def su.or(-y: Wa.Wasm.Outcome, u: {y == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome},
+  q: Or({y == Wa.Wasm.Outcome.not_done{} : Wa.Wasm.Outcome}, {y == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome})) -> Empty:
+  match q:
+    case Inl{eq}:
+      nu.use(Wa.Wasm.Outcome.not_done{}, Unit{}, Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.Outcome.not_done{}, y, Wa.Wasm.Outcome.unsupported{}, Equal.sym(Wa.Wasm.Outcome, y, Wa.Wasm.Outcome.not_done{}, eq), u))
+    case Inr{eq}:
+      nu.use(Wa.Wasm.Outcome.out_of_memory{}, Unit{}, Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.Outcome.out_of_memory{}, y, Wa.Wasm.Outcome.unsupported{}, Equal.sym(Wa.Wasm.Outcome, y, Wa.Wasm.Outcome.out_of_memory{}, eq), u))
+
+# Cir's outcome at the fuel 41 + f is out of fuel (ex): the machine's module,
+# in that fuel, is out of fuel or out of memory, so it is not unsupported at
+# the fuel f (e)
+def su.nd(+f: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
+  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
+  ex: {Cr.Cir.result(Nat.add(41n, f), Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.not_done{} : Wa.Wasm.Outcome},
+  e: {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}) -> Empty:
+  +u1 = MF.run.more(f, 41n, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}, Wa.Wasm.Outcome.unsupported{}, {==}, e)
+  +u2 = Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run(Nat.add(41n, f), C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), Wa.Wasm.run(Nat.add(f, 41n), C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), Wa.Wasm.Outcome.unsupported{},
+    Equal.cong(Nat, Wa.Wasm.Outcome, z => Wa.Wasm.run(z, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), Nat.add(41n, f), Nat.add(f, 41n), Z.add.comm(41n, f)), u1)
+  su.or(Wa.Wasm.run(Nat.add(41n, f), C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), u2,
+    H.ho.or(Wa.Wasm.Outcome.not_done{}, gs, Wa.Wasm.run(Nat.add(41n, f), C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}),
+      (%module.of(Mc.Mach.code(), Mc.Mach.regs(), cells) : H.HO(Wa.Wasm.Outcome.not_done{}, gs, Wa.Wasm.run(Nat.add(41n, f), _, i, Wa.Wasm.Engine{m, gs}));
+        H.mach.all.nd(Nat.add(41n, f), Nat.add(41n, f), cells, i, m, gs, small, N.le_add_r(41n, f), N.le_refl(Nat.add(41n, f)), ex))))
+
+# Cir's outcome x at the fuel 41 + f is a result, out of memory or no result
+# (the machine's module gives it, or runs out of memory), a trap (safe), or
+# out of fuel (su.nd); it is never unsupported: so neither is the module's
+# run at the fuel f (e)
+def su.of(x: Wa.Wasm.Outcome, +f: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
+  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
+  safe: @n:Nat -> {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome},
+  e: {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome},
+  ex: {Cr.Cir.result(Nat.add(41n, f), Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == x : Wa.Wasm.Outcome}) -> Empty:
+  match x:
+    case Wa.Wasm.Outcome.result{+o2}:
+      su.ho(Wa.Wasm.Outcome.result{o2}, f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}, gs, {==}, Unit{},
+        mach_wasm.host(Nat.add(41n, f), cells, i, m, Wa.Wasm.Outcome.result{o2}, gs, small, Unit{}, ex), e)
+    case Wa.Wasm.Outcome.out_of_memory{}:
+      su.ho(Wa.Wasm.Outcome.out_of_memory{}, f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}, gs, {==}, Unit{},
+        mach_wasm.host(Nat.add(41n, f), cells, i, m, Wa.Wasm.Outcome.out_of_memory{}, gs, small, Unit{}, ex), e)
+    case Wa.Wasm.Outcome.no_result{}:
+      su.ho(Wa.Wasm.Outcome.no_result{}, f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}, gs, {==}, Unit{},
+        mach_wasm.host(Nat.add(41n, f), cells, i, m, Wa.Wasm.Outcome.no_result{}, gs, small, Unit{}, ex), e)
+    case Wa.Wasm.Outcome.unsupported{}:
+      (%ex : H.is.cir(_); H.result.cir(Nat.add(41n, f), Mc.Mach.code(), Mc.Mach.regs(), cells, i, m))
+    case Wa.Wasm.Outcome.trap{}:
+      safe(Nat.add(41n, f), ex)
+    case Wa.Wasm.Outcome.not_done{}:
+      su.nd(f, cells, i, m, gs, small, ex, e)
+
+# A: the machine's module is in the subset, on any engine, when Cir.exec
+# never traps
+def mach_wasm.in_subset(
+  +f: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
+  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
+  safe: @n:Nat -> {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome},
+  e: {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}
+) -> Empty:
+  su.of(Cr.Cir.result(Nat.add(41n, f), Mc.Mach.code(), Mc.Mach.regs(), cells, i, m), f, cells, i, m, gs, small, safe, e, {==})
+
+# the machine's module, on an engine of m pages, gives Cir's outcome x (a
+# result or out of memory), or runs out of memory after a refusal, in one
+# fuel for all of the engine's answers gs
+def mach_wasm.uniform(+n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +x: Wa.Wasm.Outcome,
+  small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool}, hx: H.is.ro(x),
+  e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == x : Wa.Wasm.Outcome}) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> H.HO(x, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs})):
+  ?TODO
+
+# the machine's module, on an engine of m pages, gives what Cir gives or
+# runs out of memory (q): without the refusal's index
+def mach_wasm.result.of(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  q: &f:Nat -> @+gs:List<&2, Bool> -> H.HO(Wa.Wasm.Outcome.result{o}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}))) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
     {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
   (+f, p) = q
-  (f, H.ho.or(Wa.Wasm.Outcome.result{o}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), p))
+  (f, gs => H.ho.or(Wa.Wasm.Outcome.result{o}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), p(gs)))
 
 # A: a result that Cir gives is one of the machine's module, or the module
-# runs out of memory, on any engine with the same pages
+# runs out of memory, in one fuel for each engine with the same pages
 def mach_wasm.result(
-  +n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>, +o: List<&2, Word(8n)>,
+  +n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
-) -> &f:Nat -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
+) -> &f:Nat -> @+gs:List<&2, Bool> -> Or({Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
   {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
-  mach_wasm.result.of(cells, i, m, gs, o, mach_wasm.host(n, cells, i, m, Wa.Wasm.Outcome.result{o}, gs, small, Unit{}, e))
+  mach_wasm.result.of(cells, i, m, o, mach_wasm.uniform(n, cells, i, m, Wa.Wasm.Outcome.result{o}, small, Unit{}, e))
 
 # the machine's module, on an engine that grants each grow, gives what Cir
 # gives (q)
@@ -173,22 +275,22 @@ def mach_wasm.result.all(
 ) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, []}) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}:
   mach_wasm.result.all.of(cells, i, m, o, mach_wasm.host(n, cells, i, m, Wa.Wasm.Outcome.result{o}, [], small, Unit{}, e))
 
-# the machine's module, on an engine with the answers gs, runs out of memory
-# when Cir does (q)
-def mach_wasm.oom.of(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
-  q: &f:Nat -> H.HO(Wa.Wasm.Outcome.out_of_memory{}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}))) ->
-  &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+# the machine's module, on an engine of m pages, runs out of memory when Cir
+# does (q)
+def mach_wasm.oom.of(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32,
+  q: &f:Nat -> @+gs:List<&2, Bool> -> H.HO(Wa.Wasm.Outcome.out_of_memory{}, gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}))) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   (+f, p) = q
-  (f, H.ho.oom(gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), p))
+  (f, gs => H.ho.oom(gs, Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}), p(gs)))
 
-# A: when Cir runs out of memory, so does the machine's module, on any
-# engine with the same pages
+# A: when Cir runs out of memory, so does the machine's module, in one fuel
+# for each engine with the same pages
 def mach_wasm.oom(
-  +n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
+  +n: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32,
   small: {Nat.is_lt(List.length(&2, Cr.Cir.Cell, cells), U32.to_nat(67108864)) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), cells, i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
-) -> &f:Nat -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
-  mach_wasm.oom.of(cells, i, m, gs, mach_wasm.host(n, cells, i, m, Wa.Wasm.Outcome.out_of_memory{}, gs, small, Unit{}, e))
+) -> &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run(f, C.Compiler.module.of(Mc.Mach.code(), Mc.Mach.regs(), cells), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  mach_wasm.oom.of(cells, i, m, mach_wasm.uniform(n, cells, i, m, Wa.Wasm.Outcome.out_of_memory{}, small, Unit{}, e))
 
 # A: a module that halts at once with a status other than 0 gives no result,
 # on any engine
@@ -199,8 +301,17 @@ def halt.no_result(
 ) -> Empty:
   PH.halt.no_result.proof(f, s, i, eng, o, ns, e)
 
-# A: a module that halts at once with the status 1 runs out of memory, on
-# any engine
-def halt.oom(+i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine) ->
-  &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
-  PH.halt.oom.proof(i, eng)
+# A: a module that halts at once with the status 1 runs out of memory, in
+# one fuel for each engine with the same pages
+def halt.oom(+i: List<&2, Word(8n)>, +m: U32) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  PH.halt.oom.proof(i, m)
+
+# A: a module that halts at once with a status other than 0 is in the
+# subset, on any engine
+def halt.in_subset(
+  +f: Nat, +s: U32, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine,
+  ns: {U32.is_eq(s, 0) == False{} : Bool},
+  e: {Wa.Wasm.run(f, C.Compiler.halt(s), i, eng) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}
+) -> Empty:
+  PH.halt.in_subset.proof(f, s, i, eng, ns, e)
