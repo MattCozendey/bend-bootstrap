@@ -63,6 +63,14 @@ def lg.lt_le(a: Nat, +b: Nat, +c: Nat, +h1: {Nat.is_lt(a, b) == True{} : Bool}, 
     case 1n+p 1n+q 1n+r:
       lg.lt_le(p, q, r, h1, h2)
 
+# b <= b
+def lg.le_refl(+b: Nat) -> {Nat.is_le(b, b) == True{} : Bool}:
+  match b:
+    case 0n:
+      {==}
+    case 1n+p:
+      lg.le_refl(p)
+
 # a weaker post for an outcome
 def lg.ok.wk(o: Cr.Cir.Out, +lim: Nat, +b: Nat, +b2: Nat, -Q: Cr.Cir.State -> Type, -Q2: Cr.Cir.State -> Type,
   -H: U32 -> Cr.Cir.State -> Type, -H2: U32 -> Cr.Cir.State -> Type, +hb: {Nat.is_le(b, b2) == True{} : Bool},
@@ -634,8 +642,79 @@ def Lg.tot.any(s, st, b, Q, H, t, g):
 def Lg.tot.while(c, body, b, I, Q, H, r, n, st, i):
   ?TODO
 
+# a primitive's WP.ok is its Ok
+def lg.wpok(o: Cr.Cir.Out, +lim: Nat, +b: Nat, -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, w: Lg.WP.ok(o, lim, b, K, H)) -> Lg.Ok(o, lim, b, x => K(H, x), H):
+  match o:
+    case Cr.Cir.Out.next{x}:
+      w
+    case Cr.Cir.Out.halt{k, x}:
+      w
+    case Cr.Cir.Out.out_of_memory{}:
+      w
+    case Cr.Cir.Out.trap{}:
+      w
+    case Cr.Cir.Out.not_done{}:
+      w
+
+# tot.of_wp for an if, by z = U32.is_zero of its condition's value x
+def lg.ofwp.pick(z: Bool, +x: U32, +hz: {U32.is_zero(x) == z : Bool}, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt,
+  +st: Cr.Cir.State, +b: Nat, -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +ev: {Cr.Cir.eval(c, st) == Some{x} : Maybe<&2, U32>},
+  w: Lg.WP.pick(z, k => h => Lg.WP(t, b, q => y => k(q, y), j => y => h(j, y), st),
+    k => h => Lg.WP(e, b, q => y => k(q, y), j => y => h(j, y), st), K, H),
+  iht: Lg.WP(t, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(t, st, b, y => K(H, y), H),
+  ihe: Lg.WP(e, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(e, st, b, y => K(H, y), H)) ->
+  Lg.Tot(Cr.Cir.Stmt.if{c, t, e}, st, b, y => K(H, y), H):
+  match z:
+    case False{}:
+      Lg.tot.if(c, t, e, st, b, y => K(H, y), H, x, ev,
+        (%Equal.sym(Bool, U32.is_zero(x), False{}, hz) : Lg.Tot(Bool.pick(Cr.Cir.Stmt, _, e, t), st, b, y => K(H, y), H); iht(w)))
+    case True{}:
+      Lg.tot.if(c, t, e, st, b, y => K(H, y), H, x, ev,
+        (%Equal.sym(Bool, U32.is_zero(x), True{}, hz) : Lg.Tot(Bool.pick(Cr.Cir.Stmt, _, e, t), st, b, y => K(H, y), H); ihe(w)))
+
+# tot.of_wp for an if, by its condition's value v
+def lg.ofwp.if(v: Maybe<&2, U32>, +c: Cr.Cir.Expr, +t: Cr.Cir.Stmt, +e: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat,
+  -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  +ev: {Cr.Cir.eval(c, st) == v : Maybe<&2, U32>},
+  w: Lg.WP.if(v, k => h => Lg.WP(t, b, q => y => k(q, y), j => y => h(j, y), st),
+    k => h => Lg.WP(e, b, q => y => k(q, y), j => y => h(j, y), st), K, H),
+  iht: Lg.WP(t, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(t, st, b, y => K(H, y), H),
+  ihe: Lg.WP(e, b, q => y => K(q, y), j => y => H(j, y), st) -> Lg.Tot(e, st, b, y => K(H, y), H)) ->
+  Lg.Tot(Cr.Cir.Stmt.if{c, t, e}, st, b, y => K(H, y), H):
+  match v:
+    case Some{+x}:
+      lg.ofwp.pick(U32.is_zero(x), x, {==}, c, t, e, st, b, K, H, ev, w, iht, ihe)
+    case None{}:
+      match w:
+
 def Lg.tot.of_wp(s, st, b, K, H, w):
-  ?TODO
+  match s:
+    case Cr.Cir.Stmt.nop{}:
+      (0n, w)
+    case Cr.Cir.Stmt.set{r, e}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.set{r, e}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.store{k, c, v}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.store{k, c, v}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.alloc{r}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.alloc{r}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.emit{v}:
+      (0n, lg.wpok(Cr.Cir.exec(0n, Cr.Cir.Stmt.emit{v}, st), Lg.Lim(st), b, K, H, w))
+    case Cr.Cir.Stmt.seq{+a, +c}:
+      Lg.tot.seq(a, c, st, b, y => K(H, y), H,
+        Lg.tot.wk(a, st, b, b, x => Lg.WP(c, b, k => y => K(k, y), j => y => H(j, y), x), x => Lg.Tot(c, x, b, y => K(H, y), H),
+          j => y => H(j, y), H, lg.le_refl(b),
+          x => wx => Lg.tot.of_wp(c, x, b, k => y => K(k, y), j => y => H(j, y), wx), k => x => hx => hx,
+          Lg.tot.of_wp(a, st, b, h => x => Lg.WP(c, b, k => y => K(k, y), j => y => h(j, y), x), j => y => H(j, y), w)))
+    case Cr.Cir.Stmt.if{+c, +t, +e}:
+      lg.ofwp.if(Cr.Cir.eval(c, st), c, t, e, st, b, K, H, {==}, w,
+        wt => Lg.tot.of_wp(t, st, b, q => y => K(q, y), j => y => H(j, y), wt),
+        we => Lg.tot.of_wp(e, st, b, q => y => K(q, y), j => y => H(j, y), we))
+    case Cr.Cir.Stmt.while{c, body}:
+      w
+    case Cr.Cir.Stmt.halt{k}:
+      (0n, w)
 
 def Lg.wp.of_tot(s, st, b, K, H, t):
   ?TODO

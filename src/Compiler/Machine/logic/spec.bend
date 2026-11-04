@@ -335,8 +335,8 @@ law tot.any:
   for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
-  for Q: Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -Q: Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for t: Tot(s, st, b, Q, H)
   for +g: Nat
   Or({Cr.Cir.exec(g, s, st) == Cr.Cir.Out.not_done{} : Cr.Cir.Out}, Ok(Cr.Cir.exec(g, s, st), Lim(st), b, Q, H))
@@ -348,8 +348,8 @@ law tot.seq:
   for +c: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
-  for Q: Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -Q: Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for t: Tot(a, st, b, x => Tot(c, x, b, Q, H), H)
   Tot(Cr.Cir.Stmt.seq{a, c}, st, b, Q, H)
 
@@ -360,8 +360,8 @@ law tot.if:
   for +n: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
-  for Q: Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -Q: Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for +v: U32
   for +e: {Cr.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>}
   for t: Tot(Bool.pick(Cr.Cir.Stmt, U32.is_zero(v), n, y), st, b, Q, H)
@@ -374,9 +374,9 @@ law tot.while:
   for +c: Cr.Cir.Expr
   for +body: Cr.Cir.Stmt
   for +b: Nat
-  for I: Nat -> Cr.Cir.State -> Type
-  for Q: Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -I: Nat -> Cr.Cir.State -> Type
+  for -Q: Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for r: @n: Nat -> @st: Cr.Cir.State -> I(n, st) -> Loop(c, body, st, b, n, I, Q, H)
   for +n: Nat
   for +st: Cr.Cir.State
@@ -389,10 +389,10 @@ law tot.wk:
   for +st: Cr.Cir.State
   for +b: Nat
   for +b2: Nat
-  for Q: Cr.Cir.State -> Type
-  for Q2: Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
-  for H2: U32 -> Cr.Cir.State -> Type
+  for -Q: Cr.Cir.State -> Type
+  for -Q2: Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
+  for -H2: U32 -> Cr.Cir.State -> Type
   for +hb: {Nat.is_le(b, b2) == True{} : Bool}
   for hq: @x: Cr.Cir.State -> Q(x) -> Q2(x)
   for hh: @k: U32 -> @x: Cr.Cir.State -> H(k, x) -> H2(k, x)
@@ -404,8 +404,8 @@ law tot.of_wp:
   for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
-  for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for w: WP(s, b, K, H, st)
   Tot(s, st, b, x => K(H, x), H)
 
@@ -415,8 +415,8 @@ law wp.of_tot:
   for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
-  for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for t: Tot(s, st, b, x => K(H, x), H)
   WP(s, b, K, H, st)
 
@@ -426,10 +426,10 @@ law wp.wk:
   for +st: Cr.Cir.State
   for +b: Nat
   for +b2: Nat
-  for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for K2: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
-  for H2: U32 -> Cr.Cir.State -> Type
+  for -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -K2: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
+  for -H2: U32 -> Cr.Cir.State -> Type
   for +hb: {Nat.is_le(b, b2) == True{} : Bool}
   for hk: @x: Cr.Cir.State -> K(H, x) -> K2(H2, x)
   for hh: @k: U32 -> @x: Cr.Cir.State -> H(k, x) -> H2(k, x)
@@ -488,8 +488,8 @@ law wp.set:
   for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +b: Nat
-  for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for +v: U32
   for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
   for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
@@ -503,8 +503,8 @@ law wp.store:
   for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +b: Nat
-  for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for +i: U32
   for +v: U32
   for +hc: {Cr.Cir.eval(c, st) == Some{i} : Maybe<&2, U32>}
@@ -520,8 +520,8 @@ law wp.alloc:
   for +r: Nat
   for +st: Cr.Cir.State
   for +b: Nat
-  for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   for +ho: {St.outn(st) == 0 : U32}
   for +hb: {Nat.is_le(Nat.mul(20n, Nat.add(U32.to_nat(St.next(st)), 1n)), b) == True{} : Bool}
@@ -534,8 +534,8 @@ law wp.emit:
   for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +b: Nat
-  for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for +v: U32
   for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
   for +hb: {Nat.is_le(Nat.add(Nat.mul(20n, U32.to_nat(St.next(st))), Nat.add(U32.to_nat(St.outn(st)), 1n)), b) == True{} : Bool}
@@ -791,8 +791,8 @@ law tot.frame:
   for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
-  for Q: Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -Q: Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for t: Tot(s, st, b, Q, H)
   Tot(s, st, b, x => Q(x) & ({St.kept(st, x, Cir.writes(s)) == True{} : Bool} & {St.fixed(x) == St.fixed(st) : St.Fixed}), H)
 
@@ -801,8 +801,8 @@ law tot.frame_out:
   for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
-  for Q: Cr.Cir.State -> Type
-  for H: U32 -> Cr.Cir.State -> Type
+  for -Q: Cr.Cir.State -> Type
+  for -H: U32 -> Cr.Cir.State -> Type
   for +ne: {Cir.emits(s) == False{} : Bool}
   for t: Tot(s, st, b, Q, H)
   Tot(s, st, b, x => Q(x) & ({St.out(x) == St.out(st) : List<&2, Word(8n)>} & {St.outn(x) == St.outn(st) : U32}), H)
