@@ -11,7 +11,8 @@
 import Base
 import ../../../Shared/shared.bend as Sd
 import ../shared.bend as K
-import ../../../Program/impl.bend as Pg
+import ../../../Wasm/impl.bend as Wa
+import ../../need_big.bend as N
 import ../../Cir/impl.bend as Cr
 import ./spec.bend as Lg
 
@@ -64,40 +65,64 @@ def Lg.wp.emit(e, st, b, K, H, v, he, hb, q):
   ?TODO
 
 def Lg.reg.set(st, r, v, q, hr):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      K.list.get_set(U32, regs, r, v, q, hr)
 
 def Lg.reg.store(st, k, c, v, q):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.reg.alloc(st, r, p, q, hr):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, +next, first, image, pages, limit, input, out, outn}:
+      K.list.get_set(U32, regs, r, next, q, hr)
 
 def Lg.reg.emit(st, v, p, q):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.nregs.set(st, r, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      K.list.length_set(U32, regs, r, v)
 
 def Lg.nregs.store(st, k, c, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.nregs.alloc(st, r, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, +next, first, image, pages, limit, input, out, outn}:
+      K.list.length_set(U32, regs, r, next)
 
 def Lg.nregs.emit(st, v, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.cells.set(st, r, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.cells.store(st, k, c, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.cells.alloc(st, r, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.cells.emit(st, v, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.cells.get_set(m, i, x, j):
   ?TODO
@@ -106,52 +131,84 @@ def Lg.cell.get_set(k, x, v, j, hk, hj):
   ?TODO
 
 def Lg.next.set(st, r, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.next.store(st, k, c, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.next.alloc(st, r, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.next.emit(st, v, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.outn.set(st, r, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.outn.store(st, k, c, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.outn.alloc(st, r, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.outn.emit(st, v, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.fixed.set(st, r, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.fixed.store(st, k, c, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.fixed.alloc(st, r, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.fixed.emit(st, v, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.lim.set(st, r, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.lim.store(st, k, c, v):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.lim.alloc(st, r, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.lim.emit(st, v, p):
-  ?TODO
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
 
 def Lg.frame.regs(f, s, st, st2, r, e, w):
   ?TODO

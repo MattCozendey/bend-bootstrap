@@ -59,52 +59,67 @@ def bool.T(b: Bool) -> Type:
       Unit
 
 # False is not True
-def bool.ff(-G: Type, e: {False{} == True{} : Bool}) -> G:
+def bool.ff(-G: Type, +e: {False{} == True{} : Bool}) -> G:
   Empty.absurd(G, (%e : bool.T(_); Unit{}))
 
-def bool.and_l(a: Bool, -b: Bool, h: {Bool.and(a, b) == True{} : Bool}) -> {a == True{} : Bool}:
+# True is not False
+def bool.tf(-G: Type, +e: {True{} == False{} : Bool}) -> G:
+  bool.ff(G, Equal.sym(Bool, True{}, False{}, e))
+
+# a Bool is True or False: from b == True, not b == False
+def bool.tf2(-G: Type, -b: Bool, +ht: {b == True{} : Bool}, +hf: {b == False{} : Bool}) -> G:
+  bool.ff(G, Equal.trans(Bool, False{}, b, True{}, Equal.sym(Bool, b, False{}, hf), ht))
+
+def bool.or_f(a: Bool, -b: Bool, +ha: {a == False{} : Bool}, +hb: {b == False{} : Bool}) -> {Bool.or(a, b) == False{} : Bool}:
+  match a:
+    case False{}:
+      hb
+    case True{}:
+      bool.tf({Bool.or(True{}, b) == False{} : Bool}, ha)
+
+def bool.and_l(a: Bool, -b: Bool, +h: {Bool.and(a, b) == True{} : Bool}) -> {a == True{} : Bool}:
   match a:
     case True{}:
       {==}
     case False{}:
       h
 
-def bool.and_r(a: Bool, -b: Bool, h: {Bool.and(a, b) == True{} : Bool}) -> {b == True{} : Bool}:
+def bool.and_r(a: Bool, -b: Bool, +h: {Bool.and(a, b) == True{} : Bool}) -> {b == True{} : Bool}:
   match a:
     case True{}:
       h
     case False{}:
       bool.ff({b == True{} : Bool}, h)
 
-def bool.and_i(a: Bool, -b: Bool, ha: {a == True{} : Bool}, hb: {b == True{} : Bool}) -> {Bool.and(a, b) == True{} : Bool}:
+def bool.and_i(a: Bool, -b: Bool, +ha: {a == True{} : Bool}, +hb: {b == True{} : Bool}) -> {Bool.and(a, b) == True{} : Bool}:
   match a:
     case True{}:
       hb
     case False{}:
       bool.ff({Bool.and(False{}, b) == True{} : Bool}, ha)
 
-def bool.or_l(a: Bool, -b: Bool, h: {a == True{} : Bool}) -> {Bool.or(a, b) == True{} : Bool}:
+def bool.or_l(a: Bool, -b: Bool, +h: {a == True{} : Bool}) -> {Bool.or(a, b) == True{} : Bool}:
   match a:
     case True{}:
       {==}
     case False{}:
       bool.ff({Bool.or(False{}, b) == True{} : Bool}, h)
 
-def bool.or_r(a: Bool, -b: Bool, h: {b == True{} : Bool}) -> {Bool.or(a, b) == True{} : Bool}:
+def bool.or_r(a: Bool, -b: Bool, +h: {b == True{} : Bool}) -> {Bool.or(a, b) == True{} : Bool}:
   match a:
     case True{}:
       {==}
     case False{}:
       h
 
-def bool.not_t(a: Bool, h: {Bool.not(a) == True{} : Bool}) -> {a == False{} : Bool}:
+def bool.not_t(a: Bool, +h: {Bool.not(a) == True{} : Bool}) -> {a == False{} : Bool}:
   match a:
     case True{}:
       bool.ff({True{} == False{} : Bool}, h)
     case False{}:
       {==}
 
-def bool.not_f(a: Bool, h: {a == False{} : Bool}) -> {Bool.not(a) == True{} : Bool}:
+def bool.not_f(a: Bool, +h: {a == False{} : Bool}) -> {Bool.not(a) == True{} : Bool}:
   match a:
     case True{}:
       bool.ff({Bool.not(True{}) == True{} : Bool}, Equal.sym(Bool, True{}, False{}, h))
@@ -114,7 +129,7 @@ def bool.not_f(a: Bool, h: {a == False{} : Bool}) -> {Bool.not(a) == True{} : Bo
 # Nat
 # ---
 
-def nat.is_eq_ok(a: Nat, b: Nat, e: {Nat.is_eq(a, b) == True{} : Bool}) -> {a == b : Nat}:
+def nat.is_eq_ok(+a: Nat, +b: Nat, +e: {Nat.is_eq(a, b) == True{} : Bool}) -> {a == b : Nat}:
   match a b:
     case 0n 0n:
       {==}
@@ -147,20 +162,49 @@ def nat.is_eq_sym(a: Nat, b: Nat) -> {Nat.is_eq(a, b) == Nat.is_eq(b, a) : Bool}
 # Has, Disj, Sub
 # --------------
 
+# x is not r when ys has r but not x (e is Nat.is_eq(x, r))
+def has.ne(e: Bool, +x: Nat, +ys: List<&2, Nat>, +r: Nat, +he: {Nat.is_eq(x, r) == e : Bool},
+  +hx: {Has(ys, x) == False{} : Bool}, +h: {Has(ys, r) == True{} : Bool}) -> {e == False{} : Bool}:
+  match e:
+    case False{}:
+      {==}
+    case True{}:
+      +xr = nat.is_eq_ok(x, r, he)
+      bool.tf2({True{} == False{} : Bool}, Has(ys, r), h,
+        Equal.trans(Bool, Has(ys, r), Has(ys, x), False{}, Equal.cong(Nat, Bool, z => Has(ys, z), r, x, Equal.sym(Nat, x, r, xr)), hx))
+
 # a register that ys has is not one of xs, when xs and ys are disjoint
-def disj.has(xs: List<&2, Nat>, +ys: List<&2, Nat>, +r: Nat, d: {Disj(xs, ys) == True{} : Bool},
-  h: {Has(ys, r) == True{} : Bool}) -> {Has(xs, r) == False{} : Bool}:
-  ?TODO
+def disj.has(+xs: List<&2, Nat>, +ys: List<&2, Nat>, +r: Nat, +d: {Disj(xs, ys) == True{} : Bool},
+  +h: {Has(ys, r) == True{} : Bool}) -> {Has(xs, r) == False{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{x, rest}:
+      bool.or_f(Nat.is_eq(x, r), Has(rest, r),
+        has.ne(Nat.is_eq(x, r), x, ys, r, {==}, bool.not_t(Has(ys, x), bool.and_l(Bool.not(Has(ys, x)), Disj(rest, ys), d)), h),
+        disj.has(rest, ys, r, bool.and_r(Bool.not(Has(ys, x)), Disj(rest, ys), d), h))
 
 # a register that ys does not have is not one of xs, when ys holds each of xs
-def sub.has(xs: List<&2, Nat>, +ys: List<&2, Nat>, +r: Nat, s: {Sub(xs, ys) == True{} : Bool},
-  h: {Has(ys, r) == False{} : Bool}) -> {Has(xs, r) == False{} : Bool}:
-  ?TODO
+def sub.has(+xs: List<&2, Nat>, +ys: List<&2, Nat>, +r: Nat, +s: {Sub(xs, ys) == True{} : Bool},
+  +h: {Has(ys, r) == False{} : Bool}) -> {Has(xs, r) == False{} : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{x, rest}:
+      bool.or_f(Nat.is_eq(x, r), Has(rest, r),
+        has.ne(Nat.is_eq(x, r), r, ys, x, Equal.trans(Bool, Nat.is_eq(r, x), Nat.is_eq(x, r), Nat.is_eq(x, r), nat.is_eq_sym(r, x), {==}), h,
+          bool.and_l(Has(ys, x), Sub(rest, ys), s)),
+        sub.has(rest, ys, r, bool.and_r(Has(ys, x), Sub(rest, ys), s), h))
 
 # Sub with one more register in ys
-def sub.con(xs: List<&2, Nat>, +y: Nat, +ys: List<&2, Nat>, s: {Sub(xs, ys) == True{} : Bool}) ->
+def sub.con(+xs: List<&2, Nat>, +y: Nat, +ys: List<&2, Nat>, +s: {Sub(xs, ys) == True{} : Bool}) ->
   {Sub(xs, Con{y, ys}) == True{} : Bool}:
-  ?TODO
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{x, rest}:
+      bool.and_i(Has(Con{y, ys}, x), Sub(rest, Con{y, ys}), bool.or_r(Nat.is_eq(y, x), Has(ys, x), bool.and_l(Has(ys, x), Sub(rest, ys), s)),
+        sub.con(rest, y, ys, bool.and_r(Has(ys, x), Sub(rest, ys), s)))
 
 # Lists
 # -----
@@ -177,7 +221,23 @@ def list.length_set(-A: Data, xs: List<&2, A>, n: Nat, x: A) ->
       {==}
 
 # List.get after List.set, at the index set (below the length) or another
-def list.get_set(-A: Data, xs: List<&2, A>, n: Nat, x: A, +j: Nat,
-  h: {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}) ->
+def list.get_set(-A: Data, +xs: List<&2, A>, +n: Nat, +x: A, +j: Nat,
+  +h: {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}) ->
   {List.get(&2, A, List.set(&2, A, xs, n, x), j) == Bool.pick(Maybe<&2, A>, Nat.is_eq(n, j), Some{x}, List.get(&2, A, xs, j)) : Maybe<&2, A>}:
-  ?TODO
+  match xs n:
+    case Nil{} 0n:
+      bool.ff({List.get(&2, A, Nil{}, j) == Bool.pick(Maybe<&2, A>, Nat.is_eq(0n, j), Some{x}, List.get(&2, A, Nil{}, j)) : Maybe<&2, A>}, h)
+    case Nil{} 1n+m:
+      bool.ff({List.get(&2, A, Nil{}, j) == Bool.pick(Maybe<&2, A>, Nat.is_eq(1n+m, j), Some{x}, List.get(&2, A, Nil{}, j)) : Maybe<&2, A>}, h)
+    case Con{y, t} 0n:
+      match j:
+        case 0n:
+          {==}
+        case 1n+p:
+          {==}
+    case Con{y, t} 1n+m:
+      match j:
+        case 0n:
+          {==}
+        case 1n+p:
+          list.get_set(A, t, m, x, p, h)

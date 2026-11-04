@@ -28,7 +28,8 @@
 import Base
 import ../../../Shared/shared.bend as Sd
 import ../shared.bend as K
-import ../../../Program/impl.bend as Pg
+import ../../../Wasm/impl.bend as Wa
+import ../../need_big.bend as N
 import ../../Cir/impl.bend as Cr
 
 # The state
@@ -100,9 +101,11 @@ def St.fd(st: Cr.Cir.State, +k: Nat, +c: U32) -> U32:
 def St.is_cell(+st: Cr.Cir.State, +c: U32) -> Bool:
   Cr.Cir.is_cell(c, St.image(st), St.first(st), St.next(st))
 
-# the memory limit of st, in bytes, as Program.memory counts it
+# the memory limit of st, in bytes: 2^16 x its pages, up to 2^16 pages, as
+# Program.memory counts them (N.mul_D relates the two); 2^16 is N.D(16, 1),
+# so that no check counts to it
 def Lim(st: Cr.Cir.State) -> Nat:
-  Pg.Program.memory(St.limit(st))
+  N.D(16n, U32.to_nat(Wa.Wasm.min(St.limit(st), 65536)))
 
 # what a run never changes: the limit, the input, first and the image
 type St.Fixed is Data:
@@ -323,7 +326,7 @@ law exec.more:
   for +g: Nat
   for s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
-  for d: {Out.done(Cr.Cir.exec(f, s, st)) == True{} : Bool}
+  for +d: {Out.done(Cr.Cir.exec(f, s, st)) == True{} : Bool}
   {Cr.Cir.exec(Nat.add(f, g), s, st) == Cr.Cir.exec(f, s, st) : Cr.Cir.Out}
 
 # LAW: at any fuel, a Tot run is out of fuel or good (what mach.safe and
@@ -360,7 +363,7 @@ law tot.if:
   for Q: Cr.Cir.State -> Type
   for H: U32 -> Cr.Cir.State -> Type
   for +v: U32
-  for e: {Cr.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>}
+  for +e: {Cr.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>}
   for t: Tot(Bool.pick(Cr.Cir.Stmt, U32.is_zero(v), n, y), st, b, Q, H)
   Tot(Cr.Cir.Stmt.if{c, y, n}, st, b, Q, H)
 
@@ -390,7 +393,7 @@ law tot.wk:
   for Q2: Cr.Cir.State -> Type
   for H: U32 -> Cr.Cir.State -> Type
   for H2: U32 -> Cr.Cir.State -> Type
-  for hb: {Nat.is_le(b, b2) == True{} : Bool}
+  for +hb: {Nat.is_le(b, b2) == True{} : Bool}
   for hq: @x: Cr.Cir.State -> Q(x) -> Q2(x)
   for hh: @k: U32 -> @x: Cr.Cir.State -> H(k, x) -> H2(k, x)
   for t: Tot(s, st, b, Q, H)
@@ -427,7 +430,7 @@ law wp.wk:
   for K2: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
   for H: U32 -> Cr.Cir.State -> Type
   for H2: U32 -> Cr.Cir.State -> Type
-  for hb: {Nat.is_le(b, b2) == True{} : Bool}
+  for +hb: {Nat.is_le(b, b2) == True{} : Bool}
   for hk: @x: Cr.Cir.State -> K(H, x) -> K2(H2, x)
   for hh: @k: U32 -> @x: Cr.Cir.State -> H(k, x) -> H2(k, x)
   for w: WP(s, b, K, H, st)
@@ -449,8 +452,8 @@ law exec.set:
   for e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +v: U32
-  for he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
-  for hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
+  for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
+  for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   {Cr.Cir.exec(f, Cr.Cir.Stmt.set{r, e}, st) == Cr.Cir.Out.next{St.set(st, r, v)} : Cr.Cir.Out}
 
 # LAW: a store to a cell that Cir allows
@@ -462,9 +465,9 @@ law exec.store:
   for +st: Cr.Cir.State
   for +i: U32
   for +v: U32
-  for hc: {Cr.Cir.eval(c, st) == Some{i} : Maybe<&2, U32>}
-  for he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
-  for hi: {St.is_cell(st, i) == True{} : Bool}
+  for +hc: {Cr.Cir.eval(c, st) == Some{i} : Maybe<&2, U32>}
+  for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
+  for +hi: {St.is_cell(st, i) == True{} : Bool}
   {Cr.Cir.exec(f, Cr.Cir.Stmt.store{k, c, e}, st) == Cr.Cir.Out.next{St.store(st, k, i, v)} : Cr.Cir.Out}
 
 # LAW: an alloc with no output yet: a new cell (the memory then of p pages),
@@ -473,8 +476,8 @@ law exec.alloc:
   for +f: Nat
   for +r: Nat
   for +st: Cr.Cir.State
-  for hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
-  for ho: {St.outn(st) == 0 : U32}
+  for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
+  for +ho: {St.outn(st) == 0 : U32}
   Or(&p:U32 -> {Cr.Cir.exec(f, Cr.Cir.Stmt.alloc{r}, st) == Cr.Cir.Out.next{St.alloc(st, r, p)} : Cr.Cir.Out},
     {Cr.Cir.exec(f, Cr.Cir.Stmt.alloc{r}, st) == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out} &
     {Nat.is_lt(Lim(st), Nat.mul(20n, Nat.add(U32.to_nat(St.next(st)), 1n))) == True{} : Bool})
@@ -488,8 +491,8 @@ law wp.set:
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
   for H: U32 -> Cr.Cir.State -> Type
   for +v: U32
-  for he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
-  for hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
+  for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
+  for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   for q: K(H, St.set(st, r, v))
   WP(Cr.Cir.Stmt.set{r, e}, b, K, H, st)
 
@@ -504,9 +507,9 @@ law wp.store:
   for H: U32 -> Cr.Cir.State -> Type
   for +i: U32
   for +v: U32
-  for hc: {Cr.Cir.eval(c, st) == Some{i} : Maybe<&2, U32>}
-  for he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
-  for hi: {St.is_cell(st, i) == True{} : Bool}
+  for +hc: {Cr.Cir.eval(c, st) == Some{i} : Maybe<&2, U32>}
+  for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
+  for +hi: {St.is_cell(st, i) == True{} : Bool}
   for q: K(H, St.store(st, k, i, v))
   WP(Cr.Cir.Stmt.store{k, c, e}, b, K, H, st)
 
@@ -519,9 +522,9 @@ law wp.alloc:
   for +b: Nat
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
   for H: U32 -> Cr.Cir.State -> Type
-  for hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
-  for ho: {St.outn(st) == 0 : U32}
-  for hb: {Nat.is_le(Nat.mul(20n, Nat.add(U32.to_nat(St.next(st)), 1n)), b) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
+  for +ho: {St.outn(st) == 0 : U32}
+  for +hb: {Nat.is_le(Nat.mul(20n, Nat.add(U32.to_nat(St.next(st)), 1n)), b) == True{} : Bool}
   for q: @p: U32 -> K(H, St.alloc(st, r, p))
   WP(Cr.Cir.Stmt.alloc{r}, b, K, H, st)
 
@@ -534,8 +537,8 @@ law wp.emit:
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
   for H: U32 -> Cr.Cir.State -> Type
   for +v: U32
-  for he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
-  for hb: {Nat.is_le(Nat.add(Nat.mul(20n, U32.to_nat(St.next(st))), Nat.add(U32.to_nat(St.outn(st)), 1n)), b) == True{} : Bool}
+  for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
+  for +hb: {Nat.is_le(Nat.add(Nat.mul(20n, U32.to_nat(St.next(st))), Nat.add(U32.to_nat(St.outn(st)), 1n)), b) == True{} : Bool}
   for q: @p: U32 -> K(H, St.emit(st, v, p))
   WP(Cr.Cir.Stmt.emit{e}, b, K, H, st)
 
@@ -553,7 +556,7 @@ law reg.set:
   for +r: Nat
   for +v: U32
   for +q: Nat
-  for hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   {Reg(St.set(st, r, v), q) == Bool.pick(Maybe<&2, U32>, Nat.is_eq(r, q), Some{v}, Reg(st, q)) : Maybe<&2, U32>}
 
 # LAW: a register after a store, an alloc (its register gets the old next) and
@@ -571,7 +574,7 @@ law reg.alloc:
   for +r: Nat
   for +p: U32
   for +q: Nat
-  for hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   {Reg(St.alloc(st, r, p), q) == Bool.pick(Maybe<&2, U32>, Nat.is_eq(r, q), Some{St.next(st)}, Reg(st, q)) : Maybe<&2, U32>}
 
 law reg.emit:
@@ -649,8 +652,8 @@ law cell.get_set:
   for +x: Cr.Cir.Cell
   for +v: U32
   for +j: Nat
-  for hk: {Nat.is_le(k, 4n) == True{} : Bool}
-  for hj: {Nat.is_le(j, 4n) == True{} : Bool}
+  for +hk: {Nat.is_le(k, 4n) == True{} : Bool}
+  for +hj: {Nat.is_le(j, 4n) == True{} : Bool}
   {Cr.Cir.Cell.get(j, Cr.Cir.Cell.set(k, x, v)) == Bool.pick(U32, Nat.is_eq(k, j), v, Cr.Cir.Cell.get(j, x)) : U32}
 
 # LAW: next after a set, a store and an emit (the same), and an alloc (one
@@ -769,8 +772,8 @@ law frame.regs:
   for +st: Cr.Cir.State
   for +st2: Cr.Cir.State
   for +r: Nat
-  for e: {Cr.Cir.exec(f, s, st) == Cr.Cir.Out.next{st2} : Cr.Cir.Out}
-  for w: {K.Has(Cir.writes(s), r) == False{} : Bool}
+  for +e: {Cr.Cir.exec(f, s, st) == Cr.Cir.Out.next{st2} : Cr.Cir.Out}
+  for +w: {K.Has(Cir.writes(s), r) == False{} : Bool}
   {Reg(st2, r) == Reg(st, r) : Maybe<&2, U32>}
 
 # LAW: a run keeps the limit, the input, first and the image
@@ -779,7 +782,7 @@ law frame.fixed:
   for s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +st2: Cr.Cir.State
-  for e: {Cr.Cir.exec(f, s, st) == Cr.Cir.Out.next{st2} : Cr.Cir.Out}
+  for +e: {Cr.Cir.exec(f, s, st) == Cr.Cir.Out.next{st2} : Cr.Cir.Out}
   {St.fixed(st2) == St.fixed(st) : St.Fixed}
 
 # LAW: the frame of a Tot: its next state also keeps the registers outside
@@ -800,6 +803,6 @@ law tot.frame_out:
   for +b: Nat
   for Q: Cr.Cir.State -> Type
   for H: U32 -> Cr.Cir.State -> Type
-  for ne: {Cir.emits(s) == False{} : Bool}
+  for +ne: {Cir.emits(s) == False{} : Bool}
   for t: Tot(s, st, b, Q, H)
   Tot(s, st, b, x => Q(x) & ({St.out(x) == St.out(st) : List<&2, Word(8n)>} & {St.outn(x) == St.outn(st) : U32}), H)

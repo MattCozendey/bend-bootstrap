@@ -85,7 +85,7 @@ law hd.tag_of:
   for +q: U32
   for +fl: U32
   for +fv: U32
-  for h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
+  for +h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
   {Hd.tag(Mc.Img.header(t, q, fl, fv)) == t : U32}
 
 # LAW: the quantity of a header
@@ -94,7 +94,7 @@ law hd.q_of:
   for +q: U32
   for +fl: U32
   for +fv: U32
-  for h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
+  for +h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
   {Hd.q(Mc.Img.header(t, q, fl, fv)) == q : U32}
 
 # LAW: fv of a header
@@ -103,7 +103,7 @@ law hd.fv_of:
   for +q: U32
   for +fl: U32
   for +fv: U32
-  for h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
+  for +h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
   {Hd.fv(Mc.Img.header(t, q, fl, fv)) == fv : U32}
 
 # LAW: a flag of a header is the flag of fl
@@ -113,8 +113,8 @@ law hd.has_of:
   for +fl: U32
   for +fv: U32
   for +bit: U32
-  for h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
-  for hb: {Hd.flag_bit(bit) == True{} : Bool}
+  for +h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
+  for +hb: {Hd.flag_bit(bit) == True{} : Bool}
   {Hd.has(Mc.Img.header(t, q, fl, fv), bit) == Hd.has(fl, bit) : Bool}
 
 # LAW: the todo bits of a header are the bits 13 to 15 of fv's place
@@ -123,7 +123,7 @@ law hd.todo_of:
   for +q: U32
   for +fl: U32
   for +fv: U32
-  for h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
+  for +h: {Hd.fits(t, q, fl, fv) == True{} : Bool}
   {Hd.todo(Mc.Img.header(t, q, fl, fv)) == U32.shln(U32.and(fv, 7), 13n) : U32}
 
 # Laws: masks
@@ -195,18 +195,18 @@ law mask.zero_and:
 law mask.and_low:
   for +a: U32
   for +k: Nat
-  for h: {U32.is_lt(a, U32.shln(1, k)) == True{} : Bool}
+  for +h: {U32.is_lt(a, U32.shln(1, k)) == True{} : Bool}
   {U32.and(a, U32.sub(U32.shln(1, k), 1)) == a : U32}
 
 law mask.shr_low:
   for +a: U32
   for +k: Nat
-  for h: {U32.is_lt(a, U32.shln(1, k)) == True{} : Bool}
+  for +h: {U32.is_lt(a, U32.shln(1, k)) == True{} : Bool}
   {U32.shrn(a, k) == 0 : U32}
 
 # LAW: taking a bit that is set is clearing it
 law mask.sub_bit:
   for +h: U32
   for +b: U32
-  for e: {U32.and(h, b) == b : U32}
+  for +e: {U32.and(h, b) == b : U32}
   {U32.sub(h, b) == U32.and(h, U32.not(b)) : U32}
