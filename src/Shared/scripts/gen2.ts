@@ -64,6 +64,10 @@
 //       --json FILE    bench: write per-def results as JSON
 //       --debug        print internal errors and failed final checks
 //       --fresh        ask: search again, not the cached answer (the proof cache stays in use)
+//       --check        no search: run bend2's def check on every def of the entry file (or on the named
+//                      ones) in gen2's loaded book, as the file now is; prints each error and a summary
+//                      (exit 2 on an error). With serve: `ask --check`, a few seconds, no bend2
+//                      process and no heavy.sh slot. Not the gate (the kernel stays the judge).
 //       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
 //                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
 //                      over its whole context (true iff the hole is), and the hole a call of it; at most
@@ -419,8 +423,13 @@ const defSrc = (k: string): Src | null => {
         for (const ch of l) { if ("([{".includes(ch)) depth++; else if (")]}".includes(ch)) depth--; }
         if (depth <= 0 && /:\s*$/.test(l)) break;
       }
-      let be = he + 1;
-      while (be < lines.length && (lines[be].startsWith(" ") || lines[be].trim() === "")) be++;
+      // the body: indented or blank lines, and any line inside an open bracket (a body may continue at
+      // column 0 inside parentheses: alfr.fresh.at in heap_ops.bend)
+      let be = he + 1, bd = 0;
+      while (be < lines.length && (lines[be].startsWith(" ") || lines[be].trim() === "" || bd > 0)) {
+        for (const ch of lines[be].replace(/#.*$/, "")) { if ("([{".includes(ch)) bd++; else if (")]}".includes(ch)) bd--; }
+        be++;
+      }
       while (be > he + 1 && (lines[be - 1].trim() === "" || lines[be - 1].trim().startsWith("#"))) be--;
       res = { file, header: lines.slice(li, he + 1).join("\n"), body: lines.slice(he + 1, be).join("\n"), bodyLine: he + 1 };
     }
@@ -2437,12 +2446,39 @@ const batch = () => {
   console.log(head + "\nreport: " + path.join(dir, "report.txt") + "\npatch:  " + path.join(dir, "gen2.patch") + (flag("partial-patch") ? " (may contain open ?TODO goals)" : "") + " (apply from the repository root: git apply)");
 };
 
+// ---- check: bend2's def check of the entry's defs in the loaded book (no bend2 process, no slot) ----
+// each def (or each named one): its statement (stmtError), then its body as the file has it
+// (checkDef); a ?TODO is counted, not an error (as bend2 --check-only). Not the gate: the kernel is.
+const runCheck = (names: string[]) => {
+  const own = [...new Set(book.order.slice(N0))].filter((k) => RAW[k]?.$ === "Def" && !k.includes("~"));
+  const pick = names.length ? own.filter((k) => names.some((nm) => k === nm || shortOf(k) === nm || shortOf(k).endsWith("." + nm) || ("D." + shortOf(k)) === nm)) : own;
+  let n = 0, bad = 0, todo = 0;
+  const t0 = performance.now();
+  for (const k of pick) {
+    const ds = defSrc(k);
+    if (!ds) continue;
+    n++;
+    todo += (ds.body.match(/\?TODO/g) ?? []).length;
+    job = newJob(k);
+    let err = nsOf(k) === "" ? stmtError(k) : null;
+    if (!err) {
+      const old = fuel;
+      fuel = FUEL_FINAL;
+      try { checkDef(k, ds.body); } catch (e: any) { err = e === OOF ? "out of fuel (" + FUEL_FINAL + " def lookups): not decided" : (e?.$ === "Err" ? B.err_show(e) : String(e?.stack ?? e)).slice(0, 1500); } finally { fuel = old; }
+    } else err = "statement: " + err;
+    if (err) { bad++; console.log("# ERROR in " + shortOf(k) + ":\n" + err); }
+  }
+  console.log("# check " + path.basename(entry) + ": " + n + " defs, " + bad + " with errors, " + todo + " ?TODO (" + Math.round(performance.now() - t0) + " ms; bend2's checker in gen2's book; the gate stays the judge)");
+  if (bad) throw new Exit(2);
+};
+
 // ---- prove ----
 class Exit { constructor(readonly code: number) {} }
 const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
-  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write"].includes(xs[i - 1])));
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write", "--check"].includes(xs[i - 1])));
+  if (flag("check")) { runCheck(names); return; }
   const entryDefs = new Set(book.order.slice(N0));
   const own = (x: string) => entryDefs.has(x) && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
   const ks: string[] = [];
