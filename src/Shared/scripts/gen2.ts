@@ -1942,12 +1942,17 @@ class Exit { constructor(readonly code: number) {} }
 const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
-  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp"].includes(xs[i - 1])));
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book"].includes(xs[i - 1])));
   const entryDefs = new Set(book.order.slice(N0));
   const own = (x: string) => entryDefs.has(x) && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
   const ks: string[] = [];
   for (const nm of names) {
-    const k = Object.keys(RAW).find((x) => own(x) && shortOf(x) === nm);
+    const exact = Object.keys(RAW).filter((x) => own(x) && (shortOf(x) === nm || x === nm));
+    const local = nm.includes(".") ? nm.slice(nm.indexOf(".") + 1) : nm;
+    const suffix = exact.length ? [] : Object.keys(RAW).filter((x) => own(x) && (shortOf(x) === local || shortOf(x).endsWith("." + nm) || x.endsWith("." + nm)));
+    const matches = exact.length ? exact : suffix;
+    if (matches.length > 1) { console.error("gen2: ambiguous def " + nm + ": " + matches.map(shortOf).join(", ")); throw new Exit(1); }
+    const k = matches[0];
     if (!k) { console.error("gen2: no def " + nm + " in " + FILE); { throw new Exit(1); }; }
     ks.push(k);
   }
