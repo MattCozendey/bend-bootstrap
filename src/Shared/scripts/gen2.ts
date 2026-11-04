@@ -103,6 +103,8 @@
 //                      arms the leaf tactics close, with proven helper lemmas (generalized stuck calls, the
 //                      arm's own goal); helpers print above the body. Also a clash through a predicate with
 //                      type parameters (maybe.T(A, _)) and splits on Bool parameters only hypotheses name.
+//                      Constructor steps in the arms: clashes, injectivity, inversion of sequencing helpers
+//                      (Cir.exec.then, Cir.exec.if, ..), chains through the induction hypothesis.
 //       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
 //                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
 //                      over its whole context (true iff the hole is), and the hole a call of it; at most
@@ -2988,11 +2990,28 @@ const checkBody = (k: string, body: string): any => {
   fuel = FUEL_FINAL;
   try { checkDef(k, body); return null; } catch (e) { return e ?? "error"; } finally { fuel = old; }
 };
+// the constructors of the datatype T at g (its type arguments filled): name, display name, field types (as
+// text, the fields named by names)
+const ctrFields = (g: Goal, T: HTerm, names: string[]): { k: string; show: string; types: string[] }[] | null => attempt(FUEL_NF, () => {
+  const A = wnf(T);
+  if (!A || A.$ !== "ADT") return null;
+  const adt = B.book_adt(book, A, g.ctx, job.k);
+  return adt.c.map((ctr) => {
+    let cur = B.tele_fill(book, ctr.T, A.x, g.ctx, job.k);
+    const types: string[] = [];
+    for (let f = 0; f < ctr.n; f++) {
+      const c = B.tele_head(book, cur, g.ctx, job.k);
+      types.push(show(lower(c.A, g.d + f), [...g.names, ...names.slice(0, f)]));
+      cur = c.B(B.Var(names[f] ?? "x" + f, g.d + f));
+    }
+    return { k: ctr.k, show: B.name_show(job.file, ctr.k), types };
+  });
+}) ?? null;
 let indApiObj: any = null;
 const indApi = (): any => indApiObj ??= {
   B, book, RAW, ORDER, show, lower, nf, wnf, key, attempt, unapply, blockers, strictOf, matchedOf, contradictory, hypTargets, usable, ann,
   tryText, holeGoal, rootGoal, introAll, intro, errText, defSrc, shortOf, fresh, reserved, helperName, isData,
-  addTemp, dropTemp, dropTemps, proveQuick, leafText, checkBody, clipTo, stmtOk: (k: string) => stmtError(k) === null,
+  addTemp, dropTemp, dropTemps, proveQuick, leafText, checkBody, clipTo, ctrFields, stmtOk: (k: string) => stmtError(k) === null,
   FUEL_NF, FUEL_FINAL, TIMEOUT, META, matchT: match, openMeta, parseFrag,
   job: () => job, setJob: (j: Job) => { job = j; }, newJob, now: () => performance.now(),
   deadline: () => deadline, setDeadline: (t: number) => { deadline = t; },
