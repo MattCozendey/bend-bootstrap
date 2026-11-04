@@ -2764,7 +2764,7 @@ const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = 
   const t0 = performance.now();
   // one stepping (dst: the proof matches the start state first), checked, its leaves tried
   const attemptWp = (dst: boolean, until: number): { text: string; open: number; report: string; why?: string; steps?: number } | null => {
-    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2 }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names }, dst);
+    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2 }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
     if ("why" in r) return r.why === "not a Tot goal" ? null : { text: "", open: -1, report: "", why: r.why };
     const chk = verify;
     const e0 = chk(r.text);

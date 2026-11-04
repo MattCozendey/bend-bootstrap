@@ -28,7 +28,7 @@ type HTerm = B.HTerm;
 type LTerm = B.LTerm;
 
 // ---- types ----
-export type WpGoal = { ctx: B.Ctx; d: number; ty: HTerm; names: string[] };
+export type WpGoal = { ctx: B.Ctx; d: number; ty: HTerm; names: string[]; self?: string };
 export type WpApi = {
   RAW: Record<string, B.TLD>;
   show: (t: LTerm, names: string[]) => string;
@@ -118,6 +118,14 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const wnfL = (t: LTerm): LTerm | undefined => { const w = api.wnf(B.term_higher(t, envOf())); return w ? api.lower(w, g.d) : undefined; };
   const nfL = (t: LTerm): LTerm | undefined => api.attempt(FUEL, () => api.nf(B.term_higher(t, envOf()), g.d));
   const natOf = (t: LTerm): number | null => { const n = nfL(t); return n && n.$ === "Lit" && n.k === "Nat" ? (n.v as number) : null; };
+  // a register: a number, or a term (a parameter r with facts about it)
+  type Rg = { key: string; text: string; lit: number | null; term: LTerm };
+  const rgOf = (t: LTerm): Rg => {
+    const n = natOf(t);
+    if (n !== null) return { key: "n" + n, text: n + "n", lit: n, term: B.Lit("Nat", n) as LTerm };
+    const f = nfL(t) ?? t;
+    return { key: "t" + api.key(f), text: sh(t), lit: null, term: t };
+  };
   const isBool = (t: LTerm | undefined): t is Extract<LTerm, { $: "Ctr" }> => !!t && t.$ === "Ctr" && (t.k === "True" || t.k === "False") && t.x.length === 0;
 
   // the goal: Tot(code, st, b, Q, H), or WP(code, b, K, H, st)
@@ -150,6 +158,33 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const nregHyp = new Map<string, { n: LTerm; pf: string }>(); // key(state)
   const cellHyp = new Map<string, string>(); // key(state) + "|" + key(nf(c))
   const boolHyp: { lhs: LTerm; nk: string; val: boolean; name: string }[] = [];
+  const ltFact = new Map<string, string>(); // r -> a proof of {Nat.is_lt(r, St.nregs(st)) == True{}} (the start state)
+  // a Bool fact {a == True/False}, and its conjuncts (bool.and_l / bool.and_r of a true &&): Bool facts for the ifs, and
+  // facts r < St.nregs(st) for the sets (S2's invariants carry them so)
+  const harvest = (a: LTerm, val: boolean, pf: string, depth: number) => {
+    const n = nfL(a);
+    if (n) boolHyp.push({ lhs: a, nk: api.key(n), val, name: pf });
+    const [h, xs] = unapply(a);
+    if (h.$ !== "Ref") return;
+    // Bool.not(a) == True: a == False (bool.not_t)
+    if (val && shortOf(h.k) === "Bool.not" && xs.length === 1 && byShort.has("bool.not_t")) harvest(xs[0]!, false, sh(B.Ref(byShort.get("bool.not_t")!) as LTerm) + "(" + sh(xs[0]!) + ", " + pf + ")", depth + 1);
+    if (!val) return;
+    if (shortOf(h.k) === "Bool.and" && xs.length === 2 && depth < 8 && byShort.has("bool.and_l") && byShort.has("bool.and_r")) {
+      const al = sh(B.Ref(byShort.get("bool.and_l")!) as LTerm), ar = sh(B.Ref(byShort.get("bool.and_r")!) as LTerm);
+      harvest(xs[0]!, true, al + "(" + sh(xs[0]!) + ", " + sh(xs[1]!) + ", " + pf + ")", depth + 1);
+      harvest(xs[1]!, true, ar + "(" + sh(xs[0]!) + ", " + sh(xs[1]!) + ", " + pf + ")", depth + 1);
+    }
+    // Cir.is_cell(c, St.image(st), St.first(st), St.next(st)): St.is_cell(st, c) unfolded
+    if (shortOf(h.k) === "Cir.is_cell" && xs.length === 4) {
+      const [ih, ia] = unapply(xs[1]!);
+      const c = nfL(xs[0]!);
+      if (c && ih.$ === "Ref" && shortOf(ih.k) === "St.image" && ia.length === 1) cellHyp.set(api.key(ia[0]!) + "|" + api.key(c), pf);
+    }
+    if (shortOf(h.k) === "Nat.is_lt" && xs.length === 2) {
+      const [nh, na] = unapply(xs[1]!);
+      if (isRef(nh, "nregs") && na.length === 1 && api.key(na[0]!) === api.key(stArg ?? xs[0]!)) ltFact.set(rgOf(xs[0]!).key, pf);
+    }
+  };
   for (let i = 0; i < g.d; i++) {
     const a = B.pmap_get(g.ctx, i);
     if (!a || names[i] === "_" || names[i] === "" || /^w[sfnc]\d/.test(names[i]!)) continue;
@@ -157,8 +192,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     if (!T || T.$ !== "Eql") continue;
     const [lh, la] = unapply(T.a);
     if (isRef(lh, "reg") && la.length === 2 && T.b.$ === "Ctr" && T.b.k === "Some" && T.b.x.length === 1) {
-      const r = natOf(la[1]!);
-      if (r !== null) regHyp.set(api.key(la[0]!) + "|" + r, { c: T.b.x[0]!, pf: names[i]! });
+      regHyp.set(api.key(la[0]!) + "|" + rgOf(la[1]!).key, { c: T.b.x[0]!, pf: names[i]! });
       continue;
     }
     if (isRef(lh, "nregs") && la.length === 1) { nregHyp.set(api.key(la[0]!), { n: T.b, pf: names[i]! }); continue; }
@@ -167,15 +201,12 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
       if (c) cellHyp.set(api.key(la[0]!) + "|" + api.key(c), names[i]!);
       continue;
     }
-    if (isBool(T.b)) {
-      const n = nfL(T.a);
-      if (n) boolHyp.push({ lhs: T.a, nk: api.key(n), val: T.b.k === "True", name: names[i]! });
-    }
+    if (isBool(T.b)) harvest(T.a, T.b.k === "True", names[i]!, 0);
   }
 
   // the states: 0 is the goal's; k is the state k-1 after a set (r, v) or a store (kf, c, v)
-  type St = { text: string; key: string; lt: LTerm; prev: number; op: "set" | "store" | null; r: number; c: LTerm | null; v: LTerm | null };
-  const sts: St[] = [{ text: sh(st0), key: api.key(st0), lt: st0, prev: -1, op: null, r: -1, c: null, v: null }];
+  type St = { text: string; key: string; lt: LTerm; prev: number; op: "set" | "store" | null; r: Rg | null; c: LTerm | null; v: LTerm | null };
+  const sts: St[] = [{ text: sh(st0), key: api.key(st0), lt: st0, prev: -1, op: null, r: null, c: null, v: null }];
   const lets: string[] = [];
   stepRefs.push("@" + (K.stSet ?? "St.set"), "@" + (K.stStore ?? "St.store"));
   if (dst) {
@@ -187,7 +218,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   const regFacts = new Map<string, { c: LTerm; pf: string }>();
   const nregFacts = new Map<number, { n: string; pf: string }>();
   const MB = "Maybe<&2, U32>";
-  const stepArgs = (s: St, p: St) => p.text + ", " + (s.op === "set" ? s.r + "n, " + sh(s.v!) : s.r + "n, " + sh(s.c!) + ", " + sh(s.v!));
+  const stepArgs = (s: St, p: St) => p.text + ", " + (s.op === "set" ? s.r!.text + ", " + sh(s.v!) : s.r!.text + ", " + sh(s.c!) + ", " + sh(s.v!));
   // {St.nregs(st_j) == N}
   const nregOf = (j: number): { n: string; pf: string } => {
     const memo = nregFacts.get(j);
@@ -195,8 +226,9 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     const s = sts[j]!;
     let out: { n: string; pf: string };
     if (s.prev < 0) {
-      const h = nregHyp.get(s.key) ?? fail("no fact {" + nm("nregs") + "(" + s.text + ") == ..} in the context (the register count)");
-      out = { n: sh(h.n), pf: h.pf };
+      // no count fact: the count of the start itself (the sets then need facts r < its count)
+      const h = nregHyp.get(s.key);
+      out = h ? { n: sh(h.n), pf: h.pf } : { n: nm("nregs") + "(" + s.text + ")", pf: "{==}" };
     } else {
       const p = sts[s.prev]!, pn = nregOf(s.prev);
       const name = fresh("wn" + j);
@@ -207,36 +239,59 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     return out;
   };
   // {Nat.is_lt(r, St.nregs(st_j)) == True{}}
-  const ltOf = (j: number, r: number): string => {
+  const ltOf = (j: number, r: Rg): string => {
     const f = nregOf(j);
-    return "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + f.n + ", " + f.pf + ") : {Nat.is_lt(" + r + "n, _) == True{} : Bool}; {==})";
+    if (!nregHyp.has(sts[0]!.key) || r.lit === null) {
+      if (nregHyp.has(sts[0]!.key)) fail("the register " + r.text + " is not a number: its fact {Nat.is_lt(" + r.text + ", ..) == True{}} is over the count " + f.n);
+      const base = ltFact.get(r.key) ?? fail("no fact {" + nm("nregs") + "(" + sts[0]!.text + ") == ..} nor {Nat.is_lt(" + r.text + ", " + nm("nregs") + "(" + sts[0]!.text + ")) == True{}} in the context");
+      return j === 0 ? base : "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + f.n + ", " + f.pf + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; " + base + ")";
+    }
+    return "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + f.n + ", " + f.pf + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; {==})";
+  };
+  const sameReg = (r: Rg, q: Rg): boolean | string | null => {
+    if (r.lit !== null && q.lit !== null) return r.lit === q.lit;
+    if (r.key === q.key) return true;
+    const eq = (a: Rg, b: Rg) => B.App(B.App(B.Ref(byShort.get("Nat.is_eq") ?? "Nat.is_eq") as LTerm, a.term), b.term);
+    const z = nfL(eq(r, q));
+    if (isBool(z)) return z.k === "True";
+    const k1 = z ? api.key(z) : "", z2 = nfL(eq(q, r)), k2 = z2 ? api.key(z2) : "";
+    for (const h of boolHyp) {
+      if (h.val) continue;
+      if (h.nk === k1) return h.name;
+      if (h.nk === k2 && byShort.has("nat.is_eq_sym")) return nm("equalTrans") + "(Bool, Nat.is_eq(" + r.text + ", " + q.text + "), Nat.is_eq(" + q.text + ", " + r.text + "), False{}, " + sh(B.Ref(byShort.get("nat.is_eq_sym")!) as LTerm) + "(" + r.text + ", " + q.text + "), " + h.name + ")";
+    }
+    return null;
   };
   // {Reg(st_j, q) == Some{c}}
-  const regOf = (j: number, q: number): { c: LTerm; pf: string } => {
-    const mk = j + "|" + q;
+  const regOf = (j: number, q: Rg): { c: LTerm; pf: string } => {
+    const mk = j + "|" + q.key;
     const memo = regFacts.get(mk);
     if (memo) return memo;
     const s = sts[j]!;
     let out: { c: LTerm; pf: string };
-    if (s.prev < 0) out = regHyp.get(s.key + "|" + q) ?? fail("no fact {" + nm("reg") + "(" + s.text + ", " + q + "n) == Some{..}} in the context (register " + q + " is read)");
+    if (s.prev < 0) out = regHyp.get(s.key + "|" + q.key) ?? fail("no fact {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Some{..}} in the context (register " + q.text + " is read)");
     else {
       const p = sts[s.prev]!;
-      const here = s.op === "set" && s.r === q;
-      const law = s.op === "set" ? nm("regSet") + "(" + p.text + ", " + s.r + "n, " + sh(s.v!) + ", " + q + "n, " + ltOf(s.prev, s.r) + ")"
-        : nm("regStore") + "(" + p.text + ", " + s.r + "n, " + sh(s.c!) + ", " + sh(s.v!) + ", " + q + "n)";
+      const same = s.op === "set" ? sameReg(s.r!, q) : false;
+      if (same === null) fail("the registers " + s.r!.text + " and " + q.text + ": no fact tells them apart ({Nat.is_eq(" + s.r!.text + ", " + q.text + ") == False{}})");
+      const here = same === true;
+      let law = s.op === "set" ? nm("regSet") + "(" + p.text + ", " + s.r!.text + ", " + sh(s.v!) + ", " + q.text + ", " + ltOf(s.prev, s.r!) + ")"
+        : nm("regStore") + "(" + p.text + ", " + s.r!.text + ", " + sh(s.c!) + ", " + sh(s.v!) + ", " + q.text + ")";
+      // told apart by a fact: the pick's condition rewritten to False
+      if (s.op === "set" && !here && typeof same === "string") law = "(%" + same + " : {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Bool.pick(" + MB + ", _, Some{" + sh(s.v!) + "}, " + nm("reg") + "(" + p.text + ", " + q.text + ")) : " + MB + "}; " + law + ")";
       const c = here ? s.v! : regOf(s.prev, q).c;
-      const pf = here ? law : nm("equalTrans") + "(" + MB + ", " + nm("reg") + "(" + s.text + ", " + q + "n), " + nm("reg") + "(" + p.text + ", " + q + "n), Some{" + sh(c) + "}, " + law + ", " + regOf(s.prev, q).pf + ")";
-      const name = fresh("wf" + j + "_" + q);
-      lets.push("+" + name + " : {" + nm("reg") + "(" + s.text + ", " + q + "n) == Some{" + sh(c) + "} : " + MB + "} = " + pf);
+      const pf = here ? law : nm("equalTrans") + "(" + MB + ", " + nm("reg") + "(" + s.text + ", " + q.text + "), " + nm("reg") + "(" + p.text + ", " + q.text + "), Some{" + sh(c) + "}, " + law + ", " + regOf(s.prev, q).pf + ")";
+      const name = fresh("wf" + j + "_" + (q.lit ?? "r"));
+      lets.push("+" + name + " : {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Some{" + sh(c) + "} : " + MB + "} = " + pf);
       out = { c, pf: name };
     }
     regFacts.set(mk, out);
     return out;
   };
-  const push = (j: number, op: "set" | "store", r: number, c: LTerm | null, v: LTerm): number => {
+  const push = (j: number, op: "set" | "store", r: Rg, c: LTerm | null, v: LTerm): number => {
     const name = fresh("ws" + sts.length);
     const p = sts[j]!;
-    const lt = op === "set" ? B.App(B.App(B.App(ref("stSet"), p.lt), B.Lit("Nat", r) as LTerm), v) : B.App(B.App(B.App(B.App(ref("stStore"), p.lt), B.Lit("Nat", r) as LTerm), c!), v);
+    const lt = op === "set" ? B.App(B.App(B.App(ref("stSet"), p.lt), r.term), v) : B.App(B.App(B.App(B.App(ref("stStore"), p.lt), r.term), c!), v);
     const s: St = { text: name, key: "let:" + name, lt, prev: j, op, r, c, v };
     lets.push("+" + name + " : " + nm("cirState") + " = " + nm(op === "set" ? "stSet" : "stStore") + "(" + stepArgs(s, p) + ")");
     sts.push(s);
@@ -260,10 +315,9 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
       switch (shortOf(c.k)) {
         case "Cir.Expr.const": { const n = c.x[0]!; const t = "Some{" + sh(n) + "}"; return { tmpl: () => t, val: B.Ctr<[LTerm]>("Some", [n]), last: rws.length - 1 }; }
         case "Cir.Expr.get": {
-          const q = natOf(c.x[0]!);
-          if (q === null) fail("a read of a register that is not a number: " + sh(c.x[0]!));
-          const f = regOf(j, q!);
-          const orig = nm("reg") + "(" + S + ", " + q + "n)", sub = "Some{" + sh(f.c) + "}";
+          const q = rgOf(c.x[0]!);
+          const f = regOf(j, q);
+          const orig = nm("reg") + "(" + S + ", " + q.text + ")", sub = "Some{" + sh(f.c) + "}";
           rws.push({ orig, sub, eq: nm("equalSym") + "(" + MB + ", " + orig + ", " + sub + ", " + f.pf + ")" });
           return { tmpl: at(rws.length - 1), val: B.Ctr<[LTerm]>("Some", [f.c]), last: rws.length - 1 };
         }
@@ -319,7 +373,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     if (h.$ !== "Ref") return null;
     const sn = shortOf(h.k).replace(/^M\./, "");
     if (/^(set|st|do|if|when|while|halt|c|g|f|add|sub|and|or|shl|shr|eq|ne|lt|le|gt|ge|not)$/.test(sn)) return null;
-    for (const [s2, k] of byShort) if (s2 === sn + ".spec" || s2.endsWith("." + sn + ".spec")) return sh(B.Ref(k) as LTerm);
+    for (const [s2, k] of byShort) if ((s2 === sn + ".spec" || s2.endsWith("." + sn + ".spec")) && k !== g.self && shortOf(k) !== shortOf(g.self ?? "")) return sh(B.Ref(k) as LTerm);
     return null;
   };
 
@@ -377,12 +431,11 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
       }
       case "Cir.Stmt.set": {
         const [rT, e] = st.x as [LTerm, LTerm];
-        const r = natOf(rT);
-        if (r === null) return leaf("a set of a register that is not a number: " + sh(rT));
+        const r = rgOf(rT);
         let ev: { v: LTerm; he: string }, hr: string;
-        try { ev = evalAt(e, j); hr = ltOf(j, r); } catch (x) { if (x instanceof Fail) return leaf("set " + r + " at " + S + ": " + x.why); throw x; }
+        try { ev = evalAt(e, j); hr = ltOf(j, r); } catch (x) { if (x instanceof Fail) return leaf("set " + r.text + " at " + S + ": " + x.why); throw x; }
         const j2 = push(j, "set", r, null, ev.v);
-        return nm("wpSet") + "(" + r + "n, " + sh(e) + ", " + S + ", " + bS + ", " + Kt + ", " + HS + ", " + sh(ev.v) + ", " + ev.he + ", " + hr + ", " + post(k, j2) + ")";
+        return nm("wpSet") + "(" + r.text + ", " + sh(e) + ", " + S + ", " + bS + ", " + Kt + ", " + HS + ", " + sh(ev.v) + ", " + ev.he + ", " + hr + ", " + post(k, j2) + ")";
       }
       case "Cir.Stmt.store": {
         const [kfT, c, e] = st.x as [LTerm, LTerm, LTerm];
@@ -395,7 +448,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
         // is_cell then computes to the same term after sets and stores)
         const hi = cellHyp.get(sts[j]!.key + "|" + (ck ? api.key(ck) : "")) ?? (st0.$ === "Ctr" || dst ? cellHyp.get(sts[0]!.key + "|" + (ck ? api.key(ck) : "")) : undefined);
         if (!hi) return leaf("store " + kf + " at " + S + ": no fact {" + nm("isCell") + "(" + S + ", " + sh(ec.v) + ") == True{}} (" + (j > 0 ? "match st at the start, then the start's fact serves" : "give it") + ")");
-        const j2 = push(j, "store", kf, ec.v, ee.v);
+        const j2 = push(j, "store", rgOf(kfT), ec.v, ee.v);
         return nm("wpStore") + "(" + kf + "n, " + sh(c) + ", " + sh(e) + ", " + S + ", " + bS + ", " + Kt + ", " + HS + ", " + sh(ec.v) + ", " + sh(ee.v) + ", " + ec.he + ", " + ee.he + ", " + hi + ", " + post(k, j2) + ")";
       }
       case "Cir.Stmt.if": {
