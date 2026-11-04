@@ -68,6 +68,15 @@
 //                      ones) in gen2's loaded book, as the file now is; prints each error and a summary
 //                      (exit 2 on an error). With serve: `ask --check`, a few seconds, no bend2
 //                      process and no heavy.sh slot. Not the gate (the kernel stays the judge).
+//       --full-errors  check/prove: print every context entry of an error whole (see OUTPUT: errors)
+//       --find RE      no search: every def of the book whose name matches RE (as the entry writes it),
+//                      its statement in the entry's names, whether it has a body, and file:line (40 at most);
+//                      then the defs that match in .bend files the entry does not import (an import needed)
+//       --lemmas       no search: for each named def's goal (a body that is ?TODO) or each ?TODO in its
+//                      body: the lemmas and hypotheses whose conclusion matches it, with what blocks each;
+//                      the lemmas with the same head that do not match (their conclusions); the equations
+//                      that rewrite a call in the goal. Usable lemmas only (before the def, not open).
+//       --hole N       a body with several ?TODO: work on (or --lemmas for) the N-th only; the others stay
 //       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
 //                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
 //                      over its whole context (true iff the hole is), and the hole a call of it; at most
@@ -172,6 +181,20 @@
 //   subgoals) with ?TODO holes, then for each hole its case path, goal and context (raw and normal
 //   form). A hole inside an applied lemma has the path <case path>#<callee>.<parameter index>.
 // * streaming (--stream): each closed subgoal (its case path and first line) on stderr.
+// * errors (--check, statement errors, failed checks): bend2's Err printed bounded, never with bend2's
+//   err_show (its strong normal form of every type overflowed the stack on machine runs: 107 crashes in
+//   the DeepSeek runs, and a dump that took 15 GB once). A mismatch prints expected and observed as
+//   the checker holds them, then where they differ: the smallest subterms that differ after weak normal
+//   forms, with their path (`left of == > List.get(..4)`: the 4th argument of List.get on the left side);
+//   then the context with its types as stated, a type over 400 chars cut unless it names a variable of
+//   a difference; in --check, a context entry that an earlier error printed is not printed again. Line
+//   numbers are the file's.
+// * a match bend2 cannot elaborate (a computed scrutinee, or a binder matched after a local statement:
+//   a parse error of the whole file): gen2 loads the file with that block as ?TODO (so every other def
+//   still works), and each answer prints the error with a fix: a helper def (its statement is the goal
+//   at the match over its context; a computed scrutinee is a parameter sc with an equation {sc == v},
+//   so the helper holds iff the goal does; its body is the block) and the call that replaces the block,
+//   both checked in gen2's book (the result says which part fails).
 // * statements: the book is not validated, so each def asked for has its statement checked first
 //   (stmtError: "# STATEMENT ERROR", no search), and serve's reload checks every entry def whose
 //   header changed ("[gen2] STATEMENT ERROR in <def>" on stderr).
@@ -198,7 +221,8 @@
 //
 // LIMITS
 // ------
-// * No helper-lemma synthesis (a match on a computed value or an introduced binder needs its own def).
+// * No helper-lemma synthesis in the search (a match on a computed value or an introduced binder needs
+//   its own def; gen2 writes that def only for a match the parser rejects, see OUTPUT).
 // * Splits only in whole-body mode; ?TODO holes inside a body get leaf tactics only.
 // * No lets (`+x = ...`) in output, no congruence tactic beyond rewriting, no templates (~ binders).
 // * Matching is syntactic (after the bounded normal form): a lemma stated in a shape that only
@@ -278,7 +302,7 @@ const argv = process.argv.slice(2);
 const MODE = argv[0], FILE = argv[1], TARGET = argv[2];
 const opt = (k: string, d: string) => { const i = argv.indexOf("--" + k); return i >= 0 ? argv[i + 1] : d; };
 const flag = (k: string) => argv.includes("--" + k);
-let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0;
+let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0, ONLY_HOLE = 0;
 let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false, HELPERS = false, WRITE = false;
 const readOpts = () => {
   BUDGET = +opt("budget", MODE === "serve" ? "1000" : "4000");
@@ -290,7 +314,7 @@ const readOpts = () => {
   DECOMP = !flag("no-decomp");
   HOLE_BUDGET = +opt("hole-budget", String(Math.max(300, BUDGET / 4)));
   PARTIAL = flag("partial"); STREAM = flag("stream"); DEBUG = flag("debug");
-  WRITE = flag("write"); HELPERS = WRITE || flag("helpers");
+  WRITE = flag("write"); HELPERS = WRITE || flag("helpers"); ONLY_HOLE = +opt("hole", "0");
 };
 readOpts();
 const FUEL_NF = 100000;
@@ -301,6 +325,38 @@ const CAPS = [48, 12, 4, 2]; // matched apply candidates tried, by premise level
 const MAX_SPLIT_CANDS = 3;
 const MAX_DECOMP = 2;
 const META = 1 << 20;
+
+// ---- stack ----
+// bend2's checker, normal forms and printer recurse on a term's depth; JSC's default stack (~40k
+// frames, 8 MB on Linux) overflowed on machine-run defs (copy_gives_subst Cp.start, moves_call
+// ref.postb). gen2 runs itself again once with a STACK-byte stack (JSC's limit, and the OS's on
+// Linux): untouched stack costs no memory, and fuel and the deadline still bound every search.
+const STACK = 1 << 30;
+if (MODE !== "ask" && process.env.GEN2_STACK === undefined) {
+  const env = { ...process.env, GEN2_STACK: String(process.pid), BUN_JSC_maxPerThreadStackUsage: String(STACK) };
+  const cmd = process.platform === "win32" ? [process.execPath, ...process.argv.slice(1)]
+    : ["sh", "-c", "ulimit -s " + (STACK >> 10) + " 2>/dev/null; exec \"$@\"", "sh", process.execPath, ...process.argv.slice(1)];
+  const child = Bun.spawn(cmd, { env, stdio: ["inherit", "inherit", "inherit"] });
+  for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(sig, () => child.kill(sig));
+  process.exit(await child.exited);
+}
+// the child stops when its parent is gone (a killed `serve` must not keep the port)
+if (process.env.GEN2_STACK && process.platform !== "win32") {
+  const parent = process.ppid;
+  setInterval(() => { if (process.ppid !== parent) process.exit(1); }, 1000).unref();
+}
+
+// an Err that escapes: its message and place, never Bun's print of the object (it holds the whole book:
+// 300 KB to 15 GB of output)
+const fatal = (e: any) => {
+  const s = e?.spn;
+  console.error("[gen2] " + (e?.$ === "Err" ? "bend2 error: " + (typeof e.exp === "string" ? e.exp : "(a type mismatch)") + (typeof e.obs === "string" ? " (found " + e.obs + ")" : "")
+    + (s?.file?.str ? " at line " + s.file.str.slice(0, s.beg).split("\n").length + (s.file.ns ? " of " + s.file.ns : "") + ": " + s.file.str.split("\n")[s.file.str.slice(0, s.beg).split("\n").length - 1]?.trim().slice(0, 300) : "")
+    : String(e?.stack ?? e).slice(0, 3000)));
+  process.exit(1);
+};
+process.on("uncaughtException", fatal);
+process.on("unhandledRejection", fatal);
 
 // ---- fuel and time ----
 class Stop { constructor(readonly why: string) {} }
@@ -349,19 +405,119 @@ if (entryText.includes("?TODO")) {
     if (proofs.size > 0) autoImports.push({ file: path.join(TOP, name), alias: "Gen2" + path.basename(name, ".bend").replace(/(^|_)([a-z])/g, (_, __, c) => c.toUpperCase()), ns: path.basename(name, ".bend"), proofs });
   }
 }
+const spanFile = (t: any, n = 0): B.File | undefined => {
+  if (!t || n > 50) return undefined;
+  if (t.s?.file) return t.s.file;
+  if (t.$ === "All") return spanFile(t.A, n + 1) ?? spanFile(t.B(B.Var("_", 0)), n + 1);
+  return undefined;
+};
+// a match that bend2 cannot elaborate: bend2 matches only the def's own pending binders, so a match on
+// a computed value, or on a binder after a local statement, needs its own def (the parser's errors
+// below). The block that holds it, in the text the parser read (line indexes = the file's): the
+// statement's lines S..H (`match x:`, or a destructuring `pat = value`), then its block up to E
+// (exclusive): the arms, or the rest of the local's block.
+type Blk = { S: number; H: number; E: number; ind: string; kind: "match" | "local"; scrut: string; pat: string };
+const SCRUT_ERR = /^a parameter or field scrutinee|can't be matched in this position/;
+const DEF_LINE = /^(?:@unsafe\s+)?def\s+([A-Za-z0-9_.]+)\??\(/;
+const brackets = (l: string) => { let b = 0; for (const ch of l.replace(/#.*$/, "")) { if ("([{".includes(ch)) b++; else if (")]}".includes(ch)) b--; } return b; };
+const blockAt = (str: string, beg: number): Blk | null => {
+  const lines = str.split("\n");
+  const L = str.slice(0, beg).split("\n").length - 1;
+  let D = L;
+  while (D >= 0 && !DEF_LINE.test(lines[D])) D--;
+  if (D < 0) return null;
+  const open: number[] = [];
+  for (let i = D, b = 0; i <= L; i++) { open[i] = b; b += brackets(lines[i]); }
+  let S = L;
+  while (S > D && open[S] > 0) S--;
+  if (S === D) return null;
+  let H = S;
+  for (let b = brackets(lines[S]); b > 0 && H + 1 < lines.length; ) b += brackets(lines[++H]);
+  const head = lines.slice(S, H + 1).map((l) => l.replace(/#.*$/, "").trim()).join(" ");
+  const m = /^match\s+(.*):$/.exec(head);
+  const lm = m ? null : /^(.+?)\s+=\s+(.+)$/.exec(head);
+  if (!m && !lm) return null;
+  const ind = /^\s*/.exec(lines[S])![0];
+  let E = H + 1;
+  for (; E < lines.length; E++) {
+    const t = lines[E].trim();
+    if (t === "" || t.startsWith("#")) continue;
+    const li = /^\s*/.exec(lines[E])![0].length;
+    if (m ? li <= ind.length : li < ind.length) break;
+  }
+  while (E > H + 1 && (lines[E - 1].trim() === "" || lines[E - 1].trim().startsWith("#"))) E--;
+  return { S, H, E, ind, kind: m ? "match" : "local", scrut: (m ? m[1] : lm![2]).trim(), pat: m ? "" : lm![1].trim() };
+};
+// text with the block's lines replaced by one hole (the line numbers kept)
+const holeOut = (lines: string[], blk: Blk, hole: string): string[] =>
+  [...lines.slice(0, blk.S), blk.ind + hole, ...Array(blk.E - blk.S - 1).fill(""), ...lines.slice(blk.E)];
+// the entry's parse error of that kind: the book holds the entry with the block as ?TODO, so that every
+// other def still works; each answer prints the error first, with the helper def that fixes it (scrutFix)
+let parseErr: { err: B.Err; blk: Blk } | null = null;
+// parse the entry's text into bk (its imports loaded): on a match error, parse it again with the block as
+// ?TODO and set parseErr; fresh: a book with the imports only (parse_book may have added a part)
+const parseEntry = (bk: B.Book, str: string, al: Record<string, string>, fresh: () => B.Book): B.Book => {
+  parseErr = null;
+  try {
+    B.parse_book(bk, TOP, str, "", al);
+    return bk;
+  } catch (e: any) {
+    const blk = e?.$ === "Err" && e.spn && SCRUT_ERR.test(String(e.exp)) ? blockAt(e.spn.file.str, e.spn.beg) : null;
+    if (!blk) throw e;
+    const nb = fresh();
+    B.parse_book(nb, TOP, holeOut(str.split("\n"), blk, "?TODO").join("\n"), "", al);
+    parseErr = { err: e, blk };
+    return nb;
+  }
+};
 const book = B.book_nil();
 const seen = new Map<string, string | null>();
 for (const imp of autoImports) await B.book_load(book, imp.file, imp.ns, seen, undefined, TOP);
-const N0 = await B.book_load(book, entry, "", seen, undefined, TOP); // the entry's first entry in book order
+let validErr: unknown = null;
+// the entry's imports first (as book_load reads them; a local path or Base), so that a parse error in the
+// entry can drop exactly what the entry added (its parse registers every name before the bodies)
+const preload = async () => {
+  for (const line of entryText.split("\n")) {
+    const l = line.trim();
+    if (l === "" || l.startsWith("#")) continue;
+    if (!/^import(\s|$)/.test(l)) return;
+    const m = /^import\s+(\S+)(?:\s+as\s+[A-Za-z_]\w*)?\s*(?:#.*)?$/.exec(l);
+    if (!m || (m[1] !== "Base" && (!m[1].endsWith(".bend") || /^0x|@/.test(m[1])))) return;
+    if (m[1] === "Base") { await B.book_load(book, B.BASE_BEND, "", seen); continue; }
+    const got = fs.realpathSync(path.resolve(TOP, m[1]));
+    await B.book_load(book, got, path.posix.relative(TOP, got).replace(/\.bend$/, ""), seen, undefined, TOP);
+  }
+};
+const N0 = await (async () => {
+  await preload();
+  const n0 = book.order.length, tlds = { ...book.tlds }, ctrs = { ...book.ctrs };
+  try {
+    return await B.book_load(book, entry, "", seen, undefined, TOP); // the entry's first entry in book order
+  } catch (e: any) {
+    // a match error in the entry (its Parse holds the text and aliases): parse it again with the block
+    // as ?TODO, on the book as it was before the entry
+    const p = e?.$ === "Err" ? (e.spn?.file as B.Parse | undefined) : undefined;
+    const blk = p && "book" in p && SCRUT_ERR.test(String(e.exp)) ? blockAt(p.str, e.spn.beg) : null;
+    if (!blk) throw e;
+    book.tlds = Object.assign(Object.create(null), tlds);
+    book.ctrs = Object.assign(Object.create(null), ctrs);
+    book.order.length = n0;
+    B.parse_book(book, TOP, holeOut(p!.str.split("\n"), blk, "?TODO").join("\n"), "", p!.al);
+    parseErr = { err: e, blk };
+    return n0;
+  }
+})().catch((e: any) => {
+  // the book cannot load: print bend2's error bounded (Bun's own print of an Err dumps the whole book)
+  const f = e?.spn?.file;
+  const line = e?.spn && f?.str ? f.str.slice(0, e.spn.beg).split("\n").length : 0;
+  console.error("[gen2] cannot load " + FILE + ": " + (typeof e?.exp === "string" ? e.exp : "error") + (typeof e?.obs === "string" ? " (found " + e.obs + ")" : "") + (line ? "\n  at line " + line + (f.ns ? " of " + f.ns : "") + ": " + f.str.split("\n")[line - 1].trim().slice(0, 300) : ""));
+  if (e?.$ !== "Err") console.error(String(e?.stack ?? e).slice(0, 2000));
+  process.exit(1);
+});
 const tLoad = performance.now();
 if (STREAM) console.error("[gen2] loaded book in " + Math.round(tLoad) + " ms");
 if (flag("validate-book")) {
-  try {
-    B.book_valid(book, N0);
-  } catch (e: any) {
-    console.error(e?.$ === "Err" ? B.err_show(e) : e);
-    process.exit(1);
-  }
+  try { B.book_valid(book, N0); } catch (e) { validErr = e; }
 }
 const tValid = performance.now();
 if (STREAM) console.error("[gen2] " + (flag("validate-book") ? "validated book in " + Math.round(tValid - tLoad) + " ms" : "skipped whole-book validation"));
@@ -390,14 +546,16 @@ const linesOf = (file: string) => {
 const defLine = (file: string, name: string) => {
   let defs = defLines.get(file);
   if (!defs) {
+    // exact names first, then the names less their first segment (D.alloc.post as alloc.post) only
+    // where no def has that exact name (and.nf.st must not hide nf.st)
     defs = new Map();
+    const found: [string, number][] = [];
     linesOf(file).forEach((line, i) => {
       const m = /^(?:@unsafe\s+)?def\s+([A-Za-z0-9_.]+)\??\(/.exec(line);
-      if (!m) return;
-      if (!defs!.has(m[1])) defs!.set(m[1], i);
-      const suffix = m[1].slice(m[1].indexOf(".") + 1);
-      if (!defs!.has(suffix)) defs!.set(suffix, i);
+      if (m) found.push([m[1], i]);
     });
+    for (const [nm, i] of found) if (!defs.has(nm)) defs.set(nm, i);
+    for (const [nm, i] of found) { const sf = nm.slice(nm.indexOf(".") + 1); if (!defs.has(sf)) defs.set(sf, i); }
     defLines.set(file, defs);
   }
   return defs.get(name) ?? -1;
@@ -438,12 +596,6 @@ const defSrc = (k: string): Src | null => {
   return res;
 };
 
-const spanFile = (t: any, n = 0): B.File | undefined => {
-  if (!t || n > 50) return undefined;
-  if (t.s?.file) return t.s.file;
-  if (t.$ === "All") return spanFile(t.A, n + 1) ?? spanFile(t.B(B.Var("_", 0)), n + 1);
-  return undefined;
-};
 const sourceFiles = new Map<string, B.File>();
 for (const k of book.order) {
   const t = RAW[k];
@@ -479,7 +631,7 @@ const isOpen = (k: string) => {
 
 // the error of k's statement (bend2's term_check of its type, as book_valid does), or null if it checks;
 // the book is loaded without validation, so a new helper's ill-typed statement would only show as a miss
-const stmtError = (k: string): string | null => {
+const stmtError = (k: string, shown?: Set<string>): string | null => {
   const t = RAW[k];
   if (t?.$ !== "Def") return null;
   const old = fuel;
@@ -488,20 +640,23 @@ const stmtError = (k: string): string | null => {
     B.term_check(book, { t: B.Ref(k), n: 0, def: k, qs: [], u: t.u }, t.T, B.None(), B.Typ(B.Qua(B.Lone())), B.ctx_nil(), 0);
     return null;
   } catch (e: any) {
-    return e === OOF ? null : (e?.$ === "Err" ? B.err_show(e) : String(e)).slice(0, 1500);
+    return e === OOF ? null : errText(e, flag("full-errors"), shown);
   } finally { fuel = old; }
 };
 
+// the file line of the first line of a text that checkDef parsed (errors show file line numbers)
+const lineBase = new WeakMap<object, number>();
 // checks <def> with the body text <body> (a def body, indented); throws bend2's Err on failure
-const checkDef = (k: string, body: string) => {
-  const ds = defSrc(k)!;
+// (header, file: of a def that is in no file yet, as scrutFix's helper)
+const checkDef = (k: string, body: string, header = defSrc(k)!.header, file = sourceFiles.get(k)!) => {
   const def = RAW[k] as B.Def;
-  const file = sourceFiles.get(k)!;
-  const str = ds.header + "\n" + body + "\n";
-  const p: B.Parse = { book, dir: path.dirname(ds.file) + "/", str, pos: str.indexOf("(") + 1, stk: [], frs: 0, ns: file.ns, al: file.al };
+  const str = header + "\n" + body + "\n";
+  const p: B.Parse = { book, dir: path.dirname(defSrc(k)?.file ?? entry) + "/", str, pos: str.indexOf("(") + 1, stk: [], frs: 0, ns: file.ns, al: file.al };
+  const ds = defSrc(k);
+  if (ds && header === ds.header) lineBase.set(p, ds.bodyLine - header.split("\n").length);
   const hols = book.hols;
   const tele = B.parse_tele(p, ")");
-  p.pos = ds.header.length;
+  p.pos = header.length;
   const vars = tele.map((c): B.PVar => ({ $: "PVar", k: c[1], i: c[2], q: B.Lone(), s: c[4] }));
   const v = B.term_higher(B.term_lower(B.term_higher(B.body_flatten(B.parse_body(p), vars, () => p.frs++))));
   B.parse_skip(p);
@@ -683,6 +838,160 @@ const nfArg = (x: HTerm, d: number, b: { n: number }): LTerm => {
   return nfGo(x, d, b);
 };
 const nf = (h: HTerm, d: number): LTerm => canon(nfGo(h, d, { n: NF_NODES }));
+
+// ---- errors ----
+// bend2's err_show prints every type in strong normal form (term_snf: unbounded, and a tree walk of
+// shared cells), which overflowed the stack on machine runs and buried a mismatch under walls of
+// Cr.Cir.eval terms. errText prints the same Err bounded: each term lowered with a node budget (the
+// rest is "…"); for a mismatch, first the smallest subterms where expected and observed differ after
+// weak normal forms, as term_compare walks them (each with its path); then the context, its types as
+// stated (no normal form), a long one elided unless it names a variable of a difference.
+const ERR_NODES = 400, CTX_CHARS = 400, MAX_DIFFS = 4;
+const ELL = B.Ref("…") as LTerm;
+const lowerCut = (h: HTerm, d: number, b: { n: number }): LTerm => {
+  if (--b.n < 0) return ELL;
+  const t = B.term_strip(h);
+  const go = (x: HTerm, dd = d) => lowerCut(x, dd, b);
+  switch (t.$) {
+    case "All": { const x = B.Var(t.k, d); return B.All<LTerm>(t.q, t.k, d, go(t.A), go(t.B(x), d + 1)); }
+    case "Lam": { const x = B.Var(t.k, d); return B.Lam<LTerm>(t.k, d, go(t.f(x), d + 1), undefined, t.q); }
+    case "App": { const [f, xs] = B.term_unapply(t); return xs.reduce<LTerm>((r, x) => B.App(r, go(x)), go(f)); }
+    case "ADT": return B.ADT(t.k, t.x.map((x) => go(x)), undefined, t.r);
+    case "Ctr": return B.Ctr<[LTerm]>(t.k, t.x.map((x) => go(x)));
+    case "Eql": return B.Eql(go(t.a), go(t.b), go(t.T));
+    case "Typ": return B.Typ(go(t.g));
+    case "Mat": return B.Mat(t.k, go(t.h), go(t.m));
+    case "Rwt": return B.Rwt(go(t.e), go(t.p), go(t.f));
+    case "Let": case "Sub": return ELL;
+    default: return t as LTerm;
+  }
+};
+const clipTo = (s: string, n: number) => (s.length > n ? s.slice(0, n) + " … [" + (s.length - n) + " more chars]" : s);
+// t (at depth d, its variables named by names) printed within ERR_NODES nodes; never throws
+const showCut = (t: HTerm, d: number, names: string[], file: B.File | undefined, nodes = ERR_NODES): string => {
+  try {
+    return B.term_show(lowerCut(t, d, { n: nodes }), -1, names.slice(), file);
+  } catch (e: any) {
+    return "<not printable: " + String(e?.message ?? e).slice(0, 80) + ">";
+  }
+};
+// the subterms where a and b differ (at most MAX_DIFFS): both in weak normal form; a pair of the same
+// shape (constructor, stuck call of the same def, equation, type, binder) is entered, an equal pair
+// (term_compare) skipped; a pair that differs at its head is a difference
+type Diff = { path: string[]; a0: HTerm; b0: HTerm; a: HTerm; b: HTerm; d: number; names: string[] };
+const diffsOf = (a0: HTerm, b0: HTerm, d: number, names: string[], path: string[], out: Diff[], top = false): void => {
+  if (out.length >= MAX_DIFFS || path.length > 200) return;
+  if (!top && attempt(FUEL_NF, () => B.term_compare("EQ", book, a0, b0, d)) === true) return;
+  let a = wnf(a0) ?? B.term_strip(a0), b = wnf(b0) ?? B.term_strip(b0);
+  if (a.$ === "Lit" && b.$ === "Ctr") a = B.lit_step(a);
+  if (b.$ === "Lit" && a.$ === "Ctr") b = B.lit_step(b);
+  const n0 = out.length;
+  const sub = (x: HTerm, y: HTerm, step: string, dd = d, nn = names) => diffsOf(x, y, dd, nn, [...path, step], out);
+  if (a.$ === "Lam" && b.$ === "Lam") {
+    const x = B.Var(a.k, d);
+    sub(a.f(x), b.f(x), "fun " + a.k, d + 1, [...names, a.k]);
+  } else if (a.$ === "Ctr" && b.$ === "Ctr" && a.k === b.k && a.x.length === b.x.length) {
+    a.x.forEach((x, i) => sub(x, b.x[i], shortOf(a.k) + "{.." + (i + 1) + "}"));
+  } else if (a.$ === "ADT" && b.$ === "ADT" && a.k === b.k && a.x.length === b.x.length) {
+    a.x.forEach((x, i) => sub(x, b.x[i], shortOf(a.k) + "<.." + (i + 1) + ">"));
+  } else if (a.$ === "Eql" && b.$ === "Eql") {
+    sub(a.a, b.a, "left of =="); sub(a.b, b.b, "right of =="); sub(a.T, b.T, "type of ==");
+  } else if (a.$ === "All" && b.$ === "All" && a.q.$ === b.q.$) {
+    const x = B.Var(a.k, d);
+    sub(a.A, b.A, "type of " + a.k); sub(a.B(x), b.B(x), "after " + a.k, d + 1, [...names, a.k]);
+  } else if (a.$ === "App" && b.$ === "App") {
+    const [fa, xa] = B.term_unapply(a), [fb, xb] = B.term_unapply(b);
+    const ha = B.term_strip(fa), hb = B.term_strip(fb);
+    if (ha.$ === "Ref" && hb.$ === "Ref" && ha.k === hb.k && xa.length === xb.length) xa.forEach((x, i) => sub(x, xb[i], shortOf(ha.k) + "(.." + (i + 1) + ")"));
+  }
+  if (out.length === n0) out.push({ path, a0, b0, a, b, d, names });
+};
+// the variables named in t (lowered at depth d): a context entry that names one of a difference's
+// variables is kept whole
+const varsOf = (t: LTerm, names: string[], out: Set<string>) => {
+  const st: LTerm[] = [t];
+  while (st.length) {
+    const x = st.pop()!;
+    switch (x.$) {
+      case "Var": if (x.i >= 0 && x.i < names.length) out.add(names[x.i]); break;
+      case "App": st.push(x.f, x.x); break;
+      case "Ctr": case "ADT": st.push(...x.x); break;
+      case "Eql": st.push(x.a, x.b, x.T); break;
+      case "All": st.push(x.A, x.B as LTerm); break;
+      case "Lam": st.push(x.f as LTerm); break;
+    }
+  }
+};
+const errLocation = (err: B.Err): string => {
+  const def = err.def === undefined ? "" : " " + B.name_show(err.spn?.file, err.def);
+  if (err.spn === undefined) return def === "" ? "" : "\nLocation:" + def;
+  const str = err.spn.file.str;
+  const lns = str.split("\n");
+  const pre = str.slice(0, err.spn.beg).split("\n");
+  const at = pre.length, beg = Math.max(1, at - 1), end = Math.min(lns.length, at + 1), base = lineBase.get(err.spn.file) ?? 0, num = String(end + base).length;
+  const lft = pre[at - 1];
+  const car = " ".repeat(num) + " | " + lft.replace(/[^\t]/g, " ") + "^".repeat(Math.max(1, Math.min(err.spn.end - err.spn.beg, lns[at - 1].length - lft.length, 300 - lft.length)));
+  const other = !lineBase.has(err.spn.file) && err.spn.file.ns ? " (in " + err.spn.file.ns + ".bend)" : "";
+  return "\nLocation:" + def + other + "\n" + lns.slice(beg - 1, end).map((l, j) => String(base + beg + j).padStart(num) + (beg + j === at ? ">| " + clipTo(l, 300) + "\n" + car : " | " + clipTo(l, 300))).join("\n");
+};
+// bend2's Err as text, bounded (see above); full: no elision of context entries (still bounded)
+const errText = (e: any, full = flag("full-errors"), shown?: Set<string>): string => {
+  if (e?.$ !== "Err") return e === OOF ? "out of fuel (" + FUEL_FINAL + " def lookups): not decided" : String(e?.stack ?? e?.message ?? e).slice(0, 1500);
+  const err = e as B.Err;
+  const file = err.spn?.file;
+  const anns = B.pmap_to_array(err.ctx).sort((x, y) => x[0] - y[0]);
+  const names = B.ctx_scope(err.ctx);
+  const d = names.length;
+  const old = fuel;
+  fuel = Infinity;
+  try {
+    const out: string[] = ["Error:"];
+    const keep = new Set<string>();
+    if (err.obs === undefined || typeof err.exp === "string" || typeof err.obs === "string" || err.obs.$ === "Hol") {
+      const ex = (x: B.Expr) => (typeof x === "string" ? x : showCut(x, d, names, file));
+      out.push(err.obs === undefined ? "- message  : " + ex(err.exp)
+        : typeof err.obs !== "string" && err.obs.$ === "Hol" ? "- goal of ?" + err.obs.k + " : " + ex(err.exp)
+        : "- expected : " + ex(err.exp) + "\n- observed : " + ex(err.obs));
+    } else {
+      const ds: Diff[] = [];
+      diffsOf(err.exp, err.obs, d, names, [], ds, true);
+      out.push("- expected : " + clipTo(showCut(err.exp, d, names, file), 1200), "- observed : " + clipTo(showCut(err.obs, d, names, file), 1200));
+      if (ds.length !== 1 || ds[0]!.path.length > 0) out.push("- where they differ (" + ds.length + (ds.length >= MAX_DIFFS ? "+" : "") + "; each side in weak normal form, its arguments as the checker holds them):");
+      if (ds.length !== 1 || ds[0]!.path.length > 0) ds.forEach((x, i) => {
+        const at = x.path.length ? x.path.join(" > ") : "(the whole type)";
+        const ea = attempt(FUEL_NF, () => nf(x.a, x.d)), ob = attempt(FUEL_NF, () => nf(x.b, x.d));
+        for (const t of [ea, ob]) if (t) varsOf(t, x.names, keep);
+        // as the checker holds it (Mc.M.redex), then its normal form if that reads differently
+        const sh = (t: LTerm | undefined, h0: HTerm, h: HTerm) => {
+          const raw = clipTo(showCut(h0, x.d, x.names, file), 800);
+          const n = clipTo(t && size(t, ERR_NODES + 1) <= ERR_NODES ? B.term_show(t, -1, x.names.slice(), file) : showCut(h, x.d, x.names, file), 800);
+          return n === raw ? raw : raw + "\n                = " + n;
+        };
+        out.push("  " + (i + 1) + ". at " + at + "\n     expected : " + sh(ea, x.a0, x.a) + "\n     observed : " + sh(ob, x.b0, x.b));
+      });
+    }
+    if (anns.length) out.push("Context (types as stated" + (full ? "" : "; a type over " + CTX_CHARS + " chars that names no variable of a difference is cut; --full-errors shows all") + "):");
+    // consecutive binders of one type share a line (r4 .. r62 : U32)
+    const rows: [string[], string][] = [];
+    for (const [i, a] of anns) {
+      const T = showCut(a.T, i, names.slice(0, i), file, full ? 20000 : 2000);
+      const long = !full && T.length > CTX_CHARS && ![...keep].some((v) => v !== a.k && new RegExp("(^|[^\\w.])" + v.replace(/[.$]/g, "\\$&") + "($|[^\\w.])").test(T));
+      const shown = long ? T.slice(0, 160) + " … [cut: " + T.length + " chars]" : clipTo(T, full ? 20000 : 4000);
+      const last = rows[rows.length - 1];
+      if (last && last[1] === shown && !full) last[0].push(a.k);
+      else rows.push([[a.k], shown]);
+    }
+    const label = (ks: string[]) => (ks.length > 4 ? ks[0] + ", " + ks[1] + ", …, " + ks[ks.length - 1] + " (" + ks.length + ")" : ks.join(", "));
+    const wid = Math.max(0, ...rows.map(([ks]) => Math.min(24, label(ks).length)));
+    // shown: context lines printed by an earlier error of the same --check (printed once)
+    let same = 0;
+    for (const [ks, T] of rows) { const id = label(ks) + " : " + T; if (shown?.has(id)) same++; else { shown?.add(id); out.push("- " + label(ks).padEnd(wid) + " : " + T); } }
+    if (same) out.push("- (and " + same + " entries as in an error above)");
+    return out.join("\n") + errLocation(err) + (err.nte ? "\n" + err.nte : "");
+  } catch (x: any) {
+    return "Error: " + (typeof err.exp === "string" ? err.exp : "(gen2 could not print it: " + String(x?.message ?? x).slice(0, 100) + ")") + errLocation(err);
+  } finally { fuel = old; }
+};
 // program stepping: a closed call (no variable: Sh.body, Wk.body(Sh.part)) in the goal's spine (depth
 // 1-3, through equation sides) unfolded ONE step to its head constructor (Cr.Cir.Stmt.seq{a, b}),
 // so that the statement lemmas (Ok.seq, X.set, X.if1, ..) match it; the goal converts to the result,
@@ -869,59 +1178,68 @@ const openMeta = (T: HTerm, n: number, sol: (HTerm | null)[] = []): { doms: { q:
 };
 const preds = new Map<string, Lemma[]>();
 let tIndex = 0;
+// what one def gives the index, memoized by its TLD object: serve's reload keeps the imports' objects,
+// so only the entry's defs are indexed again (the lookups of the ~5000 imported defs cost most of a reload)
+type IdxOf = { keys: string[]; wild: boolean; rw: [string, 0 | 1][]; pred: string | null };
+const idxMemo = new WeakMap<B.TLD, IdxOf>();
+const indexOf = (t: B.TLD): IdxOf => {
+  let r = idxMemo.get(t);
+  if (r) return r;
+  r = { keys: [], wild: false, rw: [], pred: null };
+  idxMemo.set(t, r);
+  if (t.$ !== "Def" || t.x > 0) return r;
+  if (!(t.v === null && t.b !== true) && !t.i) {
+    const o = attempt(20000, () => openMeta(t.T, t.n));
+    const c = o && attempt(20000, () => lower(o.concl, 0));
+    if (o && c) {
+      const hk = headKey(c);
+      if (hk === "*") r.wild = t.n <= 4;
+      else if (hk !== "V" && hk !== "Typ") {
+        r.keys.push(hk);
+        // also by the head of the conclusion's normal form (Le(a, b) is T(..) once unfolded)
+        if (t.n > 0) {
+          const cn = attempt(20000, () => nf(o.concl, 0));
+          const nk = cn ? headKey(cn) : "*";
+          if (nk !== hk && nk !== "*" && nk !== "V" && nk !== "E|*" && nk !== "E|V") r.keys.push(nk);
+        }
+        if (c.$ === "Eql") {
+          for (const side of [0, 1] as const) {
+            const sk = headKey(side === 0 ? c.a : c.b);
+            if (sk.startsWith("R:") || (t.n === 0 && (sk.startsWith("C:") || sk.startsWith("A:")))) r.rw.push([sk, side]);
+          }
+        }
+      }
+    }
+  }
+  // a predicate on one datatype (P: T -> Type), to discriminate two constructors (`%e : P(_); Unit{}`)
+  if (t.v !== null && t.n === 1) {
+    const s0 = B.term_strip(t.T);
+    if (s0.$ === "All") {
+      const w = attempt(20000, () => wnf(s0.B(B.Var("_", 0))));
+      if (w && w.$ === "Typ") r.pred = attempt(20000, () => key(lower(s0.A, 0))) ?? null;
+    }
+  }
+  return r;
+};
 const buildIndex = () => {
-const tIndex0 = performance.now();
-applyIndex.clear(); rwIndex.clear(); wild.length = 0; preds.clear();
-for (const k of Object.keys(RAW)) {
-  const t = RAW[k];
-  if (t.$ !== "Def" || (t.v === null && t.b !== true) || t.x > 0 || t.i || isOpen(k)) continue;
-  const L: Lemma = { k, order: ORDER.get(k) ?? -1, n: t.n };
-  const o = attempt(20000, () => openMeta(t.T, t.n));
-  if (!o) continue;
-  const c = attempt(20000, () => lower(o.concl, 0));
-  if (!c) continue;
-  const hk = headKey(c);
-  if (hk === "*") { if (t.n <= 4) wild.push(L); continue; }
-  if (hk === "V" || hk === "Typ") continue;
-  if (!applyIndex.has(hk)) applyIndex.set(hk, []);
-  applyIndex.get(hk)!.push(L);
-  // also by the head of the conclusion's normal form (Le(a, b) is T(..) once unfolded)
-  if (t.n > 0) {
-    const cn = attempt(20000, () => nf(o.concl, 0));
-    const nk = cn ? headKey(cn) : "*";
-    if (nk !== hk && nk !== "*" && nk !== "V" && nk !== "E|*" && nk !== "E|V") {
-      if (!applyIndex.has(nk)) applyIndex.set(nk, []);
-      applyIndex.get(nk)!.push(L);
-    }
+  const tIndex0 = performance.now();
+  applyIndex.clear(); rwIndex.clear(); wild.length = 0; preds.clear();
+  const add = <V>(m: Map<string, V[]>, k: string, v: V) => { let a = m.get(k); if (!a) m.set(k, a = []); a.push(v); };
+  for (const k of Object.keys(RAW)) {
+    const t = RAW[k];
+    if (!t || t.$ !== "Def" || isOpen(k)) continue;
+    const r = indexOf(t);
+    const L: Lemma = { k, order: ORDER.get(k) ?? -1, n: t.n };
+    if (r.wild) wild.push(L);
+    for (const hk of r.keys) add(applyIndex, hk, L);
+    for (const [sk, side] of r.rw) add(rwIndex, sk, { L, side });
+    if (r.pred !== null) add(preds, r.pred, { k, order: L.order, n: 1 });
   }
-  if (c.$ === "Eql") {
-    for (const side of [0, 1] as const) {
-      const s = side === 0 ? c.a : c.b;
-      const sk = headKey(s);
-      if (!sk.startsWith("R:") && !(t.n === 0 && (sk.startsWith("C:") || sk.startsWith("A:")))) continue;
-      if (!rwIndex.has(sk)) rwIndex.set(sk, []);
-      rwIndex.get(sk)!.push({ L, side });
-    }
-  }
-}
-// predicates on one datatype (P: T -> Type), to discriminate two constructors (`%e : P(_); Unit{}`)
-for (const k of Object.keys(RAW)) {
-  const t = RAW[k];
-  if (t.$ !== "Def" || t.v === null || t.n !== 1 || t.x > 0 || isOpen(k)) continue;
-  const s0 = B.term_strip(t.T);
-  if (s0.$ !== "All") continue;
-  const r = attempt(20000, () => wnf(s0.B(B.Var("_", 0))));
-  if (!r || r.$ !== "Typ") continue;
-  const pk = attempt(20000, () => key(lower(s0.A, 0)));
-  if (!pk) continue;
-  if (!preds.has(pk)) preds.set(pk, []);
-  preds.get(pk)!.push({ k, order: ORDER.get(k) ?? -1, n: 1 });
-}
-for (const v of preds.values()) v.sort((a, b) => b.order - a.order);
-for (const m of [applyIndex]) for (const v of m.values()) v.sort((a, b) => b.order - a.order);
-for (const v of rwIndex.values()) v.sort((a, b) => b.L.order - a.L.order);
-wild.sort((a, b) => b.order - a.order);
-tIndex = performance.now() - tIndex0;
+  for (const v of preds.values()) v.sort((a, b) => b.order - a.order);
+  for (const v of applyIndex.values()) v.sort((a, b) => b.order - a.order);
+  for (const v of rwIndex.values()) v.sort((a, b) => b.L.order - a.L.order);
+  wild.sort((a, b) => b.order - a.order);
+  tIndex = performance.now() - tIndex0;
 };
 buildIndex();
 if (STREAM) console.error("[gen2] indexed book in " + Math.round(tIndex) + " ms");
@@ -1773,7 +2091,7 @@ const bestStep = (g: Goal, anc: Set<string> = new Set()): Pf | null => {
       if (hs.some((h) => (attempt(FUEL_NF, () => goalKeys(h)) ?? [gk]).some((k) => k === gk || anc.has(k) || own.has(k)))) { if (process.env.GEN2_TRACE) console.error("[trace]   restates the goal"); return false; }
       const s = callText(c, a.args.map((x) => (x === HOLE ? "?TODO" : x)));
       if (!tryText(g, s)) {
-        if (process.env.GEN2_TRACE) { try { B.term_check(book, g.lhs, parseFrag(s, g), g.qt, g.ty, g.ctx, g.d); } catch (e: any) { console.error("[trace] bestStep " + c.text + " rejected: " + (e?.$ === "Err" ? B.err_show(e) : String(e)).slice(0, 600)); } }
+        if (process.env.GEN2_TRACE) { try { B.term_check(book, g.lhs, parseFrag(s, g), g.qt, g.ty, g.ctx, g.d); } catch (e: any) { console.error("[trace] bestStep " + c.text + " rejected: " + errText(e).slice(0, 600)); } }
         return false;
       }
       const sz = hs.reduce((acc, h) => acc + (attempt(FUEL_NF, () => size(lower(h.ty, h.d))) ?? 99), 0);
@@ -1919,21 +2237,42 @@ const issueText = (g: Goal, is: Issue): string =>
   : is.kind === "part" ? "premise " + is.name + ": a part of a hypothesis fits (x below): " + is.text
   : is.kind === "open" ? "premise " + is.name + " open: " + clip(is.text)
   : "parameter " + is.name + " fixed by neither the goal nor a hypothesis (give it)";
+// the candidates whose conclusion matches the goal, each with what blocks it (at most max)
+const matchLines = (g: Goal, targets: LTerm[], cands: Callee[], max: number): string[] => {
+  const out: string[] = [];
+  for (const c of cands) {
+    if (out.length >= max) break;
+    const sols = conclSols(g, c, targets);
+    if (sols.length === 0) continue;
+    const is = issuesOf(g, c, sols[0]);
+    out.push(c.text + (c.kind === "hyp" ? " (hypothesis)" : "") + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed (more --budget may close it)" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")));
+  }
+  return out;
+};
+// usable lemmas indexed under the goal's head that do not match it (a different argument shape), with
+// their conclusions (at most max; names in skip are left out)
+const nearMisses = (g: Goal, targets: LTerm[], skip: Set<string>, max: number): string[] => {
+  const out: string[] = [];
+  for (const t of targets) {
+    for (const L of applyIndex.get(headKey(t)) ?? []) {
+      const nm = B.name_show(job.file, L.k);
+      if (out.length >= max || skip.has(nm) || L.order >= job.order || L.k === job.k) continue;
+      skip.add(nm);
+      out.push(nm + " : " + conclOf(L.k));
+    }
+  }
+  return out;
+};
 const diagnose = (g: Goal, until: number): string => {
-  const lines: string[] = [];
+  const lines: string[] = [], near: string[] = [];
   const d0 = deadline;
   deadline = until;
   try {
     const targets = targetsOf(g);
-    for (const c of [...hypCallees(g), ...rankedLemmas(g, targets)].slice(0, 16)) {
-      if (lines.length >= 4) break;
-      const sols = conclSols(g, c, targets);
-      if (sols.length === 0) continue;
-      const is = issuesOf(g, c, sols[0]);
-      lines.push("#   " + c.text + ": " + (is.length === 0 ? "every premise is a hypothesis or fixed (more --budget may close it)" : is.slice(0, 3).map((x) => issueText(g, x)).join("; ")));
-    }
+    lines.push(...matchLines(g, targets, [...hypCallees(g), ...rankedLemmas(g, targets)].slice(0, 16), 4).map((l) => "#   " + l));
+    if (lines.length === 0) near.push(...nearMisses(g, targets, new Set(), 3).map((l) => "#   " + l));
   } catch (e) { if (e !== TIMEOUT) throw e; } finally { deadline = d0; }
-  return lines.length ? "# why: lemmas whose conclusion matches the goal, and what blocks each\n" + lines.join("\n") : "# why: no lemma's conclusion matches the goal (as stated or in normal form): it needs a new lemma or a split";
+  return lines.length ? "# why: lemmas whose conclusion matches the goal, and what blocks each\n" + lines.join("\n") : "# why: no lemma's conclusion matches the goal (as stated or in normal form): it needs a new lemma or a split" + (near.length ? "; lemmas with its head that do not match (compare the arguments):\n" + near.join("\n") : "");
 };
 // whole-body mode: the first clash of the best lemmas names a root parameter and a constructor;
 // split there, and decompose the arm that the lemma wants with a full budget (the others: leaf only)
@@ -2041,12 +2380,12 @@ const helperDef = (g: Goal): { params: string; goal: string; args: string } | nu
   const goal = attempt(FUEL_NF, () => show(lower(g.ty, g.d), names));
   return goal === undefined ? null : { params: ps.join(",\n"), goal, args: names.join(", ") };
 };
-const helperName = (k: string, used: Set<string>): string => {
+const helperName = (k: string, used: Set<string>, sfx = "h"): string => {
   const base = shortOf(k);
   const txt = fileText(defSrc(k)!.file);
   const taken = new Set(Object.keys(RAW).map(shortOf));
   for (let i = 1; ; i++) {
-    const nm = base + ".h" + i;
+    const nm = base + "." + sfx + i;
     if (!used.has(nm) && !taken.has(nm) && !txt.includes("def " + nm + "(")) { used.add(nm); return nm; }
   }
 };
@@ -2061,6 +2400,124 @@ const helperize = (k: string, p: Pf, used: Set<string>): { pf: Pf; defs: string[
     return { pf: tm(nm + "(" + h.args + ")"), holes: 0, closed: 0 };
   }, { holes: 0, closed: 0 });
   return { pf, defs };
+};
+// ---- a match bend2 cannot elaborate, as its own def (parseErr) ----
+// The helper's statement is the goal at the match (bend2's goal of a hole put in place of the block,
+// over its whole context). A computed scrutinee v becomes a parameter sc with an equation hsc: {sc == v}
+// (so the helper holds iff the goal does), and v is generalized to sc in the goal and in the later
+// context types; the helper's body is the block with sc matched. A binder scrutinee (a match after a
+// local statement) stays the parameter it is. gen2 checks the helper's statement, its body and the call
+// in the loaded book before it prints them, and says which of them fail.
+const maxVar = (t: LTerm): number => {
+  let m = -1;
+  const st: LTerm[] = [t];
+  while (st.length) {
+    const x = st.pop()!;
+    switch (x.$) {
+      case "Var": if (x.i < META) m = Math.max(m, x.i); break;
+      case "App": st.push(x.f, x.x); break;
+      case "Ctr": case "ADT": st.push(...x.x); break;
+      case "Eql": st.push(x.a, x.b, x.T); break;
+      case "All": st.push(x.A, x.B as LTerm); break;
+      case "Lam": st.push(x.f as LTerm); break;
+    }
+  }
+  return m;
+};
+// text with every whole occurrence of expression e (not inside a longer name) replaced by x
+const replaceExpr = (text: string, e: string, x: string): string => {
+  if (e === "") return text;
+  let out = "", i = 0;
+  for (let j = text.indexOf(e); j >= 0; j = text.indexOf(e, i)) {
+    const before = j > 0 ? text[j - 1] : " ", after = text[j + e.length] ?? " ";
+    const ok = !/[\w.]/.test(before) && !(/[\w.]$/.test(e) && /[\w.(]/.test(after));
+    out += text.slice(i, j) + (ok ? x : e);
+    i = j + e.length;
+  }
+  return out + text.slice(i);
+};
+const scrutFix = (pe: { err: B.Err; blk: Blk }): string => {
+  const { blk } = pe;
+  const lines = linesOf(entry);
+  const k = defOfLine(blk.S) ?? "";
+  const ds = k ? defSrc(k) : null;
+  if (!ds) return "# no helper: the def at line " + (blk.S + 1) + " is not in the loaded book";
+  const bl = ds.body.split("\n");
+  const off = blk.S - ds.bodyLine, end = blk.E - ds.bodyLine;
+  if (off < 0 || end > bl.length) return "# no helper: the match is not inside the body of " + k;
+  const inBody = (hole: string) => holeOut(bl, { ...blk, S: off, E: end }, hole).join("\n");
+  const old = fuel;
+  fuel = FUEL_FINAL;
+  try {
+    job = newJob(k);
+    let err: any = null;
+    try { checkDef(k, inBody("?gen2hole")); } catch (e) { err = e; }
+    const g = holeGoal(k, err, "match");
+    if (!g) return "# no helper: bend2 stops before the match: " + (err ? errText(err) : "no error");
+    const names = g.names.slice(0, g.d);
+    if (new Set(names).size !== names.length || names.some((x) => x === "_" || x === "")) return "# no helper: the context at the match has repeated or anonymous binders (" + names.join(", ") + "); name them";
+    const used = new Set(names);
+    const hn = helperName(k, new Set(), "m");
+    // the block's lines re-indented to the helper's body (the block's own indentation -> 2 spaces)
+    const re = (ls: string[]) => ls.map((l) => (l.startsWith(blk.ind) ? "  " + l.slice(blk.ind.length) : l.trim() === "" ? "" : "  " + l.trim()));
+    const rest = re(lines.slice(blk.H + 1, blk.E));
+    const isVar = blk.kind === "match" && used.has(blk.scrut);
+    const pshow = (i: number) => B.quant_show(ann(g, i)!.q) + names[i] + ": " + show(lower(ann(g, i)!.T, i), names.slice(0, i));
+    let params: string[], body: string[], callArgs: string[], goal = show(lower(g.ty, g.d), names);
+    if (isVar) {
+      params = names.map((_, i) => pshow(i));
+      body = re(lines.slice(blk.S, blk.E));
+      callArgs = names;
+    } else {
+      // a plain binder (`+x = v`) keeps its name as the parameter; a pattern or a match gets sc
+      const plain = blk.kind === "local" && /^[+-]?[A-Za-z_]\w*$/.test(blk.pat) ? blk.pat.replace(/^[+-]/, "") : null;
+      let sc = plain ?? "sc";
+      for (let i = 2; used.has(sc) || reserved(sc); i++) sc = (plain ?? "sc") + i;
+      let hsc = "h" + sc;
+      for (let i = 2; used.has(hsc) || reserved(hsc); i++) hsc = "h" + sc + i;
+      let v: HTerm, T: HTerm;
+      try {
+        v = parseFrag(blk.scrut, g);
+        T = B.term_infer(book, g.lhs, v, B.None(), g.ctx, g.d).ty;
+      } catch (e) { return "# no helper: the scrutinee " + blk.scrut + " does not check at the match:\n" + errText(e); }
+      const vl = lower(v, g.d), Tl = lower(T, g.d);
+      const vs = show(vl, names), Ts = show(Tl, names);
+      const p = Math.max(maxVar(vl), maxVar(Tl)) + 1;
+      const gen = (t: string) => replaceExpr(replaceExpr(t, blk.scrut, sc), vs, sc);
+      params = names.map((_, i) => (i < p ? pshow(i) : gen(pshow(i))));
+      params.splice(p, 0, (isData(g, T) ? "+" : "") + sc + ": " + Ts, hsc + ": {" + sc + " == " + vs + " : " + Ts + "}");
+      goal = gen(goal);
+      body = blk.kind === "match" ? ["  match " + sc + ":", ...rest] : plain ? rest : ["  " + blk.pat + " = " + sc, ...rest];
+      callArgs = [...names.slice(0, p), blk.scrut, "{==}", ...names.slice(p)];
+    }
+    const head = "def " + hn + "(\n" + params.map((x) => "  " + x).join(",\n") + ") ->\n  " + goal + ":";
+    const hbody = body.join("\n");
+    const call = hn + "(" + callArgs.join(", ") + ")";
+    // check it in the loaded book: the helper's statement, its body, and k with the call
+    const file = sourceFiles.get(k)!;
+    const n0 = book.order.length;
+    const verdict: string[] = [];
+    try {
+      B.parse_book(book, TOP, head + "\n  ?TODO\n", file.ns, file.al);
+      const hk = book.order[n0] ?? hn;
+      const se = stmtError(hk);
+      if (se) verdict.push("its statement does NOT check:\n" + se);
+      else {
+        try { checkDef(hk, hbody, head, file); verdict.push("its statement and body check"); } catch (e) { verdict.push("its statement checks, its body does NOT:\n" + errText(e)); }
+        try { checkDef(k, inBody(call)); verdict.push(shortOf(k) + " with the call checks"); } catch (e) { verdict.push(shortOf(k) + " with the call does NOT check:\n" + errText(e)); }
+      }
+    } catch (e) {
+      verdict.push("gen2 could not check it: " + errText(e));
+    } finally {
+      for (const x of book.order.slice(n0)) delete RAW[x];
+      book.order.length = n0;
+    }
+    const what = blk.kind === "match" ? "match" : "destructuring";
+    return "# FIX: give the " + what + " of " + blk.scrut + " its own def. gen2 checked it in its book: " + verdict.join("; ") + "\n" +
+      "# 1. paste above `def " + shortOf(k) + "(`" + (isVar ? "" : " (the scrutinee is a parameter, with an equation: the helper holds iff the goal at the " + what + " does)") + ":\n" +
+      "# the " + what + " of " + shortOf(k) + " (line " + (blk.S + 1) + "), as its own def\n" + head + "\n" + hbody + "\n" +
+      "# 2. replace lines " + (blk.S + 1) + "-" + blk.E + " (the " + what + (blk.kind === "match" ? " and its arms" : " and the rest of its block") + ") with:\n" + blk.ind + call + "\n";
+  } finally { fuel = old; }
 };
 // put body as k's body and defs above k's def (and its comment) in k's file; the file must still hold
 // the body gen2 read
@@ -2159,7 +2616,7 @@ const proveDef = (k: string, budget: number): Outcome => {
     const ok = attempt(FUEL_FINAL, () => { checkDef(k, text); return true; });
     if (ok) return { ok: true, text, partial: null, holes: 0, closed: 0, ms: performance.now() - t0, tags };
     if (DEBUG) {
-      try { checkDef(k, text); } catch (e: any) { console.error("[gen2] final check failed for " + k + ":\n" + text + "\n" + (e?.$ === "Err" ? B.err_show(e) : e)); }
+      try { checkDef(k, text); } catch (e: any) { console.error("[gen2] final check failed for " + k + ":\n" + text + "\n" + errText(e)); }
     }
     why = "final check";
   }
@@ -2188,6 +2645,26 @@ const proveDef = (k: string, budget: number): Outcome => {
   return { ok: false, text: null, partial, partialBody, hints, helpers, holes: best?.holes ?? 1, closed: best?.closed ?? 0, ms, tags, why };
 };
 
+// the goal of the hole ?gen2hole from bend2's error at it (null: the error is elsewhere, e.g. a
+// mismatch before the hole, which must not be read as its goal)
+const holeGoal = (k: string, err: any, path: string): Goal | null => {
+  if (!err || err.$ !== "Err" || typeof err.exp === "string" || err.obs?.$ !== "Hol" || err.obs.k !== "gen2hole") return null;
+  const arr = B.pmap_to_array(err.ctx as B.Ctx).sort((a, b) => a[0] - b[0]);
+  const d = arr.length ? arr[arr.length - 1][0] + 1 : 0;
+  const names: string[] = [];
+  let env: B.Env = null;
+  let ckey = "";
+  for (let i = 0; i < d; i++) {
+    const a = B.pmap_get(err.ctx as B.Ctx, i);
+    names.push(a?.k ?? "_");
+    env = B.list_set(env, i, B.Var(a?.k ?? "_", i));
+    ckey += "|" + (a ? a.q.$[0] + a.k + ":" + (attempt(FUEL_NF, () => key(lower(a.T, i))) ?? "?") : "_");
+  }
+  return {
+    ctx: err.ctx, d, ty: err.exp, lhs: { t: B.Ref(k), n: 0, def: k, qs: [], u: true }, qt: B.Lone(), env, names, ckey,
+    pend: 0, pnames: [], pmany: [], split: true, path, lvl: 0, hc: new Map(),
+  };
+};
 // prove the ?TODO holes of k's body, one by one (leaf tactics)
 type HoleRes = { hole: number; ok: boolean; ms: number; text: string; partial?: string };
 const proveHoles = (k: string, budget: number, log = true): { body: string; n: number; done: number; res: HoleRes[]; helpers: string[] } => {
@@ -2198,6 +2675,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
   let done = 0, gone = 0; // gone: holes no longer ?TODO in body (filled, or a helper's call)
   const helpers: string[] = [], used = new Set<string>();
   for (let h = 0; h < n; h++) {
+    if (ONLY_HOLE > 0 && h + 1 !== ONLY_HOLE) continue; // --hole N: that hole only (the others stay ?TODO)
     // find the next ?TODO not yet filled: mark it, read its goal from bend2's error
     let idx = -1;
     for (let c = 0, from = 0; c <= h - gone; c++) { idx = body.indexOf("?TODO", from); from = idx + 1; }
@@ -2206,28 +2684,13 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
     job.ih = true;
     let err: any = null;
     try { checkDef(k, marked); } catch (e) { err = e; }
-    if (!err || err.$ !== "Err" || typeof err.exp === "string") {
-      const why = "no goal (" + (err ? (err.$ === "Err" ? B.err_show(err) : String(err)) : "checked") + ")";
+    const g = holeGoal(k, err, "hole" + (h + 1));
+    if (!g) {
+      const why = "no goal (" + (err ? errText(err) : "checked") + ")";
       if (log) console.error("[gen2] hole " + (h + 1) + ": " + why);
       res.push({ hole: h + 1, ok: false, ms: 0, text: why });
       continue;
     }
-    const arr = B.pmap_to_array(err.ctx as B.Ctx).sort((a, b) => a[0] - b[0]);
-    const d = arr.length ? arr[arr.length - 1][0] + 1 : 0;
-    const names: string[] = [];
-    let env: B.Env = null;
-    let ckey = "";
-    for (let i = 0; i < d; i++) {
-      const a = B.pmap_get(err.ctx as B.Ctx, i);
-      names.push(a?.k ?? "_");
-      env = B.list_set(env, i, B.Var(a?.k ?? "_", i));
-      ckey += "|" + (a ? a.q.$[0] + a.k + ":" + (attempt(FUEL_NF, () => key(lower(a.T, i))) ?? "?") : "_");
-    }
-    const def = RAW[k] as B.Def;
-    const g: Goal = {
-      ctx: err.ctx, d, ty: err.exp, lhs: { t: B.Ref(k), n: 0, def: k, qs: [], u: true }, qt: B.Lone(), env, names, ckey,
-      pend: 0, pnames: [], pmany: [], split: true, path: "hole" + (h + 1), lvl: 0, hc: new Map(),
-    };
     const t0 = performance.now();
     deadline = t0 + budget;
     let pf: Pf | null = null;
@@ -2285,7 +2748,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
     if (log) console.error("[gen2] hole " + (h + 1) + ": filled (" + ms + " ms)");
     res.push({ hole: h + 1, ok: true, ms: +ms, text });
   }
-  return { body, n, done, res, helpers };
+  return { body, n: ONLY_HOLE > 0 ? Math.min(1, n) : n, done, res, helpers };
 };
 
 // ---- bench ----
@@ -2400,7 +2863,7 @@ const batch = () => {
           let err: any = null;
           try { checkDef(k, o.partialBody); } catch (e) { err = e; }
           if (!err || (err.$ === "Err" && typeof err.exp !== "string")) newBody.set(k, o.partialBody);
-          else report.push("== " + shortOf(k) + ": partial skeleton failed the expected open-hole check: " + (err?.$ === "Err" ? B.err_show(err).slice(0, 500) : String(err)));
+          else report.push("== " + shortOf(k) + ": partial skeleton failed the expected open-hole check: " + errText(err).slice(0, 2000));
         }
         report.push("== " + shortOf(k) + " (" + where + "): OPEN (" + Math.round(o.ms) + " ms)\n" + (o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "(no partial)"));
       }
@@ -2446,6 +2909,141 @@ const batch = () => {
   console.log(head + "\nreport: " + path.join(dir, "report.txt") + "\npatch:  " + path.join(dir, "gen2.patch") + (flag("partial-patch") ? " (may contain open ?TODO goals)" : "") + " (apply from the repository root: git apply)");
 };
 
+// ---- queries: no search, answers from the loaded book (instead of grep over the files) ----
+// --find RE: every def whose name (as the entry writes it, or its key) matches RE: its statement (in
+// the entry's names), whether it is proven, and where it is. --lemmas: for the def's goal (a body that
+// is ?TODO) or each ?TODO in its body, the lemmas and hypotheses whose conclusion matches the goal
+// (as stated, stepped, or in normal form), each with what still blocks it; then the lemmas that share
+// the goal's head but do not match, and the equations that can rewrite a call in the goal.
+const MAX_FOUND = 40;
+const statusOf = (k: string): string => {
+  const t = RAW[k];
+  if (t?.$ === "ADT") return "type";
+  if (t?.$ !== "Def") return "?";
+  if (t.v === null) return t.b ? "Base, no body" : "law: no body (a claim)";
+  if (isOpen(k)) return "OPEN: has ?TODO";
+  return t.b ? "Base" : "has a body";
+};
+const whereOf = (k: string): string => {
+  const ds = defSrc(k);
+  if (!ds) return nsOf(k) ? nsOf(k) + ".bend" : RAW[k]?.$ === "Def" && (RAW[k] as B.Def).b ? "base.bend" : "?";
+  return path.relative(TOP, ds.file) + ":" + (defLine(ds.file, shortOf(k)) + 1);
+};
+const statementOf = (k: string, n = 600): string => {
+  const t = RAW[k];
+  if (!t) return "?";
+  return clipTo(attempt(FUEL_NF, () => show(lower(t.T, 0), [])) ?? "?", n);
+};
+// k's conclusion over its parameters' names (a long parameter list is noise in a list of candidates)
+const conclOf = (k: string, n = 300): string => {
+  const t = RAW[k];
+  if (t?.$ !== "Def") return statementOf(k, n);
+  return clipTo(attempt(FUEL_NF, () => {
+    const names: string[] = [];
+    let T: HTerm = t.T;
+    for (let j = 0; j < t.n; j++) { const s = B.term_strip(T); if (s.$ !== "All") break; names.push(s.k); T = s.B(B.Var(s.k, j)); }
+    return "(" + names.length + " params) ... -> " + show(lower(T, names.length), names);
+  }) ?? "?", n);
+};
+const runFind = (src: string) => {
+  let re: RegExp;
+  try { re = new RegExp(src); } catch (e: any) { console.log("# --find: not a regular expression: " + src); throw new Exit(1); }
+  const hits: string[] = [];
+  for (const k of new Set(book.order)) {
+    if (k.includes("~") || !RAW[k]) continue;
+    if (re.test(B.name_show(job.file, k)) || re.test(k)) hits.push(k);
+  }
+  // the entry's own defs first, then its imports (latest first), Base last
+  const rank = (k: string) => ((ORDER.get(k) ?? 0) >= N0 ? 0 : (RAW[k] as B.Def).b ? 2 : 1);
+  hits.sort((a, b) => rank(a) - rank(b) || (ORDER.get(b) ?? 0) - (ORDER.get(a) ?? 0));
+  console.log("# --find " + src + ": " + hits.length + " defs" + (hits.length > MAX_FOUND ? " (the first " + MAX_FOUND + "; narrow the expression)" : ""));
+  for (const k of hits.slice(0, MAX_FOUND)) console.log(B.name_show(job.file, k) + "  [" + statusOf(k) + "; " + whereOf(k) + "]\n  : " + statementOf(k, 1500));
+  if (hits.length === 0) console.log("# (names match as the entry writes them, with an import's alias: U13.fs.zero; or as keys: moves_match:fs.zero)");
+  // defs that match in .bend files the entry does not load (the entry's folder and its parent's): usable
+  // only after an import, which the file's owner decides
+  const loaded = new Set([...seen.keys()]);
+  const out: string[] = [];
+  const walk = (dir: string, depth: number) => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const f = path.join(dir, ent.name);
+      if (ent.isDirectory() && depth > 0) walk(f, depth - 1);
+      if (!ent.isFile() || !ent.name.endsWith(".bend") || loaded.has(fs.realpathSync(f))) continue;
+      fileText(f).split("\n").forEach((l, i) => {
+        const m = DEF_LINE.exec(l);
+        if (m && out.length < 12 && re.test(m[1])) out.push("  " + m[1] + "  [" + path.relative(TOP, f) + ":" + (i + 1) + "]");
+      });
+    }
+  };
+  try { walk(path.resolve(TOP, ".."), 1); } catch (e) { /* an unreadable folder: no hint */ }
+  if (out.length) console.log("# also in files the entry does not import (not usable without an import):\n" + out.join("\n"));
+};
+// the goals of k: its whole goal (parameters introduced) if its body is ?TODO, else each ?TODO's
+const goalsOf = (k: string): { label: string; g: Goal }[] => {
+  const ds = defSrc(k)!;
+  if (ds.body.trim() === "?TODO") { job = newJob(k); const g = introAll(rootGoal(k)); return g ? [{ label: "the goal of " + shortOf(k), g }] : []; }
+  const out: { label: string; g: Goal }[] = [];
+  const n = (ds.body.match(/\?TODO/g) ?? []).length;
+  for (let h = 0, from = 0; h < n; h++) {
+    const idx = ds.body.indexOf("?TODO", from);
+    from = idx + 1;
+    if (ONLY_HOLE > 0 && h + 1 !== ONLY_HOLE) continue;
+    job = newJob(k);
+    let err: any = null;
+    try { checkDef(k, ds.body.slice(0, idx) + "?gen2hole" + ds.body.slice(idx + 5)); } catch (e) { err = e; }
+    const g = holeGoal(k, err, "hole" + (h + 1));
+    const line = ds.bodyLine + ds.body.slice(0, idx).split("\n").length;
+    out.push(...(g ? [{ label: "?TODO " + (h + 1) + " (line " + line + ")", g }] : []));
+    if (!g) console.log("# ?TODO " + (h + 1) + " (line " + line + "): no goal: bend2 stops before it:\n" + (err ? errText(err) : "no error"));
+  }
+  return out;
+};
+const runLemmas = (k: string) => {
+  const old = fuel;
+  fuel = FUEL_FINAL;
+  try {
+    for (const { label, g } of goalsOf(k)) {
+      console.log("# " + label + ": " + clipTo(attempt(FUEL_NF, () => show(lower(g.ty, g.d), g.names)) ?? "?", 600));
+      const until = performance.now() + Math.max(500, BUDGET);
+      const d0 = deadline;
+      deadline = until;
+      const lines: string[] = [];
+      const near: string[] = [];
+      try {
+        const targets = targetsOf(g);
+        lines.push(...matchLines(g, targets, [...hypCallees(g), ...rankedLemmas(g, targets)], 12).map((l) => "  " + l));
+        near.push(...nearMisses(g, targets, new Set(lines.map((l) => l.trim().split(/[ :]/)[0]!)), 8).map((l) => "  " + l));
+      } catch (e) { if (e !== TIMEOUT) throw e; } finally { deadline = d0; }
+      // equations that rewrite a call that the goal (as stated, or its normal form) contains
+      const rws: string[] = [];
+      const heads = new Set<string>();
+      for (const t of [lower(g.ty, g.d), attempt(FUEL_NF, () => nf(g.ty, g.d))]) if (t) { const m = new Map<string, LTerm>(); subterms(t, m); for (const s of m.values()) { const hk = headKey(s); if (hk.startsWith("R:")) heads.add(hk); } }
+      for (const hk of heads) for (const { L, side } of rwIndex.get(hk) ?? []) {
+        if (rws.length >= 8 || L.order >= job.order || L.k === job.k) continue;
+        rws.push("  " + B.name_show(job.file, L.k) + " (" + (side === 0 ? "left to right" : "right to left") + ") : " + conclOf(L.k));
+      }
+      console.log(lines.length ? "# conclusion matches (" + lines.length + "; usable before " + shortOf(k) + "):\n" + lines.join("\n") : "# no lemma or hypothesis's conclusion matches it (as stated, stepped or in normal form)");
+      if (near.length) console.log("# same head, no match (compare the arguments):\n" + near.join("\n"));
+      if (rws.length) console.log("# equations on a call in the goal:\n" + rws.join("\n"));
+    }
+  } finally { fuel = old; }
+};
+
+// the def whose body holds line i of the entry (its key in the book)
+const defOfLine = (i: number): string | null => {
+  const lines = linesOf(entry);
+  while (i >= 0 && !DEF_LINE.test(lines[i])) i--;
+  if (i < 0) return null;
+  const nm = DEF_LINE.exec(lines[i])![1];
+  return [...new Set(book.order.slice(N0))].find((k) => RAW[k]?.$ === "Def" && defSrc(k) && defLine(entry, shortOf(k)) === i && (k === nm || shortOf(k) === nm || nm.endsWith("." + shortOf(k)))) ?? null;
+};
+// the entry's parse error with its fix (computed once per parse)
+let parseFixed: { pe: object; text: string } | null = null;
+const parseReport = (): string => {
+  if (!parseErr) return "";
+  if (parseFixed?.pe !== parseErr) parseFixed = { pe: parseErr, text: errText(parseErr.err) + "\n" + scrutFix(parseErr) };
+  return "bend2 rejects the file (gen2 holds it with this block as ?TODO, so its other defs still work):\n" + parseFixed.text;
+};
+
 // ---- check: bend2's def check of the entry's defs in the loaded book (no bend2 process, no slot) ----
 // each def (or each named one): its statement (stmtError), then its body as the file has it
 // (checkDef); a ?TODO is counted, not an error (as bend2 --check-only). Not the gate: the kernel is.
@@ -2453,21 +3051,33 @@ const runCheck = (names: string[]) => {
   const own = [...new Set(book.order.slice(N0))].filter((k) => RAW[k]?.$ === "Def" && !k.includes("~"));
   const pick = names.length ? own.filter((k) => names.some((nm) => k === nm || shortOf(k) === nm || shortOf(k).endsWith("." + nm) || ("D." + shortOf(k)) === nm)) : own;
   let n = 0, bad = 0, todo = 0;
+  const shownCtx = new Set<string>();
   const t0 = performance.now();
+  const pk = parseErr && defOfLine(parseErr.blk.S);
   for (const k of pick) {
     const ds = defSrc(k);
     if (!ds) continue;
     n++;
     todo += (ds.body.match(/\?TODO/g) ?? []).length;
-    job = newJob(k);
-    let err = nsOf(k) === "" ? stmtError(k) : null;
-    if (!err) {
-      const old = fuel;
-      fuel = FUEL_FINAL;
-      try { checkDef(k, ds.body); } catch (e: any) { err = e === OOF ? "out of fuel (" + FUEL_FINAL + " def lookups): not decided" : (e?.$ === "Err" ? B.err_show(e) : String(e?.stack ?? e)).slice(0, 1500); } finally { fuel = old; }
-    } else err = "statement: " + err;
+    let err: string | null = null;
+    if (k === pk) err = parseReport();
+    else {
+      try {
+        job = newJob(k);
+        err = nsOf(k) === "" ? stmtError(k, shownCtx) : null;
+        if (!err) {
+          const old = fuel;
+          fuel = FUEL_FINAL;
+          try { checkDef(k, ds.body); } catch (e: any) { err = errText(e, flag("full-errors"), shownCtx); } finally { fuel = old; }
+        } else err = "statement: " + err;
+      } catch (e: any) {
+        // gen2's own failure on this def (not bend2's verdict): an error, and the check goes on
+        err = "gen2 could not check it: " + errText(e);
+      }
+    }
     if (err) { bad++; console.log("# ERROR in " + shortOf(k) + ":\n" + err); }
   }
+  if (parseErr && !pick.includes(pk ?? "")) { bad++; console.log("# ERROR in " + path.basename(entry) + ":\n" + parseReport()); }
   console.log("# check " + path.basename(entry) + ": " + n + " defs, " + bad + " with errors, " + todo + " ?TODO (" + Math.round(performance.now() - t0) + " ms; bend2's checker in gen2's book; the gate stays the judge)");
   if (bad) throw new Exit(2);
 };
@@ -2477,8 +3087,14 @@ class Exit { constructor(readonly code: number) {} }
 const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
-  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write", "--check"].includes(xs[i - 1])));
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh", "--helpers", "--write", "--check", "--lemmas", "--full-errors"].includes(xs[i - 1])));
   if (flag("check")) { runCheck(names); return; }
+  if (argv.includes("--find")) {
+    job = newJob(book.order.slice(N0).find((k) => RAW[k]?.$ === "Def" && sourceFiles.has(k)) ?? book.order[book.order.length - 1]!);
+    runFind(opt("find", ""));
+    return;
+  }
+  if (parseErr) console.error("[gen2] " + path.basename(entry) + ": " + parseReport());
   const entryDefs = new Set(book.order.slice(N0));
   const own = (x: string) => entryDefs.has(x) && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
   const ks: string[] = [];
@@ -2497,8 +3113,9 @@ const runProve = () => {
     for (const k of book.order) if (own(k) && re.test(shortOf(k)) && !ks.includes(k) && defSrc(k)?.body.trim() === "?TODO") ks.push(k);
   }
   if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
+  if (flag("lemmas")) { for (const k of ks) { if (ks.length > 1) console.log("# " + shortOf(k)); runLemmas(k); } return; }
   let failed = 0;
-  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS].join(",");
+  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS, ONLY_HOLE].join(",");
   for (const k of ks) {
     const ds = defSrc(k);
     if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }
@@ -2574,17 +3191,20 @@ const reloadEntry = (): string | null => {
   const own = new Set(book.order.slice(N0));
   const oldHdr = new Map<string, string | undefined>();
   for (const k of own) oldHdr.set(k, defSrc(k)?.header);
-  const nb = B.book_nil();
-  for (const k of Object.keys(RAW)) if (!own.has(k) && !k.includes("~")) nb.tlds[k] = RAW[k];
   // an imported law that the entry fills (def D.alloc.post(..)) was filled in place and its key is in
   // the entry's order too: give the parser the law again, unfilled, or the fill is a duplicate name
   const imported = new Set(book.order.slice(0, N0));
-  for (const k of own) { const t = RAW[k]; if ((imported.has(k) || nsOf(k) !== "") && t?.$ === "Def") nb.tlds[k] = { ...t, v: null }; }
   const ownCtrs = new Set<string>();
   for (const k of own) { const t = RAW[k]; if (t?.$ === "ADT") for (const c of t.c) ownCtrs.add(c.k); }
-  for (const c of Object.keys(book.ctrs)) if (!ownCtrs.has(c)) nb.ctrs[c] = book.ctrs[c];
-  nb.order = book.order.slice(0, N0);
-  B.parse_book(nb, path.dirname(entry) + "/", lines.join("\n"), "", entryAl);
+  const fresh = () => {
+    const nb = B.book_nil();
+    for (const k of Object.keys(RAW)) if (!own.has(k) && !k.includes("~")) nb.tlds[k] = RAW[k];
+    for (const k of own) { const t = RAW[k]; if ((imported.has(k) || nsOf(k) !== "") && t?.$ === "Def") nb.tlds[k] = { ...t, v: null }; }
+    for (const c of Object.keys(book.ctrs)) if (!ownCtrs.has(c)) nb.ctrs[c] = book.ctrs[c];
+    nb.order = book.order.slice(0, N0);
+    return nb;
+  };
+  const nb = parseEntry(fresh(), lines.join("\n"), entryAl, fresh);
   if (flag("validate-book")) B.book_valid(nb, N0);
   for (const k of Object.keys(RAW)) delete RAW[k];
   Object.assign(RAW, nb.tlds);
@@ -2634,7 +3254,7 @@ const serve = () => {
         runProve();
       } catch (e: any) {
         if (e instanceof Exit) code = e.code;
-        else { code = 1; err.push("[gen2] " + (e?.$ === "Err" ? B.err_show(e) : String(e?.stack ?? e))); entryMtime = 0; }
+        else { code = 1; err.push("[gen2] " + errText(e)); entryMtime = 0; }
       } finally {
         console.log = ol; console.error = oe;
         deadline = Infinity;
@@ -2647,6 +3267,7 @@ const serve = () => {
 };
 
 // ---- main ----
+if (validErr) { console.error(errText(validErr)); process.exit(1); }
 if (MODE === "bench") {
   bench();
 } else if (MODE === "batch") {
