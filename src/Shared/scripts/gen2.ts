@@ -52,10 +52,11 @@
 //       --rw N         max rewrites in a chain (default 4)
 //       --beam N       rewrite candidates explored per goal (default 4)
 //       --fuel N       def lookups allowed per single check (default 300000)
+//       --validate-book  validate the target file before searching (may fail on existing open claims)
 //       --partial      on failure, print the best partial proof (holes with goals)
 //       --no-decomp    do not decompose open subgoals (see DESIGN)
 //       --hole-budget MS  budget of each open subgoal in the decomposition (default budget/4, >= 300)
-//       --stream       print each closed subgoal to stderr as it is found
+//       --stream       print startup timings and each closed subgoal to stderr
 //       --only RE      bench: only defs whose name matches RE;  --max N: at most N defs
 //       --json FILE    bench: write per-def results as JSON
 //       --debug        print internal errors and failed final checks
