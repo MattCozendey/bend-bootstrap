@@ -13,6 +13,7 @@ import ../../../Shared/shared.bend as Sd
 import ../../../Book/impl.bend as Bk
 import ../../../Eval/impl.bend as El
 import ../../../Program/impl.bend as Pg
+import ../../../Wasm/impl.bend as Wa
 import ../../Cir/impl.bend as Cr
 import ../impl.bend as Mc
 import ../shared.bend as K
