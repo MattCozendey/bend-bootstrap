@@ -2656,7 +2656,7 @@ const proveDef = (k: string, budget: number): Outcome => {
   let full: Pf | null = null;
   let why = "", stalled = false;
   lastWin = t0;
-  stallWindow = Math.max(300, budget / 2);
+  stallWindow = Math.max(300, budget * 0.6);
   try {
     // a cost level that meets no goal the earlier levels did not meet (the memos do not grow) means the
     // search space is exhausted: deeper levels repeat it, so the search stops early (no progress possible)
