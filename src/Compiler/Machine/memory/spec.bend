@@ -97,6 +97,29 @@ def Budget(+x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS) -> Nat:
 def Peak(+ds: List<&2, Bk.Def>, +C: Nat, +S: Nat) -> Nat:
   Nat.add(C, Nat.add(16n, Nat.add(Nat.mul(3n, S), Nat.mul(3n, Defs.big(ds)))))
 
+# Cir.result's checks before the program, past the first: the alloc of the
+# input's len bytes gives pages
+def Start.pg(r: Maybe<&2, U32>) -> Bool:
+  match r:
+    case Some{_}:
+      True{}
+    case None{}:
+      False{}
+
+def Start.len(r: Maybe<&2, U32>, +k: U32, +p: U32, +lim: U32) -> Bool:
+  match r:
+    case Some{+len}:
+      Start.pg(Cr.Cir.alloc.pages(k, len, p, lim))
+    case None{}:
+      False{}
+
+# Cir.result finds room for the image's cells and the input in m pages: it
+# runs the program, not out of memory before it
+def Start.ok(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32) -> Bool:
+  +k = Cr.Wasm.encode.len(Cr.Cir.Cell, cells)
+  +p = Cr.Cir.pages(Cr.Cir.input.at(k))
+  U32.is_le(p, m) && Start.len(Wa.Wasm.length32(i), k, p, Wa.Wasm.min(m, 65536))
+
 # a halt 0 of the outcome o has its output in the memory, as the host checks
 def Fits.halt(o: Cr.Cir.Out) -> Bool:
   match o:
@@ -233,6 +256,18 @@ law need.lim:
   for +hs: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool}
   for +big: {Nat.is_le(Pg.Program.need(p, i, n), Pg.Program.memory(m)) == True{} : Bool}
   {Nat.is_le(Pg.Program.need(p, i, n), Lg.Lim(I.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i))) == True{} : Bool}
+
+# LAW: with the memory F, Cir.result finds room for the image and the input
+# (memory_bound.bend's start.need at 4ebef88, and the input's length)
+law start.ok:
+  for +p: List<&2, Word(8n)>
+  for +ds: List<&2, Bk.Def>
+  for +i: List<&2, Word(8n)>
+  for +m: U32
+  for +n: Nat
+  for +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>}
+  for +big: {Nat.is_le(Pg.Program.need(p, i, n), Pg.Program.memory(m)) == True{} : Bool}
+  {Start.ok(Mc.Img.cells(ds), i, m) == True{} : Bool}
 
 # LAW: a run of Mach.code from Cir.result's start that halts with 0 has its
 # output in the memory

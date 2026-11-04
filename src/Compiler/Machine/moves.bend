@@ -948,3 +948,464 @@ def asm.mem(kk: Nat, b: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: 
                 (%es : {Pg.Program.result(ds, C.CSteps(q, ds, _)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; e), hjk2,
                 asm.mem.next(p, ds, i, k, pg, lim, first, n, o, c, jj, 1n+q, f0, st, s, u, 1n+jj, s2, rd, he, hjk, hs, iv, er,
                   asm.mem.stp(ds, i, jj, s, s2, es, ht)), j2))
+
+# Cir.result's start
+# ------------------
+
+# Cir.result's values make Start hold
+def asm.start(+cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32, +p: U32, +lim: U32,
+  +ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  +em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  +elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  +el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
+  +er: {Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim) == Some{p} : Maybe<&2, U32>}) ->
+  {I.Start(cells, i, m, k, len, p, lim, Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len))) == True{} : Bool}:
+  +c1 = U32.is_eq(k, Cr.Wasm.encode.len(Cr.Cir.Cell, cells))
+  +c2 = U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m)
+  +c3 = U32.is_eq(lim, Wa.Wasm.min(m, 65536))
+  +c4 = I.Mb.is(Wa.Wasm.length32(i), len)
+  +c5 = I.Mb.is(Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim), p)
+  +h1 = {(%ek : {U32.is_eq(k, _) == True{} : Bool}; SB.U32.is_eq.refl(k)) : {c1 == True{} : Bool}}
+  +h3 = {(%elim : {U32.is_eq(lim, _) == True{} : Bool}; SB.U32.is_eq.refl(lim)) : {c3 == True{} : Bool}}
+  +h4 = {(%Equal.sym(Maybe<&2, U32>, Wa.Wasm.length32(i), Some{len}, el) : {I.Mb.is(_, len) == True{} : Bool}; SB.U32.is_eq.refl(len)) : {c4 == True{} : Bool}}
+  +h5 = {(%Equal.sym(Maybe<&2, U32>, Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim), Some{p}, er) :
+    {I.Mb.is(_, p) == True{} : Bool}; SB.U32.is_eq.refl(p)) : {c5 == True{} : Bool}}
+  K.bool.and_i(Bool.and(Bool.and(Bool.and(Bool.and(c1, c2), c3), c4), c5),
+    U32.is_eq(Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)), Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len))),
+    K.bool.and_i(Bool.and(Bool.and(Bool.and(c1, c2), c3), c4), c5,
+      K.bool.and_i(Bool.and(Bool.and(c1, c2), c3), c4, K.bool.and_i(Bool.and(c1, c2), c3, K.bool.and_i(c1, c2, h1, em), h3), h4), h5),
+    SB.U32.is_eq.refl(Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len))))
+
+def asm.res.alloced(r: Maybe<&2, U32>, fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +len: U32, +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
+  er: {Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim) == r : Maybe<&2, U32>},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    P(Cr.Cir.ended(Cr.Cir.exec(fuel, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  P(Cr.Cir.result.alloced(r, fuel, prog, regs, cells, k, U32.add(Cr.Cir.input.at(k), len), lim, i)):
+  match r:
+    case None{}:
+      po
+    case Some{+p}:
+      g(k, len, p, lim, Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)), asm.start(cells, i, m, k, len, p, lim, ek, em, elim, el, er))
+
+def asm.res.sized(nl: Maybe<&2, U32>, fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  el: {Wa.Wasm.length32(i) == nl : Maybe<&2, U32>},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    P(Cr.Cir.ended(Cr.Cir.exec(fuel, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  P(Cr.Cir.result.sized(nl, fuel, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)):
+  match nl:
+    case None{}:
+      po
+    case Some{+len}:
+      asm.res.alloced(Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim), fuel, prog, regs, cells, k, len, lim, i, m,
+        P, po, ek, em, elim, el, {==}, g)
+
+def asm.res.memory(ok: Bool, fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == ok : Bool},
+  elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    P(Cr.Cir.ended(Cr.Cir.exec(fuel, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  P(Cr.Cir.result.memory(ok, fuel, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)):
+  match ok:
+    case False{}:
+      po
+    case True{}:
+      asm.res.sized(Wa.Wasm.length32(i), fuel, prog, regs, cells, k, lim, i, m, P, po, ek, em, elim, {==}, g)
+
+# what holds of every run from the start, and of out of memory, holds of
+# Cir.result
+def asm.res.on(fuel: Nat, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32,
+  -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    P(Cr.Cir.ended(Cr.Cir.exec(fuel, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  P(Cr.Cir.result(fuel, prog, regs, cells, i, m)):
+  asm.res.memory(U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m), fuel, prog, regs, cells,
+    Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Wa.Wasm.min(m, 65536), i, m, P, po, {==}, {==}, {==}, g)
+
+def asm.rex.alloced(r: Maybe<&2, U32>, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +len: U32, +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
+  er: {Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim) == r : Maybe<&2, U32>},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result.alloced(r, n, prog, regs, cells, k, U32.add(Cr.Cir.input.at(k), len), lim, i)):
+  match r:
+    case None{}:
+      (0n, po)
+    case Some{+p}:
+      g(k, len, p, lim, Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)), asm.start(cells, i, m, k, len, p, lim, ek, em, elim, el, er))
+
+def asm.rex.sized(nl: Maybe<&2, U32>, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  el: {Wa.Wasm.length32(i) == nl : Maybe<&2, U32>},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result.sized(nl, n, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)):
+  match nl:
+    case None{}:
+      (0n, po)
+    case Some{+len}:
+      asm.rex.alloced(Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim), prog, regs, cells, k, len, lim, i, m,
+        P, po, ek, em, elim, el, {==}, g)
+
+def asm.rex.memory(ok: Bool, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == ok : Bool},
+  elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result.memory(ok, n, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)):
+  match ok:
+    case False{}:
+      (0n, po)
+    case True{}:
+      asm.rex.sized(Wa.Wasm.length32(i), prog, regs, cells, k, lim, i, m, P, po, ek, em, elim, {==}, g)
+
+# a fuel for each run from the start gives one for Cir.result, which runs out
+# of memory or runs from the same start with any fuel
+def asm.res.ex(prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32,
+  -P: Wa.Wasm.Outcome -> Type, po: P(Wa.Wasm.Outcome.out_of_memory{}),
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result(n, prog, regs, cells, i, m)):
+  asm.rex.memory(U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m), prog, regs, cells,
+    Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Wa.Wasm.min(m, 65536), i, m, P, po, {==}, {==}, {==}, g)
+
+
+# what Cir.result does when it finds room for the image and the input (memory
+# F): it runs the program from the start
+def asm.rok.alloced(r: Maybe<&2, U32>, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +len: U32, +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type,
+  +ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  +em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  +elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  +el: {Wa.Wasm.length32(i) == Some{len} : Maybe<&2, U32>},
+  +er: {Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim) == r : Maybe<&2, U32>},
+  +hr: {Me.Start.pg(r) == True{} : Bool},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result.alloced(r, n, prog, regs, cells, k, U32.add(Cr.Cir.input.at(k), len), lim, i)):
+  match r:
+    case None{}:
+      K.bool.ff(&n: Nat -> P(Cr.Cir.result.alloced(None{}, n, prog, regs, cells, k, U32.add(Cr.Cir.input.at(k), len), lim, i)), hr)
+    case Some{+p}:
+      g(k, len, p, lim, Cr.Cir.first(k, U32.add(Cr.Cir.input.at(k), len)), asm.start(cells, i, m, k, len, p, lim, ek, em, elim, el, er))
+
+def asm.rok.sized(nl: Maybe<&2, U32>, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type,
+  +ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  +em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == True{} : Bool},
+  +elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  +el: {Wa.Wasm.length32(i) == nl : Maybe<&2, U32>},
+  +hl: {Me.Start.len(nl, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim) == True{} : Bool},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result.sized(nl, n, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)):
+  match nl:
+    case None{}:
+      K.bool.ff(&n: Nat -> P(Cr.Cir.result.sized(None{}, n, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)), hl)
+    case Some{+len}:
+      asm.rok.alloced(Cr.Cir.alloc.pages(k, len, Cr.Cir.pages(Cr.Cir.input.at(k)), lim), prog, regs, cells, k, len, lim, i, m,
+        P, ek, em, elim, el, {==}, hl, g)
+
+def asm.rok.memory(ok: Bool, prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +k: U32,
+  +lim: U32, +i: List<&2, Word(8n)>, +m: U32, -P: Wa.Wasm.Outcome -> Type,
+  +ek: {k == Cr.Wasm.encode.len(Cr.Cir.Cell, cells) : U32},
+  +em: {U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(k)), m) == ok : Bool},
+  +elim: {lim == Wa.Wasm.min(m, 65536) : U32},
+  +hs: {Bool.and(ok, Me.Start.len(Wa.Wasm.length32(i), k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim)) == True{} : Bool},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result.memory(ok, n, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)):
+  match ok:
+    case False{}:
+      K.bool.ff(&n: Nat -> P(Cr.Cir.result.memory(False{}, n, prog, regs, cells, k, Cr.Cir.pages(Cr.Cir.input.at(k)), lim, i)), hs)
+    case True{}:
+      asm.rok.sized(Wa.Wasm.length32(i), prog, regs, cells, k, lim, i, m, P, ek, em, elim, {==}, hs, g)
+
+def asm.rok.ex(prog: Cr.Cir.Stmt, +regs: Nat, +cells: List<&2, Cr.Cir.Cell>, +i: List<&2, Word(8n)>, +m: U32,
+  -P: Wa.Wasm.Outcome -> Type, +hs: {Me.Start.ok(cells, i, m) == True{} : Bool},
+  g: @k2: U32 -> @len2: U32 -> @p2: U32 -> @lim2: U32 -> @first2: U32 -> {I.Start(cells, i, m, k2, len2, p2, lim2, first2) == True{} : Bool} ->
+    &n: Nat -> P(Cr.Cir.ended(Cr.Cir.exec(n, prog, I.St0(regs, cells, first2, k2, p2, lim2, i))))) ->
+  &n: Nat -> P(Cr.Cir.result(n, prog, regs, cells, i, m)):
+  asm.rok.memory(U32.is_le(Cr.Cir.pages(Cr.Cir.input.at(Cr.Wasm.encode.len(Cr.Cir.Cell, cells))), m), prog, regs, cells,
+    Cr.Wasm.encode.len(Cr.Cir.Cell, cells), Wa.Wasm.min(m, 65536), i, m, P, {==}, {==}, {==}, hs, g)
+
+# The run
+# -------
+
+# Mach.code after M.input: the mode's set, then the loop
+def Asm.rest() -> Cr.Cir.Stmt:
+  Mc.M.do([Mc.M.set(Mc.R.mode(), Mc.M.c(0)), Asm.loop()])
+
+def Asm.tail() -> Cr.Cir.Stmt:
+  Mc.M.do([Asm.loop()])
+
+# the start's abstract state
+def Asm.s0(+i: List<&2, Word(8n)>) -> A.AS:
+  A.AS{False{}, Pg.Program.start(i), []}
+
+# M.input's post: Inv of the start term once the mode is 0
+def Asm.In(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +first: U32, +st: Cr.Cir.State) -> Bool:
+  R.Inv(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i))
+
+# J at the loop's start: Inv, and the start term is canonical
+def asm.j0(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +first: U32, +st: Cr.Cir.State,
+  +iv: {Asm.In(ds, i, k, first, st) == True{} : Bool}) -> {Asm.J(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i)) == True{} : Bool}:
+  K.bool.and_i(R.Inv(Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i)), A.AS.ok0(ds, Asm.s0(i)), iv, C.canon.start(i))
+
+# the mode is a register of the state after M.input
+def asm.hr0(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +first: U32, +st: Cr.Cir.State,
+  +iv: {Asm.In(ds, i, k, first, st) == True{} : Bool}) -> {Nat.is_lt(Mc.R.mode(), Lg.St.nregs(st)) == True{} : Bool}:
+  +x = Asm.x0(ds, k, first)
+  +st1 = R.Mode0(st)
+  +em = MvP.rd.mb(Lg.Reg(st1, Mc.R.mode()), 0, K.bool.and_l(R.Inv.mode(st1, False{}),
+    Hp.H(x, st1, Hp.V.Live(st1), [Hp.Rt{Lg.St.reg(st1, Mc.R.focus()), 0n, Pg.Program.start(i)}], [], []), iv))
+  (%Lg.nregs.set(st, Mc.R.mode(), 0) : {Nat.is_lt(Mc.R.mode(), _) == True{} : Bool}; Lg.reg.lt(st1, Mc.R.mode(), 0, em))
+
+# the rest of Mach.code after M.input, at any fuel: the loop's HE
+def asm.run.rest(+n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +first: U32, +st: Cr.Cir.State,
+  +iv: {Asm.In(ds, i, k, first, st) == True{} : Bool}) ->
+  Asm.Ps(Cr.Cir.exec(n, Asm.rest(), st), q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2)):
+  +set = Mc.M.set(Mc.R.mode(), Mc.M.c(0))
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Asm.rest(), st), Cr.Cir.exec.then(Cr.Cir.exec(n, set, st), t => Cr.Cir.exec(n, Asm.tail(), t)),
+    LgP.lg.exec.seq(n, set, Asm.tail(), st)) : Asm.Ps(_, q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2))
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, set, st), Cr.Cir.Out.next{Lg.St.set(st, Mc.R.mode(), 0)},
+    Lg.exec.set(n, Mc.R.mode(), Mc.M.c(0), st, 0, {==}, asm.hr0(ds, i, k, first, st, iv))) :
+    Asm.Ps(Cr.Cir.exec.then(_, t => Cr.Cir.exec(n, Asm.tail(), t)), q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2))
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Asm.tail(), R.Mode0(st)),
+    Cr.Cir.exec.then(Cr.Cir.exec(n, Asm.loop(), R.Mode0(st)), t => Cr.Cir.exec(n, Cr.Cir.Stmt.nop{}, t)),
+    LgP.lg.exec.seq(n, Asm.loop(), Cr.Cir.Stmt.nop{}, R.Mode0(st))) : Asm.Ps(_, q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2))
+  asm.ps.then(Cr.Cir.exec(n, Asm.loop(), R.Mode0(st)), t => Cr.Cir.exec(n, Cr.Cir.Stmt.nop{}, t),
+    q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2),
+    asm.post(n, Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i), asm.j0(ds, i, k, first, st, iv)))
+
+# Mach.code after M.input's outcome r, at any fuel
+def asm.run.go(r: Cr.Cir.Out, +n: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32,
+  +first: U32,
+  a: Or({r == Cr.Cir.Out.not_done{} : Cr.Cir.Out}, Lg.Ok(r, Lg.Lim(Asm.St0(ds, first, k, pg, lim, i)), R.Input.budget(first, i),
+    st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No))) ->
+  Asm.Ps(Cr.Cir.exec.then(r, t => Cr.Cir.exec(n, Asm.rest(), t)), q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2)):
+  match r:
+    case Cr.Cir.Out.next{+st}:
+      match a:
+        case Inl{e}:
+          Empty.absurd(Asm.Ps(Cr.Cir.exec(n, Asm.rest(), st), q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2)),
+            asm.nd(Cr.Cir.Out.next{st}, e, Unit{}))
+        case Inr{iv}:
+          asm.run.rest(n, ds, i, k, first, st, iv)
+    case Cr.Cir.Out.halt{+q, +st2}:
+      match a:
+        case Inl{e}:
+          Empty.absurd(Asm.HE(ds, Pg.Program.start(i), q, st2), asm.nd(Cr.Cir.Out.halt{q, st2}, e, Unit{}))
+        case Inr{z}:
+          Empty.absurd(Asm.HE(ds, Pg.Program.start(i), q, st2), z)
+    case Cr.Cir.Out.out_of_memory{}:
+      Unit{}
+    case Cr.Cir.Out.trap{}:
+      match a:
+        case Inl{e}:
+          asm.nd(Cr.Cir.Out.trap{}, e, Unit{})
+        case Inr{z}:
+          z
+    case Cr.Cir.Out.not_done{}:
+      Unit{}
+
+# a run of Mach.code from the start halts only as HE says, from the start
+# term, at any fuel
+def asm.run.post(+n: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
+  +pg: U32, +lim: U32, +first: U32,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +small: {Mc.Img.small(p, 0) == True{} : Bool},
+  +s: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool}) ->
+  Asm.Ps(Cr.Cir.exec(n, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i)), q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2)):
+  +St0 = Asm.St0(ds, first, k, pg, lim, i)
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Mc.Mach.code(), St0),
+    Cr.Cir.exec.then(Cr.Cir.exec(n, Mc.M.input(), St0), t => Cr.Cir.exec(n, Asm.rest(), t)),
+    LgP.lg.exec.seq(n, Mc.M.input(), Asm.rest(), St0)) : Asm.Ps(_, q => st2 => Asm.HE(ds, Pg.Program.start(i), q, st2))
+  asm.run.go(Cr.Cir.exec(n, Mc.M.input(), St0), n, ds, i, k, pg, lim, first,
+    Lg.tot.any(Mc.M.input(), St0, R.Input.budget(first, i), st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No,
+      R.input.spec(p, ds, i, m, k, len, pg, lim, first, rd, small, s), n))
+
+# M.input with the fuel f1, then the loop with n2, are Mach.code with f1 + n2
+def asm.run.fin(+mm: Bool, +o: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32,
+  +first: U32, +f1: Nat, +n2: Nat, +st: Cr.Cir.State,
+  +er1: {Cr.Cir.exec(f1, Mc.M.input(), Asm.St0(ds, first, k, pg, lim, i)) == Cr.Cir.Out.next{st} : Cr.Cir.Out},
+  +hr: {Nat.is_lt(Mc.R.mode(), Lg.St.nregs(st)) == True{} : Bool},
+  +g2: Asm.Good(mm, o, Cr.Cir.exec(n2, Asm.loop(), R.Mode0(st)))) ->
+  Asm.Good(mm, o, Cr.Cir.exec(Nat.add(f1, n2), Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))):
+  +St0 = Asm.St0(ds, first, k, pg, lim, i)
+  +n = Nat.add(f1, n2)
+  +set = Mc.M.set(Mc.R.mode(), Mc.M.c(0))
+  +d1 = Equal.cong(Cr.Cir.Out, Bool, x => Lg.Out.done(x), Cr.Cir.exec(f1, Mc.M.input(), St0), Cr.Cir.Out.next{st}, er1)
+  +e1 = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(n, Mc.M.input(), St0), Cr.Cir.exec(f1, Mc.M.input(), St0), Cr.Cir.Out.next{st},
+    Lg.exec.more(f1, n2, Mc.M.input(), St0, d1), er1)
+  +e5 = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(n, Asm.loop(), R.Mode0(st)), Cr.Cir.exec(Nat.add(n2, f1), Asm.loop(), R.Mode0(st)),
+    Cr.Cir.exec(n2, Asm.loop(), R.Mode0(st)),
+    Equal.cong(Nat, Cr.Cir.Out, g => Cr.Cir.exec(g, Asm.loop(), R.Mode0(st)), n, Nat.add(n2, f1), LgP.lg.add_comm(f1, n2)),
+    Lg.exec.more(n2, f1, Asm.loop(), R.Mode0(st), asm.good.done(mm, o, Cr.Cir.exec(n2, Asm.loop(), R.Mode0(st)), g2)))
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Mc.Mach.code(), St0),
+    Cr.Cir.exec.then(Cr.Cir.exec(n, Mc.M.input(), St0), t => Cr.Cir.exec(n, Asm.rest(), t)),
+    LgP.lg.exec.seq(n, Mc.M.input(), Asm.rest(), St0)) : Asm.Good(mm, o, _)
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Mc.M.input(), St0), Cr.Cir.Out.next{st}, e1) :
+    Asm.Good(mm, o, Cr.Cir.exec.then(_, t => Cr.Cir.exec(n, Asm.rest(), t)))
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Asm.rest(), st), Cr.Cir.exec.then(Cr.Cir.exec(n, set, st), t => Cr.Cir.exec(n, Asm.tail(), t)),
+    LgP.lg.exec.seq(n, set, Asm.tail(), st)) : Asm.Good(mm, o, _)
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, set, st), Cr.Cir.Out.next{Lg.St.set(st, Mc.R.mode(), 0)},
+    Lg.exec.set(n, Mc.R.mode(), Mc.M.c(0), st, 0, {==}, hr)) : Asm.Good(mm, o, Cr.Cir.exec.then(_, t => Cr.Cir.exec(n, Asm.tail(), t)))
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Asm.tail(), R.Mode0(st)),
+    Cr.Cir.exec.then(Cr.Cir.exec(n, Asm.loop(), R.Mode0(st)), t => Cr.Cir.exec(n, Cr.Cir.Stmt.nop{}, t)),
+    LgP.lg.exec.seq(n, Asm.loop(), Cr.Cir.Stmt.nop{}, R.Mode0(st))) : Asm.Good(mm, o, _)
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(n, Asm.loop(), R.Mode0(st)), Cr.Cir.exec(n2, Asm.loop(), R.Mode0(st)), e5) :
+    Asm.Good(mm, o, Cr.Cir.exec.then(_, t => Cr.Cir.exec(n, Cr.Cir.Stmt.nop{}, t)))
+  asm.good.then(mm, o, Cr.Cir.exec(n2, Asm.loop(), R.Mode0(st)), t => Cr.Cir.exec(n, Cr.Cir.Stmt.nop{}, t), g2)
+
+# a fuel for the loop after M.input gives one for Mach.code
+def asm.run.ex(+mm: Bool, +o: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32,
+  +first: U32, +f1: Nat, +st: Cr.Cir.State,
+  +er1: {Cr.Cir.exec(f1, Mc.M.input(), Asm.St0(ds, first, k, pg, lim, i)) == Cr.Cir.Out.next{st} : Cr.Cir.Out},
+  +hr: {Nat.is_lt(Mc.R.mode(), Lg.St.nregs(st)) == True{} : Bool},
+  g: &r:Nat -> Asm.Good(mm, o, Cr.Cir.exec(r, Asm.loop(), R.Mode0(st)))) ->
+  &r:Nat -> Asm.Good(mm, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))):
+  match g:
+    case Tuple{+n2, g2}:
+      (Nat.add(f1, n2), asm.run.fin(mm, o, ds, i, k, pg, lim, first, f1, n2, st, er1, hr, g2))
+
+# M.input that runs out of memory with the fuel f1 ends Mach.code so
+def asm.run.oom(+o: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32, +first: U32,
+  +f1: Nat, +er1: {Cr.Cir.exec(f1, Mc.M.input(), Asm.St0(ds, first, k, pg, lim, i)) == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out}) ->
+  Asm.Good(False{}, o, Cr.Cir.exec(f1, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))):
+  +St0 = Asm.St0(ds, first, k, pg, lim, i)
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f1, Mc.Mach.code(), St0),
+    Cr.Cir.exec.then(Cr.Cir.exec(f1, Mc.M.input(), St0), t => Cr.Cir.exec(f1, Asm.rest(), t)),
+    LgP.lg.exec.seq(f1, Mc.M.input(), Asm.rest(), St0)) : Asm.Good(False{}, o, _)
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f1, Mc.M.input(), St0), Cr.Cir.Out.out_of_memory{}, er1) :
+    Asm.Good(False{}, o, Cr.Cir.exec.then(_, t => Cr.Cir.exec(f1, Asm.rest(), t)))
+  Unit{}
+
+# when Eval reaches the bytes o, Mach.code gives them or runs out of memory,
+# by M.input's outcome r with the fuel f1
+def asm.run.done.r(r: Cr.Cir.Out, +kk: Nat, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32,
+  +first: U32, +o: List<&2, Word(8n)>, +f1: Nat,
+  +er1: {Cr.Cir.exec(f1, Mc.M.input(), Asm.St0(ds, first, k, pg, lim, i)) == r : Cr.Cir.Out},
+  ok1: Lg.Ok(r, Lg.Lim(Asm.St0(ds, first, k, pg, lim, i)), R.Input.budget(first, i),
+    st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No),
+  +e: {Pg.Program.result(ds, El.Eval.steps(kk, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  &r:Nat -> Asm.Good(False{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))):
+  match r:
+    case Cr.Cir.Out.next{+st}:
+      +iv = {ok1 : {Asm.In(ds, i, k, first, st) == True{} : Bool}}
+      asm.run.ex(False{}, o, ds, i, k, pg, lim, first, f1, st, er1, asm.hr0(ds, i, k, first, st, iv),
+        asm.done(kk, 1n+A.AS.w(Asm.s0(i)), Asm.x0(ds, k, first), R.Mode0(st), Asm.s0(i), o, asm.lt.succ(A.AS.w(Asm.s0(i))),
+          Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.result(ds, C.CSteps(kk, ds, Some{Pg.Program.start(i)})),
+            Pg.Program.result(ds, El.Eval.steps(kk, ds, Pg.Program.start(i))), Some{o}, asm.cs.eval(ds, i, kk), e),
+          asm.j0(ds, i, k, first, st, iv)))
+    case Cr.Cir.Out.halt{_, _}:
+      Empty.absurd(&r:Nat -> Asm.Good(False{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))), ok1)
+    case Cr.Cir.Out.out_of_memory{}:
+      (f1, asm.run.oom(o, ds, i, k, pg, lim, first, f1, er1))
+    case Cr.Cir.Out.trap{}:
+      Empty.absurd(&r:Nat -> Asm.Good(False{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))), ok1)
+    case Cr.Cir.Out.not_done{}:
+      Empty.absurd(&r:Nat -> Asm.Good(False{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))), ok1)
+
+def asm.run.done(+kk: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  +k: U32, +len: U32, +pg: U32, +lim: U32, +first: U32,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +small: {Mc.Img.small(p, 0) == True{} : Bool},
+  +s: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool},
+  +e: {Pg.Program.result(ds, El.Eval.steps(kk, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}) ->
+  &r:Nat -> Asm.Good(False{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))):
+  +St0 = Asm.St0(ds, first, k, pg, lim, i)
+  +f1 = asm.tot.f(Mc.M.input(), St0, R.Input.budget(first, i), st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No,
+    R.input.spec(p, ds, i, m, k, len, pg, lim, first, rd, small, s))
+  ok1 = asm.tot.ok(Mc.M.input(), St0, R.Input.budget(first, i), st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No,
+    R.input.spec(p, ds, i, m, k, len, pg, lim, first, rd, small, s))
+  asm.run.done.r(Cr.Cir.exec(f1, Mc.M.input(), St0), kk, ds, i, k, pg, lim, first, o, f1, {==}, ok1, e)
+
+# within the memory F, Mach.code gives the bytes o, by M.input's outcome r
+def asm.run.mem.r(r: Cr.Cir.Out, +kk: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32,
+  +k: U32, +len: U32, +pg: U32, +lim: U32, +first: U32, +o: List<&2, Word(8n)>, +f1: Nat,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +small: {Mc.Img.small(p, 0) == True{} : Bool},
+  +s: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool},
+  +e: {Pg.Program.result(ds, El.Eval.steps(kk, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +big: {Nat.is_le(Pg.Program.need(p, i, kk), Pg.Program.memory(m)) == True{} : Bool},
+  +er1: {Cr.Cir.exec(f1, Mc.M.input(), Asm.St0(ds, first, k, pg, lim, i)) == r : Cr.Cir.Out},
+  ok1: Lg.Ok(r, Lg.Lim(Asm.St0(ds, first, k, pg, lim, i)), R.Input.budget(first, i),
+    st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No)) ->
+  &r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))):
+  match r:
+    case Cr.Cir.Out.next{+st}:
+      +iv = {ok1 : {Asm.In(ds, i, k, first, st) == True{} : Bool}}
+      +St0 = Asm.St0(ds, first, k, pg, lim, i)
+      +L0 = Lg.Lim(St0)
+      +S = Pg.Program.largest(p, i, kk)
+      +st1 = R.Mode0(st)
+      +c = Me.Stat(st1)
+      +im = Me.input.mem(p, ds, i, m, k, len, pg, lim, first, kk, rd, small, s, f1, st, er1)
+      +hc = K.bool.and_l(Nat.is_le(c, 6144n), Nat.is_le(Me.Mem.cells(st1), Me.Peak(ds, c, S)), im)
+      +hm = K.bool.and_r(Nat.is_le(c, 6144n), Nat.is_le(Me.Mem.cells(st1), Me.Peak(ds, c, S)), im)
+      +hf = K.bool.and_i(Bool.and(I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), Nat.is_le(c, 6144n)),
+        Nat.is_le(Pg.Program.need(p, i, kk), L0),
+        K.bool.and_i(I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first), Nat.is_le(c, 6144n), s, hc),
+        Me.need.lim(p, ds, i, m, k, len, pg, lim, first, kk, s, big))
+      +el = Equal.trans(Nat, Lg.Lim(st1), Lg.Lim(st), L0, Lg.lim.set(st, Mc.R.mode(), 0),
+        LgP.lg.lim.eq(st, St0, Lg.frame.fixed(f1, Mc.M.input(), St0, st, er1)))
+      +ht0 = C.Tm.is(C.CSteps(0n, ds, Some{Pg.Program.start(i)}), A.AS.term(Asm.s0(i)))
+      +hs = K.bool.and_i(Bool.and(Bool.and(ht0, Nat.is_eq(Lg.Lim(st1), L0)), Nat.is_le(c, c)), Nat.is_le(Me.Mem.cells(st1), Me.Peak(ds, c, S)),
+        K.bool.and_i(Bool.and(ht0, Nat.is_eq(Lg.Lim(st1), L0)), Nat.is_le(c, c),
+          K.bool.and_i(ht0, Nat.is_eq(Lg.Lim(st1), L0), C.term.is_eq_refl(Pg.Program.start(i)),
+            (%el : {Nat.is_eq(Lg.Lim(st1), _) == True{} : Bool}; K.nat.is_eq_refl(Lg.Lim(st1)))),
+          LgP.lg.le_refl(c)), hm)
+      asm.run.ex(True{}, o, ds, i, k, pg, lim, first, f1, st, er1, asm.hr0(ds, i, k, first, st, iv),
+        asm.mem(kk, 1n+A.AS.w(Asm.s0(i)), p, ds, i, m, k, len, pg, lim, first, kk, o, c, 0n, st1, Asm.s0(i), rd, e, hf,
+          asm.lt.succ(A.AS.w(Asm.s0(i))),
+          Equal.trans(Maybe<&2, List<&2, Word(8n)>>, Pg.Program.result(ds, C.CSteps(kk, ds, Some{Pg.Program.start(i)})),
+            Pg.Program.result(ds, El.Eval.steps(kk, ds, Pg.Program.start(i))), Some{o}, asm.cs.eval(ds, i, kk), e),
+          {==}, hs, asm.j0(ds, i, k, first, st, iv)))
+    case Cr.Cir.Out.halt{_, _}:
+      Empty.absurd(&r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))), ok1)
+    case Cr.Cir.Out.out_of_memory{}:
+      +St0 = Asm.St0(ds, first, k, pg, lim, i)
+      +nd = Pg.Program.need(p, i, kk)
+      Empty.absurd(&r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Mc.Mach.code(), St0)),
+        asm.lt.abs(Lg.Lim(St0), R.Input.budget(first, i), ok1,
+          asm.le.trans(R.Input.budget(first, i), nd, Lg.Lim(St0), Me.input.need(p, ds, i, m, k, len, pg, lim, first, kk, rd, s),
+            Me.need.lim(p, ds, i, m, k, len, pg, lim, first, kk, s, big))))
+    case Cr.Cir.Out.trap{}:
+      Empty.absurd(&r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))), ok1)
+    case Cr.Cir.Out.not_done{}:
+      Empty.absurd(&r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))), ok1)
+
+def asm.run.mem(+kk: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +o: List<&2, Word(8n)>,
+  +k: U32, +len: U32, +pg: U32, +lim: U32, +first: U32,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +small: {Mc.Img.small(p, 0) == True{} : Bool},
+  +s: {I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) == True{} : Bool},
+  +e: {Pg.Program.result(ds, El.Eval.steps(kk, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +big: {Nat.is_le(Pg.Program.need(p, i, kk), Pg.Program.memory(m)) == True{} : Bool}) ->
+  &r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Mc.Mach.code(), Asm.St0(ds, first, k, pg, lim, i))):
+  +St0 = Asm.St0(ds, first, k, pg, lim, i)
+  +f1 = asm.tot.f(Mc.M.input(), St0, R.Input.budget(first, i), st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No,
+    R.input.spec(p, ds, i, m, k, len, pg, lim, first, rd, small, s))
+  ok1 = asm.tot.ok(Mc.M.input(), St0, R.Input.budget(first, i), st => {Asm.In(ds, i, k, first, st) == True{} : Bool}, Lg.No,
+    R.input.spec(p, ds, i, m, k, len, pg, lim, first, rd, small, s))
+  asm.run.mem.r(Cr.Cir.exec(f1, Mc.M.input(), St0), kk, p, ds, i, m, k, len, pg, lim, first, o, f1, rd, small, s, e, big, {==}, ok1)

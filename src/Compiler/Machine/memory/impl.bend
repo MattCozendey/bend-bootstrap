@@ -53,5 +53,8 @@ def Me.input.need(p, ds, i, m, k, len, pg, lim, first, n, rd, hs):
 def Me.need.lim(p, ds, i, m, k, len, pg, lim, first, n, hs, big):
   ?TODO
 
+def Me.start.ok(p, ds, i, m, n, rd, big):
+  ?TODO
+
 def Me.code.fits(n, cells, first, k, pg, lim, i):
   ?TODO
