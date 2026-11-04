@@ -1,6 +1,18 @@
 # Redesign status (handoff file)
 
-Updated: 2026-11-04 10:40 (America/Sao_Paulo). Keep this file current: whoever coordinates updates it after every merge, phase change or agent start/stop, and commits it (this folder is a git repo: `git -C <this folder> commit -am "status: ..."`).
+Updated: 2026-11-04 10:50 (America/Sao_Paulo). Keep this file current: whoever coordinates updates it after every merge, phase change or agent start/stop, and commits it (this folder is a git repo: `git -C <this folder> commit -am "status: ..."`).
+
+
+## CURRENT STATE (10:50) — read this first
+
+- The swarm (P3) is STOPPED by the lead (token cost). No agents run. gen2 servers stopped.
+- Only two branches exist: `main` and `feature/redesign`. All worktrees under bb-wt are removed; the main
+  checkout (C:/Users/mathe/source/repos/bend-bootstrap) is on `feature/redesign`. Work there directly.
+- feature/redesign has everything: P0, P1, S1–S4 (assembly proven), review fixes, gen2 (--wp rounds 1–4,
+  --ind default, injectivity), and P3's first proofs, merged WITHOUT the gate (the lead validates later):
+  logic cell.get_set, cells.get_set, frame.fixed; header 8 mask laws; plus gen2 --wp round 5 WIP
+  (unvalidated). Open: ~117 holes (holes.md lists 128 before these 11).
+- The tables below about worktrees, agents and servers are historical.
 
 ## Goal
 
