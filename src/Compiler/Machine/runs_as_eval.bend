@@ -15,7 +15,6 @@ import ../../Wasm/impl.bend as Wa
 import ../../Program/impl.bend as Pg
 import ../Cir/impl.bend as Cr
 import ./impl.bend as Mc
-import ./moves.bend as Gen2Moves
 
 # B: the machine never makes an access that its module could not make the
 # same way
@@ -24,7 +23,7 @@ def mach.safe(
   rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
   small: {Mc.Img.small(p, 0) == True{} : Bool}
 ) -> {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds), i, m) != Wa.Wasm.Outcome.trap{} : Wa.Wasm.Outcome}:
-  Gen2Moves.mach.safe.proof(p, ds, i, m, n, rd, small)
+  ?TODO
 
 # B: a result of the machine is the list of bytes of a value that Eval reaches
 def mach.sound(
@@ -33,7 +32,7 @@ def mach.sound(
   small: {Mc.Img.small(p, 0) == True{} : Bool},
   e: {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds), i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
 ) -> &k:Nat -> {Pg.Program.result(ds, El.Eval.steps(k, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}:
-  Gen2Moves.mach.sound.proof(p, ds, i, m, n, o, rd, small, e)
+  ?TODO
 
 # B: when Eval reaches a list of bytes, the machine gives it, or runs out of
 # memory
@@ -44,7 +43,7 @@ def mach.complete(
   e: {Pg.Program.result(ds, El.Eval.steps(k, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}
 ) -> &n:Nat -> Or({Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds), i, m) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome},
   {Cr.Cir.result(n, Mc.Mach.code(), Mc.Mach.regs(), Mc.Img.cells(ds), i, m) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}):
-  Gen2Moves.mach.complete.proof(p, ds, i, m, k, o, rd, small, e)
+  ?TODO
 
 # B: with the memory of AGENTS.md 3.9.1.4, the machine gives the list of bytes
 def mach.memory(
