@@ -98,17 +98,6 @@ def Fl(m: Cr.Cir.Cells, +c: U32, +bit: U32) -> Bool:
 def Fv(m: Cr.Cir.Cells, +c: U32) -> U32:
   U32.shrn(Fd(0n, m, c), 13n)
 
-# a register's value, 0 when there is none
-def V.or0(r: Maybe<&2, U32>) -> U32:
-  match r:
-    case Some{v}:
-      v
-    case None{}:
-      0
-
-def V.reg(st: Cr.Cir.State, +r: Nat) -> U32:
-  V.or0(Lg.Reg(st, r))
-
 # two Bools are equal
 def V.beq(a: Bool, b: Bool) -> Bool:
   Bool.not(Bool.xor(a, b))
@@ -589,7 +578,7 @@ def Free.list(n: Nat, +m: Cr.Cir.Cells, +c: U32) -> Maybe<&2, List<&2, U32>>:
 
 # the free list of the state, from the register free
 def V.free(+st: Cr.Cir.State) -> Maybe<&2, List<&2, U32>>:
-  Free.list(U32.to_nat(Lg.St.next(st)), Lg.St.cells(st), V.reg(st, Mc.R.free()))
+  Free.list(U32.to_nat(Lg.St.next(st)), Lg.St.cells(st), Lg.St.reg(st, Mc.R.free()))
 
 # no cell is twice in cs
 def V.nodup(cs: List<&2, U32>) -> Bool:
@@ -749,7 +738,7 @@ def Frs.go(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
 
 # the frames from the register sp hold fs, the innermost first, and end there
 def Frs(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State) -> Bool:
-  Frs.go(fs, x, st, V.reg(st, Mc.R.sp()))
+  Frs.go(fs, x, st, Lg.St.reg(st, Mc.R.sp()))
 
 def Chs.go(as: List<&2, A.Ag>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
   match as:
@@ -807,7 +796,7 @@ def Chs.cells(chs: List<&2, Ch>, +st: Cr.Cir.State) -> List<&2, U32>:
 # the cells that the roots, the frames and the chains hold: their own, and
 # their terms' nodes
 def V.held(+st: Cr.Cir.State, rs: List<&2, Rt>, fs: List<&2, A.AF>, chs: List<&2, Ch>) -> List<&2, U32>:
-  List.append(&2, U32, Rts.cells(rs, st), List.append(&2, U32, Frs.cells(fs, st, V.reg(st, Mc.R.sp())), Chs.cells(chs, st)))
+  List.append(&2, U32, Rts.cells(rs, st), List.append(&2, U32, Frs.cells(fs, st, Lg.St.reg(st, Mc.R.sp())), Chs.cells(chs, st)))
 
 def Cov.go(cs: List<&2, U32>, +m: Cr.Cir.Cells, +hs: List<&2, U32>) -> Bool:
   match cs:
