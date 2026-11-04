@@ -13,6 +13,33 @@ import ../../../Eval/impl.bend as El
 import ../../../Program/impl.bend as Pg
 import ./spec.bend as C
 
+# Kit
+# ---
+
+def canon.bool.t(b: Bool) -> Type:
+  match b:
+    case True{}:
+      Empty
+    case False{}:
+      Unit
+
+def canon.ff(-G: Type, e: {False{} == True{} : Bool}) -> G:
+  Empty.absurd(G, (%e : canon.bool.t(_); Unit{}))
+
+def canon.and.l(a: Bool, -b: Bool, h: {Bool.and(a, b) == True{} : Bool}) -> {a == True{} : Bool}:
+  match a:
+    case True{}:
+      {==}
+    case False{}:
+      h
+
+def canon.and.r(a: Bool, -b: Bool, h: {Bool.and(a, b) == True{} : Bool}) -> {b == True{} : Bool}:
+  match a:
+    case True{}:
+      h
+    case False{}:
+      canon.ff({b == True{} : Bool}, h)
+
 def C.term.is_eq_ok(a, b, e):
   ?TODO
 
@@ -246,8 +273,91 @@ def C.canon.subst(t, es, d):
 def C.canon.subst_below(t, es, n, d, hc, hn):
   ?TODO
 
+# a variable below d: the substitution keeps it, and so does the canonical form
+def canon.lift.closed(+es: List<&2, Bk.Term>, +d: Nat, +i: Nat, +hc: {Nat.is_lt(i, d) == True{} : Bool}) ->
+  {C.Canon.term(El.Term.lift(es, d, i), d) == Bk.Term.Var{i} : Bk.Term}:
+  match d:
+    case 0n:
+      match i:
+        case 0n:
+          canon.ff({C.Canon.term(El.Term.lift(es, 0n, 0n), 0n) == Bk.Term.Var{0n} : Bk.Term}, hc)
+        case 1n+k:
+          canon.ff({C.Canon.term(El.Term.lift(es, 0n, 1n+k), 0n) == Bk.Term.Var{1n+k} : Bk.Term}, hc)
+    case 1n+p:
+      %Equal.sym(Bool, Nat.is_lt(i, 1n+p), True{}, hc) :
+        {C.Canon.term(El.Term.lift.at(_, i, El.Term.shift(El.Env.sub(es, Nat.sub(i, 1n+p)), 1n+p, 0n)), 1n+p) == Bk.Term.Var{i} : Bk.Term}
+      %Equal.sym(Bool, Nat.is_lt(i, 1n+p), True{}, hc) : {Bk.Term.Var{C.Canon.var(_, i, 1n+p)} == Bk.Term.Var{i} : Bk.Term}
+      {==}
+
+def canon.subst_closed.go(+t: Bk.Term, +es: List<&2, Bk.Term>, +d: Nat, +hc: {C.Term.closed(t, d) == True{} : Bool}) ->
+  {C.Canon.term(El.Term.subst(t, es, d), d) == t : Bk.Term}:
+  match t:
+    case Bk.Term.Var{i}:
+      canon.lift.closed(es, d, i, hc)
+    case Bk.Term.Ref{k}:
+      {==}
+    case Bk.Term.Ann{x, T}:
+      %canon.subst_closed.go(x, es, d, canon.and.l(C.Term.closed(x, d), C.Term.closed(T, d), hc)) : {Bk.Term.Ann{C.Canon.term(El.Term.subst(x, es, d), d), C.Canon.term(El.Term.subst(T, es, d), d)} == Bk.Term.Ann{_, T} : Bk.Term}
+      %canon.subst_closed.go(T, es, d, canon.and.r(C.Term.closed(x, d), C.Term.closed(T, d), hc)) : {Bk.Term.Ann{C.Canon.term(El.Term.subst(x, es, d), d), C.Canon.term(El.Term.subst(T, es, d), d)} == Bk.Term.Ann{C.Canon.term(El.Term.subst(x, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Let{q, v, f}:
+      %canon.subst_closed.go(v, es, d, canon.and.l(C.Term.closed(v, d), C.Term.closed(f, 1n+d), hc)) : {Bk.Term.Let{q, C.Canon.term(El.Term.subst(v, es, d), d), C.Canon.term(El.Term.subst(f, es, 1n+d), 1n+d)} == Bk.Term.Let{q, _, f} : Bk.Term}
+      %canon.subst_closed.go(f, es, 1n+d, canon.and.r(C.Term.closed(v, d), C.Term.closed(f, 1n+d), hc)) : {Bk.Term.Let{q, C.Canon.term(El.Term.subst(v, es, d), d), C.Canon.term(El.Term.subst(f, es, 1n+d), 1n+d)} == Bk.Term.Let{q, C.Canon.term(El.Term.subst(v, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Typ{q}:
+      %canon.subst_closed.go(q, es, d, hc) : {Bk.Term.Typ{C.Canon.term(El.Term.subst(q, es, d), d)} == Bk.Term.Typ{_} : Bk.Term}
+      {==}
+    case Bk.Term.Min{a, b}:
+      %canon.subst_closed.go(a, es, d, canon.and.l(C.Term.closed(a, d), C.Term.closed(b, d), hc)) : {Bk.Term.Min{C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d)} == Bk.Term.Min{_, b} : Bk.Term}
+      %canon.subst_closed.go(b, es, d, canon.and.r(C.Term.closed(a, d), C.Term.closed(b, d), hc)) : {Bk.Term.Min{C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d)} == Bk.Term.Min{C.Canon.term(El.Term.subst(a, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.All{q, A, B}:
+      %canon.subst_closed.go(A, es, d, canon.and.l(C.Term.closed(A, d), C.Term.closed(B, 1n+d), hc)) : {Bk.Term.All{q, C.Canon.term(El.Term.subst(A, es, d), d), C.Canon.term(El.Term.subst(B, es, 1n+d), 1n+d)} == Bk.Term.All{q, _, B} : Bk.Term}
+      %canon.subst_closed.go(B, es, 1n+d, canon.and.r(C.Term.closed(A, d), C.Term.closed(B, 1n+d), hc)) : {Bk.Term.All{q, C.Canon.term(El.Term.subst(A, es, d), d), C.Canon.term(El.Term.subst(B, es, 1n+d), 1n+d)} == Bk.Term.All{q, C.Canon.term(El.Term.subst(A, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Lam{q, f}:
+      %canon.subst_closed.go(f, es, 1n+d, hc) : {Bk.Term.Lam{q, C.Canon.term(El.Term.subst(f, es, 1n+d), 1n+d)} == Bk.Term.Lam{q, _} : Bk.Term}
+      {==}
+    case Bk.Term.App{q, f, x}:
+      %canon.subst_closed.go(f, es, d, canon.and.l(C.Term.closed(f, d), C.Term.closed(x, d), hc)) : {Bk.Term.App{q, C.Canon.term(El.Term.subst(f, es, d), d), C.Canon.term(El.Term.subst(x, es, d), d)} == Bk.Term.App{q, _, x} : Bk.Term}
+      %canon.subst_closed.go(x, es, d, canon.and.r(C.Term.closed(f, d), C.Term.closed(x, d), hc)) : {Bk.Term.App{q, C.Canon.term(El.Term.subst(f, es, d), d), C.Canon.term(El.Term.subst(x, es, d), d)} == Bk.Term.App{q, C.Canon.term(El.Term.subst(f, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Sig{q, A, B}:
+      %canon.subst_closed.go(A, es, d, canon.and.l(C.Term.closed(A, d), C.Term.closed(B, 1n+d), hc)) : {Bk.Term.Sig{q, C.Canon.term(El.Term.subst(A, es, d), d), C.Canon.term(El.Term.subst(B, es, 1n+d), 1n+d)} == Bk.Term.Sig{q, _, B} : Bk.Term}
+      %canon.subst_closed.go(B, es, 1n+d, canon.and.r(C.Term.closed(A, d), C.Term.closed(B, 1n+d), hc)) : {Bk.Term.Sig{q, C.Canon.term(El.Term.subst(A, es, d), d), C.Canon.term(El.Term.subst(B, es, 1n+d), 1n+d)} == Bk.Term.Sig{q, C.Canon.term(El.Term.subst(A, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Tup{q, a, b}:
+      %canon.subst_closed.go(a, es, d, canon.and.l(C.Term.closed(a, d), C.Term.closed(b, d), hc)) : {Bk.Term.Tup{q, C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d)} == Bk.Term.Tup{q, _, b} : Bk.Term}
+      %canon.subst_closed.go(b, es, d, canon.and.r(C.Term.closed(a, d), C.Term.closed(b, d), hc)) : {Bk.Term.Tup{q, C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d)} == Bk.Term.Tup{q, C.Canon.term(El.Term.subst(a, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Prj{h}:
+      %canon.subst_closed.go(h, es, d, hc) : {Bk.Term.Prj{C.Canon.term(El.Term.subst(h, es, d), d)} == Bk.Term.Prj{_} : Bk.Term}
+      {==}
+    case Bk.Term.Enu{ks}:
+      {==}
+    case Bk.Term.Lab{k}:
+      {==}
+    case Bk.Term.Mat{k, h, m}:
+      %canon.subst_closed.go(h, es, d, canon.and.l(C.Term.closed(h, d), C.Term.closed(m, d), hc)) : {Bk.Term.Mat{k, C.Canon.term(El.Term.subst(h, es, d), d), C.Canon.term(El.Term.subst(m, es, d), d)} == Bk.Term.Mat{k, _, m} : Bk.Term}
+      %canon.subst_closed.go(m, es, d, canon.and.r(C.Term.closed(h, d), C.Term.closed(m, d), hc)) : {Bk.Term.Mat{k, C.Canon.term(El.Term.subst(h, es, d), d), C.Canon.term(El.Term.subst(m, es, d), d)} == Bk.Term.Mat{k, C.Canon.term(El.Term.subst(h, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{a, b, T}:
+      %canon.subst_closed.go(a, es, d, canon.and.l(C.Term.closed(a, d), C.Term.closed(b, d), canon.and.l(Bool.and(C.Term.closed(a, d), C.Term.closed(b, d)), C.Term.closed(T, d), hc))) : {Bk.Term.Eql{C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d), C.Canon.term(El.Term.subst(T, es, d), d)} == Bk.Term.Eql{_, b, T} : Bk.Term}
+      %canon.subst_closed.go(b, es, d, canon.and.r(C.Term.closed(a, d), C.Term.closed(b, d), canon.and.l(Bool.and(C.Term.closed(a, d), C.Term.closed(b, d)), C.Term.closed(T, d), hc))) : {Bk.Term.Eql{C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d), C.Canon.term(El.Term.subst(T, es, d), d)} == Bk.Term.Eql{C.Canon.term(El.Term.subst(a, es, d), d), _, T} : Bk.Term}
+      %canon.subst_closed.go(T, es, d, canon.and.r(Bool.and(C.Term.closed(a, d), C.Term.closed(b, d)), C.Term.closed(T, d), hc)) : {Bk.Term.Eql{C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d), C.Canon.term(El.Term.subst(T, es, d), d)} == Bk.Term.Eql{C.Canon.term(El.Term.subst(a, es, d), d), C.Canon.term(El.Term.subst(b, es, d), d), _} : Bk.Term}
+      {==}
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{e, P, f}:
+      %canon.subst_closed.go(e, es, d, canon.and.l(C.Term.closed(e, d), C.Term.closed(P, 2n+d), canon.and.l(Bool.and(C.Term.closed(e, d), C.Term.closed(P, 2n+d)), C.Term.closed(f, d), hc))) : {Bk.Term.Rwt{C.Canon.term(El.Term.subst(e, es, d), d), C.Canon.term(El.Term.subst(P, es, 2n+d), 2n+d), C.Canon.term(El.Term.subst(f, es, d), d)} == Bk.Term.Rwt{_, P, f} : Bk.Term}
+      %canon.subst_closed.go(P, es, 2n+d, canon.and.r(C.Term.closed(e, d), C.Term.closed(P, 2n+d), canon.and.l(Bool.and(C.Term.closed(e, d), C.Term.closed(P, 2n+d)), C.Term.closed(f, d), hc))) : {Bk.Term.Rwt{C.Canon.term(El.Term.subst(e, es, d), d), C.Canon.term(El.Term.subst(P, es, 2n+d), 2n+d), C.Canon.term(El.Term.subst(f, es, d), d)} == Bk.Term.Rwt{C.Canon.term(El.Term.subst(e, es, d), d), _, f} : Bk.Term}
+      %canon.subst_closed.go(f, es, d, canon.and.r(Bool.and(C.Term.closed(e, d), C.Term.closed(P, 2n+d)), C.Term.closed(f, d), hc)) : {Bk.Term.Rwt{C.Canon.term(El.Term.subst(e, es, d), d), C.Canon.term(El.Term.subst(P, es, 2n+d), 2n+d), C.Canon.term(El.Term.subst(f, es, d), d)} == Bk.Term.Rwt{C.Canon.term(El.Term.subst(e, es, d), d), C.Canon.term(El.Term.subst(P, es, 2n+d), 2n+d), _} : Bk.Term}
+      {==}
+
 def C.canon.subst_closed(t, es, d, hc):
-  ?TODO
+  canon.subst_closed.go(t, es, d, hc)
 
 def C.canon.lift(es, k, j, hc):
   ?TODO
