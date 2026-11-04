@@ -22,6 +22,7 @@ import ../impl.bend as Mc
 import ../logic/spec.bend as Lg
 import ../am/spec.bend as A
 import ../heap/spec.bend as Hp
+import ../image/spec.bend as I
 import ../routines/spec.bend as R
 import ../memory/spec.bend as Me
 
@@ -76,6 +77,28 @@ def Head.calls(t: Bk.Term) -> Bool:
       False{}
     case _:
       True{}
+
+# M.call's second loop: the arguments left, reversed onto the chain at wh,
+# become frames App q □ t, the last one first (its text as in M.call)
+def Call.frames() -> Cr.Cir.Stmt:
+  Mc.M.while(Mc.M.ne(Mc.M.g(Mc.R.wh()), Mc.M.c(0)), Mc.M.do([
+    Mc.M.set(Mc.R.wa(), Mc.M.g(Mc.R.wh())),
+    Mc.M.set(Mc.R.wh(), Mc.M.f(1n, Mc.M.g(Mc.R.wa()))),
+    Mc.M.push(Mc.M.header(Mc.K.app_val(), Mc.M.q(Mc.M.g(Mc.R.wa())), Mc.M.and(Mc.M.f(0n, Mc.M.g(Mc.R.wa())), Mc.M.c(Mc.F.known()))),
+      Mc.M.f(2n, Mc.M.g(Mc.R.wa())), Mc.M.c(0)),
+    Mc.M.release(Mc.R.wa())]))
+
+# the registers that Call.frames writes
+def Call.frames.scr() -> List<&2, Nat>:
+  [Mc.R.wa(), Mc.R.wh(), Mc.R.free(), Mc.R.fr(), Mc.R.sp()]
+
+# the frames of the arguments ys pushed in order on fs (so the last on top)
+def Call.fs(ys: List<&2, A.Ag>, fs: List<&2, A.AF>) -> List<&2, A.AF>:
+  match ys:
+    case Nil{}:
+      fs
+    case Con{A.Ag{q, k, +t}, rest}:
+      Call.fs(rest, Con{A.AF{A.FK.val{}, q, k, t, t}, fs})
 
 # Laws
 # ----
@@ -519,3 +542,27 @@ law mv.ret.mina:
   for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.mina{}, q, k, a, b}, fs}}) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.mina{}, q, k, a, b}, fs}}),
     Next(x, A.AM.meet(El.Eval.meet(a, v), fs)), Halt(A.AM.meet(El.Eval.meet(a, v), fs)))
+
+# Laws: M.call's loop to frames
+# -----------------------------
+
+# LAW: Call.frames, from the chain at wh of the arguments ys: each becomes a
+# frame (its term's pointer moves from the argument cell to the frame), the
+# argument cells are free; wh is 0. Between a push and its release two cells
+# point to one term of count 1, so push.spec cannot step it: one law for the
+# loop. At most one more live cell at any time
+law call.frames:
+  for +x: Hp.Cx
+  for +st: Cr.Cir.State
+  for +L: List<&2, U32>
+  for +rs: List<&2, Hp.Rt>
+  for +fs: List<&2, A.AF>
+  for +chs: List<&2, Hp.Ch>
+  for +c: U32
+  for +ys: List<&2, A.Ag>
+  for +hs: {Hp.H(x, st, L, rs, fs, Con{Hp.Ch{c, ys}, chs}) == True{} : Bool}
+  for +hw: {Lg.Reg(st, Mc.R.wh()) == Some{c} : Maybe<&2, U32>}
+  Lg.Tot(Call.frames(), st, I.Cells.bytes(Hp.Cx.fi(x), 1n+List.length(&2, U32, L)),
+    st2 => &L2:List<&2, U32> -> {Hp.H(x, st2, L2, rs, Call.fs(ys, fs), chs) && I.Mb.is(Lg.Reg(st2, Mc.R.wh()), 0) &&
+      R.Same(st, st2, Call.frames.scr()) && Nat.is_le(List.length(&2, U32, L2), List.length(&2, U32, L)) == True{} : Bool},
+    Lg.No)
