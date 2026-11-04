@@ -30,7 +30,7 @@ import ../memory/spec.bend as Me
 
 # the focus cell's VALUE flag
 def Vb(+st: Cr.Cir.State) -> Bool:
-  Hp.Fl(Lg.St.cells(st), Hp.V.reg(st, Mc.R.focus()), Mc.F.value())
+  Hp.Fl(Lg.St.cells(st), Lg.St.reg(st, Mc.R.focus()), Mc.F.value())
 
 def Next.is(+x: Hp.Cx, o: A.AO, +st2: Cr.Cir.State) -> Bool:
   match o:
@@ -56,7 +56,7 @@ def Halt(o: A.AO) -> U32 -> Cr.Cir.State -> Type:
   k => st2 => {Halt.is(o, k, st2) == True{} : Bool}
 
 # a frame of an application's argument: App q □ a, known or not
-def Mv.isapp(k: A.FK) -> Bool:
+def Kind.is_app(k: A.FK) -> Bool:
   match k:
     case A.FK.arg{}:
       True{}
@@ -66,7 +66,7 @@ def Mv.isapp(k: A.FK) -> Bool:
       False{}
 
 # a function whose redex is a call (M.redex past its λ, Prj and Mat cases)
-def Mv.calls(t: Bk.Term) -> Bool:
+def Head.calls(t: Bk.Term) -> Bool:
   match t:
     case Bk.Term.Lam{_, _}:
       False{}
@@ -280,7 +280,8 @@ law mv.ret.swap:
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
   for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
-  for +hk: {Mv.isapp(kind) && El.Quan.live(q) && Bool.not(k) == True{} : Bool}
+  for +hk: {Kind.is_app(kind) == True{} : Bool}
+  for +hs: {El.Quan.live(q) && Bool.not(k) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}),
     Next(x, A.AO.next{A.AS{False{}, a, Con{A.AF{A.FK.fun{}, q, False{}, v, v}, fs}}}),
     Halt(A.AO.next{A.AS{False{}, a, Con{A.AF{A.FK.fun{}, q, False{}, v, v}, fs}}}))
@@ -299,7 +300,8 @@ law mv.ret.app.lam:
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
   for +iv: {R.Inv(x, st, A.AS{True{}, Bk.Term.Lam{p, f}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
-  for +hk: {Mv.isapp(kind) && Bool.not(El.Quan.live(q) && Bool.not(k)) == True{} : Bool}
+  for +hk: {Kind.is_app(kind) == True{} : Bool}
+  for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, Bk.Term.Lam{p, f}, Con{A.AF{kind, q, k, a, b}, fs}}),
     Next(x, A.AM.need(El.Quan.binds(p, q, a), A.AS{False{}, A.AM.copy(f, [A.Ag{Bk.Quan.Q0{}, False{}, a}]), fs})),
     Halt(A.AM.need(El.Quan.binds(p, q, a), A.AS{False{}, A.AM.copy(f, [A.Ag{Bk.Quan.Q0{}, False{}, a}]), fs})))
@@ -317,7 +319,8 @@ law mv.ret.app.prj:
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
   for +iv: {R.Inv(x, st, A.AS{True{}, Bk.Term.Prj{h}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
-  for +hk: {Mv.isapp(kind) && Bool.not(El.Quan.live(q) && Bool.not(k)) == True{} : Bool}
+  for +hk: {Kind.is_app(kind) == True{} : Bool}
+  for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, Bk.Term.Prj{h}, Con{A.AF{kind, q, k, a, b}, fs}}),
     Next(x, A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Prj{h}, a, fs)), Halt(A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Prj{h}, a, fs)))
 
@@ -336,7 +339,8 @@ law mv.ret.app.mat:
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
   for +iv: {R.Inv(x, st, A.AS{True{}, Bk.Term.Mat{j, h, m}, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
-  for +hk: {Mv.isapp(kind) && Bool.not(El.Quan.live(q) && Bool.not(k)) == True{} : Bool}
+  for +hk: {Kind.is_app(kind) == True{} : Bool}
+  for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, Bk.Term.Mat{j, h, m}, Con{A.AF{kind, q, k, a, b}, fs}}),
     Next(x, A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Mat{j, h, m}, a, fs)),
     Halt(A.AM.redex(Hp.Cx.ds(x), q, Bk.Term.Mat{j, h, m}, a, fs)))
@@ -354,7 +358,9 @@ law mv.ret.app.call:
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
   for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}) == True{} : Bool}
-  for +hk: {Mv.isapp(kind) && Bool.not(El.Quan.live(q) && Bool.not(k)) && Mv.calls(v) == True{} : Bool}
+  for +hk: {Kind.is_app(kind) == True{} : Bool}
+  for +hs: {El.Quan.live(q) && Bool.not(k) == False{} : Bool}
+  for +hc: {Head.calls(v) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{kind, q, k, a, b}, fs}}),
     Next(x, A.AM.redex(Hp.Cx.ds(x), q, v, a, fs)), Halt(A.AM.redex(Hp.Cx.ds(x), q, v, a, fs)))
 
@@ -418,7 +424,7 @@ law mv.ret.fun.call:
   for +b: Bk.Term
   for +fs: List<&2, A.AF>
   for +iv: {R.Inv(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}) == True{} : Bool}
-  for +hc: {Mv.calls(g) == True{} : Bool}
+  for +hc: {Head.calls(g) == True{} : Bool}
   Lg.Tot(Mc.M.ret(), st, Me.Budget(x, st, A.AS{True{}, v, Con{A.AF{A.FK.fun{}, q, k, g, b}, fs}}),
     Next(x, A.AM.redex(Hp.Cx.ds(x), q, g, v, fs)), Halt(A.AM.redex(Hp.Cx.ds(x), q, g, v, fs)))
 
