@@ -292,7 +292,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as B from "../../../bend/bend2/bend.ts";
+import * as os from "node:os";
+// bend.ts is imported below the ask client (B = await import(..)): `ask` loads nothing, so it starts
+// fast and runs in a worktree whose bend submodule is not linked; B.X in a type is erased by bun
 
 type HTerm = B.HTerm;
 type LTerm = B.LTerm;
@@ -381,16 +383,51 @@ const attempt = <T>(n: number, f: () => T): T | undefined => {
 };
 
 // ---- ask: a client of `serve` (loads nothing) ----
+// With --file F (shared servers, see SHARED SERVERS): F is the agent's own copy of the entry; its text
+// goes with the request, and the port, if not given, is the registered server of F's path under src/.
+// The registry: one <port>.json per server ({port, file, wt}), written by ~/lead/g2serve.sh, in
+// $G2POOL_REG or ~/.g2pool (in WSL, ~/.g2pool links to the Windows one).
+const POOL = process.env.G2POOL_REG ?? path.join(os.homedir(), ".g2pool");
+const gitRoot = (f: string): string | null => {
+  for (let d = path.dirname(f); ; d = path.dirname(d)) {
+    if (fs.existsSync(path.join(d, ".git"))) return d;
+    if (path.dirname(d) === d) return null;
+  }
+};
+const posix = (p: string) => p.split(path.sep).join("/");
 if (MODE === "ask") {
-  const port = +opt("port", "7311");
-  const args = argv.slice(1);
-  const res = await fetch("http://127.0.0.1:" + port + "/prove", { method: "POST", body: JSON.stringify({ args }) }).catch((e) => null);
-  if (!res) { console.error("gen2 ask: no server on port " + port + " (start one: gen2.ts serve <file.bend>)"); process.exit(1); }
+  const fi = argv.indexOf("--file");
+  const args = argv.slice(1).filter((_, i) => fi < 0 || (i + 1 !== fi && i + 1 !== fi + 1));
+  let port = +opt("port", "0"), shared: { text: string; rel: string; root: string; file: string } | undefined;
+  if (fi >= 0) {
+    const file = path.resolve(argv[fi + 1] ?? "");
+    if (!fs.existsSync(file)) { console.error("gen2 ask: no file " + file); process.exit(1); }
+    const root = gitRoot(file);
+    if (!root) { console.error("gen2 ask: " + file + " is not in a git worktree"); process.exit(1); }
+    const rel = posix(path.relative(path.join(root, "src"), file));
+    shared = { text: fs.readFileSync(file, "utf8"), rel, root: posix(root), file };
+    if (!port) {
+      const regs = (fs.existsSync(POOL) ? fs.readdirSync(POOL) : []).filter((n) => n.endsWith(".json")).sort()
+        .map((n) => { try { return JSON.parse(fs.readFileSync(path.join(POOL, n), "utf8")); } catch { return null; } })
+        .filter((r) => r && r.file === rel);
+      if (regs.length === 0) { console.error("gen2 ask: no gen2 server for " + rel + " in " + POOL + " (the orchestrator starts one: ~/lead/g2serve.sh start <worktree> " + rel + ")"); process.exit(1); }
+      port = regs[0].port;
+    }
+  }
+  port ||= 7311;
+  const res = await fetch("http://127.0.0.1:" + port + "/prove", { method: "POST", timeout: false, body: JSON.stringify({ args, ...(shared ? { text: shared.text, rel: shared.rel, root: shared.root } : {}) }) }).catch((e) => null);
+  if (!res) { console.error("gen2 ask: no server on port " + port + " (start one: gen2.ts serve <file.bend>, or ~/lead/g2serve.sh start)"); process.exit(1); }
   const r: any = await res.json();
   if (r.stderr) process.stderr.write(r.stderr);
   if (r.stdout) process.stdout.write(r.stdout);
+  if (shared && typeof r.write === "string") {
+    // --write: the server returns the new text; it lands only if the file is still the text it read
+    if (fs.readFileSync(shared.file, "utf8") === shared.text) { fs.writeFileSync(shared.file, r.write); console.error("[gen2] wrote " + shared.file); }
+    else console.error("[gen2] --write skipped: " + shared.file + " changed while gen2 worked (ask again)");
+  }
   process.exit(r.code);
 }
+const B = await import("../../../bend/bend2/bend.ts");
 
 // ---- load ----
 const entry = fs.realpathSync(path.resolve(FILE ?? ""));
@@ -488,7 +525,7 @@ const preload = async () => {
     await B.book_load(book, got, path.posix.relative(TOP, got).replace(/\.bend$/, ""), seen, undefined, TOP);
   }
 };
-const N0 = await (async () => {
+let N0 = await (async () => {
   await preload();
   const n0 = book.order.length, tlds = { ...book.tlds }, ctrs = { ...book.ctrs };
   try {
@@ -2522,14 +2559,15 @@ const scrutFix = (pe: { err: B.Err; blk: Blk }): string => {
 // put body as k's body and defs above k's def (and its comment) in k's file; the file must still hold
 // the body gen2 read
 const writeBack = (k: string, ds: Src, body: string, defs: string[]): string => {
-  const lines = fs.readFileSync(ds.file, "utf8").split("\n");
+  const lines = (ds.file === entry && reqText !== undefined ? pendingWrite ?? reqText : fs.readFileSync(ds.file, "utf8")).split("\n");
   const n = ds.body.split("\n").length;
   if (lines.slice(ds.bodyLine, ds.bodyLine + n).join("\n") !== ds.body) return "[gen2] --write skipped: " + path.basename(ds.file) + " changed since gen2 read it (ask again)";
   lines.splice(ds.bodyLine, n, ...body.split("\n"));
   let at = defLine(ds.file, shortOf(k));
   while (at > 0 && lines[at - 1].startsWith("#")) at--;
   if (defs.length > 0) lines.splice(at, 0, ...defs.join("\n").split("\n"));
-  fs.writeFileSync(ds.file, lines.join("\n"));
+  if (ds.file === entry && reqText !== undefined) pendingWrite = lines.join("\n"); // the client writes it
+  else fs.writeFileSync(ds.file, lines.join("\n"));
   return "[gen2] wrote " + path.basename(ds.file) + ": the body of " + shortOf(k) + (defs.length ? " and " + defs.length + " helper(s) above it" : "");
 };
 
@@ -3177,16 +3215,24 @@ const proveOne = (k: string, ds: Src): { failed: boolean; body?: string } => {
 
 // ---- serve: the book stays loaded between prove calls ----
 // gen2.ts serve <file.bend> [--port 7311]; then `gen2.ts ask [--port N] <def> ... [options]` (the
-// arguments of prove after the file). Before each call the entry file is re-read if it changed: its
-// defs are re-parsed on top of the imports; a change
-// in an imported file needs a restart.
+// arguments of prove after the file). Before each call the entry is parsed again if its text changed:
+// the text of the request (a shared ask: --file), else the entry file on disk; only its defs are
+// re-parsed, on top of the loaded imports (an import that the text adds is loaded first).
 const entryAl = (() => { for (const k of book.order.slice(N0)) { const f = sourceFiles.get(k); if (f) return f.al; } return {} as Record<string, string>; })();
 let entryMtime = fs.statSync(entry).mtimeMs;
-const reloadEntry = (): string | null => {
-  const mt = fs.statSync(entry).mtimeMs;
-  if (mt === entryMtime) return null;
+let entrySrc = entryText, srcFromReq = false;
+// the text of the current shared ask (undefined: the file on disk), and what --write made of it
+let reqText: string | undefined, pendingWrite: string | undefined;
+const reloadEntry = (text?: string): string | null => {
+  if (text === undefined) {
+    const mt = fs.statSync(entry).mtimeMs;
+    if (mt === entryMtime && !srcFromReq) return null;
+    entryMtime = mt;
+    text = fs.readFileSync(entry, "utf8");
+  }
+  if (text === entrySrc) { srcFromReq = reqText !== undefined; return null; }
   const t0 = performance.now();
-  const lines = fs.readFileSync(entry, "utf8").split("\n");
+  const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) { const l = lines[i].trim(); if (l === "" || l.startsWith("#")) continue; if (!/^import(\s|$)/.test(l)) break; lines[i] = ""; }
   const own = new Set(book.order.slice(N0));
   const oldHdr = new Map<string, string | undefined>();
@@ -3204,6 +3250,9 @@ const reloadEntry = (): string | null => {
     nb.order = book.order.slice(0, N0);
     return nb;
   };
+  // from here on the text is the source of the entry's defs (texts: also what --write edits)
+  entrySrc = text; srcFromReq = reqText !== undefined;
+  texts.set(entry, text); fileLines.delete(entry); defLines.delete(entry); srcCache.clear();
   const nb = parseEntry(fresh(), lines.join("\n"), entryAl, fresh);
   if (flag("validate-book")) B.book_valid(nb, N0);
   for (const k of Object.keys(RAW)) delete RAW[k];
@@ -3223,9 +3272,8 @@ const reloadEntry = (): string | null => {
     const file = sourceFiles.get(k);
     if (file) for (const imp of autoImports) file.al[imp.alias] = imp.ns;
   }
-  texts.delete(entry); fileLines.delete(entry); defLines.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear(); tinfo.clear();
+  srcCache.clear(); strictMemo.clear(); matchedMemo.clear(); tinfo.clear();
   buildIndex();
-  entryMtime = mt;
   // the statements that are new or changed (not law fills: their statement is the law's) must check
   const bad: string[] = [];
   for (const k of new Set(book.order.slice(N0))) {
@@ -3235,32 +3283,110 @@ const reloadEntry = (): string | null => {
   }
   return "[gen2] reloaded " + path.basename(entry) + " in " + Math.round(performance.now() - t0) + " ms" + (bad.length ? "\n" + bad.join("\n") : "");
 };
+// SHARED SERVERS: an import that the request's text adds is loaded into the book (after the other
+// imports, before the entry's defs), with its alias; a removed import stays loaded (its alias still
+// parses). Returns notes for the answer.
+const IMPORT_LINE = /^import\s+(\S+)(?:\s+as\s+([A-Za-z_]\w*))?\s*(?:#.*)?$/;
+const loadImports = async (text: string): Promise<string[]> => {
+  const notes: string[] = [];
+  for (const line of text.split("\n")) {
+    const l = line.trim();
+    if (l === "" || l.startsWith("#")) continue;
+    if (!/^import(\s|$)/.test(l)) break;
+    const m = IMPORT_LINE.exec(l);
+    if (!m || !m[2] || !m[1].endsWith(".bend") || /^0x|@/.test(m[1])) continue;
+    const got = path.resolve(TOP, m[1]);
+    if (!fs.existsSync(got)) { notes.push("[gen2] the import " + m[1] + " does not exist in the server's tree"); continue; }
+    const real = fs.realpathSync(got), ns = path.posix.relative(TOP, real).replace(/\.bend$/, "");
+    if (entryAl[m[2]] === ns && seen.has(real)) continue;
+    if (m[2] in entryAl && entryAl[m[2]] !== ns) { notes.push("[gen2] the alias " + m[2] + " names " + entryAl[m[2]] + " in the server's book, not " + ns + ": not loaded"); continue; }
+    const n1 = book.order.length;
+    await B.book_load(book, real, ns, seen, undefined, TOP);
+    const added = book.order.slice(n1);
+    book.order = [...book.order.slice(0, N0), ...added, ...book.order.slice(N0, n1)];
+    N0 += added.length;
+    ORDER.clear(); book.order.forEach((k, i) => ORDER.set(k, i));
+    entryAl[m[2]] = ns;
+    entrySrc = ""; // parse the entry again, on top of the new import
+    notes.push("[gen2] loaded the new import " + m[1] + " as " + m[2] + " (" + added.length + " entries)");
+  }
+  return notes;
+};
+// the server's root (its worktree) and each loaded import's path in it, with a hash of the text that
+// the server loaded; an ask from another worktree is told which of its imports differ (by stat; each
+// result is kept 20 s per worktree, as the client's files are on /mnt/c)
+const serverRoot = gitRoot(entry) ?? path.dirname(entry);
+const importHash = new Map<string, number | bigint>();
+const loadedImports = () => { for (const real of seen.keys()) if (real !== entry && !importHash.has(real) && real.startsWith(serverRoot + "/")) importHash.set(real, Bun.hash(fs.readFileSync(real, "utf8"))); };
+loadedImports();
+const statHash = new Map<string, { key: string; h: number | bigint }>();
+const diffChecked = new Map<string, { at: number; notes: string[] }>();
+const localPath = (p: string) => (process.platform !== "win32" && /^[A-Za-z]:\//.test(p) ? "/mnt/" + p[0].toLowerCase() + p.slice(2) : p);
+const importDiffs = (clientRoot: string): string[] => {
+  const root = localPath(clientRoot);
+  const was = diffChecked.get(root);
+  if (was && performance.now() - was.at < 20000) return was.notes;
+  loadedImports();
+  const notes: string[] = [];
+  for (const [real, h] of importHash) {
+    const rel = path.relative(serverRoot, real), f = path.join(root, rel);
+    let st: fs.Stats | undefined;
+    try { st = fs.statSync(f); } catch { notes.push(rel + " (missing in your worktree)"); continue; }
+    const key = st.mtimeMs + ":" + st.size;
+    let c = statHash.get(f);
+    if (!c || c.key !== key) { c = { key, h: Bun.hash(fs.readFileSync(f, "utf8")) }; statHash.set(f, c); }
+    if (c.h !== h) notes.push(rel);
+  }
+  diffChecked.set(root, { at: performance.now(), notes });
+  return notes;
+};
+const entryRel = posix(path.relative(path.join(serverRoot, "src"), entry));
+type Ask = { args: string[]; text?: string; rel?: string; root?: string };
+let queue: Promise<unknown> = Promise.resolve(), waiting = 0;
+const handle = async (body: Ask, tq: number, ahead: number) => {
+  const out: string[] = [], err: string[] = [];
+  const t0 = performance.now(), ticks0 = ticks;
+  if (body.text !== undefined && body.rel !== entryRel)
+    return { stdout: "", stderr: "[gen2] this server serves " + entryRel + ", not " + body.rel + " (one server per entry file: ~/lead/g2serve.sh list)\n", code: 1 };
+  const ol = console.log, oe = console.error;
+  console.log = (...a: any[]) => { out.push(a.join(" ")); };
+  console.error = (...a: any[]) => { err.push(a.join(" ")); };
+  let code = 0;
+  reqText = body.text; pendingWrite = undefined;
+  try {
+    if (body.text !== undefined) {
+      for (const n of await loadImports(body.text)) err.push(n);
+      const d = body.root ? importDiffs(body.root) : [];
+      if (d.length) err.push("[gen2] NOTE: these imports differ between your worktree and the server's (answers use the server's copy; provers never edit imports: rebase on feature/redesign, or tell the orchestrator): " + d.join(", "));
+    }
+    const r = reloadEntry(body.text);
+    if (r) err.push(r);
+    argv.length = 0; argv.push("prove", FILE, ...body.args); readOpts();
+    runProve();
+  } catch (e: any) {
+    if (e instanceof Exit) code = e.code;
+    else { code = 1; err.push("[gen2] " + errText(e)); entryMtime = 0; entrySrc = ""; }
+  } finally {
+    console.log = ol; console.error = oe;
+    deadline = Infinity;
+  }
+  err.push("[gen2] served in " + Math.round(performance.now() - t0) + " ms (" + (ticks - ticks0) + " def lookups" + (t0 - tq > 50 ? "; waited " + Math.round(t0 - tq) + " ms behind " + ahead + " ask(s)" : "") + ")");
+  const write = pendingWrite;
+  reqText = undefined; pendingWrite = undefined;
+  return { stdout: out.length ? out.join("\n") + "\n" : "", stderr: err.join("\n") + "\n", code, ...(write !== undefined ? { write } : {}) };
+};
 const serve = () => {
   const port = +opt("port", "7311");
   Bun.serve({
-    port, hostname: "127.0.0.1",
+    port, hostname: "127.0.0.1", idleTimeout: 0,
     async fetch(req) {
-      const { args } = (await req.json()) as { args: string[] };
-      const out: string[] = [], err: string[] = [];
-      const ol = console.log, oe = console.error;
-      console.log = (...a: any[]) => { out.push(a.join(" ")); };
-      console.error = (...a: any[]) => { err.push(a.join(" ")); };
-      let code = 0;
-      const t0 = performance.now(), ticks0 = ticks;
-      try {
-        const r = reloadEntry();
-        if (r) err.push(r);
-        argv.length = 0; argv.push("prove", FILE, ...args); readOpts();
-        runProve();
-      } catch (e: any) {
-        if (e instanceof Exit) code = e.code;
-        else { code = 1; err.push("[gen2] " + errText(e)); entryMtime = 0; }
-      } finally {
-        console.log = ol; console.error = oe;
-        deadline = Infinity;
-      }
-      err.push("[gen2] served in " + Math.round(performance.now() - t0) + " ms (" + (ticks - ticks0) + " def lookups)");
-      return Response.json({ stdout: out.length ? out.join("\n") + "\n" : "", stderr: err.join("\n") + "\n", code });
+      const tq = performance.now();
+      const body = (await req.json()) as Ask;
+      // one ask at a time, in arrival order (the book is one shared state)
+      const ahead = waiting++;
+      const turn = queue.then(() => handle(body, tq, ahead));
+      queue = turn.catch(() => {});
+      try { return Response.json(await turn); } finally { waiting--; }
     },
   });
   console.error("[gen2] serving " + FILE + " on 127.0.0.1:" + port + " (book: " + book.order.length + " entries, load " + Math.round(tLoad) + " ms, valid " + Math.round(tValid - tLoad) + " ms); ask with: gen2.ts ask [--port " + port + "] <def> ... [options]");
