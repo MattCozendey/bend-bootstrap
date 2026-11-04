@@ -478,6 +478,24 @@ def Agree(cs: List<&2, U32>, +m: Cr.Cir.Cells, +m2: Cr.Cir.Cells) -> Bool:
     case Con{c, rest}:
       V.same(m, m2, c) && Agree(rest, m, m2)
 
+def V.rc.kid(+b: U32, r: Bool) -> Bool:
+  U32.is_zero(b) || r
+
+# the real variables of the read of c, g levels deep, are bound at the depth
+# d: each real Var's index is below the binders above it (a poison is bound
+# by none, and needs none); a cell of no field is so; none when the levels
+# run out. It does not read fv, which saturates at 524287
+def V.rc(g: Nat, +m: Cr.Cir.Cells, +c: U32, +d: Nat) -> Bool:
+  match g:
+    case 0n:
+      False{}
+    case 1n++f:
+      +mk = V.mask(m, c)
+      Bool.pick(Bool, U32.is_zero(Tg(m, c)), U32.is_zero(Fv(m, c)) || Nat.is_lt(U32.to_nat(Fd(2n, m, c)), d),
+        V.rc.kid(U32.and(mk, 1), V.rc(f, m, Fd(2n, m, c), Nat.add(d, Hs.Tbl.bind(Tg(m, c), 2n)))) &&
+          V.rc.kid(U32.and(mk, 2), V.rc(f, m, Fd(3n, m, c), Nat.add(d, Hs.Tbl.bind(Tg(m, c), 3n)))) &&
+          V.rc.kid(U32.and(mk, 4), V.rc(f, m, Fd(4n, m, c), Nat.add(d, Hs.Tbl.bind(Tg(m, c), 4n)))))
+
 # The image
 # ---------
 #
@@ -689,17 +707,20 @@ def Clo(+x: Cx, +st: Cr.Cir.State, +L: List<&2, U32>) -> Bool:
   Clo.go(L, x, st, L)
 
 # the cell c reads as t at the depth d, where no real variable of it is free
+# (V.rc)
 def V.held.at(+x: Cx, +st: Cr.Cir.State, +c: U32, +d: Nat, +t: Bk.Term) -> Bool:
-  V.is(V.at(x, st, c, d), t) && Nat.is_le(U32.to_nat(Fv(Lg.St.cells(st), c)), d)
+  V.is(V.at(x, st, c, d), t) && V.rc(U32.to_nat(Lg.St.next(st)), Lg.St.cells(st), c, d)
 
-# each root is an own cell or a STATIC one of the image, and reads as its term
-# at its depth, with no real variable free there
+# each root is an own cell or a STATIC one of the image (so a cell that Cir
+# reads: Cir.is_cell, written out for the steppers), and reads as its term at
+# its depth, with no real variable free there
 def Rts(rs: List<&2, Rt>, +x: Cx, +st: Cr.Cir.State) -> Bool:
   match rs:
     case Nil{}:
       True{}
     case Con{Rt{+c, +d, +t}, rest}:
-      (V.own(x, st, c) || V.img(x, Lg.St.cells(st), c)) && V.held.at(x, st, c, d, t) && Rts(rest, x, st)
+      (V.own(x, st, c) || V.img(x, Lg.St.cells(st), c)) && Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) && V.held.at(x, st, c, d, t) &&
+        Rts(rest, x, st)
 
 # the depth of a frame's term (field 2): Let's body under its binder, Rwt's
 # motive under its two
@@ -734,7 +755,8 @@ def Frs.go(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
     case Nil{}:
       U32.is_zero(c)
     case Con{fr, rest}:
-      V.own(x, st, c) && V.frame(x, st, c, fr) && Frs.go(rest, x, st, Fd(1n, Lg.St.cells(st), c))
+      V.own(x, st, c) && Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) && V.frame(x, st, c, fr) &&
+        Frs.go(rest, x, st, Fd(1n, Lg.St.cells(st), c))
 
 # the frames from the register sp hold fs, the innermost first, and end there
 def Frs(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State) -> Bool:
@@ -746,7 +768,8 @@ def Chs.go(as: List<&2, A.Ag>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
       U32.is_zero(c)
     case Con{A.Ag{q, k, t}, rest}:
       +m = Lg.St.cells(st)
-      V.own(x, st, c) && U32.is_eq(Tg(m, c), Mc.K.arg()) && U32.is_eq(Qn(m, c), Mc.Img.quan(q)) &&
+      V.own(x, st, c) && Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) && U32.is_eq(Tg(m, c), Mc.K.arg()) &&
+        U32.is_eq(Qn(m, c), Mc.Img.quan(q)) &&
         V.beq(Fl(m, c, Mc.F.known()), k) && V.held.at(x, st, Fd(2n, m, c), 0n, t) && Chs.go(rest, x, st, Fd(1n, m, c))
 
 # each chain's cells hold its arguments (a cell of K.arg: their quantity,
@@ -805,10 +828,19 @@ def Cov.go(cs: List<&2, U32>, +m: Cr.Cir.Cells, +hs: List<&2, U32>) -> Bool:
     case Con{+c, rest}:
       Bool.not(Fl(m, c, Mc.F.build())) && (Fl(m, c, Mc.F.static()) || K.Mem(hs, c)) && Cov.go(rest, m, hs)
 
+# the live cells flagged STATIC (the input's byte cache)
+def V.stat(L: List<&2, U32>, +m: Cr.Cir.Cells) -> Nat:
+  match L:
+    case Nil{}:
+      0n
+    case Con{c, rest}:
+      Nat.add(Bool.pick(Nat, Fl(m, c, Mc.F.static()), 1n, 0n), V.stat(rest, m))
+
 # no live cell is BUILD, and each is STATIC or held (V.held): no cell that no
-# pointer can reach is live
-def Cov(+st: Cr.Cir.State, L: List<&2, U32>, rs: List<&2, Rt>, fs: List<&2, A.AF>, chs: List<&2, Ch>) -> Bool:
-  Cov.go(L, Lg.St.cells(st), V.held(st, rs, fs, chs))
+# pointer can reach is live; and at most 6144 are STATIC (the input's cache:
+# 256 bytes of 24 cells, AGENTS.md 3.9.1.4)
+def Cov(+st: Cr.Cir.State, +L: List<&2, U32>, rs: List<&2, Rt>, fs: List<&2, A.AF>, chs: List<&2, Ch>) -> Bool:
+  Cov.go(L, Lg.St.cells(st), V.held(st, rs, fs, chs)) && Nat.is_le(V.stat(L, Lg.St.cells(st)), 6144n)
 
 # the heap invariant
 def H(+x: Cx, +st: Cr.Cir.State, +L: List<&2, U32>, +rs: List<&2, Rt>, +fs: List<&2, A.AF>, +chs: List<&2, Ch>) -> Bool:
@@ -873,9 +905,8 @@ law view.more:
   for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {V.tm(Nat.add(g, h), x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
 
-# LAW: deeper, a cell whose real variables are below d (fv at most d, and not
-# fv_max) reads as its term shifted from d: only its poison moves (a copy's
-# sharing rests on this)
+# LAW: deeper, a cell whose real variables are bound at d reads as its term
+# shifted from d: only its poison moves (a copy's sharing rests on this)
 law view.deeper:
   for +g: Nat
   for +x: Cx
@@ -884,8 +915,7 @@ law view.deeper:
   for +d: Nat
   for +k: Nat
   for +t: Bk.Term
-  for +hs: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
-  for +hf: {Nat.is_le(U32.to_nat(Fv(m, c)), d) == True{} : Bool}
+  for +hr: {V.rc(g, m, c, d) == True{} : Bool}
   for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {V.tm(g, x, m, c, Nat.add(d, k)) == Some{El.Term.shift(t, k, d)} : Maybe<&2, Bk.Term>}
 
@@ -902,8 +932,8 @@ law view.static:
   for +r: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {V.tm(g, x, m, c, e) == Some{t} : Maybe<&2, Bk.Term>}
 
-# LAW: a cell whose real variables are below d reads canonical at d (its free
-# variables are its poison)
+# LAW: a cell whose real variables are bound at d reads canonical at d (its
+# free variables are its poison)
 law view.canon:
   for +g: Nat
   for +x: Cx
@@ -911,12 +941,11 @@ law view.canon:
   for +c: U32
   for +d: Nat
   for +t: Bk.Term
-  for +hs: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
-  for +hf: {Nat.is_le(U32.to_nat(Fv(m, c)), d) == True{} : Bool}
+  for +hr: {V.rc(g, m, c, d) == True{} : Bool}
   for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {C.Canon.is_at(t, d) == True{} : Bool}
 
-# LAW: a STATIC cell whose real variables are below k reads closed at k (a
+# LAW: a STATIC cell whose real variables are bound at k reads closed at k (a
 # copy's sharing of an image's part rests on this)
 law view.closed:
   for +g: Nat
@@ -927,10 +956,55 @@ law view.closed:
   for +k: Nat
   for +t: Bk.Term
   for +hs: {Fl(m, c, Mc.F.static()) == True{} : Bool}
-  for +hm: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
-  for +hf: {Nat.is_le(U32.to_nat(Fv(m, c)), k) == True{} : Bool}
+  for +hr: {V.rc(g, m, c, k) == True{} : Bool}
   for +e: {V.tm(g, x, m, c, d) == Some{t} : Maybe<&2, Bk.Term>}
   {C.Term.closed(t, k) == True{} : Bool}
+
+# LAW: a read whose fv (not saturated) is at most d has its real variables
+# bound at d (the copy's sharing test gives V.rc)
+law view.rc_fv:
+  for +g: Nat
+  for +x: Cx
+  for +m: Cr.Cir.Cells
+  for +c: U32
+  for +d: Nat
+  for +e: Nat
+  for +t: Bk.Term
+  for +hs: {U32.is_lt(Fv(m, c), 524287) == True{} : Bool}
+  for +hf: {Nat.is_le(U32.to_nat(Fv(m, c)), d) == True{} : Bool}
+  for +r: {V.tm(g, x, m, c, e) == Some{t} : Maybe<&2, Bk.Term>}
+  {V.rc(g, m, c, d) == True{} : Bool}
+
+# LAW: V.rc reads what the view reads (its frame law)
+law view.rc_frame:
+  for +g: Nat
+  for +m: Cr.Cir.Cells
+  for +m2: Cr.Cir.Cells
+  for +c: U32
+  for +d: Nat
+  for +a: {Agree(V.cells(g, m, c), m, m2) == True{} : Bool}
+  {V.rc(g, m2, c, d) == V.rc(g, m, c, d) : Bool}
+
+# LAW: more levels keep V.rc
+law view.rc_more:
+  for +g: Nat
+  for +h: Nat
+  for +m: Cr.Cir.Cells
+  for +c: U32
+  for +d: Nat
+  for +r: {V.rc(g, m, c, d) == True{} : Bool}
+  {V.rc(Nat.add(g, h), m, c, d) == True{} : Bool}
+
+# LAW: bound at d, bound at any greater depth
+law view.rc_up:
+  for +g: Nat
+  for +m: Cr.Cir.Cells
+  for +c: U32
+  for +d: Nat
+  for +d2: Nat
+  for +hd: {Nat.is_le(d, d2) == True{} : Bool}
+  for +r: {V.rc(g, m, c, d) == True{} : Bool}
+  {V.rc(g, m, c, d2) == True{} : Bool}
 
 # LAW: a read checks each node (V.chk: BUILD, DATA, VALUE, quantity, field 2,
 # fv, STATIC)
@@ -1036,3 +1110,64 @@ law h.live:
   for +chs: List<&2, Ch>
   for +h: {H(x, st, L, rs, fs, chs) == True{} : Bool}
   {H(x, st, V.Live(st), rs, fs, chs) == True{} : Bool}
+
+# LAW: H does not see the order of the roots: two neighbours swap, after any
+# prefix pre (so any permutation, step by step)
+law h.rts_swap:
+  for +x: Cx
+  for +st: Cr.Cir.State
+  for +L: List<&2, U32>
+  for +pre: List<&2, Rt>
+  for +a: Rt
+  for +b: Rt
+  for +rs: List<&2, Rt>
+  for +fs: List<&2, A.AF>
+  for +chs: List<&2, Ch>
+  for +h: {H(x, st, L, List.append(&2, Rt, pre, Con{a, Con{b, rs}}), fs, chs) == True{} : Bool}
+  {H(x, st, L, List.append(&2, Rt, pre, Con{b, Con{a, rs}}), fs, chs) == True{} : Bool}
+
+# LAW: nor the order of the chains
+law h.chs_swap:
+  for +x: Cx
+  for +st: Cr.Cir.State
+  for +L: List<&2, U32>
+  for +rs: List<&2, Rt>
+  for +fs: List<&2, A.AF>
+  for +pre: List<&2, Ch>
+  for +a: Ch
+  for +b: Ch
+  for +chs: List<&2, Ch>
+  for +h: {H(x, st, L, rs, fs, List.append(&2, Ch, pre, Con{a, Con{b, chs}})) == True{} : Bool}
+  {H(x, st, L, rs, fs, List.append(&2, Ch, pre, Con{b, Con{a, chs}})) == True{} : Bool}
+
+# LAW: a STATIC cell of the image that reads as t at d (bound there) is one
+# more root, with no count to change (M.ret.min's focus, a label of the image)
+law h.static_root:
+  for +x: Cx
+  for +st: Cr.Cir.State
+  for +L: List<&2, U32>
+  for +rs: List<&2, Rt>
+  for +fs: List<&2, A.AF>
+  for +chs: List<&2, Ch>
+  for +c: U32
+  for +d: Nat
+  for +t: Bk.Term
+  for +h: {H(x, st, L, rs, fs, chs) == True{} : Bool}
+  for +hc: {V.img(x, Lg.St.cells(st), c) && V.held.at(x, st, c, d, t) == True{} : Bool}
+  {H(x, st, L, Con{Rt{c, d, t}, rs}, fs, chs) == True{} : Bool}
+
+# LAW: with at most 64 roots, a live counted cell's count is below 2^31 (its
+# pointers from the cells are at most 3 a live cell, and the live cells are
+# below 214748364): an inc cannot wrap
+law h.count:
+  for +x: Cx
+  for +st: Cr.Cir.State
+  for +L: List<&2, U32>
+  for +rs: List<&2, Rt>
+  for +fs: List<&2, A.AF>
+  for +chs: List<&2, Ch>
+  for +c: U32
+  for +h: {H(x, st, L, rs, fs, chs) == True{} : Bool}
+  for +hb: {Nat.is_le(List.length(&2, Rt, rs), 64n) == True{} : Bool}
+  for +hc: {K.Mem(L, c) && V.counted(Lg.St.cells(st), c) == True{} : Bool}
+  {U32.is_lt(Fd(1n, Lg.St.cells(st), c), 2147483648) == True{} : Bool}

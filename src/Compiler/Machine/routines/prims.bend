@@ -37,7 +37,7 @@ def R.make.spec(x, st, L, r, h, a, b, c, hv, av, bv, cv, hs, hr, he):
 def R.release.spec(st, r, c, hr, hc):
   ?TODO
 
-def R.inc.spec(x, st, L, rs, fs, chs, r, c, d, t, hs, hr, hn):
+def R.inc.spec(x, st, L, rs, fs, chs, r, c, d, t, hs, hr, hn, hb):
   ?TODO
 
 def R.push.spec(x, st, L, rs, fs, chs, fr, h, a, b, ca, cb, hs, he):
@@ -52,8 +52,14 @@ def R.swap.spec(x, st, L, rs, fs, chs, fr, fr2, v, h, hs, hh, he):
 def R.one.spec(x, st, L, rs, fs, chs, r, c, t, hs, hr, hw):
   ?TODO
 
-def R.h.node(x, st, L, rs, fs, chs, r, v, ps, t, hs, hr, hc):
+def R.h.node(x, st, L, rs, fs, chs, r, v, ps, t, hs, hr, hn, hc):
   ?TODO
 
-def R.h.arg(x, st, L, rs, fs, chs, r, ag, c, ln, as, hs, hr):
+def R.h.arg(x, st, L, rs, fs, chs, r, ag, c, ln, as, hs, hr, hn):
+  ?TODO
+
+def R.alloc.reg(st, r, q, hr):
+  ?TODO
+
+def R.make.reg(st, r, v, q, hr):
   ?TODO

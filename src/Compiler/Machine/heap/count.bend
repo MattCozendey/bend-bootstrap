@@ -28,3 +28,15 @@ def Hp.h.set(x, st, L, rs, fs, chs, r, v, h, hr):
 
 def Hp.h.live(x, st, L, rs, fs, chs, h):
   ?TODO
+
+def Hp.h.rts_swap(x, st, L, pre, a, b, rs, fs, chs, h):
+  ?TODO
+
+def Hp.h.chs_swap(x, st, L, rs, fs, pre, a, b, chs, h):
+  ?TODO
+
+def Hp.h.static_root(x, st, L, rs, fs, chs, c, d, t, h, hc):
+  ?TODO
+
+def Hp.h.count(x, st, L, rs, fs, chs, c, h, hb, hc):
+  ?TODO
