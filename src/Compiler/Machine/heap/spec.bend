@@ -636,11 +636,14 @@ def V.no_out(out: List<&2, Word(8n)>) -> Bool:
 
 # the run's fixed parts: the image is intact and is the state's; first is past
 # it; next is at most 214748364 (the last that Cir.Stmt.alloc gives); the
-# registers of Mach.regs(); no output yet
+# registers of Mach.regs(); no output yet; the free list's head is 0 or a cell
+# that Cir reads (Part's free list is own cells: written out for the steppers)
 def Fix(+x: Cx, +st: Cr.Cir.State) -> Bool:
   ImgOK(x, Lg.St.cells(st)) && U32.is_eq(Cx.im(x), Lg.St.image(st)) && U32.is_eq(Cx.fi(x), Lg.St.first(st)) &&
     U32.is_lt(Cx.im(x), Cx.fi(x)) && U32.is_le(Cx.fi(x), Lg.St.next(st)) && U32.is_le(Lg.St.next(st), 214748364) &&
-    Nat.is_eq(Lg.St.nregs(st), Mc.Mach.regs()) && U32.is_zero(Lg.St.outn(st)) && V.no_out(Lg.St.out(st))
+    Nat.is_eq(Lg.St.nregs(st), Mc.Mach.regs()) && U32.is_zero(Lg.St.outn(st)) && V.no_out(Lg.St.out(st)) &&
+    (U32.is_zero(Lg.St.reg(st, Mc.R.free())) ||
+      Cr.Cir.is_cell(Lg.St.reg(st, Mc.R.free()), Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)))
 
 # room to take a cell: Part and Fix (all that M.alloc needs)
 def Room(+x: Cx, +st: Cr.Cir.State, +L: List<&2, U32>) -> Bool:
@@ -762,15 +765,30 @@ def Frs.go(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
 def Frs(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State) -> Bool:
   Frs.go(fs, x, st, Lg.St.reg(st, Mc.R.sp()))
 
+def V.ag.q(ag: A.Ag) -> Bk.Quan:
+  match ag:
+    case A.Ag{q, _, _}:
+      q
+
+def V.ag.k(ag: A.Ag) -> Bool:
+  match ag:
+    case A.Ag{_, k, _}:
+      k
+
+def V.ag.t(ag: A.Ag) -> Bk.Term:
+  match ag:
+    case A.Ag{_, _, t}:
+      t
+
 def Chs.go(as: List<&2, A.Ag>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
   match as:
     case Nil{}:
       U32.is_zero(c)
-    case Con{A.Ag{q, k, t}, rest}:
+    case Con{+ag, rest}:
       +m = Lg.St.cells(st)
       V.own(x, st, c) && Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) && U32.is_eq(Tg(m, c), Mc.K.arg()) &&
-        U32.is_eq(Qn(m, c), Mc.Img.quan(q)) &&
-        V.beq(Fl(m, c, Mc.F.known()), k) && V.held.at(x, st, Fd(2n, m, c), 0n, t) && Chs.go(rest, x, st, Fd(1n, m, c))
+        U32.is_eq(Qn(m, c), Mc.Img.quan(V.ag.q(ag))) && V.beq(Fl(m, c, Mc.F.known()), V.ag.k(ag)) &&
+        V.held.at(x, st, Fd(2n, m, c), 0n, V.ag.t(ag)) && Chs.go(rest, x, st, Fd(1n, m, c))
 
 # each chain's cells hold its arguments (a cell of K.arg: their quantity,
 # KNOWN, and the term of field 2 at the depth 0), and end there

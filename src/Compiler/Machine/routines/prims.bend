@@ -46,7 +46,7 @@ def R.push.spec(x, st, L, rs, fs, chs, fr, h, a, b, ca, cb, hs, he):
 def R.pop.spec(x, st, L, rs, fr, fs, chs, hs):
   ?TODO
 
-def R.swap.spec(x, st, L, rs, fs, chs, fr, fr2, v, h, hs, hh, he):
+def R.swap.spec(x, st, L, rs, fs, chs, fr, fr2, v, h, hs, hh, hk, he):
   ?TODO
 
 def R.one.spec(x, st, L, rs, fs, chs, r, c, t, hs, hr, hw):
@@ -62,4 +62,7 @@ def R.alloc.reg(st, r, q, hr):
   ?TODO
 
 def R.make.reg(st, r, v, q, hr):
+  ?TODO
+
+def R.alloc.cell(x, st, L, r, hs, hr):
   ?TODO

@@ -510,7 +510,8 @@ law swap.spec:
   for +v: Bk.Term
   for +h: Cr.Cir.Expr
   for +hs: {Hp.H(x, st, L, Con{Hp.Rt{Lg.St.reg(st, Mc.R.focus()), 0n, v}, rs}, Con{fr, fs}, chs) == True{} : Bool}
-  for +hh: {I.Mb.is(Lg.Reg(st, Mc.R.h()), Lg.St.reg(st, Mc.R.sp())) && Swap.ok(fr, fr2, v) == True{} : Bool}
+  for +hh: {Lg.Reg(st, Mc.R.h()) == Some{Lg.St.reg(st, Mc.R.sp())} : Maybe<&2, U32>}
+  for +hk: {Swap.ok(fr, fr2, v) == True{} : Bool}
   for +he: {Ev(h, x, st, L, Mc.M.swap.scr()) == Some{Fr.header(fr2)} : Maybe<&2, U32>}
   Lg.Tot(Mc.M.swap(h), st, 0n,
     st2 => {Hp.H(x, st2, L, Con{Hp.Rt{Hp.Fd(2n, Lg.St.cells(st), Lg.St.reg(st, Mc.R.sp())), 0n, Fr.a(fr)}, rs}, Con{fr2, fs}, chs) &&
@@ -732,3 +733,13 @@ law make.reg:
     True{} : Bool}
   {Lg.Reg(Make.st(st, r, v), q) == Bool.pick(Maybe<&2, U32>, Nat.is_eq(r, q), Some{Alloc.cell(st)},
     Bool.pick(Maybe<&2, U32>, Nat.is_eq(Mc.R.free(), q), Some{Alloc.free(st)}, Lg.Reg(st, q))) : Maybe<&2, U32>}
+
+# LAW: the cell that M.alloc takes is one that Cir reads and writes after it
+law alloc.cell:
+  for +x: Hp.Cx
+  for +st: Cr.Cir.State
+  for +L: List<&2, U32>
+  for +r: Nat
+  for +hs: {Hp.Room(x, st, L) == True{} : Bool}
+  for +hr: {Nat.is_lt(r, Mc.Mach.regs()) && Bool.not(Nat.is_eq(r, Mc.R.free())) == True{} : Bool}
+  {Lg.St.is_cell(Alloc.st(st, r), Alloc.cell(st)) == True{} : Bool}
