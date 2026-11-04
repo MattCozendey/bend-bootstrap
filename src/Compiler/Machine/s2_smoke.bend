@@ -110,7 +110,7 @@ type SR2 is Data:
   SR2{ok: Bool, n: Nat, end: Maybe<&2, A.AO>}
 
 def smk2.vb(+st: Cr.Cir.State) -> Bool:
-  Hp.Fl(Lg.St.cells(st), Hp.V.reg(st, Mc.R.focus()), Mc.F.value())
+  Hp.Fl(Lg.St.cells(st), Lg.St.reg(st, Mc.R.focus()), Mc.F.value())
 
 def smk2.halt(+c: U32, +c2: U32, +st2: Cr.Cir.State, +out: List<&2, Word(8n)>, +k: Nat) -> SR2:
   SR2{U32.is_eq(c, c2) && (Bool.not(U32.is_zero(c)) || Sd.Name.is_eq(List.reverse(&2, Word(8n), Lg.St.out(st2)), out)), k,

@@ -13,6 +13,8 @@ import ../../../Program/impl.bend as Pg
 import ../../../Wasm/impl.bend as Wa
 import ../../Cir/impl.bend as Cr
 import ../impl.bend as Mc
+import ../shared.bend as K
+import ../logic/spec.bend as Lg
 import ../header/spec.bend as Hs
 import ../heap/spec.bend as Hp
 import ./spec.bend as I
@@ -40,3 +42,31 @@ def I.img.table(x, m, t, h, ht):
 
 def I.img.ref(x, m, k, h):
   ?TODO
+
+# n registers of 0
+def img.rep_len(n: Nat) -> {List.length(&2, U32, List.replicate(U32, n, 0)) == n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+np:
+      %img.rep_len(np) : {1n+List.length(&2, U32, List.replicate(U32, np, 0)) == 1n+_ : Nat}
+      {==}
+
+# each of them 0
+def img.rep_get(n: Nat, q: Nat, +h: {Nat.is_lt(q, n) == True{} : Bool}) ->
+  {List.get(&2, U32, List.replicate(U32, n, 0), q) == Some{0} : Maybe<&2, U32>}:
+  match n q:
+    case 0n 0n:
+      K.bool.ff({List.get(&2, U32, List.replicate(U32, 0n, 0), 0n) == Some{0} : Maybe<&2, U32>}, h)
+    case 0n 1n+qp:
+      K.bool.ff({List.get(&2, U32, List.replicate(U32, 0n, 0), 1n+qp) == Some{0} : Maybe<&2, U32>}, h)
+    case 1n+np 0n:
+      {==}
+    case 1n+np 1n+qp:
+      img.rep_get(np, qp, h)
+
+def I.st0.nregs(n, cells, first, k, p, lim, i):
+  img.rep_len(n)
+
+def I.st0.reg(n, cells, first, k, p, lim, i, q, hq):
+  img.rep_get(n, q, hq)

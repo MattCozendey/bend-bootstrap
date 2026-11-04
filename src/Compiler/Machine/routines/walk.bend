@@ -27,5 +27,5 @@ import ../heap/view.bend as HpV
 import ../heap/count.bend as HpC
 import ../image/impl.bend as IP
 
-def R.walk.spec(x, st, L, rs, fs, chs, tc, tt, ca, xs, hs, hw):
+def R.walk.spec(x, st, L, rs, fs, chs, tc, tt, ca, xs, hs, hw, hb):
   ?TODO
