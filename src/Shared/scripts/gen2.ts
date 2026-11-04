@@ -29,13 +29,15 @@
 //   bun src/Shared/scripts/gen2.ts ask [--port 7311] <def> [<def> ...] [prove options]
 //       serve keeps the book loaded (a local HTTP server on 127.0.0.1) and answers `ask`, which takes
 //       the arguments of prove after the file and prints what prove prints (same exit code). Before
-//       each ask, the entry file is re-read if it changed: only its own defs are re-parsed and
-//       re-checked (the imports stay loaded; a change in an imported file needs a restart). Measured
-//       on moves_copy.bend (5730 entries): load + check 20 s once, then an ask of two leaves 0.27 s;
-//       a reload after an edit of need_big.bend 0.4 s. Start it in the background (through heavy.sh,
-//       which holds one of the 3 slots while it runs: stop it when done), e.g.
+//       each ask, the entry file is re-read if it changed: only its own defs are re-parsed (the
+//       imports stay loaded; a change in an imported file needs a restart). Built to answer fast:
+//       --budget defaults to 1000 (not 4000), and two caches live across asks (DESIGN). Measured
+//       (after 3f68666, need_big.bend): a hit 30-90 ms, a miss 1.7 s (13 s at budget 4000), the same ask
+//       again 1-50 ms; moves_copy.bend (5730 entries) loads in 3.7 s (400 MB). Start it in the
+//       background (through heavy.sh, which holds one of the 3 slots while it runs: stop it when
+//       done), e.g.
 //         ~/lead/heavy.sh bun Shared/scripts/gen2.ts serve Compiler/Machine/moves_copy.bend &
-//         bun Shared/scripts/gen2.ts ask kc.at fs.arg.at --budget 8000 --partial
+//         bun Shared/scripts/gen2.ts ask kc.at fs.arg.at --partial
 //   bun src/Shared/scripts/gen2.ts batch <file.bend> [--out DIR] [--only RE] [options]
 //       every def of the book (the file and all it imports, not Base) with a ?TODO in its body: a body
 //       that is exactly ?TODO is proven whole, other holes one by one. Writes DIR/report.txt (per hole:
@@ -61,6 +63,7 @@
 //       --only RE      bench: only defs whose name matches RE;  --max N: at most N defs
 //       --json FILE    bench: write per-def results as JSON
 //       --debug        print internal errors and failed final checks
+//       --fresh        ask: search again, not the cached answer (the proof cache stays in use)
 //   example (WSL):
 //       cd /mnt/c/Users/mathe/source/repos/bb-wt/gen2/src
 //       ~/lead/heavy.sh bun Shared/scripts/gen2.ts bench Compiler/need_big.bend --budget 3000
@@ -78,7 +81,13 @@
 // * Fuel and time: book.tlds is wrapped in a Proxy that counts def lookups (every unfolding goes
 //   through it): each check gets --fuel lookups, and the whole def has a deadline (--budget). Out of
 //   fuel = that candidate fails; past the deadline = the search stops and the best partial is kept.
-//   A stack overflow in the checker is a failed candidate.
+//   A stack overflow in the checker is a failed candidate. The Proxy costs ~60 ns per lookup (about
+//   3% of a miss: 0.9 M lookups in 1.7 s), so it stays.
+// * Caches across asks (serve only, LRU, kept across reloads; see proofCache and answers): a closed
+//   leaf goal's proof, reused only if it checks again at the new goal and names only defs the new
+//   job may use; and each def's printed answer, by the options and the entry file's text up to the
+//   end of that def (a later edit keeps it; a proven answer is checked again before reuse, a miss is
+//   replayed as is). Within a job, a goal's targets and ordered callees are computed once (GoalInfo).
 // * Normal form: nf(t) is a bounded strong normal form built on term_wnf: a stuck call stays a call
 //   (bend2's canonical stuck form), its arguments are normalized, a closed constant (a def with no
 //   parameter) is unfolded only when its value is tiny, and a node budget falls back to the raw term.
@@ -170,10 +179,10 @@
 //
 // NEXT (the ordered plan, for whoever continues; keep it current)
 // ----
-// 1. Book load between calls: DONE (serve/ask, commit ff24e5e): moves_copy.bend (5730 entries) loads
-//    and checks in about 20-30 s once, then each ask takes well under 1 s; an edit of the entry file
-//    costs a re-check of that file only. Next: an option to reload an imported file too (today a
-//    restart), and a slot policy for heavy.sh (a server holds one of the 3 slots while it runs).
+// 1. Book load between calls: DONE (serve/ask, commit ff24e5e; caches and budget 1000 in serve after
+//    3f68666). A restart now costs ~4 s (no validation), so reloading an imported file is low value.
+//    Open: a slot policy for heavy.sh (a server holds one of the 3 slots while it runs); parallel
+//    workers for asks of several defs (each worker loads the book again: ~400 MB for moves_copy).
 // 2. The implementer's 3 misses, in bb-wt/impl src/Compiler/Machine/moves_copy.bend at commit
 //    c28021c; the hand proofs there are the references (regression set: add them to a bench-like run
 //    with `ask kc.at fs.arg.at kept.at.own --whole --partial`):
@@ -207,7 +216,8 @@
 //    job in the same book (parse it into a shadow book: Object.create(book.tlds), as def_check does
 //    for templates), and output both. Should move need_big L (17/34) and kept.at.own.
 // 6. Fail fast on misses: a miss costs budget + partial pass + decomposition (up to 3 x budget;
-//    statement_runs L lemmas take 4-7 s each). A premise not simpler than its goal should cost two
+//    statement_runs L lemmas take 4-7 s each; serve's budget 1000 caps a miss near 1.7-3 s, and the
+//    bench6 data shows 175/178 hits within 1000 ms). A premise not simpler than its goal should cost two
 //    levels; memo rewrite candidates per goal; a cheaper decomposition pass.
 // 7. Readable motives: stop the normal form at a wrapper def when its unfolding stays stuck
 //    (Cr.Cir.is_cell(i, im, fi, nx) instead of its Bool.or body; Cmp.is_lt(U32.cmp(..)) instead of
@@ -238,7 +248,7 @@ const flag = (k: string) => argv.includes("--" + k);
 let BUDGET = 0, MAX_SPLIT = 0, MAX_DEPTH = 0, MAX_RW = 0, BEAM = 0, FUEL_CHECK = 0, HOLE_BUDGET = 0;
 let DECOMP = true, PARTIAL = false, STREAM = false, DEBUG = false;
 const readOpts = () => {
-  BUDGET = +opt("budget", "4000");
+  BUDGET = +opt("budget", MODE === "serve" ? "1000" : "4000");
   MAX_SPLIT = +opt("splits", "6");
   MAX_DEPTH = +opt("depth", "3");
   MAX_RW = +opt("rw", "4");
@@ -825,8 +835,18 @@ type Goal = {
   split: boolean; path: string; lvl: number;
   hc: Map<number, LTerm[]>;
 };
-type Job = { k: string; def: B.Def; order: number; file: B.File; short: string; tags: Map<string, number>; memo: Map<string, { pf: Pf | null; depth: number; rw: number }>; smemo: Map<string, Res>; closed: number; ih: boolean };
+// what a goal gives the leaf tactics whatever its budget (iterative deepening asks again): per job, by goal key
+type GoalInfo = { targets?: LTerm[]; hyp?: Callee[]; lem?: Callee[] };
+type Job = { k: string; def: B.Def; order: number; file: B.File; short: string; tags: Map<string, number>; memo: Map<string, { pf: Pf | null; depth: number; rw: number }>; smemo: Map<string, Res>; gi: Map<string, GoalInfo>; closed: number; ih: boolean };
 let job: Job;
+// serve only: caches that live across asks (LRU). proofCache: a closed leaf goal (by goal key) -> its
+// proof, reused only after the proof checks again at the new goal and names only defs that the new job
+// may use (see reuseOk). answers: what an ask printed for a def, by the def, the options and the entry
+// file's text up to the end of that def; a proven answer is checked again before it is reused.
+const SERVE = MODE === "serve";
+const proofCache = new Map<string, Pf>();
+const lruGet = <V>(m: Map<string, V>, k: string): V | undefined => { const v = m.get(k); if (v !== undefined) { m.delete(k); m.set(k, v); } return v; };
+const lruSet = <V>(m: Map<string, V>, k: string, v: V, cap: number) => { m.delete(k); m.set(k, v); if (m.size > cap) m.delete(m.keys().next().value!); };
 type Res = { pf: Pf; holes: number; closed: number };
 const tag = (t: string) => job.tags.set(t, (job.tags.get(t) ?? 0) + 1);
 const tm = (s: string): Pf => ({ t: "tm", s });
@@ -835,14 +855,33 @@ const show = (t: LTerm, names: string[]): string => B.term_show(t, -1, names.sli
 const ann = (g: Goal, i: number) => B.pmap_get(g.ctx, i);
 const goalKey = (g: Goal) => g.ckey + "|-" + g.qt.$[0] + key(lower(g.ty, g.d));
 
-const parseFrag = (text: string, g: Goal): HTerm => {
+const parseLow = (text: string, g: Goal): LTerm => {
   const p: B.Parse = { book, dir: "", str: text, pos: 0, stk: g.names.map((k, i) => [k, i] as [string, number]), frs: g.d, ns: job.file.ns, al: job.file.al };
   const hols = book.hols;
   const lt = B.parse_block(p);
   book.hols = hols;
   B.parse_skip(p);
   if (p.pos < text.length) B.parse_fail(p, "the end of the fragment");
-  return B.term_higher(lt, g.env);
+  return lt;
+};
+const parseFrag = (text: string, g: Goal): HTerm => B.term_higher(parseLow(text, g), g.env);
+// a cached proof may name only what this job's own search may name: defs before the target that are
+// not open, and the target itself only as the induction hypothesis (below a split)
+// (a span's file is the parser state, which holds the whole book: skip spans)
+const refsOf = (t: any, out: Set<string>) => {
+  if (t.$ === "Ref") out.add(t.k);
+  for (const k in t) if (k !== "s" && t[k] && typeof t[k] === "object") refsOf(t[k], out);
+};
+const reuseOk = (g: Goal, text: string): boolean => {
+  const rs = new Set<string>();
+  if (!attempt(FUEL_NF, () => { refsOf(parseLow(text, g), rs); return true; })) return false;
+  for (const r of rs) {
+    if (r === job.k) { if (job.ih && g.split) continue; return false; }
+    const t = RAW[r];
+    if (!t) return false;
+    if (t.$ === "Def" && ((ORDER.get(r) ?? Infinity) >= job.order || isOpen(r))) return false;
+  }
+  return true;
 };
 // does text check at g (bend2's term_check, plus the linearity of g's live binders)?
 const tryText = (g: Goal, text: string): boolean =>
@@ -1187,15 +1226,23 @@ const leaf = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null 
   const fk = gk + "#" + Math.min(g.lvl, CAPS.length - 1);
   const m = job.memo.get(fk);
   if (m && m.depth >= depth && m.rw >= rw) return null;
+  if (SERVE) {
+    const c = lruGet(proofCache, gk);
+    if (c) {
+      const s = flat(c);
+      if (reuseOk(g, s) && tryText(g, s)) { tag("cache"); job.memo.set(gk, { pf: c, depth, rw }); return c; }
+    }
+  }
   const p2 = new Set(path);
   p2.add(gk);
-  const r = leafGo(g, depth, rw, p2);
+  const r = leafGo(g, depth, rw, p2, gk);
+  if (r && SERVE) lruSet(proofCache, gk, r, 50000);
   if (r) job.memo.set(gk, { pf: r, depth, rw });
   else job.memo.set(fk, { pf: null, depth: Math.max(depth, m?.depth ?? 0), rw: Math.max(rw, m?.rw ?? 0) });
   return r;
 };
 
-const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null => {
+const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>, gk: string): Pf | null => {
   const w = wnf(g.ty);
   if (!w) return null;
   // 1. closers
@@ -1276,16 +1323,22 @@ const leafGo = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | nul
     }
   }
   if (depth === 0 && rw === 0) return null;
-  const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
-  const targets = n && key(n) !== key(raw) ? [raw, n] : [raw];
+  let gi = job.gi.get(gk);
+  if (!gi) { gi = {}; job.gi.set(gk, gi); }
+  const targets = (gi.targets ??= (() => {
+    const n = attempt(FUEL_NF * 2, () => nf(g.ty, g.d));
+    return n && key(n) !== key(raw) ? [raw, n] : [raw];
+  })());
   // 4. apply
   if (depth > 0) {
-    const callees: Callee[] = hypCallees(g);
+    const callees: Callee[] = [...(gi.hyp ??= hypCallees(g))];
     if (job.ih && g.split) callees.push(ihCallee());
     // lemmas: those whose conclusion matches, most specific first (a general lemma such as
-    // weaken: Le(a, b) from Le(1+a, b) matches every goal of its head, and is tried last)
-    const lem = lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, depth, rw, path, null, () => false, pr); return { c, spec: pr.spec! }; });
-    callees.push(...lem.filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c));
+    // weaken: Le(a, b) from Le(1+a, b) matches every goal of its head, and is tried last); the probe
+    // stops before the premises, so the order depends on the goal only
+    callees.push(...(gi.lem ??= lemmaCands(g, targets)
+      .map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, depth, rw, path, null, () => false, pr); return { c, spec: pr.spec! }; })
+      .filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c)));
     const cap = CAPS[Math.min(g.lvl, CAPS.length - 1)];
     const tries = { n: 0 };
     for (const c of callees) {
@@ -1633,7 +1686,7 @@ const rootGoal = (k: string): Goal => {
 };
 const newJob = (k: string): Job => {
   const def = RAW[k] as B.Def;
-  return { k, def, order: ORDER.get(k) ?? book.order.length, file: sourceFiles.get(k)!, short: shortOf(k), tags: new Map(), memo: new Map(), smemo: new Map(), closed: 0, ih: true };
+  return { k, def, order: ORDER.get(k) ?? book.order.length, file: sourceFiles.get(k)!, short: shortOf(k), tags: new Map(), memo: new Map(), smemo: new Map(), gi: new Map(), closed: 0, ih: true };
 };
 
 type Outcome = { ok: boolean; text: string | null; partial: string | null; partialBody?: string; holes: number; closed: number; ms: number; tags: string[]; why?: string };
@@ -1955,7 +2008,7 @@ class Exit { constructor(readonly code: number) {} }
 const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
-  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book"].includes(xs[i - 1])));
+  const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp", "--validate-book", "--fresh"].includes(xs[i - 1])));
   const entryDefs = new Set(book.order.slice(N0));
   const own = (x: string) => entryDefs.has(x) && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
   const ks: string[] = [];
@@ -1975,33 +2028,54 @@ const runProve = () => {
   }
   if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
   let failed = 0;
+  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole")].join(",");
   for (const k of ks) {
     const ds = defSrc(k);
     if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }
     if (ks.length > 1) console.log("# " + shortOf(k));
-    if (ds.body.trim() === "?TODO" || flag("whole")) {
-      const def = RAW[k] as B.Def;
-      RAW[k] = { ...def, v: null };
-      let o: Outcome;
-      try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
-      if (o.ok) {
-        console.log(o.text);
-        for (const imp of autoImports) if (o.text?.includes(imp.alias + ".")) console.error("[gen2] add import ./" + path.relative(TOP, imp.file) + " as " + imp.alias);
-        console.error("[gen2] " + shortOf(k) + ": proven in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]");
-      }
-      else {
-        failed++;
-        console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
-        console.log(o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "# NO PROOF");
-      }
-    } else {
-      const r = proveHoles(k, BUDGET);
-      console.log(r.body);
-      if (r.done < r.n) failed++;
-      console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled");
+    if (!SERVE) { failed += proveOne(k, ds).failed ? 1 : 0; continue; }
+    const ak = k + "|" + optsKey + "|" + Bun.hash(linesOf(ds.file).slice(0, ds.bodyLine + ds.body.split("\n").length).join("\n"));
+    const hit = flag("fresh") ? undefined : lruGet(answers, ak);
+    if (hit && (hit.body === undefined || attempt(FUEL_FINAL, () => { checkDef(k, hit.body!); return true; }))) {
+      for (const [err, s] of hit.lines) (err ? console.error : console.log)(s);
+      console.error("[gen2] " + shortOf(k) + ": cached answer (--fresh to search again)");
+      if (hit.failed) failed++;
+      continue;
     }
+    const lines: [boolean, string][] = [];
+    const ol = console.log, oe = console.error;
+    console.log = (...a: any[]) => { lines.push([false, a.join(" ")]); ol(...a); };
+    console.error = (...a: any[]) => { lines.push([true, a.join(" ")]); oe(...a); };
+    let r: { failed: boolean; body?: string };
+    try { r = proveOne(k, ds); } finally { console.log = ol; console.error = oe; }
+    lruSet(answers, ak, { lines, ...r }, 2000);
+    if (r.failed) failed++;
   }
   if (failed) throw new Exit(2);
+};
+// prove one def (its whole body, or the ?TODO holes in its body) and print the result; body: the
+// proven body (no hole left), checked again before a cached answer is reused
+const answers = new Map<string, { lines: [boolean, string][]; failed: boolean; body?: string }>();
+const proveOne = (k: string, ds: Src): { failed: boolean; body?: string } => {
+  if (ds.body.trim() === "?TODO" || flag("whole")) {
+    const def = RAW[k] as B.Def;
+    RAW[k] = { ...def, v: null };
+    let o: Outcome;
+    try { o = proveDef(k, BUDGET); } finally { RAW[k] = def; }
+    if (o.ok) {
+      console.log(o.text);
+      for (const imp of autoImports) if (o.text?.includes(imp.alias + ".")) console.error("[gen2] add import ./" + path.relative(TOP, imp.file) + " as " + imp.alias);
+      console.error("[gen2] " + shortOf(k) + ": proven in " + Math.round(o.ms) + " ms [" + o.tags.join(" ") + "]");
+      return { failed: false, body: o.text! };
+    }
+    console.error("[gen2] " + shortOf(k) + ": no proof (" + Math.round(o.ms) + " ms" + (o.why ? ", " + o.why : "") + ")");
+    console.log(o.partial ? "# PARTIAL (" + o.holes + " holes, " + o.closed + " subgoals closed): not a finished proof\n" + o.partial : "# NO PROOF");
+    return { failed: true };
+  }
+  const r = proveHoles(k, BUDGET);
+  console.log(r.body);
+  console.error("[gen2] " + shortOf(k) + ": " + r.done + "/" + r.n + " holes filled");
+  return r.done < r.n ? { failed: true } : { failed: false, body: r.body };
 };
 
 // ---- serve: the book stays loaded between prove calls ----
@@ -2059,7 +2133,7 @@ const serve = () => {
       console.log = (...a: any[]) => { out.push(a.join(" ")); };
       console.error = (...a: any[]) => { err.push(a.join(" ")); };
       let code = 0;
-      const t0 = performance.now();
+      const t0 = performance.now(), ticks0 = ticks;
       try {
         const r = reloadEntry();
         if (r) err.push(r);
@@ -2072,7 +2146,7 @@ const serve = () => {
         console.log = ol; console.error = oe;
         deadline = Infinity;
       }
-      err.push("[gen2] served in " + Math.round(performance.now() - t0) + " ms");
+      err.push("[gen2] served in " + Math.round(performance.now() - t0) + " ms (" + (ticks - ticks0) + " def lookups)");
       return Response.json({ stdout: out.length ? out.join("\n") + "\n" : "", stderr: err.join("\n") + "\n", code });
     },
   });
