@@ -39,6 +39,15 @@ const BEND_BUN =
       ]
     : [process.execPath];
 
+// The JS that `bend -o` writes recurses deeper than bun's default stack allows, so compile.ts runs
+// in a bun whose JavaScriptCore may use STACK_BYTES of stack. On POSIX, the stack limit must allow
+// as much too.
+const STACK_BYTES = 2_000_000_000;
+const BIG_STACK =
+  process.platform === "win32"
+    ? []
+    : ["sh", "-c", `ulimit -s ${STACK_BYTES / 1024} && exec "$0" "$@"`];
+
 // functions
 
 // `bend file -o out`, with the Bend of the bend submodule
@@ -53,6 +62,13 @@ export const getLower = (out: string) => ({
   cmd: [...BEND_BUN, "Shared/lower.ts", "main.bend", out],
   cwd: join(REPO, "src"),
   stdout: "ignore" as const,
+});
+
+// src/Compiler/tests/compile.ts: the compiler, as the JS that `bend -o` writes for compile.bend
+// (js), on the bytes of a book, into a module
+export const getCompile = (js: string, book: string, out: string) => ({
+  cmd: [...BIG_STACK, process.execPath, join(REPO, "src/Compiler/tests/compile.ts"), js, book, out],
+  env: { ...process.env, BUN_JSC_maxPerThreadStackUsage: String(STACK_BYTES) },
 });
 
 // `lake <args>` at the root of the Lean project (the repo), with these variables

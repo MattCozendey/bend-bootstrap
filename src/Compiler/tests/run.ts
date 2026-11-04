@@ -27,7 +27,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { getArgs, getBend, getLake, REPO, run } from "../../Shared/shared.ts";
+import { getArgs, getBend, getCompile, getLake, REPO, run } from "../../Shared/shared.ts";
 
 // types
 
@@ -67,15 +67,6 @@ const CODE_HASH = [
     new Bun.CryptoHasher("sha256"),
   )
   .digest("hex");
-
-// The JS that `bend -o` writes recurses deeper than bun's default stack allows, so compile.ts runs
-// in a bun whose JavaScriptCore may use STACK_BYTES of stack. On POSIX, the stack limit must allow
-// as much too.
-const STACK_BYTES = 2_000_000_000;
-const BIG_STACK =
-  process.platform === "win32"
-    ? []
-    : ["sh", "-c", `ulimit -s ${STACK_BYTES / 1024} && exec "$0" "$@"`];
 
 const EVERY: Input = { file: "every", bytes: Uint8Array.from({ length: 256 }, (_, b) => b) };
 // the states of a fixed LCG, in doubles (whose products lose bits)
@@ -204,19 +195,7 @@ run({
   ...getLake(["lean", "src/Book/scripts/Write.lean"], { JOBS: at("write.jobs") }),
   stdout: "ignore",
 });
-progs.forEach((n) =>
-  run({
-    cmd: [
-      ...BIG_STACK,
-      process.execPath,
-      join(HERE, "compile.ts"),
-      at("compile.mjs"),
-      at(`${n}.book`),
-      at(`${n}.wasm`),
-    ],
-    env: { ...process.env, BUN_JSC_maxPerThreadStackUsage: String(STACK_BYTES) },
-  }),
-);
+progs.forEach((n) => run(getCompile(at("compile.mjs"), at(`${n}.book`), at(`${n}.wasm`))));
 
 const cases = progs.flatMap((n) =>
   (INPUTS[n] ?? []).map((input, k) => {
