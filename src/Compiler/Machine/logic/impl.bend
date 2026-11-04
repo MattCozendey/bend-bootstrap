@@ -80,6 +80,57 @@ def lg.ok.wk(o: Cr.Cir.Out, +lim: Nat, +b: Nat, +b2: Nat, -Q: Cr.Cir.State -> Ty
     case Cr.Cir.Out.not_done{}:
       ok
 
+# a + b = b + a
+def lg.add_comm(+a: Nat, +b: Nat) -> {Nat.add(a, b) == Nat.add(b, a) : Nat}:
+  match a:
+    case 0n:
+      Equal.sym(Nat, Nat.add(b, 0n), b, N.add_zero(b))
+    case 1n+p:
+      %Equal.sym(Nat, Nat.add(p, b), Nat.add(b, p), lg.add_comm(p, b)) : {1n+_ == Nat.add(b, 1n+p) : Nat}
+      Equal.sym(Nat, Nat.add(b, 1n+p), 1n+Nat.add(b, p), N.add_succ_r(b, p))
+
+# a good outcome ended (and the outcome back)
+def lg.ok.done(o: Cr.Cir.Out, +lim: Nat, +b: Nat, -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type,
+  ok: Lg.Ok(o, lim, b, Q, H)) -> {Lg.Out.done(o) == True{} : Bool} & Lg.Ok(o, lim, b, Q, H):
+  match o:
+    case Cr.Cir.Out.next{_}:
+      ({==}, ok)
+    case Cr.Cir.Out.halt{_, _}:
+      ({==}, ok)
+    case Cr.Cir.Out.out_of_memory{}:
+      ({==}, ok)
+    case Cr.Cir.Out.trap{}:
+      match ok:
+    case Cr.Cir.Out.not_done{}:
+      match ok:
+
+# a sequence's run, at any fuel
+def lg.exec.seq(+f: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State) ->
+  {Cr.Cir.exec(f, Cr.Cir.Stmt.seq{a, c}, st) == Cr.Cir.exec.then(Cr.Cir.exec(f, a, st), t => Cr.Cir.exec(f, c, t)) : Cr.Cir.Out}:
+  match f:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+# the limit's bytes, from the fixed parts
+def lg.limf(x: Lg.St.Fixed) -> Nat:
+  match x:
+    case Lg.St.Fixed{limit, _, _, _}:
+      N.D(16n, U32.to_nat(Wa.Wasm.min(limit, 65536)))
+
+def lg.lim.fixed(st: Cr.Cir.State) -> {Lg.Lim(st) == lg.limf(Lg.St.fixed(st)) : Nat}:
+  match st:
+    case Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}:
+      {==}
+
+# two states with the same fixed parts have the same limit
+def lg.lim.eq(+x: Cr.Cir.State, +st: Cr.Cir.State, +e: {Lg.St.fixed(x) == Lg.St.fixed(st) : Lg.St.Fixed}) -> {Lg.Lim(x) == Lg.Lim(st) : Nat}:
+  Equal.trans(Nat, Lg.Lim(x), lg.limf(Lg.St.fixed(st)), Lg.Lim(st),
+    Equal.trans(Nat, Lg.Lim(x), lg.limf(Lg.St.fixed(x)), lg.limf(Lg.St.fixed(st)), lg.lim.fixed(x),
+      Equal.cong(Lg.St.Fixed, Nat, y => lg.limf(y), Lg.St.fixed(x), Lg.St.fixed(st), e)),
+    Equal.sym(Nat, Lg.Lim(st), lg.limf(Lg.St.fixed(st)), lg.lim.fixed(st)))
+
 # More fuel
 # ---------
 #
@@ -238,110 +289,12 @@ def lg.mono(+f: Nat, +g: Nat, +s: Cr.Cir.Stmt, +st: Cr.Cir.State, +le: N.Le(f, g
         case Cr.Cir.Stmt.halt{x}:
           {==}
 
-# Terms of states
-# ---------------
-#
-# A state as Lean's State (Interpreter/Machine.lean): a focus, to evaluate or a value,
-# and its frames, the innermost first. A frame is a term with a hole, of a
-# kind (the machine's K.app_arg to K.min_a), a quantity q, the flag K (k), and
-
-# an if's branch, by z = U32.is_zero of its condition
-def lg.if.of(z: Bool, +f: Nat, -y: Cr.Cir.Stmt, -n: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
-  -H: U32 -> Cr.Cir.State -> Type, ok: Lg.Ok(Cr.Cir.exec(f, Bool.pick(Cr.Cir.Stmt, z, n, y), st), Lg.Lim(st), b, Q, H)) ->
-  Lg.Ok(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(f, y, st), u => Cr.Cir.exec(f, n, st)), Lg.Lim(st), b, Q, H):
-  match z:
-    case False{}:
-      ok
-    case True{}:
-      ok
-
-# an if whose condition has the value v
-def lg.if.ok(+f: Nat, -c: Cr.Cir.Expr, -y: Cr.Cir.Stmt, -n: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
-  -H: U32 -> Cr.Cir.State -> Type, +v: U32, +e: {Cr.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>},
-  ok: Lg.Ok(Cr.Cir.exec(f, Bool.pick(Cr.Cir.Stmt, U32.is_zero(v), n, y), st), Lg.Lim(st), b, Q, H)) ->
-  Lg.Ok(Cr.Cir.exec(f, Cr.Cir.Stmt.if{c, y, n}, st), Lg.Lim(st), b, Q, H):
-  match f:
-    case 0n:
-      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, e) :
-        Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(0n, y, st), u => Cr.Cir.exec(0n, n, st)), Lg.Lim(st), b, Q, H)
-      lg.if.of(U32.is_zero(v), 0n, y, n, st, b, Q, H, ok)
-    case 1n+p:
-      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, e) :
-        Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+p, y, st), u => Cr.Cir.exec(1n+p, n, st)), Lg.Lim(st), b, Q, H)
-      lg.if.of(U32.is_zero(v), 1n+p, y, n, st, b, Q, H, ok)
+# Laws
+# ----
 
 def Lg.exec.more(f, g, s, st, d):
   Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f, s, st), Cr.Cir.exec(Nat.add(f, g), s, st),
     lg.mono(f, Nat.add(f, g), s, st, N.le_add_r(f, g), lg.ends.of(Cr.Cir.exec(f, s, st), d)))
-
-def Lg.tot.any(s, st, b, Q, H, t, g):
-  ?TODO
-
-def Lg.tot.seq(a, c, st, b, Q, H, t):
-  ?TODO
-
-def Lg.tot.if(c, y, n, st, b, Q, H, v, e, t):
-  match t:
-    case Tuple{+f, ok}:
-      (f, lg.if.ok(f, c, y, n, st, b, Q, H, v, e, ok))
-
-def Lg.tot.while(c, body, b, I, Q, H, r, n, st, i):
-  ?TODO
-
-def Lg.tot.wk(s, st, b, b2, Q, Q2, H, H2, hb, hq, hh, t):
-  match t:
-    case Tuple{+f, ok}:
-      (f, lg.ok.wk(Cr.Cir.exec(f, s, st), Lg.Lim(st), b, b2, Q, Q2, H, H2, hb, hq, hh, ok))
-
-def Lg.tot.of_wp(s, st, b, K, H, w):
-  ?TODO
-
-def Lg.wp.of_tot(s, st, b, K, H, t):
-  ?TODO
-
-def Lg.wp.wk(s, st, b, b2, K, K2, H, H2, hb, hk, hh, w):
-  ?TODO
-
-def Lg.exec.set(f, r, e, st, v, he, hr):
-  match f:
-    case 0n:
-      match st:
-        case Cr.Cir.State{+regs, cells, next, first, image, pages, limit, input, out, outn}:
-          %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(e, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Some{v}, he) :
-            {Cr.Cir.exec.set(r, _, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
-              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
-          %Equal.sym(Bool, Nat.is_lt(r, List.length(&2, U32, regs)), True{}, hr) :
-            {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
-              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
-          {==}
-    case 1n+p:
-      match st:
-        case Cr.Cir.State{+regs, cells, next, first, image, pages, limit, input, out, outn}:
-          %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(e, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Some{v}, he) :
-            {Cr.Cir.exec.set(r, _, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
-              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
-          %Equal.sym(Bool, Nat.is_lt(r, List.length(&2, U32, regs)), True{}, hr) :
-            {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
-              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
-          {==}
-
-def Lg.exec.store(f, k, c, e, st, i, v, hc, he, hi):
-  ?TODO
-
-def Lg.exec.alloc(f, r, st, hr, ho):
-  ?TODO
-
-def Lg.wp.set(r, e, st, b, K, H, v, he, hr, q):
-  ?TODO
-
-def Lg.wp.store(k, c, e, st, b, K, H, i, v, hc, he, hi, q):
-  ?TODO
-
-def Lg.wp.alloc(r, st, b, K, H, hr, ho, hb, q):
-  ?TODO
-
-def Lg.wp.emit(e, st, b, K, H, v, he, hb, q):
-  ?TODO
 
 def Lg.reg.set(st, r, v, q, hr):
   match st:
@@ -495,9 +448,203 @@ def Lg.frame.regs(f, s, st, st2, r, e, w):
 def Lg.frame.fixed(f, s, st, st2, e):
   ?TODO
 
+# an if's branch, by z = U32.is_zero of its condition
+def lg.if.of(z: Bool, +f: Nat, -y: Cr.Cir.Stmt, -n: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, ok: Lg.Ok(Cr.Cir.exec(f, Bool.pick(Cr.Cir.Stmt, z, n, y), st), Lg.Lim(st), b, Q, H)) ->
+  Lg.Ok(Cr.Cir.exec.if.of(z, u => Cr.Cir.exec(f, y, st), u => Cr.Cir.exec(f, n, st)), Lg.Lim(st), b, Q, H):
+  match z:
+    case False{}:
+      ok
+    case True{}:
+      ok
+
+# an if whose condition has the value v
+def lg.if.ok(+f: Nat, -c: Cr.Cir.Expr, -y: Cr.Cir.Stmt, -n: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +v: U32, +e: {Cr.Cir.eval(c, st) == Some{v} : Maybe<&2, U32>},
+  ok: Lg.Ok(Cr.Cir.exec(f, Bool.pick(Cr.Cir.Stmt, U32.is_zero(v), n, y), st), Lg.Lim(st), b, Q, H)) ->
+  Lg.Ok(Cr.Cir.exec(f, Cr.Cir.Stmt.if{c, y, n}, st), Lg.Lim(st), b, Q, H):
+  match f:
+    case 0n:
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, e) :
+        Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(0n, y, st), u => Cr.Cir.exec(0n, n, st)), Lg.Lim(st), b, Q, H)
+      lg.if.of(U32.is_zero(v), 0n, y, n, st, b, Q, H, ok)
+    case 1n+p:
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, st), Some{v}, e) :
+        Lg.Ok(Cr.Cir.exec.if(_, u => Cr.Cir.exec(1n+p, y, st), u => Cr.Cir.exec(1n+p, n, st)), Lg.Lim(st), b, Q, H)
+      lg.if.of(U32.is_zero(v), 1n+p, y, n, st, b, Q, H, ok)
+
+def Lg.tot.if(c, y, n, st, b, Q, H, v, e, t):
+  match t:
+    case Tuple{+f, ok}:
+      (f, lg.if.ok(f, c, y, n, st, b, Q, H, v, e, ok))
+
+def Lg.tot.wk(s, st, b, b2, Q, Q2, H, H2, hb, hq, hh, t):
+  match t:
+    case Tuple{+f, ok}:
+      (f, lg.ok.wk(Cr.Cir.exec(f, s, st), Lg.Lim(st), b, b2, Q, Q2, H, H2, hb, hq, hh, ok))
+
+# a sequence whose first part ends at x with the fuel f1, and whose second
+# ends from x with the fuel f2, ends so with the fuel f1 + f2
+def lg.seq.eq(+f1: Nat, +f2: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: Cr.Cir.State,
+  +eq: {Cr.Cir.exec(f1, a, st) == Cr.Cir.Out.next{x} : Cr.Cir.Out}, +d2: {Lg.Out.done(Cr.Cir.exec(f2, c, x)) == True{} : Bool}) ->
+  {Cr.Cir.exec(Nat.add(f1, f2), Cr.Cir.Stmt.seq{a, c}, st) == Cr.Cir.exec(f2, c, x) : Cr.Cir.Out}:
+  +ea = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(Nat.add(f1, f2), a, st), Cr.Cir.exec(f1, a, st), Cr.Cir.Out.next{x},
+    Lg.exec.more(f1, f2, a, st, Equal.cong(Cr.Cir.Out, Bool, o => Lg.Out.done(o), Cr.Cir.exec(f1, a, st), Cr.Cir.Out.next{x}, eq)), eq)
+  +e2 = Equal.cong(Cr.Cir.Out, Cr.Cir.Out, o => Cr.Cir.exec.then(o, t => Cr.Cir.exec(Nat.add(f1, f2), c, t)),
+    Cr.Cir.exec(Nat.add(f1, f2), a, st), Cr.Cir.Out.next{x}, ea)
+  +e3 = Equal.trans(Cr.Cir.Out, Cr.Cir.exec(Nat.add(f1, f2), c, x), Cr.Cir.exec(Nat.add(f2, f1), c, x), Cr.Cir.exec(f2, c, x),
+    Equal.cong(Nat, Cr.Cir.Out, g => Cr.Cir.exec(g, c, x), Nat.add(f1, f2), Nat.add(f2, f1), lg.add_comm(f1, f2)),
+    Lg.exec.more(f2, f1, c, x, d2))
+  Equal.trans(Cr.Cir.Out, Cr.Cir.exec(Nat.add(f1, f2), Cr.Cir.Stmt.seq{a, c}, st), Cr.Cir.exec(Nat.add(f1, f2), c, x), Cr.Cir.exec(f2, c, x),
+    Equal.trans(Cr.Cir.Out, Cr.Cir.exec(Nat.add(f1, f2), Cr.Cir.Stmt.seq{a, c}, st),
+      Cr.Cir.exec.then(Cr.Cir.exec(Nat.add(f1, f2), a, st), t => Cr.Cir.exec(Nat.add(f1, f2), c, t)), Cr.Cir.exec(Nat.add(f1, f2), c, x),
+      lg.exec.seq(Nat.add(f1, f2), a, c, st), e2),
+    e3)
+
+# a sequence whose first part stops (a halt, out of memory) with the fuel f1
+def lg.seq.stop(+f1: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +o: Cr.Cir.Out,
+  +eq: {Cr.Cir.exec(f1, a, st) == o : Cr.Cir.Out}) ->
+  {Cr.Cir.exec(f1, Cr.Cir.Stmt.seq{a, c}, st) == Cr.Cir.exec.then(o, t => Cr.Cir.exec(f1, c, t)) : Cr.Cir.Out}:
+  Equal.trans(Cr.Cir.Out, Cr.Cir.exec(f1, Cr.Cir.Stmt.seq{a, c}, st), Cr.Cir.exec.then(Cr.Cir.exec(f1, a, st), t => Cr.Cir.exec(f1, c, t)),
+    Cr.Cir.exec.then(o, t => Cr.Cir.exec(f1, c, t)), lg.exec.seq(f1, a, c, st),
+    Equal.cong(Cr.Cir.Out, Cr.Cir.Out, p => Cr.Cir.exec.then(p, t => Cr.Cir.exec(f1, c, t)), Cr.Cir.exec(f1, a, st), o, eq))
+
+def lg.seq.next(+f1: Nat, +f2: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: Cr.Cir.State, +b: Nat,
+  -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eq: {Cr.Cir.exec(f1, a, st) == Cr.Cir.Out.next{x} : Cr.Cir.Out},
+  +d2: {Lg.Out.done(Cr.Cir.exec(f2, c, x)) == True{} : Bool}, ok2: Lg.Ok(Cr.Cir.exec(f2, c, x), Lg.Lim(x), b, Q, H)) ->
+  Lg.Ok(Cr.Cir.exec(Nat.add(f1, f2), Cr.Cir.Stmt.seq{a, c}, st), Lg.Lim(st), b, Q, H):
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(Nat.add(f1, f2), Cr.Cir.Stmt.seq{a, c}, st), Cr.Cir.exec(f2, c, x), lg.seq.eq(f1, f2, a, c, st, x, eq, d2)) :
+    Lg.Ok(_, Lg.Lim(st), b, Q, H)
+  %lg.lim.eq(x, st, Lg.frame.fixed(f1, a, st, x, eq)) : Lg.Ok(Cr.Cir.exec(f2, c, x), _, b, Q, H)
+  ok2
+
+def lg.seq.halt(+f1: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +k: U32, +x: Cr.Cir.State, +eq: {Cr.Cir.exec(f1, a, st) == Cr.Cir.Out.halt{k, x} : Cr.Cir.Out},
+  ok: H(k, x)) -> Lg.Ok(Cr.Cir.exec(f1, Cr.Cir.Stmt.seq{a, c}, st), Lg.Lim(st), b, Q, H):
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f1, Cr.Cir.Stmt.seq{a, c}, st), Cr.Cir.exec.then(Cr.Cir.Out.halt{k, x}, t => Cr.Cir.exec(f1, c, t)),
+    lg.seq.stop(f1, a, c, st, Cr.Cir.Out.halt{k, x}, eq)) : Lg.Ok(_, Lg.Lim(st), b, Q, H)
+  ok
+
+def lg.seq.oom(+f1: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +eq: {Cr.Cir.exec(f1, a, st) == Cr.Cir.Out.out_of_memory{} : Cr.Cir.Out},
+  +ok: {Nat.is_lt(Lg.Lim(st), b) == True{} : Bool}) -> Lg.Ok(Cr.Cir.exec(f1, Cr.Cir.Stmt.seq{a, c}, st), Lg.Lim(st), b, Q, H):
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(f1, Cr.Cir.Stmt.seq{a, c}, st), Cr.Cir.exec.then(Cr.Cir.Out.out_of_memory{}, t => Cr.Cir.exec(f1, c, t)),
+    lg.seq.stop(f1, a, c, st, Cr.Cir.Out.out_of_memory{}, eq)) : Lg.Ok(_, Lg.Lim(st), b, Q, H)
+  ok
+
+# the next case of tot.seq, with the second part's run ended
+def lg.seq.pair(+f1: Nat, +f2: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +x: Cr.Cir.State, +b: Nat,
+  -Q: Cr.Cir.State -> Type, -H: U32 -> Cr.Cir.State -> Type, +eq: {Cr.Cir.exec(f1, a, st) == Cr.Cir.Out.next{x} : Cr.Cir.Out},
+  p: {Lg.Out.done(Cr.Cir.exec(f2, c, x)) == True{} : Bool} & Lg.Ok(Cr.Cir.exec(f2, c, x), Lg.Lim(x), b, Q, H)) ->
+  Lg.Tot(Cr.Cir.Stmt.seq{a, c}, st, b, Q, H):
+  match p:
+    case Tuple{+d2, ok2}:
+      (Nat.add(f1, f2), lg.seq.next(f1, f2, a, c, st, x, b, Q, H, eq, d2, ok2))
+
+# tot.seq by the outcome o of the first part with its fuel f1
+def lg.seq.go(o: Cr.Cir.Out, +f1: Nat, +a: Cr.Cir.Stmt, +c: Cr.Cir.Stmt, +st: Cr.Cir.State, +b: Nat, -Q: Cr.Cir.State -> Type,
+  -H: U32 -> Cr.Cir.State -> Type, +eq: {Cr.Cir.exec(f1, a, st) == o : Cr.Cir.Out},
+  ok: Lg.Ok(o, Lg.Lim(st), b, x => Lg.Tot(c, x, b, Q, H), H)) -> Lg.Tot(Cr.Cir.Stmt.seq{a, c}, st, b, Q, H):
+  match o:
+    case Cr.Cir.Out.next{+x}:
+      match ok:
+        case Tuple{+f2, ok2}:
+          lg.seq.pair(f1, f2, a, c, st, x, b, Q, H, eq, lg.ok.done(Cr.Cir.exec(f2, c, x), Lg.Lim(x), b, Q, H, ok2))
+    case Cr.Cir.Out.halt{+k, +x}:
+      (f1, lg.seq.halt(f1, a, c, st, b, Q, H, k, x, eq, ok))
+    case Cr.Cir.Out.out_of_memory{}:
+      (f1, lg.seq.oom(f1, a, c, st, b, Q, H, eq, ok))
+    case Cr.Cir.Out.trap{}:
+      match ok:
+    case Cr.Cir.Out.not_done{}:
+      match ok:
+
+def Lg.tot.seq(a, c, st, b, Q, H, t):
+  match t:
+    case Tuple{+f1, ok1}:
+      lg.seq.go(Cr.Cir.exec(f1, a, st), f1, a, c, st, b, Q, H, {==}, ok1)
+
+# a store's run, once its fuel is known: as Cir.exec.store
+def lg.store.go(+f: Nat, +k: Nat, +c: Cr.Cir.Expr, +e: Cr.Cir.Expr, +st: Cr.Cir.State, +i: U32, +v: U32,
+  +hc: {Cr.Cir.eval(c, st) == Some{i} : Maybe<&2, U32>}, +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>},
+  +hi: {Lg.St.is_cell(st, i) == True{} : Bool}) ->
+  {Cr.Cir.exec.store(k, Cr.Cir.eval(c, st), Cr.Cir.eval(e, st), st) == Cr.Cir.Out.next{Lg.St.store(st, k, i, v)} : Cr.Cir.Out}:
+  match st:
+    case Cr.Cir.State{+regs, +cells, +next, +first, +image, +pages, +limit, +input, +out, +outn}:
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(c, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Some{i}, hc) :
+        {Cr.Cir.exec.store(k, _, Cr.Cir.eval(e, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) == Cr.Cir.Out.next{Lg.St.store(Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}, k, i, v)} : Cr.Cir.Out}
+      %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(e, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Some{v}, he) :
+        {Cr.Cir.exec.store(k, Some{i}, _, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) == Cr.Cir.Out.next{Lg.St.store(Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}, k, i, v)} : Cr.Cir.Out}
+      %Equal.sym(Bool, Cr.Cir.is_cell(i, image, first, next), True{}, hi) :
+        {Cr.Cir.exec.store.if(_, k, i, v, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) == Cr.Cir.Out.next{Lg.St.store(Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}, k, i, v)} : Cr.Cir.Out}
+      {==}
+
+def Lg.exec.set(f, r, e, st, v, he, hr):
+  match f:
+    case 0n:
+      match st:
+        case Cr.Cir.State{+regs, cells, next, first, image, pages, limit, input, out, outn}:
+          %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(e, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Some{v}, he) :
+            {Cr.Cir.exec.set(r, _, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
+              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
+          %Equal.sym(Bool, Nat.is_lt(r, List.length(&2, U32, regs)), True{}, hr) :
+            {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
+              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
+          {==}
+    case 1n+p:
+      match st:
+        case Cr.Cir.State{+regs, cells, next, first, image, pages, limit, input, out, outn}:
+          %Equal.sym(Maybe<&2, U32>, Cr.Cir.eval(e, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}), Some{v}, he) :
+            {Cr.Cir.exec.set(r, _, Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
+              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
+          %Equal.sym(Bool, Nat.is_lt(r, List.length(&2, U32, regs)), True{}, hr) :
+            {Cr.Cir.exec.set.of(Cr.Cir.regs.set.if(_, regs, r, v), Cr.Cir.State{regs, cells, next, first, image, pages, limit, input, out, outn}) ==
+              Cr.Cir.Out.next{Cr.Cir.State{List.set(&2, U32, regs, r, v), cells, next, first, image, pages, limit, input, out, outn}} : Cr.Cir.Out}
+          {==}
+
+def Lg.exec.store(f, k, c, e, st, i, v, hc, he, hi):
+  match f:
+    case 0n:
+      lg.store.go(0n, k, c, e, st, i, v, hc, he, hi)
+    case 1n+p:
+      lg.store.go(1n+p, k, c, e, st, i, v, hc, he, hi)
+
+def Lg.exec.alloc(f, r, st, hr, ho):
+  ?TODO
+
+def Lg.wp.set(r, e, st, b, K, H, v, he, hr, q):
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, Cr.Cir.Stmt.set{r, e}, st), Cr.Cir.Out.next{Lg.St.set(st, r, v)}, Lg.exec.set(0n, r, e, st, v, he, hr)) :
+    Lg.WP.ok(_, Lg.Lim(st), b, K, H)
+  q
+
+def Lg.wp.store(k, c, e, st, b, K, H, i, v, hc, he, hi, q):
+  %Equal.sym(Cr.Cir.Out, Cr.Cir.exec(0n, Cr.Cir.Stmt.store{k, c, e}, st), Cr.Cir.Out.next{Lg.St.store(st, k, i, v)}, Lg.exec.store(0n, k, c, e, st, i, v, hc, he, hi)) :
+    Lg.WP.ok(_, Lg.Lim(st), b, K, H)
+  q
+
+def Lg.wp.alloc(r, st, b, K, H, hr, ho, hb, q):
+  ?TODO
+
+def Lg.wp.emit(e, st, b, K, H, v, he, hb, q):
+  ?TODO
+
+def Lg.tot.any(s, st, b, Q, H, t, g):
+  ?TODO
+
+def Lg.tot.while(c, body, b, I, Q, H, r, n, st, i):
+  ?TODO
+
+def Lg.tot.of_wp(s, st, b, K, H, w):
+  ?TODO
+
+def Lg.wp.of_tot(s, st, b, K, H, t):
+  ?TODO
+
+def Lg.wp.wk(s, st, b, b2, K, K2, H, H2, hb, hk, hh, w):
+  ?TODO
+
 def Lg.tot.frame(s, st, b, Q, H, t):
   ?TODO
 
 def Lg.tot.frame_out(s, st, b, Q, H, ne, t):
   ?TODO
-
