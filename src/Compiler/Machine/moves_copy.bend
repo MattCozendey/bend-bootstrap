@@ -18,6 +18,7 @@ import ./statement_runs.bend as X
 import ./accounting.bend as A
 import ./move_kit.bend as K
 import ./heap_ops.bend as U2
+import ./copy_gives_subst.bend as U4
 import ./copy_bridge.bend as U5
 import ./data_check.bend as U6
 import ./moves_match.bend as U13
@@ -853,3 +854,62 @@ def ul.cp(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
       hs, hac2, hl, h13, h3, h36, h37, env, Unit{}, hb, {==}),
     K.copy.done(ds, ks, img, regs, M3, nx1, fi, im, pg1, lim, inp, False{}, os, Nil{}, fs, sp, pend2, ps2, c, b, z, es, Nil{}, zs2,
       hs, hac2, hl, h13, h3, h36, h37, env, Unit{}, hb))
+
+# a cell of the machine's own kinds that a phase kept (Kept.go of the own
+# cells), out of xs, keeps its value
+def kept.at.own(+m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +nx: U32, +fi: U32, +xs: List<&2, U32>, +z: U32,
+  hk: D.Kept.go(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, m2, xs, fi), hown: {D.Own(fi, nx, z) == True{} : Bool},
+  hm: {D.Mem(xs, z) == False{} : Bool}, ht: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cells.get(m, z) : Cr.Cir.Cell}:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +ho2 = hown
+  +h2 = N.le_rw_r(1n+U32.to_nat(z), U32.to_nat(nx), Nat.add(U32.to_nat(fi), n), Equal.sym(Nat, Nat.add(U32.to_nat(fi), n), U32.to_nat(nx), U13.own.end(fi, nx, z, ho2)),
+    D.u.lt(z, nx, D.and.r(U32.is_le(fi, z), U32.is_lt(z, nx), ho2)))
+  +ka = U6.kg.at(n, m, m2, xs, fi, z, U13.own.lo(fi, nx, z, ho2), h2, hk)
+  %hm : D.Kept.if(Bool.or(_, False{}), {Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cells.get(m, z) : Cr.Cir.Cell})
+  %ht : D.Kept.if(Bool.or(D.Mem(xs, z), _), {Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cells.get(m, z) : Cr.Cir.Cell})
+  ka
+
+# M.release(wa) after the copy
+# ----------------------------
+#
+# The copy keeps the K.arg cell z, {41, 0, yv, 0, 0} (kept.at.own: z is own,
+# not pending, and of tag 41); it holds no pointer (no flag OWNED), so
+# release.post gives it to the pend list.
+
+def mem.app.nil(xs: List<&2, U32>, +z: U32) -> {D.Mem(List.append(&2, U32, xs, Nil{}), z) == D.Mem(xs, z) : Bool}:
+  match xs:
+    case Nil{}:
+      {==}
+    case Con{+head, +tail}:
+      %mem.app.nil(tail, z) :
+        {Bool.or(U32.is_eq(head, z), D.Mem(List.append(&2, U32, tail, Nil{}), z)) == Bool.or(U32.is_eq(head, z), _) : Bool}
+      {==}
+
+# the copy keeps the cell z, own, not pending, of the machine's kinds
+def kc.at(+m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +nx: U32, +nx2: U32, +fi: U32, +ps: List<&2, U32>, +ps2: List<&2, U32>, +z: U32,
+  hkc: D.Kept.cells(m, nx, fi, ps, Nil{}, m2, nx2, ps2), hown: {D.Own(fi, nx, z) == True{} : Bool},
+  hm: {D.Mem(ps, z) == False{} : Bool}, ht: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cells.get(m, z) : Cr.Cir.Cell}:
+  match hkc:
+    case Tuple{_, Tuple{kg, _}}:
+      kept.at.own(m, m2, nx, fi, List.append(&2, U32, ps, Nil{}), z, kg, hown,
+        (%Equal.sym(Bool, D.Mem(List.append(&2, U32, ps, Nil{}), z), D.Mem(ps, z), mem.app.nil(ps, z)) : {_ == False{} : Bool}; hm), ht)
+
+# a cell {41, 0, yv, 0, 0}: no pointer, tag not below 32
+def fs.arg.at(+M: Cr.Cir.Cells, +ps: List<&2, U32>, +z: U32, +yv: U32, e: {Cr.Cir.Cells.get(M, z) == Cr.Cir.Cell{41, 0, yv, 0, 0} : Cr.Cir.Cell}) ->
+  {D.Fs(M, ps, z) == Nil{} : List<&2, U32>}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M, z), Cr.Cir.Cell{41, 0, yv, 0, 0}, e) :
+    {Bool.pick(List<&2, U32>, U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 19),
+            D.Fs.term(D.Fd(2n, M, U32.add(272, U32.and(Cr.Cir.Cell.get(0n, _), 63))), Cr.Cir.Cell.get(2n, _), Cr.Cir.Cell.get(3n, _), Cr.Cir.Cell.get(4n, _)),
+            Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_le(32, U32.and(Cr.Cir.Cell.get(0n, _), 63)), U32.is_le(U32.and(Cr.Cir.Cell.get(0n, _), 63), 40)), Bool.not(D.Mem(ps, z))),
+              Con{Cr.Cir.Cell.get(2n, _), D.Fs.opt(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 38), Cr.Cir.Cell.get(3n, _), Nil{})},
+              Bool.pick(List<&2, U32>, Bool.and(Bool.and(U32.is_eq(U32.and(Cr.Cir.Cell.get(0n, _), 63), 41), D.FlW(Cr.Cir.Cell.get(0n, _), 4096)), Bool.not(D.Mem(ps, z))),
+                [Cr.Cir.Cell.get(2n, _)], Nil{}))) == Nil{} : List<&2, U32>}
+  {==}
+
+def tg.arg.at(+M: Cr.Cir.Cells, +z: U32, +yv: U32, e: {Cr.Cir.Cells.get(M, z) == Cr.Cir.Cell{41, 0, yv, 0, 0} : Cr.Cir.Cell}) ->
+  {U32.is_lt(D.Tg(M, z), 32) == False{} : Bool}:
+  %Equal.sym(Cr.Cir.Cell, Cr.Cir.Cells.get(M, z), Cr.Cir.Cell{41, 0, yv, 0, 0}, e) :
+    {U32.is_lt(U32.and(Cr.Cir.Cell.get(0n, _), 63), 32) == False{} : Bool}
+  {==}
