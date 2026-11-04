@@ -66,8 +66,9 @@
 //
 // DESIGN
 // ------
-// * In-process checking: the book is loaded once; book_valid checks the target file, while
-//   dependency proofs remain untrusted until the final kernel verdict. A candidate is proof TEXT,
+// * In-process checking: the book is loaded once. Optional --validate-book checks the target file;
+//   open claims elsewhere can prevent that check, so the default search uses the untrusted book.
+//   Dependency proofs remain untrusted until the final kernel verdict. A candidate is proof TEXT,
 //   parsed by bend2's parser in the def's file scope (its
 //   namespace and aliases) with the subgoal's context names bound, then checked by bend2's
 //   term_check against the subgoal's goal type in its context (never a bend2 process per try). The
@@ -308,14 +309,16 @@ for (const imp of autoImports) await B.book_load(book, imp.file, imp.ns, seen, u
 const N0 = await B.book_load(book, entry, "", seen, undefined, TOP); // the entry's first entry in book order
 const tLoad = performance.now();
 if (STREAM) console.error("[gen2] loaded book in " + Math.round(tLoad) + " ms");
-try {
-  B.book_valid(book, N0);
-} catch (e: any) {
-  console.error(e?.$ === "Err" ? B.err_show(e) : e);
-  process.exit(1);
+if (flag("validate-book")) {
+  try {
+    B.book_valid(book, N0);
+  } catch (e: any) {
+    console.error(e?.$ === "Err" ? B.err_show(e) : e);
+    process.exit(1);
+  }
 }
 const tValid = performance.now();
-if (STREAM) console.error("[gen2] validated book in " + Math.round(tValid - tLoad) + " ms");
+if (STREAM) console.error("[gen2] " + (flag("validate-book") ? "validated book in " + Math.round(tValid - tLoad) + " ms" : "skipped whole-book validation"));
 const RAW: Record<string, B.TLD> = book.tlds;
 book.tlds = new Proxy(RAW, {
   get(t, k, r) {
@@ -1985,7 +1988,7 @@ const runProve = () => {
 // ---- serve: the book stays loaded between prove calls ----
 // gen2.ts serve <file.bend> [--port 7311]; then `gen2.ts ask [--port N] <def> ... [options]` (the
 // arguments of prove after the file). Before each call the entry file is re-read if it changed: its
-// defs are re-parsed and re-checked on top of the imports, which stay loaded and checked; a change
+// defs are re-parsed on top of the imports; a change
 // in an imported file needs a restart.
 const entryAl = (() => { for (const k of book.order.slice(N0)) { const f = sourceFiles.get(k); if (f) return f.al; } return {} as Record<string, string>; })();
 let entryMtime = fs.statSync(entry).mtimeMs;
@@ -2003,7 +2006,7 @@ const reloadEntry = (): string | null => {
   for (const c of Object.keys(book.ctrs)) if (!ownCtrs.has(c)) nb.ctrs[c] = book.ctrs[c];
   nb.order = book.order.slice(0, N0);
   B.parse_book(nb, path.dirname(entry) + "/", lines.join("\n"), "", entryAl);
-  B.book_valid(nb, N0);
+  if (flag("validate-book")) B.book_valid(nb, N0);
   for (const k of Object.keys(RAW)) delete RAW[k];
   Object.assign(RAW, nb.tlds);
   book.ctrs = nb.ctrs; book.order = nb.order; book.tmps = nb.tmps; book.hols = nb.hols;
