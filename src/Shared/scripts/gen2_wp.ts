@@ -38,6 +38,9 @@ export type WpApi = {
   attempt: <T>(n: number, f: () => T) => T | undefined;
   key: (t: LTerm) => string;
   deadline: number;
+  // a routine law instantiated at a call (gen2's openMeta and match): its parameters fixed by the call's
+  // code and state, the types of the others, and the law's b, Q, H
+  inst?: (law: string, code: LTerm, st: LTerm, b: LTerm, facts: { T: LTerm; pf: string }[], d: number) => { sol: (LTerm | null)[]; pfs: (string | null)[]; doms: { k: string; A: LTerm | null; fact: boolean }[]; concl: LTerm[] } | null;
 };
 export type WpLeaf = { hole: number; hint: string };
 export type WpOut = { text: string; leaves: WpLeaf[]; steps: number } | { why: string };
@@ -50,7 +53,7 @@ const FUEL = 100000;
 const NAMES: Record<string, string[]> = {
   tot: ["Tot"], wp: ["WP"], wpIf: ["WP.if"], wpPick: ["WP.pick"], reg: ["Reg"],
   nregs: ["St.nregs"], isCell: ["St.is_cell"], stSet: ["St.set"], stStore: ["St.store"],
-  totOfWp: ["tot.of_wp"], wpSet: ["wp.set"], wpStore: ["wp.store"],
+  totOfWp: ["tot.of_wp"], wpSet: ["wp.set"], regSome: ["reg.some"], regLt: ["reg.lt"], stReg: ["St.reg"], natIsEqOk: ["nat.is_eq_ok"], wpOfTot: ["wp.of_tot"], totWk: ["tot.wk"], leRefl: ["lg.le_refl", "nat.le_refl"], wpStore: ["wp.store"],
   regSet: ["reg.set"], regStore: ["reg.store"], nregsSet: ["nregs.set"], nregsStore: ["nregs.store"],
   evalOp: ["Cir.eval.op"], evalEqz: ["Cir.eval.eqz"], cirEval: ["Cir.eval"], evalField: ["Cir.eval.field"],
   fieldIf: ["Cir.eval.field.if"], stCells: ["St.cells"], cellGet: ["Cir.Cell.get"], cellsGet: ["Cir.Cells.get"],
@@ -69,7 +72,10 @@ const replaceKey = (t: LTerm, k: string, by: LTerm, key: (t: LTerm) => string): 
   switch (t.$) {
     case "App": { const f = replaceKey(t.f, k, by, key), x = replaceKey(t.x, k, by, key); return f === t.f && x === t.x ? t : B.App(f, x); }
     case "Ctr": { const x = t.x.map((a) => replaceKey(a, k, by, key)); return x.every((a, i) => a === t.x[i]) ? t : B.Ctr<[LTerm]>(t.k, x); }
-    case "Eql": { const a = replaceKey(t.a, k, by, key), b = replaceKey(t.b, k, by, key); return a === t.a && b === t.b ? t : B.Eql(a, b, t.T); }
+    case "Eql": { const a = replaceKey(t.a, k, by, key), b = replaceKey(t.b, k, by, key), T = replaceKey(t.T, k, by, key); return a === t.a && b === t.b && T === t.T ? t : B.Eql(a, b, T); }
+    case "ADT": { const x = t.x.map((a) => replaceKey(a, k, by, key)); return x.every((a, i) => a === t.x[i]) ? t : B.ADT(t.k, x, undefined, t.r); }
+    case "Lam": { const f = replaceKey(t.f as LTerm, k, by, key); return f === t.f ? t : B.Lam<LTerm>(t.k, t.i, f, undefined, t.q); }
+    case "All": { const A = replaceKey(t.A, k, by, key), Bd = replaceKey(t.B as LTerm, k, by, key); return A === t.A && Bd === t.B ? t : B.All<LTerm>(t.q, t.k, t.i, A, Bd); }
     default: return t;
   }
 };
@@ -105,7 +111,11 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   };
   const stepRefs: string[] = [];
   let dstKey = "";
-  const ref = (n: string): LTerm => B.Ref(K[n] ?? fail("the law " + NAMES[n]![0] + " is not in the book (import logic/impl.bend)")) as LTerm;
+  const ref = (n: string): LTerm => {
+    const k = K[n] ?? fail("the law " + NAMES[n]![0] + " is not in the book (import logic/impl.bend)");
+    if (g.self && (k === g.self || shortOf(k) === shortOf(g.self))) fail("the stepped proof would use " + shortOf(k) + ", the law being proven (circular): not used");
+    return B.Ref(k) as LTerm;
+  };
   const nm = (n: string) => sh(ref(n));
   const ctor = (short: string) => { const k = K.cirOut ?? fail("no Cir.Out in the book"); return sh(B.Ctr<[LTerm]>((k.includes(":") ? k.slice(0, k.indexOf(":") + 1) : "") + short, [])).replace(/\{\}$/, ""); };
   const unapply = (t: LTerm) => B.term_unapply(t);
@@ -141,20 +151,23 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     dstKey = api.key(stArg);
     stateReps.push({ key: dstKey, ref: B.Ref("ws0") as LTerm });
   }
-  let code0: LTerm, st0: LTerm, bS: string, HS: string, KS: string, wrap: (p: string) => string;
+  let code0: LTerm, st0: LTerm, bS: string, HS: string, KS: string, QS = "", wrap: (p: string) => string;
   if (isRef(gh, "tot") && gargs.length === 5) {
-    code0 = gargs[0]!; st0 = gargs[1]!; bS = sh(gargs[2]!); HS = sh(gargs[4]!); KS = "h => " + sh(gargs[3]!);
+    code0 = gargs[0]!; st0 = gargs[1]!; bS = sh(gargs[2]!); HS = sh(gargs[4]!); KS = "h => " + sh(gargs[3]!); QS = sh(gargs[3]!);
     wrap = (p) => nm("totOfWp") + "(" + sh(code0) + ", " + sh(st0) + ", " + bS + ", " + KS + ", " + HS + ", " + p + ")";
   } else if (isRef(gh, "wp") && gargs.length === 5) {
     code0 = gargs[0]!; bS = sh(gargs[1]!); KS = sh(gargs[2]!); HS = sh(gargs[3]!); st0 = gargs[4]!;
     wrap = (p) => p;
   } else return { why: "not a Tot goal" };
+  const gargsB = isRef(gh, "tot") ? gargs[2]! : gargs[1]!, gargsQ = isRef(gh, "tot") ? gargs[3]! : gargs[2]!;
   if ([bS, HS, KS].some((s) => s.includes("/"))) return { why: "a name of the goal is not reachable from this file (an import is missing)" };
 
   // the context's facts: registers and cells of a state, the register count, Bool facts
   const used = new Set(names);
   const fresh = (base: string) => { let s = base; for (let i = 2; used.has(s); i++) s = base + "_" + i; used.add(s); return s; };
   const regHyp = new Map<string, { c: LTerm; pf: string }>(); // key(state) + "|" + r
+  const ctxFact = new Map<string, string>(); // key(type) -> a hypothesis of that type
+  const ctxFactT: { T: LTerm; pf: string }[] = [];
   const nregHyp = new Map<string, { n: LTerm; pf: string }>(); // key(state)
   const cellHyp = new Map<string, string>(); // key(state) + "|" + key(nf(c))
   const boolHyp: { lhs: LTerm; nk: string; val: boolean; name: string }[] = [];
@@ -166,10 +179,16 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     if (n) boolHyp.push({ lhs: a, nk: api.key(n), val, name: pf });
     const [h, xs] = unapply(a);
     if (h.$ !== "Ref") return;
+    // a Bool def (an invariant: Hp.H, Room, Fix): its body, one step unfolded, when that is an && (its
+    // conjuncts are then facts too; the proof is the same term, by conversion)
+    if (val && depth < 24 && !["Bool.and", "Bool.not", "Nat.is_lt", "Nat.is_eq", "Cir.is_cell"].includes(shortOf(h.k))) {
+      const w = wnfL(a);
+      if (w && w.$ === "App") { const [wh] = unapply(w); if (wh.$ === "Ref" && shortOf(wh.k) === "Bool.and") return harvest(w, val, pf, depth + 1); }
+    }
     // Bool.not(a) == True: a == False (bool.not_t)
     if (val && shortOf(h.k) === "Bool.not" && xs.length === 1 && byShort.has("bool.not_t")) harvest(xs[0]!, false, sh(B.Ref(byShort.get("bool.not_t")!) as LTerm) + "(" + sh(xs[0]!) + ", " + pf + ")", depth + 1);
     if (!val) return;
-    if (shortOf(h.k) === "Bool.and" && xs.length === 2 && depth < 8 && byShort.has("bool.and_l") && byShort.has("bool.and_r")) {
+    if (shortOf(h.k) === "Bool.and" && xs.length === 2 && depth < 24 && byShort.has("bool.and_l") && byShort.has("bool.and_r")) {
       const al = sh(B.Ref(byShort.get("bool.and_l")!) as LTerm), ar = sh(B.Ref(byShort.get("bool.and_r")!) as LTerm);
       harvest(xs[0]!, true, al + "(" + sh(xs[0]!) + ", " + sh(xs[1]!) + ", " + pf + ")", depth + 1);
       harvest(xs[1]!, true, ar + "(" + sh(xs[0]!) + ", " + sh(xs[1]!) + ", " + pf + ")", depth + 1);
@@ -180,6 +199,11 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
       const c = nfL(xs[0]!);
       if (c && ih.$ === "Ref" && shortOf(ih.k) === "St.image" && ia.length === 1) cellHyp.set(api.key(ia[0]!) + "|" + api.key(c), pf);
     }
+    if (shortOf(h.k) === "Nat.is_eq" && xs.length === 2 && byShort.has("nat.is_eq_ok")) {
+      const [nh, na] = unapply(xs[0]!);
+      if (isRef(nh, "nregs") && na.length === 1 && !nregHyp.has(api.key(na[0]!)))
+        nregHyp.set(api.key(na[0]!), { n: xs[1]!, pf: sh(B.Ref(byShort.get("nat.is_eq_ok")!) as LTerm) + "(" + sh(xs[0]!) + ", " + sh(xs[1]!) + ", " + pf + ")" });
+    }
     if (shortOf(h.k) === "Nat.is_lt" && xs.length === 2) {
       const [nh, na] = unapply(xs[1]!);
       if (isRef(nh, "nregs") && na.length === 1 && api.key(na[0]!) === api.key(stArg ?? xs[0]!)) ltFact.set(rgOf(xs[0]!).key, pf);
@@ -189,7 +213,10 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     const a = B.pmap_get(g.ctx, i);
     if (!a || names[i] === "_" || names[i] === "" || /^w[sfnc]\d/.test(names[i]!)) continue;
     const T = api.attempt(FUEL, () => api.lower(a.T, i));
-    if (!T || T.$ !== "Eql") continue;
+    if (!T) continue;
+    ctxFact.set(api.key(T), names[i]!);
+    ctxFactT.push({ T, pf: names[i]! });
+    if (T.$ !== "Eql") continue;
     const [lh, la] = unapply(T.a);
     if (isRef(lh, "reg") && la.length === 2 && T.b.$ === "Ctr" && T.b.k === "Some" && T.b.x.length === 1) {
       regHyp.set(api.key(la[0]!) + "|" + rgOf(la[1]!).key, { c: T.b.x[0]!, pf: names[i]! });
@@ -238,13 +265,28 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     nregFacts.set(j, out);
     return out;
   };
-  // {Nat.is_lt(r, St.nregs(st_j)) == True{}}
+  // {St.nregs(st_j) == St.nregs(st_0)}
+  const relFacts = new Map<number, string>();
+  const relOf = (j: number): string => {
+    const memo = relFacts.get(j);
+    if (memo) return memo;
+    const s = sts[j]!;
+    if (s.prev < 0) return "{==}";
+    const p = sts[s.prev]!, s0 = nm("nregs") + "(" + sts[0]!.text + ")";
+    const name = fresh("wm" + j);
+    lets.push("+" + name + " : {" + nm("nregs") + "(" + s.text + ") == " + s0 + " : Nat} = " + nm("equalTrans") + "(Nat, " + nm("nregs") + "(" + s.text + "), " + nm("nregs") + "(" + p.text + "), " + s0 + ", " + nm(s.op === "set" ? "nregsSet" : "nregsStore") + "(" + stepArgs(s, p) + "), " + relOf(s.prev) + ")");
+    relFacts.set(j, name);
+    return name;
+  };
+  // {Nat.is_lt(r, St.nregs(st_j)) == True{}}: by computation from a count fact (a number r), or from a
+  // fact on the start (r < count, or r has a value: reg.lt) carried by the counts' relation
   const ltOf = (j: number, r: Rg): string => {
     const f = nregOf(j);
     if (!nregHyp.has(sts[0]!.key) || r.lit === null) {
-      if (nregHyp.has(sts[0]!.key)) fail("the register " + r.text + " is not a number: its fact {Nat.is_lt(" + r.text + ", ..) == True{}} is over the count " + f.n);
-      const base = ltFact.get(r.key) ?? fail("no fact {" + nm("nregs") + "(" + sts[0]!.text + ") == ..} nor {Nat.is_lt(" + r.text + ", " + nm("nregs") + "(" + sts[0]!.text + ")) == True{}} in the context");
-      return j === 0 ? base : "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + f.n + ", " + f.pf + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; " + base + ")";
+      const h0 = regHyp.get(sts[0]!.key + "|" + r.key);
+      const base = ltFact.get(r.key) ?? (h0 && K.regLt ? nm("regLt") + "(" + sts[0]!.text + ", " + r.text + ", " + sh(h0.c) + ", " + h0.pf + ")" : undefined)
+        ?? fail("no fact {" + nm("nregs") + "(" + sts[0]!.text + ") == ..} nor {Nat.is_lt(" + r.text + ", " + nm("nregs") + "(" + sts[0]!.text + ")) == True{}} in the context");
+      return j === 0 ? base : "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + nm("nregs") + "(" + sts[0]!.text + "), " + relOf(j) + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; " + base + ")";
     }
     return "(%" + nm("equalSym") + "(Nat, " + nm("nregs") + "(" + sts[j]!.text + "), " + f.n + ", " + f.pf + ") : {Nat.is_lt(" + r.text + ", _) == True{} : Bool}; {==})";
   };
@@ -269,7 +311,12 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     if (memo) return memo;
     const s = sts[j]!;
     let out: { c: LTerm; pf: string };
-    if (s.prev < 0) out = regHyp.get(s.key + "|" + q.key) ?? fail("no fact {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Some{..}} in the context (register " + q.text + " is read)");
+    if (s.prev < 0) {
+      const h = regHyp.get(s.key + "|" + q.key);
+      if (h) out = h;
+      else if (K.regSome && K.stReg) out = { c: B.App(B.App(ref("stReg"), s.lt), q.term), pf: nm("regSome") + "(" + s.text + ", " + q.text + ", " + ltOf(0, q) + ")" };
+      else out = fail("no fact {" + nm("reg") + "(" + s.text + ", " + q.text + ") == Some{..}} in the context (register " + q.text + " is read)");
+    }
     else {
       const p = sts[s.prev]!;
       const same = s.op === "set" ? sameReg(s.r!, q) : false;
@@ -361,6 +408,8 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     return { v, he };
   };
 
+  // a law that is the def being proven (or the law it fills) is never suggested: that would be circular
+  const isSelf = (short: string) => !!g.self && (shortOf(g.self) === short || shortOf(g.self).endsWith("." + short));
   // the code: a statement's constructor, with its parts as written
   const stmtOf = (s: LTerm): { k: string; x: LTerm[] } => {
     const w = wnfL(s) ?? fail("a statement does not evaluate: " + sh(s).slice(0, 120));
@@ -373,7 +422,7 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     if (h.$ !== "Ref") return null;
     const sn = shortOf(h.k).replace(/^M\./, "");
     if (/^(set|st|do|if|when|while|halt|c|g|f|add|sub|and|or|shl|shr|eq|ne|lt|le|gt|ge|not)$/.test(sn)) return null;
-    for (const [s2, k] of byShort) if ((s2 === sn + ".spec" || s2.endsWith("." + sn + ".spec")) && k !== g.self && shortOf(k) !== shortOf(g.self ?? "")) return sh(B.Ref(k) as LTerm);
+    for (const [s2, k] of byShort) if ((s2 === sn + ".spec" || s2.endsWith("." + sn + ".spec")) && k !== g.self && shortOf(k) !== shortOf(g.self ?? "")) return k;
     return null;
   };
 
@@ -400,13 +449,58 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   // the proof of WP(suffix i of the sequence, b, kText(k), H, st_j)
   const proveList = (L: Seq, i: number, j: number, k: Cont): string =>
     i === L.items.length ? prove(L.suf[i]!, L.tail, j, k) : prove(L.texts[i]!, L.items[i]!, j, { code: L.suf[i + 1]!, term: L.tail, next: k, list: { seq: L, i: i + 1 } });
+  // K(H, x) for the continuation k, applied (beta-reduced)
+  const kApp = (k: Cont, x: string): string =>
+    k === null ? (QS ? QS + "(" + x + ")" : KS + "(" + HS + ", " + x + ")") : nm("wp") + "(" + k.code + ", " + bS + ", " + kText(k.next) + ", " + HS + ", " + x + ")";
+  // a call of a routine with its law L: WP(call, b, K, H, st) by wp.of_tot from tot.wk of L, instantiated at
+  // the call: L's parameters from the call's code and state, its premises from the context (facts, Bool
+  // conjuncts) or leaves; the weakening's posts: Q_L implies K (a leaf, unless Q_L is the goal's own post),
+  // H_L implies H (identity, or Empty for Lg.No); its budget b_L <= b by computation (or a leaf)
+  const callLaw = (law: string, sText: string, term: LTerm, j: number, k: Cont): string | null => {
+    const S = sts[j]!.text;
+    // the facts a premise may take: the context's, and the Bool facts (with their conjuncts)
+    const facts: { T: LTerm; pf: string }[] = [...ctxFactT, ...boolHyp.map((h) => ({ T: B.Eql(h.lhs, B.Ctr<[LTerm]>(h.val ? "True" : "False", []), B.Ref(byShort.get("Bool") ?? "Bool") as LTerm), pf: h.name }))];
+    const ins = api.inst?.(law, term, sts[j]!.lt, gargsB, facts, g.d);
+    if (!ins || ins.concl.length !== 5) return null;
+    const [bL, QL, HL] = [ins.concl[2]!, ins.concl[3]!, ins.concl[4]!];
+    const lawName = sh(B.Ref(law) as LTerm);
+    const args: string[] = [];
+    for (let i = 0; i < ins.sol.length; i++) {
+      const v = ins.sol[i];
+      if (v) { args.push(sh(v)); continue; }
+      if (ins.pfs[i]) { args.push(ins.pfs[i]!); continue; }
+      const dm = ins.doms[i]!;
+      if (!dm.fact || !dm.A) return null;
+      let pf = ctxFact.get(api.key(dm.A));
+      if (!pf && dm.A.$ === "Eql" && isBool(dm.A.b)) {
+        const n = nfL(dm.A.a);
+        const want = (dm.A.b as any).k === "True";
+        if (n) pf = boolHyp.find((h) => h.nk === api.key(n) && h.val === want)?.name;
+      }
+      // a premise that computes (a closed Bool): {==}
+      if (!pf && dm.A.$ === "Eql") { const na = nfL(dm.A.a), nb = nfL(dm.A.b); if (na && nb && api.key(na) === api.key(nb)) pf = "{==}"; }
+      args.push(pf ?? leaf("the premise " + dm.k + " of " + lawName + " at " + S + ": " + sh(dm.A).slice(0, 300)));
+    }
+    const lawApp = lawName + "(" + args.join(", ") + ")";
+    const bLS = sh(bL);
+    const isLe = (() => { const z = nfL(B.App(B.App(B.Ref(byShort.get("Nat.is_le") ?? "Nat.is_le") as LTerm, bL), gargsB)); return isBool(z) && z.k === "True"; })();
+    const hb = isLe ? "{==}" : bLS === bS && K.leRefl ? nm("leRefl") + "(" + bS + ")" : leaf("the budget of " + lawName + ": {Nat.is_le(" + bLS + ", " + bS + ") == True{}}");
+    const x = fresh("wx"), q = fresh("wq"), kk = fresh("wk"), e = fresh("we");
+    const Q2 = x + " => " + kApp(k, x);
+    const hq = k === null && QS && api.key(QL) === api.key(gargsQ) ? x + " => " + q + " => " + q
+      : x + " => " + q + " => " + leaf("after " + lawName + " at " + S + ": the rest from the state " + x + ", with " + q + " : " + sh(QL) + "(" + x + ")");
+    const hh = sh(HL) === HS ? kk + " => " + x + " => " + e + " => " + e
+      : /(^|\.)No$/.test(sh(HL)) ? kk + " => " + x + " => " + e + " => Empty.absurd(" + HS + "(" + kk + ", " + x + "), " + e + ")"
+      : leaf("the halts of " + lawName + " (" + sh(HL) + ") as the goal's (" + HS + ")");
+    return nm("wpOfTot") + "(" + sText + ", " + S + ", " + bS + ", " + kText(k) + ", " + HS + ", " + nm("totWk") + "(" + sText + ", " + S + ", " + bLS + ", " + bS + ", " + sh(QL) + ", " + Q2 + ", " + sh(HL) + ", " + HS + ", " + hb + ", " + hq + ", " + hh + ", " + lawApp + "))";
+  };
   // the proof of WP(s, b, kText(k), H, st_j); sText is the code as printed (or its let)
   const prove = (sText: string, term: LTerm, j: number, k: Cont): string => {
     const S = sts[j]!.text;
     if (over()) return overLeaf(j);
     steps++;
     const law = lawOf(term);
-    if (law) return leaf("a routine with a law: close its WP by " + nm("wp") + ".of_tot (Lg.wp.of_tot) with " + law + " and Lg.tot.wk (at " + S + ")");
+    if (law) return callLaw(law, sText, term, j, k) ?? leaf("a routine with a law: close its WP by Lg.wp.of_tot with " + sh(B.Ref(law) as LTerm) + " and Lg.tot.wk (at " + S + "); gen2 could not instantiate the law from the call and the context");
     const st = stmtOf(term);
     const Kt = kText(k);
     switch (st.k) {
@@ -520,13 +614,13 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
         return head + leaf("an if at " + S + " that no fact decides: U32.is_zero(" + sh(ev.v) + "); give a Bool fact on a part of it" + (K.boolCase ? "" : ", or add the kit lemma bool.case (see gen2-wp-notes.md) so --wp splits it")) + ")";
       }
       case "Cir.Stmt.while":
-        return leaf("a loop at " + S + ": its WP is its Tot: apply Lg.tot.while with an invariant I(n, st) and a measure n (obligations: the condition has a value; at 0 the post; else the body's WP to I at a smaller measure), or a routine law (Lg.wp.of_tot)");
+        return leaf("a loop at " + S + (isSelf("tot.while") ? "" : ": its WP is its Tot: apply Lg.tot.while with an invariant I(n, st) and a measure n (obligations: the condition has a value; at 0 the post; else the body's WP to I at a smaller measure), or a routine law (Lg.wp.of_tot)"));
       case "Cir.Stmt.halt":
         return leaf("a halt at " + S + ": " + HS + "(its status, " + S + ")" + (/\bNo\b/.test(HS) ? " is Empty: a fact must rule this path out" : ""));
       case "Cir.Stmt.alloc":
-        return leaf("an alloc at " + S + ": apply Lg.wp.alloc (it asks St.outn == 0 and the budget 20 (next + 1) <= b)");
+        return leaf("an alloc at " + S + (isSelf("wp.alloc") ? "" : ": apply Lg.wp.alloc (it asks St.outn == 0 and the budget 20 (next + 1) <= b)"));
       case "Cir.Stmt.emit":
-        return leaf("an emit at " + S + ": apply Lg.wp.emit (it asks the budget 20 next + outn + 1 <= b)");
+        return leaf("an emit at " + S + (isSelf("wp.emit") ? "" : ": apply Lg.wp.emit (it asks the budget 20 next + outn + 1 <= b)"));
       default:
         return leaf("the statement " + st.k + " at " + S + ": not stepped by --wp");
     }
