@@ -755,3 +755,196 @@ def asm.done(kk: Nat, b: Nat, +x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS, +o: List<&
                 {Pg.Program.result(ds, C.CSteps(1n+q, ds, Some{_})) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; e), j2),
             +u => +s2 => er => +j2 => +es => asm.done(q, 1n+A.AS.w(s2), x, u, s2, o, asm.lt.succ(A.AS.w(s2)),
               (%es : {Pg.Program.result(ds, C.CSteps(q, ds, _)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; e), j2))
+
+# The loop within the memory F
+# ----------------------------
+
+# the run's context: Cir.result's start of a book that Book.read reads
+def Asm.x0(+ds: List<&2, Bk.Def>, +k: U32, +first: U32) -> Hp.Cx:
+  I.Cx.of(ds, k, first)
+
+def Asm.St0(+ds: List<&2, Bk.Def>, +first: U32, +k: U32, +pg: U32, +lim: U32, +i: List<&2, Word(8n)>) -> Cr.Cir.State:
+  I.St0(Mc.Mach.regs(), Mc.Img.cells(ds), first, k, pg, lim, i)
+
+# the facts of the run that the memory loop carries: Start, at most 6144
+# cache cells (c), and the start's limit has F bytes
+def Asm.Mf(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32, +pg: U32, +lim: U32,
+  +first: U32, +n: Nat, +c: Nat) -> Bool:
+  I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first) && Nat.is_le(c, 6144n) &&
+    Nat.is_le(Pg.Program.need(p, i, n), Lg.Lim(Asm.St0(ds, first, k, pg, lim, i)))
+
+# what the memory loop knows of the state st of s after jj of the run's n
+# steps: its term is the jj-th; its limit is the start's; at most c cache
+# cells; next - first at most Peak
+def Asm.Ms(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32, +first: U32,
+  +n: Nat, +c: Nat, +jj: Nat, +st: Cr.Cir.State, +s: A.AS) -> Bool:
+  C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s)) && Nat.is_eq(Lg.Lim(st), Lg.Lim(Asm.St0(ds, first, k, pg, lim, i))) &&
+    Nat.is_le(Me.Stat(st), c) && Nat.is_le(Me.Mem.cells(st), Me.Peak(ds, c, Pg.Program.largest(p, i, n)))
+
+# a round of the memory loop does not run out of memory: its Budget is at most
+# F, which the limit has
+def asm.mem.oom(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32, +pg: U32,
+  +lim: U32, +first: U32, +n: Nat, +o: List<&2, Word(8n)>, +c: Nat, +jj: Nat, +kk: Nat, +st: Cr.Cir.State, +s: A.AS,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +he: {Pg.Program.result(ds, El.Eval.steps(n, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +hf: {Asm.Mf(p, ds, i, m, k, len, pg, lim, first, n, c) == True{} : Bool},
+  +hjk: {Nat.add(jj, kk) == n : Nat},
+  +hs: {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jj, st, s) == True{} : Bool},
+  +iv: {R.Inv(Asm.x0(ds, k, first), st, s) == True{} : Bool},
+  +z: {Nat.is_lt(Lg.Lim(st), Me.Budget(Asm.x0(ds, k, first), st, s)) == True{} : Bool}) -> Empty:
+  +S = Pg.Program.largest(p, i, n)
+  +L0 = Lg.Lim(Asm.St0(ds, first, k, pg, lim, i))
+  +sa = I.Start(Mc.Img.cells(ds), i, m, k, len, pg, lim, first)
+  +nd = Pg.Program.need(p, i, n)
+  +ht = C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s))
+  +hf1 = K.bool.and_l(Bool.and(sa, Nat.is_le(c, 6144n)), Nat.is_le(nd, L0), hf)
+  +hs1 = K.bool.and_l(Bool.and(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c)),
+    Nat.is_le(Me.Mem.cells(st), Me.Peak(ds, c, S)), hs)
+  +hs2 = K.bool.and_l(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c), hs1)
+  +hj = {(%hjk : {Nat.is_le(jj, _) == True{} : Bool}; asm.le.add(jj, kk)) : {Nat.is_le(jj, n) == True{} : Bool}}
+  +hb = Me.budget.need(p, ds, i, m, k, len, pg, lim, first, n, jj, o, c, st, s, rd, K.bool.and_l(sa, Nat.is_le(c, 6144n), hf1), he, hj,
+    K.bool.and_l(ht, Nat.is_eq(Lg.Lim(st), L0), hs2), iv, K.bool.and_r(sa, Nat.is_le(c, 6144n), hf1),
+    K.bool.and_r(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c), hs1),
+    K.bool.and_r(Bool.and(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c)),
+      Nat.is_le(Me.Mem.cells(st), Me.Peak(ds, c, S)), hs))
+  +el = K.nat.is_eq_ok(Lg.Lim(st), L0, K.bool.and_r(ht, Nat.is_eq(Lg.Lim(st), L0), hs2))
+  +hl = {(%Equal.sym(Nat, Lg.Lim(st), L0, el) : {Nat.is_le(nd, _) == True{} : Bool};
+    K.bool.and_r(Bool.and(sa, Nat.is_le(c, 6144n)), Nat.is_le(nd, L0), hf)) : {Nat.is_le(nd, Lg.Lim(st)) == True{} : Bool}}
+  asm.lt.abs(Lg.Lim(st), Me.Budget(Asm.x0(ds, k, first), st, s), z,
+    asm.le.trans(Me.Budget(Asm.x0(ds, k, first), st, s), nd, Lg.Lim(st), hb, hl))
+
+# the memory facts after a round that goes on from st to u: the limit is the
+# same (frame.fixed), no new cache cell and next - first within Peak
+# (round.mem, need.peak)
+def asm.mem.next(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32, +first: U32,
+  +n: Nat, +o: List<&2, Word(8n)>, +c: Nat, +jj: Nat, +kk: Nat, +f0: Nat, +st: Cr.Cir.State, +s: A.AS, +u: Cr.Cir.State,
+  +jn: Nat, +s2: A.AS,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +he: {Pg.Program.result(ds, El.Eval.steps(n, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +hjk: {Nat.add(jj, kk) == n : Nat},
+  +hs: {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jj, st, s) == True{} : Bool},
+  +iv: {R.Inv(Asm.x0(ds, k, first), st, s) == True{} : Bool},
+  +er: {Cr.Cir.exec(f0, Mc.Mach.round(), st) == Cr.Cir.Out.next{u} : Cr.Cir.Out},
+  +ht2: {C.Tm.is(C.CSteps(jn, ds, Some{Pg.Program.start(i)}), A.AS.term(s2)) == True{} : Bool}) ->
+  {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jn, u, s2) == True{} : Bool}:
+  +S = Pg.Program.largest(p, i, n)
+  +L0 = Lg.Lim(Asm.St0(ds, first, k, pg, lim, i))
+  +ht = C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s))
+  +hs1 = K.bool.and_l(Bool.and(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c)),
+    Nat.is_le(Me.Mem.cells(st), Me.Peak(ds, c, S)), hs)
+  +hs2 = K.bool.and_l(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c), hs1)
+  +hst = K.bool.and_r(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c), hs1)
+  +hm = K.bool.and_r(Bool.and(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c)),
+    Nat.is_le(Me.Mem.cells(st), Me.Peak(ds, c, S)), hs)
+  +hj = {(%hjk : {Nat.is_le(jj, _) == True{} : Bool}; asm.le.add(jj, kk)) : {Nat.is_le(jj, n) == True{} : Bool}}
+  +rm = Me.round.mem(Asm.x0(ds, k, first), st, s, iv, f0, u, er)
+  +nm = Nat.max(Me.Mem.cells(st), Me.Need(ds, st, s))
+  +np = Me.need.peak(p, ds, i, n, jj, o, c, st, s, rd, he, hj, K.bool.and_l(ht, Nat.is_eq(Lg.Lim(st), L0), hs2), hst)
+  +el = K.nat.is_eq_ok(Lg.Lim(st), L0, K.bool.and_r(ht, Nat.is_eq(Lg.Lim(st), L0), hs2))
+  +el2 = Equal.trans(Nat, Lg.Lim(u), Lg.Lim(st), L0, LgP.lg.lim.eq(u, st, Lg.frame.fixed(f0, Mc.Mach.round(), st, u, er)), el)
+  K.bool.and_i(Bool.and(Bool.and(C.Tm.is(C.CSteps(jn, ds, Some{Pg.Program.start(i)}), A.AS.term(s2)), Nat.is_eq(Lg.Lim(u), L0)),
+    Nat.is_le(Me.Stat(u), c)), Nat.is_le(Me.Mem.cells(u), Me.Peak(ds, c, S)),
+    K.bool.and_i(Bool.and(C.Tm.is(C.CSteps(jn, ds, Some{Pg.Program.start(i)}), A.AS.term(s2)), Nat.is_eq(Lg.Lim(u), L0)),
+      Nat.is_le(Me.Stat(u), c),
+      K.bool.and_i(C.Tm.is(C.CSteps(jn, ds, Some{Pg.Program.start(i)}), A.AS.term(s2)), Nat.is_eq(Lg.Lim(u), L0), ht2,
+        (%el2 : {Nat.is_eq(Lg.Lim(u), _) == True{} : Bool}; K.nat.is_eq_refl(Lg.Lim(u)))),
+      asm.le.trans(Me.Stat(u), Me.Stat(st), c, K.bool.and_l(Nat.is_le(Me.Stat(u), Me.Stat(st)), Nat.is_le(Me.Mem.cells(u), nm), rm), hst)),
+    asm.le.trans(Me.Mem.cells(u), nm, Me.Peak(ds, c, S), K.bool.and_r(Nat.is_le(Me.Stat(u), Me.Stat(st)), Nat.is_le(Me.Mem.cells(u), nm), rm),
+      asm.max.le(Me.Mem.cells(st), Me.Need(ds, st, s), Me.Peak(ds, c, S), hm, np)))
+
+# the term of the memory loop's state: the jj-th
+def asm.ms.ht(+p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +k: U32, +pg: U32, +lim: U32, +first: U32,
+  +n: Nat, +c: Nat, +jj: Nat, +st: Cr.Cir.State, +s: A.AS,
+  +hs: {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jj, st, s) == True{} : Bool}) ->
+  {C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s)) == True{} : Bool}:
+  +S = Pg.Program.largest(p, i, n)
+  +L0 = Lg.Lim(Asm.St0(ds, first, k, pg, lim, i))
+  +ht = C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s))
+  +hs1 = K.bool.and_l(Bool.and(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c)),
+    Nat.is_le(Me.Mem.cells(st), Me.Peak(ds, c, S)), hs)
+  +hs2 = K.bool.and_l(Bool.and(ht, Nat.is_eq(Lg.Lim(st), L0)), Nat.is_le(Me.Stat(st), c), hs1)
+  K.bool.and_l(ht, Nat.is_eq(Lg.Lim(st), L0), hs2)
+
+# after an admin move, the same term
+def asm.mem.adm(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +jj: Nat, +s: A.AS, +s2: A.AS,
+  +eq: {A.AS.term(s2) == A.AS.term(s) : Bk.Term},
+  +ht: {C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s)) == True{} : Bool}) ->
+  {C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s2)) == True{} : Bool}:
+  (%Equal.sym(Bk.Term, A.AS.term(s2), A.AS.term(s), eq) : {C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), _) == True{} : Bool}; ht)
+
+# after a step, the next term of the run
+def asm.mem.stp(+ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +jj: Nat, +s: A.AS, +s2: A.AS,
+  +es: {C.CStep(ds, A.AS.term(s)) == Some{A.AS.term(s2)} : Maybe<Bk.Term>},
+  +ht: {C.Tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s)) == True{} : Bool}) ->
+  {C.Tm.is(C.CSteps(1n+jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s2)) == True{} : Bool}:
+  +en = asm.cs.snoc(jj, ds, Some{Pg.Program.start(i)}, A.AS.term(s), A.AS.term(s2),
+    asm.tm.is(C.CSteps(jj, ds, Some{Pg.Program.start(i)}), A.AS.term(s), ht), es)
+  (%Equal.sym(Maybe<Bk.Term>, C.CSteps(1n+jj, ds, Some{Pg.Program.start(i)}), Some{A.AS.term(s2)}, en) :
+    {C.Tm.is(_, A.AS.term(s2)) == True{} : Bool}; C.term.is_eq_refl(A.AS.term(s2)))
+
+# the loop within the memory F gives the bytes o: as asm.done, with no out of
+# memory
+def asm.mem(kk: Nat, b: Nat, +p: List<&2, Word(8n)>, +ds: List<&2, Bk.Def>, +i: List<&2, Word(8n)>, +m: U32, +k: U32, +len: U32,
+  +pg: U32, +lim: U32, +first: U32, +n: Nat, +o: List<&2, Word(8n)>, +c: Nat, +jj: Nat, +st: Cr.Cir.State, +s: A.AS,
+  +rd: {Bk.Book.read(p) == Some{ds} : Maybe<List<&2, Bk.Def>>},
+  +he: {Pg.Program.result(ds, El.Eval.steps(n, ds, Pg.Program.start(i))) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +hf: {Asm.Mf(p, ds, i, m, k, len, pg, lim, first, n, c) == True{} : Bool},
+  +hw: {Nat.is_lt(A.AS.w(s), b) == True{} : Bool},
+  +e: {Pg.Program.result(ds, C.CSteps(kk, ds, Some{A.AS.term(s)})) == Some{o} : Maybe<&2, List<&2, Word(8n)>>},
+  +hjk: {Nat.add(jj, kk) == n : Nat},
+  +hs: {Asm.Ms(p, ds, i, k, pg, lim, first, n, c, jj, st, s) == True{} : Bool},
+  +j: {Asm.J(Asm.x0(ds, k, first), st, s) == True{} : Bool}) -> &r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Asm.loop(), st)):
+  match kk:
+    case 0n:
+      match b:
+        case 0n:
+          Empty.absurd(&r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Asm.loop(), st)), asm.lt0(A.AS.w(s), hw))
+        case 1n+(+c2):
+          +x = Asm.x0(ds, k, first)
+          +B = Me.Budget(x, st, s)
+          +iv = K.bool.and_l(R.Inv(x, st, s), A.AS.ok0(ds, s), j)
+          +ht = asm.ms.ht(p, ds, i, k, pg, lim, first, n, c, jj, st, s, hs)
+          +f0 = asm.tot.f(Mc.Mach.round(), st, B, u => Asm.Rnd(x, A.AS.term(s), A.AS.w(s), u),
+            q => st2 => Asm.HR(ds, A.AS.term(s), q, st2), asm.rnd(x, st, s, j))
+          ok0 = asm.tot.ok(Mc.Mach.round(), st, B, u => Asm.Rnd(x, A.AS.term(s), A.AS.w(s), u),
+            q => st2 => Asm.HR(ds, A.AS.term(s), q, st2), asm.rnd(x, st, s, j))
+          asm.done.r(Cr.Cir.exec(f0, Mc.Mach.round(), st), True{}, f0, x, st, s, 0n, o, {==}, ok0, e,
+            z => asm.mem.oom(p, ds, i, m, k, len, pg, lim, first, n, o, c, jj, 0n, st, s, rd, he, hf, hjk, hs, iv, z),
+            +u => +s2 => +er => +j2 => +eq => lt =>
+              asm.mem(0n, c2, p, ds, i, m, k, len, pg, lim, first, n, o, c, jj, u, s2, rd, he, hf,
+                asm.lt.step(A.AS.w(s2), A.AS.w(s), c2, lt, hw),
+                (%Equal.sym(Bk.Term, A.AS.term(s2), A.AS.term(s), eq) :
+                  {Pg.Program.result(ds, C.CSteps(0n, ds, Some{_})) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; e), hjk,
+                asm.mem.next(p, ds, i, k, pg, lim, first, n, o, c, jj, 0n, f0, st, s, u, jj, s2, rd, he, hjk, hs, iv, er,
+                  asm.mem.adm(ds, i, jj, s, s2, eq, ht)), j2),
+            +u => +s2 => er => +j2 => +es => Empty.absurd(&r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Asm.loop(), u)),
+              asm.step0(ds, A.AS.term(s), A.AS.term(s2), o, e, es)))
+    case 1n+(+q):
+      match b:
+        case 0n:
+          Empty.absurd(&r:Nat -> Asm.Good(True{}, o, Cr.Cir.exec(r, Asm.loop(), st)), asm.lt0(A.AS.w(s), hw))
+        case 1n+(+c2):
+          +x = Asm.x0(ds, k, first)
+          +B = Me.Budget(x, st, s)
+          +iv = K.bool.and_l(R.Inv(x, st, s), A.AS.ok0(ds, s), j)
+          +ht = asm.ms.ht(p, ds, i, k, pg, lim, first, n, c, jj, st, s, hs)
+          +f0 = asm.tot.f(Mc.Mach.round(), st, B, u => Asm.Rnd(x, A.AS.term(s), A.AS.w(s), u),
+            q2 => st2 => Asm.HR(ds, A.AS.term(s), q2, st2), asm.rnd(x, st, s, j))
+          ok0 = asm.tot.ok(Mc.Mach.round(), st, B, u => Asm.Rnd(x, A.AS.term(s), A.AS.w(s), u),
+            q2 => st2 => Asm.HR(ds, A.AS.term(s), q2, st2), asm.rnd(x, st, s, j))
+          +hjk2 = Equal.trans(Nat, 1n+Nat.add(jj, q), Nat.add(jj, 1n+q), n, Equal.sym(Nat, Nat.add(jj, 1n+q), 1n+Nat.add(jj, q),
+            N.add_succ_r(jj, q)), hjk)
+          asm.done.r(Cr.Cir.exec(f0, Mc.Mach.round(), st), True{}, f0, x, st, s, 1n+q, o, {==}, ok0, e,
+            z => asm.mem.oom(p, ds, i, m, k, len, pg, lim, first, n, o, c, jj, 1n+q, st, s, rd, he, hf, hjk, hs, iv, z),
+            +u => +s2 => +er => +j2 => +eq => lt =>
+              asm.mem(1n+q, c2, p, ds, i, m, k, len, pg, lim, first, n, o, c, jj, u, s2, rd, he, hf,
+                asm.lt.step(A.AS.w(s2), A.AS.w(s), c2, lt, hw),
+                (%Equal.sym(Bk.Term, A.AS.term(s2), A.AS.term(s), eq) :
+                  {Pg.Program.result(ds, C.CSteps(1n+q, ds, Some{_})) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; e), hjk,
+                asm.mem.next(p, ds, i, k, pg, lim, first, n, o, c, jj, 1n+q, f0, st, s, u, jj, s2, rd, he, hjk, hs, iv, er,
+                  asm.mem.adm(ds, i, jj, s, s2, eq, ht)), j2),
+            +u => +s2 => +er => +j2 => +es =>
+              asm.mem(q, 1n+A.AS.w(s2), p, ds, i, m, k, len, pg, lim, first, n, o, c, 1n+jj, u, s2, rd, he, hf, asm.lt.succ(A.AS.w(s2)),
+                (%es : {Pg.Program.result(ds, C.CSteps(q, ds, _)) == Some{o} : Maybe<&2, List<&2, Word(8n)>>}; e), hjk2,
+                asm.mem.next(p, ds, i, k, pg, lim, first, n, o, c, jj, 1n+q, f0, st, s, u, 1n+jj, s2, rd, he, hjk, hs, iv, er,
+                  asm.mem.stp(ds, i, jj, s, s2, es, ht)), j2))
