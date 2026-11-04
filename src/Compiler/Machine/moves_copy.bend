@@ -18,6 +18,7 @@ import ./statement_runs.bend as X
 import ./accounting.bend as A
 import ./move_kit.bend as K
 import ./heap_ops.bend as U2
+import ./copy_gives_subst.bend as U4
 import ./copy_bridge.bend as U5
 import ./data_check.bend as U6
 import ./moves_match.bend as U13
@@ -853,3 +854,18 @@ def ul.cp(+ds: List<&2, Bk.Def>, +ks: List<&2, List<&2, Word(8n)>>, +img: List<&
       hs, hac2, hl, h13, h3, h36, h37, env, Unit{}, hb, {==}),
     K.copy.done(ds, ks, img, regs, M3, nx1, fi, im, pg1, lim, inp, False{}, os, Nil{}, fs, sp, pend2, ps2, c, b, z, es, Nil{}, zs2,
       hs, hac2, hl, h13, h3, h36, h37, env, Unit{}, hb))
+
+# a cell of the machine's own kinds that a phase kept (Kept.go of the own
+# cells), out of xs, keeps its value
+def kept.at.own(+m: Cr.Cir.Cells, +m2: Cr.Cir.Cells, +nx: U32, +fi: U32, +xs: List<&2, U32>, +z: U32,
+  hk: D.Kept.go(Nat.sub(U32.to_nat(nx), U32.to_nat(fi)), m, m2, xs, fi), hown: {D.Own(fi, nx, z) == True{} : Bool},
+  hm: {D.Mem(xs, z) == False{} : Bool}, ht: {U32.is_lt(D.Tg(m, z), 19) == False{} : Bool}) ->
+  {Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cells.get(m, z) : Cr.Cir.Cell}:
+  +n = Nat.sub(U32.to_nat(nx), U32.to_nat(fi))
+  +ho2 = hown
+  +h2 = N.le_rw_r(1n+U32.to_nat(z), U32.to_nat(nx), Nat.add(U32.to_nat(fi), n), Equal.sym(Nat, Nat.add(U32.to_nat(fi), n), U32.to_nat(nx), U13.own.end(fi, nx, z, ho2)),
+    D.u.lt(z, nx, D.and.r(U32.is_le(fi, z), U32.is_lt(z, nx), ho2)))
+  +ka = U6.kg.at(n, m, m2, xs, fi, z, U13.own.lo(fi, nx, z, ho2), h2, hk)
+  %hm : D.Kept.if(Bool.or(_, False{}), {Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cells.get(m, z) : Cr.Cir.Cell})
+  %ht : D.Kept.if(Bool.or(D.Mem(xs, z), _), {Cr.Cir.Cells.get(m2, z) == Cr.Cir.Cells.get(m, z) : Cr.Cir.Cell})
+  ka
