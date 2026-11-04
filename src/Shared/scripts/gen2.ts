@@ -318,7 +318,10 @@ const texts = new Map<string, string>();
 const fileText = (f: string) => { let t = texts.get(f); if (t === undefined) { t = fs.readFileSync(f, "utf8"); texts.set(f, t); } return t; };
 const nsOf = (k: string) => (k.includes(":") ? k.slice(0, k.indexOf(":")) : "");
 const shortOf = (k: string) => (k.includes(":") ? k.slice(k.indexOf(":") + 1) : k);
-const pathOf = (k: string) => (nsOf(k) === "" ? entry : path.resolve(TOP, nsOf(k) + ".bend"));
+const pathOf = (k: string) => {
+  if ((ORDER.get(k) ?? -1) >= N0) return entry;
+  return nsOf(k) === "" ? entry : path.resolve(TOP, nsOf(k) + ".bend");
+};
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const srcCache = new Map<string, Src | null>();
 const defSrc = (k: string): Src | null => {
@@ -327,7 +330,7 @@ const defSrc = (k: string): Src | null => {
   const file = pathOf(k);
   if (fs.existsSync(file)) {
     const lines = fileText(file).split("\n");
-    const re = new RegExp("^(@unsafe\\s+)?def\\s+" + esc(shortOf(k)) + "\\??\\(");
+    const re = new RegExp("^(@unsafe\\s+)?def\\s+(?:[A-Za-z0-9_]+\\.)?" + esc(shortOf(k)) + "\\??\\(");
     const li = lines.findIndex((l) => re.test(l));
     if (li >= 0) {
       let depth = 0, he = li;
@@ -352,12 +355,20 @@ const spanFile = (t: any, n = 0): B.File | undefined => {
   if (t.$ === "All") return spanFile(t.A, n + 1) ?? spanFile(t.B(B.Var("_", 0)), n + 1);
   return undefined;
 };
+const sourceFiles = new Map<string, B.File>();
+for (const k of book.order) {
+  const t = RAW[k];
+  if (t?.$ === "Def") {
+    const f = spanFile(t.v) ?? spanFile(t.T);
+    if (f) sourceFiles.set(k, f);
+  }
+}
 
 // checks <def> with the body text <body> (a def body, indented); throws bend2's Err on failure
 const checkDef = (k: string, body: string) => {
   const ds = defSrc(k)!;
   const def = RAW[k] as B.Def;
-  const file = spanFile(def.T)!;
+  const file = sourceFiles.get(k)!;
   const str = ds.header + "\n" + body + "\n";
   const p: B.Parse = { book, dir: path.dirname(ds.file) + "/", str, pos: str.indexOf("(") + 1, stk: [], frs: 0, ns: file.ns, al: file.al };
   const hols = book.hols;
@@ -676,7 +687,7 @@ for (const k of Object.keys(RAW)) {
     for (const side of [0, 1] as const) {
       const s = side === 0 ? c.a : c.b;
       const sk = headKey(s);
-      if (!sk.startsWith("R:")) continue;
+      if (!sk.startsWith("R:") && !(t.n === 0 && (sk.startsWith("C:") || sk.startsWith("A:")))) continue;
       if (!rwIndex.has(sk)) rwIndex.set(sk, []);
       rwIndex.get(sk)!.push({ L, side });
     }
@@ -1054,7 +1065,7 @@ const nfPattern = (c: Callee, concl: HTerm, d: number): LTerm | null => {
   if (!m.has(d)) m.set(d, attempt(FUEL_NF, () => nf(concl, d)) ?? null);
   return m.get(d)!;
 };
-const callText = (c: Callee, args: string[]) => (c.n === 0 ? c.text : c.text + "(" + args.join(", ") + ")");
+const callText = (c: Callee, args: string[]) => c.text + "(" + args.join(", ") + ")";
 
 const lemmaCands = (g: Goal, targets: LTerm[]): Callee[] => {
   const seen = new Set<string>();
@@ -1253,15 +1264,15 @@ const rwCands = (g: Goal, N: LTerm, isRaw: boolean, depth: number, path: Set<str
   }
   // the induction hypothesis and lemmas, on the stuck calls of nf(goal)
   for (const [sk, s] of subs) {
-    if (s.$ !== "App") continue;
-    const [h] = unapply(s);
-    if (h.$ !== "Ref") continue;
+    const hk = headKey(s);
+    const h = s.$ === "App" ? unapply(s)[0] : s;
+    if (h.$ !== "Ref" && !(s.$ !== "App" && rwIndex.has(hk))) continue;
     const entries: { c: Callee; side: 0 | 1; kind: string }[] = [];
-    if (job.ih && g.split) {
+    if (h.$ === "Ref" && job.ih && g.split) {
       const o = attempt(FUEL_NF, () => { const oo = openMeta(job.def.T, job.def.n); return oo ? lower(oo.concl, g.d + 1) : null; });
       if (o && o.$ === "Eql") for (const side of [0, 1] as const) if (headKey(side === 0 ? o.a : o.b) === "R:" + h.k) entries.push({ c: ihCallee(), side, kind: "rw:ih" });
     }
-    for (const { L, side } of rwIndex.get("R:" + h.k) ?? []) {
+    for (const { L, side } of rwIndex.get(hk) ?? []) {
       if (L.order >= job.order || L.k === job.k) continue;
       entries.push({ c: { text: B.name_show(job.file, L.k), T: (RAW[L.k] as B.Def).T, n: L.n, kind: "lemma" }, side, kind: "rw:lemma" });
       if (entries.length > MAX_CANDS) break;
@@ -1280,7 +1291,7 @@ const rwCands = (g: Goal, N: LTerm, isRaw: boolean, depth: number, path: Set<str
       const to = side === 0 ? E.b : E.a;
       if (key(to) === sk) continue;
       const e = side === 0 ? "Equal.sym(" + show(E.T, g.names) + ", " + show(E.a, g.names) + ", " + show(E.b, g.names) + ", " + call + ")" : call;
-      cands.push({ base: N, from: s, to, e, kind, score: (blkKeys.has(sk) ? 0 : 1) + (kind === "rw:ih" ? 0 : 0.5) + (isRaw ? 0.2 : 0) });
+      cands.push({ base: N, from: s, to, e, kind, score: (blkKeys.has(sk) ? 0 : 1) + (c.n === 0 ? -0.5 : kind === "rw:ih" ? 0 : 0.5) + (isRaw ? 0.2 : 0) });
     }
   }
 };
@@ -1373,6 +1384,20 @@ const split = (n: Goal, j: number): { pat: string; node: Goal }[] | null => {
 
 const splitCands = (n: Goal, lg: Goal): number[] => {
   const out: number[] = [];
+  const records: number[] = [];
+  let record: Goal | null = n;
+  for (let j = 0; j < n.pend && record; j++) {
+    const t = wnf(record.ty);
+    if (!t || t.$ !== "All") break;
+    const A = wnf(t.A);
+    if (A?.$ === "ADT" && t.q.$ !== "None") {
+      const a = RAW[A.k];
+      if (a?.$ === "ADT" && a.c.length === 1 && a.c[0].n > 0 &&
+          !/^(U32|F32|Chr|Word)$/.test(A.k) && !/\b(?:WCon|WNil)$/.test(a.c[0].k)) records.push(j);
+    }
+    record = intro(record, record.pnames[0], record.pmany[0]);
+  }
+  out.push(...records.slice(-2).reverse());
   const add = (t: LTerm) => {
     if (t.$ !== "Var") return;
     const j = t.i - n.d;
@@ -1390,17 +1415,6 @@ const splitCands = (n: Goal, lg: Goal): number[] => {
     blockers(h[h.length - 1], blk);
   }
   blk.forEach(add);
-  // records (one constructor) are free to open
-  if (out.length === 0) {
-    let g: Goal | null = n;
-    for (let j = 0; j < n.pend && g; j++) {
-      const t = wnf(g.ty) as any;
-      if (!t || t.$ !== "All") break;
-      const A = wnf(t.A) as any;
-      if (A?.$ === "ADT" && t.q.$ !== "None") { const a = RAW[A.k]; if (a?.$ === "ADT" && a.c.length === 1 && a.c[0].n > 0) out.push(j); }
-      g = intro(g, g.pnames[0], g.pmany[0]);
-    }
-  }
   const depth = n.path.split("/").length - 1;
   return out.slice(0, depth >= 4 ? 1 : depth >= 2 ? 2 : MAX_SPLIT_CANDS);
 };
@@ -1546,7 +1560,7 @@ const rootGoal = (k: string): Goal => {
 };
 const newJob = (k: string): Job => {
   const def = RAW[k] as B.Def;
-  return { k, def, order: ORDER.get(k) ?? book.order.length, file: spanFile(def.T)!, short: shortOf(k), tags: new Map(), memo: new Map(), smemo: new Map(), closed: 0, ih: true };
+  return { k, def, order: ORDER.get(k) ?? book.order.length, file: sourceFiles.get(k)!, short: shortOf(k), tags: new Map(), memo: new Map(), smemo: new Map(), closed: 0, ih: true };
 };
 
 type Outcome = { ok: boolean; text: string | null; partial: string | null; holes: number; closed: number; ms: number; tags: string[]; why?: string };
@@ -1745,7 +1759,7 @@ const bench = () => {
   const only = new RegExp(opt("only", ".*"));
   const max = +opt("max", "100000");
   const rows: any[] = [];
-  const own = book.order.filter((k, i) => nsOf(k) === "" && ORDER.get(k) === i && RAW[k]?.$ === "Def" && !(RAW[k] as B.Def).b);
+  const own = book.order.slice(N0).filter((k) => RAW[k]?.$ === "Def" && !(RAW[k] as B.Def).b);
   for (const k of own) {
     if (rows.length >= max) break;
     const def = RAW[k] as B.Def;
@@ -1851,7 +1865,8 @@ const runProve = () => {
   // the defs: the names after the file (options excluded), and with --only RE every def of the file
   // whose body is exactly ?TODO and whose name matches; the book is loaded once for all of them
   const names = argv.slice(2).filter((a, i, xs) => !a.startsWith("--") && !(i > 0 && xs[i - 1].startsWith("--") && !["--partial", "--stream", "--debug", "--whole", "--no-decomp"].includes(xs[i - 1])));
-  const own = (x: string) => nsOf(x) === "" && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
+  const entryDefs = new Set(book.order.slice(N0));
+  const own = (x: string) => entryDefs.has(x) && RAW[x].$ === "Def" && !(RAW[x] as B.Def).b;
   const ks: string[] = [];
   for (const nm of names) {
     const k = Object.keys(RAW).find((x) => own(x) && shortOf(x) === nm);
@@ -1894,7 +1909,7 @@ const runProve = () => {
 // arguments of prove after the file). Before each call the entry file is re-read if it changed: its
 // defs are re-parsed and re-checked on top of the imports, which stay loaded and checked; a change
 // in an imported file needs a restart.
-const entryAl = (() => { for (const k of book.order.slice(N0)) { const t = RAW[k]; if (t?.$ === "Def") { const f = spanFile(t.T); if (f) return f.al; } } return {} as Record<string, string>; })();
+const entryAl = (() => { for (const k of book.order.slice(N0)) { const f = sourceFiles.get(k); if (f) return f.al; } return {} as Record<string, string>; })();
 let entryMtime = fs.statSync(entry).mtimeMs;
 const reloadEntry = (): string | null => {
   const mt = fs.statSync(entry).mtimeMs;
@@ -1915,6 +1930,14 @@ const reloadEntry = (): string | null => {
   Object.assign(RAW, nb.tlds);
   book.ctrs = nb.ctrs; book.order = nb.order; book.tmps = nb.tmps; book.hols = nb.hols;
   ORDER.clear(); book.order.forEach((k, i) => ORDER.set(k, i));
+  sourceFiles.clear();
+  for (const k of book.order) {
+    const t = RAW[k];
+    if (t?.$ === "Def") {
+      const f = spanFile(t.v) ?? spanFile(t.T);
+      if (f) sourceFiles.set(k, f);
+    }
+  }
   texts.delete(entry); srcCache.clear(); strictMemo.clear(); matchedMemo.clear();
   buildIndex();
   entryMtime = mt;
