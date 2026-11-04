@@ -1656,7 +1656,8 @@ const bestStep = (g: Goal, anc: Set<string> = new Set()): Pf | null => {
   if (job.ih && g.split) callees.push(ihCallee());
   const lem = lemmaCands(g, targets).map((c) => { const pr = { n: 0, probe: true, spec: -1 }; applyCallee(g, c, targets, 1, 0, new Set(), null, () => false, pr); return { c, spec: pr.spec! }; });
   callees.push(...lem.filter((x) => x.spec >= 0).sort((a, b) => b.spec - a.spec).map((x) => x.c));
-  // a hole with the goal's own predicate (other arguments) is a weakening, often false (K.Ok.wk at
+  // a hole with the goal's own predicate (other arguments) comes from a monotonicity lemma and can be a
+  // stronger claim than the goal, often false (K.Ok.wk at
   // budget 1n for Sh.body.ok): prefer steps with fewer such holes, then fewer holes, then smaller
   const gh = headKey(raw);
   let best: { pf: Pf; holes: number; size: number; same: number } | null = null;
@@ -1975,7 +1976,7 @@ const proveDef = (k: string, budget: number): Outcome => {
     const hs = holesOf(best.pf);
     const lgh = attempt(FUEL_NF, () => { const l = introAll(root); return l ? headKey(lower(l.ty, l.d)) : null; });
     const caution = (g: Goal) => (g.path.includes("#") && lgh && attempt(FUEL_NF, () => headKey(lower(g.ty, g.d))) === lgh
-      ? "  CAUTION: the goal's own predicate with other arguments (a weakening step): check that it is true before working on it\n" : "");
+      ? "  CAUTION: possible dead end: this hole is the goal's own predicate with other arguments (a monotonicity step such as K.Ok.wk), so it can be a STRONGER claim than the goal, and false; check that it is true before working on it (the theorem's statement is unchanged)\n" : "");
     partial = out.join("\n") + "\n" + hs.map((g, i) => "# hole " + (i + 1) + " at " + (g.path || "/") + "\n" + caution(g) + showGoal(g)).join("\n");
   }
   // for the agent: why the first open goal stays open, and proven defs to copy the shape of
