@@ -52,8 +52,8 @@ bec2fe8: S1 follow-up, S2 follow-up `Lg.St.reg`, S2 review fixes F1–F3/G1/G2/G
    are separate Bool premises (`hk`, `hs`, `hc`, `hq`, `hv`).
 8. **`call.frames`** (review G3): M.call's second loop (argument cells to frames) cannot be stepped by
    push.spec (between push and release two cells point to one term of count 1). Law for the whole
-   loop, with its text as `Call.frames()` (a copy of the code inside M.call; the smoke checks the
-   copy is definitional? see Smoke) and the frames `Call.fs(ys, fs)` (the chain at wh is the
+   loop, with its text as `Call.frames()` (a copy of the code inside M.call; s4_smoke's
+   `smk4.call.eq` checks that M.call with it in place is M.call, by computation) and the frames `Call.fs(ys, fs)` (the chain at wh is the
    arguments left reversed, so `Call.fs(rev(xs), fs) = AM.frames(xs, fs)`; a call leaf proves that).
 9. **The loop's invariant is `Asm.J = Inv && AS.ok0`**; `inv.vb` gives the rest of AS.ok (VALUE only on
    a value, from H's V.chk). AS.ok0 at the start is `canon.start`.
@@ -81,4 +81,15 @@ bec2fe8: S1 follow-up, S2 follow-up `Lg.St.reg`, S2 review fixes F1–F3/G1/G2/G
 
 ## gen2 tally
 
-(see s4-handoff.md: filled at the end)
+The lead's rule (try gen2 first) arrived when round.bend and most of moves.bend were written by hand.
+Afterwards: server on the WSL mirror (`g2serve.sh start /home/math/wt/s4 Compiler/Machine/moves/ev.bend`;
+the Windows worktree has no linked `bend`, and the mirror needed `git init` and a server restart, else
+"this server serves ../ev.bend").
+- holes asked: 2 (mv.ev.ann, mv.ev.var, `--wp --partial`); closed: 0; usefully advanced: 2 (tot.of_wp,
+  then 2 statements of M.ev stepped by wp.set, 0.5 s each); misleading: 0.
+- Both stop at M.ev's third statement, `tag := tag(field 0 of c)`: "a field read: --wp reads fields only
+  when the proof can match the start state", though the state is a law parameter. Every move law reads
+  the focus' cell at once, so this is the next thing --wp needs for F14 (the cell fact comes from Inv:
+  H's Rts gives `V.own || V.img` of the focus, i.e. St.is_cell).
+- By hand, not asked: the dispatcher (round.bend), the assembly (moves.bend: Bool/Nat kit, the loops,
+  Cir.result's start), the ports need.lim and eval.stops (memory/impl).

@@ -4,12 +4,13 @@ One line per open `?TODO` in the import closure of `src/main.bend` on `feature/r
 `bend2 --check-only src/main.bend` ("N TODOs found") with the count here. Counted by
 `tmp-p1/closure.py` (imports followed from main.bend; `?TODO` outside comments).
 
-## Now: w/s4 (P2 complete: S1–S4) — 129 holes, 65 files
+## Now: w/s2 on feature/redesign 1c470be (P2 complete: S1–S4) — 128 holes, 65 files
 
-G2 on w/s4 (8060b19, feature/redesign bec2fe8 merged): `bend2 --check-only src/main.bend` prints "129 TODOs
-found" (15 s). Counted by S4's closure script (imports followed from main.bend; `?TODO` outside comments):
-129, the same. runs_as_eval's 4 holes are closed (moves.bend's assembly, proven from the laws); every
-other hole is a law's proof (one `?TODO` def each), independent of the others: a proof may use any law.
+G2 on w/s4 (7a36905, feature/redesign bec2fe8 merged): `bend2 --check-only src/main.bend` prints the TODO
+count below (see s4-handoff.md, Gates); S4's closure script (imports followed from main.bend; `?TODO`
+outside comments) counts 127. runs_as_eval's 4 holes are closed (moves.bend's assembly, proven from the
+laws); every other hole is a law's proof (one `?TODO` def each), independent of the others: a proof may
+use any law, proven or not.
 
 | File | Holes | Lane |
 |---|---|---|
@@ -21,7 +22,7 @@ other hole is a law's proof (one `?TODO` def each), independent of the others: a
 | Compiler/Machine/heap/view.bend | 18 | F6 heap |
 | Compiler/Machine/image/impl.bend | 6 | F7 image |
 | Compiler/Machine/logic/impl.bend | 11 | F2 logic |
-| Compiler/Machine/memory/impl.bend | 9 | F15 memory |
+| Compiler/Machine/memory/impl.bend | 7 | F15 memory |
 | Compiler/Machine/moves/call.bend | 10 | F14 moves |
 | Compiler/Machine/moves/ev.bend | 10 | F14 moves |
 | Compiler/Machine/moves/ret.bend | 8 | F14 moves |
@@ -31,7 +32,7 @@ other hole is a law's proof (one `?TODO` def each), independent of the others: a
 | Compiler/Machine/routines/input.bend | 1 | F13 input |
 | Compiler/Machine/routines/nth.bend | 1 | F8 prims |
 | Compiler/Machine/routines/out.bend | 1 | F12 out |
-| Compiler/Machine/routines/prims.bend | 12 | F8 prims |
+| Compiler/Machine/routines/prims.bend | 13 | F8 prims |
 | Compiler/Machine/routines/walk.bend | 1 | F11 walk |
 
 | # | File | Line | Def | Lane | Statement owner |
@@ -117,8 +118,8 @@ other hole is a law's proof (one `?TODO` def each), independent of the others: a
 | 79 | Compiler/Machine/routines/prims.bend | 53 | R.one.spec | F8 prims | S2 |
 | 80 | Compiler/Machine/routines/prims.bend | 56 | R.h.node | F8 prims | S2 |
 | 81 | Compiler/Machine/routines/prims.bend | 59 | R.h.arg | F8 prims | S2 |
-| 82 | Compiler/Machine/routines/prims.bend | 62 | R.alloc.reg | F8 prims | S2 |
-| 83 | Compiler/Machine/routines/prims.bend | 65 | R.make.reg | F8 prims | S2 |
+| 82 | Compiler/Machine/routines/prims.bend | 61 | R.alloc.regs | F8 prims | S2 |
+| 83 | Compiler/Machine/routines/prims.bend | 64 | R.make.regs | F8 prims | S2 |
 | 84 | Compiler/Machine/routines/nth.bend | 31 | R.nth.spec | F8 prims | S2 |
 | 85 | Compiler/Machine/routines/dec.bend | 32 | R.dec.spec | F9 dec | S2 |
 | 86 | Compiler/Machine/routines/dec.bend | 35 | R.release_arg.spec | F9 dec | S2 |
@@ -127,44 +128,43 @@ other hole is a law's proof (one `?TODO` def each), independent of the others: a
 | 89 | Compiler/Machine/routines/walk.bend | 31 | R.walk.spec | F11 walk | S2 |
 | 90 | Compiler/Machine/routines/out.bend | 31 | R.out.spec | F12 out | S2 |
 | 91 | Compiler/Machine/routines/input.bend | 32 | R.input.spec | F13 input | S2 |
-| 92 | Compiler/Machine/memory/impl.bend | 36 | Me.eval.stops | F15 memory | S4 |
-| 93 | Compiler/Machine/memory/impl.bend | 39 | Me.round.mem | F15 memory | S4 |
-| 94 | Compiler/Machine/memory/impl.bend | 42 | Me.input.mem | F15 memory | S4 |
-| 95 | Compiler/Machine/memory/impl.bend | 45 | Me.need.peak | F15 memory | S4 |
-| 96 | Compiler/Machine/memory/impl.bend | 48 | Me.budget.need | F15 memory | S4 |
-| 97 | Compiler/Machine/memory/impl.bend | 51 | Me.input.need | F15 memory | S4 |
-| 98 | Compiler/Machine/memory/impl.bend | 54 | Me.need.lim | F15 memory | S4 |
-| 99 | Compiler/Machine/memory/impl.bend | 57 | Me.start.ok | F15 memory | S4 |
-| 100 | Compiler/Machine/memory/impl.bend | 60 | Me.code.fits | F15 memory | S4 |
-| 101 | Compiler/Machine/moves/ev.bend | 44 | Mv.mv.ev.val | F14 moves | S4 |
-| 102 | Compiler/Machine/moves/ev.bend | 47 | Mv.mv.ev.var | F14 moves | S4 |
-| 103 | Compiler/Machine/moves/ev.bend | 50 | Mv.mv.ev.app | F14 moves | S4 |
-| 104 | Compiler/Machine/moves/ev.bend | 53 | Mv.mv.ev.ann | F14 moves | S4 |
-| 105 | Compiler/Machine/moves/ev.bend | 56 | Mv.mv.ev.let | F14 moves | S4 |
-| 106 | Compiler/Machine/moves/ev.bend | 59 | Mv.mv.ev.unlet | F14 moves | S4 |
-| 107 | Compiler/Machine/moves/ev.bend | 62 | Mv.mv.ev.tup | F14 moves | S4 |
-| 108 | Compiler/Machine/moves/ev.bend | 65 | Mv.mv.ev.tup0 | F14 moves | S4 |
-| 109 | Compiler/Machine/moves/ev.bend | 68 | Mv.mv.ev.rwt | F14 moves | S4 |
-| 110 | Compiler/Machine/moves/ev.bend | 71 | Mv.mv.ev.min | F14 moves | S4 |
-| 111 | Compiler/Machine/moves/ret.bend | 43 | Mv.mv.out | F14 moves | S4 |
-| 112 | Compiler/Machine/moves/ret.bend | 46 | Mv.mv.ret.swap | F14 moves | S4 |
-| 113 | Compiler/Machine/moves/ret.bend | 49 | Mv.mv.ret.let | F14 moves | S4 |
-| 114 | Compiler/Machine/moves/ret.bend | 52 | Mv.mv.ret.tupb | F14 moves | S4 |
-| 115 | Compiler/Machine/moves/ret.bend | 55 | Mv.mv.ret.tupa | F14 moves | S4 |
-| 116 | Compiler/Machine/moves/ret.bend | 58 | Mv.mv.ret.rwt | F14 moves | S4 |
-| 117 | Compiler/Machine/moves/ret.bend | 61 | Mv.mv.ret.minb | F14 moves | S4 |
-| 118 | Compiler/Machine/moves/ret.bend | 64 | Mv.mv.ret.mina | F14 moves | S4 |
-| 119 | Compiler/Machine/moves/call.bend | 45 | Mv.call.frames | F14 moves | S4 |
-| 120 | Compiler/Machine/moves/call.bend | 48 | Mv.mv.ev.ref | F14 moves | S4 |
-| 121 | Compiler/Machine/moves/call.bend | 51 | Mv.mv.ret.app.lam | F14 moves | S4 |
-| 122 | Compiler/Machine/moves/call.bend | 54 | Mv.mv.ret.app.prj | F14 moves | S4 |
-| 123 | Compiler/Machine/moves/call.bend | 57 | Mv.mv.ret.app.mat | F14 moves | S4 |
-| 124 | Compiler/Machine/moves/call.bend | 60 | Mv.mv.ret.app.call | F14 moves | S4 |
-| 125 | Compiler/Machine/moves/call.bend | 63 | Mv.mv.ret.fun.lam | F14 moves | S4 |
-| 126 | Compiler/Machine/moves/call.bend | 66 | Mv.mv.ret.fun.prj | F14 moves | S4 |
-| 127 | Compiler/Machine/moves/call.bend | 69 | Mv.mv.ret.fun.mat | F14 moves | S4 |
-| 128 | Compiler/Machine/moves/call.bend | 72 | Mv.mv.ret.fun.call | F14 moves | S4 |
-| 129 | Compiler/Machine/moves/round.bend | 292 | Mv.inv.vb | F14 moves | S4 |
+| 92 | Compiler/Machine/memory/impl.bend | 848 | Me.round.mem | F15 memory | S4 |
+| 93 | Compiler/Machine/memory/impl.bend | 851 | Me.input.mem | F15 memory | S4 |
+| 94 | Compiler/Machine/memory/impl.bend | 854 | Me.need.peak | F15 memory | S4 |
+| 95 | Compiler/Machine/memory/impl.bend | 857 | Me.budget.need | F15 memory | S4 |
+| 96 | Compiler/Machine/memory/impl.bend | 860 | Me.input.need | F15 memory | S4 |
+| 97 | Compiler/Machine/memory/impl.bend | 869 | Me.start.ok | F15 memory | S4 |
+| 98 | Compiler/Machine/memory/impl.bend | 872 | Me.code.fits | F15 memory | S4 |
+| 99 | Compiler/Machine/moves/ev.bend | 44 | Mv.mv.ev.val | F14 moves | S4 |
+| 100 | Compiler/Machine/moves/ev.bend | 47 | Mv.mv.ev.var | F14 moves | S4 |
+| 101 | Compiler/Machine/moves/ev.bend | 50 | Mv.mv.ev.app | F14 moves | S4 |
+| 102 | Compiler/Machine/moves/ev.bend | 53 | Mv.mv.ev.ann | F14 moves | S4 |
+| 103 | Compiler/Machine/moves/ev.bend | 56 | Mv.mv.ev.let | F14 moves | S4 |
+| 104 | Compiler/Machine/moves/ev.bend | 59 | Mv.mv.ev.unlet | F14 moves | S4 |
+| 105 | Compiler/Machine/moves/ev.bend | 62 | Mv.mv.ev.tup | F14 moves | S4 |
+| 106 | Compiler/Machine/moves/ev.bend | 65 | Mv.mv.ev.tup0 | F14 moves | S4 |
+| 107 | Compiler/Machine/moves/ev.bend | 68 | Mv.mv.ev.rwt | F14 moves | S4 |
+| 108 | Compiler/Machine/moves/ev.bend | 71 | Mv.mv.ev.min | F14 moves | S4 |
+| 109 | Compiler/Machine/moves/ret.bend | 43 | Mv.mv.out | F14 moves | S4 |
+| 110 | Compiler/Machine/moves/ret.bend | 46 | Mv.mv.ret.swap | F14 moves | S4 |
+| 111 | Compiler/Machine/moves/ret.bend | 49 | Mv.mv.ret.let | F14 moves | S4 |
+| 112 | Compiler/Machine/moves/ret.bend | 52 | Mv.mv.ret.tupb | F14 moves | S4 |
+| 113 | Compiler/Machine/moves/ret.bend | 55 | Mv.mv.ret.tupa | F14 moves | S4 |
+| 114 | Compiler/Machine/moves/ret.bend | 58 | Mv.mv.ret.rwt | F14 moves | S4 |
+| 115 | Compiler/Machine/moves/ret.bend | 61 | Mv.mv.ret.minb | F14 moves | S4 |
+| 116 | Compiler/Machine/moves/ret.bend | 64 | Mv.mv.ret.mina | F14 moves | S4 |
+| 117 | Compiler/Machine/moves/call.bend | 45 | Mv.call.frames | F14 moves | S4 |
+| 118 | Compiler/Machine/moves/call.bend | 48 | Mv.mv.ev.ref | F14 moves | S4 |
+| 119 | Compiler/Machine/moves/call.bend | 51 | Mv.mv.ret.app.lam | F14 moves | S4 |
+| 120 | Compiler/Machine/moves/call.bend | 54 | Mv.mv.ret.app.prj | F14 moves | S4 |
+| 121 | Compiler/Machine/moves/call.bend | 57 | Mv.mv.ret.app.mat | F14 moves | S4 |
+| 122 | Compiler/Machine/moves/call.bend | 60 | Mv.mv.ret.app.call | F14 moves | S4 |
+| 123 | Compiler/Machine/moves/call.bend | 63 | Mv.mv.ret.fun.lam | F14 moves | S4 |
+| 124 | Compiler/Machine/moves/call.bend | 66 | Mv.mv.ret.fun.prj | F14 moves | S4 |
+| 125 | Compiler/Machine/moves/call.bend | 69 | Mv.mv.ret.fun.mat | F14 moves | S4 |
+| 126 | Compiler/Machine/moves/call.bend | 72 | Mv.mv.ret.fun.call | F14 moves | S4 |
+| 127 | Compiler/Machine/moves/round.bend | 292 | Mv.inv.vb | F14 moves | S4 |
+| 128 | Compiler/Machine/routines/prims.bend | 67 | R.alloc.cell | F8 prims | S2 |
 
 ## History
 
@@ -174,6 +174,8 @@ other hole is a law's proof (one `?TODO` def each), independent of the others: a
 | + w/laws (6693442) | 36 | 71 | + mach_wasm.uniform (Cir/runs_as_cir.bend) |
 | + P1 (ec0f1a0) | 5 | 35 | the old layer-B tree is deleted (34 of its holes go); runs_as_eval's 3 proven-by-moves bodies become holes |
 | + P2 S1–S4 (w/s4 8060b19) | 129 | 65 | the new tree joins main's closure (moves.bend imports every proof file); runs_as_eval's 4 holes closed by the assembly; 128 law holes + mach_wasm.uniform |
+| w/s4 7a36905 | 127 | 65 | S4 proved need.lim and eval.stops (memory/impl) |
+| w/s2 on 1c470be | 128 | 65 | + S2's alloc.cell (gen2 --wp); G5 renames Inv → MInv, alloc.reg → alloc.regs, make.reg → make.regs; G2 "128 TODOs found" |
 
 The 35 holes of 4ebef88, all deleted by P1 (salvage: `git show 4ebef88:<path>`):
 runs_as_eval mach.memory; moves mach.memory.proof; heap_ops al.reuse.term; copy_gives_subst Cp.body.ok,

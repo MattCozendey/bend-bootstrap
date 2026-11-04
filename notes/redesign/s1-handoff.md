@@ -6,7 +6,8 @@ not merged. Names and exact headers: `s1-names.md`. Decisions and gen2 tally: `s
 Commits: 949139d (headers, stubs), 5b43485 (smoke), 47345d7 (kit proven, Lim as N.D, + hypotheses),
 019841b (exec.more, tot.wk, tot.if, exec.set), 6189fe1 (tot.seq, exec.store, wp.set, wp.store),
 a5ff23e (tot.of_wp; erased predicates), be0649f (wp.of_tot), 4f3ddcc (wp.wk); merged feature/redesign
-(fast-forward to 015dba0), 8b21a13 (bool.case, St.reg, reg.some, reg.lt).
+(fast-forward to 015dba0), 8b21a13 (bool.case, St.reg, reg.some, reg.lt); merged feature/redesign (fast-forward to 9dd2ced),
+f28882f (wp.alloc/wp.emit `@+p`, kit u32.is_zero_t).
 
 ## Files
 

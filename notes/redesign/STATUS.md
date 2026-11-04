@@ -1,6 +1,6 @@
 # Redesign status (handoff file)
 
-Updated: 2026-11-04 09:40 (America/Sao_Paulo). Keep this file current: whoever coordinates updates it after every merge, phase change or agent start/stop, and commits it (this folder is a git repo: `git -C <this folder> commit -am "status: ..."`).
+Updated: 2026-11-04 10:40 (America/Sao_Paulo). Keep this file current: whoever coordinates updates it after every merge, phase change or agent start/stop, and commits it (this folder is a git repo: `git -C <this folder> commit -am "status: ..."`).
 
 ## Goal
 
@@ -23,7 +23,7 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 
 | Branch | Worktree | State |
 |---|---|---|
-| feature/redesign | bb-wt/redesign | integration branch, PUSHED to origin (github MattCozendey/bend-bootstrap), tracking origin/feature/redesign; push after every merge (`git push origin feature/redesign`), and refresh the docs snapshot in the branch at `notes/redesign/` (copy *.md and tools/ from this folder, commit) before pushing. Has: gen2 upgrade (d57bb26), law fixes (6693442), P0 census.ts (d94bad2), P1 machine code (4908672) + old proof tree deleted (ec0f1a0), S3 merged (9daf8f5), AGENTS 3.10.3 fix (ef4c444), gen2 shared servers merged (1e0c483), S2 review fixes merged (bec2fe8), gen2 round 2 merged (9aaf458), gen2 --wp merged (015dba0, flag-only), S2 follow-up merged (5c86a0d: Wasm imports), S2 merged (967db15: heap/image/routines/Inv, 40 laws open; Mach.code vs AM.move whole-run smoke passes), S1 merged (7122c61: kit + 39/50 logic laws proven; 11 logic + 18 header laws open). All gates G1–G5 pass on P1; main closure: 35 files, 5 holes (4 runs_as_eval + mach_wasm.uniform) |
+| feature/redesign | bb-wt/redesign | integration branch, PUSHED to origin (github MattCozendey/bend-bootstrap), tracking origin/feature/redesign; push after every merge (`git push origin feature/redesign`), and refresh the docs snapshot in the branch at `notes/redesign/` (copy *.md and tools/ from this folder, commit) before pushing. Has: gen2 upgrade (d57bb26), law fixes (6693442), P0 census.ts (d94bad2), P1 machine code (4908672) + old proof tree deleted (ec0f1a0), S3 merged (9daf8f5), AGENTS 3.10.3 fix (ef4c444), gen2 shared servers merged (1e0c483), S4 merged (b81ba9e: 27 move laws + round.sim + call.frames, 9 memory laws, moves.bend assembly PROVEN, runs_as_eval bodies; main.bend 127 TODOs in 65 files, see holes.md), S1 tweaks (b763e9f), S2 tweaks (1c470be) S2 post-merge fixes (9da3196: MInv/alloc.regs renames; main.bend 128 TODOs), gen2 --ind default + injectivity (77e0396), gen2 --ind merged (ec48df7), S2 review fixes merged (bec2fe8), gen2 round 2 merged (9aaf458), gen2 --wp merged (015dba0, flag-only), S2 follow-up merged (5c86a0d: Wasm imports), S2 merged (967db15: heap/image/routines/Inv, 40 laws open; Mach.code vs AM.move whole-run smoke passes), S1 merged (7122c61: kit + 39/50 logic laws proven; 11 logic + 18 header laws open). All gates G1–G5 pass on P1; main closure: 35 files, 5 holes (4 runs_as_eval + mach_wasm.uniform) |
 | w/gen2-up | bb-wt/gen2-up | DONE, merged. gen2: bounded errors, 1 GB stack, match-fix helper, --find, --lemmas, --hole, fast reload |
 | w/laws | bb-wt/laws | DONE, merged. in_subset law (F1), uniform no_other_failure (F2, one new layer-A hole `mach_wasm.uniform`), trusted_binary + 3.8.7 script (F3), AGENTS.md 3.3.8/3.6.1.4/3.7.1/3.9.1.3.4 |
 | w/s3 | bb-wt/s3 | DONE, MERGED (9daf8f5). canon: 14 laws (5 proven), am: 2 laws; smoke all pass; G1 pass. See s3-handoff.md |
@@ -34,9 +34,10 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 
 | Agent | Task | Where |
 |---|---|---|
-| Skeleton S4 (Opus) | moves.bend assembly COMPLETE (mach.safe/sound/complete/memory proven from the laws; runs_as_eval bodies filled; G3 call.frames); in final gates (G3 milestones running 09:32); then holes.md | bb-wt/s4 on w/s4 |
+| Reviewer S4 (Opus, read-only) | statement review of moves/memory/assembly; writes review-s4.md | — |
 | gen2-wp (Opus) | round 3: wp.alloc/emit, early stop, tot.while obligations + invariant skeleton, S2 facts; next merge | w/gen2-wp |
 | gen2-ind (Opus) | smarter induction behind `--ind` (functional induction, generalize before inducting, helper-lemma proposals, word induction on width, early give-up); module gen2_ind.ts | bb-wt/gen2-ind on w/gen2-ind |
+| P3 wave 1 (10 provers, see lanes.md, prover-brief.md) | Opus: p3/canon, p3/logic, p3/loops (routines nth/dec/copy/walk/out/input), p3/hard-cir (mach_wasm.uniform). Sonnet: p3/am, p3/image, p3/count, p3/memory, p3/header, p3/view. Worktrees bb-wt/p3-<lane>; notes p3-<lane>-notes.md | p3/* |
 | Coordinator (Claude Code session) | reviews reports, merges, starts phases, keeps this file | — |
 
 ## Next steps (in order)
@@ -55,6 +56,8 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 
 ## Infrastructure (from g2pool, DONE; details in g2pool-notes.md)
 
+- P3 RUNNING (10:35): gen2 servers 7400–7414 from the clean checkout bb-wt/pool (bend junction): canon 7400, am 7401, image 7402, count 7403, memory 7404, logic 7405, header 7406, view 7407, routines nth 7408, dec 7409, copy 7410, walk 7411, out 7412, input 7413, Cir/runs_as_cir 7414. Lanes registered in mergeq/lanes.txt. Merge loop: `bash tools/mqloop.sh` (every 10 min: mergeq run --ff-checked-out, push feature/redesign, move bb-wt/pool to the new head; log mergeq/loop.log; stop: create mergeq/STOP). After gen2 code changes: restart servers (`g2serve.sh restart <port>`).
+
 - WSL KEEP-ALIVE IS MANDATORY: WSL shuts down when no wsl.exe is attached, killing servers and jobs. Start once from Windows PowerShell: `Start-Process -WindowStyle Hidden wsl.exe -ArgumentList '-d','Ubuntu-24.04','-e','/home/math/lead/g2serve.sh','hold'` (running since 08:17).
 - gen2 servers: `wsl.exe -d Ubuntu-24.04 -e ~/lead/g2serve.sh start <clean checkout> <file> [--replicas K]` (systemd units, 3G each, 10G total, no heavy.sh slot); agents: `bun src/Shared/scripts/gen2.ts ask --file <their copy> <def> [--partial|--lemmas|--check <def>]`. 4–8 agents per server; 30–60 agents fit.
 - Merge queue: `bun C:/Users/mathe/source/repos/bb-wt/reports/redesign/tools/mergeq.ts lane|add|run|status|result|land|check ...`; state under mergeq/ (resumable from `status`). Enforces prover rules, G1 incremental (law fills kernel-checked by name), G5, G2 per batch, G3 only when needed.
@@ -62,6 +65,8 @@ A self-hosted Bend compiler that can be trusted, PROVEN (AGENTS.md section 3), t
 - Merge order: w/g2pool (merged) before w/gen2-wp.
 
 ## Rules for every agent
+
+- SMOKE FILES ARE ONE-TIME CHECKS (lead's rule): run a lane's *_smoke.bend once when its statements are written; never rerun a full smoke file (they take ~20 min and a gate slot); re-check a changed statement with a small scratch file of only the affected checks. Smoke files are not part of the gate or the merge queue.
 
 - GEN2 FIRST (lead's rule): every agent that proves anything tries gen2 first (`ask --file <file> <def>`, `--wp` for Tot/WP goals, `--lemmas`, `--partial`, `--find`), and only then proves by hand; keep a tally (asked/closed/advanced/misleading) in its notes for gen2's development. P3 prover briefs must include this.
 

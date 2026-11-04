@@ -121,3 +121,9 @@ Asked in one WSL session (serve, ask, stop), `--partial` (`--wp` on the logic fi
 - Verdict: gen2 now closes "apply a kit lemma under `match st`" and plain list inductions on the
   first try; it does not yet find a structural induction that needs a new helper (frame laws, trie
   lemma) or 32-bit reasoning.
+
+## Follow-up (f28882f)
+
+`wp.alloc`/`wp.emit` take `@+p` (reusable page binder). `K.u32.is_zero_t`: gen2 first (partial
+`?TODO` in 0.3 s, `--lemmas` offers only Equal.sym/trans): no help; by hand through a Word lemma
+(`word.cmp_zero`, induction on the width), first try.

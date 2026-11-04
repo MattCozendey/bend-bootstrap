@@ -10,7 +10,7 @@ rsyncs, then gates or bend2-checks; note it takes the path without `.bend`).
 | File | What | Holes |
 |---|---|---|
 | `memory/spec.bend` | Mem.cells, Stat, Defs.big, StepSize, Need, Budget, Peak, Start.ok, Fits.halt; 9 laws | (laws) |
-| `memory/impl.bend` | one def per law; need.lim PROVEN (memory_bound's memory.le, ported); the rest `?TODO` | 8 |
+| `memory/impl.bend` | one def per law; need.lim and eval.stops PROVEN (memory_bound's memory.le; eval_facts' ev.stops as `evf.*`); the rest `?TODO` | 7 |
 | `moves/spec.bend` | Vb, Next/Next.is, Halt/Halt.is, Kind.is_app, Head.calls, Call.frames(+scr, fs); round.sim, inv.vb, 27 mv.*, call.frames | (laws) |
 | `moves/round.bend` | round.sim PROVEN from the mv laws (mode test, AM.move's case split) | 1 (inv.vb) |
 | `moves/ev.bend` | mv.ev.* but ref | 10 |
@@ -23,7 +23,7 @@ rsyncs, then gates or bend2-checks; note it takes the path without `.bend`).
 ## Law headers
 
 memory/spec.bend (alias `Me`):
-- `eval.stops` (vals(ds, t, False) = True) ⊢ Eval.step(ds, t) = None
+- `eval.stops` (vals(ds, t, False) = True) ⊢ Eval.step(ds, t) = None — PROVEN
 - `round.mem` (Inv(x,st,s), exec(f, Mach.round(), st) = next{st2}) ⊢ Stat(st2) ≤ Stat(st) ∧ Mem.cells(st2) ≤ max(Mem.cells(st), Need(ds,st,s))
 - `input.mem` (Book.read, Img.small, Start, exec(f, M.input(), St0) = next{st}) ⊢ Stat(Mode0 st) ≤ 6144 ∧ Mem.cells(Mode0 st) ≤ Peak(ds, Stat(Mode0 st), largest(p,i,n))
 - `need.peak` (Book.read, result at n = o, j ≤ n, CSteps(j) is AS.term(s), Stat(st) ≤ C) ⊢ Need(ds,st,s) ≤ Peak(ds, C, largest(p,i,n))
@@ -59,7 +59,6 @@ moves/spec.bend (alias `Mv`):
 - need.peak/budget.need/input.need/start.ok: port memory_bound.bend (4ebef88) and its kit
   (first_cell_past_table's hw.*, img_small's Bl, eval_facts' ev.stops for largest.step); 3 S for 2 S.
 - code.fits: port cir_fits.bend (4ebef88); its NewCells is `free = 0` now.
-- eval.stops: port ev.stops (eval_facts.bend 4ebef88, `stops`).
 
 ## Smoke (s4_smoke.bend; bend2 --check-only: only the imports' TODO count)
 
@@ -67,9 +66,26 @@ Round by round, on whole runs from St0: Inv, AS.ok (inv.vb), am.ok's AO.ok, Next
 AM.move's outcome (round.sim), round.mem, Fits.halt at a halt, out of memory only below Budget (and
 M.input's below Input.budget). New cases, all pass: a Rwt whose proof is no Rfl (halt 2), a Mat miss by a
 redex inside a Let's frame (halt 0, []), a Q2 bind of no Data by a redex and by a Let (halt 2), Prj on no
-pair (halt 2); negative controls fail (a wrong book's moves; a wrong expected halt). Memory edge: see the
-end of this file.
+pair (halt 2); `smk4.call.eq`: M.call with `Call.frames()` in place of its second loop is M.call (by
+computation). Negative controls fail as they should (a wrong book's moves; a wrong expected halt).
+Memory edge: a run in a one-page memory (main = λx. main (f x), f = λy. T(250)): 400 rounds hold every
+check but Inv (skipped on big heaps: H's count is quadratic); the run evaluates the copied pairs one by
+one, so it does not reach the memory's end within 400 rounds: the out-of-memory branch at a round's
+alloc is checked only by S1's routine-level edge tests (alloc/emit budgets at their edges). A faster
+filler (f = λy. λz. T(250), a value at once) was written but not run (the lead's rule: smoke runs are
+one-time; the full file takes ~20 min of a gate slot).
 
 ## Gates
 
-(filled at the end)
+- **G1** (`~/lead/gate.sh ~/wt/s4 <file>`): every S4 file: bend2 prints only a TODO count; kernel (kdiag3):
+  moves.bend 124 defs, 0 fail; runs_as_eval.bend 4 defs, 0 fail; moves/round.bend 12 defs, 1 fail (= the
+  hole inv.vb); memory/impl.bend 45 defs, 7 fail (= its 7 holes; evf.*, me.*, eval.stops, need.lim pass);
+  moves/spec 10 and memory/spec 13 defs, 0 fail; moves/ev, ret, call: every fail is a hole (their defs are
+  all `?TODO`).
+- **G2** `bend2 --check-only src/main.bend` (w/s4 7a36905): "127 TODOs found" = the ledger (holes.md,
+  closure script: 65 files, 127 `?TODO`).
+- **G3** milestones (tools/g3.sh on w/s4 c8b2505): G3 PASS (all 5 steps, 14 min). The later commits change
+  only memory/impl.bend (proofs), s4_smoke.bend (outside the closure) and reports.
+- **G5**: no S4 name is defined twice in main's closure or under Machine/ (prefixes `asm.`/`Asm.`, `rd.`,
+  `me.`, `evf.`, `smk4.`; moves/spec and memory/spec names unique); no import of a missing file (G2 loads).
+  Two older clashes remain, S2's, not S4's: `Inv`, `alloc.reg` (routines/spec vs layer A).

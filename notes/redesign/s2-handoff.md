@@ -114,3 +114,25 @@ The full list, law by law, is in s2-notes.md "Review fixes". In short:
   (kernel 0 fail): 50 open.
 - G1: heap/spec 102, image/spec 14, routines/spec 45 defs, kernel 0 fail; all proof files and
   s2_smoke: bend2 only TODO counts; G5: no duplicate lowered name.
+
+## gen2 --wp round 2 (fb9ed73; meaning kept, S4's uses unchanged but one premise split)
+
+- `swap.spec`: premise `hh` was `{I.Mb.is(Reg(st, h), St.reg(st, sp)) && Swap.ok(fr, fr2, v) == True}`; now two
+  premises `hh: {Lg.Reg(st, Mc.R.h()) == Some{Lg.St.reg(st, Mc.R.sp())}}` and `hk: {Swap.ok(fr, fr2, v) == True}`
+  (Mb.is(r, v) is exactly r == Some{v}). Its def is `R.swap.spec(.., h, hs, hh, hk, he)`.
+- `Chs.go` matches `Con{+ag, rest}` and reads the argument by `Hp.V.ag.q/k/t` (new accessors): the same
+  Bool, it unfolds for an abstract ag.
+- `Fix` (so Room, H, Inv) writes out `free == 0 || Cir.is_cell(free, ..)` for the free list's head:
+  implied by Part, so Room and H mean what they meant (Fix alone is used nowhere).
+- New law `alloc.cell` (Room, r < 53, r != free ⊢ `Lg.St.is_cell(Alloc.st(st, r), Alloc.cell(st))`); hole in
+  routines/prims.bend. Laws: 53, 51 open.
+- G1 after it: heap/spec 105, image/spec 14, routines/spec 45 defs, kernel 0 fail; proof files bend2 only TODO counts;
+  s2_smoke passes; rv_smoke: all 9 runs pass, only its negative control fails.
+
+## G5 renames (fb7b78a, on feature/redesign 1c470be)
+
+- `Inv` -> `MInv` (and `Inv.mode` -> `MInv.mode`), `alloc.reg` -> `alloc.regs`, `make.reg` -> `make.regs`: the first two clashed
+  with layer A (simulation_relation.Inv, simulation_stmt.alloc.reg). Every use renamed, S4's moves/*, moves.bend,
+  memory/spec, s2/s4 smoke included; no meaning change. swap.spec has no call site outside routines/.
+- G2: `bend2 --check-only src/main.bend`: 128 TODOs found = holes.md (127 + alloc.cell). G1: routines/spec,
+  moves/spec, memory/spec kernel 0 fail; routines/prims, moves/ev, moves/round, moves.bend, s2_smoke bend2 only TODO counts.

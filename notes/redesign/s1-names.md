@@ -1,5 +1,11 @@
 # S1 names: shared kit (B0), logic (B1), header (B2)
 
+**Changes at f28882f (w/s1 = feature/redesign 9dd2ced + this commit):**
+- `Lg.wp.alloc`, `Lg.wp.emit`: the page binder is reusable, `for q: @+p: U32 -> K(H, ..)` (was `@p`);
+  same meaning (gen2 --wp's stepped proofs need it).
+- kit `K.u32.is_zero_t(+x: U32, +h: {U32.is_zero(x) == True{} : Bool}) -> {x == 0 : U32}` (proven),
+  with `K.word.zero(n)`, `K.word.cmp_zero`, `K.cmp.fin_ff`, `K.cmp.fin_tf`.
+
 **Additions at 8b21a13 (w/s1 merged with feature/redesign 015dba0; all proven, kernel 0 fail):**
 - `K.bool.case(+b, -G, t: @+h: {b == True{} : Bool} -> G, f: @+h: {b == False{} : Bool} -> G) -> G`:
   a split on a Bool (the --wp stepper's if split; text as gen2-wp-notes.md proposed).
@@ -136,6 +142,12 @@ def list.get_lt(-A: Data, +xs: List<&2, A>, +n: Nat, +d: A, +h: {Nat.is_lt(n, Li
   {List.get(&2, A, xs, n) == Some{Maybe.default(&2, A, List.get(&2, A, xs, n), d)} : Maybe<&2, A>}
 def list.lt_get(-A: Data, +xs: List<&2, A>, +n: Nat, +c: A, +e: {List.get(&2, A, xs, n) == Some{c} : Maybe<&2, A>}) ->
   {Nat.is_lt(n, List.length(&2, A, xs)) == True{} : Bool}
+def word.zero(n: Nat) -> Word(n)
+def cmp.fin_ff(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(False{}, False{}, c)) == Cmp.is_eq(c) : Bool}
+def cmp.fin_tf(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(True{}, False{}, c)) == False{} : Bool}
+def word.cmp_zero(+n: Nat, +w: Word(n), +h: {Cmp.is_eq(Word.cmp(n, w, word.zero(n))) == True{} : Bool}) ->
+  {w == word.zero(n) : Word(n)}
+def u32.is_zero_t(+x: U32, +h: {U32.is_zero(x) == True{} : Bool}) -> {x == 0 : U32}
 ```
 
 ### s1/src/Compiler/Machine/logic/spec.bend
@@ -349,7 +361,7 @@ law wp.alloc:
   for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   for +ho: {St.outn(st) == 0 : U32}
   for +hb: {Nat.is_le(Nat.mul(20n, Nat.add(U32.to_nat(St.next(st)), 1n)), b) == True{} : Bool}
-  for q: @p: U32 -> K(H, St.alloc(st, r, p))
+  for q: @+p: U32 -> K(H, St.alloc(st, r, p))
   WP(Cr.Cir.Stmt.alloc{r}, b, K, H, st)
 law wp.emit:
   for +e: Cr.Cir.Expr
@@ -360,7 +372,7 @@ law wp.emit:
   for +v: U32
   for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
   for +hb: {Nat.is_le(Nat.add(Nat.mul(20n, U32.to_nat(St.next(st))), Nat.add(U32.to_nat(St.outn(st)), 1n)), b) == True{} : Bool}
-  for q: @p: U32 -> K(H, St.emit(st, v, p))
+  for q: @+p: U32 -> K(H, St.emit(st, v, p))
   WP(Cr.Cir.Stmt.emit{e}, b, K, H, st)
 law reg.set:
   for +st: Cr.Cir.State

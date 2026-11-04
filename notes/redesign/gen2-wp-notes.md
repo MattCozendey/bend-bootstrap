@@ -160,6 +160,51 @@ S2 reports that gen2 stopped short on the inductions of `st0.nregs` and `st0.reg
 4bf709a). Add them to the --ind test set: a count and a register of `St0(n, ..)`, whose regs are
 `List.replicate(U32, n, 0)` (induction on n, the register q below n).
 
+## Round 4 (S4's moves, w/s4 7a36905, testbed `bb-wt/scratch/gen2/wp4`)
+
+S4's stop ("reads fields only when the proof can match the start state") came from S4's older gen2: the run that
+matches the state was tried, but at a tie the plain run was kept (fixed in round 3). With round 3's gen2 every move
+law reads the focus cell (its is_cell from Inv -> H -> Rts by the && chains) and stops at the next read: the table
+entry `M.entry(4n, c)`, the cell `272 + tag(c)`, whose is_cell needs the focus's tag.
+
+New:
+
+- The matched state is now read as the checker reads it in the case: its 10 fields are binders after the context,
+  and the goal and every fact of the context are read with `st` as `Cir.State{fields}`. Accessors, updaters and
+  facts then compute alike (`St.cells(St.set(ws0, ..))` is `wcl`, the facts' cells and the values meet by key).
+- The matched run goes first when the state is a parameter (also for a `?TODO` alone in a body); the plain run
+  only when it cannot. A law whose code needs no field read is not slower (release.spec 0.55 s).
+- Helpers: a def named `<law>.<name>` (beside the law's def, without the import alias: `mv.ev.ann.tag`) whose
+  premises the context's facts fit, every parameter fixed by them, gives its conclusion as a fact. An equation
+  `{a == u}` over a value type rewrites a part whose value computes to a (a tag), a `{Lg.St.is_cell(st, c) ==
+  True{}}` gives a cell. Bend does not allow a `match st` after a let, so a fact cannot come as a let before the
+  `?TODO`; a helper is the way. The leaves of a field read or an undecided if say so.
+- Fixed: continuations printed with the binders `h`, `t`, `k`, `x` captured a parameter of that name (mv.ev.val's
+  `t`): the text did not check. Fixed: the matched run's stepping deadline was counted from the ask's start, so it
+  had no time left (mv.ret.let stepped 0 statements). Past the budget, the leaves are reported with their hint
+  only (no more def checks of a large body, ~1 s each).
+
+Test (testbed only, helpers with `?TODO` bodies):
+
+```
+def mv.ev.ann.tag(+x: Hp.Cx, +st: Cr.Cir.State, +a: Bk.Term, +b: Bk.Term, +fs: List<&2, A.AF>,
+  +iv: {R.Inv(x, st, A.AS{False{}, Bk.Term.Ann{a, b}, fs}) == True{} : Bool}) ->
+  {U32.and(Cr.Cir.Cell.get(0n, Cr.Cir.Cells.get(Lg.St.cells(st), Lg.St.reg(st, Mc.R.focus()))), 63) == Mc.T.ann() : U32}
+def mv.ev.ann.tbl(.. the same ..) -> {Lg.St.is_cell(st, U32.add(Mc.I.table(), Mc.T.ann())) == True{} : Bool}
+```
+
+mv.ev.ann: 3 -> 10 statements (the whole if chain, into M.ev.ann's body), 2 leaves: R.inc.spec's premises at a
+stepped state, and the branch `entry(4) != 0` (the table's field 4 for Ann: one more helper fact).
+
+Moves (28 holes, `--budget 4000`): the mv.ev.* stop at the table entry as above (3 statements; with the two helpers,
+10); the mv.ret.* and mv.ret.app/fun.* step 15-24 statements with 4-6 leaves (routine laws whose premises are at a
+stepped state: out, pop, swap; ifs on header fields that no fact decides); mv.out 2 statements, 3 leaves;
+call.frames a loop. Time: 2-4.5 s of stepping and checks; 6-12 s per ask with the load of the moves files.
+
+Next for gen2 (the moves' common leaf): a routine law's premises at a stepped state (`Hp.H(x, ws3, ..)` after sets
+that keep the heap): offer the stepped states' register facts, and H carried over sets of scratch registers by S2's
+frame laws.
+
 ## Speed
 
 - The main search stops when no subgoal closed for 0.6 of the budget (at least 300 ms; half the budget lost chain2 in 3
