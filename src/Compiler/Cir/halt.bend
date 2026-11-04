@@ -1,5 +1,5 @@
-# compiler: the proofs of halt.no_result and halt.oom
-# ===================================================
+# compiler: the proofs of halt.no_result, halt.in_subset and halt.oom
+# ===================================================================
 #
 # Compiler.halt(s) is a small module: alloc, then run, whose first loop
 # counts next from 1 until 20 × next >= a + n, then sets the status to s.
@@ -10,13 +10,15 @@
 # i32.const of s with the round trip of leb_round_trip.bend (H.go_const); so the
 # module decodes to H.mod(s, False), when s is not 0.
 #
-# halt.no_result: every run of run gives [s], traps or runs out of fuel
-# (H.loop, by induction on a bound of the fuel; H.ext steps a call), so the
-# host never reads a result.
+# halt.no_result and halt.in_subset: every run of run gives [s], traps or
+# runs out of fuel (H.loop, by induction on a bound of the fuel; H.ext steps
+# a call), so the host never reads a result, and never finds the module
+# outside the subset.
 #
 # halt.oom: with the fuel 64 + 10 + 16 × (n + 1) + 18, alloc gives -1 or the
 # input's address 20 with room for it (H.A.al1 to H.A.al5, by the cases of
-# its branches and of the engine's answer to its grow, on any engine), and
+# its branches and of the engine's answer to its grow, on any engine, so
+# that one fuel holds for all of the engine's answers), and
 # the first loop ends (H.loopO): a round that goes on has
 # 20 × next < a + n <= 2^32 - 16 = 20 × 214748364, so next < 214748364 and
 # 20 × (next + 1) is exact. The arithmetic of words is over n bits, so that
@@ -311,15 +313,21 @@ def H.run_good(+F: Nat, +s: U32, +a: U32, +k: U32, +mem: Wa.Wasm.Memory) ->
 # The host
 # --------
 
-# not a result
+# not a result, and in the subset
 def H.NR(x: Wa.Wasm.Outcome) -> Type:
   match x:
     case Wa.Wasm.Outcome.result{_}:
+      Empty
+    case Wa.Wasm.Outcome.unsupported{}:
       Empty
     case _:
       Unit
 
 def H.nr.use(-x: Wa.Wasm.Outcome, -o: List<&2, Word(8n)>, n: H.NR(x), e: {x == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}) -> Empty:
+  %e : H.NR(_)
+  n
+
+def H.nu.use(-x: Wa.Wasm.Outcome, n: H.NR(x), e: {x == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}) -> Empty:
   %e : H.NR(_)
   n
 
@@ -427,6 +435,14 @@ def halt.no_result.proof(
   e: {Wa.Wasm.run(f, C.Compiler.halt(s), i, eng) == Wa.Wasm.Outcome.result{o} : Wa.Wasm.Outcome}
 ) -> Empty:
   H.nr.use(Wa.Wasm.run(f, C.Compiler.halt(s), i, eng), o, H.nr.run(f, s, i, eng, ns), e)
+
+# a module that halts at once with a status other than 0 is in the subset
+def halt.in_subset.proof(
+  +f: Nat, +s: U32, +i: List<&2, Word(8n)>, +eng: Wa.Wasm.Engine,
+  ns: {U32.is_eq(s, 0) == False{} : Bool},
+  e: {Wa.Wasm.run(f, C.Compiler.halt(s), i, eng) == Wa.Wasm.Outcome.unsupported{} : Wa.Wasm.Outcome}
+) -> Empty:
+  H.nu.use(Wa.Wasm.run(f, C.Compiler.halt(s), i, eng), H.nr.run(f, s, i, eng, ns), e)
 
 # Arithmetic of words
 # -------------------
@@ -1660,24 +1676,25 @@ def H.A.top(+kw: Word(32n), +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>
   H.AO(Nat.add(64n, H.A.Y(U32{kw})), U32{kw}, i, Wa.Wasm.call(Nat.add(64n, H.A.Y(U32{kw})), H.TS(), 1n, Cr.Cir.alloc(0), [U32{kw}], H.A.mem(m, gs))):
   H.A.al1(U32.is_lt(H.A.E(U32{kw}), 20), kw, i, m, gs, {==}, P, hP, h1)
 
-def H.oom.len(n: Maybe<&2, U32>, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>) ->
-  &f:Nat -> {Wa.Wasm.run.sized(n, f, Wa.Wasm.Instance{H.M1(), H.A.mem(m, gs)}, i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+# the fuel does not depend on the engine's answers gs
+def H.oom.len(n: Maybe<&2, U32>, +i: List<&2, Word(8n)>, +m: U32) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run.sized(n, f, Wa.Wasm.Instance{H.M1(), H.A.mem(m, gs)}, i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   match n:
     case None{}:
-      (0n, {==})
+      (0n, gs => {==})
     case Some{+k}:
       match k:
         case U32{+kw}:
-          (Nat.add(64n, H.A.Y(U32{kw})), H.A.top(kw, i, m, gs, H.pat(7n), H.hP(), H.h1()))
+          (Nat.add(64n, H.A.Y(U32{kw})), gs => H.A.top(kw, i, m, gs, H.pat(7n), H.hP(), H.h1()))
 
-def H.oom.mem(b: Bool, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>) ->
-  &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}),
+def H.oom.mem(b: Bool, +i: List<&2, Word(8n)>, +m: U32) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(b, Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}),
     Some{Wa.Wasm.Segment{20, []}}, H.M1()), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   match b:
     case False{}:
-      (0n, {==})
+      (0n, gs => {==})
     case True{}:
-      H.oom.len(Wa.Wasm.length32(i), i, m, gs)
+      H.oom.len(Wa.Wasm.length32(i), i, m)
 
 # the module that halts with 1 is valid (kernel-playbook Rule 1: a closed
 # computation in a def of its own)
@@ -1695,10 +1712,9 @@ def H.run.eq(+f: Nat, +w: List<&2, Word(8n)>, +i: List<&2, Word(8n)>, +m: U32, +
   {==}
 
 # what H.oom.mem gives, as a run of the module that halts with 1
-def H.oom.fin(+i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
-  q: &f:Nat -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(U32.is_le(1, m), Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}), Some{Wa.Wasm.Segment{20, []}}, H.M1()), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}) ->
-  &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
-  (+f0, pr) = q
+def H.oom.fin(+f0: Nat, +i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
+  pr: {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(U32.is_le(1, m), Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}), Some{Wa.Wasm.Segment{20, []}}, H.M1()), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}) ->
+  {Wa.Wasm.run(f0, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
   +X = H.mod(1, False{})
   +rest = {(
     %Equal.sym(Maybe<&2, Wa.Wasm.Module>, Wa.Wasm.decode.module(C.Compiler.halt(1)), Some{X}, H.decoded(1, {==})) :
@@ -1708,14 +1724,19 @@ def H.oom.fin(+i: List<&2, Word(8n)>, +m: U32, +gs: List<&2, Bool>,
     %Equal.sym(Bool, Wa.Wasm.valid.module(X), True{}, H.valid1()) :
       {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.valid(_, X, m, gs), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}
     pr) : {Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(C.Compiler.halt(1)), m, gs), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}}
-  (f0, Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run(f0, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}),
+  Equal.trans(Wa.Wasm.Outcome, Wa.Wasm.run(f0, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}),
     Wa.Wasm.run.made(f0, Wa.Wasm.instantiate.decoded(Wa.Wasm.decode.module(C.Compiler.halt(1)), m, gs), i), Wa.Wasm.Outcome.out_of_memory{},
-    H.run.eq(f0, C.Compiler.halt(1), i, m, gs), rest))
+    H.run.eq(f0, C.Compiler.halt(1), i, m, gs), rest)
 
-# a module that halts at once with the status 1 runs out of memory, on any
-# engine
-def halt.oom.proof(+i: List<&2, Word(8n)>, eng: Wa.Wasm.Engine) ->
-  &f:Nat -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, eng) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
-  match eng:
-    case Wa.Wasm.Engine{+m, +gs}:
-      H.oom.fin(i, m, gs, H.oom.mem(U32.is_le(1, m), i, m, gs))
+# what H.oom.mem gives, at its one fuel for all of the engine's answers
+def H.oom.all(+i: List<&2, Word(8n)>, +m: U32,
+  q: &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run.made(f, Wa.Wasm.instantiate.sized(Wa.Wasm.memory.of.if(U32.is_le(1, m), Wa.Wasm.Memory{1, Wa.Wasm.min(m, 65536), gs, Wa.Wasm.Bytes.zero{}}), Some{Wa.Wasm.Segment{20, []}}, H.M1()), i) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  (+f0, pr) = q
+  (f0, gs => H.oom.fin(f0, i, m, gs, pr(gs)))
+
+# a module that halts at once with the status 1 runs out of memory, in one
+# fuel for each engine with the same pages
+def halt.oom.proof(+i: List<&2, Word(8n)>, +m: U32) ->
+  &f:Nat -> @+gs:List<&2, Bool> -> {Wa.Wasm.run(f, C.Compiler.halt(1), i, Wa.Wasm.Engine{m, gs}) == Wa.Wasm.Outcome.out_of_memory{} : Wa.Wasm.Outcome}:
+  H.oom.all(i, m, H.oom.mem(U32.is_le(1, m), i, m))

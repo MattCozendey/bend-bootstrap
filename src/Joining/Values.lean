@@ -119,6 +119,8 @@ macro "kept_name" : tactic => `(tactic| exact impl_kept (by decide))
 @[simp] theorem impl_Either_arms : impl "Either.arms" = "Either.arms" := by kept_name
 @[simp] theorem impl_Inl : impl "Inl" = "Inl" := by kept_name
 @[simp] theorem impl_Inr : impl "Inr" = "Inr" := by kept_name
+@[simp] theorem impl_Empty : impl "Empty" = "Empty" := by kept_name
+@[simp] theorem impl_Empty_arms : impl "Empty.arms" = "Empty.arms" := by kept_name
 
 theorem impl_ctor (hk : impl k = k) : Rename.term impl (ctor k fs) = ctor k (fs.map (Rename.term impl)) := by
   simp only [ctor, Rename.term, hk, impl_unit]

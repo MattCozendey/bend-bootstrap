@@ -21,7 +21,7 @@ def kept : List String :=
    "Zero", "Succ", "Nat", "Nat.arms", "Nil", "Con", "List", "List.arms", "U32", "U32.arms",
    "WNil", "WCon", "Word", "Word.Nil", "Word.Nil.arms", "Word.Con", "Word.Con.arms",
    "False", "True", "Bool", "Bool.arms", "None", "Some", "Maybe", "Maybe.arms",
-   "Or", "Either", "Either.arms", "Inl", "Inr"]
+   "Or", "Either", "Either.arms", "Inl", "Inr", "Empty", "Empty.arms"]
 
 -- s without the prefix p, when it has it
 def stripPre (p s : String) : Option String :=

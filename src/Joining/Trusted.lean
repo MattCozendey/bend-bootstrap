@@ -27,7 +27,8 @@ def trustedDefs : List Def := (evalVersion ++ reader ++ programVersion ++ needVe
 -- the laws of Compiler/spec.bend, by name and type (with our code's names as in
 -- Generated/)
 def laws : List (String × Term) :=
-  [«trustedVersion.Compiler_2f_spec.no_wrong_result», «trustedVersion.Compiler_2f_spec.no_other_failure», «trustedVersion.Compiler_2f_spec.enough_memory»]
+  [«trustedVersion.Compiler_2f_spec.no_wrong_result», «trustedVersion.Compiler_2f_spec.no_other_failure»,
+    «trustedVersion.Compiler_2f_spec.enough_memory», «trustedVersion.Compiler_2f_spec.in_subset»]
 
 -- B has a def named l.1, of the type l.2 under the names of main.bend's book
 def Declares (B : Book) (l : String × Term) : Prop :=
@@ -38,11 +39,24 @@ structure Trusted (B : Book) : Prop where
   exists_ : Contains B existsVersion
   declares : ∀ l ∈ laws, Declares B l
 
+-- the names of the defs that Trusted asks of bk and that bk lacks, or holds
+-- otherwise: none, when bk holds what Trusted asks. The scripts run it; it
+-- proves nothing, as the theorems take Trusted B as a premise
+def Trusted.missing (bk : Book) : List String :=
+  let same (a b : Def) : Bool := a.k == b.k && a.T == b.T && a.v == b.v && a.o == b.o
+  let bad := (trustedDefs ++ existsVersion).filter fun d => match bk.get d.k with
+    | some d' => !same d d'
+    | none => true
+  let badLaws := laws.filter fun (k, T) => match bk.get k with
+    | some d => d.T != Rename.term impl T
+    | none => true
+  bad.map (·.k) ++ badLaws.map (·.1)
+
 -- The terms of the theorems
 -- -------------------------
 
 -- Wasm.Engine{m, gs}: an engine that gives a memory at most m pages, and
--- answers gs to its grows
+-- answers gs to its grows (past gs, it grants each)
 def engineOf (m : UInt32) (gs : List Bool) : Term :=
   ctor (impl "Wasm.Engine") [Form.u32 m, Form.bools gs]
 
@@ -56,6 +70,9 @@ def resultOf (o : List UInt8) : Term := ctor (impl "Wasm.Outcome.result") [bytes
 
 -- Wasm.Outcome.out_of_memory{}
 def outOfMemory : Term := ctor (impl "Wasm.Outcome.out_of_memory") []
+
+-- Wasm.Outcome.unsupported{}: the module is outside the subset (AGENTS.md 3.9.1.2)
+def unsupported : Term := ctor (impl "Wasm.Outcome.unsupported") []
 
 -- Facts
 -- -----
