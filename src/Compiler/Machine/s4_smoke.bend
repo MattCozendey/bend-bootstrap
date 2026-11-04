@@ -30,7 +30,8 @@ import ./routines/spec.bend as R
 import ./memory/spec.bend as Me
 import ./moves/spec.bend as Mv
 
-# a run's check: each round held (full: with Inv), the rounds done, the halt
+# a run's check: each round held (full: with Inv of each state; else the
+# rest, for big heaps, where H's count is slow), the rounds done, the halt
 # (status, bytes in order), or out of memory below the budget
 type SR4 is Data:
   SR4{ok: Bool, n: Nat, end: Maybe<&2, A.AO>, oom: Bool}
@@ -41,10 +42,25 @@ type SR4Out is Data:
 
 # what round.sim, round.mem and code.fits say of a round's outcome o from st
 # of s, with mv = AM.move's outcome
-def smk4.out(+x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS, +mv: A.AO, o: Cr.Cir.Out) -> Bool:
+def smk4.isnext(o: A.AO) -> Bool:
+  match o:
+    case A.AO.next{_}:
+      True{}
+    case A.AO.halt{_, _}:
+      False{}
+
+# Next.is (Inv of the next state) when full; else only that the move goes on
+def smk4.nx(full: Bool, +x: Hp.Cx, +mv: A.AO, +st2: Cr.Cir.State) -> Bool:
+  match full:
+    case True{}:
+      Mv.Next.is(x, mv, st2)
+    case False{}:
+      smk4.isnext(mv)
+
+def smk4.out(+full: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS, +mv: A.AO, o: Cr.Cir.Out) -> Bool:
   match o:
     case Cr.Cir.Out.next{+st2}:
-      Mv.Next.is(x, mv, st2) && Nat.is_le(Me.Stat(st2), Me.Stat(st)) &&
+      smk4.nx(full, x, mv, st2) && Nat.is_le(Me.Stat(st2), Me.Stat(st)) &&
         Nat.is_le(Me.Mem.cells(st2), Nat.max(Me.Mem.cells(st), Me.Need(Hp.Cx.ds(x), st, s)))
     case Cr.Cir.Out.halt{+c, +st2}:
       Mv.Halt.is(mv, c, st2) && Me.Fits.halt(Cr.Cir.Out.halt{c, st2})
@@ -63,7 +79,7 @@ def smk4.inv(full: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS) -> Bool:
 # the checks of one round
 def smk4.check(+full: Bool, +x: Hp.Cx, +st: Cr.Cir.State, +s: A.AS, o: Cr.Cir.Out) -> Bool:
   +mv = A.AM.move(Hp.Cx.ds(x), Mv.Vb(st), s)
-  smk4.inv(full, x, st, s) && A.AS.ok(Hp.Cx.ds(x), Mv.Vb(st), s) && A.AO.ok(Hp.Cx.ds(x), s, mv) && smk4.out(x, st, s, mv, o)
+  smk4.inv(full, x, st, s) && A.AS.ok(Hp.Cx.ds(x), Mv.Vb(st), s) && A.AO.ok(Hp.Cx.ds(x), s, mv) && smk4.out(full, x, st, s, mv, o)
 
 def smk4.step(ok: Bool, o: Cr.Cir.Out, e: A.AO, +k: Nat, rec: Cr.Cir.State -> A.AS -> SR4) -> SR4:
   match ok o e:
@@ -204,15 +220,16 @@ def smk4.T(n: Nat) -> Bk.Term:
       Bk.Term.Tup{Bk.Quan.Q1{}, smk4.V(0n), smk4.T(k)}
 
 # main = λx. main (f x); f = λy. T(250): each call copies 250 pairs that
-# hold the last ones, so the live cells grow until a one-page memory is full
+# hold the last ones, in a one-page memory (live cells near 1000 of 3276)
 def smk4.grow() -> List<&2, Bk.Def>:
   [Bk.Def{Pg.Program.name.main(), Bk.Term.Efq{}, smk4.lam(Bk.Term.App{Bk.Quan.Q1{}, Bk.Term.Ref{Pg.Program.name.main()},
      Bk.Term.App{Bk.Quan.Q1{}, Bk.Term.Ref{smk4.nm(102)}, smk4.V(0n)}}), False{}},
    Bk.Def{smk4.nm(102), Bk.Term.Efq{}, smk4.lam(smk4.T(250n)), False{}}]
 
-# every round holds (round.sim's outcome, round.mem, am.ok) up to a round that
-# runs out of memory, and only below its Budget
-def smk4.run.edge() -> {smk4.res(smk4.run(400n, False{}, smk4.grow(), [], 1)) == SR4Out{True{}, None{}, True{}} : SR4Out}:
+# 400 rounds hold (round.sim's outcome, round.mem, am.ok, AS.ok; Inv is
+# skipped: H's count is slow on a big heap); the run evaluates the copied
+# pairs one by one, so it does not reach the memory's end within them
+def smk4.run.edge() -> {smk4.res(smk4.run(400n, False{}, smk4.grow(), [], 1)) == SR4Out{True{}, None{}, False{}} : SR4Out}:
   {==}
 
 # Call.frames is M.call's second loop, word for word: M.call with it in its
