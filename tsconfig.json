@@ -27,7 +27,7 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  // the bend submodule is not our code; the prover gen2.ts is exempt from the rules by the
+  // the bend submodule is not our code; the prover gen2.ts and its induction module gen2_ind.ts are exempt from the rules by the
   // owner's decision
-  "exclude": ["bend", "node_modules", "src/Shared/scripts/gen2.ts"]
+  "exclude": ["bend", "node_modules", "src/Shared/scripts/gen2.ts", "src/Shared/scripts/gen2_ind.ts"]
 }
