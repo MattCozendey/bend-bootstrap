@@ -134,6 +134,10 @@ def Alloc.st.of(zero: Bool, +st: Cr.Cir.State, +r: Nat) -> Cr.Cir.State:
       +f = Lg.St.reg(st, Mc.R.free())
       Alloc.put(Lg.St.set(Lg.St.set(st, r, f), Mc.R.free(), Hp.Fd(1n, Lg.St.cells(st), f)), f, Cr.Cir.Cell.zero())
 
+# the register free after M.alloc: the next of the free list's head, or 0
+def Alloc.free(+st: Cr.Cir.State) -> U32:
+  Bool.pick(U32, U32.is_zero(Lg.St.reg(st, Mc.R.free())), 0, Hp.Fd(1n, Lg.St.cells(st), Lg.St.reg(st, Mc.R.free())))
+
 # the state after M.alloc(r): r holds Alloc.cell, all zeros; the free list
 # moves on, or next does
 def Alloc.st(+st: Cr.Cir.State, +r: Nat) -> Cr.Cir.State:
@@ -706,3 +710,25 @@ law h.arg:
   for +hn: {U32.is_le(Lg.St.next(Make.st(st, r, Cr.Cir.Cell{Arg.header(ag), 1, c, 0, 0})), 214748364) == True{} : Bool}
   {Hp.H(x, Lg.St.store(Make.st(st, r, Cr.Cir.Cell{Arg.header(ag), 1, c, 0, 0}), 1n, Alloc.cell(st), ln),
     Con{Alloc.cell(st), L}, rs, fs, Con{Hp.Ch{Alloc.cell(st), Con{ag, as}}, chs}) == True{} : Bool}
+
+# LAW: the registers after M.alloc(r): r holds the new cell, free the next of
+# the free list (0 when it was empty), every other register is kept
+law alloc.reg:
+  for +st: Cr.Cir.State
+  for +r: Nat
+  for +q: Nat
+  for +hr: {Nat.is_lt(r, Lg.St.nregs(st)) && Nat.is_lt(Mc.R.free(), Lg.St.nregs(st)) && Bool.not(Nat.is_eq(r, Mc.R.free())) ==
+    True{} : Bool}
+  {Lg.Reg(Alloc.st(st, r), q) == Bool.pick(Maybe<&2, U32>, Nat.is_eq(r, q), Some{Alloc.cell(st)},
+    Bool.pick(Maybe<&2, U32>, Nat.is_eq(Mc.R.free(), q), Some{Alloc.free(st)}, Lg.Reg(st, q))) : Maybe<&2, U32>}
+
+# LAW: and after M.make(r, ..): the same
+law make.reg:
+  for +st: Cr.Cir.State
+  for +r: Nat
+  for +v: Cr.Cir.Cell
+  for +q: Nat
+  for +hr: {Nat.is_lt(r, Lg.St.nregs(st)) && Nat.is_lt(Mc.R.free(), Lg.St.nregs(st)) && Bool.not(Nat.is_eq(r, Mc.R.free())) ==
+    True{} : Bool}
+  {Lg.Reg(Make.st(st, r, v), q) == Bool.pick(Maybe<&2, U32>, Nat.is_eq(r, q), Some{Alloc.cell(st)},
+    Bool.pick(Maybe<&2, U32>, Nat.is_eq(Mc.R.free(), q), Some{Alloc.free(st)}, Lg.Reg(st, q))) : Maybe<&2, U32>}

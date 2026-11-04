@@ -18,6 +18,7 @@ import ../../../Program/impl.bend as Pg
 import ../../../Wasm/impl.bend as Wa
 import ../../Cir/impl.bend as Cr
 import ../impl.bend as Mc
+import ../logic/spec.bend as Lg
 import ../header/spec.bend as Hs
 import ../heap/spec.bend as Hp
 
@@ -223,3 +224,27 @@ law img.ref:
   for +k: List<&2, Word(8n)>
   for +h: {Hp.ImgOK(x, m) == True{} : Bool}
   {ImgOK.ref(x, m, k) == True{} : Bool}
+
+# LAW: the start state has n registers
+law st0.nregs:
+  for +n: Nat
+  for +cells: List<&2, Cr.Cir.Cell>
+  for +first: U32
+  for +k: U32
+  for +p: U32
+  for +lim: U32
+  for +i: List<&2, Word(8n)>
+  {Lg.St.nregs(St0(n, cells, first, k, p, lim, i)) == n : Nat}
+
+# LAW: each of them 0
+law st0.reg:
+  for +n: Nat
+  for +cells: List<&2, Cr.Cir.Cell>
+  for +first: U32
+  for +k: U32
+  for +p: U32
+  for +lim: U32
+  for +i: List<&2, Word(8n)>
+  for +q: Nat
+  for +hq: {Nat.is_lt(q, n) == True{} : Bool}
+  {Lg.Reg(St0(n, cells, first, k, p, lim, i), q) == Some{0} : Maybe<&2, U32>}

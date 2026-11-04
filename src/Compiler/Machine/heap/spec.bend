@@ -711,14 +711,16 @@ def Clo(+x: Cx, +st: Cr.Cir.State, +L: List<&2, U32>) -> Bool:
 def V.held.at(+x: Cx, +st: Cr.Cir.State, +c: U32, +d: Nat, +t: Bk.Term) -> Bool:
   V.is(V.at(x, st, c, d), t) && V.rc(U32.to_nat(Lg.St.next(st)), Lg.St.cells(st), c, d)
 
-# each root is an own cell or a STATIC one of the image, and reads as its term
-# at its depth, with no real variable free there
+# each root is an own cell or a STATIC one of the image (so a cell that Cir
+# reads: Cir.is_cell, written out for the steppers), and reads as its term at
+# its depth, with no real variable free there
 def Rts(rs: List<&2, Rt>, +x: Cx, +st: Cr.Cir.State) -> Bool:
   match rs:
     case Nil{}:
       True{}
     case Con{Rt{+c, +d, +t}, rest}:
-      (V.own(x, st, c) || V.img(x, Lg.St.cells(st), c)) && V.held.at(x, st, c, d, t) && Rts(rest, x, st)
+      (V.own(x, st, c) || V.img(x, Lg.St.cells(st), c)) && Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) && V.held.at(x, st, c, d, t) &&
+        Rts(rest, x, st)
 
 # the depth of a frame's term (field 2): Let's body under its binder, Rwt's
 # motive under its two
@@ -753,7 +755,8 @@ def Frs.go(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
     case Nil{}:
       U32.is_zero(c)
     case Con{fr, rest}:
-      V.own(x, st, c) && V.frame(x, st, c, fr) && Frs.go(rest, x, st, Fd(1n, Lg.St.cells(st), c))
+      V.own(x, st, c) && Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) && V.frame(x, st, c, fr) &&
+        Frs.go(rest, x, st, Fd(1n, Lg.St.cells(st), c))
 
 # the frames from the register sp hold fs, the innermost first, and end there
 def Frs(fs: List<&2, A.AF>, +x: Cx, +st: Cr.Cir.State) -> Bool:
@@ -765,7 +768,8 @@ def Chs.go(as: List<&2, A.Ag>, +x: Cx, +st: Cr.Cir.State, +c: U32) -> Bool:
       U32.is_zero(c)
     case Con{A.Ag{q, k, t}, rest}:
       +m = Lg.St.cells(st)
-      V.own(x, st, c) && U32.is_eq(Tg(m, c), Mc.K.arg()) && U32.is_eq(Qn(m, c), Mc.Img.quan(q)) &&
+      V.own(x, st, c) && Cr.Cir.is_cell(c, Lg.St.image(st), Lg.St.first(st), Lg.St.next(st)) && U32.is_eq(Tg(m, c), Mc.K.arg()) &&
+        U32.is_eq(Qn(m, c), Mc.Img.quan(q)) &&
         V.beq(Fl(m, c, Mc.F.known()), k) && V.held.at(x, st, Fd(2n, m, c), 0n, t) && Chs.go(rest, x, st, Fd(1n, m, c))
 
 # each chain's cells hold its arguments (a cell of K.arg: their quantity,

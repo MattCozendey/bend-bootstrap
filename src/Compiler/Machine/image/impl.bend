@@ -13,6 +13,7 @@ import ../../../Program/impl.bend as Pg
 import ../../../Wasm/impl.bend as Wa
 import ../../Cir/impl.bend as Cr
 import ../impl.bend as Mc
+import ../logic/spec.bend as Lg
 import ../header/spec.bend as Hs
 import ../heap/spec.bend as Hp
 import ./spec.bend as I
@@ -39,4 +40,10 @@ def I.img.table(x, m, t, h, ht):
   ?TODO
 
 def I.img.ref(x, m, k, h):
+  ?TODO
+
+def I.st0.nregs(n, cells, first, k, p, lim, i):
+  ?TODO
+
+def I.st0.reg(n, cells, first, k, p, lim, i, q, hq):
   ?TODO
