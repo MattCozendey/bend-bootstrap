@@ -5,7 +5,8 @@ not merged. Names and exact headers: `s1-names.md`. Decisions and gen2 tally: `s
 
 Commits: 949139d (headers, stubs), 5b43485 (smoke), 47345d7 (kit proven, Lim as N.D, + hypotheses),
 019841b (exec.more, tot.wk, tot.if, exec.set), 6189fe1 (tot.seq, exec.store, wp.set, wp.store),
-a5ff23e (tot.of_wp; erased predicates), be0649f (wp.of_tot), 4f3ddcc (wp.wk).
+a5ff23e (tot.of_wp; erased predicates), be0649f (wp.of_tot), 4f3ddcc (wp.wk); merged feature/redesign
+(fast-forward to 015dba0), 8b21a13 (bool.case, St.reg, reg.some, reg.lt).
 
 ## Files
 
@@ -18,11 +19,11 @@ a5ff23e (tot.of_wp; erased predicates), be0649f (wp.of_tot), 4f3ddcc (wp.wk).
 | `Machine/header/impl.bend` | one def per law | 18 |
 | `Machine/s1_smoke.bend` | computed checks (outside main's closure; delete in P5) | 0 |
 
-## Proven (39 of 50 logic laws; kernel-checked by name: 39 `spec.*` defs, 0 fail)
+## Proven (41 of 52 logic laws; kernel-checked by name: 41 `spec.*` defs, 0 fail)
 
 exec.more, tot.seq, tot.if, tot.wk, **tot.of_wp, wp.of_tot**, wp.wk, exec.set, exec.store, wp.set,
 wp.store, reg.* (4), nregs.* (4), cells.set/store/alloc/emit, next.* (4), outn.* (4), fixed.* (4),
-lim.* (4). The kit: all.
+lim.* (4), reg.some, reg.lt. The kit: all (incl. bool.case).
 
 ## Open (for P3)
 
@@ -48,9 +49,26 @@ lim.* (4). The kit: all.
 - Frames: `{K.Sub(Lg.Cir.writes(<code>), <list>) == True{} : Bool}` closes by `{==}` (smoke: M.dec,
   M.alloc + target, M.copy + target, M.walk).
 
+## Register count in the routine laws (for S2's owner)
+
+`reg.some` needs `q < St.nregs(st)`. It is reachable from every routine law's premises: `Hp.H` →
+`Room` → `Fix` → `Nat.is_eq(Lg.St.nregs(st), Mc.Mach.regs())` (by `K.bool.and_l/and_r`, then
+`K.nat.is_eq_ok`); `out.spec` has it through `Inv` → `Hp.H`; `release.spec` states
+`Nat.is_lt(Mc.R.free(), Lg.St.nregs(st))`; `input.spec`'s start state `I.St0(Mc.Mach.regs(), ..)` has
+it by computation; `nth.spec` has Reg facts for t1 and t2, which give their bounds by `Lg.reg.lt`.
+No premise is missing. Two suggestions to S2 (its files, not changed here): `Hp.V.reg` is
+`V.or0(Lg.Reg(st, r))`, the same value as `Lg.St.reg`; defining `V.reg` as `Lg.St.reg` (or one lemma
+`V.reg(st, r) == Lg.St.reg(st, r)`) lets the stepper use `reg.some` on S2's invariants with no
+bridge. And the count as an equation `{Lg.St.nregs(st) == Mc.Mach.regs()}` is what the stepper
+reads; `Fix` gives it as a Bool `Nat.is_eq`, so one `K.nat.is_eq_ok` turns it into one.
+
 ## Gates run
 
-- G1 (`~/lead/gate.sh`, mirror `~/wt/s1`): shared.bend ALL PROOFS CHECK, kernel 25 defs 0 fail;
+- G1 at 8b21a13 (changed files): shared.bend ALL PROOFS CHECK, kernel 29 defs 0 fail; logic/spec 52
+  TODOs (laws), kernel 36 defs 0 fail; logic/impl 11 TODOs, gate kernel 96 defs, 11 fail = exactly
+  the 11 holes (a hole is lowered as a self-call), and the 41 law fills by name 0 fail. Files of
+  other lanes that import them still load (routines/spec, heap/spec: only TODO counts).
+- G1 earlier (`~/lead/gate.sh`, mirror `~/wt/s1`): shared.bend ALL PROOFS CHECK, kernel 25 defs 0 fail;
   logic/spec 50 TODOs (laws), kernel 35 defs 0 fail; logic/impl 11 TODOs, kernel 44 helper defs 0
   fail + 39 law fills by name (`spec.*`, lowered alone to /tmp/s1-logic.bendtt) 0 fail;
   header/spec and header/impl 18 TODOs, kernel 11 defs 0 fail; s1_smoke 29 defs 0 fail.

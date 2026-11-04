@@ -1,6 +1,7 @@
 # S2 handoff: heap (B3), image, routines (B4), Inv
 
-Branch `w/s2` off `feature/redesign` 9daf8f5, with `w/s1` merged (final head 4f3ddcc, merge e90ef57).
+Branch `w/s2` off `feature/redesign` 9daf8f5, with `w/s1` merged (final head 4f3ddcc, merge e90ef57) and
+feature/redesign merged again (015dba0, gen2 --wp). Routine proof files import Wasm/impl.bend as Wa (8253897).
 Worktree `C:\Users\mathe\source\repos\bb-wt\s2`. Not pushed, not merged. Statement decisions and the
 smoke results: `s2-notes.md`. WSL mirror for checks: `~/wt/s2` (`~/wt/s2gate.sh [-c] NAME...`
 rsyncs the worktree, then gates `Compiler/Machine/NAME.bend`; `-c`: bend2 only).
@@ -64,7 +65,7 @@ routines/spec.bend (alias `R`), each `Lg.Tot(code, st, budget, Q, Lg.No)`:
 ## For S4 (moves, memory, assembly)
 
 - `round.sim`'s Next(x, AO.next{s2}) can be `R.Inv(x, st2, s2) == True`; Vb(st) = the focus' VALUE flag
-  (`Hp.Fl(Lg.St.cells(st), Hp.V.reg(st, Mc.R.focus()), Mc.F.value())`), as s2_smoke's runner uses.
+  (`Hp.Fl(Lg.St.cells(st), Lg.St.reg(st, Mc.R.focus()), Mc.F.value())`), as s2_smoke's runner uses.
 - M.call has no routine law: its loop that moves the arguments left into frames (push the term, release the
   cell) and `release.all(wenv)` are proven inside the call moves; walk.spec gives the chains in front.
 - Register writes keep H (`h.set`, not free or sp); routine posts carry `Same`/`Kept` and |L2| bounds.
@@ -82,3 +83,34 @@ routines/spec.bend (alias `R`), each `Lg.Tot(code, st, budget, Q, Lg.No)`:
   with "out of fuel" only (ImgOK on a whole image and the 11 whole runs exceed kdiag3's reduction
   fuel: no verdict, not a refutation). Those 12 stand on bend2's evaluation (2m20s, all pass, and the
   negative controls fail as they should).
+
+## Follow-up (gen2 --wp)
+
+- routines/{prims,nth,dec,copy,walk,out,input}.bend import `../../../Wasm/impl.bend as Wa` (gen2 --wp
+  names the ops of conditions); no statement changed. G1 on the seven: bend2 only the TODO count;
+  kernel fails exactly their 18 hole defs (bodies `?TODO`), nothing else.
+- Register count: every routine law with H/Room reaches `St.nregs(st) == Mach.regs()` through Fix;
+  input.spec's St0 computes it; release.spec has `free < nregs`; nth.spec has Reg facts for t1/t2
+  only (the count follows from them; see s2-notes.md). No premise added.
+- Registers are read by S1's `Lg.St.reg` (0e4b5e8, after merging feature/redesign 85af8f7): `Hp.V.reg`
+  and `V.or0` deleted (the same value), so `Lg.reg.some` applies directly. G1: heap/spec (99 defs)
+  and routines/spec (44 defs) kernel 0 fail; all proof files bend2 only TODO counts; s2_smoke
+  passes again in bend2.
+
+## Review fixes (for S4: the statement changes)
+
+Commits on w/s2: d542ce0 (F1-F3, G1, G2, G4), 2b666bc (gen2 --wp facts), 4bf709a (st0 proofs).
+The full list, law by law, is in s2-notes.md "Review fixes". In short:
+- Roots, frames, chains, Inv: "no real variable free at d" is now `Hp.V.rc(next, cells, c, d)`
+  (not fv <= d). inc.spec asks V.rc; view.deeper/canon/closed ask V.rc; new view.rc_fv (fv test ⊢
+  V.rc), view.rc_frame, view.rc_more, view.rc_up.
+- alloc.spec/make.spec posts add `next(st2) <= 214748364`; h.node/h.arg ask it of Make.st.
+- inc.spec, copy.spec, walk.spec ask `|rs| <= 64` (S4's root lists: `{==}`); h.count bounds counts.
+- H's Cov asks at most 6144 live STATIC cells.
+- New heap laws: h.rts_swap, h.chs_swap (swap two neighbours after a prefix), h.static_root.
+- Rts/Frs/Chs write out `Cir.is_cell` of their cells; alloc.reg, make.reg, st0.nregs, st0.reg.
+- Holes: 40 + 12 new laws (view.rc_fv/rc_frame/rc_more/rc_up, h.rts_swap/chs_swap/static_root/count,
+  alloc.reg, make.reg, st0.nregs, st0.reg) = 52 laws, of which st0.nregs and st0.reg are proven
+  (kernel 0 fail): 50 open.
+- G1: heap/spec 102, image/spec 14, routines/spec 45 defs, kernel 0 fail; all proof files and
+  s2_smoke: bend2 only TODO counts; G5: no duplicate lowered name.
