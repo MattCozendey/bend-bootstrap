@@ -324,7 +324,7 @@ def St.kept(+st: Cr.Cir.State, +st2: Cr.Cir.State, +ws: List<&2, Nat>) -> Bool:
 law exec.more:
   for +f: Nat
   for +g: Nat
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +d: {Out.done(Cr.Cir.exec(f, s, st)) == True{} : Bool}
   {Cr.Cir.exec(Nat.add(f, g), s, st) == Cr.Cir.exec(f, s, st) : Cr.Cir.Out}
@@ -332,7 +332,7 @@ law exec.more:
 # LAW: at any fuel, a Tot run is out of fuel or good (what mach.safe and
 # mach.sound use)
 law tot.any:
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for Q: Cr.Cir.State -> Type
@@ -344,8 +344,8 @@ law tot.any:
 # LAW: a sequence: the first statement runs to a state from which the second
 # does
 law tot.seq:
-  for a: Cr.Cir.Stmt
-  for c: Cr.Cir.Stmt
+  for +a: Cr.Cir.Stmt
+  for +c: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for Q: Cr.Cir.State -> Type
@@ -355,9 +355,9 @@ law tot.seq:
 
 # LAW: an if, by the value v of its condition
 law tot.if:
-  for c: Cr.Cir.Expr
-  for y: Cr.Cir.Stmt
-  for n: Cr.Cir.Stmt
+  for +c: Cr.Cir.Expr
+  for +y: Cr.Cir.Stmt
+  for +n: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for Q: Cr.Cir.State -> Type
@@ -371,8 +371,8 @@ law tot.if:
 # lowers (Loop: the condition has a value; at 0, Q; else the body's WP to I
 # at a smaller measure)
 law tot.while:
-  for c: Cr.Cir.Expr
-  for body: Cr.Cir.Stmt
+  for +c: Cr.Cir.Expr
+  for +body: Cr.Cir.Stmt
   for +b: Nat
   for I: Nat -> Cr.Cir.State -> Type
   for Q: Cr.Cir.State -> Type
@@ -385,7 +385,7 @@ law tot.while:
 
 # LAW: a weaker conclusion: a larger budget, weaker posts
 law tot.wk:
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for +b2: Nat
@@ -401,7 +401,7 @@ law tot.wk:
 
 # LAW: WP is sound: it gives Tot
 law tot.of_wp:
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
@@ -412,7 +412,7 @@ law tot.of_wp:
 # LAW: WP is the weakest: Tot gives it (so a routine's Tot law closes the WP
 # of its call)
 law wp.of_tot:
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
@@ -422,7 +422,7 @@ law wp.of_tot:
 
 # LAW: a weaker WP: a larger budget, weaker posts
 law wp.wk:
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for +b2: Nat
@@ -449,7 +449,7 @@ law wp.wk:
 law exec.set:
   for +f: Nat
   for +r: Nat
-  for e: Cr.Cir.Expr
+  for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +v: U32
   for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
@@ -460,8 +460,8 @@ law exec.set:
 law exec.store:
   for +f: Nat
   for +k: Nat
-  for c: Cr.Cir.Expr
-  for e: Cr.Cir.Expr
+  for +c: Cr.Cir.Expr
+  for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +i: U32
   for +v: U32
@@ -485,7 +485,7 @@ law exec.alloc:
 # LAW: the WP of a set: its post at the state with r set
 law wp.set:
   for +r: Nat
-  for e: Cr.Cir.Expr
+  for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +b: Nat
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
@@ -499,8 +499,8 @@ law wp.set:
 # LAW: the WP of a store: its post at the state with the field set
 law wp.store:
   for +k: Nat
-  for c: Cr.Cir.Expr
-  for e: Cr.Cir.Expr
+  for +c: Cr.Cir.Expr
+  for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +b: Nat
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
@@ -531,7 +531,7 @@ law wp.alloc:
 # LAW: the WP of an emit, with a budget of 20 next + outn + 1 bytes: its post
 # at the state with the byte out, for the pages p that the memory then has
 law wp.emit:
-  for e: Cr.Cir.Expr
+  for +e: Cr.Cir.Expr
   for +st: Cr.Cir.State
   for +b: Nat
   for K: (U32 -> Cr.Cir.State -> Type) -> Cr.Cir.State -> Type
@@ -768,7 +768,7 @@ law lim.emit:
 # LAW: the register frame: a register that s does not write keeps its value
 law frame.regs:
   for +f: Nat
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +st2: Cr.Cir.State
   for +r: Nat
@@ -779,7 +779,7 @@ law frame.regs:
 # LAW: a run keeps the limit, the input, first and the image
 law frame.fixed:
   for +f: Nat
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +st2: Cr.Cir.State
   for +e: {Cr.Cir.exec(f, s, st) == Cr.Cir.Out.next{st2} : Cr.Cir.Out}
@@ -788,7 +788,7 @@ law frame.fixed:
 # LAW: the frame of a Tot: its next state also keeps the registers outside
 # Cir.writes(s) (and next does not go back), and the fixed parts
 law tot.frame:
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for Q: Cr.Cir.State -> Type
@@ -798,7 +798,7 @@ law tot.frame:
 
 # LAW: a run with no emit keeps the output
 law tot.frame_out:
-  for s: Cr.Cir.Stmt
+  for +s: Cr.Cir.Stmt
   for +st: Cr.Cir.State
   for +b: Nat
   for Q: Cr.Cir.State -> Type
