@@ -3160,7 +3160,7 @@ const bench = () => {
       RAW[k] = { ...def, v: null };
       const j0 = job;
       let r: ReturnType<typeof Ind.indProve> = null;
-      try { r = Ind.indProve(indApi(), k, BUDGET); } catch (e: any) { if (e !== TIMEOUT) internal++; } finally { dropTemps(); job = j0; deadline = Infinity; RAW[k] = def; }
+      try { r = Ind.indProve(indApi(), k, BUDGET); } catch (e: any) { if (e !== TIMEOUT) internal++; } finally { RAW[k] = def; dropTemps(); job = j0; deadline = Infinity; } // def back before the index is rebuilt
       if (r && r.open === 0) o = { ...o, ok: true, text: r.text, ms: o.ms + r.ms, tags: [...o.tags, "ind"] };
       else if (r) o = { ...o, ms: o.ms + r.ms };
     }
@@ -3475,7 +3475,7 @@ const runProve = () => {
   if (ks.length === 0) { console.error("gen2: no def to prove"); { throw new Exit(1); }; }
   if (flag("lemmas")) { for (const k of ks) { if (ks.length > 1) console.log("# " + shortOf(k)); runLemmas(k); } return; }
   let failed = 0;
-  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS, ONLY_HOLE].join(",");
+  const optsKey = [BUDGET, MAX_SPLIT, MAX_DEPTH, MAX_RW, BEAM, FUEL_CHECK, HOLE_BUDGET, DECOMP, PARTIAL, STREAM, DEBUG, flag("whole"), HELPERS, ONLY_HOLE, IND].join(",");
   for (const k of ks) {
     const ds = defSrc(k);
     if (!ds) { console.error("gen2: no source for " + k); failed++; continue; }

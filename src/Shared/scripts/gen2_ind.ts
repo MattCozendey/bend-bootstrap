@@ -742,7 +742,7 @@ const predsOf = (A: Api, adt: string): { k: string; n: number }[] => {
           last = s.A;
           T = s.B(B.Var("_", 1e7 + j));
         }
-        const w = A.wnf(T);
+        const w = B.term_strip(T) as any;
         const la = last ? (B.term_strip(last) as any) : null;
         return w && w.$ === "Typ" && la && la.$ === "ADT" ? la.k : null;
       });
@@ -753,6 +753,9 @@ const predsOf = (A: Api, adt: string): { k: string; n: number }[] => {
   return predMemo.get(adt) ?? [];
 };
 export const indLeaf = (A: Api, g: Goal): string | null => {
+  try { return indLeafGo(A, g); } catch (e) { if (e === A.TIMEOUT) throw e; return null; }
+};
+const indLeafGo = (A: Api, g: Goal): string | null => {
   const contra: number[] = A.contradictory(g);
   if (contra.length === 0) return null;
   const job = A.job();
@@ -766,6 +769,7 @@ export const indLeaf = (A: Api, g: Goal): string | null => {
     const Tt = B.term_strip(E.T) as any;
     if (Tt.$ !== "ADT") continue;
     const targs = (Tt.x as LTerm[]).filter((x: any) => x.$ !== "Qua" && x.$ !== "Qnt").map((x) => A.show(x, g.names));
+    if (targs.length === 0) continue; // no type parameter: gen2's own absurd and ex-falso lemmas cover it
     for (const P of predsOf(A, Tt.k).slice(0, 8)) {
       if ((A.ORDER.get(P.k) ?? Infinity) >= job.order) continue;
       if (targs.length < P.n - 1) continue;
@@ -784,6 +788,9 @@ export const indLeaf = (A: Api, g: Goal): string | null => {
 // split candidates: a pending parameter of an enumeration type (constructors without fields) that the
 // goal does not block on (bool.case's b: only its hypotheses name it), after the others
 export const indSplits = (A: Api, n: Goal, out: number[]) => {
+  try { indSplitsGo(A, n, out); } catch (e) { if (e === A.TIMEOUT) throw e; }
+};
+const indSplitsGo = (A: Api, n: Goal, out: number[]) => {
   let g: Goal | null = n;
   for (let j = 0; j < n.pend && g; j++) {
     const t = A.wnf(g.ty);
