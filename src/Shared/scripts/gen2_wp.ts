@@ -51,7 +51,8 @@ const NAMES: Record<string, string[]> = {
   nregs: ["St.nregs"], isCell: ["St.is_cell"], stSet: ["St.set"], stStore: ["St.store"],
   totOfWp: ["tot.of_wp"], wpSet: ["wp.set"], wpStore: ["wp.store"],
   regSet: ["reg.set"], regStore: ["reg.store"], nregsSet: ["nregs.set"], nregsStore: ["nregs.store"],
-  evalOp: ["Cir.eval.op"], evalEqz: ["Cir.eval.eqz"], cirEval: ["Cir.eval"],
+  evalOp: ["Cir.eval.op"], evalEqz: ["Cir.eval.eqz"], cirEval: ["Cir.eval"], evalField: ["Cir.eval.field"],
+  fieldIf: ["Cir.eval.field.if"], stCells: ["St.cells"], cellGet: ["Cir.Cell.get"], cellsGet: ["Cir.Cells.get"],
   equalSym: ["Equal.sym"], equalTrans: ["Equal.trans"],
   cirState: ["Cir.State"], cirOut: ["Cir.Out"], cirStmt: ["Cir.Stmt"], isZero: ["U32.is_zero"],
 };
@@ -71,16 +72,18 @@ const replaceKey = (t: LTerm, k: string, by: LTerm, key: (t: LTerm) => string): 
   }
 };
 
-export const wpProve = (api: WpApi, g: WpGoal): WpOut => {
+// dst: the start state is a parameter: the proof begins with `match st` (its accessors and updaters
+// then compute: a field read needs only an is_cell fact, and a cell fact holds after sets and stores)
+export const wpProve = (api: WpApi, g: WpGoal, dst = false): WpOut => {
   try {
-    return run(api, g);
+    return run(api, g, dst);
   } catch (e: any) {
     if (e instanceof Fail) return { why: e.why };
     return { why: "internal: " + String(e?.message ?? e).slice(0, 200) };
   }
 };
 
-const run = (api: WpApi, g: WpGoal): WpOut => {
+const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
   // the book's names
   const shortOf = (k: string) => (k.includes(":") ? k.slice(k.indexOf(":") + 1) : k);
   const byShort = new Map<string, string>();
@@ -89,7 +92,17 @@ const run = (api: WpApi, g: WpGoal): WpOut => {
   for (const [n, cands] of Object.entries(NAMES)) K[n] = cands.map((c) => byShort.get(c)).find((k) => k !== undefined);
   if (!K.tot && !K.wp) return { why: "not a Tot goal" };
   const names = g.names.slice(0, g.d);
-  const sh = (t: LTerm) => api.show(t, names);
+  // a term printed in this file's names; a state built by the stepper prints as its let
+  const stateReps: { key: string; ref: LTerm }[] = [];
+  const sh = (t: LTerm) => {
+    if (stateReps.length > 0) {
+      const k = api.key(t);
+      if (dstKey !== "" || k.includes(stepRefs[0]!) || k.includes(stepRefs[1]!)) for (let i = stateReps.length - 1; i >= 0; i--) t = replaceKey(t, stateReps[i]!.key, stateReps[i]!.ref, api.key);
+    }
+    return api.show(t, names);
+  };
+  const stepRefs: string[] = [];
+  let dstKey = "";
   const ref = (n: string): LTerm => B.Ref(K[n] ?? fail("the law " + NAMES[n]![0] + " is not in the book (import logic/impl.bend)")) as LTerm;
   const nm = (n: string) => sh(ref(n));
   const ctor = (short: string) => { const k = K.cirOut ?? fail("no Cir.Out in the book"); return sh(B.Ctr<[LTerm]>((k.includes(":") ? k.slice(0, k.indexOf(":") + 1) : "") + short, [])).replace(/\{\}$/, ""); };
@@ -108,6 +121,16 @@ const run = (api: WpApi, g: WpGoal): WpOut => {
   // the goal: Tot(code, st, b, Q, H), or WP(code, b, K, H, st)
   const goal = api.lower(g.ty, g.d);
   const [gh, gargs] = unapply(goal);
+  // destructuring: the start state, a parameter, prints as ws0 (a let of the constructor's fields)
+  const stArg = isRef(gh, "tot") ? gargs[1] : isRef(gh, "wp") ? gargs[4] : undefined;
+  let stName = "", patText = "";
+  if (dst) {
+    if (!stArg || stArg.$ !== "Var" || stArg.i < 0 || stArg.i >= g.d) return { why: "the start state is not a parameter (no match st)" };
+    stName = names[stArg.i]!;
+    names[stArg.i] = "_matched";
+    dstKey = api.key(stArg);
+    stateReps.push({ key: dstKey, ref: B.Ref("ws0") as LTerm });
+  }
   let code0: LTerm, st0: LTerm, bS: string, HS: string, KS: string, wrap: (p: string) => string;
   if (isRef(gh, "tot") && gargs.length === 5) {
     code0 = gargs[0]!; st0 = gargs[1]!; bS = sh(gargs[2]!); HS = sh(gargs[4]!); KS = "h => " + sh(gargs[3]!);
@@ -149,9 +172,16 @@ const run = (api: WpApi, g: WpGoal): WpOut => {
   }
 
   // the states: 0 is the goal's; k is the state k-1 after a set (r, v) or a store (kf, c, v)
-  type St = { text: string; key: string; prev: number; op: "set" | "store" | null; r: number; c: LTerm | null; v: LTerm | null };
-  const sts: St[] = [{ text: sh(st0), key: api.key(st0), prev: -1, op: null, r: -1, c: null, v: null }];
+  type St = { text: string; key: string; lt: LTerm; prev: number; op: "set" | "store" | null; r: number; c: LTerm | null; v: LTerm | null };
+  const sts: St[] = [{ text: sh(st0), key: api.key(st0), lt: st0, prev: -1, op: null, r: -1, c: null, v: null }];
   const lets: string[] = [];
+  stepRefs.push("@" + (K.stSet ?? "St.set"), "@" + (K.stStore ?? "St.store"));
+  if (dst) {
+    used.add(stName); used.add("ws0");
+    const fs = ["wrg", "wcl", "wnx", "wfi", "wim", "wpg", "wlm", "win", "wou", "won"].map(fresh);
+    patText = ctor("Cir.State") + "{" + fs.join(", ") + "}";
+    lets.push("+ws0 : " + nm("cirState") + " = " + patText);
+  }
   const regFacts = new Map<string, { c: LTerm; pf: string }>();
   const nregFacts = new Map<number, { n: string; pf: string }>();
   const MB = "Maybe<&2, U32>";
@@ -203,51 +233,75 @@ const run = (api: WpApi, g: WpGoal): WpOut => {
   };
   const push = (j: number, op: "set" | "store", r: number, c: LTerm | null, v: LTerm): number => {
     const name = fresh("ws" + sts.length);
-    const s: St = { text: name, key: "let:" + name, prev: j, op, r, c, v };
-    lets.push("+" + name + " : " + nm("cirState") + " = " + nm(op === "set" ? "stSet" : "stStore") + "(" + stepArgs(s, sts[j]!) + ")");
+    const p = sts[j]!;
+    const lt = op === "set" ? B.App(B.App(B.App(ref("stSet"), p.lt), B.Lit("Nat", r) as LTerm), v) : B.App(B.App(B.App(B.App(ref("stStore"), p.lt), B.Lit("Nat", r) as LTerm), c!), v);
+    const s: St = { text: name, key: "let:" + name, lt, prev: j, op, r, c, v };
+    lets.push("+" + name + " : " + nm("cirState") + " = " + nm(op === "set" ? "stSet" : "stStore") + "(" + stepArgs(s, p) + ")");
     sts.push(s);
+    stateReps.push({ key: api.key(lt), ref: B.Ref(name) as LTerm });
     return sts.length - 1;
   };
 
-  // an expression's value at the state j, and the proof of {Cr.Cir.eval(e, st_j) == Some{v}}
+  // an expression's value at the state j, and the proof of {Cr.Cir.eval(e, st_j) == Some{v}}: its
+  // rewrites (a register read by its fact; with dst, a field read's cell condition by its is_cell
+  // fact) one by one, the first outermost, then the computation
   const evalAt = (e: LTerm, j: number): { v: LTerm; he: string } => {
-    const reads: { q: number; c: LTerm; pf: string }[] = [];
-    const go = (x: LTerm): { tmpl: (sub: (i: number) => string) => string; val: LTerm } => {
+    const S = sts[j]!.text;
+    // orig: the part as the unfolded eval holds it; sub: its value; eq: {sub == orig}
+    const rws: { orig: string; sub: string; eq: string }[] = [];
+    type Tm = { tmpl: (cur: number) => string; val: LTerm; last: number };
+    const go = (x: LTerm): Tm => {
       const w = wnfL(x) ?? fail("an expression does not evaluate: " + sh(x).slice(0, 120));
       if (w.$ !== "Ctr") fail("an expression with no constructor form: " + sh(x).slice(0, 120));
       const c = w as Extract<LTerm, { $: "Ctr" }>;
+      const at = (i: number) => (cur: number) => (i < cur ? rws[i]!.sub : i === cur ? "_" : rws[i]!.orig);
       switch (shortOf(c.k)) {
-        case "Cir.Expr.const": { const n = c.x[0]!; const t = "Some{" + sh(n) + "}"; return { tmpl: () => t, val: B.Ctr<[LTerm]>("Some", [n]) }; }
+        case "Cir.Expr.const": { const n = c.x[0]!; const t = "Some{" + sh(n) + "}"; return { tmpl: () => t, val: B.Ctr<[LTerm]>("Some", [n]), last: rws.length - 1 }; }
         case "Cir.Expr.get": {
           const q = natOf(c.x[0]!);
           if (q === null) fail("a read of a register that is not a number: " + sh(c.x[0]!));
           const f = regOf(j, q!);
-          const i = reads.length;
-          reads.push({ q: q!, c: f.c, pf: f.pf });
-          return { tmpl: (sub) => sub(i), val: B.Ctr<[LTerm]>("Some", [f.c]) };
+          const orig = nm("reg") + "(" + S + ", " + q + "n)", sub = "Some{" + sh(f.c) + "}";
+          rws.push({ orig, sub, eq: nm("equalSym") + "(" + MB + ", " + orig + ", " + sub + ", " + f.pf + ")" });
+          return { tmpl: at(rws.length - 1), val: B.Ctr<[LTerm]>("Some", [f.c]), last: rws.length - 1 };
         }
         case "Cir.Expr.op": {
           const o = sh(c.x[0]!);
           if (o.includes("/")) fail("the Wasm ops are not named in this file: it needs an import of Wasm/impl.bend");
           const a = go(c.x[1]!), b = go(c.x[2]!);
-          return { tmpl: (sub) => nm("evalOp") + "(" + o + ", " + a.tmpl(sub) + ", " + b.tmpl(sub) + ")", val: B.App(B.App(B.App(ref("evalOp"), c.x[0]!), a.val), b.val) };
+          return { tmpl: (cur) => nm("evalOp") + "(" + o + ", " + a.tmpl(cur) + ", " + b.tmpl(cur) + ")", val: B.App(B.App(B.App(ref("evalOp"), c.x[0]!), a.val), b.val), last: rws.length - 1 };
         }
-        case "Cir.Expr.eqz": { const a = go(c.x[0]!); return { tmpl: (sub) => nm("evalEqz") + "(" + a.tmpl(sub) + ")", val: B.App(ref("evalEqz"), a.val) }; }
-        default: return fail("a " + shortOf(c.k).replace(/^Cir\.Expr\./, "") + " read (field, byte or size): no kit law gives its value to --wp yet");
+        case "Cir.Expr.eqz": { const a = go(c.x[0]!); return { tmpl: (cur) => nm("evalEqz") + "(" + a.tmpl(cur) + ")", val: B.App(ref("evalEqz"), a.val), last: rws.length - 1 }; }
+        case "Cir.Expr.field": {
+          if (!dst) fail("a field read: --wp reads fields only when the proof can match the start state (a whole body whose state is a parameter)");
+          const kf = natOf(c.x[0]!);
+          if (kf === null) fail("a field read with a field that is not a number");
+          const a = go(c.x[1]!);
+          const iv = nfL(a.val);
+          if (!iv || iv.$ !== "Ctr" || iv.k !== "Some") fail("a field read whose cell has no value");
+          const I = (iv as Extract<LTerm, { $: "Ctr" }>).x[0]!;
+          const ik = nfL(I);
+          const hi = cellHyp.get(sts[0]!.key + "|" + (ik ? api.key(ik) : "")) ?? fail("a field read of the cell " + sh(I) + ": no fact {" + nm("isCell") + "(st, " + sh(I) + ") == True{}}");
+          const orig = nm("isCell") + "(" + S + ", " + sh(I) + ")";
+          rws.push({ orig, sub: "True{}", eq: nm("equalSym") + "(Bool, " + orig + ", True{}, " + hi + ")" });
+          const ci = rws.length - 1, lastA = a.last;
+          const ifT = (cur: number) => nm("fieldIf") + "(" + at(ci)(cur) + ", " + kf + "n, " + nm("stCells") + "(" + S + "), " + sh(I) + ")";
+          // before the cell's own reads are rewritten, the read is as eval holds it
+          return {
+            tmpl: (cur) => (lastA < cur ? ifT(cur) : nm("evalField") + "(" + kf + "n, " + a.tmpl(cur) + ", " + S + ")"),
+            val: B.Ctr<[LTerm]>("Some", [B.App(B.App(ref("cellGet"), B.Lit("Nat", kf!) as LTerm), B.App(B.App(ref("cellsGet"), B.App(ref("stCells"), sts[j]!.lt)), I))]),
+            last: ci,
+          };
+        }
+        default: return fail("a " + shortOf(c.k).replace(/^Cir\.Expr\./, "") + " read (byte or size): not stepped by --wp");
       }
     };
     const t = go(e);
     const n = nfL(t.val);
     if (!n || n.$ !== "Ctr" || n.k !== "Some" || n.x.length !== 1) fail("an expression's value is not Some{..}: " + sh(e).slice(0, 120));
     const v = (n as Extract<LTerm, { $: "Ctr" }>).x[0]!;
-    // the reads rewritten one by one, the first outermost; the last proof is by computation
-    const S = sts[j]!.text;
     let he = "{==}";
-    for (let i = reads.length - 1; i >= 0; i--) {
-      const P = t.tmpl((k) => (k < i ? "Some{" + sh(reads[k]!.c) + "}" : k === i ? "_" : nm("reg") + "(" + S + ", " + reads[k]!.q + "n)"));
-      const rd = reads[i]!;
-      he = "(%" + nm("equalSym") + "(" + MB + ", " + nm("reg") + "(" + S + ", " + rd.q + "n), Some{" + sh(rd.c) + "}, " + rd.pf + ") : {" + P + " == Some{" + sh(v) + "} : " + MB + "}; " + he + ")";
-    }
+    for (let i = rws.length - 1; i >= 0; i--) he = "(%" + rws[i]!.eq + " : {" + t.tmpl(i) + " == Some{" + sh(v) + "} : " + MB + "}; " + he + ")";
     return { v, he };
   };
 
@@ -337,7 +391,7 @@ const run = (api: WpApi, g: WpGoal): WpOut => {
         const ck = nfL(ec.v);
         // the cell fact: for this state, or the start's when the start is a destructured state (its
         // is_cell then computes to the same term after sets and stores)
-        const hi = cellHyp.get(sts[j]!.key + "|" + (ck ? api.key(ck) : "")) ?? (st0.$ === "Ctr" ? cellHyp.get(sts[0]!.key + "|" + (ck ? api.key(ck) : "")) : undefined);
+        const hi = cellHyp.get(sts[j]!.key + "|" + (ck ? api.key(ck) : "")) ?? (st0.$ === "Ctr" || dst ? cellHyp.get(sts[0]!.key + "|" + (ck ? api.key(ck) : "")) : undefined);
         if (!hi) return leaf("store " + kf + " at " + S + ": no fact {" + nm("isCell") + "(" + S + ", " + sh(ec.v) + ") == True{}} (" + (j > 0 ? "match st at the start, then the start's fact serves" : "give it") + ")");
         const j2 = push(j, "store", kf, ec.v, ee.v);
         return nm("wpStore") + "(" + kf + "n, " + sh(c) + ", " + sh(e) + ", " + S + ", " + bS + ", " + Kt + ", " + HS + ", " + sh(ec.v) + ", " + sh(ee.v) + ", " + ec.he + ", " + ee.he + ", " + hi + ", " + post(k, j2) + ")";
@@ -357,7 +411,7 @@ const run = (api: WpApi, g: WpGoal): WpOut => {
         // Bool facts on parts of z (in normal form), one rewrite each, until z computes
         if (z) {
           const HOLE = B.Ref("_") as LTerm;
-          let cur = z;
+          let cur: LTerm = z;
           const used2: { h: (typeof boolHyp)[number]; P: string }[] = [];
           for (const h of boolHyp) {
             const r = replaceKey(cur, h.nk, HOLE, api.key);
@@ -391,5 +445,6 @@ const run = (api: WpApi, g: WpGoal): WpOut => {
   };
 
   const body = wrap(prove(codeLet(sh(code0)), code0, 0, null));
+  if (dst) return { text: "match " + stName + ":\n  case " + patText + ":\n" + [...lets, body].map((l) => "    " + l).join("\n"), leaves, steps };
   return { text: [...lets, body].join("\n"), leaves, steps };
 };

@@ -2726,24 +2726,17 @@ const holeGoal = (k: string, err: any, path: string): Goal | null => {
 // The stepper's text is used only if bend2 checks it at the goal (its ?TODO leaves allowed); each leaf
 // is then tried by the leaf tactics (a small budget), and the ones left are reported with their goal
 // and the stepper's hint. Never throws.
-const wpCheck = (g: Goal, text: string): any => {
-  const old = fuel;
-  fuel = FUEL_FINAL;
-  try {
-    const c = B.term_check(book, g.lhs, parseFrag(text, g), g.qt, g.ty, g.ctx, g.d);
-    if (g.qt.$ !== "None") for (const [i, a] of B.pmap_to_array(g.ctx)) if (a.q.$ === "Lone" && B.pmap_get(c.us, i)?.$ === "Many") return "the hypothesis " + a.k + " is used more than once: the statement should mark it + (or erased)";
-    return null;
-  } catch (e) { return e; } finally { fuel = old; }
-};
-const wpGoal = (g: Goal, budget: number): { text: string; open: number; report: string } | null => {
+// verify: bend2's def check of k with the text in place (the error, or null); allowDst: a whole body
+const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = false): { text: string; open: number; report: string } | null => {
   if (!WP) return null;
-  try {
-    const t0 = performance.now();
-    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + budget / 2 }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names });
-    if ("why" in r) { if (r.why !== "not a Tot goal") console.error("[gen2] --wp: " + r.why); return null; }
-    const e0 = wpCheck(g, r.text);
-    if (e0) { console.error("[gen2] --wp: the stepped proof does not check, so it is not used: " + (typeof e0 === "string" ? e0 : errText(e0).split("\n").slice(0, 8).join(" | ")).slice(0, 700)); return null; }
-    // the leaves, in text order: close what the leaf tactics close
+  const t0 = performance.now();
+  // one stepping (dst: the proof matches the start state first), checked, its leaves tried
+  const attemptWp = (dst: boolean, until: number): { text: string; open: number; report: string; why?: string; steps?: number } | null => {
+    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2 }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names }, dst);
+    if ("why" in r) return r.why === "not a Tot goal" ? null : { text: "", open: -1, report: "", why: r.why };
+    const chk = verify;
+    const e0 = chk(r.text);
+    if (e0) return { text: "", open: -1, report: "", why: "the stepped proof does not check, so it is not used: " + (typeof e0 === "string" ? e0 : errText(e0).split("\n").slice(0, 8).join(" | ")).slice(0, 700) };
     let text = r.text;
     const report: string[] = [];
     let open = 0;
@@ -2751,16 +2744,16 @@ const wpGoal = (g: Goal, budget: number): { text: string; open: number; report: 
       const at = text.indexOf("?TODO", pos);
       if (at < 0) break;
       const marked = text.slice(0, at) + "?gen2hole" + text.slice(at + 5);
-      const err = wpCheck(g, marked);
+      const err = chk(marked);
       const lg = typeof err === "object" ? holeGoal(job.k, err, "leaf" + (i + 1)) : null;
       let pf: Pf | null = null;
-      if (lg) {
-        deadline = Math.min(performance.now() + Math.max(100, budget / 8), t0 + budget);
+      if (lg && performance.now() < until) {
+        deadline = Math.min(performance.now() + Math.max(100, budget / 8), until);
         try { for (let dd = 0; dd <= 2 && !pf; dd++) pf = leaf(lg, dd, dd === 0 ? 1 : MAX_RW, new Set()); } catch (x) { if (x !== TIMEOUT) throw x; }
         deadline = Infinity;
       }
       const fill = pf ? attempt(FUEL_NF, () => inline(pf!)) : undefined;
-      if (fill !== undefined && wpCheck(g, text.slice(0, at) + "(" + fill + ")" + text.slice(at + 5)) === null) {
+      if (fill !== undefined && chk(text.slice(0, at) + "(" + fill + ")" + text.slice(at + 5)) === null) {
         text = text.slice(0, at) + "(" + fill + ")" + text.slice(at + 5);
         pos = at + fill.length + 2;
         continue;
@@ -2770,8 +2763,19 @@ const wpGoal = (g: Goal, budget: number): { text: string; open: number; report: 
       report.push("# leaf " + open + " (the " + open + (open === 1 ? "st" : open === 2 ? "nd" : open === 3 ? "rd" : "th") + " ?TODO): " + r.leaves[i]!.hint + "\n#   goal: " + clipTo(goal, 400));
       pos = at + 5;
     }
-    const ms = Math.round(performance.now() - t0);
-    return { text, open, report: "# --wp: " + r.steps + " statements stepped, " + open + " leaf(s) open, " + ms + " ms" + (report.length ? "\n" + report.join("\n") : "") };
+    return { text, open, steps: r.steps, report: "# --wp: " + r.steps + " statements stepped, " + open + " leaf(s) open" + (dst ? " (the proof matches the start state)" : "") + ", " + Math.round(performance.now() - t0) + " ms" + (report.length ? "\n" + report.join("\n") : "") };
+  };
+  try {
+    let w = attemptWp(false, allowDst ? t0 + budget / 2 : t0 + budget);
+    // a field read, a cell fact or a check failure: try again with the start state matched
+    if (allowDst && w && (w.open < 0 || /field read|is_cell|match st/.test(w.report + (w.why ?? "")))) {
+      const w2 = attemptWp(true, t0 + budget);
+      if (DEBUG) console.error("[gen2] --wp (the start state matched): " + (w2 ? (w2.open < 0 ? w2.why : w2.report) : "no result"));
+      if (w2 && w2.open >= 0 && (w.open < 0 || w2.open < w.open || (w2.open === w.open && (w2.steps ?? 0) > (w.steps ?? 0)))) w = w2;
+    }
+    if (!w) return null;
+    if (w.open < 0) { console.error("[gen2] --wp: " + w.why); return null; }
+    return w;
   } catch (e: any) {
     deadline = Infinity;
     if (e === TIMEOUT) return null;
@@ -2779,11 +2783,17 @@ const wpGoal = (g: Goal, budget: number): { text: string; open: number; report: 
     return null;
   }
 };
+// the def check of k with a text placed in its body by place (the error, or null)
+const wpVerify = (k: string, place: (t: string) => string) => (t: string): any => {
+  const old = fuel;
+  fuel = FUEL_FINAL;
+  try { checkDef(k, place(t)); return null; } catch (e) { return e; } finally { fuel = old; }
+};
 // a whole body (?TODO) whose goal is a Tot: the stepped proof, printed as the body
 const wpWhole = (k: string): number | null => {
   job = newJob(k);
   const g = introAll(rootGoal(k));
-  const w = g ? wpGoal(g, BUDGET) : null;
+  const w = g ? wpGoal(g, BUDGET, wpVerify(k, (t) => t.split("\n").map((l) => "  " + l).join("\n")), true) : null;
   if (!w) return null;
   console.log(w.text.split("\n").map((l) => "  " + l).join("\n"));
   console.log(w.report);
@@ -2820,7 +2830,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
     // --wp on a Tot hole alone on its line (its lets need a statement position)
     const ln = body.slice(body.lastIndexOf("\n", idx) + 1, idx);
     if (WP && /^\s*$/.test(ln) && /^[ \t]*(\n|$)/.test(body.slice(idx + 5))) {
-      const w = wpGoal(g, budget);
+      const w = wpGoal(g, budget, wpVerify(k, (t) => body.slice(0, idx) + t.split("\n").join("\n" + ln) + body.slice(idx + 5)));
       if (w) {
         body = body.slice(0, idx) + w.text.split("\n").join("\n" + ln) + body.slice(idx + 5);
         if (log) console.error("[gen2] hole " + (h + 1) + ": " + w.report);
