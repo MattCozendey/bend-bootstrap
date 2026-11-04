@@ -2800,6 +2800,9 @@ const holeGoal = (k: string, err: any, path: string): Goal | null => {
 // a routine law Tot(code_L, st_L, b_L, Q_L, H_L) instantiated at a call (code, st) of the goal g: its
 // parameters fixed by matching code and st (raw, then the code's normal form), the others' types
 // (premises: facts to find, or leaves), and b_L, Q_L, H_L
+// the goal's environment, extended by the binders that --wp adds after the context (a matched state's
+// fields, a page binder)
+const envAt = (g: Goal, d: number): B.Env => { let e = g.env; for (let i = g.d; i < d; i++) e = B.list_set(e, i, B.Var("_", i)); return e; };
 const wpInst = (g: Goal) => (law: string, code: LTerm, st: LTerm, b: LTerm, facts: { T: LTerm; pf: string }[], d: number) => attempt(FUEL_NF, () => {
   const t = RAW[law];
   if (t?.$ !== "Def") return null;
@@ -2810,7 +2813,7 @@ const wpInst = (g: Goal) => (law: string, code: LTerm, st: LTerm, b: LTerm, fact
   let sol: (LTerm | null)[] = new Array(t.n).fill(null);
   if (!match(xs[0]!, code, sol, d) || !match(xs[1]!, st, sol, d)) {
     sol = new Array(t.n).fill(null);
-    const cn = nf(B.term_higher(code, g.env), d);
+    const cn = nf(B.term_higher(code, envAt(g, d)), d);
     if (!match(xs[0]!, cn, sol, d) || !match(xs[1]!, st, sol, d)) return null;
   }
   // the law's budget as the goal's, when it matches (else tot.wk's premise b_L <= b stays)
@@ -2829,12 +2832,17 @@ const wpInstEq = (g: Goal) => (law: string, lhs: LTerm, facts: { T: LTerm; pf: s
   const sol: (LTerm | null)[] = new Array(t.n).fill(null);
   return match(c.a, lhs, sol, d) ? wpPrems(g, t, sol, facts, d) : null;
 }) ?? null;
+// a law instantiated by its premises alone, as wpInst
+const wpInstPrem = (g: Goal) => (law: string, facts: { T: LTerm; pf: string }[], d: number) => attempt(FUEL_NF, () => {
+  const t = RAW[law];
+  return t?.$ === "Def" ? wpPrems(g, t, new Array(t.n).fill(null), facts, d) : null;
+}) ?? null;
 // a law's premises: one that a fact of the context (or a conjunct of one) fits gives its parameters and its
 // proof; the conclusion as instantiated
 const wpPrems = (g: Goal, t: Extract<B.TLD, { $: "Def" }>, sol: (LTerm | null)[], facts: { T: LTerm; pf: string }[], d: number) => {
   const pfs: (string | null)[] = new Array(t.n).fill(null);
   for (let pass = 0; pass < 2; pass++) {
-    const oi = openMeta(t.T, t.n, toHs(g, sol));
+    const oi = openMeta(t.T, t.n, sol.map((x) => (x ? B.term_higher(x, envAt(g, d)) : null)));
     if (!oi) return null;
     oi.doms.forEach((dm, j) => {
       if (sol[j] || pfs[j] || !isProp(dm.A)) return;
@@ -2846,7 +2854,7 @@ const wpPrems = (g: Goal, t: Extract<B.TLD, { $: "Def" }>, sol: (LTerm | null)[]
       }
     });
   }
-  const o2 = openMeta(t.T, t.n, toHs(g, sol));
+  const o2 = openMeta(t.T, t.n, sol.map((x) => (x ? B.term_higher(x, envAt(g, d)) : null)));
   if (!o2) return null;
   const T = lower(o2.concl, d);
   return {
@@ -2861,7 +2869,7 @@ const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = 
   const t0 = performance.now();
   // one stepping (dst: the proof matches the start state first), checked, its leaves tried
   const attemptWp = (dst: boolean, until: number): { text: string; open: number; report: string; why?: string; steps?: number } | null => {
-    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2, inst: wpInst(g), instEq: wpInstEq(g) }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
+    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: performance.now() + (until - performance.now()) / 2, inst: wpInst(g), instEq: wpInstEq(g), instPrem: wpInstPrem(g) }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
     if ("why" in r) return r.why === "not a Tot goal" ? null : { text: "", open: -1, report: "", why: r.why };
     const chk = verify;
     if (process.env.GEN2_WPDUMP) fs.writeFileSync(process.env.GEN2_WPDUMP + (dst ? ".dst" : ""), r.text);
@@ -2873,8 +2881,10 @@ const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = 
     for (let i = 0, pos = 0; i < r.leaves.length; i++) {
       const at = text.indexOf("?TODO", pos);
       if (at < 0) break;
+      // past the budget: the leaf is reported with its hint only (each check of a large body costs ~1 s)
+      const late = performance.now() > until;
       const marked = text.slice(0, at) + "?gen2hole" + text.slice(at + 5);
-      const err = chk(marked);
+      const err = late ? null : chk(marked);
       const lg = typeof err === "object" ? holeGoal(job.k, err, "leaf" + (i + 1)) : null;
       let pf: Pf | null = null;
       if (lg && performance.now() < until) {
@@ -2896,14 +2906,15 @@ const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = 
     return { text, open, steps: r.steps, report: "# --wp: " + r.steps + " statements stepped, " + open + " leaf(s) open" + (dst ? " (the proof matches the start state)" : "") + ", " + Math.round(performance.now() - t0) + " ms" + (report.length ? "\n" + report.join("\n") : "") };
   };
   try {
-    let w = attemptWp(false, allowDst ? t0 + budget / 2 : t0 + budget);
-    // a field read, a cell fact or a check failure: try again with the start state matched
-    if (allowDst && w && (w.open < 0 || /field read|is_cell|match st/.test(w.report + (w.why ?? "")))) {
-      const w2 = attemptWp(true, t0 + budget);
-      if (DEBUG) console.error("[gen2] --wp (the start state matched): " + (w2 ? (w2.open < 0 ? w2.why : w2.report) : "no result"));
-      // at a tie, the matched run: its leaf names the missing fact, where the plain run's only asks for the match
-      const s1 = w.steps ?? 0, s2 = w2?.steps ?? 0;
-      if (w2 && w2.open >= 0 && (w.open < 0 || w2.open < w.open || (w2.open === w.open && (s2 > s1 || (s2 === s1 && /reads fields only when/.test(w.report)))))) w = w2;
+    // the start state matched first, when it is a parameter: its accessors and facts compute, so it steps as
+    // far as the plain run or further; the plain run when it cannot (its state is not a parameter, or its
+    // text does not check)
+    let w = allowDst ? attemptWp(true, t0 + budget * 0.75) : null;
+    if (DEBUG && w) console.error("[gen2] --wp (the start state matched): " + (w.open < 0 ? w.why : w.report));
+    if (!w || w.open < 0) {
+      const w1 = attemptWp(false, t0 + budget);
+      if (!w1) return null; // not a Tot goal
+      if (!w || w1.open >= 0 || /not a parameter/.test(w.why ?? "")) w = w1;
     }
     if (!w) return null;
     if (w.open < 0) { console.error("[gen2] --wp: " + w.why); return null; }
@@ -3073,7 +3084,7 @@ const proveHoles = (k: string, budget: number, log = true): { body: string; n: n
     // --wp on a Tot hole alone on its line (its lets need a statement position)
     const ln = body.slice(body.lastIndexOf("\n", idx) + 1, idx);
     if (WP && /^\s*$/.test(ln) && /^[ \t]*(\n|$)/.test(body.slice(idx + 5))) {
-      const w = wpGoal(g, budget, wpVerify(k, (t) => body.slice(0, idx) + t.split("\n").join("\n" + ln) + body.slice(idx + 5)));
+      const w = wpGoal(g, budget, wpVerify(k, (t) => body.slice(0, idx) + t.split("\n").join("\n" + ln) + body.slice(idx + 5)), true);
       if (w) {
         body = body.slice(0, idx) + w.text.split("\n").join("\n" + ln) + body.slice(idx + 5);
         if (log) console.error("[gen2] hole " + (h + 1) + ": " + w.report);
