@@ -93,6 +93,10 @@
 //                      the lemmas with the same head that do not match (their conclusions); the equations
 //                      that rewrite a call in the goal. Usable lemmas only (before the def, not open).
 //       --hole N       a body with several ?TODO: work on (or --lemmas for) the N-th only; the others stay
+//       --wp           a goal Lg.Tot(code, ..) or Lg.WP(code, ..) on closed code (a body that is ?TODO, or a
+//                      ?TODO alone on its line): step the code by S1's logic (gen2_wp.ts: wp.set, wp.store,
+//                      WP's ifs, register and cell facts, Bool splits); prints the proof (checked by the def
+//                      check) with each leaf left a numbered ?TODO, its goal and a one-line hint. Off by default.
 //       --helpers      on a miss, each open hole (of a skeleton that closed a step, or a ?TODO inside a
 //                      body) becomes a new lemma <def>.h<i> whose statement is exactly the hole's goal
 //                      over its whole context (true iff the hole is), and the hole a call of it; at most
