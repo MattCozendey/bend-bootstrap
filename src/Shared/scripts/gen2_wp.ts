@@ -43,6 +43,10 @@ export type WpApi = {
   inst?: (law: string, code: LTerm, st: LTerm, b: LTerm, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
   // a law instantiated by its premises alone (each parameter fixed by a fact that a premise fits)
   instPrem?: (law: string, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
+  // the equation laws by the head of their left side (a def's key), and a law instantiated by its premises
+  // once per fact that its first premise fits
+  lawsOn?: (head: string) => string[];
+  instPremAll?: (law: string, facts: { T: LTerm; pf: string }[], d: number, max: number) => WpInst[];
   // an equation law instantiated at the term its left side matches
   instEq?: (law: string, lhs: LTerm, facts: { T: LTerm; pf: string }[], d: number) => WpInst | null;
 };
@@ -310,6 +314,16 @@ const run = (api: WpApi, g: WpGoal, dst: boolean): WpOut => {
     }
     return null;
   };
+  // general facts: the laws whose conclusion is a cell ({St.is_cell(st, c) == True{}}, {Cir.is_cell(..) == True{}})
+  // or a tag ({Tg(cells, c) == ..}), instantiated by their premises against the context's facts (a held cell of
+  // the invariant: its tag, its table cell): at most 16 laws, 8 instances each
+  if (api.lawsOn && api.instPremAll) {
+    const heads = [K.isCell, byShort.get("Cir.is_cell"), byShort.get("Tg")].filter((h): h is string => !!h);
+    const laws = heads.flatMap((h) => api.lawsOn!(h)).filter((k) => !(g.self && (k === g.self || shortOf(k) === shortOf(g.self)))).slice(0, 16);
+    const facts = lawFacts();
+    for (const k of laws) for (const ins of api.instPremAll(k, facts, D, 8))
+      addFact(ins.T, sh(B.Ref(k) as LTerm) + "(" + ins.sol.map((v, i) => (v ? sh(v) : ins.pfs[i]!)).join(", ") + ")");
+  }
   if (!nregHyp.has(api.key(st0)) && K.nregs) {
     const f = eqLaw(st0, "nregs", B.App(ref("nregs"), st0));
     if (f) nregHyp.set(api.key(st0), { n: f.rhs, pf: f.pf });

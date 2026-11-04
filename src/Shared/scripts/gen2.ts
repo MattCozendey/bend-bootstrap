@@ -2832,6 +2832,45 @@ const wpInstEq = (g: Goal) => (law: string, lhs: LTerm, facts: { T: LTerm; pf: s
   const sol: (LTerm | null)[] = new Array(t.n).fill(null);
   return match(c.a, lhs, sol, d) ? wpPrems(g, t, sol, facts, d) : null;
 }) ?? null;
+// the equation laws (open ones too) by the head of their left side, "R:<def>": one pass over the book, on
+// the first ask of --wp that needs it
+let wpEqHeads: Map<string, string[]> | null = null;
+const wpLawsOn = (head: string): string[] => {
+  if (!wpEqHeads) {
+    wpEqHeads = new Map();
+    for (const k of Object.keys(RAW)) {
+      const t = RAW[k];
+      if (!t || t.$ !== "Def" || t.n === 0) continue;
+      const c = attempt(FUEL_NF, () => { const o = openMeta(t.T, t.n); return o ? lower(o.concl, 0) : null; });
+      if (!c || c.$ !== "Eql") continue;
+      const hk = headKey(c.a);
+      if (!hk.startsWith("R:")) continue;
+      let a = wpEqHeads.get(hk);
+      if (!a) wpEqHeads.set(hk, a = []);
+      a.push(k);
+    }
+  }
+  return wpEqHeads.get("R:" + head) ?? [];
+};
+// a law instantiated by its premises alone, once per fact that its first premise fits (at most max)
+const wpInstPremAll = (g: Goal) => (law: string, facts: { T: LTerm; pf: string }[], d: number, max: number) => attempt(FUEL_NF, () => {
+  const t = RAW[law];
+  if (t?.$ !== "Def") return [];
+  const o = openMeta(t.T, t.n);
+  if (!o) return [];
+  const j0 = o.doms.findIndex((dm) => isProp(dm.A));
+  if (j0 < 0) return [];
+  const P = lower(o.doms[j0]!.A, d);
+  const out: NonNullable<ReturnType<typeof wpPrems>>[] = [];
+  for (const f of facts) {
+    if (out.length >= max) break;
+    const sol: (LTerm | null)[] = new Array(t.n).fill(null);
+    if (!match(P, f.T, sol, d)) continue;
+    const r = wpPrems(g, t, sol, facts, d);
+    if (r && r.sol.every((v, i) => v || r.pfs[i])) out.push(r);
+  }
+  return out;
+}) ?? [];
 // a law instantiated by its premises alone, as wpInst
 const wpInstPrem = (g: Goal) => (law: string, facts: { T: LTerm; pf: string }[], d: number) => attempt(FUEL_NF, () => {
   const t = RAW[law];
@@ -2869,7 +2908,7 @@ const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = 
   const t0 = performance.now();
   // one stepping (dst: the proof matches the start state first), checked, its leaves tried
   const attemptWp = (dst: boolean, until: number): { text: string; open: number; report: string; why?: string; steps?: number } | null => {
-    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: performance.now() + (until - performance.now()) / 2, inst: wpInst(g), instEq: wpInstEq(g), instPrem: wpInstPrem(g) }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
+    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: performance.now() + (until - performance.now()) / 2, inst: wpInst(g), instEq: wpInstEq(g), instPrem: wpInstPrem(g), instPremAll: wpInstPremAll(g), lawsOn: wpLawsOn }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
     if ("why" in r) return r.why === "not a Tot goal" ? null : { text: "", open: -1, report: "", why: r.why };
     const chk = verify;
     if (process.env.GEN2_WPDUMP) fs.writeFileSync(process.env.GEN2_WPDUMP + (dst ? ".dst" : ""), r.text);
