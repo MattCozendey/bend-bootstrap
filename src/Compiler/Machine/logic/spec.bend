@@ -529,7 +529,7 @@ law wp.alloc:
   for +hr: {Nat.is_lt(r, St.nregs(st)) == True{} : Bool}
   for +ho: {St.outn(st) == 0 : U32}
   for +hb: {Nat.is_le(Nat.mul(20n, Nat.add(U32.to_nat(St.next(st)), 1n)), b) == True{} : Bool}
-  for q: @p: U32 -> K(H, St.alloc(st, r, p))
+  for q: @+p: U32 -> K(H, St.alloc(st, r, p))
   WP(Cr.Cir.Stmt.alloc{r}, b, K, H, st)
 
 # LAW: the WP of an emit, with a budget of 20 next + outn + 1 bytes: its post
@@ -543,7 +543,7 @@ law wp.emit:
   for +v: U32
   for +he: {Cr.Cir.eval(e, st) == Some{v} : Maybe<&2, U32>}
   for +hb: {Nat.is_le(Nat.add(Nat.mul(20n, U32.to_nat(St.next(st))), Nat.add(U32.to_nat(St.outn(st)), 1n)), b) == True{} : Bool}
-  for q: @p: U32 -> K(H, St.emit(st, v, p))
+  for q: @+p: U32 -> K(H, St.emit(st, v, p))
   WP(Cr.Cir.Stmt.emit{e}, b, K, H, st)
 
 # Laws: accessors after updaters

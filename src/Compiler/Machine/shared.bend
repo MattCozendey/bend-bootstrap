@@ -280,3 +280,59 @@ def list.lt_get(-A: Data, +xs: List<&2, A>, +n: Nat, +c: A, +e: {List.get(&2, A,
       {==}
     case Con{y, t} 1n+m:
       list.lt_get(A, t, m, c, e)
+
+# U32
+# ---
+
+# the word of n zero bits
+def word.zero(n: Nat) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      WCon{False{}, word.zero(p)}
+
+def cmp.fin_ff(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(False{}, False{}, c)) == Cmp.is_eq(c) : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+def cmp.fin_tf(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(True{}, False{}, c)) == False{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+# a word equal to the zero word, by Word.cmp, is it
+def word.cmp_zero(+n: Nat, +w: Word(n), +h: {Cmp.is_eq(Word.cmp(n, w, word.zero(n))) == True{} : Bool}) ->
+  {w == word.zero(n) : Word(n)}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match w:
+        case WCon{+b, +t}:
+          match b:
+            case False{}:
+              +ht = Equal.trans(Bool, Cmp.is_eq(Word.cmp(p, t, word.zero(p))), Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, t, word.zero(p)))),
+                True{}, Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, t, word.zero(p)))), Cmp.is_eq(Word.cmp(p, t, word.zero(p))),
+                  cmp.fin_ff(Word.cmp(p, t, word.zero(p)))), h)
+              Equal.cong(Word(p), Word(1n+p), z => WCon{False{}, z}, t, word.zero(p), word.cmp_zero(p, t, ht))
+            case True{}:
+              bool.tf2({WCon{True{}, t} == word.zero(1n+p) : Word(1n+p)}, Cmp.is_eq(Word.cmp.fin(True{}, False{}, Word.cmp(p, t, word.zero(p)))), h,
+                cmp.fin_tf(Word.cmp(p, t, word.zero(p))))
+
+# a word that U32.is_zero finds zero is 0
+def u32.is_zero_t(+x: U32, +h: {U32.is_zero(x) == True{} : Bool}) -> {x == 0 : U32}:
+  match x:
+    case U32{+w}:
+      Equal.cong(Word(32n), U32, z => U32{z}, w, word.zero(32n), word.cmp_zero(32n, w, h))
