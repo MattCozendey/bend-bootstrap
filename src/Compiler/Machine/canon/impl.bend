@@ -8,6 +8,7 @@
 # Canon.term(t, d) = Canon.term(u, d) iff Rel(d, t, u).
 
 import Base
+import ../../../Shared/shared.bend as Sd
 import ../../../Book/impl.bend as Bk
 import ../../../Eval/impl.bend as El
 import ../../../Program/impl.bend as Pg
@@ -40,11 +41,366 @@ def canon.and.r(a: Bool, -b: Bool, h: {Bool.and(a, b) == True{} : Bool}) -> {b =
     case False{}:
       canon.ff({b == True{} : Bool}, h)
 
-def C.term.is_eq_ok(a, b, e):
-  ?TODO
+def canon.nat.is_eq.ok(a: Nat, b: Nat, e: {Nat.is_eq(a, b) == True{} : Bool}) -> {a == b : Nat}:
+  match a b:
+    case 0n 0n:
+      {==}
+    case 0n 1n+q:
+      canon.ff({0n == 1n+q : Nat}, e)
+    case 1n+p 0n:
+      canon.ff({1n+p == 0n : Nat}, e)
+    case 1n+p 1n+q:
+      Equal.cong(Nat, Nat, n => 1n+n, p, q, canon.nat.is_eq.ok(p, q, e))
+
+def canon.quan.is_eq.ok(p: Bk.Quan, q: Bk.Quan, e: {C.Quan.is_eq(p, q) == True{} : Bool}) -> {p == q : Bk.Quan}:
+  match p q:
+    case Bk.Quan.Q0{} Bk.Quan.Q0{}:
+      {==}
+    case Bk.Quan.Q1{} Bk.Quan.Q1{}:
+      {==}
+    case Bk.Quan.Q2{} Bk.Quan.Q2{}:
+      {==}
+    case Bk.Quan.Q0{} Bk.Quan.Q1{}:
+      canon.ff({Bk.Quan.Q0{} == Bk.Quan.Q1{} : Bk.Quan}, e)
+    case Bk.Quan.Q0{} Bk.Quan.Q2{}:
+      canon.ff({Bk.Quan.Q0{} == Bk.Quan.Q2{} : Bk.Quan}, e)
+    case Bk.Quan.Q1{} Bk.Quan.Q0{}:
+      canon.ff({Bk.Quan.Q1{} == Bk.Quan.Q0{} : Bk.Quan}, e)
+    case Bk.Quan.Q1{} Bk.Quan.Q2{}:
+      canon.ff({Bk.Quan.Q1{} == Bk.Quan.Q2{} : Bk.Quan}, e)
+    case Bk.Quan.Q2{} Bk.Quan.Q0{}:
+      canon.ff({Bk.Quan.Q2{} == Bk.Quan.Q0{} : Bk.Quan}, e)
+    case Bk.Quan.Q2{} Bk.Quan.Q1{}:
+      canon.ff({Bk.Quan.Q2{} == Bk.Quan.Q1{} : Bk.Quan}, e)
+
+def canon.fin.ft(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(False{}, True{}, c)) == False{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+def canon.fin.tf(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(True{}, False{}, c)) == False{} : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+def canon.fin.ff(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(False{}, False{}, c)) == Cmp.is_eq(c) : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+def canon.fin.tt(c: Cmp) -> {Cmp.is_eq(Word.cmp.fin(True{}, True{}, c)) == Cmp.is_eq(c) : Bool}:
+  match c:
+    case LT{}:
+      {==}
+    case EQ{}:
+      {==}
+    case GT{}:
+      {==}
+
+def canon.word.cmp.ok(+n: Nat, +a: Word(n), +b: Word(n), e: {Cmp.is_eq(Word.cmp(n, a, b)) == True{} : Bool}) -> {a == b : Word(n)}:
+  match n:
+    case 0n:
+      match a b:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+p:
+      match a b:
+        case WCon{False{}, +at} WCon{False{}, +bt}:
+          +ht = Equal.trans(Bool, Cmp.is_eq(Word.cmp(p, at, bt)), Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, at, bt))),
+            True{}, Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, at, bt))), Cmp.is_eq(Word.cmp(p, at, bt)),
+              canon.fin.ff(Word.cmp(p, at, bt))), e)
+          Equal.cong(Word(p), Word(1n+p), t => WCon{False{}, t}, at, bt, canon.word.cmp.ok(p, at, bt, ht))
+        case WCon{False{}, +at} WCon{True{}, +bt}:
+          canon.ff({WCon{False{}, at} == WCon{True{}, bt} : Word(1n+p)},
+            Equal.sym(Bool, True{}, False{}, Equal.trans(Bool, True{}, Cmp.is_eq(Word.cmp.fin(False{}, True{}, Word.cmp(p, at, bt))), False{},
+              Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(False{}, True{}, Word.cmp(p, at, bt))), True{}, e), canon.fin.ft(Word.cmp(p, at, bt)))))
+        case WCon{True{}, +at} WCon{False{}, +bt}:
+          canon.ff({WCon{True{}, at} == WCon{False{}, bt} : Word(1n+p)},
+            Equal.sym(Bool, True{}, False{}, Equal.trans(Bool, True{}, Cmp.is_eq(Word.cmp.fin(True{}, False{}, Word.cmp(p, at, bt))), False{},
+              Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, False{}, Word.cmp(p, at, bt))), True{}, e), canon.fin.tf(Word.cmp(p, at, bt)))))
+        case WCon{True{}, +at} WCon{True{}, +bt}:
+          +ht = Equal.trans(Bool, Cmp.is_eq(Word.cmp(p, at, bt)), Cmp.is_eq(Word.cmp.fin(True{}, True{}, Word.cmp(p, at, bt))),
+            True{}, Equal.sym(Bool, Cmp.is_eq(Word.cmp.fin(True{}, True{}, Word.cmp(p, at, bt))), Cmp.is_eq(Word.cmp(p, at, bt)),
+              canon.fin.tt(Word.cmp(p, at, bt))), e)
+          Equal.cong(Word(p), Word(1n+p), t => WCon{True{}, t}, at, bt, canon.word.cmp.ok(p, at, bt, ht))
+
+def canon.word.cmp.refl(+n: Nat, +w: Word(n)) -> {Cmp.is_eq(Word.cmp(n, w, w)) == True{} : Bool}:
+  match n:
+    case 0n:
+      match w:
+        case WNil{}:
+          {==}
+    case 1n+p:
+      match w:
+        case WCon{False{}, +t}:
+          Equal.trans(Bool, Cmp.is_eq(Word.cmp.fin(False{}, False{}, Word.cmp(p, t, t))),
+            Cmp.is_eq(Word.cmp(p, t, t)), True{}, canon.fin.ff(Word.cmp(p, t, t)), canon.word.cmp.refl(p, t))
+        case WCon{True{}, +t}:
+          Equal.trans(Bool, Cmp.is_eq(Word.cmp.fin(True{}, True{}, Word.cmp(p, t, t))),
+            Cmp.is_eq(Word.cmp(p, t, t)), True{}, canon.fin.tt(Word.cmp(p, t, t)), canon.word.cmp.refl(p, t))
+
+def canon.name.is_eq.ok(+a: List<&2, Word(8n)>, +b: List<&2, Word(8n)>, +e: {Sd.Name.is_eq(a, b) == True{} : Bool}) -> {a == b : List<&2, Word(8n)>}:
+  match a b:
+    case Nil{} Nil{}:
+      {==}
+    case Con{+x, +xs} Con{+y, +ys}:
+      +hx = canon.and.l(Sd.Byte.is_eq(x, y), Sd.Name.is_eq(xs, ys), e)
+      +hxs = canon.and.r(Sd.Byte.is_eq(x, y), Sd.Name.is_eq(xs, ys), e)
+      +ex = canon.word.cmp.ok(8n, x, y, hx)
+      +hrest = canon.name.is_eq.ok(xs, ys, hxs)
+      Equal.trans(List<&2, Word(8n)>, Con{x, xs}, Con{y, xs}, Con{y, ys},
+        Equal.cong(Word(8n), List<&2, Word(8n)>, z => Con{z, xs}, x, y, ex),
+        Equal.cong(List<&2, Word(8n)>, List<&2, Word(8n)>, z => Con{y, z}, xs, ys, hrest))
+    case Nil{} Con{y, ys}:
+      canon.ff({Nil{} == Con{y, ys} : List<&2, Word(8n)>}, e)
+    case Con{x, xs} Nil{}:
+      canon.ff({Con{x, xs} == Nil{} : List<&2, Word(8n)>}, e)
+
+def canon.names.is_eq.ok(+a: List<&2, List<&2, Word(8n)>>, +b: List<&2, List<&2, Word(8n)>>,
+  +e: {C.Names.is_eq(a, b) == True{} : Bool}) -> {a == b : List<&2, List<&2, Word(8n)>>}:
+  match a b:
+    case Nil{} Nil{}:
+      {==}
+    case Con{+x, +xs} Con{+y, +ys}:
+      +hx = canon.and.l(Sd.Name.is_eq(x, y), C.Names.is_eq(xs, ys), e)
+      +hxs = canon.and.r(Sd.Name.is_eq(x, y), C.Names.is_eq(xs, ys), e)
+      +ex = canon.name.is_eq.ok(x, y, hx)
+      +hrest = canon.names.is_eq.ok(xs, ys, hxs)
+      Equal.trans(List<&2, List<&2, Word(8n)>>, Con{x, xs}, Con{y, xs}, Con{y, ys},
+        Equal.cong(List<&2, Word(8n)>, List<&2, List<&2, Word(8n)>>, z => Con{z, xs}, x, y, ex),
+        Equal.cong(List<&2, List<&2, Word(8n)>>, List<&2, List<&2, Word(8n)>>, z => Con{y, z}, xs, ys, hrest))
+    case Nil{} Con{y, ys}:
+      canon.ff({Nil{} == Con{y, ys} : List<&2, List<&2, Word(8n)>>}, e)
+    case Con{x, xs} Nil{}:
+      canon.ff({Con{x, xs} == Nil{} : List<&2, List<&2, Word(8n)>>}, e)
+
+def C.term.is_eq_ok(a: Bk.Term, b: Bk.Term, +e: {C.Term.is_eq(a, b) == True{} : Bool}):
+  match a b:
+    case Bk.Term.Var{i} Bk.Term.Var{j}:
+      Equal.cong(Nat, Bk.Term, z => Bk.Term.Var{z}, i, j, canon.nat.is_eq.ok(i, j, e))
+    case Bk.Term.Ref{k} Bk.Term.Ref{j}:
+      Equal.cong(List<&2, Word(8n)>, Bk.Term, z => Bk.Term.Ref{z}, k, j, canon.name.is_eq.ok(k, j, e))
+    case Bk.Term.Ann{x, T} Bk.Term.Ann{y, U}:
+      hx = canon.and.l(C.Term.is_eq(x, y), C.Term.is_eq(T, U), e)
+      hT = canon.and.r(C.Term.is_eq(x, y), C.Term.is_eq(T, U), e)
+      Equal.trans(Bk.Term, Bk.Term.Ann{x, T}, Bk.Term.Ann{y, T}, Bk.Term.Ann{y, U},
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Ann{z, T}, x, y, C.term.is_eq_ok(x, y, hx)),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Ann{y, z}, T, U, C.term.is_eq_ok(T, U, hT)))
+    case Bk.Term.Let{q, v, f} Bk.Term.Let{p, w, g}:
+      hq = canon.and.l(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(v, w), C.Term.is_eq(f, g)), e)
+      hrest = canon.and.r(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(v, w), C.Term.is_eq(f, g)), e)
+      hv = canon.and.l(C.Term.is_eq(v, w), C.Term.is_eq(f, g), hrest)
+      hf = canon.and.r(C.Term.is_eq(v, w), C.Term.is_eq(f, g), hrest)
+      +eqQ = canon.quan.is_eq.ok(q, p, hq)
+      +eqV = C.term.is_eq_ok(v, w, hv)
+      +eqF = C.term.is_eq_ok(f, g, hf)
+      Equal.trans(Bk.Term, Bk.Term.Let{q, v, f}, Bk.Term.Let{p, v, f}, Bk.Term.Let{p, w, f},
+        Equal.trans(Bk.Term, Bk.Term.Let{p, v, f}, Bk.Term.Let{p, w, f}, Bk.Term.Let{p, w, g},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Let{z, v, f}, q, p, eqQ),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Let{p, z, f}, v, w, eqV)),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Let{p, w, z}, f, g, eqF))
+    case Bk.Term.Typ{q} Bk.Term.Typ{p}:
+      Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Typ{z}, q, p, C.term.is_eq_ok(q, p, e))
+    case Bk.Term.Min{a1, b1} Bk.Term.Min{a2, b2}:
+      ha = canon.and.l(C.Term.is_eq(a1, a2), C.Term.is_eq(b1, b2), e)
+      hb = canon.and.r(C.Term.is_eq(a1, a2), C.Term.is_eq(b1, b2), e)
+      Equal.trans(Bk.Term, Bk.Term.Min{a1, b1}, Bk.Term.Min{a2, b1}, Bk.Term.Min{a2, b2},
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Min{z, b1}, a1, a2, C.term.is_eq_ok(a1, a2, ha)),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Min{a2, z}, b1, b2, C.term.is_eq_ok(b1, b2, hb)))
+    case Bk.Term.All{q, A1, B1} Bk.Term.All{p, A2, B2}:
+      hq = canon.and.l(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2)), e)
+      hrest = canon.and.r(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2)), e)
+      hA = canon.and.l(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2), hrest)
+      hB = canon.and.r(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2), hrest)
+      Equal.trans(Bk.Term, Bk.Term.All{q, A1, B1}, Bk.Term.All{p, A1, B1}, Bk.Term.All{p, A2, B1},
+        Equal.trans(Bk.Term, Bk.Term.All{p, A1, B1}, Bk.Term.All{p, A2, B1}, Bk.Term.All{p, A2, B2},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.All{z, A1, B1}, q, p, canon.quan.is_eq.ok(q, p, hq)),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.All{p, z, B1}, A1, A2, C.term.is_eq_ok(A1, A2, hA))),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.All{p, A2, z}, B1, B2, C.term.is_eq_ok(B1, B2, hB)))
+    case Bk.Term.Lam{q, f} Bk.Term.Lam{p, g}:
+      hq = canon.and.l(C.Quan.is_eq(q, p), C.Term.is_eq(f, g), e)
+      hf = canon.and.r(C.Quan.is_eq(q, p), C.Term.is_eq(f, g), e)
+      Equal.trans(Bk.Term, Bk.Term.Lam{q, f}, Bk.Term.Lam{p, f}, Bk.Term.Lam{p, g},
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Lam{z, f}, q, p, canon.quan.is_eq.ok(q, p, hq)),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Lam{p, z}, f, g, C.term.is_eq_ok(f, g, hf)))
+    case Bk.Term.App{q, f, x} Bk.Term.App{p, g, y}:
+      hq = canon.and.l(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(f, g), C.Term.is_eq(x, y)), e)
+      hrest = canon.and.r(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(f, g), C.Term.is_eq(x, y)), e)
+      hf = canon.and.l(C.Term.is_eq(f, g), C.Term.is_eq(x, y), hrest)
+      hx = canon.and.r(C.Term.is_eq(f, g), C.Term.is_eq(x, y), hrest)
+      Equal.trans(Bk.Term, Bk.Term.App{q, f, x}, Bk.Term.App{p, f, x}, Bk.Term.App{p, g, x},
+        Equal.trans(Bk.Term, Bk.Term.App{p, f, x}, Bk.Term.App{p, g, x}, Bk.Term.App{p, g, y},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.App{z, f, x}, q, p, canon.quan.is_eq.ok(q, p, hq)),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.App{p, z, x}, f, g, C.term.is_eq_ok(f, g, hf))),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.App{p, g, z}, x, y, C.term.is_eq_ok(x, y, hx)))
+    case Bk.Term.Sig{q, A1, B1} Bk.Term.Sig{p, A2, B2}:
+      hq = canon.and.l(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2)), e)
+      hrest = canon.and.r(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2)), e)
+      hA = canon.and.l(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2), hrest)
+      hB = canon.and.r(C.Term.is_eq(A1, A2), C.Term.is_eq(B1, B2), hrest)
+      Equal.trans(Bk.Term, Bk.Term.Sig{q, A1, B1}, Bk.Term.Sig{p, A1, B1}, Bk.Term.Sig{p, A2, B1},
+        Equal.trans(Bk.Term, Bk.Term.Sig{p, A1, B1}, Bk.Term.Sig{p, A2, B1}, Bk.Term.Sig{p, A2, B2},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Sig{z, A1, B1}, q, p, canon.quan.is_eq.ok(q, p, hq)),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Sig{p, z, B1}, A1, A2, C.term.is_eq_ok(A1, A2, hA))),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Sig{p, A2, z}, B1, B2, C.term.is_eq_ok(B1, B2, hB)))
+    case Bk.Term.Tup{q, a1, b1} Bk.Term.Tup{p, a2, b2}:
+      hq = canon.and.l(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(a1, a2), C.Term.is_eq(b1, b2)), e)
+      hrest = canon.and.r(C.Quan.is_eq(q, p), Bool.and(C.Term.is_eq(a1, a2), C.Term.is_eq(b1, b2)), e)
+      ha = canon.and.l(C.Term.is_eq(a1, a2), C.Term.is_eq(b1, b2), hrest)
+      hb = canon.and.r(C.Term.is_eq(a1, a2), C.Term.is_eq(b1, b2), hrest)
+      Equal.trans(Bk.Term, Bk.Term.Tup{q, a1, b1}, Bk.Term.Tup{p, a1, b1}, Bk.Term.Tup{p, a2, b1},
+        Equal.trans(Bk.Term, Bk.Term.Tup{p, a1, b1}, Bk.Term.Tup{p, a2, b1}, Bk.Term.Tup{p, a2, b2},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Tup{z, a1, b1}, q, p, canon.quan.is_eq.ok(q, p, hq)),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Tup{p, z, b1}, a1, a2, C.term.is_eq_ok(a1, a2, ha))),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Tup{p, a2, z}, b1, b2, C.term.is_eq_ok(b1, b2, hb)))
+    case Bk.Term.Prj{h} Bk.Term.Prj{g}:
+      Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Prj{z}, h, g, C.term.is_eq_ok(h, g, e))
+    case Bk.Term.Enu{ks} Bk.Term.Enu{js}:
+      canon.names.is_eq.ok(ks, js, e)
+    case Bk.Term.Lab{k} Bk.Term.Lab{j}:
+      canon.name.is_eq.ok(k, j, e)
+    case Bk.Term.Mat{k, h1, m1} Bk.Term.Mat{j, h2, m2}:
+      hk = canon.and.l(Sd.Name.is_eq(k, j), Bool.and(C.Term.is_eq(h1, h2), C.Term.is_eq(m1, m2)), e)
+      hrest = canon.and.r(Sd.Name.is_eq(k, j), Bool.and(C.Term.is_eq(h1, h2), C.Term.is_eq(m1, m2)), e)
+      hh = canon.and.l(C.Term.is_eq(h1, h2), C.Term.is_eq(m1, m2), hrest)
+      hm = canon.and.r(C.Term.is_eq(h1, h2), C.Term.is_eq(m1, m2), hrest)
+      Equal.trans(Bk.Term, Bk.Term.Mat{k, h1, m1}, Bk.Term.Mat{j, h1, m1}, Bk.Term.Mat{j, h2, m1},
+        Equal.trans(Bk.Term, Bk.Term.Mat{j, h1, m1}, Bk.Term.Mat{j, h2, m1}, Bk.Term.Mat{j, h2, m2},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Mat{z, h1, m1}, k, j, canon.name.is_eq.ok(k, j, hk)),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Mat{j, z, m1}, h1, h2, C.term.is_eq_ok(h1, h2, hh))),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Mat{j, h2, z}, m1, m2, C.term.is_eq_ok(m1, m2, hm)))
+    case Bk.Term.Efq{} Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{a1, b1, T1} Bk.Term.Eql{a2, b2, T2}:
+      hab = canon.and.l(C.Term.is_eq(a1, a2), Bool.and(C.Term.is_eq(b1, b2), C.Term.is_eq(T1, T2)), e)
+      hrest = canon.and.r(C.Term.is_eq(a1, a2), Bool.and(C.Term.is_eq(b1, b2), C.Term.is_eq(T1, T2)), e)
+      hb = canon.and.l(C.Term.is_eq(b1, b2), C.Term.is_eq(T1, T2), hrest)
+      hT = canon.and.r(C.Term.is_eq(b1, b2), C.Term.is_eq(T1, T2), hrest)
+      Equal.trans(Bk.Term, Bk.Term.Eql{a1, b1, T1}, Bk.Term.Eql{a2, b1, T1}, Bk.Term.Eql{a2, b2, T1},
+        Equal.trans(Bk.Term, Bk.Term.Eql{a2, b1, T1}, Bk.Term.Eql{a2, b2, T1}, Bk.Term.Eql{a2, b2, T2},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Eql{z, b1, T1}, a1, a2, C.term.is_eq_ok(a1, a2, hab)),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Eql{a2, z, T1}, b1, b2, C.term.is_eq_ok(b1, b2, hb))),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Eql{a2, b2, z}, T1, T2, C.term.is_eq_ok(T1, T2, hT)))
+    case Bk.Term.Rfl{} Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{e1, P1, f1} Bk.Term.Rwt{e2, P2, f2}:
+      ha = canon.and.l(C.Term.is_eq(e1, e2), Bool.and(C.Term.is_eq(P1, P2), C.Term.is_eq(f1, f2)), e)
+      hrest = canon.and.r(C.Term.is_eq(e1, e2), Bool.and(C.Term.is_eq(P1, P2), C.Term.is_eq(f1, f2)), e)
+      hP = canon.and.l(C.Term.is_eq(P1, P2), C.Term.is_eq(f1, f2), hrest)
+      hf = canon.and.r(C.Term.is_eq(P1, P2), C.Term.is_eq(f1, f2), hrest)
+      Equal.trans(Bk.Term, Bk.Term.Rwt{e1, P1, f1}, Bk.Term.Rwt{e2, P1, f1}, Bk.Term.Rwt{e2, P2, f1},
+        Equal.trans(Bk.Term, Bk.Term.Rwt{e2, P1, f1}, Bk.Term.Rwt{e2, P2, f1}, Bk.Term.Rwt{e2, P2, f2},
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Rwt{z, P1, f1}, e1, e2, C.term.is_eq_ok(e1, e2, ha)),
+          Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Rwt{e2, z, f1}, P1, P2, C.term.is_eq_ok(P1, P2, hP))),
+        Equal.cong(Bk.Term, Bk.Term, z => Bk.Term.Rwt{e2, P2, z}, f1, f2, C.term.is_eq_ok(f1, f2, hf)))
+    case _ _:
+      ?TODO
+
+def canon.and.i(a: Bool, -b: Bool, +ha: {a == True{} : Bool}, +hb: {b == True{} : Bool}) -> {Bool.and(a, b) == True{} : Bool}:
+  match a:
+    case True{}:
+      hb
+    case False{}:
+      canon.ff({Bool.and(False{}, b) == True{} : Bool}, ha)
+
+def canon.byte.is_eq.refl(+b: Word(8n)) -> {Sd.Byte.is_eq(b, b) == True{} : Bool}:
+  canon.word.cmp.refl(8n, b)
+
+def canon.name.is_eq.refl(+ks: List<&2, Word(8n)>) -> {Sd.Name.is_eq(ks, ks) == True{} : Bool}:
+  match ks:
+    case Nil{}:
+      {==}
+    case Con{+k, rest}:
+      canon.and.i(Sd.Byte.is_eq(k, k), Sd.Name.is_eq(rest, rest), canon.byte.is_eq.refl(k), canon.name.is_eq.refl(rest))
+
+def canon.names.is_eq.refl(+ks: List<&2, List<&2, Word(8n)>>) -> {C.Names.is_eq(ks, ks) == True{} : Bool}:
+  match ks:
+    case Nil{}:
+      {==}
+    case Con{+k, rest}:
+      canon.and.i(Sd.Name.is_eq(k, k), C.Names.is_eq(rest, rest), canon.name.is_eq.refl(k), canon.names.is_eq.refl(rest))
+
+def canon.quan.is_eq.refl(q: Bk.Quan) -> {C.Quan.is_eq(q, q) == True{} : Bool}:
+  match q:
+    case Bk.Quan.Q0{}:
+      {==}
+    case Bk.Quan.Q1{}:
+      {==}
+    case Bk.Quan.Q2{}:
+      {==}
+
+def canon.nat.is_eq.refl(n: Nat) -> {Nat.is_eq(n, n) == True{} : Bool}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      canon.nat.is_eq.refl(p)
+
+def canon.and3(+a: Bool, +b: Bool, -c: Bool, +ha: {a == True{} : Bool}, +hb: {b == True{} : Bool}, +hc: {c == True{} : Bool}) ->
+  {Bool.and(Bool.and(a, b), c) == True{} : Bool}:
+  +hab = canon.and.i(a, b, ha, hb)
+  canon.and.i(Bool.and(a, b), c, hab, hc)
 
 def C.term.is_eq_refl(a):
-  ?TODO
+  match a:
+    case Bk.Term.Var{i}:
+      canon.nat.is_eq.refl(i)
+    case Bk.Term.Ref{k}:
+      canon.name.is_eq.refl(k)
+    case Bk.Term.Ann{x, T}:
+      canon.and.i(C.Term.is_eq(x, x), C.Term.is_eq(T, T), C.term.is_eq_refl(x), C.term.is_eq_refl(T))
+    case Bk.Term.Let{q, v, f}:
+      canon.and3(C.Quan.is_eq(q, q), C.Term.is_eq(v, v), C.Term.is_eq(f, f), canon.quan.is_eq.refl(q),
+        C.term.is_eq_refl(v), C.term.is_eq_refl(f))
+    case Bk.Term.Typ{q}:
+      C.term.is_eq_refl(q)
+    case Bk.Term.Min{a, b}:
+      canon.and.i(C.Term.is_eq(a, a), C.Term.is_eq(b, b), C.term.is_eq_refl(a), C.term.is_eq_refl(b))
+    case Bk.Term.All{q, A, B}:
+      canon.and3(C.Quan.is_eq(q, q), C.Term.is_eq(A, A), C.Term.is_eq(B, B), canon.quan.is_eq.refl(q),
+        C.term.is_eq_refl(A), C.term.is_eq_refl(B))
+    case Bk.Term.Lam{q, f}:
+      canon.and.i(C.Quan.is_eq(q, q), C.Term.is_eq(f, f), canon.quan.is_eq.refl(q), C.term.is_eq_refl(f))
+    case Bk.Term.App{q, f, x}:
+      canon.and3(C.Quan.is_eq(q, q), C.Term.is_eq(f, f), C.Term.is_eq(x, x), canon.quan.is_eq.refl(q),
+        C.term.is_eq_refl(f), C.term.is_eq_refl(x))
+    case Bk.Term.Sig{q, A, B}:
+      canon.and3(C.Quan.is_eq(q, q), C.Term.is_eq(A, A), C.Term.is_eq(B, B), canon.quan.is_eq.refl(q),
+        C.term.is_eq_refl(A), C.term.is_eq_refl(B))
+    case Bk.Term.Tup{q, a, b}:
+      canon.and3(C.Quan.is_eq(q, q), C.Term.is_eq(a, a), C.Term.is_eq(b, b), canon.quan.is_eq.refl(q),
+        C.term.is_eq_refl(a), C.term.is_eq_refl(b))
+    case Bk.Term.Prj{h}:
+      C.term.is_eq_refl(h)
+    case Bk.Term.Enu{ks}:
+      canon.names.is_eq.refl(ks)
+    case Bk.Term.Lab{k}:
+      canon.name.is_eq.refl(k)
+    case Bk.Term.Mat{k, h, m}:
+      canon.and3(Sd.Name.is_eq(k, k), C.Term.is_eq(h, h), C.Term.is_eq(m, m), canon.name.is_eq.refl(k),
+        C.term.is_eq_refl(h), C.term.is_eq_refl(m))
+    case Bk.Term.Efq{}:
+      {==}
+    case Bk.Term.Eql{a, b, T}:
+      canon.and3(C.Term.is_eq(a, a), C.Term.is_eq(b, b), C.Term.is_eq(T, T), C.term.is_eq_refl(a),
+        C.term.is_eq_refl(b), C.term.is_eq_refl(T))
+    case Bk.Term.Rfl{}:
+      {==}
+    case Bk.Term.Rwt{e, P, f}:
+      canon.and3(C.Term.is_eq(e, e), C.Term.is_eq(P, P), C.Term.is_eq(f, f), C.term.is_eq_refl(e),
+        C.term.is_eq_refl(P), C.term.is_eq_refl(f))
 
 def C.canon.step(ds, t):
   ?TODO
