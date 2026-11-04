@@ -142,7 +142,8 @@ TypeScript compiler or from `base.bend`.
   program, and the program size (3.3.8) already counts each name's bytes.
 - **3.3.8** Program size: the term size of the program's data form. Why: the data form writes each
   name as its bytes and each `Var` index as a unary number, so long names and huge indices count. A
-  plain node count misses both.
+  plain node count misses both. The program is the Book as the compiler gets it: the pruned Book
+  (3.6.8).
 - **3.3.9** Target: a machine language that we compile to, such as WASM. Its meaning is written as
   a Bend version (3.3.6). 3.9 lists the targets.
 - **3.3.10** Memory formula F: the number of bytes that a target promises is enough for a run. Each
@@ -198,6 +199,10 @@ does with `Eval`. A program's own laws hold only after `--verdict` accepts that 
     bytes of memory (3.3.10), and the engine says yes each time the program asks for more memory up
     to that limit, it gives that result. When F is more than the target can have, this law promises
     nothing for that run.
+  - **3.6.1.4** `in_subset`: the compiled program, run by its target's Bend version, never leaves
+    the subset that the version covers (for WASM: it is never `unsupported`). Why: the target's
+    trust (3.9.1.3) covers only the subset; a module outside it could give a result that no law
+    sees.
 
 The theorems are written in Lean, because only Lean can see the kernel's `Eval` and its parser.
 
@@ -232,7 +237,10 @@ The theorems are written in Lean, because only Lean can see the kernel's `Eval` 
 Everything not listed here is untrusted until it is proven. For example: the TypeScript compiler, a
 checker result without `--verdict`, and all of our own code.
 
-- **3.7.1** Lean.
+- **3.7.1** Lean: its kernel, which checks our theorems, and its compiler and runtime (with the C
+  compiler that its toolchain ships), which run the kernel's parser and checker (3.2.5) and the
+  steps of 3.8.7 (the writer, the pruning, the Trusted check and the interpreter), whose answers are
+  the premises of 3.6.6 and 3.8.7.
 - **3.7.2** The kernel (3.2.1). It is proven sound in Lean: what it says a program computes is what
   the program computes. It is fixed: we never touch it. So every proof that `--verdict` accepts is
   true.
@@ -255,7 +263,8 @@ In order. Each step says what to write and what to prove.
 - **3.8.5** The Lean interpreter, and its theorem (3.6.5). It needs no earlier step.
 - **3.8.6** The joining theorem (3.6.6).
 - **3.8.7** Self-hosting: the interpreter runs the compiler on the compiler's own pruned Book, and
-  the binary that it writes becomes our compiler. By 3.6.6, the laws and 3.6.8, that binary gives
+  the binary that it writes becomes our compiler. One run reads the `.bendtt` text of `bend -o`
+  once, and checks, prunes, writes and interprets that same Book. By 3.6.6, the laws and 3.6.8, that binary gives
   what our compiler's Book gives by `Eval`. From then on, it compiles any program, itself
   included, without the interpreter(we keep the interpreter tho for posterity).
 - **3.8.8** For each target, the extra steps that its entry lists.
@@ -281,7 +290,8 @@ The entries:
     its block, at most one data segment, no memory maximum, ASCII names, and 32-bit numbers where
     3.0 reads 64 bits. A function may have any number of i32 results. Where the spec lets the
     engine choose (the most memory that it gives, and which memory grows it refuses), the engine's
-    choices are an input of our version, and the laws hold for every choice. The version is WASM
+    choices are an input of our version, and the laws hold for every choice, also for answers to
+    grows that never end. The version is WASM
     3.0, at the commit `6057acdb` of the official spec (github.com/WebAssembly/spec), which the
     tests pin.
   - **3.9.1.3** Trusted, and not proven, on the modules of the subset (3.9.1.2):
@@ -297,6 +307,9 @@ The entries:
     - **3.9.1.3.3** The host follows the Host section of our Bend version. The host is the program
       that runs a compiled module on the PC: it gives the module its input, calls it, and reads its
       output. The WASM spec does not define it; we do. It is reviewed against the Host section.
+    - **3.9.1.3.4** Our Bend version is part of what the laws say, so it is fixed as they are: it
+      changes only with my approval, and each change runs the WASM tests (`src/milestones.ts`,
+      steps 3 to 5) again on the same commit.
 
     3.9.1.3.2 and 3.9.1.3.3 are named exceptions to "all of our own code is untrusted" (3.7).
   - **3.9.1.4** Memory: F = 64 × (program size + term size of the largest term) + 2^24 bytes. The
