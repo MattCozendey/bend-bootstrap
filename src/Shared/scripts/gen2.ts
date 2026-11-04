@@ -1762,7 +1762,10 @@ const leaf = (g: Goal, depth: number, rw: number, path: Set<string>): Pf | null 
   p2.add(gk);
   const r = leafGo(g, depth, rw, p2, gk);
   if (r && SERVE) lruSet(proofCache, gk, r, 50000);
-  if (r) { job.memo.set(gk, { pf: r, depth, rw }); lastWin = performance.now(); }
+  // progress: a goal of the original level closed (a premise or a rewrite side goal closing is not)
+  // progress: a goal of the original level closed, or a premise closed by a lemma or a rewrite (not by a
+  // closer: those keep coming in a search that goes nowhere, exec.alloc)
+  if (r) { job.memo.set(gk, { pf: r, depth, rw }); if (g.lvl === 0 || r.t !== "tm") lastWin = performance.now(); }
   else job.memo.set(fk, { pf: null, depth: Math.max(depth, m?.depth ?? 0), rw: Math.max(rw, m?.rw ?? 0) });
   return r;
 };
@@ -2653,7 +2656,7 @@ const proveDef = (k: string, budget: number): Outcome => {
   let full: Pf | null = null;
   let why = "", stalled = false;
   lastWin = t0;
-  stallWindow = Math.max(300, budget / 2);
+  stallWindow = Math.max(300, budget * 0.6);
   try {
     // a cost level that meets no goal the earlier levels did not meet (the memos do not grow) means the
     // search space is exhausted: deeper levels repeat it, so the search stops early (no progress possible)
@@ -2798,7 +2801,22 @@ const wpInst = (g: Goal) => (law: string, code: LTerm, st: LTerm, b: LTerm, fact
   // the law's budget as the goal's, when it matches (else tot.wk's premise b_L <= b stays)
   const sb = sol.slice();
   if (match(xs[2]!, b, sb, d)) sol = sb;
-  // a premise that a fact of the context (or a conjunct of one) fits: its parameters, and its proof
+  return wpPrems(g, t, sol, facts, d);
+}) ?? null;
+// an equation law {lhs == ..} instantiated at a term (its parameters by the left side), as wpInst
+const wpInstEq = (g: Goal) => (law: string, lhs: LTerm, facts: { T: LTerm; pf: string }[], d: number) => attempt(FUEL_NF, () => {
+  const t = RAW[law];
+  if (t?.$ !== "Def") return null;
+  const o = openMeta(t.T, t.n);
+  if (!o) return null;
+  const c = lower(o.concl, d);
+  if (c.$ !== "Eql") return null;
+  const sol: (LTerm | null)[] = new Array(t.n).fill(null);
+  return match(c.a, lhs, sol, d) ? wpPrems(g, t, sol, facts, d) : null;
+}) ?? null;
+// a law's premises: one that a fact of the context (or a conjunct of one) fits gives its parameters and its
+// proof; the conclusion as instantiated
+const wpPrems = (g: Goal, t: Extract<B.TLD, { $: "Def" }>, sol: (LTerm | null)[], facts: { T: LTerm; pf: string }[], d: number) => {
   const pfs: (string | null)[] = new Array(t.n).fill(null);
   for (let pass = 0; pass < 2; pass++) {
     const oi = openMeta(t.T, t.n, toHs(g, sol));
@@ -2815,20 +2833,20 @@ const wpInst = (g: Goal) => (law: string, code: LTerm, st: LTerm, b: LTerm, fact
   }
   const o2 = openMeta(t.T, t.n, toHs(g, sol));
   if (!o2) return null;
-  const [, ys] = unapply(lower(o2.concl, d));
+  const T = lower(o2.concl, d);
   return {
     sol, pfs,
     doms: o2.doms.map((dm, j) => ({ k: dm.k, A: sol[j] ? null : attempt(FUEL_NF, () => lower(dm.A, d)) ?? null, fact: !sol[j] && isProp(dm.A) })),
-    concl: ys,
+    concl: unapply(T)[1], T,
   };
-}) ?? null;
+};
 // verify: bend2's def check of k with the text in place (the error, or null); allowDst: a whole body
 const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = false): { text: string; open: number; report: string } | null => {
   if (!WP) return null;
   const t0 = performance.now();
   // one stepping (dst: the proof matches the start state first), checked, its leaves tried
   const attemptWp = (dst: boolean, until: number): { text: string; open: number; report: string; why?: string; steps?: number } | null => {
-    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2, inst: wpInst(g) }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
+    const r = wpProve({ RAW, show, lower, nf, wnf, attempt, key, deadline: t0 + (until - t0) / 2, inst: wpInst(g), instEq: wpInstEq(g) }, { ctx: g.ctx, d: g.d, ty: g.ty, names: g.names, self: job.k }, dst);
     if ("why" in r) return r.why === "not a Tot goal" ? null : { text: "", open: -1, report: "", why: r.why };
     const chk = verify;
     if (process.env.GEN2_WPDUMP) fs.writeFileSync(process.env.GEN2_WPDUMP + (dst ? ".dst" : ""), r.text);
@@ -2868,7 +2886,9 @@ const wpGoal = (g: Goal, budget: number, verify: (t: string) => any, allowDst = 
     if (allowDst && w && (w.open < 0 || /field read|is_cell|match st/.test(w.report + (w.why ?? "")))) {
       const w2 = attemptWp(true, t0 + budget);
       if (DEBUG) console.error("[gen2] --wp (the start state matched): " + (w2 ? (w2.open < 0 ? w2.why : w2.report) : "no result"));
-      if (w2 && w2.open >= 0 && (w.open < 0 || w2.open < w.open || (w2.open === w.open && (w2.steps ?? 0) > (w.steps ?? 0)))) w = w2;
+      // at a tie, the matched run: its leaf names the missing fact, where the plain run's only asks for the match
+      const s1 = w.steps ?? 0, s2 = w2?.steps ?? 0;
+      if (w2 && w2.open >= 0 && (w.open < 0 || w2.open < w.open || (w2.open === w.open && (s2 > s1 || (s2 === s1 && /reads fields only when/.test(w.report)))))) w = w2;
     }
     if (!w) return null;
     if (w.open < 0) { console.error("[gen2] --wp: " + w.why); return null; }
