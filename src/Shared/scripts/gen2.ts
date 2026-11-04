@@ -66,8 +66,9 @@
 //
 // DESIGN
 // ------
-// * In-process checking: the book is loaded and validated ONCE with bend2's own book_load and
-//   book_valid. A candidate is proof TEXT, parsed by bend2's parser in the def's file scope (its
+// * In-process checking: the book is loaded once; book_valid checks the target file, while
+//   dependency proofs remain untrusted until the final kernel verdict. A candidate is proof TEXT,
+//   parsed by bend2's parser in the def's file scope (its
 //   namespace and aliases) with the subgoal's context names bound, then checked by bend2's
 //   term_check against the subgoal's goal type in its context (never a bend2 process per try). The
 //   final proof is checked with def_check on that def only. What is checked is what is printed.
@@ -306,13 +307,15 @@ const seen = new Map<string, string | null>();
 for (const imp of autoImports) await B.book_load(book, imp.file, imp.ns, seen, undefined, TOP);
 const N0 = await B.book_load(book, entry, "", seen, undefined, TOP); // the entry's first entry in book order
 const tLoad = performance.now();
+if (STREAM) console.error("[gen2] loaded book in " + Math.round(tLoad) + " ms");
 try {
-  B.book_valid(book, autoImports.length ? N0 : 0);
+  B.book_valid(book, N0);
 } catch (e: any) {
   console.error(e?.$ === "Err" ? B.err_show(e) : e);
   process.exit(1);
 }
 const tValid = performance.now();
+if (STREAM) console.error("[gen2] validated book in " + Math.round(tValid - tLoad) + " ms");
 const RAW: Record<string, B.TLD> = book.tlds;
 book.tlds = new Proxy(RAW, {
   get(t, k, r) {
@@ -769,6 +772,7 @@ wild.sort((a, b) => b.order - a.order);
 tIndex = performance.now() - tIndex0;
 };
 buildIndex();
+if (STREAM) console.error("[gen2] indexed book in " + Math.round(tIndex) + " ms");
 
 // ---- proofs ----
 type Pf =
@@ -1630,14 +1634,14 @@ const newJob = (k: string): Job => {
 type Outcome = { ok: boolean; text: string | null; partial: string | null; holes: number; closed: number; ms: number; tags: string[]; why?: string };
 
 const showGoal = (g: Goal): string => {
+  const clip = (s: string) => s.length > 2000 ? s.slice(0, 2000) + " ... [truncated]" : s;
   const lines: string[] = [];
   for (let i = 0; i < g.d; i++) {
     const a = ann(g, i)!;
-    lines.push("    " + B.quant_show(a.q) + g.names[i] + " : " + show(lower(a.T, i), g.names.slice(0, i)));
+    lines.push("    " + B.quant_show(a.q) + g.names[i] + " : " + clip(show(lower(a.T, i), g.names.slice(0, i))));
   }
-  const raw = show(lower(g.ty, g.d), g.names);
-  const n = attempt(FUEL_NF * 2, () => show(nf(g.ty, g.d), g.names));
-  return "  goal : " + raw + (n && n !== raw ? "\n  nf   : " + n : "") + "\n  context:\n" + lines.join("\n");
+  const raw = clip(show(lower(g.ty, g.d), g.names));
+  return "  goal : " + raw + "\n  context:\n" + lines.join("\n");
 };
 
 // prove the whole body of k (its body forgotten)
