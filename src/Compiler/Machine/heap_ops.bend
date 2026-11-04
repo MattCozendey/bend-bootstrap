@@ -6165,7 +6165,11 @@ def D.dec.post(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs,
   dec.top(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, c, u, xs, zs, hs, hac, hb, hl, hc, hp, h5)
 
 def D.alloc.post(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, ps, xs, zs, hs, hac, hl, hp, hr, hk):
-  ?TODO
+  match ps:
+    case Nil{}:
+      al.fresh(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, keep, os, bs, fs, sp, pend, xs, zs, st2 => Pair(D.P2(D.Same(regs, fi, im, lim, inp, keep, st2), D.Ex(U32, z => D.Ex(U32, pend2 => D.Ex(List<&2, U32>, ps2 => D.P2(D.Reg(st2, r, z), D.P2(D.Reg(st2, 3n, pend2), D.P2({Cr.Cir.Cells.get(D.St.cells(st2), z) == Cr.Cir.Cell.zero : Cr.Cir.Cell}, D.P2({D.Own(fi, D.St.next(st2), z) == True{} : Bool}, D.P2({D.Mem(ps2, z) == False{} : Bool}, D.P2({Bool.or(D.Mem([], z), U32.is_eq(z, nx)) == True{} : Bool}, D.P2({Bool.or(Bool.and(D.Mem([], z), U32.is_eq(D.St.next(st2), nx)), Bool.and(D.Pend.none([]), Bool.and(U32.is_eq(z, nx), U32.is_eq(D.St.next(st2), U32.inc(nx))))) == True{} : Bool}, D.P2(D.Ex(List<&2, D.W1>, ws => D.P2({D.St.cells(st2) == Cr.Cir.Cells.set(D.Put1(ws, m), z, Cr.Cir.Cell.zero) : Cr.Cir.Cells}, {D.Took(ws, [], m) == True{} : Bool})), D.P2({D.PsSub(ps2, [], m) == True{} : Bool}, D.P2({D.Ptr(Nat.sub(U32.to_nat(D.St.next(st2)), U32.to_nat(fi)), D.St.cells(st2), fi, ps2, D.Rt.cells(os), z) == 0n : Nat}, D.P2(D.HSK(dk, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, os, bs, fs, sp, pend2, ps2), D.Ex(List<&2, D.Rt>, zs2 => D.AccK(dk, ds, ks, img, D.St.cells(st2), D.St.next(st2), fi, im, os, D.TmpE{z, []} <> xs, sp, fs, ps2, zs2))))))))))))))))), D.AlFr(m, [], nx, st2)), hs, hac, hl, hp, hr, hk, st2 => x => x)
+    case Con{head, tail}:
+      ?TODO
 
 def D.release.post(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, z, xs, zs, hs, hac, hz, ht, hf, hm, hfs, hl, hc, hp):
   rel.go(f, dk, ds, ks, img, regs, m, nx, fi, im, pg, lim, inp, r, os, bs, fs, sp, pend, ps, z, xs, zs, hs, hac, hz, ht, hf, hm, hfs, hl, hc, hp)
